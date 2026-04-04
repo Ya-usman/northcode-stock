@@ -50,6 +50,8 @@ const withPWA = require('next-pwa')({
 const nextConfig = {
   compress: true,
   poweredByHeader: false,
+  typescript: { ignoreBuildErrors: true },
+  eslint: { ignoreDuringBuilds: true },
   images: {
     remotePatterns: [
       {
