@@ -37,6 +37,21 @@ function getRequiredRoles(path: string): string[] | null {
   return null
 }
 
+// Copy Supabase auth cookies into any response so token refreshes are never lost
+function mergeAuthCookies(target: NextResponse, source: NextResponse): NextResponse {
+  source.cookies.getAll().forEach(cookie => {
+    target.cookies.set(cookie.name, cookie.value, {
+      path: cookie.path,
+      httpOnly: cookie.httpOnly,
+      sameSite: cookie.sameSite as 'lax' | 'strict' | 'none' | undefined,
+      secure: cookie.secure,
+      maxAge: cookie.maxAge,
+      expires: cookie.expires,
+    })
+  })
+  return target
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const pathnameWithoutLocale = pathname.replace(/^\/(en|ha)/, '') || '/'
@@ -75,24 +90,23 @@ export async function middleware(request: NextRequest) {
   // Root → dashboard or login
   if (pathname === '/') {
     const dest = user ? `/${locale}/dashboard` : `/${locale}/login`
-    return NextResponse.redirect(new URL(dest, request.url))
+    return mergeAuthCookies(NextResponse.redirect(new URL(dest, request.url)), response)
   }
 
   // Page publique (landing, login, register...)
   if (isPublic(pathnameWithoutLocale)) {
-    // Si déjà connecté et va vers login/register → dashboard
     if (user && (pathnameWithoutLocale === '/login' || pathnameWithoutLocale === '/register')) {
-      return NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url))
+      return mergeAuthCookies(NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url)), response)
     }
     const intlRes = intlMiddleware(request)
-    return intlRes || response
+    return mergeAuthCookies(intlRes || response, response)
   }
 
   // Page protégée sans session → login
   if (!user) {
     const loginUrl = new URL(`/${locale}/login`, request.url)
     loginUrl.searchParams.set('redirect', pathname)
-    return NextResponse.redirect(loginUrl)
+    return mergeAuthCookies(NextResponse.redirect(loginUrl), response)
   }
 
   // Vérification du rôle (avec cache cookie)
@@ -111,7 +125,7 @@ export async function middleware(request: NextRequest) {
       role = profile?.role
 
       if (profile && !profile.is_active) {
-        return NextResponse.redirect(new URL(`/${locale}/login?error=inactive`, request.url))
+        return mergeAuthCookies(NextResponse.redirect(new URL(`/${locale}/login?error=inactive`, request.url)), response)
       }
       if (role) {
         response.cookies.set('user_role', role, {
@@ -124,14 +138,13 @@ export async function middleware(request: NextRequest) {
     }
 
     if (role && !requiredRoles.includes(role)) {
-      return NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url))
+      return mergeAuthCookies(NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url)), response)
     }
   }
 
+  // Always merge auth cookies into the final intl response
   const intlResponse = intlMiddleware(request)
-  if (intlResponse) return intlResponse
-
-  return response
+  return mergeAuthCookies(intlResponse || response, response)
 }
 
 export const config = {
