@@ -30,8 +30,11 @@ CREATE INDEX IF NOT EXISTS idx_shops_plan ON shops(plan);
 -- RLS
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 
+-- Drop and recreate policy (IF NOT EXISTS not supported for policies)
+DROP POLICY IF EXISTS "subscriptions_owner_select" ON subscriptions;
+
 -- Owners can read their own subscriptions
-CREATE POLICY IF NOT EXISTS "subscriptions_owner_select"
+CREATE POLICY "subscriptions_owner_select"
   ON subscriptions FOR SELECT
   USING (
     shop_id IN (
