@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import {
   LayoutDashboard, ShoppingCart, Package, BarChart2, Settings,
-  Users, Truck, CreditCard, History, TrendingUp, LogOut, ChevronRight,
+  Users, Truck, CreditCard, History, TrendingUp, LogOut, ChevronRight, Zap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -54,6 +54,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
         { href: `/${locale}/reports`, icon: BarChart2, label: t('reports'), roles: ['owner'] },
         { href: `/${locale}/team`, icon: Users, label: t('team'), roles: ['owner'] },
         { href: `/${locale}/settings`, icon: Settings, label: t('settings'), roles: ['owner'] },
+        { href: `/${locale}/billing`, icon: Zap, label: 'Billing', roles: ['owner'] },
       ],
     },
   ]

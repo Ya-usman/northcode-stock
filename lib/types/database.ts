@@ -20,6 +20,10 @@ export interface Shop {
   notify_email_low_stock: boolean
   notify_email_daily: boolean
   created_at: string
+  // SaaS fields
+  plan: string | null            // 'trial' | 'starter' | 'pro' | 'business'
+  trial_ends_at: string | null
+  plan_expires_at: string | null
 }
 
 export interface Profile {
