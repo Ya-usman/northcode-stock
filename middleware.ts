@@ -9,34 +9,47 @@ const intlMiddleware = createMiddleware({
   localePrefix: 'always',
 })
 
-const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password']
+// Pages accessibles sans connexion
+const PUBLIC_PATHS = ['/', '/login', '/register', '/forgot-password', '/reset-password']
 
-// Role access map
+// Restrictions par rôle
 const ROLE_ACCESS: Record<string, string[]> = {
-  '/team':             ['owner'],
-  '/reports':          ['owner'],
-  '/settings':         ['owner'],
-  '/stock':            ['owner', 'stock_manager'],
-  '/stock/movements':  ['owner', 'stock_manager'],
-  '/suppliers':        ['owner', 'stock_manager'],
-  '/sales/new':        ['owner', 'cashier'],
-  '/sales/history':    ['owner', 'cashier'],
-  '/payments':         ['owner'],
-  '/customers':        ['owner', 'cashier'],
+  '/team':            ['owner'],
+  '/reports':         ['owner'],
+  '/settings':        ['owner'],
+  '/stock':           ['owner', 'stock_manager'],
+  '/stock/movements': ['owner', 'stock_manager'],
+  '/suppliers':       ['owner', 'stock_manager'],
+  '/sales/new':       ['owner', 'cashier'],
+  '/sales/history':   ['owner', 'cashier'],
+  '/payments':        ['owner'],
+  '/customers':       ['owner', 'cashier'],
+}
+
+function isPublic(path: string): boolean {
+  return PUBLIC_PATHS.some(p => path === p || path.startsWith(p + '?'))
 }
 
 function getRequiredRoles(path: string): string[] | null {
-  // exact or prefix match
   for (const [route, roles] of Object.entries(ROLE_ACCESS)) {
     if (path === route || path.startsWith(route + '/')) return roles
   }
-  return null // public or dashboard — all roles allowed
+  return null
 }
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const pathnameWithoutLocale = pathname.replace(/^\/(en|ha)/, '') || '/'
   const locale = pathname.split('/')[1] || defaultLocale
+
+  // Always allow static assets and API
+  if (
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/api') ||
+    pathname.includes('.')
+  ) {
+    return NextResponse.next()
+  }
 
   let response = NextResponse.next({ request: { headers: request.headers } })
 
@@ -49,57 +62,69 @@ export async function middleware(request: NextRequest) {
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           response = NextResponse.next({ request: { headers: request.headers } })
-          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          )
         },
       },
     }
   )
 
-  // Single auth check
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Root redirect
+  // Root → dashboard or login
   if (pathname === '/') {
-    return NextResponse.redirect(new URL(`/${locale}/${user ? 'dashboard' : 'login'}`, request.url))
+    const dest = user ? `/${locale}/dashboard` : `/${locale}/login`
+    return NextResponse.redirect(new URL(dest, request.url))
   }
 
-  // Redirect authenticated users away from login
-  if (PUBLIC_PATHS.includes(pathnameWithoutLocale) && user) {
-    return NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url))
+  // Page publique (landing, login, register...)
+  if (isPublic(pathnameWithoutLocale)) {
+    // Si déjà connecté et va vers login/register → dashboard
+    if (user && (pathnameWithoutLocale === '/login' || pathnameWithoutLocale === '/register')) {
+      return NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url))
+    }
+    const intlRes = intlMiddleware(request)
+    return intlRes || response
   }
 
-  // Redirect unauthenticated users to login
-  if (!PUBLIC_PATHS.includes(pathnameWithoutLocale) && !user) {
-    return NextResponse.redirect(new URL(`/${locale}/login`, request.url))
+  // Page protégée sans session → login
+  if (!user) {
+    const loginUrl = new URL(`/${locale}/login`, request.url)
+    loginUrl.searchParams.set('redirect', pathname)
+    return NextResponse.redirect(loginUrl)
   }
 
-  // Role check — only if route has restrictions
-  if (user) {
-    const requiredRoles = getRequiredRoles(pathnameWithoutLocale)
-    if (requiredRoles) {
-      // Read role from cookie (set at login) or fetch once
-      let role = request.cookies.get('user_role')?.value
+  // Vérification du rôle (avec cache cookie)
+  const requiredRoles = getRequiredRoles(pathnameWithoutLocale)
+  if (requiredRoles) {
+    let role = request.cookies.get('user_role')?.value
 
-      if (!role) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role, is_active')
-          .eq('id', user.id)
-          .single()
+    if (!role) {
+      const { data } = await supabase
+        .from('profiles')
+        .select('role, is_active')
+        .eq('id', user.id)
+        .single()
 
-        role = profile?.role
-        if (profile && !profile.is_active) {
-          return NextResponse.redirect(new URL(`/${locale}/login`, request.url))
-        }
-        // Cache role in cookie for 1 hour
-        if (role) {
-          response.cookies.set('user_role', role, { maxAge: 3600, httpOnly: false, path: '/' })
-        }
+      const profile = data as { role: string; is_active: boolean } | null
+      role = profile?.role
+
+      if (profile && !profile.is_active) {
+        return NextResponse.redirect(new URL(`/${locale}/login?error=inactive`, request.url))
       }
-
-      if (role && !requiredRoles.includes(role)) {
-        return NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url))
+      if (role) {
+        response.cookies.set('user_role', role, {
+          maxAge: 3600,
+          httpOnly: false,
+          path: '/',
+          sameSite: 'lax',
+        })
       }
+    }
+
+    if (role && !requiredRoles.includes(role)) {
+      return NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url))
     }
   }
 
@@ -110,7 +135,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico|manifest.json|sw.js|workbox-.*|icons|.*\\.png|.*\\.jpg|.*\\.svg).*)',
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|manifest.json|sw.js|workbox-.*|icons|.*\\.png|.*\\.jpg|.*\\.svg).*)'],
 }
