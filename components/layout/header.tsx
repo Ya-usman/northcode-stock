@@ -1,0 +1,63 @@
+'use client'
+
+import { useTranslations } from 'next-intl'
+import { Menu, Bell, Globe } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { useRouter, usePathname } from 'next/navigation'
+import type { Shop } from '@/lib/types/database'
+
+interface HeaderProps {
+  title: string
+  shop: Shop | null
+  locale: string
+}
+
+export function Header({ title, shop, locale }: HeaderProps) {
+  const router = useRouter()
+  const pathname = usePathname()
+
+  const switchLanguage = (newLocale: string) => {
+    const newPath = pathname.replace(`/${locale}`, `/${newLocale}`)
+    localStorage.setItem('NEXT_LOCALE', newLocale)
+    router.push(newPath)
+  }
+
+  return (
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-white px-4 md:px-6">
+      {/* Mobile: NC logo */}
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-northcode-blue text-white font-bold text-xs md:hidden flex-shrink-0">
+        NC
+      </div>
+
+      <h1 className="flex-1 font-semibold text-base text-foreground truncate">{title}</h1>
+
+      <div className="flex items-center gap-1">
+        {/* Language toggle */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Globe className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => switchLanguage('en')}
+              className={locale === 'en' ? 'font-semibold text-northcode-blue' : ''}
+            >
+              🇬🇧 English
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => switchLanguage('ha')}
+              className={locale === 'ha' ? 'font-semibold text-northcode-blue' : ''}
+            >
+              🇳🇬 Hausa
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </header>
+  )
+}
