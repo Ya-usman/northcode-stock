@@ -1,21 +1,16 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/hooks/use-auth'
 import { Sidebar } from './sidebar'
 import { BottomNav } from './bottom-nav'
 import { Header } from './header'
-import { usePathname } from 'next/navigation'
-import { useTranslations } from 'next-intl'
-import type { Profile, Shop } from '@/lib/types/database'
+import { Skeleton } from '@/components/ui/skeleton'
 
-interface AppLayoutProps {
-  children: React.ReactNode
-  profile: Profile
-  shop: Shop | null
-  locale: string
-  userEmail: string
-}
+// Singleton — évite les recréations
+const supabase = createClient()
 
 function getPageTitle(pathname: string, locale: string): string {
   const path = pathname.replace(`/${locale}`, '')
@@ -32,17 +27,29 @@ function getPageTitle(pathname: string, locale: string): string {
     '/team': 'Team',
     '/settings': 'Settings',
   }
-  // Find matching path
   for (const [key, value] of Object.entries(titles)) {
     if (path.startsWith(key)) return value
   }
   return 'NorthCode Stock'
 }
 
-export function AppLayout({ children, profile, shop, locale, userEmail }: AppLayoutProps) {
-  const router = useRouter()
+function LoadingSkeleton() {
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="p-4 space-y-4 pt-16">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-lg" />)}
+        </div>
+        <Skeleton className="h-10 rounded-lg" />
+        <Skeleton className="h-52 rounded-lg" />
+      </div>
+    </div>
+  )
+}
+
+export function AppLayout({ children, locale }: { children: React.ReactNode; locale: string }) {
   const pathname = usePathname()
-  const supabase = createClient()
+  const { user, profile, shop, loading } = useAuth()
 
   const handleSignOut = async () => {
     document.cookie = 'user_role=; path=/; max-age=0'
@@ -50,7 +57,19 @@ export function AppLayout({ children, profile, shop, locale, userEmail }: AppLay
     window.location.href = `/${locale}/login`
   }
 
+  // Safety net: if auth resolves with no user, redirect to login
+  useEffect(() => {
+    if (!loading && !user) {
+      window.location.href = `/${locale}/login`
+    }
+  }, [loading, user, locale])
+
   const title = getPageTitle(pathname, locale)
+
+  // Show skeleton while auth loads or profile not yet available
+  if (loading || !profile) {
+    return <LoadingSkeleton />
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -66,7 +85,6 @@ export function AppLayout({ children, profile, shop, locale, userEmail }: AppLay
       {/* Main content */}
       <div className="md:pl-64 flex flex-col min-h-screen">
         <Header title={title} shop={shop} locale={locale} onSignOut={handleSignOut} />
-
         <main className="flex-1 p-4 md:p-6 has-bottom-nav md:pb-6">
           {children}
         </main>

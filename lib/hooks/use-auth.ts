@@ -76,9 +76,8 @@ export function useAuth() {
             const { profile, shop } = await fetchProfileAndShop(user.id)
             setState({ user, profile, shop, loading: false })
           } else {
-            // Session expired while backgrounded → redirect to login
+            // Session expired — AppLayout's useEffect handles the redirect
             setState({ user: null, profile: null, shop: null, loading: false })
-            window.location.href = '/en/login'
           }
         })
       }
