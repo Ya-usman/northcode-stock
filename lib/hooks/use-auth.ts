@@ -68,7 +68,27 @@ export function useAuth() {
       }
     })
 
-    return () => subscription.unsubscribe()
+    // On mobile, the browser pauses JS when backgrounded — re-check session on resume
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        supabase.auth.getUser().then(async ({ data: { user } }) => {
+          if (user) {
+            const { profile, shop } = await fetchProfileAndShop(user.id)
+            setState({ user, profile, shop, loading: false })
+          } else {
+            // Session expired while backgrounded → redirect to login
+            setState({ user: null, profile: null, shop: null, loading: false })
+            window.location.href = '/en/login'
+          }
+        })
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      subscription.unsubscribe()
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [])
 
   const signOut = async () => {

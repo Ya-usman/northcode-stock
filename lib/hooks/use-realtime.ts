@@ -4,6 +4,9 @@ import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Sale, Product } from '@/lib/types/database'
 
+// Singleton — évite la création de clients multiples et les conflits WebSocket
+const supabase = createClient()
+
 interface RealtimeHandlers {
   onNewSale?: (sale: Sale) => void
   onProductUpdate?: (product: Product) => void
@@ -11,7 +14,6 @@ interface RealtimeHandlers {
 }
 
 export function useDashboardRealtime(shopId: string | null, handlers: RealtimeHandlers) {
-  const supabase = createClient()
   const channelRef = useRef<any>(null)
 
   useEffect(() => {
@@ -65,8 +67,6 @@ export function useDashboardRealtime(shopId: string | null, handlers: RealtimeHa
 }
 
 export function useStockRealtime(shopId: string | null, onUpdate: (product: Product) => void) {
-  const supabase = createClient()
-
   useEffect(() => {
     if (!shopId) return
 
