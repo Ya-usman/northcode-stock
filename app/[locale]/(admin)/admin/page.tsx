@@ -1,23 +1,32 @@
 import { createClient } from '@/lib/supabase/server'
 import { getPlan, getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
 import { formatNaira } from '@/lib/utils/currency'
-import { Users, ShoppingBag, TrendingUp, AlertTriangle } from 'lucide-react'
+import { Users, ShoppingBag, TrendingUp, AlertTriangle, DollarSign } from 'lucide-react'
+import { AdminShopsTable } from '@/components/admin/shops-table'
 
-async function getAdminStats(supabase: any) {
-  const [{ data: shops }, { data: profiles }, { data: subs }] = await Promise.all([
-    supabase.from('shops').select('id, name, city, plan, trial_ends_at, plan_expires_at, created_at').order('created_at', { ascending: false }),
-    supabase.from('profiles').select('id, role').eq('role', 'owner'),
-    supabase.from('subscriptions').select('amount, plan, status, created_at').eq('status', 'active'),
+async function getAdminData(supabase: any) {
+  const [{ data: shops }, { data: subs }, { data: profiles }] = await Promise.all([
+    supabase
+      .from('shops')
+      .select('id, name, city, plan, trial_ends_at, plan_expires_at, created_at, whatsapp')
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('subscriptions')
+      .select('id, shop_id, plan, amount, status, paystack_reference, starts_at, expires_at, created_at')
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('profiles')
+      .select('id, full_name, shop_id, role, is_active, last_seen')
+      .eq('role', 'owner'),
   ])
-
-  return { shops: shops || [], profiles: profiles || [], subs: subs || [] }
+  return { shops: shops || [], subs: subs || [], owners: profiles || [] }
 }
 
 export default async function AdminPage({ params: { locale } }: { params: { locale: string } }) {
   const supabase = await createClient()
-  const { shops, subs } = await getAdminStats(supabase)
+  const { shops, subs, owners } = await getAdminData(supabase)
 
-  const totalRevenue = subs.reduce((s: number, sub: any) => s + Number(sub.amount), 0)
+  // Compute stats
   const activeSubscriptions = shops.filter((s: any) => hasActiveSubscription(s.plan, s.plan_expires_at)).length
   const activeTrials = shops.filter((s: any) => {
     const days = getTrialDaysLeft(s.trial_ends_at)
@@ -27,97 +36,82 @@ export default async function AdminPage({ params: { locale } }: { params: { loca
     const days = getTrialDaysLeft(s.trial_ends_at)
     return !hasActiveSubscription(s.plan, s.plan_expires_at) && days < 0
   }).length
+  const mrr = subs
+    .filter((s: any) => s.status === 'active')
+    .reduce((acc: number, s: any) => acc + Number(s.amount), 0)
 
-  const STAT_CARDS = [
-    { label: 'Total Shops', value: shops.length, icon: ShoppingBag, color: 'text-blue-400' },
-    { label: 'Active Subscribers', value: activeSubscriptions, icon: TrendingUp, color: 'text-green-400' },
-    { label: 'Active Trials', value: activeTrials, icon: Users, color: 'text-amber-400' },
-    { label: 'Expired', value: expired, icon: AlertTriangle, color: 'text-red-400' },
-  ]
+  // Enrich shops with owner info and subscription history
+  const ownersByShop = owners.reduce((acc: any, o: any) => { acc[o.shop_id] = o; return acc }, {})
+  const subsByShop = subs.reduce((acc: any, s: any) => {
+    if (!acc[s.shop_id]) acc[s.shop_id] = []
+    acc[s.shop_id].push(s)
+    return acc
+  }, {})
+
+  const enrichedShops = shops.map((shop: any) => ({
+    ...shop,
+    owner: ownersByShop[shop.id] || null,
+    subscriptions: subsByShop[shop.id] || [],
+  }))
 
   return (
     <div className="space-y-6 max-w-7xl">
+      {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-        <p className="text-gray-400 text-sm mt-1">Overview of all NorthCode shops</p>
+        <h1 className="text-2xl font-bold text-white">Super Admin</h1>
+        <p className="text-gray-400 text-sm mt-1">
+          {shops.length} shops registered &bull; Last updated {new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })}
+        </p>
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {STAT_CARDS.map(({ label, value, icon: Icon, color }) => (
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {[
+          { label: 'Total Shops', value: shops.length, icon: ShoppingBag, color: 'text-blue-400', bg: 'bg-blue-400/10' },
+          { label: 'Subscribed', value: activeSubscriptions, icon: TrendingUp, color: 'text-green-400', bg: 'bg-green-400/10' },
+          { label: 'On Trial', value: activeTrials, icon: Users, color: 'text-amber-400', bg: 'bg-amber-400/10' },
+          { label: 'Expired', value: expired, icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-400/10' },
+          { label: 'Total Revenue', value: formatNaira(mrr), icon: DollarSign, color: 'text-purple-400', bg: 'bg-purple-400/10' },
+        ].map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className="bg-gray-900 rounded-xl border border-gray-800 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-gray-400 text-xs font-medium uppercase tracking-wide">{label}</p>
+            <div className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${bg} mb-3`}>
               <Icon className={`h-4 w-4 ${color}`} />
             </div>
-            <p className="text-3xl font-bold text-white">{value}</p>
+            <p className="text-2xl font-bold text-white">{value}</p>
+            <p className="text-gray-400 text-xs mt-1">{label}</p>
           </div>
         ))}
       </div>
 
-      {/* MRR card */}
-      <div className="bg-gradient-to-r from-northcode-blue to-[#1a4f9e] rounded-xl p-5">
-        <p className="text-blue-200 text-sm font-medium mb-1">Monthly Recurring Revenue (est.)</p>
-        <p className="text-4xl font-extrabold text-white">{formatNaira(totalRevenue)}</p>
-        <p className="text-blue-200 text-xs mt-1">{activeSubscriptions} active subscriptions</p>
-      </div>
-
-      {/* Shops table */}
-      <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-800">
-          <h2 className="font-semibold text-white">All Shops</h2>
+      {/* MRR highlight */}
+      <div className="grid md:grid-cols-3 gap-4">
+        <div className="md:col-span-2 bg-gradient-to-r from-northcode-blue to-[#1a4f9e] rounded-xl p-5">
+          <p className="text-blue-200 text-xs font-medium uppercase tracking-wider mb-1">Monthly Recurring Revenue</p>
+          <p className="text-4xl font-extrabold text-white">{formatNaira(mrr)}</p>
+          <div className="flex gap-4 mt-3 text-sm">
+            <span className="text-blue-200">{activeSubscriptions} subscribers</span>
+            <span className="text-blue-300">·</span>
+            <span className="text-blue-200">{activeTrials} trials</span>
+            <span className="text-blue-300">·</span>
+            <span className="text-red-300">{expired} expired</span>
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-800">
-                <th className="text-left px-5 py-3 text-gray-400 font-medium text-xs uppercase">Shop</th>
-                <th className="text-left px-5 py-3 text-gray-400 font-medium text-xs uppercase">City</th>
-                <th className="text-left px-5 py-3 text-gray-400 font-medium text-xs uppercase">Plan</th>
-                <th className="text-left px-5 py-3 text-gray-400 font-medium text-xs uppercase">Status</th>
-                <th className="text-left px-5 py-3 text-gray-400 font-medium text-xs uppercase">Joined</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shops.map((shop: any) => {
-                const subscribed = hasActiveSubscription(shop.plan, shop.plan_expires_at)
-                const trialDays = getTrialDaysLeft(shop.trial_ends_at)
-                const isActive = subscribed || trialDays >= 0
-
-                return (
-                  <tr key={shop.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
-                    <td className="px-5 py-3 font-medium text-white">{shop.name}</td>
-                    <td className="px-5 py-3 text-gray-400">{shop.city}</td>
-                    <td className="px-5 py-3">
-                      <span className="capitalize text-gray-300">
-                        {getPlan(shop.plan).name}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3">
-                      {subscribed ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">
-                          ● Subscribed
-                        </span>
-                      ) : trialDays >= 0 ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">
-                          ● Trial ({trialDays}d)
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400 bg-red-400/10 px-2 py-0.5 rounded-full">
-                          ● Expired
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3 text-gray-400 text-xs">
-                      {new Date(shop.created_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+          <p className="text-gray-400 text-xs font-medium uppercase tracking-wider mb-3">Plan breakdown</p>
+          {(['starter', 'pro', 'business'] as const).map(planId => {
+            const count = shops.filter((s: any) => s.plan === planId && hasActiveSubscription(s.plan, s.plan_expires_at)).length
+            return (
+              <div key={planId} className="flex justify-between items-center py-1.5 border-b border-gray-800 last:border-0">
+                <span className="text-gray-300 text-sm capitalize">{getPlan(planId).name}</span>
+                <span className="text-white font-bold text-sm">{count}</span>
+              </div>
+            )
+          })}
         </div>
       </div>
+
+      {/* Shops management table (client component for actions) */}
+      <AdminShopsTable shops={enrichedShops} locale={locale} />
     </div>
   )
 }
