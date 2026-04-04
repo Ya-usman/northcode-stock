@@ -18,10 +18,12 @@ import { format, subDays, startOfDay, endOfDay } from 'date-fns'
 import type { Sale, Product, RevenueDataPoint, TopProduct } from '@/lib/types/database'
 import { formatNaira } from '@/lib/utils/currency'
 
+// Singleton client — évite les recréations à chaque render
+const supabase = createClient()
+
 export default function DashboardPage() {
   const t = useTranslations()
-  const { profile, shop } = useAuth()
-  const supabase = createClient()
+  const { profile, shop, loading: authLoading } = useAuth()
   const { toast } = useToast()
 
   const [loading, setLoading] = useState(true)
@@ -171,7 +173,7 @@ export default function DashboardPage() {
     },
   })
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

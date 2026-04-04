@@ -1,16 +1,33 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { User, Session } from '@supabase/supabase-js'
+import type { User } from '@supabase/supabase-js'
 import type { Profile, Shop } from '@/lib/types/database'
 
 interface AuthState {
   user: User | null
   profile: Profile | null
   shop: Shop | null
-  session: Session | null
   loading: boolean
+}
+
+// Singleton client — évite les recréations
+const supabase = createClient()
+
+async function fetchProfileAndShop(userId: string): Promise<{ profile: Profile | null; shop: Shop | null }> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('*, shops(*)')
+    .eq('id', userId)
+    .single()
+
+  if (!data) return { profile: null, shop: null }
+
+  const profile = data as Profile & { shops: Shop | null }
+  const shop = profile.shops ?? null
+
+  return { profile, shop }
 }
 
 export function useAuth() {
@@ -18,64 +35,49 @@ export function useAuth() {
     user: null,
     profile: null,
     shop: null,
-    session: null,
     loading: true,
   })
 
-  const supabase = createClient()
-
-  const loadProfile = useCallback(async (userId: string) => {
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-
-    const profile = profileData as Profile | null
-
-    if (profile?.shop_id) {
-      const { data: shopData } = await supabase
-        .from('shops')
-        .select('*')
-        .eq('id', profile.shop_id)
-        .single()
-
-      return { profile, shop: shopData as Shop | null }
-    }
-
-    return { profile, shop: null }
-  }, [supabase])
+  // Prevent double-fetch on StrictMode
+  const initialized = useRef(false)
 
   useEffect(() => {
-    const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+    if (initialized.current) return
+    initialized.current = true
 
+    // Initial load
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (user) {
-        const { profile, shop } = await loadProfile(user.id)
-        setState({ user, profile, shop, session: null, loading: false })
+        const { profile, shop } = await fetchProfileAndShop(user.id)
+        setState({ user, profile, shop, loading: false })
       } else {
-        setState(s => ({ ...s, loading: false }))
+        setState({ user: null, profile: null, shop: null, loading: false })
       }
-    }
+    })
 
-    init()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session?.user) {
-          const { profile, shop } = await loadProfile(session.user.id)
-          setState({ user: session.user, profile, shop, session, loading: false })
-        } else {
-          setState({ user: null, profile: null, shop: null, session: null, loading: false })
-        }
+    // Listen for auth changes (login, logout, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setState({ user: null, profile: null, shop: null, loading: false })
+        return
       }
-    )
+
+      if (session?.user) {
+        const { profile, shop } = await fetchProfileAndShop(session.user.id)
+        setState({ user: session.user, profile, shop, loading: false })
+      }
+    })
 
     return () => subscription.unsubscribe()
-  }, [loadProfile, supabase])
+  }, [])
 
   const signOut = async () => {
+    setState(s => ({ ...s, loading: true }))
+    // Clear role cookie
+    document.cookie = 'user_role=; path=/; max-age=0'
     await supabase.auth.signOut()
+    // Force hard redirect — évite les états corrompus
+    window.location.href = '/en/login'
   }
 
   return { ...state, signOut }
