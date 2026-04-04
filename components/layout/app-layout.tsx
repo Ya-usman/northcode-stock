@@ -45,8 +45,9 @@ export function AppLayout({ children, profile, shop, locale, userEmail }: AppLay
   const supabase = createClient()
 
   const handleSignOut = async () => {
+    document.cookie = 'user_role=; path=/; max-age=0'
     await supabase.auth.signOut()
-    router.push(`/${locale}/login`)
+    window.location.href = `/${locale}/login`
   }
 
   const title = getPageTitle(pathname, locale)
@@ -64,7 +65,7 @@ export function AppLayout({ children, profile, shop, locale, userEmail }: AppLay
 
       {/* Main content */}
       <div className="md:pl-64 flex flex-col min-h-screen">
-        <Header title={title} shop={shop} locale={locale} />
+        <Header title={title} shop={shop} locale={locale} onSignOut={handleSignOut} />
 
         <main className="flex-1 p-4 md:p-6 has-bottom-nav md:pb-6">
           {children}

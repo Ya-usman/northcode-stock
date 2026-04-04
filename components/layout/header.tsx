@@ -1,7 +1,6 @@
 'use client'
 
-import { useTranslations } from 'next-intl'
-import { Menu, Bell, Globe } from 'lucide-react'
+import { Globe, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -13,9 +12,10 @@ interface HeaderProps {
   title: string
   shop: Shop | null
   locale: string
+  onSignOut: () => void
 }
 
-export function Header({ title, shop, locale }: HeaderProps) {
+export function Header({ title, locale, onSignOut }: HeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
 
@@ -57,6 +57,17 @@ export function Header({ title, shop, locale }: HeaderProps) {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {/* Logout — mobile only */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onSignOut}
+          className="h-8 w-8 md:hidden text-muted-foreground hover:text-destructive"
+          aria-label="Sign out"
+        >
+          <LogOut className="h-4 w-4" />
+        </Button>
       </div>
     </header>
   )
