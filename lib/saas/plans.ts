@@ -42,7 +42,7 @@ export const PLANS: Record<PlanId, Plan> = {
   starter: {
     id: 'starter',
     name: 'Starter',
-    price_monthly: 4500,
+    price_monthly: 4999,
     limits: { products: 200, team_members: 3, history_days: 90 },
     features: {
       reports: true,
@@ -58,7 +58,7 @@ export const PLANS: Record<PlanId, Plan> = {
   pro: {
     id: 'pro',
     name: 'Pro',
-    price_monthly: 9500,
+    price_monthly: 9999,
     limits: { products: -1, team_members: 10, history_days: 365 },
     features: {
       reports: true,
@@ -74,7 +74,7 @@ export const PLANS: Record<PlanId, Plan> = {
   business: {
     id: 'business',
     name: 'Business',
-    price_monthly: 19500,
+    price_monthly: 19999,
     limits: { products: -1, team_members: -1, history_days: -1 },
     features: {
       reports: true,
