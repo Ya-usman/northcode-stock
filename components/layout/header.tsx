@@ -50,6 +50,12 @@ export function Header({ title, locale, onSignOut }: HeaderProps) {
               🇬🇧 English
             </DropdownMenuItem>
             <DropdownMenuItem
+              onClick={() => switchLanguage('fr')}
+              className={locale === 'fr' ? 'font-semibold text-northcode-blue' : ''}
+            >
+              🇫🇷 Français
+            </DropdownMenuItem>
+            <DropdownMenuItem
               onClick={() => switchLanguage('ha')}
               className={locale === 'ha' ? 'font-semibold text-northcode-blue' : ''}
             >

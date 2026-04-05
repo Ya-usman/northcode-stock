@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/use-auth'
@@ -10,9 +10,9 @@ import { Header } from './header'
 import { Skeleton } from '@/components/ui/skeleton'
 import { TrialBanner } from '@/components/saas/trial-banner'
 import { UpgradeWall } from '@/components/saas/upgrade-wall'
+import { PlanLimitAlert } from '@/components/saas/plan-limit-alert'
 import { getTrialDaysLeft, hasActiveSubscription, isAccessAllowed } from '@/lib/saas/plans'
 
-// Singleton — évite les recréations
 const supabase = createClient()
 
 function getPageTitle(pathname: string, locale: string): string {
@@ -54,6 +54,8 @@ function LoadingSkeleton() {
 export function AppLayout({ children, locale }: { children: React.ReactNode; locale: string }) {
   const pathname = usePathname()
   const { user, profile, shop, loading } = useAuth()
+  const [productCount, setProductCount] = useState(0)
+  const [teamCount, setTeamCount] = useState(0)
 
   const handleSignOut = async () => {
     document.cookie = 'user_role=; path=/; max-age=0'
@@ -61,60 +63,61 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
     window.location.href = `/${locale}/login`
   }
 
-  // Safety net: if auth resolves with no user, redirect to login
   useEffect(() => {
     if (!loading && !user) {
       window.location.href = `/${locale}/login`
     }
   }, [loading, user, locale])
 
-  if (loading || !profile) {
-    return <LoadingSkeleton />
-  }
+  // Fetch counts for plan limit checks (owner only)
+  useEffect(() => {
+    if (!shop?.id || profile?.role !== 'owner') return
+    Promise.all([
+      supabase.from('products').select('id', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('is_active', true),
+      supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('is_active', true),
+    ]).then(([{ count: pCount }, { count: tCount }]) => {
+      setProductCount(pCount || 0)
+      setTeamCount(tCount || 0)
+    })
+  }, [shop?.id, profile?.role])
 
-  // SaaS access check
+  if (loading || !profile) return <LoadingSkeleton />
+
   const trialDaysLeft = getTrialDaysLeft(shop?.trial_ends_at ?? null)
   const subscribed = hasActiveSubscription(shop?.plan ?? null, shop?.plan_expires_at ?? null)
   const accessAllowed = isAccessAllowed(shop?.plan ?? null, shop?.trial_ends_at ?? null, shop?.plan_expires_at ?? null)
-
-  // Show trial banner only if trial active and within 7 days OR it's owner
   const showTrialBanner = !subscribed && accessAllowed && trialDaysLeft <= 7 && profile.role === 'owner'
-
-  const title = getPageTitle(pathname, locale)
-  // Allow billing page even when plan is expired (so users can subscribe)
   const isBillingPage = pathname.includes('/billing')
+  const title = getPageTitle(pathname, locale)
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Upgrade wall — shown when trial/plan expired (except on billing page) */}
       {!accessAllowed && !isBillingPage && (
         <UpgradeWall locale={locale} shopName={shop?.name} />
       )}
 
-      {/* Desktop sidebar */}
-      <Sidebar
-        locale={locale}
-        role={profile.role}
-        profile={profile}
-        shop={shop}
-        onSignOut={handleSignOut}
-      />
+      <Sidebar locale={locale} role={profile.role} profile={profile} shop={shop} onSignOut={handleSignOut} />
 
-      {/* Main content */}
       <div className="md:pl-64 flex flex-col min-h-screen">
-        {/* Trial countdown banner (top of page, above header) */}
-        {showTrialBanner && (
-          <TrialBanner daysLeft={trialDaysLeft} locale={locale} />
-        )}
+        {showTrialBanner && <TrialBanner daysLeft={trialDaysLeft} locale={locale} />}
 
         <Header title={title} shop={shop} locale={locale} onSignOut={handleSignOut} />
+
+        {/* Plan limit alert — shown when approaching or reaching product/team limits */}
+        {profile.role === 'owner' && accessAllowed && !isBillingPage && (
+          <PlanLimitAlert
+            currentPlan={shop?.plan ?? null}
+            productCount={productCount}
+            teamMemberCount={teamCount}
+            locale={locale}
+          />
+        )}
 
         <main className="flex-1 p-4 md:p-6 has-bottom-nav md:pb-6">
           {children}
         </main>
       </div>
 
-      {/* Mobile bottom navigation */}
       <BottomNav locale={locale} role={profile.role} />
     </div>
   )

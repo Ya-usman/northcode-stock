@@ -56,7 +56,7 @@ function mergeAuthCookies(target: NextResponse, source: NextResponse): NextRespo
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const pathnameWithoutLocale = pathname.replace(/^\/(en|ha)/, '') || '/'
+  const pathnameWithoutLocale = pathname.replace(/^\/(en|fr|ha)/, '') || '/'
   const locale = pathname.split('/')[1] || defaultLocale
 
   // Always allow static assets and API
