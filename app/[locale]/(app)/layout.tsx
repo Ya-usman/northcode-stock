@@ -1,5 +1,3 @@
-'use client'
-
 import { AppLayout } from '@/components/layout/app-layout'
 import { AuthProvider } from '@/lib/contexts/auth-context'
 
