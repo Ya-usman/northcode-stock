@@ -1,21 +1,37 @@
 /**
- * Format a number as Nigerian Naira
+ * Format a number as Nigerian Naira (legacy — use formatCurrency when possible)
  */
 export function formatNaira(amount: number | string | null | undefined): string {
-  const num = Number(amount ?? 0)
-  return `₦${num.toLocaleString('en-NG', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  })}`
+  return formatCurrency(amount, '₦')
 }
 
 /**
- * Format compact (e.g. ₦1.2M, ₦45K)
+ * Format a monetary amount with the shop's currency symbol.
+ * symbol: '₦' for Nigeria, 'FCFA' for Cameroon
  */
-export function formatNairaCompact(amount: number): string {
-  if (amount >= 1_000_000) return `₦${(amount / 1_000_000).toFixed(1)}M`
-  if (amount >= 1_000) return `₦${(amount / 1_000).toFixed(1)}K`
-  return formatNaira(amount)
+export function formatCurrency(amount: number | string | null | undefined, symbol: string): string {
+  const num = Number(amount ?? 0)
+  const isFCFA = symbol === 'FCFA'
+  const formatted = num.toLocaleString(isFCFA ? 'fr-FR' : 'en-NG', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })
+  return isFCFA ? `${formatted} FCFA` : `₦${formatted}`
+}
+
+/**
+ * Format compact (e.g. ₦1.2M, ₦45K / 1,2M FCFA)
+ */
+export function formatNairaCompact(amount: number, symbol = '₦'): string {
+  if (amount >= 1_000_000) {
+    const v = (amount / 1_000_000).toFixed(1)
+    return symbol === 'FCFA' ? `${v}M FCFA` : `₦${v}M`
+  }
+  if (amount >= 1_000) {
+    const v = (amount / 1_000).toFixed(1)
+    return symbol === 'FCFA' ? `${v}K FCFA` : `₦${v}K`
+  }
+  return formatCurrency(amount, symbol)
 }
 
 /**

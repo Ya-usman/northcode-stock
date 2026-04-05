@@ -16,7 +16,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { RefreshCw } from 'lucide-react'
 import { format, subDays, startOfDay, endOfDay } from 'date-fns'
 import type { Sale, Product, RevenueDataPoint, TopProduct } from '@/lib/types/database'
-import { formatNaira } from '@/lib/utils/currency'
+import { useCurrency } from '@/lib/hooks/use-currency'
 
 // Singleton client — évite les recréations à chaque render
 const supabase = createClient()
@@ -24,6 +24,7 @@ const supabase = createClient()
 export default function DashboardPage() {
   const t = useTranslations()
   const { profile, shop, loading: authLoading } = useAuth()
+  const { fmt: formatNaira } = useCurrency()
   const { toast } = useToast()
 
   const [loading, setLoading] = useState(true)

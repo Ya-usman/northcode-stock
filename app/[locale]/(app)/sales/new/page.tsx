@@ -15,7 +15,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { formatNaira } from '@/lib/utils/currency'
+import { useCurrency } from '@/lib/hooks/use-currency'
 import { generateReceiptPDF } from '@/lib/utils/pdf'
 import { shareReceiptWhatsApp, buildReceiptWhatsAppMessage } from '@/lib/utils/whatsapp'
 import type { Product, Customer, CartItem, Sale, SaleItem } from '@/lib/types/database'
@@ -23,6 +23,7 @@ import type { Product, Customer, CartItem, Sale, SaleItem } from '@/lib/types/da
 export default function NewSalePage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations()
   const { profile, shop } = useAuth()
+  const { fmt: formatNaira } = useCurrency()
   const supabase = createClient()
   const { toast } = useToast()
   const searchRef = useRef<HTMLInputElement>(null)
@@ -443,7 +444,7 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
               <div className="flex items-center gap-3">
                 <Label className="text-sm w-24 flex-shrink-0">{t('sales.discount')}</Label>
                 <div className="relative flex-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">₦</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{shop?.currency || '₦'}</span>
                   <Input
                     type="number" min={0} max={subtotal}
                     value={discount || ''}
@@ -550,7 +551,7 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
               <div className="space-y-1.5">
                 <Label>{t('payment.amount_paid')}</Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-medium text-muted-foreground">₦</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-medium text-muted-foreground">{shop?.currency || '₦'}</span>
                   <Input
                     type="number" min={0}
                     value={amountPaid}

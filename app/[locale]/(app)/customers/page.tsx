@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatNaira } from '@/lib/utils/currency'
+import { useCurrency } from '@/lib/hooks/use-currency'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { customerSchema, type CustomerFormData } from '@/lib/validations/customer'
@@ -21,6 +21,7 @@ import type { Customer } from '@/lib/types/database'
 export default function CustomersPage() {
   const t = useTranslations()
   const { profile, shop } = useAuth()
+  const { fmt: formatNaira } = useCurrency()
   const supabase = createClient()
   const { toast } = useToast()
 

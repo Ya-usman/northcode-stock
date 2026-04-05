@@ -14,7 +14,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatNaira, profitMargin } from '@/lib/utils/currency'
+import { useCurrency } from '@/lib/hooks/use-currency'
+import { profitMargin } from '@/lib/utils/currency'
 import { generateReportPDF } from '@/lib/utils/pdf'
 import { format, subDays, startOfDay, endOfDay, startOfMonth, startOfWeek } from 'date-fns'
 
@@ -23,6 +24,7 @@ const PIE_COLORS = ['#0A2F6E', '#D4AF37', '#16A34A', '#DC2626', '#7BB3F0']
 export default function ReportsPage() {
   const t = useTranslations()
   const { shop, profile } = useAuth()
+  const { fmt: formatNaira } = useCurrency()
   const supabase = createClient()
 
   const [dateFilter, setDateFilter] = useState('month')
@@ -150,7 +152,7 @@ export default function ReportsPage() {
       sections: [
         {
           title: 'Revenue by Payment Method',
-          headers: ['Method', 'Amount (₦)', '% Share'],
+          headers: ['Method', `Amount (${shop?.currency || '₦'})`, '% Share'],
           rows: revenueByMethod.map(m => [
             m.name,
             formatNaira(m.value),
@@ -159,7 +161,7 @@ export default function ReportsPage() {
         },
         {
           title: 'Top Selling Products',
-          headers: ['Product', 'Qty Sold', 'Revenue (₦)'],
+          headers: ['Product', 'Qty Sold', `Revenue (${shop?.currency || '₦'})`],
           rows: topProducts.map(p => [p.name, p.qty, formatNaira(p.revenue)]),
         },
         {
@@ -173,7 +175,7 @@ export default function ReportsPage() {
         },
         {
           title: 'Cashier Performance',
-          headers: ['Name', 'Sales Count', 'Revenue (₦)'],
+          headers: ['Name', 'Sales Count', `Revenue (${shop?.currency || '₦'})`],
           rows: cashierPerf.map(c => [c.name, c.sales, formatNaira(c.revenue)]),
         },
       ],

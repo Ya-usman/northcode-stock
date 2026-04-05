@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatNaira } from '@/lib/utils/currency'
+import { useCurrency } from '@/lib/hooks/use-currency'
 import { format, startOfDay, endOfDay, subDays, startOfWeek, startOfMonth } from 'date-fns'
 import type { Sale } from '@/lib/types/database'
 
@@ -28,6 +28,7 @@ const methodLabels: Record<string, string> = {
 export default function SalesHistoryPage() {
   const t = useTranslations()
   const { profile, shop } = useAuth()
+  const { fmt: formatNaira } = useCurrency()
   const supabase = createClient()
 
   const [sales, setSales] = useState<Sale[]>([])

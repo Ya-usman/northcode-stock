@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatNaira } from '@/lib/utils/currency'
+import { useCurrency } from '@/lib/hooks/use-currency'
 import type { Customer, Sale } from '@/lib/types/database'
 
 interface CustomerDebt {
@@ -26,6 +26,7 @@ interface CustomerDebt {
 export default function PaymentsPage() {
   const t = useTranslations()
   const { shop, profile } = useAuth()
+  const { fmt: formatNaira } = useCurrency()
   const supabase = createClient()
   const { toast } = useToast()
 
@@ -195,7 +196,7 @@ export default function PaymentsPage() {
             <div className="space-y-1">
               <Label>{t('payment.amount')} *</Label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₦</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">{shop?.currency || '₦'}</span>
                 <Input
                   type="number"
                   value={paymentAmount}

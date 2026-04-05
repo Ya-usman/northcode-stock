@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatNaira } from '@/lib/utils/currency'
+import { useCurrency } from '@/lib/hooks/use-currency'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { productSchema, type ProductFormData, restockSchema, type RestockFormData } from '@/lib/validations/product'
@@ -30,6 +30,7 @@ function StockBadge({ quantity, threshold }: { quantity: number; threshold: numb
 export default function StockPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations()
   const { profile, shop } = useAuth()
+  const { fmt: formatNaira } = useCurrency()
   const supabase = createClient()
   const { toast } = useToast()
 
