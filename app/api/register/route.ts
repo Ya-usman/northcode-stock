@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
+import { getCountry } from '@/lib/saas/countries'
 
 export async function POST(request: Request) {
   try {
-    const { user_id, full_name, email, shop_name, city, phone } = await request.json()
+    const { user_id, full_name, email, shop_name, city, phone, country } = await request.json()
 
     if (!user_id || !full_name || !shop_name || !city) {
       return NextResponse.json({ error: 'Champs manquants' }, { status: 400 })
     }
 
+    const countryConfig = getCountry(country || 'NG')
     const supabase = await createAdminClient()
 
     // Create shop
@@ -20,8 +22,9 @@ export async function POST(request: Request) {
         city,
         state: city,
         whatsapp: phone || null,
-        currency: '₦',
-        plan: 'free',
+        currency: countryConfig.currencySymbol,
+        country: countryConfig.code,
+        plan: 'trial',
         trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
       } as any)
       .select('id')

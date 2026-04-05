@@ -24,6 +24,7 @@ export interface Shop {
   plan: string | null            // 'trial' | 'starter' | 'pro' | 'business'
   trial_ends_at: string | null
   plan_expires_at: string | null
+  country: string | null         // 'NG' | 'CM'
 }
 
 export interface Profile {

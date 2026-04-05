@@ -2,16 +2,13 @@
 
 import { useState } from 'react'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
-import { PLANS, getPlan, getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
-import { createClient } from '@/lib/supabase/client'
+import { getPlan, getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
+import { getCountry } from '@/lib/saas/countries'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
-import { CheckCircle2, Zap, Crown, Building2, Clock } from 'lucide-react'
+import { CheckCircle2, Zap, Crown, Building2, Clock, CreditCard, Smartphone } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
-import { formatNaira } from '@/lib/utils/currency'
-
-const supabase = createClient()
 
 const PLAN_DETAILS = [
   {
@@ -20,12 +17,12 @@ const PLAN_DETAILS = [
     color: 'border-blue-200 hover:border-northcode-blue',
     headerColor: 'bg-blue-50',
     features: [
-      '200 products',
-      '3 staff accounts',
-      'CSV & PDF export',
-      '90 days sales history',
-      'Full stock management',
-      'Customer credit tracking',
+      '200 produits',
+      '3 comptes employés',
+      'Export CSV & PDF',
+      '90 jours d\'historique',
+      'Gestion de stock complète',
+      'Suivi crédits clients',
     ],
   },
   {
@@ -35,12 +32,12 @@ const PLAN_DETAILS = [
     headerColor: 'bg-northcode-blue text-white',
     popular: true,
     features: [
-      'Unlimited products',
-      '10 staff accounts',
-      'WhatsApp receipts',
-      '1 year sales history',
-      'Advanced reports',
-      'Priority email support',
+      'Produits illimités',
+      '10 comptes employés',
+      'Reçus WhatsApp',
+      '1 an d\'historique',
+      'Rapports avancés',
+      'Support prioritaire',
     ],
   },
   {
@@ -49,12 +46,12 @@ const PLAN_DETAILS = [
     color: 'border-gray-200 hover:border-gray-400',
     headerColor: 'bg-gray-900 text-white',
     features: [
-      'Unlimited products & staff',
-      'Custom onboarding',
-      'Dedicated support',
-      'Full sales history',
-      'API access',
-      'SLA guarantee',
+      'Produits & employés illimités',
+      'Onboarding personnalisé',
+      'Support dédié',
+      'Historique complet',
+      'Accès API',
+      'Garantie SLA',
     ],
   },
 ]
@@ -69,27 +66,21 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   const isSubscribed = hasActiveSubscription(shop?.plan ?? null, shop?.plan_expires_at ?? null)
   const isTrialActive = !isSubscribed && trialDaysLeft >= 0
 
+  const country = getCountry(shop?.country)
+  const isNigeria = country.code === 'NG'
+  const isCameroon = country.code === 'CM'
+
   const handleSubscribe = async (planId: 'starter' | 'pro' | 'business') => {
     if (!shop || !user) return
     setLoading(planId)
-
     try {
-      // Initialize Paystack transaction
       const res = await fetch('/api/billing/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          plan_id: planId,
-          shop_id: shop.id,
-          email: user.email,
-          locale,
-        }),
+        body: JSON.stringify({ plan_id: planId, shop_id: shop.id, email: user.email, locale }),
       })
-
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Payment initialization failed')
-
-      // Redirect to Paystack checkout
+      if (!res.ok) throw new Error(data.error || 'Erreur initialisation paiement')
       window.location.href = data.authorization_url
     } catch (err: any) {
       toast({ title: err.message, variant: 'destructive' })
@@ -100,16 +91,33 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+
       {/* Current plan status */}
       <div className="rounded-xl border bg-white p-5 shadow-sm">
-        <h1 className="font-bold text-lg mb-4">Subscription</h1>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <h1 className="font-bold text-lg">Abonnement</h1>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="text-xl">{country.flag}</span>
+            <span>{country.name} · {country.currencySymbol}</span>
+            {isNigeria && (
+              <span className="flex items-center gap-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded-full px-2 py-0.5">
+                <CreditCard className="h-3 w-3" /> Paystack
+              </span>
+            )}
+            {isCameroon && (
+              <span className="flex items-center gap-1 text-xs bg-orange-50 text-orange-700 border border-orange-200 rounded-full px-2 py-0.5">
+                <Smartphone className="h-3 w-3" /> MTN / Orange
+              </span>
+            )}
+          </div>
+        </div>
 
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="mt-4 flex flex-wrap items-center gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <p className="font-semibold text-gray-900">Current plan:</p>
+              <p className="font-semibold text-gray-900">Plan actuel :</p>
               <Badge variant={isSubscribed ? 'success' : isTrialActive ? 'warning' : 'danger'}>
-                {isSubscribed ? currentPlan.name : isTrialActive ? 'Free Trial' : 'Expired'}
+                {isSubscribed ? currentPlan.name : isTrialActive ? 'Essai gratuit' : 'Expiré'}
               </Badge>
             </div>
 
@@ -118,16 +126,15 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                 <Clock className="h-4 w-4" />
                 <span>
                   {trialDaysLeft === 0
-                    ? 'Trial expires today'
-                    : `${trialDaysLeft} day${trialDaysLeft !== 1 ? 's' : ''} remaining`}
+                    ? 'L\'essai expire aujourd\'hui'
+                    : `${trialDaysLeft} jour${trialDaysLeft !== 1 ? 's' : ''} restant${trialDaysLeft !== 1 ? 's' : ''}`}
                 </span>
               </div>
             )}
 
             {isSubscribed && shop?.plan_expires_at && (
               <p className="text-sm text-muted-foreground">
-                Renews on{' '}
-                {new Date(shop.plan_expires_at).toLocaleDateString('en-NG', {
+                Renouvellement le {new Date(shop.plan_expires_at).toLocaleDateString('fr-FR', {
                   day: 'numeric', month: 'long', year: 'numeric',
                 })}
               </p>
@@ -135,7 +142,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
 
             {!isSubscribed && !isTrialActive && (
               <p className="text-sm text-red-600 font-medium">
-                Your plan has expired. Subscribe to continue.
+                Votre plan a expiré. Abonnez-vous pour continuer.
               </p>
             )}
           </div>
@@ -145,12 +152,12 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
       {/* Plan selection */}
       <div>
         <h2 className="font-semibold text-gray-900 mb-4">
-          {isSubscribed ? 'Change Plan' : 'Choose a Plan'}
+          {isSubscribed ? 'Changer de plan' : 'Choisir un plan'}
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {PLAN_DETAILS.map(({ id, icon: Icon, color, headerColor, popular, features }) => {
-            const plan = PLANS[id]
+            const price = country.prices[id]
             const isCurrent = shop?.plan === id && isSubscribed
 
             return (
@@ -164,7 +171,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                 {popular && (
                   <div className="absolute top-3 right-3">
                     <Badge className="bg-northcode-blue text-white text-[10px] px-2 py-0.5">
-                      Most Popular
+                      Populaire
                     </Badge>
                   </div>
                 )}
@@ -172,13 +179,13 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                 <div className={cn('px-5 py-4', headerColor)}>
                   <div className="flex items-center gap-2 mb-1">
                     <Icon className="h-4 w-4" />
-                    <p className="font-bold text-sm">{plan.name}</p>
+                    <p className="font-bold text-sm">{id.charAt(0).toUpperCase() + id.slice(1)}</p>
                   </div>
                   <div className="flex items-baseline gap-1">
                     <span className={cn('text-2xl font-extrabold', popular ? 'text-white' : 'text-northcode-blue')}>
-                      ₦{plan.price_monthly.toLocaleString('en-NG')}
+                      {country.currencySymbol}{price.toLocaleString('fr-FR')}
                     </span>
-                    <span className={cn('text-xs', popular ? 'text-blue-100' : 'text-muted-foreground')}>/month</span>
+                    <span className={cn('text-xs', popular ? 'text-blue-100' : 'text-muted-foreground')}>/mois</span>
                   </div>
                 </div>
 
@@ -194,7 +201,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
 
                   {isCurrent ? (
                     <Button disabled className="w-full h-9 text-sm" variant="outline">
-                      Current Plan
+                      Plan actuel
                     </Button>
                   ) : (
                     <Button
@@ -207,7 +214,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                           : 'bg-gray-900 hover:bg-gray-700'
                       )}
                     >
-                      {isSubscribed ? 'Switch to ' : 'Subscribe — '}{plan.name}
+                      {isNigeria ? '💳' : '📱'} {isSubscribed ? 'Passer à ' : ''}{id.charAt(0).toUpperCase() + id.slice(1)}
                     </Button>
                   )}
                 </div>
@@ -217,30 +224,34 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-4">
-          Powered by Paystack &bull; Secure payment &bull; Cancel anytime
+          {isNigeria
+            ? 'Paiement sécurisé via Paystack · Carte, virement, USSD'
+            : 'Paiement mobile via NotchPay · MTN MoMo · Orange Money'}
         </p>
       </div>
 
       {/* FAQ */}
       <div className="rounded-xl border bg-white p-5 shadow-sm">
-        <h2 className="font-semibold text-gray-900 mb-4">Frequently Asked Questions</h2>
+        <h2 className="font-semibold text-gray-900 mb-4">Questions fréquentes</h2>
         <div className="space-y-4 text-sm">
           {[
             {
-              q: 'What happens to my data if my plan expires?',
-              a: 'Your data is never deleted. It is safely kept and accessible as soon as you subscribe again.',
+              q: 'Mes données sont-elles supprimées si mon plan expire ?',
+              a: 'Non. Vos données sont conservées en sécurité et restent accessibles dès que vous souscrivez à nouveau.',
             },
             {
-              q: 'Can I change my plan later?',
-              a: 'Yes. You can upgrade or downgrade at any time. The change takes effect immediately.',
+              q: 'Puis-je changer de plan plus tard ?',
+              a: 'Oui. Vous pouvez upgrader ou downgrader à tout moment. Le changement est immédiat.',
             },
             {
-              q: 'How does payment work?',
-              a: 'We use Paystack for secure payment. You can pay by card, bank transfer, or USSD.',
+              q: 'Comment fonctionne le paiement ?',
+              a: isNigeria
+                ? 'Nous utilisons Paystack pour les paiements sécurisés. Carte, virement bancaire ou USSD acceptés.'
+                : 'Nous utilisons NotchPay pour les paiements Mobile Money. MTN MoMo et Orange Money acceptés.',
             },
             {
-              q: 'Do you offer refunds?',
-              a: 'Yes. Contact us within 7 days of payment for a full refund, no questions asked.',
+              q: 'Y a-t-il un remboursement ?',
+              a: 'Oui. Contactez-nous dans les 7 jours suivant le paiement pour un remboursement complet.',
             },
           ].map(({ q, a }) => (
             <div key={q}>
