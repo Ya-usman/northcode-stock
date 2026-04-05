@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
-import { useAuth } from '@/lib/hooks/use-auth'
+import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useDashboardRealtime } from '@/lib/hooks/use-realtime'
 import { MetricCards } from '@/components/dashboard/metric-cards'
 import { RevenueChart } from '@/components/dashboard/revenue-chart'

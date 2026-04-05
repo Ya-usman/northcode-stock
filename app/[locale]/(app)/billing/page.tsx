@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useAuth } from '@/lib/hooks/use-auth'
+import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { PLANS, getPlan, getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'

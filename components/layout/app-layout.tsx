@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { useAuth } from '@/lib/hooks/use-auth'
+import { useAuthContext } from '@/lib/contexts/auth-context'
 import { Sidebar } from './sidebar'
 import { BottomNav } from './bottom-nav'
 import { Header } from './header'
@@ -53,15 +53,11 @@ function LoadingSkeleton() {
 
 export function AppLayout({ children, locale }: { children: React.ReactNode; locale: string }) {
   const pathname = usePathname()
-  const { user, profile, shop, loading } = useAuth()
+  const { user, profile, shop, loading, signOut } = useAuthContext()
   const [productCount, setProductCount] = useState(0)
   const [teamCount, setTeamCount] = useState(0)
 
-  const handleSignOut = async () => {
-    document.cookie = 'user_role=; path=/; max-age=0'
-    await supabase.auth.signOut()
-    window.location.href = `/${locale}/login`
-  }
+  const handleSignOut = () => signOut()
 
   useEffect(() => {
     if (!loading && !user) {

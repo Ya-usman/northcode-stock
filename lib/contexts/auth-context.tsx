@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
 import type { Profile, Shop } from '@/lib/types/database'
@@ -12,7 +12,12 @@ interface AuthState {
   loading: boolean
 }
 
-// Singleton client — évite les recréations
+interface AuthContextValue extends AuthState {
+  signOut: () => Promise<void>
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null)
+
 const supabase = createClient()
 
 async function fetchProfileAndShop(userId: string): Promise<{ profile: Profile | null; shop: Shop | null }> {
@@ -26,7 +31,6 @@ async function fetchProfileAndShop(userId: string): Promise<{ profile: Profile |
 
   const profile = data as Profile & { shops: Shop | null }
 
-  // Deactivated account — sign out immediately
   if (!profile.is_active) {
     document.cookie = 'user_role=; path=/; max-age=0'
     await supabase.auth.signOut()
@@ -38,7 +42,7 @@ async function fetchProfileAndShop(userId: string): Promise<{ profile: Profile |
   return { profile, shop }
 }
 
-export function useAuth() {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
     user: null,
     profile: null,
@@ -46,14 +50,12 @@ export function useAuth() {
     loading: true,
   })
 
-  // Prevent double-fetch on StrictMode
   const initialized = useRef(false)
 
   useEffect(() => {
     if (initialized.current) return
     initialized.current = true
 
-    // Initial load
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (user) {
         const { profile, shop } = await fetchProfileAndShop(user.id)
@@ -63,35 +65,31 @@ export function useAuth() {
       }
     })
 
-    // Listen for auth changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_OUT') {
         setState({ user: null, profile: null, shop: null, loading: false })
         return
       }
-
       if (session?.user) {
         const { profile, shop } = await fetchProfileAndShop(session.user.id)
         setState({ user: session.user, profile, shop, loading: false })
       }
     })
 
-    // On mobile, the browser pauses JS when backgrounded — re-check session on resume
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         supabase.auth.getUser().then(async ({ data: { user } }) => {
           if (user) {
             try {
               const { profile, shop } = await fetchProfileAndShop(user.id)
-              // Only update state if we got a valid profile — don't blank the screen on a transient fetch failure
+              // Only update if we got a valid profile — don't blank the UI on transient failures
               if (profile) {
                 setState({ user, profile, shop, loading: false })
               }
             } catch {
-              // Network glitch — keep existing state, user is still logged in
+              // Network glitch — keep existing state
             }
           } else {
-            // Session expired — AppLayout's useEffect handles the redirect
             setState({ user: null, profile: null, shop: null, loading: false })
           }
         })
@@ -105,14 +103,22 @@ export function useAuth() {
     }
   }, [])
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     setState(s => ({ ...s, loading: true }))
-    // Clear role cookie
     document.cookie = 'user_role=; path=/; max-age=0'
     await supabase.auth.signOut()
-    // Force hard redirect — évite les états corrompus
     window.location.href = '/en/login'
-  }
+  }, [])
 
-  return { ...state, signOut }
+  return (
+    <AuthContext.Provider value={{ ...state, signOut }}>
+      {children}
+    </AuthContext.Provider>
+  )
+}
+
+export function useAuthContext(): AuthContextValue {
+  const ctx = useContext(AuthContext)
+  if (!ctx) throw new Error('useAuthContext must be used inside AuthProvider')
+  return ctx
 }

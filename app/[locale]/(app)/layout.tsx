@@ -1,7 +1,9 @@
-import { AppLayout } from '@/components/layout/app-layout'
+'use client'
 
-// Auth is handled client-side in AppLayout via useAuth().
-// The middleware already protects all routes in this group.
+import { AppLayout } from '@/components/layout/app-layout'
+import { AuthProvider } from '@/lib/contexts/auth-context'
+
+// AuthProvider wraps the entire app group — single subscription for all pages.
 export default function AppRouteLayout({
   children,
   params: { locale },
@@ -10,8 +12,10 @@ export default function AppRouteLayout({
   params: { locale: string }
 }) {
   return (
-    <AppLayout locale={locale}>
-      {children}
-    </AppLayout>
+    <AuthProvider>
+      <AppLayout locale={locale}>
+        {children}
+      </AppLayout>
+    </AuthProvider>
   )
 }
