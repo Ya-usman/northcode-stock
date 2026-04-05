@@ -25,8 +25,16 @@ async function fetchProfileAndShop(userId: string): Promise<{ profile: Profile |
   if (!data) return { profile: null, shop: null }
 
   const profile = data as Profile & { shops: Shop | null }
-  const shop = profile.shops ?? null
 
+  // Deactivated account — sign out immediately
+  if (!profile.is_active) {
+    document.cookie = 'user_role=; path=/; max-age=0'
+    await supabase.auth.signOut()
+    window.location.href = '/en/login?error=inactive'
+    return { profile: null, shop: null }
+  }
+
+  const shop = profile.shops ?? null
   return { profile, shop }
 }
 

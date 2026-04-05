@@ -111,37 +111,39 @@ export async function middleware(request: NextRequest) {
     return mergeAuthCookies(NextResponse.redirect(loginUrl), response)
   }
 
-  // Vérification du rôle (avec cache cookie)
+  // Always verify is_active + role from DB (cookie used only as fast-path for role)
+  const { data: profileData } = await supabase
+    .from('profiles')
+    .select('role, is_active')
+    .eq('id', user.id)
+    .single()
+
+  const profile = profileData as { role: string; is_active: boolean } | null
+
+  // Deactivated account → force logout
+  if (profile && !profile.is_active) {
+    // Clear role cookie
+    const loginUrl = new URL(`/${locale}/login?error=inactive`, request.url)
+    const redirectRes = NextResponse.redirect(loginUrl)
+    redirectRes.cookies.set('user_role', '', { maxAge: 0, path: '/' })
+    return mergeAuthCookies(redirectRes, response)
+  }
+
+  // Cache role in cookie for 30 minutes
+  const role = profile?.role
+  if (role) {
+    response.cookies.set('user_role', role, {
+      maxAge: 1800,
+      httpOnly: false,
+      path: '/',
+      sameSite: 'lax',
+    })
+  }
+
+  // Role-based access control
   const requiredRoles = getRequiredRoles(pathnameWithoutLocale)
-  if (requiredRoles) {
-    let role = request.cookies.get('user_role')?.value
-
-    if (!role) {
-      const { data } = await supabase
-        .from('profiles')
-        .select('role, is_active')
-        .eq('id', user.id)
-        .single()
-
-      const profile = data as { role: string; is_active: boolean } | null
-      role = profile?.role
-
-      if (profile && !profile.is_active) {
-        return mergeAuthCookies(NextResponse.redirect(new URL(`/${locale}/login?error=inactive`, request.url)), response)
-      }
-      if (role) {
-        response.cookies.set('user_role', role, {
-          maxAge: 3600,
-          httpOnly: false,
-          path: '/',
-          sameSite: 'lax',
-        })
-      }
-    }
-
-    if (role && !requiredRoles.includes(role)) {
-      return mergeAuthCookies(NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url)), response)
-    }
+  if (requiredRoles && role && !requiredRoles.includes(role)) {
+    return mergeAuthCookies(NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url)), response)
   }
 
   // Always merge auth cookies into the final intl response
