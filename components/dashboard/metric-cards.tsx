@@ -3,8 +3,8 @@
 import { motion } from 'framer-motion'
 import { TrendingUp, ShoppingCart, AlertTriangle, CreditCard } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
-import { formatNaira, formatNairaCompact } from '@/lib/utils/currency'
 import { useTranslations } from 'next-intl'
+import { useCurrency } from '@/lib/hooks/use-currency'
 
 interface MetricCardsProps {
   todayRevenue: number
@@ -25,12 +25,18 @@ const item = {
 
 export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outstandingDebt, role }: MetricCardsProps) {
   const t = useTranslations('dashboard')
+  const { fmt, symbol } = useCurrency()
+  const compact = (n: number) => {
+    if (n >= 1_000_000) return `${symbol === 'FCFA' ? (n/1_000_000).toFixed(1)+'M FCFA' : '₦'+(n/1_000_000).toFixed(1)+'M'}`
+    if (n >= 1_000) return `${symbol === 'FCFA' ? (n/1_000).toFixed(1)+'K FCFA' : '₦'+(n/1_000).toFixed(1)+'K'}`
+    return fmt(n)
+  }
 
   const cards = [
     {
       title: t('today_revenue'),
-      value: role === 'viewer' ? '—' : formatNairaCompact(todayRevenue),
-      subValue: role !== 'viewer' ? formatNaira(todayRevenue) : undefined,
+      value: role === 'viewer' ? '—' : compact(todayRevenue),
+      subValue: role !== 'viewer' ? fmt(todayRevenue) : undefined,
       icon: TrendingUp,
       color: 'text-green-600',
       bg: 'bg-green-50',
@@ -56,8 +62,8 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
     },
     {
       title: t('outstanding_debt'),
-      value: role === 'viewer' ? '—' : formatNairaCompact(outstandingDebt),
-      subValue: role !== 'viewer' ? formatNaira(outstandingDebt) : undefined,
+      value: role === 'viewer' ? '—' : compact(outstandingDebt),
+      subValue: role !== 'viewer' ? fmt(outstandingDebt) : undefined,
       icon: CreditCard,
       color: outstandingDebt > 0 ? 'text-red-600' : 'text-green-600',
       bg: outstandingDebt > 0 ? 'bg-red-50' : 'bg-green-50',

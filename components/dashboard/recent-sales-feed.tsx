@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTranslations } from 'next-intl'
-import { formatNaira } from '@/lib/utils/currency'
+import { useCurrency } from '@/lib/hooks/use-currency'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Sale } from '@/lib/types/database'
@@ -27,6 +27,7 @@ const methodLabels: Record<string, string> = {
 
 export function RecentSalesFeed({ sales, role }: RecentSalesFeedProps) {
   const t = useTranslations()
+  const { fmt: formatNaira } = useCurrency()
 
   return (
     <Card className="border-0 shadow-sm">
