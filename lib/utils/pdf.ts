@@ -174,9 +174,15 @@ export async function generateReceiptPDF(data: ReceiptData): Promise<void> {
   doc.save(`Receipt-${sale.sale_number}.pdf`)
 }
 
-// Strip ₦ symbol from strings already formatted with formatNaira()
+// Sanitize currency strings for jsPDF (Helvetica can't render ₦ or non-breaking spaces)
 function sanitizePDF(value: string | number): string {
-  return String(value).replace(/₦/g, 'NGN ').replace(/\u20a6/g, 'NGN ')
+  return String(value)
+    .replace(/₦/g, 'NGN ')
+    .replace(/\u20a6/g, 'NGN ')
+    // Fix fr-FR thin non-breaking space (U+202F) used by toLocaleString → plain space
+    .replace(/\u202f/g, ' ')
+    // Fix regular non-breaking space (U+00A0) → plain space
+    .replace(/\u00a0/g, ' ')
 }
 
 export async function generateReportPDF(params: {

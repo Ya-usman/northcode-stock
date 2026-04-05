@@ -223,13 +223,13 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         </div>
         {profile?.role === 'owner' && (
           <div className="space-y-1">
-            <Label>{t('products.buying_price')}</Label>
+            <Label>{t('products.buying_price')} <span className="text-muted-foreground text-xs">({shop?.currency || '₦'})</span></Label>
             <Input type="number" {...productForm.register('buying_price')} placeholder="0" />
             {productForm.formState.errors.buying_price && <p className="text-xs text-destructive">{productForm.formState.errors.buying_price.message}</p>}
           </div>
         )}
         <div className="space-y-1">
-          <Label>{t('products.selling_price')}</Label>
+          <Label>{t('products.selling_price')} <span className="text-muted-foreground text-xs">({shop?.currency || '₦'})</span></Label>
           <Input type="number" {...productForm.register('selling_price')} placeholder="0" />
           {productForm.formState.errors.selling_price && <p className="text-xs text-destructive">{productForm.formState.errors.selling_price.message}</p>}
         </div>
