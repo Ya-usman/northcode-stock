@@ -131,14 +131,17 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
             setLoading(null)
             toast({ title: 'Paiement annulé', variant: 'destructive' })
           },
-          callback: async (response: { reference: string }) => {
-            // Verify server-side
-            const vRes = await fetch(`/api/billing/verify?reference=${response.reference}&locale=${locale}`)
-            if (vRes.redirected || vRes.ok) {
-              toast({ title: 'Paiement réussi !', description: 'Votre abonnement est actif.', variant: 'success' })
-              window.location.reload()
-            }
-            setLoading(null)
+          callback: (response: { reference: string }) => {
+            // Verify server-side — must not be async (Paystack requirement)
+            fetch(`/api/billing/verify?reference=${response.reference}&locale=${locale}`)
+              .then(() => {
+                toast({ title: 'Paiement réussi !', description: 'Votre abonnement est actif.', variant: 'success' })
+                window.location.reload()
+              })
+              .catch(() => {
+                toast({ title: 'Erreur de vérification', variant: 'destructive' })
+              })
+              .finally(() => setLoading(null))
           },
         })
         handler.openIframe()
@@ -154,7 +157,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
 
   return (
     <>
-    <Script src="https://js.paystack.co/v1/inline.js" strategy="lazyOnload" />
+    <Script src="https://js.paystack.co/v1/inline.js" strategy="afterInteractive" />
     <div className="max-w-4xl mx-auto space-y-6">
 
       {/* Current plan status */}
