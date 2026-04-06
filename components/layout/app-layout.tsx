@@ -114,7 +114,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         </main>
       </div>
 
-      <BottomNav locale={locale} role={profile.role} />
+      <BottomNav locale={locale} role={profile.role} onSignOut={handleSignOut} />
     </div>
   )
 }
