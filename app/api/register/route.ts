@@ -25,7 +25,7 @@ export async function POST(request: Request) {
         currency: countryConfig.currencySymbol,
         country: countryConfig.code,
         plan: 'trial',
-        trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+        trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       } as any)
       .select('id')
       .single()

@@ -97,7 +97,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
         <div className="text-center mb-8">
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-northcode-blue font-bold text-2xl shadow-lg mb-4">NC</div>
           <h1 className="text-2xl font-bold text-white">Créer votre boutique</h1>
-          <p className="text-blue-200 text-sm mt-1">14 jours gratuits · Sans carte bancaire</p>
+          <p className="text-blue-200 text-sm mt-1">7 jours gratuits · Sans carte bancaire</p>
         </div>
 
         <div className="rounded-2xl bg-white shadow-2xl p-6">

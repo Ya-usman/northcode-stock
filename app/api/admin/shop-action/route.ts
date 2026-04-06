@@ -35,9 +35,9 @@ export async function POST(request: Request) {
       case 'reactivate': {
         // Reactivate all profiles for this shop
         await admin.from('profiles').update({ is_active: true }).eq('shop_id', shop_id)
-        // Extend trial by 14 days
+        // Extend trial by 7 days
         await admin.from('shops').update({
-          trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+          trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
           plan: 'trial',
           plan_expires_at: null,
         } as any).eq('id', shop_id)

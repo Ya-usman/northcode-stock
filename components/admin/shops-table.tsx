@@ -338,7 +338,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
               <>Suspend <strong className="text-white">{confirmDialog.shop?.name}</strong>? Their account will be locked immediately.</>
             )}
             {confirmDialog.action === 'reactivate' && (
-              <>Reactivate <strong className="text-white">{confirmDialog.shop?.name}</strong>? They will get 14 days of trial access.</>
+              <>Reactivate <strong className="text-white">{confirmDialog.shop?.name}</strong>? They will get 7 days of trial access.</>
             )}
             {confirmDialog.action === 'extend' && (
               <>Extend access for <strong className="text-white">{confirmDialog.shop?.name}</strong>.</>
