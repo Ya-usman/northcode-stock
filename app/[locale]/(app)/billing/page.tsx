@@ -257,7 +257,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
         <p className="text-center text-xs text-muted-foreground mt-4">
           {isNigeria
             ? 'Paiement sécurisé via Paystack · Carte, virement, USSD'
-            : 'Paiement mobile via NotchPay · MTN MoMo · Orange Money'}
+            : 'Paiement mobile via Flutterwave · MTN MoMo · Orange Money'}
         </p>
       </div>
 
@@ -278,7 +278,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
               q: 'Comment fonctionne le paiement ?',
               a: isNigeria
                 ? 'Nous utilisons Paystack pour les paiements sécurisés. Carte, virement bancaire ou USSD acceptés.'
-                : 'Nous utilisons NotchPay pour les paiements Mobile Money. MTN MoMo et Orange Money acceptés.',
+                : 'Nous utilisons Flutterwave pour les paiements Mobile Money. MTN MoMo et Orange Money acceptés.',
             },
             {
               q: 'Y a-t-il un remboursement ?',

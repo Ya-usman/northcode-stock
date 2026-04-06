@@ -6,7 +6,7 @@ export interface CountryConfig {
   flag: string
   currency: string
   currencySymbol: string
-  gateway: 'paystack' | 'notchpay'
+  gateway: 'paystack' | 'flutterwave'
   /** Price multiplier vs NGN base prices */
   prices: {
     starter: number
@@ -35,7 +35,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     flag: '🇨🇲',
     currency: 'XAF',
     currencySymbol: 'FCFA',
-    gateway: 'notchpay',
+    gateway: 'flutterwave',
     prices: { starter: 1999, pro: 3999, business: 7999 },
     phonePrefix: '+237',
     cityPlaceholder: 'Douala, Yaoundé, Bafoussam…',

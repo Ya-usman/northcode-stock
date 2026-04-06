@@ -51,34 +51,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ authorization_url: data.data.authorization_url, reference: data.data.reference })
     }
 
-    // ── Cameroun → NotchPay ─────────────────────────────────────────────────
-    if (country.gateway === 'notchpay') {
-      const publicKey = process.env.NOTCHPAY_PUBLIC_KEY
-      if (!publicKey) return NextResponse.json({ error: 'NotchPay not configured' }, { status: 500 })
+    // ── Cameroun → Flutterwave ──────────────────────────────────────────────
+    if (country.gateway === 'flutterwave') {
+      const secretKey = process.env.FLUTTERWAVE_SECRET_KEY
+      if (!secretKey) return NextResponse.json({ error: 'Flutterwave not configured' }, { status: 500 })
 
-      const reference = `NC-${shop_id.slice(0, 8)}-${Date.now()}`
+      const tx_ref = `NC-${shop_id.slice(0, 8)}-${Date.now()}`
 
-      const res = await fetch('https://api.notchpay.co/payments/initialize', {
+      const res = await fetch('https://api.flutterwave.com/v3/payments', {
         method: 'POST',
-        headers: {
-          Authorization: publicKey,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
+        headers: { Authorization: `Bearer ${secretKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email,
+          tx_ref,
           amount,
           currency: 'XAF',
-          description: `NorthCode Stock — Plan ${plan_id}`,
-          reference,
-          callback: `${baseUrl}/api/billing/notchpay/verify?locale=${locale}`,
-          meta: { shop_id, plan_id, locale, gateway: 'notchpay' },
+          redirect_url: `${baseUrl}/api/billing/flutterwave/verify?locale=${locale}`,
+          customer: { email },
+          meta: { shop_id, plan_id, locale },
+          customizations: {
+            title: 'NorthCode Stock',
+            description: `Abonnement Plan ${plan_id}`,
+            logo: `${baseUrl}/icons/icon-192x192.png`,
+          },
+          payment_options: 'mobilemoneyfranco',
         }),
       })
       const data = await res.json()
-      const url = data.authorization_url || data.transaction?.payment_url
-      if (!url) return NextResponse.json({ error: data.message || 'NotchPay error' }, { status: 500 })
-      return NextResponse.json({ authorization_url: url, reference })
+      const url = data.data?.link
+      if (!url) return NextResponse.json({ error: data.message || 'Flutterwave error' }, { status: 500 })
+      return NextResponse.json({ authorization_url: url, reference: tx_ref })
     }
 
     return NextResponse.json({ error: 'Unknown gateway' }, { status: 500 })
