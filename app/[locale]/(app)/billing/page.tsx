@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { getPlan, getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
 import { getCountry } from '@/lib/saas/countries'
@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
 import { CheckCircle2, Zap, Crown, Building2, Clock, CreditCard, Smartphone } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { useSearchParams, useRouter } from 'next/navigation'
 
 const PLAN_DETAILS = [
   {
@@ -60,6 +61,36 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   const { shop, user } = useAuth()
   const { toast } = useToast()
   const [loading, setLoading] = useState<string | null>(null)
+  const searchParams = useSearchParams()
+  const router = useRouter()
+
+  useEffect(() => {
+    const success = searchParams.get('success')
+    const error = searchParams.get('error')
+
+    if (success === '1') {
+      toast({
+        title: 'Paiement réussi !',
+        description: 'Votre abonnement est maintenant actif.',
+        variant: 'success',
+      })
+      // Clean URL
+      router.replace(`/${locale}/billing`)
+    } else if (error) {
+      const messages: Record<string, string> = {
+        payment_failed: 'Le paiement a échoué. Veuillez réessayer.',
+        no_reference: 'Référence de paiement manquante.',
+        invalid_plan: 'Plan invalide.',
+        server: 'Erreur serveur. Veuillez contacter le support.',
+      }
+      toast({
+        title: 'Erreur de paiement',
+        description: messages[error] || 'Une erreur est survenue.',
+        variant: 'destructive',
+      })
+      router.replace(`/${locale}/billing`)
+    }
+  }, [searchParams])
 
   const currentPlan = getPlan(shop?.plan)
   const trialDaysLeft = getTrialDaysLeft(shop?.trial_ends_at)

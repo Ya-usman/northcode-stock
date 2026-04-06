@@ -4,10 +4,14 @@ import { PLANS } from '@/lib/saas/plans'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
-  const reference = searchParams.get('reference')
+  // Paystack sends both 'reference' and 'trxref' — accept either
+  const reference = searchParams.get('reference') || searchParams.get('trxref')
   const locale = searchParams.get('locale') || 'en'
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}`
+  // Build baseUrl from request origin as fallback — avoids blank page if env var missing
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+    || `https://${process.env.VERCEL_URL}`
+    || `${request.nextUrl.protocol}//${request.nextUrl.host}`
 
   if (!reference) {
     return NextResponse.redirect(new URL(`/${locale}/billing?error=no_reference`, baseUrl))
