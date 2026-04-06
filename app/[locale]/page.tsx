@@ -369,7 +369,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
             </div>
           </div>
           <p className="text-center text-xs text-muted-foreground mt-6">
-            {t('footer.rights').replace('{year}', new Date().getFullYear().toString())}
+            {t('footer.rights', { year: new Date().getFullYear() })}
           </p>
         </div>
       </footer>
