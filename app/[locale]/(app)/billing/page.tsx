@@ -59,7 +59,7 @@ const PLAN_DETAILS = [
 ]
 
 export default function BillingPage({ params: { locale } }: { params: { locale: string } }) {
-  const { shop, user } = useAuth()
+  const { shop, user, refreshShop } = useAuth()
   const { toast } = useToast()
   const [loading, setLoading] = useState<string | null>(null)
   const searchParams = useSearchParams()
@@ -132,11 +132,10 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
             toast({ title: 'Paiement annulé', variant: 'destructive' })
           },
           callback: (response: { reference: string }) => {
-            // Verify server-side — must not be async (Paystack requirement)
             fetch(`/api/billing/verify?reference=${response.reference}&locale=${locale}`)
+              .then(() => refreshShop())
               .then(() => {
                 toast({ title: 'Paiement réussi !', description: 'Votre abonnement est actif.', variant: 'success' })
-                window.location.reload()
               })
               .catch(() => {
                 toast({ title: 'Erreur de vérification', variant: 'destructive' })
@@ -153,7 +152,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
       toast({ title: err.message, variant: 'destructive' })
       setLoading(null)
     }
-  }, [shop, user, country, locale, toast])
+  }, [shop, user, country, locale, toast, refreshShop])
 
   return (
     <>

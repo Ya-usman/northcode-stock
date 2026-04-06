@@ -14,6 +14,7 @@ interface AuthState {
 
 interface AuthContextValue extends AuthState {
   signOut: () => Promise<void>
+  refreshShop: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -56,23 +57,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (initialized.current) return
     initialized.current = true
 
+    // Initial load — getUser() is the source of truth
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (user) {
-        const { profile, shop } = await fetchProfileAndShop(user.id)
-        setState({ user, profile, shop, loading: false })
+        try {
+          const { profile, shop } = await fetchProfileAndShop(user.id)
+          setState({ user, profile, shop, loading: false })
+        } catch {
+          setState({ user, profile: null, shop: null, loading: false })
+        }
       } else {
         setState({ user: null, profile: null, shop: null, loading: false })
       }
+    }).catch(() => {
+      // Network failure — don't stay stuck on loading forever
+      setState({ user: null, profile: null, shop: null, loading: false })
     })
 
+    // Only listen for SIGNED_IN / SIGNED_OUT — skip INITIAL_SESSION to avoid double-fetch
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'INITIAL_SESSION') return // handled by getUser() above
+
       if (event === 'SIGNED_OUT') {
         setState({ user: null, profile: null, shop: null, loading: false })
         return
       }
-      if (session?.user) {
-        const { profile, shop } = await fetchProfileAndShop(session.user.id)
-        setState({ user: session.user, profile, shop, loading: false })
+
+      if (event === 'SIGNED_IN' && session?.user) {
+        try {
+          const { profile, shop } = await fetchProfileAndShop(session.user.id)
+          setState({ user: session.user, profile, shop, loading: false })
+        } catch {
+          setState({ user: session.user, profile: null, shop: null, loading: false })
+        }
       }
     })
 
@@ -82,17 +99,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (user) {
             try {
               const { profile, shop } = await fetchProfileAndShop(user.id)
-              // Only update if we got a valid profile — don't blank the UI on transient failures
               if (profile) {
                 setState({ user, profile, shop, loading: false })
               }
             } catch {
-              // Network glitch — keep existing state
+              // Keep existing state on network glitch
             }
           } else {
             setState({ user: null, profile: null, shop: null, loading: false })
           }
-        })
+        }).catch(() => {/* keep existing state */})
       }
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
@@ -104,14 +120,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signOut = useCallback(async () => {
-    setState(s => ({ ...s, loading: true }))
     document.cookie = 'user_role=; path=/; max-age=0'
     await supabase.auth.signOut()
     window.location.href = '/en/login'
   }, [])
 
+  // Used after payment to refresh shop data without full page reload
+  const refreshShop = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    try {
+      const { profile, shop } = await fetchProfileAndShop(user.id)
+      if (profile) setState(s => ({ ...s, profile, shop }))
+    } catch {/* keep existing */}
+  }, [])
+
   return (
-    <AuthContext.Provider value={{ ...state, signOut }}>
+    <AuthContext.Provider value={{ ...state, signOut, refreshShop }}>
       {children}
     </AuthContext.Provider>
   )
