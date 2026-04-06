@@ -272,5 +272,91 @@
     "title": "Ba ka da intanet",
     "body": "Wasu ayyuka na iya iyakance. Ana nuna bayanan kaya na ƙarshen aiki anan.",
     "cached": "Ana nuna bayanan da aka ajiye"
+  },
+  "landing": {
+    "nav": {
+      "features": "Abubuwa",
+      "pricing": "Farashi",
+      "reviews": "Ra'ayoyi",
+      "login": "Shiga",
+      "start_trial": "Fara Gwaji Kyauta"
+    },
+    "hero": {
+      "badge": "Najeriya & Kamaru · EN · FR · HA",
+      "title": "Gudanar da kantin ku",
+      "title_highlight": "da wayo, ba da wahala ba",
+      "subtitle": "Tsarin kula da kaya da aka tsara don kantunan Afirka ta Yamma — kaya, sayarwa, bashi, da rahoto.",
+      "cta_primary": "Fara Gwaji Kyauta na Kwanaki 14",
+      "cta_secondary": "Duba Abubuwa",
+      "no_card": "Ba kati ba • Soke kowane lokaci • Yana aiki a kowane wayar hannu",
+      "stat_shops": "Kantuna masu aiki",
+      "stat_sales": "Sayarwa da aka bi",
+      "stat_rating": "Kimantawa"
+    },
+    "trust": {
+      "label": "Kantuna suna amfani a",
+      "cities": "Kano · Kaduna · Sokoto · Abuja · Douala · Maiduguri"
+    },
+    "features": {
+      "title": "Duk abin da kantin ku ke bukata",
+      "subtitle": "Sauqi ga ma'aikaci kowane. Yana aiki don kasuwanci mai muhimmanci.",
+      "f1_title": "Sayarwa cikin dakika",
+      "f1_desc": "Nemo kaya ko duba lambar. Kammala sayarwa cikin dakika 10.",
+      "f2_title": "Bin diddigin kaya kai tsaye",
+      "f2_desc": "San duk abin da kuke da shi kowane lokaci. Gargadi kafin karewa.",
+      "f3_title": "Bin diddigin bashi",
+      "f3_desc": "Rubuta sayarwa bisa bashi, bi diddigin ma'auni, tattara kudi.",
+      "f4_title": "Rahoto & bayanai",
+      "f4_desc": "Kudaden yau, manyan kayayyaki, aikin ma'aikata. San lambobin kasuwancin ku.",
+      "f5_title": "Harsuna da yawa",
+      "f5_desc": "Turanci, Faransanci, da Hausa. Canza harshe a kowane lokaci.",
+      "f6_title": "Najeriya & Kamaru",
+      "f6_desc": "Paystack don Najeriya. MTN MoMo & Orange Money don Kamaru."
+    },
+    "testimonials": {
+      "title": "Abin da masu kantin suka ce",
+      "rating": "4.9/5 daga sakonnin 200+",
+      "t1_name": "Alhaji Musa Ibrahim",
+      "t1_shop": "Musa General Store, Kano",
+      "t1_text": "Kafin NorthCode, ban taba sanin nawa nake samu kowace rana ba. Yanzu ina duba wayata kuma na san komai.",
+      "t2_name": "Jean-Pierre Mbarga",
+      "t2_shop": "Mbarga Electronics, Douala",
+      "t2_text": "Bin diddigin bashi ya canza yadda nake gudanarwa. Duk ya rubuta, ba gardama da abokan ciniki.",
+      "t3_name": "Usman Garba",
+      "t3_shop": "Garba Electronics, Sokoto",
+      "t3_text": "Ma'aikacina yana amfani da shi ba tare da horarwa ba. Sauqi sosai."
+    },
+    "pricing": {
+      "title": "Farashi mai sauki da gaskiya",
+      "subtitle": "Fara kyauta na kwanaki 14. Ba kati ba.",
+      "popular": "Shahararren",
+      "per_month": "/wata",
+      "cta": "Fara Gwaji Kyauta",
+      "note": "Duk shirye-shiryen sun hada kwanaki 14 na gwaji • Soke kowane lokaci",
+      "toggle_ng": "Najeriya (N)",
+      "toggle_cm": "Kamaru (FCFA)",
+      "f1": "Har kayayyaki 200",
+      "f2": "Asusun ma'aikata 3",
+      "f3": "Export CSV & PDF",
+      "f4": "Tarihin kwanaki 90",
+      "f5": "Kayayyaki marasa iyaka",
+      "f6": "Asusun ma'aikata 10",
+      "f7": "Rasidodin WhatsApp",
+      "f8": "Tarihin shekara 1",
+      "f9": "Komai maras iyaka",
+      "f10": "Ma'aikata marasa iyaka",
+      "f11": "Tallafi na musamman",
+      "f12": "Onboarding na musamman"
+    },
+    "cta": {
+      "title": "Shirye don sanin lambobin kasuwancin ku?",
+      "subtitle": "Ku shiga daruruwan kantuna a Najeriya da Kamaru da ke amfani da NorthCode Stock.",
+      "button": "Kirji Asusun Kyauta",
+      "note": "Ba kati ba • Kafa cikin minti 2"
+    },
+    "footer": {
+      "secure": "Amintacce • Mai zaman kansa • An yi a Afirka",
+      "rights": "© {year} NorthCode. Duk hakkokin an kiyaye."
+    }
   }
 }

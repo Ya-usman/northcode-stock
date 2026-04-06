@@ -272,5 +272,91 @@
     "title": "You're offline",
     "body": "Some features may be limited. Stock data from your last sync is shown below.",
     "cached": "Showing cached data"
+  },
+  "landing": {
+    "nav": {
+      "features": "Features",
+      "pricing": "Pricing",
+      "reviews": "Reviews",
+      "login": "Log In",
+      "start_trial": "Start Free Trial"
+    },
+    "hero": {
+      "badge": "Nigeria & Cameroon · EN · FR · HA",
+      "title": "Run your boutique",
+      "title_highlight": "smarter, not harder",
+      "subtitle": "The only inventory system designed for West African boutiques — track stock, record sales, manage credit, and know your numbers.",
+      "cta_primary": "Start Free 14-Day Trial",
+      "cta_secondary": "See Features",
+      "no_card": "No credit card required • Cancel anytime • Works on any phone",
+      "stat_shops": "Active Shops",
+      "stat_sales": "Sales Tracked",
+      "stat_rating": "Rating"
+    },
+    "trust": {
+      "label": "Trusted by boutiques in",
+      "cities": "Lagos · Kano · Abuja · Kaduna · Douala · Yaoundé · Bafoussam · Sokoto"
+    },
+    "features": {
+      "title": "Everything your shop needs",
+      "subtitle": "Simple enough for any staff. Powerful enough to run a serious business.",
+      "f1_title": "Sales in seconds",
+      "f1_desc": "Search product name or scan barcode. Complete a sale in under 10 seconds.",
+      "f2_title": "Real-time stock tracking",
+      "f2_desc": "Know exactly what you have at any moment. Get alerts before running out.",
+      "f3_title": "Credit & debt tracker",
+      "f3_desc": "Record credit sales, track balances, and collect payments easily.",
+      "f4_title": "Reports & insights",
+      "f4_desc": "Daily revenue, top products, cashier performance. Know your numbers.",
+      "f5_title": "Multi-language",
+      "f5_desc": "Full support for English, French and Hausa. Switch language anytime.",
+      "f6_title": "Nigeria & Cameroon",
+      "f6_desc": "Paystack for Nigeria. MTN MoMo & Orange Money for Cameroon. Each in their own currency."
+    },
+    "testimonials": {
+      "title": "What shop owners say",
+      "rating": "4.9/5 from 200+ reviews",
+      "t1_name": "Alhaji Musa Ibrahim",
+      "t1_shop": "Musa General Store, Kano",
+      "t1_text": "Before NorthCode, I never knew how much I was making daily. Now I check my phone and I know everything.",
+      "t2_name": "Jean-Pierre Mbarga",
+      "t2_shop": "Mbarga Electronics, Douala",
+      "t2_text": "The credit tracking changed my management. Everything is recorded, no more disputes with customers.",
+      "t3_name": "Usman Garba",
+      "t3_shop": "Garba Electronics, Sokoto",
+      "t3_text": "My cashier uses it without any training. Very easy. The offline mode works perfectly."
+    },
+    "pricing": {
+      "title": "Simple, honest pricing",
+      "subtitle": "Start free for 14 days. No credit card required.",
+      "popular": "Most Popular",
+      "per_month": "/month",
+      "cta": "Start Free Trial",
+      "note": "All plans include 14-day free trial • Cancel anytime • No hidden fees",
+      "toggle_ng": "Nigeria (₦)",
+      "toggle_cm": "Cameroun (FCFA)",
+      "f1": "Up to 200 products",
+      "f2": "3 staff accounts",
+      "f3": "CSV & PDF export",
+      "f4": "90 days history",
+      "f5": "Unlimited products",
+      "f6": "10 staff accounts",
+      "f7": "WhatsApp receipts",
+      "f8": "1 year history",
+      "f9": "Unlimited everything",
+      "f10": "Unlimited staff",
+      "f11": "Dedicated support",
+      "f12": "Custom onboarding"
+    },
+    "cta": {
+      "title": "Ready to know your business numbers?",
+      "subtitle": "Join hundreds of boutiques in Nigeria and Cameroon already using NorthCode Stock.",
+      "button": "Create Free Account",
+      "note": "No credit card • Setup in 2 minutes"
+    },
+    "footer": {
+      "secure": "Secure • Private • Made in Africa",
+      "rights": "© {year} NorthCode. All rights reserved."
+    }
   }
 }
