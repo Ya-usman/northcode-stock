@@ -48,7 +48,13 @@ export async function POST(request: Request) {
       })
       const data = await res.json()
       if (!data.status) return NextResponse.json({ error: data.message || 'Paystack error' }, { status: 500 })
-      return NextResponse.json({ authorization_url: data.data.authorization_url, reference: data.data.reference })
+      return NextResponse.json({
+        authorization_url: data.data.authorization_url,
+        reference: data.data.reference,
+        // Extra fields for Paystack Inline popup
+        public_key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '',
+        amount_kobo: amount * 100,
+      })
     }
 
     // ── Cameroun → Flutterwave ──────────────────────────────────────────────

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { getPlan, getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
 import { getCountry } from '@/lib/saas/countries'
@@ -10,6 +10,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { CheckCircle2, Zap, Crown, Building2, Clock, CreditCard, Smartphone } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { useSearchParams, useRouter } from 'next/navigation'
+import Script from 'next/script'
 
 const PLAN_DETAILS = [
   {
@@ -101,7 +102,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   const isNigeria = country.code === 'NG'
   const isCameroon = country.code === 'CM'
 
-  const handleSubscribe = async (planId: 'starter' | 'pro' | 'business') => {
+  const handleSubscribe = useCallback(async (planId: 'starter' | 'pro' | 'business') => {
     if (!shop || !user) return
     setLoading(planId)
     try {
@@ -112,15 +113,48 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur initialisation paiement')
-      window.location.href = data.authorization_url
+
+      // Nigeria → Paystack Inline popup (stays on page, cleaner UX)
+      if (country.code === 'NG') {
+        const PaystackPop = (window as any).PaystackPop
+        if (!PaystackPop) {
+          window.location.href = data.authorization_url
+          return
+        }
+        const handler = PaystackPop.setup({
+          key: data.public_key,
+          email: user.email,
+          amount: data.amount_kobo,
+          ref: data.reference,
+          metadata: { shop_id: shop.id, plan_id: planId },
+          onClose: () => {
+            setLoading(null)
+            toast({ title: 'Paiement annulé', variant: 'destructive' })
+          },
+          callback: async (response: { reference: string }) => {
+            // Verify server-side
+            const vRes = await fetch(`/api/billing/verify?reference=${response.reference}&locale=${locale}`)
+            if (vRes.redirected || vRes.ok) {
+              toast({ title: 'Paiement réussi !', description: 'Votre abonnement est actif.', variant: 'success' })
+              window.location.reload()
+            }
+            setLoading(null)
+          },
+        })
+        handler.openIframe()
+      } else {
+        // Cameroun → Flutterwave redirect
+        window.location.href = data.authorization_url
+      }
     } catch (err: any) {
       toast({ title: err.message, variant: 'destructive' })
-    } finally {
       setLoading(null)
     }
-  }
+  }, [shop, user, country, locale, toast])
 
   return (
+    <>
+    <Script src="https://js.paystack.co/v1/inline.js" strategy="lazyOnload" />
     <div className="max-w-4xl mx-auto space-y-6">
 
       {/* Current plan status */}
@@ -293,5 +327,6 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
         </div>
       </div>
     </div>
+    </>
   )
 }
