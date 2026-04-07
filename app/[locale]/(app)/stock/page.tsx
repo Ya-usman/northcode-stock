@@ -98,7 +98,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       unit: data.unit || 'piece',
       low_stock_threshold: data.low_stock_threshold || null,
       is_active: true,
-    })
+    } as any)
     setSaving(false)
     if (error) { toast({ title: error.message, variant: 'destructive' }); return }
     toast({ title: 'Product added!', variant: 'success' })
@@ -110,7 +110,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const onEditProduct = async (data: ProductFormData) => {
     if (!editingProduct) return
     setSaving(true)
-    const { error } = await supabase.from('products').update({
+    const { error } = await (supabase as any).from('products').update({
       name: data.name,
       name_hausa: data.name_hausa || null,
       sku: data.sku || null,
@@ -131,12 +131,13 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const onRestock = async (data: RestockFormData) => {
     if (!restockProduct) return
     setSaving(true)
-    const { error: updateError } = await supabase.from('products')
+    const db = supabase as any
+    const { error: updateError } = await db.from('products')
       .update({ quantity: restockProduct.quantity + data.quantity })
       .eq('id', restockProduct.id)
     if (updateError) { setSaving(false); toast({ title: updateError.message, variant: 'destructive' }); return }
 
-    await supabase.from('stock_movements').insert({
+    await db.from('stock_movements').insert({
       shop_id: shop!.id,
       product_id: restockProduct.id,
       type: 'in',
@@ -154,7 +155,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
   const softDelete = async (product: Product) => {
     if (!confirm(t('products.delete_confirm'))) return
-    await supabase.from('products').update({ is_active: false }).eq('id', product.id)
+    await (supabase as any).from('products').update({ is_active: false }).eq('id', product.id)
     toast({ title: 'Product removed' })
     fetchProducts()
   }
