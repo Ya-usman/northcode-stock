@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
 
-    const admin = await createAdminClient()
+    const admin = await createAdminClient() as any
 
     switch (action) {
       case 'suspend': {
@@ -72,6 +72,12 @@ export async function POST(request: Request) {
         } as any).eq('id', shop_id)
         await admin.from('profiles').update({ is_active: true }).eq('shop_id', shop_id)
         return NextResponse.json({ success: true, message: `Plan ${planId} granted` })
+      }
+
+      case 'toggle_warehouse': {
+        const { data: shop } = await admin.from('shops').select('is_warehouse').eq('id', shop_id).single()
+        await admin.from('shops').update({ is_warehouse: !(shop as any)?.is_warehouse } as any).eq('id', shop_id)
+        return NextResponse.json({ success: true, message: (shop as any)?.is_warehouse ? 'Entrepôt désactivé' : 'Entrepôt activé' })
       }
 
       default:

@@ -21,10 +21,11 @@ export interface Shop {
   notify_email_daily: boolean
   created_at: string
   // SaaS fields
-  plan: string | null            // 'trial' | 'starter' | 'pro' | 'business'
+  plan: string | null
   trial_ends_at: string | null
   plan_expires_at: string | null
-  country: string | null         // 'NG' | 'CM'
+  country: string | null
+  is_warehouse: boolean
 }
 
 export interface Profile {
@@ -229,6 +230,37 @@ export interface StockTransfer {
   created_at: string
   from_shop?: Shop
   to_shop?: Shop
+  product?: Product
+}
+
+export interface DeliveryOrder {
+  id: string
+  bordereau_number: string
+  warehouse_id: string
+  destination_id: string
+  status: 'draft' | 'dispatched' | 'received' | 'cancelled'
+  notes: string | null
+  created_by: string | null
+  dispatched_by: string | null
+  received_by: string | null
+  dispatched_at: string | null
+  received_at: string | null
+  cancelled_at: string | null
+  created_at: string
+  // Joined
+  warehouse?: Shop
+  destination?: Shop
+  items?: DeliveryOrderItem[]
+}
+
+export interface DeliveryOrderItem {
+  id: string
+  delivery_order_id: string
+  product_id: string
+  product_name: string
+  quantity: number
+  unit_cost: number
+  created_at: string
   product?: Product
 }
 

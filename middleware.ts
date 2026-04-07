@@ -23,6 +23,8 @@ const ROLE_ACCESS: Record<string, string[]> = {
   '/stock':             ['owner', 'stock_manager'],
   '/stock/movements':   ['owner', 'stock_manager'],
   '/stock/transfers':   ['owner', 'stock_manager'],
+  '/warehouse':         ['owner', 'stock_manager'],
+  '/reception':         ['owner', 'stock_manager', 'cashier'],
   '/suppliers':         ['owner', 'stock_manager'],
   '/sales/new':         ['owner', 'cashier'],
   '/sales/history':     ['owner', 'cashier'],

@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import {
   LayoutDashboard, ShoppingCart, Package, BarChart2, Settings,
   Users, Truck, CreditCard, History, TrendingUp, LogOut, ChevronRight, Zap,
-  Store, ArrowLeftRight, ChevronDown,
+  Store, ArrowLeftRight, ChevronDown, Warehouse, PackageCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -59,6 +59,8 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
         { href: `/${locale}/reports`, icon: BarChart2, label: t('reports'), roles: ['owner'] },
         { href: `/${locale}/team`, icon: Users, label: t('team'), roles: ['owner'] },
         { href: `/${locale}/stock/transfers`, icon: ArrowLeftRight, label: 'Transferts', roles: ['owner', 'stock_manager'] },
+        { href: `/${locale}/warehouse`, icon: Warehouse, label: 'Entrepôt', roles: ['owner', 'stock_manager'] },
+        { href: `/${locale}/reception`, icon: PackageCheck, label: 'Réception', roles: ['owner', 'stock_manager', 'cashier'] },
         { href: `/${locale}/shops`, icon: Store, label: 'Boutiques', roles: ['owner'] },
         { href: `/${locale}/settings`, icon: Settings, label: t('settings'), roles: ['owner'] },
         { href: `/${locale}/billing`, icon: Zap, label: 'Abonnement', roles: ['owner'] },
