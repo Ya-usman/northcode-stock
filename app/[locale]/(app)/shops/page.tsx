@@ -50,14 +50,16 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
         tax_rate: 0,
       } as any).select().single()
 
-      if (error || !shop) throw error ?? new Error('Erreur création boutique')
+      if (error) throw new Error(`Erreur boutique: ${error.message} (${error.code})`)
+      if (!shop) throw new Error('Boutique non créée')
 
       // Add as owner in shop_members
-      await supabase.from('shop_members').insert({
+      const { error: memberError } = await supabase.from('shop_members').insert({
         shop_id: (shop as Shop).id,
         user_id: user.id,
         role: 'owner',
       } as any)
+      if (memberError) throw new Error(`Erreur membre: ${memberError.message} (${memberError.code})`)
 
       await refreshShop()
       switchShop((shop as Shop).id)
