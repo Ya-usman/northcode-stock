@@ -36,30 +36,14 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
     if (!newName.trim() || !user) return
     setLoading(true)
     try {
-      // Create shop
-      const { data: shop, error } = await supabase.from('shops').insert({
-        name: newName.trim(),
-        city: newCity.trim() || '',
-        state: '',
-        owner_id: user.id,
-        plan: 'trial',
-        trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        currency: activeShop?.currency ?? 'NGN',
-        country: activeShop?.country ?? 'NG',
-        low_stock_threshold: 10,
-        tax_rate: 0,
-      } as any).select().single()
-
-      if (error) throw new Error(`Erreur boutique: ${error.message} (${error.code})`)
-      if (!shop) throw new Error('Boutique non créée')
-
-      // Add as owner in shop_members
-      const { error: memberError } = await supabase.from('shop_members').insert({
-        shop_id: (shop as Shop).id,
-        user_id: user.id,
-        role: 'owner',
-      } as any)
-      if (memberError) throw new Error(`Erreur membre: ${memberError.message} (${memberError.code})`)
+      const res = await fetch('/api/shops', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName.trim(), city: newCity.trim() }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Erreur création boutique')
+      const shop = json.shop
 
       await refreshShop()
       switchShop((shop as Shop).id)
