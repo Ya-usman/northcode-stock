@@ -18,6 +18,7 @@ interface AuthState {
 interface AuthContextValue extends AuthState {
   // Compat — pointe sur activeShop
   shop: Shop | null
+  isSuperAdmin: boolean
   signOut: () => Promise<void>
   refreshShop: () => Promise<void>
   switchShop: (shopId: string) => void
@@ -194,6 +195,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<AuthContextValue>(() => ({
     ...state,
     shop: state.activeShop, // compat alias
+    isSuperAdmin: state.profile?.role === 'super_admin',
     signOut,
     refreshShop,
     switchShop,

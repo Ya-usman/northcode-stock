@@ -1,4 +1,4 @@
-export type UserRole = 'owner' | 'cashier' | 'stock_manager' | 'viewer'
+export type UserRole = 'super_admin' | 'owner' | 'cashier' | 'stock_manager' | 'viewer'
 export type PaymentMethod = 'cash' | 'transfer' | 'credit' | 'paystack'
 export type PaymentStatus = 'paid' | 'pending' | 'partial'
 export type StockMovementType = 'in' | 'out' | 'adjustment' | 'sale'
@@ -217,6 +217,8 @@ export interface StockTransfer {
   unit_cost: number
   to_product_id: string | null
   status: 'pending' | 'in_transit' | 'received' | 'cancelled'
+  transfer_number: string | null  // auto-generated TRF-0001
+  bordereau_ref: string | null    // numéro de bordereau saisi
   initiated_by: string | null
   received_by: string | null
   notes: string | null
@@ -228,6 +230,19 @@ export interface StockTransfer {
   from_shop?: Shop
   to_shop?: Shop
   product?: Product
+}
+
+export interface CrossShopProduct {
+  product_id: string
+  name: string
+  name_hausa: string | null
+  sku: string | null
+  quantity: number
+  selling_price: number
+  unit: string
+  shop_id: string
+  shop_name: string
+  shop_city: string
 }
 
 // Database types (Supabase-generated shape)

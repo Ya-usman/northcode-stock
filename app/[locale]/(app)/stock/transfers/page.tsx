@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
 import { ArrowLeftRight, Plus, CheckCircle2, XCircle, Truck } from 'lucide-react'
-import type { StockTransfer, Product, Shop } from '@/lib/types/database'
+import type { Product } from '@/lib/types/database'
+import { CrossShopSearch } from '@/components/stock/cross-shop-search'
 
 const supabase = createClient()
 
@@ -26,7 +27,7 @@ export default function TransfersPage() {
   const [loadingData, setLoadingData] = useState(true)
   const [creating, setCreating] = useState(false)
   const [products, setProducts] = useState<Product[]>([])
-  const [form, setForm] = useState({ to_shop_id: '', product_id: '', quantity: 1, notes: '' })
+  const [form, setForm] = useState({ to_shop_id: '', product_id: '', quantity: 1, notes: '', bordereau_ref: '' })
   const [submitting, setSubmitting] = useState(false)
 
   const otherShops = userShops.filter(s => s.id !== activeShop?.id)
@@ -64,7 +65,7 @@ export default function TransfersPage() {
       if (!product) throw new Error('Produit introuvable')
       if (product.quantity < form.quantity) throw new Error(`Stock insuffisant (${product.quantity} dispo)`)
 
-      const { error } = await supabase.from('stock_transfers').insert({
+      const { error } = await (supabase as any).from('stock_transfers').insert({
         from_shop_id: activeShop.id,
         to_shop_id: form.to_shop_id,
         product_id: form.product_id,
@@ -72,15 +73,16 @@ export default function TransfersPage() {
         quantity: form.quantity,
         unit_cost: product.buying_price ?? 0,
         notes: form.notes || null,
+        bordereau_ref: form.bordereau_ref || null,
         initiated_by: profile?.id ?? null,
         status: 'pending',
-      } as any)
+      })
 
       if (error) throw error
 
       toast({ title: 'Transfert créé !', description: 'En attente de confirmation.', variant: 'success' })
       setCreating(false)
-      setForm({ to_shop_id: '', product_id: '', quantity: 1, notes: '' })
+      setForm({ to_shop_id: '', product_id: '', quantity: 1, notes: '', bordereau_ref: '' })
       // Refresh
       const { data: t } = await supabase
         .from('stock_transfers')
@@ -97,9 +99,9 @@ export default function TransfersPage() {
   }
 
   const updateStatus = async (id: string, status: 'received' | 'cancelled') => {
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('stock_transfers')
-      .update({ status, received_by: status === 'received' ? profile?.id ?? null : undefined } as any)
+      .update({ status, received_by: status === 'received' ? profile?.id ?? null : undefined })
       .eq('id', id)
 
     if (error) {
@@ -183,6 +185,16 @@ export default function TransfersPage() {
             </div>
 
             <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">N° Bordereau</label>
+              <input
+                className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-northcode-blue"
+                placeholder="Ex: BL-2024-001"
+                value={form.bordereau_ref}
+                onChange={e => setForm(f => ({ ...f, bordereau_ref: e.target.value }))}
+              />
+            </div>
+
+            <div>
               <label className="text-xs font-medium text-gray-700 block mb-1">Notes</label>
               <input
                 className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-northcode-blue"
@@ -226,6 +238,18 @@ export default function TransfersPage() {
                     <Truck className={`h-4 w-4 ${isOutgoing ? 'text-orange-500' : 'text-green-600'}`} />
                   </div>
                   <div>
+                    <div className="flex items-center gap-2 mb-0.5">
+                      {t.transfer_number && (
+                        <span className="font-mono text-[10px] text-northcode-blue bg-blue-50 px-1.5 py-0.5 rounded">
+                          {t.transfer_number}
+                        </span>
+                      )}
+                      {t.bordereau_ref && (
+                        <span className="font-mono text-[10px] text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
+                          BL: {t.bordereau_ref}
+                        </span>
+                      )}
+                    </div>
                     <p className="font-medium text-sm text-gray-900">
                       {t.product?.name ?? t.product_name}
                       <span className="text-muted-foreground font-normal"> × {t.quantity} {t.product?.unit ?? ''}</span>
@@ -258,6 +282,11 @@ export default function TransfersPage() {
           )
         })}
       </div>
+
+      {/* Cross-shop product search */}
+      {activeShop && (
+        <CrossShopSearch currentShopId={activeShop.id} />
+      )}
     </div>
   )
 }
