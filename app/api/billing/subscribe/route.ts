@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { getCountry } from '@/lib/saas/countries'
+import { getCountry, getPeriodPrice, type BillingPeriod } from '@/lib/saas/countries'
 
 export async function POST(request: Request) {
   try {
-    const { plan_id, shop_id, email, locale } = await request.json()
+    const { plan_id, shop_id, email, locale, billing_period = 'monthly' } = await request.json()
 
     if (!plan_id || !shop_id || !email) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -14,7 +14,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
     }
 
-    // Fetch shop country to route to the right gateway
+    const period = billing_period as BillingPeriod
+
     const supabase = await createAdminClient()
     const { data: shopData } = await supabase
       .from('shops')
@@ -24,11 +25,13 @@ export async function POST(request: Request) {
 
     const country = getCountry((shopData as any)?.country)
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}`
-    const amount = country.prices[plan_id as keyof typeof country.prices]
+    const monthlyPrice = country.prices[plan_id as keyof typeof country.prices]
 
-    if (!amount) {
+    if (!monthlyPrice) {
       return NextResponse.json({ error: 'Invalid plan for this country' }, { status: 400 })
     }
+
+    const amount = getPeriodPrice(monthlyPrice, period)
 
     // ── Nigeria → Paystack ──────────────────────────────────────────────────
     if (country.gateway === 'paystack') {
@@ -42,7 +45,7 @@ export async function POST(request: Request) {
           email,
           amount: amount * 100, // kobo
           callback_url: `${baseUrl}/api/billing/verify?locale=${locale}`,
-          metadata: { shop_id, plan_id, locale, gateway: 'paystack' },
+          metadata: { shop_id, plan_id, locale, billing_period: period, gateway: 'paystack' },
           channels: ['card', 'bank', 'ussd', 'mobile_money'],
         }),
       })
@@ -51,7 +54,6 @@ export async function POST(request: Request) {
       return NextResponse.json({
         authorization_url: data.data.authorization_url,
         reference: data.data.reference,
-        // Extra fields for Paystack Inline popup
         public_key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '',
         amount_kobo: amount * 100,
       })
@@ -73,10 +75,10 @@ export async function POST(request: Request) {
           currency: 'XAF',
           redirect_url: `${baseUrl}/api/billing/flutterwave/verify?locale=${locale}`,
           customer: { email },
-          meta: { shop_id, plan_id, locale },
+          meta: { shop_id, plan_id, locale, billing_period: period },
           customizations: {
             title: 'NorthCode Stock',
-            description: `Abonnement Plan ${plan_id}`,
+            description: `Abonnement Plan ${plan_id} (${period})`,
             logo: `${baseUrl}/icons/icon-192x192.png`,
           },
           payment_options: 'mobilemoneyfranco',

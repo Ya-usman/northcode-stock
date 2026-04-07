@@ -1,4 +1,20 @@
 export type CountryCode = 'NG' | 'CM'
+export type BillingPeriod = 'monthly' | 'quarterly' | 'annual'
+
+export const BILLING_PERIODS: Record<BillingPeriod, { months: number; days: number; discount: number; label: string; badge?: string }> = {
+  monthly:   { months: 1,  days: 31,  discount: 0,    label: 'Mensuel' },
+  quarterly: { months: 3,  days: 92,  discount: 0.10, label: 'Trimestriel', badge: '-10%' },
+  annual:    { months: 12, days: 365, discount: 0.25, label: 'Annuel',      badge: '-25%' },
+}
+
+export function getPeriodPrice(baseMonthlyPrice: number, period: BillingPeriod): number {
+  const cfg = BILLING_PERIODS[period]
+  return Math.floor(baseMonthlyPrice * cfg.months * (1 - cfg.discount))
+}
+
+export function getPeriodDays(period: BillingPeriod): number {
+  return BILLING_PERIODS[period].days
+}
 
 export interface CountryConfig {
   code: CountryCode

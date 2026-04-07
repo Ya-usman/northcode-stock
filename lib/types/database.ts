@@ -195,6 +195,41 @@ export interface ReportData {
   }
 }
 
+export interface ShopMember {
+  id: string
+  shop_id: string
+  user_id: string
+  role: UserRole
+  is_active: boolean
+  invited_by: string | null
+  joined_at: string
+  created_at: string
+  shops?: Shop
+}
+
+export interface StockTransfer {
+  id: string
+  from_shop_id: string
+  to_shop_id: string
+  product_id: string
+  product_name: string
+  quantity: number
+  unit_cost: number
+  to_product_id: string | null
+  status: 'pending' | 'in_transit' | 'received' | 'cancelled'
+  initiated_by: string | null
+  received_by: string | null
+  notes: string | null
+  initiated_at: string
+  received_at: string | null
+  cancelled_at: string | null
+  cancelled_by: string | null
+  created_at: string
+  from_shop?: Shop
+  to_shop?: Shop
+  product?: Product
+}
+
 // Database types (Supabase-generated shape)
 export type Database = {
   public: {

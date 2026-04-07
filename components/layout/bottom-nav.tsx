@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl'
 import {
   LayoutDashboard, ShoppingCart, Package, BarChart2, Settings,
   MoreHorizontal, History, CreditCard, Users, Truck, TrendingUp, Zap,
-  X, LogOut,
+  X, LogOut, Store, ArrowLeftRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import type { UserRole } from '@/lib/types/database'
@@ -33,8 +33,10 @@ export function BottomNav({ locale, role, onSignOut }: BottomNavProps) {
     { href: `/${locale}/customers`,        icon: Users,           label: t('customers'),      roles: ['owner', 'cashier'],                            primary: false },
     { href: `/${locale}/stock/movements`,  icon: TrendingUp,      label: t('movements'),      roles: ['owner', 'stock_manager'],                      primary: false },
     { href: `/${locale}/suppliers`,        icon: Truck,           label: t('suppliers'),      roles: ['owner', 'stock_manager'],                      primary: false },
-    { href: `/${locale}/team`,             icon: Users,           label: t('team'),           roles: ['owner'],                                       primary: false },
-    { href: `/${locale}/billing`,          icon: Zap,             label: 'Billing',           roles: ['owner'],                                       primary: false },
+    { href: `/${locale}/team`,              icon: Users,           label: t('team'),           roles: ['owner'],                                       primary: false },
+    { href: `/${locale}/stock/transfers`,  icon: ArrowLeftRight,  label: 'Transferts',        roles: ['owner', 'stock_manager'],                      primary: false },
+    { href: `/${locale}/shops`,            icon: Store,           label: 'Boutiques',         roles: ['owner'],                                       primary: false },
+    { href: `/${locale}/billing`,          icon: Zap,             label: 'Abonnement',        roles: ['owner'],                                       primary: false },
     { href: `/${locale}/settings`,         icon: Settings,        label: t('settings'),       roles: ['owner'],                                       primary: false },
   ].filter(item => item.roles.includes(role))
 

@@ -14,18 +14,20 @@ const PUBLIC_PATHS = ['/', '/login', '/register', '/forgot-password', '/reset-pa
 
 // Restrictions par rôle
 const ROLE_ACCESS: Record<string, string[]> = {
-  '/team':            ['owner'],
-  '/reports':         ['owner'],
-  '/settings':        ['owner'],
-  '/billing':         ['owner'],
-  '/admin':           ['owner'],
-  '/stock':           ['owner', 'stock_manager'],
-  '/stock/movements': ['owner', 'stock_manager'],
-  '/suppliers':       ['owner', 'stock_manager'],
-  '/sales/new':       ['owner', 'cashier'],
-  '/sales/history':   ['owner', 'cashier'],
-  '/payments':        ['owner'],
-  '/customers':       ['owner', 'cashier'],
+  '/team':              ['owner'],
+  '/reports':           ['owner'],
+  '/settings':          ['owner'],
+  '/billing':           ['owner'],
+  '/admin':             ['owner'],
+  '/shops':             ['owner'],
+  '/stock':             ['owner', 'stock_manager'],
+  '/stock/movements':   ['owner', 'stock_manager'],
+  '/stock/transfers':   ['owner', 'stock_manager'],
+  '/suppliers':         ['owner', 'stock_manager'],
+  '/sales/new':         ['owner', 'cashier'],
+  '/sales/history':     ['owner', 'cashier'],
+  '/payments':          ['owner'],
+  '/customers':         ['owner', 'cashier'],
 }
 
 function isPublic(path: string): boolean {

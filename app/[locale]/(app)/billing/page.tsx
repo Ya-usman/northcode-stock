@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { getPlan, getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
-import { getCountry } from '@/lib/saas/countries'
+import { getCountry, BILLING_PERIODS, getPeriodPrice, type BillingPeriod } from '@/lib/saas/countries'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
@@ -49,10 +49,10 @@ const PLAN_DETAILS = [
     headerColor: 'bg-gray-900 text-white',
     features: [
       'Produits & employés illimités',
-      'Onboarding personnalisé',
-      'Support dédié',
+      'Multi-boutiques',
+      'Transferts de stock',
       'Historique complet',
-      'Accès API',
+      'Support dédié',
       'Garantie SLA',
     ],
   },
@@ -62,6 +62,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   const { shop, user, refreshShop } = useAuth()
   const { toast } = useToast()
   const [loading, setLoading] = useState<string | null>(null)
+  const [period, setPeriod] = useState<BillingPeriod>('monthly')
   const searchParams = useSearchParams()
   const router = useRouter()
 
@@ -70,12 +71,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
     const error = searchParams.get('error')
 
     if (success === '1') {
-      toast({
-        title: 'Paiement réussi !',
-        description: 'Votre abonnement est maintenant actif.',
-        variant: 'success',
-      })
-      // Clean URL
+      toast({ title: 'Paiement réussi !', description: 'Votre abonnement est maintenant actif.', variant: 'success' })
       router.replace(`/${locale}/billing`)
     } else if (error) {
       const messages: Record<string, string> = {
@@ -84,11 +80,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
         invalid_plan: 'Plan invalide.',
         server: 'Erreur serveur. Veuillez contacter le support.',
       }
-      toast({
-        title: 'Erreur de paiement',
-        description: messages[error] || 'Une erreur est survenue.',
-        variant: 'destructive',
-      })
+      toast({ title: 'Erreur de paiement', description: messages[error] || 'Une erreur est survenue.', variant: 'destructive' })
       router.replace(`/${locale}/billing`)
     }
   }, [searchParams])
@@ -109,12 +101,11 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
       const res = await fetch('/api/billing/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan_id: planId, shop_id: shop.id, email: user.email, locale }),
+        body: JSON.stringify({ plan_id: planId, shop_id: shop.id, email: user.email, locale, billing_period: period }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur initialisation paiement')
 
-      // Nigeria → Paystack Inline popup (stays on page, cleaner UX)
       if (country.code === 'NG') {
         const PaystackPop = (window as any).PaystackPop
         if (!PaystackPop) {
@@ -126,7 +117,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
           email: user.email,
           amount: data.amount_kobo,
           ref: data.reference,
-          metadata: { shop_id: shop.id, plan_id: planId },
+          metadata: { shop_id: shop.id, plan_id: planId, billing_period: period },
           onClose: () => {
             setLoading(null)
             toast({ title: 'Paiement annulé', variant: 'destructive' })
@@ -137,22 +128,19 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
               .then(() => {
                 toast({ title: 'Paiement réussi !', description: 'Votre abonnement est actif.', variant: 'success' })
               })
-              .catch(() => {
-                toast({ title: 'Erreur de vérification', variant: 'destructive' })
-              })
+              .catch(() => toast({ title: 'Erreur de vérification', variant: 'destructive' }))
               .finally(() => setLoading(null))
           },
         })
         handler.openIframe()
       } else {
-        // Cameroun → Flutterwave redirect
         window.location.href = data.authorization_url
       }
     } catch (err: any) {
       toast({ title: err.message, variant: 'destructive' })
       setLoading(null)
     }
-  }, [shop, user, country, locale, toast, refreshShop])
+  }, [shop, user, country, locale, toast, refreshShop, period])
 
   return (
     <>
@@ -216,15 +204,42 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
         </div>
       </div>
 
-      {/* Plan selection */}
+      {/* Period selector */}
       <div>
-        <h2 className="font-semibold text-gray-900 mb-4">
+        <h2 className="font-semibold text-gray-900 mb-3">
           {isSubscribed ? 'Changer de plan' : 'Choisir un plan'}
         </h2>
 
+        {/* Billing period tabs */}
+        <div className="flex gap-2 mb-4 bg-gray-100 rounded-lg p-1 w-fit">
+          {(Object.entries(BILLING_PERIODS) as [BillingPeriod, typeof BILLING_PERIODS[BillingPeriod]][]).map(([key, cfg]) => (
+            <button
+              key={key}
+              onClick={() => setPeriod(key)}
+              className={cn(
+                'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all',
+                period === key
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-muted-foreground hover:text-gray-700'
+              )}
+            >
+              {cfg.label}
+              {cfg.badge && (
+                <span className={cn(
+                  'text-[10px] font-bold rounded-full px-1.5 py-0.5',
+                  period === key ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'
+                )}>
+                  {cfg.badge}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {PLAN_DETAILS.map(({ id, icon: Icon, color, headerColor, popular, features }) => {
-            const price = country.prices[id]
+            const monthlyPrice = country.prices[id]
+            const price = getPeriodPrice(monthlyPrice, period)
             const isCurrent = shop?.plan === id && isSubscribed
 
             return (
@@ -252,8 +267,15 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                     <span className={cn('text-2xl font-extrabold', popular ? 'text-white' : 'text-northcode-blue')}>
                       {country.currencySymbol}{price.toLocaleString('fr-FR')}
                     </span>
-                    <span className={cn('text-xs', popular ? 'text-blue-100' : 'text-muted-foreground')}>/mois</span>
+                    <span className={cn('text-xs', popular ? 'text-blue-100' : 'text-muted-foreground')}>
+                      /{period === 'monthly' ? 'mois' : period === 'quarterly' ? '3 mois' : 'an'}
+                    </span>
                   </div>
+                  {period !== 'monthly' && (
+                    <p className={cn('text-xs mt-0.5', popular ? 'text-blue-100' : 'text-muted-foreground')}>
+                      soit {country.currencySymbol}{Math.floor(price / BILLING_PERIODS[period].months).toLocaleString('fr-FR')}/mois
+                    </p>
+                  )}
                 </div>
 
                 <div className="p-4">
@@ -307,8 +329,8 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
               a: 'Non. Vos données sont conservées en sécurité et restent accessibles dès que vous souscrivez à nouveau.',
             },
             {
-              q: 'Puis-je changer de plan plus tard ?',
-              a: 'Oui. Vous pouvez upgrader ou downgrader à tout moment. Le changement est immédiat.',
+              q: 'Puis-je changer de plan ou de période ?',
+              a: 'Oui. Vous pouvez upgrader, downgrader ou changer de période à tout moment. Le changement est immédiat.',
             },
             {
               q: 'Comment fonctionne le paiement ?',

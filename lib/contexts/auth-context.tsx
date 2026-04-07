@@ -1,145 +1,205 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react'
+import { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
-import type { Profile, Shop } from '@/lib/types/database'
+import type { Profile, Shop, UserRole, ShopMember } from '@/lib/types/database'
 
 interface AuthState {
   user: User | null
   profile: Profile | null
-  shop: Shop | null
+  // Multi-boutique
+  userShops: Shop[]
+  activeShop: Shop | null
+  roleInActiveShop: UserRole | null
   loading: boolean
 }
 
 interface AuthContextValue extends AuthState {
+  // Compat — pointe sur activeShop
+  shop: Shop | null
   signOut: () => Promise<void>
   refreshShop: () => Promise<void>
+  switchShop: (shopId: string) => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 const supabase = createClient()
 
-async function fetchProfileAndShop(userId: string): Promise<{ profile: Profile | null; shop: Shop | null }> {
-  const { data } = await supabase
-    .from('profiles')
-    .select('*, shops(*)')
-    .eq('id', userId)
-    .single()
+type MemberRow = { role: UserRole; is_active: boolean; shops: Shop | null }
 
-  if (!data) return { profile: null, shop: null }
+async function fetchUserData(userId: string): Promise<{
+  profile: Profile | null
+  userShops: Shop[]
+  memberships: MemberRow[]
+}> {
+  const [{ data: profileData }, { data: memberships }] = await Promise.all([
+    supabase.from('profiles').select('*').eq('id', userId).single(),
+    supabase.from('shop_members').select('role, is_active, shops(*)').eq('user_id', userId).eq('is_active', true),
+  ])
 
-  const profile = data as Profile & { shops: Shop | null }
+  const profile = profileData as Profile | null
 
-  if (!profile.is_active) {
+  if (profile && !profile.is_active) {
     document.cookie = 'user_role=; path=/; max-age=0'
     await supabase.auth.signOut()
     window.location.href = '/en/login?error=inactive'
-    return { profile: null, shop: null }
+    return { profile: null, userShops: [], memberships: [] }
   }
 
-  const shop = profile.shops ?? null
-  return { profile, shop }
+  const rows = (memberships ?? []) as MemberRow[]
+  const userShops = rows.map(m => m.shops).filter(Boolean) as Shop[]
+
+  // Fallback : si pas encore de shop_members (ancien compte), lire via profiles
+  if (userShops.length === 0 && profile?.shop_id) {
+    const { data: shop } = await supabase.from('shops').select('*').eq('id', profile.shop_id).single()
+    if (shop) return { profile, userShops: [shop as Shop], memberships: rows }
+  }
+
+  return { profile, userShops, memberships: rows }
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
     user: null,
     profile: null,
-    shop: null,
+    userShops: [],
+    activeShop: null,
+    roleInActiveShop: null,
     loading: true,
+  })
+  const [memberships, setMemberships] = useState<MemberRow[]>([])
+  const [activeShopId, setActiveShopId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('active_shop_id')
+    return null
   })
 
   const initialized = useRef(false)
+
+  const applyUserData = useCallback((
+    user: User,
+    profile: Profile | null,
+    userShops: Shop[],
+    rows: MemberRow[],
+    currentActiveId: string | null
+  ) => {
+    setMemberships(rows)
+    const resolvedId = currentActiveId && userShops.find(s => s.id === currentActiveId)
+      ? currentActiveId
+      : userShops[0]?.id ?? null
+
+    if (resolvedId && resolvedId !== currentActiveId) {
+      setActiveShopId(resolvedId)
+      localStorage.setItem('active_shop_id', resolvedId)
+    }
+
+    const activeShop = userShops.find(s => s.id === (resolvedId ?? userShops[0]?.id)) ?? userShops[0] ?? null
+    const roleInActiveShop = (rows.find(m => m.shops?.id === activeShop?.id)?.role
+      ?? profile?.role
+      ?? null) as UserRole | null
+
+    setState({ user, profile, userShops, activeShop, roleInActiveShop, loading: false })
+  }, [])
 
   useEffect(() => {
     if (initialized.current) return
     initialized.current = true
 
-    // Initial load — getUser() is the source of truth
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (user) {
         try {
-          const { profile, shop } = await fetchProfileAndShop(user.id)
-          setState({ user, profile, shop, loading: false })
+          const { profile, userShops, memberships: rows } = await fetchUserData(user.id)
+          applyUserData(user, profile, userShops, rows, activeShopId)
         } catch {
-          setState({ user, profile: null, shop: null, loading: false })
+          setState(s => ({ ...s, user, loading: false }))
         }
       } else {
-        setState({ user: null, profile: null, shop: null, loading: false })
+        setState(s => ({ ...s, loading: false }))
       }
-    }).catch(() => {
-      // Network failure — don't stay stuck on loading forever
-      setState({ user: null, profile: null, shop: null, loading: false })
-    })
+    }).catch(() => setState(s => ({ ...s, loading: false })))
 
-    // Only listen for SIGNED_IN / SIGNED_OUT — skip INITIAL_SESSION to avoid double-fetch
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'INITIAL_SESSION') return // handled by getUser() above
+      if (event === 'INITIAL_SESSION') return
 
       if (event === 'SIGNED_OUT') {
-        setState({ user: null, profile: null, shop: null, loading: false })
+        setState({ user: null, profile: null, userShops: [], activeShop: null, roleInActiveShop: null, loading: false })
         return
       }
 
       if (event === 'SIGNED_IN' && session?.user) {
         try {
-          const { profile, shop } = await fetchProfileAndShop(session.user.id)
-          setState({ user: session.user, profile, shop, loading: false })
+          const { profile, userShops, memberships: rows } = await fetchUserData(session.user.id)
+          applyUserData(session.user, profile, userShops, rows, activeShopId)
         } catch {
-          setState({ user: session.user, profile: null, shop: null, loading: false })
+          setState(s => ({ ...s, user: session.user, loading: false }))
         }
       }
     })
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        supabase.auth.getUser().then(async ({ data: { user } }) => {
-          if (user) {
-            try {
-              const { profile, shop } = await fetchProfileAndShop(user.id)
-              if (profile) {
-                setState({ user, profile, shop, loading: false })
-              }
-            } catch {
-              // Keep existing state on network glitch
-            }
-          } else {
-            setState({ user: null, profile: null, shop: null, loading: false })
-          }
-        }).catch(() => {/* keep existing state */})
-      }
+    const handleVisibility = () => {
+      if (document.visibilityState !== 'visible') return
+      supabase.auth.getUser().then(async ({ data: { user } }) => {
+        if (!user) {
+          setState(s => ({ ...s, user: null, loading: false }))
+          return
+        }
+        try {
+          const { profile, userShops, memberships: rows } = await fetchUserData(user.id)
+          if (profile) applyUserData(user, profile, userShops, rows, activeShopId)
+        } catch {/* keep state */}
+      }).catch(() => {/* keep state */})
     }
-    document.addEventListener('visibilitychange', handleVisibilityChange)
+    document.addEventListener('visibilitychange', handleVisibility)
 
     return () => {
       subscription.unsubscribe()
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      document.removeEventListener('visibilitychange', handleVisibility)
     }
   }, [])
 
-  const signOut = useCallback(async () => {
-    document.cookie = 'user_role=; path=/; max-age=0'
-    await supabase.auth.signOut()
-    window.location.href = '/en/login'
-  }, [])
+  const switchShop = useCallback((shopId: string) => {
+    setActiveShopId(shopId)
+    localStorage.setItem('active_shop_id', shopId)
 
-  // Used after payment to refresh shop data without full page reload
+    setState(prev => {
+      const activeShop = prev.userShops.find(s => s.id === shopId) ?? prev.activeShop
+      const roleInActiveShop = (memberships.find(m => m.shops?.id === shopId)?.role
+        ?? prev.profile?.role
+        ?? null) as UserRole | null
+      // Update role cookie for middleware
+      if (roleInActiveShop) {
+        document.cookie = `user_role=${roleInActiveShop}; path=/; max-age=1800; samesite=lax`
+      }
+      return { ...prev, activeShop, roleInActiveShop }
+    })
+  }, [memberships])
+
   const refreshShop = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     try {
-      const { profile, shop } = await fetchProfileAndShop(user.id)
-      if (profile) setState(s => ({ ...s, profile, shop }))
-    } catch {/* keep existing */}
+      const { profile, userShops, memberships: rows } = await fetchUserData(user.id)
+      if (profile) applyUserData(user, profile, userShops, rows, activeShopId)
+    } catch {/* keep */}
+  }, [activeShopId, applyUserData])
+
+  const signOut = useCallback(async () => {
+    document.cookie = 'user_role=; path=/; max-age=0'
+    localStorage.removeItem('active_shop_id')
+    await supabase.auth.signOut()
+    window.location.href = '/en/login'
   }, [])
 
-  return (
-    <AuthContext.Provider value={{ ...state, signOut, refreshShop }}>
-      {children}
-    </AuthContext.Provider>
-  )
+  const value = useMemo<AuthContextValue>(() => ({
+    ...state,
+    shop: state.activeShop, // compat alias
+    signOut,
+    refreshShop,
+    switchShop,
+  }), [state, signOut, refreshShop, switchShop])
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export function useAuthContext(): AuthContextValue {

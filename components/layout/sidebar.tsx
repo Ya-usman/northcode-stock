@@ -6,10 +6,13 @@ import { useTranslations } from 'next-intl'
 import {
   LayoutDashboard, ShoppingCart, Package, BarChart2, Settings,
   Users, Truck, CreditCard, History, TrendingUp, LogOut, ChevronRight, Zap,
+  Store, ArrowLeftRight, ChevronDown,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
+import { useAuthContext } from '@/lib/contexts/auth-context'
+import { useState } from 'react'
 import type { UserRole, Profile, Shop } from '@/lib/types/database'
 
 interface SidebarProps {
@@ -23,6 +26,8 @@ interface SidebarProps {
 export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps) {
   const t = useTranslations('nav')
   const pathname = usePathname()
+  const { userShops, switchShop } = useAuthContext()
+  const [shopPickerOpen, setShopPickerOpen] = useState(false)
 
   const navItems = [
     {
@@ -53,8 +58,10 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
       items: [
         { href: `/${locale}/reports`, icon: BarChart2, label: t('reports'), roles: ['owner'] },
         { href: `/${locale}/team`, icon: Users, label: t('team'), roles: ['owner'] },
+        { href: `/${locale}/stock/transfers`, icon: ArrowLeftRight, label: 'Transferts', roles: ['owner', 'stock_manager'] },
+        { href: `/${locale}/shops`, icon: Store, label: 'Boutiques', roles: ['owner'] },
         { href: `/${locale}/settings`, icon: Settings, label: t('settings'), roles: ['owner'] },
-        { href: `/${locale}/billing`, icon: Zap, label: 'Billing', roles: ['owner'] },
+        { href: `/${locale}/billing`, icon: Zap, label: 'Abonnement', roles: ['owner'] },
       ],
     },
   ]
@@ -68,17 +75,47 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
 
   return (
     <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 border-r bg-white z-30">
-      {/* Logo */}
-      <div className="flex h-16 items-center gap-3 px-6 border-b">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-northcode-blue text-white font-bold text-sm flex-shrink-0">
-          NC
+      {/* Logo + Shop switcher */}
+      <div className="border-b">
+        <div className="flex h-16 items-center gap-3 px-4">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-northcode-blue text-white font-bold text-sm flex-shrink-0">
+            NC
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-sm text-northcode-blue truncate">
+              {shop?.name || 'NorthCode Stock'}
+            </p>
+            <p className="text-xs text-muted-foreground truncate">{shop?.city}</p>
+          </div>
+          {userShops.length > 1 && (
+            <button
+              onClick={() => setShopPickerOpen(o => !o)}
+              className="flex-shrink-0 p-1 rounded hover:bg-gray-100 transition-colors"
+              title="Changer de boutique"
+            >
+              <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', shopPickerOpen && 'rotate-180')} />
+            </button>
+          )}
         </div>
-        <div className="min-w-0">
-          <p className="font-semibold text-sm text-northcode-blue truncate">
-            {shop?.name || 'NorthCode Stock'}
-          </p>
-          <p className="text-xs text-muted-foreground truncate">{shop?.city}</p>
-        </div>
+        {shopPickerOpen && userShops.length > 1 && (
+          <div className="px-3 pb-3 space-y-1">
+            {userShops.map(s => (
+              <button
+                key={s.id}
+                onClick={() => { switchShop(s.id); setShopPickerOpen(false) }}
+                className={cn(
+                  'w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors',
+                  s.id === shop?.id
+                    ? 'bg-northcode-blue-muted text-northcode-blue font-medium'
+                    : 'hover:bg-gray-50 text-gray-700'
+                )}
+              >
+                <Store className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="truncate">{s.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Navigation */}
