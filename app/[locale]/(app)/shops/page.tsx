@@ -39,12 +39,15 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
       // Create shop
       const { data: shop, error } = await supabase.from('shops').insert({
         name: newName.trim(),
-        city: newCity.trim() || null,
+        city: newCity.trim() || '',
+        state: '',
         owner_id: user.id,
         plan: 'trial',
         trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         currency: activeShop?.currency ?? 'NGN',
         country: activeShop?.country ?? 'NG',
+        low_stock_threshold: 10,
+        tax_rate: 0,
       } as any).select().single()
 
       if (error || !shop) throw error ?? new Error('Erreur création boutique')
