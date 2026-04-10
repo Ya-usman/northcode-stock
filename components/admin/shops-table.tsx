@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dialog'
 import {
   ShieldOff, ShieldCheck, Clock, CreditCard, Search,
-  ChevronDown, ChevronUp, ExternalLink, Warehouse,
+  ChevronDown, ChevronUp, ExternalLink,
 } from 'lucide-react'
 
 interface Shop {
@@ -22,7 +22,6 @@ interface Shop {
   plan_expires_at: string | null
   created_at: string
   whatsapp: string | null
-  is_warehouse?: boolean
   owner: { full_name: string; is_active: boolean; last_seen: string | null } | null
   subscriptions: { amount: number; plan: string; status: string; created_at: string; paystack_reference: string | null }[]
 }
@@ -32,7 +31,7 @@ interface Props {
   locale: string
 }
 
-type ActionType = 'suspend' | 'reactivate' | 'extend' | 'grant_plan' | 'toggle_warehouse'
+type ActionType = 'suspend' | 'reactivate' | 'extend' | 'grant_plan'
 
 export function AdminShopsTable({ shops, locale }: Props) {
   const { toast } = useToast()
@@ -271,18 +270,6 @@ export function AdminShopsTable({ shops, locale }: Props) {
                           >
                             <CreditCard className="h-3 w-3" /> Plan
                           </button>
-                          <button
-                            onClick={() => openConfirm('toggle_warehouse', shop)}
-                            disabled={!!loading}
-                            className={`flex items-center gap-1 text-xs px-2 py-1 rounded-md transition-colors ${
-                              shop.is_warehouse
-                                ? 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-400'
-                                : 'bg-gray-700 hover:bg-gray-600 text-gray-400'
-                            }`}
-                            title={shop.is_warehouse ? 'Désactiver entrepôt' : 'Marquer comme entrepôt'}
-                          >
-                            <Warehouse className="h-3 w-3" /> {shop.is_warehouse ? 'Entrepôt ✓' : 'Entrepôt'}
-                          </button>
                         </div>
                       </td>
                     </tr>
@@ -343,7 +330,6 @@ export function AdminShopsTable({ shops, locale }: Props) {
               {confirmDialog.action === 'reactivate' && '✅ Reactivate shop'}
               {confirmDialog.action === 'extend' && '⏱️ Extend access'}
               {confirmDialog.action === 'grant_plan' && '🎁 Grant plan'}
-              {confirmDialog.action === 'toggle_warehouse' && '🏭 Entrepôt'}
             </DialogTitle>
           </DialogHeader>
 
@@ -359,11 +345,6 @@ export function AdminShopsTable({ shops, locale }: Props) {
             )}
             {confirmDialog.action === 'grant_plan' && (
               <>Grant a paid plan to <strong className="text-white">{confirmDialog.shop?.name}</strong> for 31 days.</>
-            )}
-            {confirmDialog.action === 'toggle_warehouse' && (
-              confirmDialog.shop?.is_warehouse
-                ? <>Désactiver le statut entrepôt de <strong className="text-white">{confirmDialog.shop?.name}</strong> ?</>
-                : <>Marquer <strong className="text-white">{confirmDialog.shop?.name}</strong> comme entrepôt principal ?</>
             )}
           </p>
 

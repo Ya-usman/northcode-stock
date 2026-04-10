@@ -26,7 +26,6 @@ export interface Shop {
   trial_ends_at: string | null
   plan_expires_at: string | null
   country: string | null
-  is_warehouse: boolean
 }
 
 export interface Profile {
@@ -214,75 +213,6 @@ export interface ShopMember {
   created_at: string
   shops?: Shop
   profiles?: Profile
-}
-
-export interface StockTransfer {
-  id: string
-  from_shop_id: string
-  to_shop_id: string
-  product_id: string
-  product_name: string
-  quantity: number
-  unit_cost: number
-  to_product_id: string | null
-  status: 'pending' | 'in_transit' | 'received' | 'cancelled'
-  transfer_number: string | null  // auto-generated TRF-0001
-  bordereau_ref: string | null    // numéro de bordereau saisi
-  initiated_by: string | null
-  received_by: string | null
-  notes: string | null
-  initiated_at: string
-  received_at: string | null
-  cancelled_at: string | null
-  cancelled_by: string | null
-  created_at: string
-  from_shop?: Shop
-  to_shop?: Shop
-  product?: Product
-}
-
-export interface DeliveryOrder {
-  id: string
-  bordereau_number: string
-  warehouse_id: string
-  destination_id: string
-  status: 'draft' | 'dispatched' | 'received' | 'cancelled'
-  notes: string | null
-  created_by: string | null
-  dispatched_by: string | null
-  received_by: string | null
-  dispatched_at: string | null
-  received_at: string | null
-  cancelled_at: string | null
-  created_at: string
-  // Joined
-  warehouse?: Shop
-  destination?: Shop
-  items?: DeliveryOrderItem[]
-}
-
-export interface DeliveryOrderItem {
-  id: string
-  delivery_order_id: string
-  product_id: string
-  product_name: string
-  quantity: number
-  unit_cost: number
-  created_at: string
-  product?: Product
-}
-
-export interface CrossShopProduct {
-  product_id: string
-  name: string
-  name_hausa: string | null
-  sku: string | null
-  quantity: number
-  selling_price: number
-  unit: string
-  shop_id: string
-  shop_name: string
-  shop_city: string
 }
 
 // Database types (Supabase-generated shape)

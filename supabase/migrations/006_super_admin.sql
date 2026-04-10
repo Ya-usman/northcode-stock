@@ -1,5 +1,5 @@
 -- ============================================================
--- Migration 006 — Super Admin + Bordereau + Cross-shop search
+-- Migration 006 — Super Admin
 -- ============================================================
 
 -- 1. Add super_admin to profiles role
@@ -8,30 +8,6 @@ ALTER TABLE profiles
 ALTER TABLE profiles
   ADD CONSTRAINT profiles_role_check
   CHECK (role IN ('super_admin','owner','cashier','stock_manager','viewer'));
-
--- 2. Add transfer_number (bordereau) to stock_transfers
-ALTER TABLE stock_transfers
-  ADD COLUMN IF NOT EXISTS transfer_number text,
-  ADD COLUMN IF NOT EXISTS bordereau_ref text; -- numéro de bordereau saisi manuellement
-
--- 3. Sequence for auto-generated transfer numbers
-CREATE SEQUENCE IF NOT EXISTS transfer_number_seq START 1;
-
--- 4. Auto-generate transfer number on insert
-CREATE OR REPLACE FUNCTION set_transfer_number()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF NEW.transfer_number IS NULL THEN
-    NEW.transfer_number := 'TRF-' || LPAD(nextval('transfer_number_seq')::text, 4, '0');
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-DROP TRIGGER IF EXISTS trg_set_transfer_number ON stock_transfers;
-CREATE TRIGGER trg_set_transfer_number
-  BEFORE INSERT ON stock_transfers
-  FOR EACH ROW EXECUTE FUNCTION set_transfer_number();
 
 -- ============================================================
 -- HELPER FUNCTION: is_super_admin
@@ -128,26 +104,6 @@ CREATE POLICY "shop_owner_can_insert_self" ON shop_members
   );
 
 -- ============================================================
--- VIEW: cross_shop_stock — produits disponibles par boutique
--- (utilisé pour la recherche cross-boutique)
--- ============================================================
-CREATE OR REPLACE VIEW cross_shop_stock AS
-SELECT
-  p.id AS product_id,
-  p.name,
-  p.name_hausa,
-  p.sku,
-  p.quantity,
-  p.selling_price,
-  p.unit,
-  p.shop_id,
-  s.name AS shop_name,
-  s.city AS shop_city
-FROM products p
-JOIN shops s ON s.id = p.shop_id
-WHERE p.is_active = true AND p.quantity > 0;
-
--- ============================================================
 -- VIEW: super_admin_dashboard_stats — KPIs cumulés
 -- ============================================================
 CREATE OR REPLACE VIEW super_admin_shop_stats AS
@@ -160,15 +116,9 @@ SELECT
   COUNT(DISTINCT p.id) FILTER (WHERE p.is_active) AS product_count,
   COALESCE(SUM(p.quantity * p.selling_price) FILTER (WHERE p.is_active), 0) AS stock_value,
   COALESCE(SUM(p.quantity) FILTER (WHERE p.is_active), 0) AS total_units,
-  COUNT(DISTINCT sm.id) FILTER (WHERE sm.created_at >= now() - interval '30 days') AS movements_30d,
   COUNT(DISTINCT sa.id) FILTER (WHERE sa.created_at >= now() - interval '30 days') AS sales_30d,
   COALESCE(SUM(sa.total) FILTER (WHERE sa.created_at >= now() - interval '30 days'), 0) AS revenue_30d
 FROM shops s
 LEFT JOIN products p ON p.shop_id = s.id
-LEFT JOIN stock_movements sm ON sm.shop_id = s.id
 LEFT JOIN sales sa ON sa.shop_id = s.id
 GROUP BY s.id, s.name, s.city, s.plan, s.country;
-
--- Index for cross-shop product search by name/sku
-CREATE INDEX IF NOT EXISTS idx_products_name_trgm ON products USING gin (name gin_trgm_ops) WHERE is_active = true;
-CREATE INDEX IF NOT EXISTS idx_products_sku_active ON products(sku, shop_id) WHERE is_active = true AND sku IS NOT NULL;

@@ -5,7 +5,7 @@ export default async function AdminShopsPage({ params: { locale } }: { params: {
   const supabase = await createClient()
 
   const [{ data: shops }, { data: subs }, { data: owners }] = await Promise.all([
-    supabase.from('shops').select('id, name, city, plan, trial_ends_at, plan_expires_at, created_at, whatsapp, is_warehouse').order('created_at', { ascending: false }),
+    supabase.from('shops').select('id, name, city, plan, trial_ends_at, plan_expires_at, created_at, whatsapp').order('created_at', { ascending: false }),
     supabase.from('subscriptions').select('id, shop_id, plan, amount, status, paystack_reference, starts_at, expires_at, created_at').order('created_at', { ascending: false }),
     supabase.from('profiles').select('id, full_name, shop_id, role, is_active, last_seen').eq('role', 'owner'),
   ])

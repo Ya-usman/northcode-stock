@@ -74,12 +74,6 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true, message: `Plan ${planId} granted` })
       }
 
-      case 'toggle_warehouse': {
-        const { data: shop } = await admin.from('shops').select('is_warehouse').eq('id', shop_id).single()
-        await admin.from('shops').update({ is_warehouse: !(shop as any)?.is_warehouse } as any).eq('id', shop_id)
-        return NextResponse.json({ success: true, message: (shop as any)?.is_warehouse ? 'Entrepôt désactivé' : 'Entrepôt activé' })
-      }
-
       default:
         return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
     }
