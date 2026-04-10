@@ -84,48 +84,55 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     })
 
   const onAddProduct = async (data: ProductFormData) => {
+    if (!shop?.id) { toast({ title: 'No active shop', variant: 'destructive' }); return }
     setSaving(true)
-    const { error } = await supabase.from('products').insert({
-      shop_id: shop!.id,
-      name: data.name,
-      name_hausa: data.name_hausa || null,
-      sku: data.sku || null,
-      category_id: data.category_id || null,
-      supplier_id: data.supplier_id || null,
-      buying_price: data.buying_price,
-      selling_price: data.selling_price,
-      quantity: data.quantity,
-      unit: data.unit || 'piece',
-      low_stock_threshold: data.low_stock_threshold || null,
-      is_active: true,
-    } as any)
-    setSaving(false)
-    if (error) { toast({ title: error.message, variant: 'destructive' }); return }
-    toast({ title: 'Product added!', variant: 'success' })
-    setShowAddModal(false)
-    productForm.reset()
-    fetchProducts()
+    try {
+      const { error } = await (supabase as any).from('products').insert({
+        shop_id: shop.id,
+        name: data.name,
+        name_hausa: data.name_hausa || null,
+        sku: data.sku || null,
+        category_id: data.category_id || null,
+        supplier_id: data.supplier_id || null,
+        buying_price: data.buying_price ?? 0,
+        selling_price: data.selling_price,
+        quantity: data.quantity,
+        unit: data.unit || 'piece',
+        low_stock_threshold: data.low_stock_threshold || null,
+        is_active: true,
+      })
+      if (error) { toast({ title: error.message, variant: 'destructive' }); return }
+      toast({ title: 'Product added!', variant: 'success' })
+      setShowAddModal(false)
+      productForm.reset()
+      fetchProducts()
+    } finally {
+      setSaving(false)
+    }
   }
 
   const onEditProduct = async (data: ProductFormData) => {
     if (!editingProduct) return
     setSaving(true)
-    const { error } = await (supabase as any).from('products').update({
-      name: data.name,
-      name_hausa: data.name_hausa || null,
-      sku: data.sku || null,
-      category_id: data.category_id || null,
-      supplier_id: data.supplier_id || null,
-      buying_price: data.buying_price,
-      selling_price: data.selling_price,
-      unit: data.unit || 'piece',
-      low_stock_threshold: data.low_stock_threshold || null,
-    }).eq('id', editingProduct.id)
-    setSaving(false)
-    if (error) { toast({ title: error.message, variant: 'destructive' }); return }
-    toast({ title: 'Product updated!', variant: 'success' })
-    setEditingProduct(null)
-    fetchProducts()
+    try {
+      const { error } = await (supabase as any).from('products').update({
+        name: data.name,
+        name_hausa: data.name_hausa || null,
+        sku: data.sku || null,
+        category_id: data.category_id || null,
+        supplier_id: data.supplier_id || null,
+        buying_price: data.buying_price ?? 0,
+        selling_price: data.selling_price,
+        unit: data.unit || 'piece',
+        low_stock_threshold: data.low_stock_threshold || null,
+      }).eq('id', editingProduct.id)
+      if (error) { toast({ title: error.message, variant: 'destructive' }); return }
+      toast({ title: 'Product updated!', variant: 'success' })
+      setEditingProduct(null)
+      fetchProducts()
+    } finally {
+      setSaving(false)
+    }
   }
 
   const onRestock = async (data: RestockFormData) => {
