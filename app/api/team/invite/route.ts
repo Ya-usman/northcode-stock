@@ -3,22 +3,18 @@ import { createAdminClient } from '@/lib/supabase/server'
 
 export async function POST(request: Request) {
   try {
-    const { email, full_name, role, shop_id } = await request.json()
+    const { email, full_name, role, shop_id, invited_by } = await request.json()
 
     if (!email || !full_name || !role || !shop_id) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
 
-    const supabase = await createAdminClient()
+    const supabase = await createAdminClient() as any
 
     // Invite user via Supabase Auth Admin
     const { data: { user }, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email, {
       redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/en/login`,
-      data: {
-        full_name,
-        role,
-        shop_id,
-      },
+      data: { full_name, role, shop_id },
     })
 
     if (inviteError) {
@@ -26,8 +22,8 @@ export async function POST(request: Request) {
     }
 
     if (user) {
-      // Create profile for invited user
-      const { error: profileError } = await supabase.from('profiles').upsert({
+      // Create/update profile
+      await supabase.from('profiles').upsert({
         id: user.id,
         full_name,
         role,
@@ -35,9 +31,15 @@ export async function POST(request: Request) {
         is_active: true,
       })
 
-      if (profileError) {
-        console.error('Profile creation error:', profileError)
-      }
+      // Create shop_members entry (upsert in case they're re-invited)
+      await supabase.from('shop_members').upsert({
+        shop_id,
+        user_id: user.id,
+        role,
+        is_active: true,
+        can_delete_sales: false,
+        invited_by: invited_by || null,
+      }, { onConflict: 'shop_id,user_id' })
     }
 
     return NextResponse.json({ success: true })

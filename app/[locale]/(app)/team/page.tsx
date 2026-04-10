@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useTranslations } from 'next-intl'
-import { UserPlus, Shield, Clock, Mail, ShieldOff, ShieldCheck, AlertTriangle } from 'lucide-react'
+import {
+  UserPlus, Shield, Clock, Mail, ShieldOff, ShieldCheck,
+  AlertTriangle, Trash2, Store, ChevronDown,
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -15,23 +17,49 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatDistanceToNow } from 'date-fns'
-import type { Profile, UserRole } from '@/lib/types/database'
+import type { UserRole } from '@/lib/types/database'
+import { cn } from '@/lib/utils/cn'
 
-const supabase = createClient()
+const supabase = createClient() as any
 
-const ROLE_COLORS: Record<UserRole, string> = {
-  owner: 'bg-northcode-blue text-white',
-  cashier: 'bg-green-100 text-green-700',
+const ROLE_COLORS: Record<string, string> = {
+  owner:         'bg-northcode-blue text-white',
+  cashier:       'bg-green-100 text-green-700',
   stock_manager: 'bg-amber-100 text-amber-700',
-  viewer: 'bg-gray-100 text-gray-600',
+  viewer:        'bg-gray-100 text-gray-600',
+  super_admin:   'bg-purple-100 text-purple-700',
 }
 
-export default function TeamPage({ params: { locale } }: { params: { locale: string } }) {
-  const t = useTranslations()
-  const { profile: myProfile, shop } = useAuth()
+const ROLE_LABELS: Record<string, string> = {
+  owner: 'Propriétaire', cashier: 'Caissier', stock_manager: 'Gestionnaire stock',
+  viewer: 'Lecteur', super_admin: 'Super Admin',
+}
+
+interface Member {
+  id: string          // shop_members.id
+  user_id: string
+  shop_id: string
+  role: UserRole
+  is_active: boolean
+  can_delete_sales: boolean
+  joined_at: string
+  profiles: {
+    id: string
+    full_name: string
+    last_seen: string | null
+    is_active: boolean
+  } | null
+}
+
+export default function TeamPage() {
+  const { profile: myProfile, shop, userShops } = useAuth()
   const { toast } = useToast()
 
-  const [employees, setEmployees] = useState<Profile[]>([])
+  // Which shop's team we're viewing
+  const [viewShopId, setViewShopId] = useState<string>(shop?.id || '')
+  const [shopPickerOpen, setShopPickerOpen] = useState(false)
+
+  const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
@@ -40,28 +68,103 @@ export default function TeamPage({ params: { locale } }: { params: { locale: str
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<UserRole>('cashier')
   const [inviteFullName, setInviteFullName] = useState('')
+  const [inviteShopId, setInviteShopId] = useState<string>(shop?.id || '')
   const [inviting, setInviting] = useState(false)
 
   // Deactivation confirm dialog
   const [confirmDialog, setConfirmDialog] = useState<{
-    open: boolean
-    employee: Profile | null
-    action: 'deactivate' | 'reactivate'
-  }>({ open: false, employee: null, action: 'deactivate' })
+    open: boolean; member: Member | null; action: 'deactivate' | 'reactivate'
+  }>({ open: false, member: null, action: 'deactivate' })
 
-  const fetchEmployees = async () => {
-    if (!shop?.id) return
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('shop_id', shop.id)
+  const isOwner = myProfile?.role === 'owner' || myProfile?.role === 'super_admin'
+
+  // Sync viewShopId when shop loads
+  useEffect(() => {
+    if (shop?.id && !viewShopId) setViewShopId(shop.id)
+    if (shop?.id && !inviteShopId) setInviteShopId(shop.id)
+  }, [shop?.id])
+
+  const fetchMembers = async () => {
+    if (!viewShopId) return
+    setLoading(true)
+    const { data, error } = await supabase
+      .from('shop_members')
+      .select('id, user_id, shop_id, role, is_active, can_delete_sales, joined_at, profiles(id, full_name, last_seen, is_active)')
+      .eq('shop_id', viewShopId)
       .order('role')
-      .order('full_name')
-    setEmployees((data || []) as Profile[])
+
+    if (!error) setMembers((data || []) as Member[])
     setLoading(false)
   }
 
-  useEffect(() => { fetchEmployees() }, [shop?.id])
+  useEffect(() => { fetchMembers() }, [viewShopId])
+
+  const changeRole = async (member: Member, newRole: UserRole) => {
+    if (member.user_id === myProfile?.id) {
+      toast({ title: 'Vous ne pouvez pas modifier votre propre rôle', variant: 'destructive' })
+      return
+    }
+    setActionLoading(member.id + '_role')
+    const { error } = await supabase.from('shop_members').update({ role: newRole as string }).eq('id', member.id)
+    setActionLoading(null)
+    if (error) { toast({ title: error.message, variant: 'destructive' }); return }
+    toast({ title: 'Rôle mis à jour', variant: 'success' })
+    fetchMembers()
+  }
+
+  const toggleCanDelete = async (member: Member) => {
+    setActionLoading(member.id + '_del')
+    const newVal = !member.can_delete_sales
+    const res = await fetch('/api/team/permissions', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shop_id: member.shop_id, user_id: member.user_id, can_delete_sales: newVal }),
+    })
+    const json = await res.json()
+    setActionLoading(null)
+    if (!res.ok) { toast({ title: json.error, variant: 'destructive' }); return }
+    toast({ title: newVal ? 'Permission suppression activée' : 'Permission suppression retirée', variant: 'success' })
+    fetchMembers()
+  }
+
+  const confirmToggleActive = (member: Member) => {
+    if (member.user_id === myProfile?.id) {
+      toast({ title: 'Vous ne pouvez pas désactiver votre propre compte', variant: 'destructive' })
+      return
+    }
+    setConfirmDialog({ open: true, member, action: member.is_active ? 'deactivate' : 'reactivate' })
+  }
+
+  const doToggleActive = async () => {
+    const { member, action } = confirmDialog
+    if (!member) return
+    setConfirmDialog(d => ({ ...d, open: false }))
+    setActionLoading(member.id)
+    try {
+      const res = await fetch('/api/team/toggle-active', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employee_id: member.user_id,
+          is_active: action === 'reactivate',
+          shop_id: member.shop_id,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast({
+        title: action === 'deactivate'
+          ? `${member.profiles?.full_name} désactivé(e). Session révoquée.`
+          : `${member.profiles?.full_name} réactivé(e).`,
+        variant: action === 'deactivate' ? 'default' : 'success',
+      })
+      fetchMembers()
+    } catch (err: any) {
+      toast({ title: err.message, variant: 'destructive' })
+    } finally {
+      setActionLoading(null)
+    }
+  }
 
   const inviteEmployee = async () => {
     if (!inviteEmail || !inviteFullName) {
@@ -70,23 +173,23 @@ export default function TeamPage({ params: { locale } }: { params: { locale: str
     }
     setInviting(true)
     try {
-      const response = await fetch('/api/team/invite', {
+      const res = await fetch('/api/team/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: inviteEmail,
           full_name: inviteFullName,
           role: inviteRole,
-          shop_id: shop!.id,
+          shop_id: inviteShopId || shop?.id,
+          invited_by: myProfile?.id,
         }),
       })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error || 'Erreur')
-      toast({ title: t('team.invite_sent', { email: inviteEmail }), variant: 'success' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erreur')
+      toast({ title: `Invitation envoyée à ${inviteEmail}`, variant: 'success' })
       setShowInviteModal(false)
-      setInviteEmail('')
-      setInviteFullName('')
-      fetchEmployees()
+      setInviteEmail(''); setInviteFullName('')
+      if (inviteShopId === viewShopId) fetchMembers()
     } catch (err: any) {
       toast({ title: err.message, variant: 'destructive' })
     } finally {
@@ -94,148 +197,120 @@ export default function TeamPage({ params: { locale } }: { params: { locale: str
     }
   }
 
-  const changeRole = async (employeeId: string, newRole: UserRole) => {
-    if (employeeId === myProfile?.id) {
-      toast({ title: t('team.cannot_delete_owner'), variant: 'destructive' })
-      return
-    }
-    setActionLoading(employeeId + '_role')
-    const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', employeeId)
-    setActionLoading(null)
-    if (error) { toast({ title: error.message, variant: 'destructive' }); return }
-    toast({ title: 'Rôle mis à jour', variant: 'success' })
-    fetchEmployees()
-  }
-
-  const confirmToggleActive = (employee: Profile) => {
-    if (employee.id === myProfile?.id) {
-      toast({ title: 'Vous ne pouvez pas désactiver votre propre compte', variant: 'destructive' })
-      return
-    }
-    setConfirmDialog({
-      open: true,
-      employee,
-      action: employee.is_active ? 'deactivate' : 'reactivate',
-    })
-  }
-
-  const doToggleActive = async () => {
-    const { employee, action } = confirmDialog
-    if (!employee) return
-
-    setConfirmDialog(d => ({ ...d, open: false }))
-    setActionLoading(employee.id)
-
-    try {
-      const res = await fetch('/api/team/toggle-active', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          employee_id: employee.id,
-          is_active: action === 'reactivate',
-          shop_id: shop!.id,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-
-      toast({
-        title: action === 'deactivate'
-          ? `${employee.full_name} a été désactivé(e). Session révoquée immédiatement.`
-          : `${employee.full_name} a été réactivé(e).`,
-        variant: action === 'deactivate' ? 'default' : 'success',
-      })
-      fetchEmployees()
-    } catch (err: any) {
-      toast({ title: err.message, variant: 'destructive' })
-    } finally {
-      setActionLoading(null)
-    }
-  }
-
-  const activeCount = employees.filter(e => e.is_active && e.id !== myProfile?.id).length
-  const inactiveCount = employees.filter(e => !e.is_active).length
+  const activeCount = members.filter(m => m.is_active && m.user_id !== myProfile?.id).length
+  const inactiveCount = members.filter(m => !m.is_active).length
+  const viewShopName = userShops.find(s => s.id === viewShopId)?.name || shop?.name || ''
 
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="font-bold text-lg">{t('team.title')}</h1>
+          <h1 className="font-bold text-lg">Équipe</h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {employees.length} membre(s) · {activeCount} actif(s)
+            {members.length} membre(s) · {activeCount} actif(s)
             {inactiveCount > 0 && <span className="text-red-500 ml-1">· {inactiveCount} désactivé(s)</span>}
           </p>
         </div>
-        <Button
-          className="gap-2 bg-northcode-blue hover:bg-northcode-blue-light"
-          onClick={() => setShowInviteModal(true)}
-        >
-          <UserPlus className="h-4 w-4" />
-          {t('team.invite_employee')}
-        </Button>
+
+        <div className="flex items-center gap-2">
+          {/* Shop selector (if owner with multiple shops) */}
+          {isOwner && userShops.length > 1 && (
+            <div className="relative">
+              <button
+                onClick={() => setShopPickerOpen(o => !o)}
+                className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm font-medium shadow-sm hover:bg-gray-50 transition-colors"
+              >
+                <Store className="h-4 w-4 text-northcode-blue" />
+                <span className="max-w-[120px] truncate">{viewShopName}</span>
+                <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform', shopPickerOpen && 'rotate-180')} />
+              </button>
+              {shopPickerOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShopPickerOpen(false)} />
+                  <div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-xl border bg-white shadow-lg p-1.5">
+                    {userShops.map(s => (
+                      <button
+                        key={s.id}
+                        onClick={() => { setViewShopId(s.id); setShopPickerOpen(false) }}
+                        className={cn(
+                          'w-full text-left rounded-lg px-3 py-2 text-sm transition-colors',
+                          viewShopId === s.id ? 'bg-northcode-blue-muted text-northcode-blue font-medium' : 'hover:bg-gray-50 text-gray-700'
+                        )}
+                      >
+                        {s.name}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          <Button
+            className="gap-2 bg-northcode-blue hover:bg-northcode-blue-light"
+            onClick={() => { setInviteShopId(viewShopId); setShowInviteModal(true) }}
+          >
+            <UserPlus className="h-4 w-4" />
+            Inviter
+          </Button>
+        </div>
       </div>
 
+      {/* Member list */}
       {loading ? (
         <div className="space-y-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
       ) : (
         <div className="space-y-3">
-          {employees.map(employee => {
-            const initials = employee.full_name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
-            const isMe = employee.id === myProfile?.id
-            const isLoading = actionLoading === employee.id || actionLoading === employee.id + '_role'
+          {members.map(member => {
+            const p = member.profiles
+            if (!p) return null
+            const initials = p.full_name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
+            const isMe = member.user_id === myProfile?.id
+            const isLoading = actionLoading === member.id || actionLoading === member.id + '_role' || actionLoading === member.id + '_del'
+            const isOnline = p.last_seen && (Date.now() - new Date(p.last_seen).getTime()) < 5 * 60 * 1000
 
             return (
               <div
-                key={employee.id}
+                key={member.id}
                 className={`rounded-xl border bg-white shadow-sm p-4 transition-opacity ${
-                  !employee.is_active ? 'opacity-60 border-red-100 bg-red-50/30' : ''
+                  !member.is_active ? 'opacity-60 border-red-100 bg-red-50/30' : ''
                 }`}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-start gap-3">
                   {/* Avatar */}
                   <div className="relative flex-shrink-0">
                     <Avatar className="h-10 w-10">
-                      <AvatarFallback className={`text-white text-sm font-bold ${
-                        employee.is_active ? 'bg-northcode-blue' : 'bg-gray-400'
-                      }`}>
+                      <AvatarFallback className={`text-white text-sm font-bold ${member.is_active ? 'bg-northcode-blue' : 'bg-gray-400'}`}>
                         {initials}
                       </AvatarFallback>
                     </Avatar>
-                    {/* Online indicator */}
-                    {employee.is_active && employee.last_seen && (
-                      (() => {
-                        const diff = Date.now() - new Date(employee.last_seen).getTime()
-                        const isOnline = diff < 5 * 60 * 1000 // within 5 minutes
-                        return (
-                          <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${
-                            isOnline ? 'bg-green-500' : 'bg-gray-300'
-                          }`} />
-                        )
-                      })()
+                    {member.is_active && p.last_seen && (
+                      <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${isOnline ? 'bg-green-500' : 'bg-gray-300'}`} />
                     )}
                   </div>
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold text-sm">{employee.full_name}</p>
+                      <p className="font-semibold text-sm">{p.full_name}</p>
                       {isMe && <Badge variant="outline" className="text-[10px] px-1.5">Moi</Badge>}
-                      {!employee.is_active && (
-                        <Badge className="text-[10px] bg-red-100 text-red-600 border-red-200">
-                          Désactivé
+                      {!member.is_active && <Badge className="text-[10px] bg-red-100 text-red-600 border-red-200">Désactivé</Badge>}
+                      {member.can_delete_sales && (
+                        <Badge className="text-[10px] bg-orange-100 text-orange-700 border-orange-200 gap-0.5">
+                          <Trash2 className="h-2.5 w-2.5" /> Peut supprimer
                         </Badge>
                       )}
                     </div>
                     <div className="flex items-center gap-3 mt-1 flex-wrap">
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${ROLE_COLORS[employee.role]}`}>
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${ROLE_COLORS[member.role] || ROLE_COLORS.viewer}`}>
                         <Shield className="h-2.5 w-2.5" />
-                        {t(`roles.${employee.role}`)}
+                        {ROLE_LABELS[member.role] || member.role}
                       </span>
-                      {employee.last_seen ? (
+                      {p.last_seen ? (
                         <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                           <Clock className="h-3 w-3" />
-                          {formatDistanceToNow(new Date(employee.last_seen), { addSuffix: true })}
+                          {formatDistanceToNow(new Date(p.last_seen), { addSuffix: true })}
                         </span>
                       ) : (
                         <span className="text-[10px] text-muted-foreground">Jamais connecté</span>
@@ -243,51 +318,73 @@ export default function TeamPage({ params: { locale } }: { params: { locale: str
                     </div>
                   </div>
 
-                  {/* Actions (not for self, not for owner) */}
-                  {!isMe && employee.role !== 'owner' && (
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {/* Role selector */}
-                      <Select
-                        value={employee.role}
-                        onValueChange={v => changeRole(employee.id, v as UserRole)}
-                        disabled={isLoading || !employee.is_active}
-                      >
-                        <SelectTrigger className="w-[120px] h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="cashier">{t('roles.cashier')}</SelectItem>
-                          <SelectItem value="stock_manager">{t('roles.stock_manager')}</SelectItem>
-                          <SelectItem value="viewer">{t('roles.viewer')}</SelectItem>
-                        </SelectContent>
-                      </Select>
+                  {/* Actions — not for self, not for owner */}
+                  {!isMe && member.role !== 'owner' && isOwner && (
+                    <div className="flex flex-col gap-2 items-end flex-shrink-0">
+                      <div className="flex items-center gap-2">
+                        {/* Role selector */}
+                        <Select
+                          value={member.role}
+                          onValueChange={v => changeRole(member, v as UserRole)}
+                          disabled={isLoading || !member.is_active}
+                        >
+                          <SelectTrigger className="w-[130px] h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="cashier">Caissier</SelectItem>
+                            <SelectItem value="stock_manager">Gest. stock</SelectItem>
+                            <SelectItem value="viewer">Lecteur</SelectItem>
+                          </SelectContent>
+                        </Select>
 
-                      {/* Activate / Deactivate button */}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={isLoading}
-                        onClick={() => confirmToggleActive(employee)}
-                        className={`h-8 gap-1.5 text-xs ${
-                          employee.is_active
-                            ? 'border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300'
-                            : 'border-green-200 text-green-600 hover:bg-green-50 hover:border-green-300'
-                        }`}
-                      >
-                        {isLoading ? (
-                          <span className="h-3 w-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                        ) : employee.is_active ? (
-                          <><ShieldOff className="h-3 w-3" /> Désactiver</>
-                        ) : (
-                          <><ShieldCheck className="h-3 w-3" /> Réactiver</>
-                        )}
-                      </Button>
+                        {/* Activate / Deactivate */}
+                        <Button
+                          size="sm" variant="outline" disabled={isLoading}
+                          onClick={() => confirmToggleActive(member)}
+                          className={`h-8 gap-1.5 text-xs ${
+                            member.is_active
+                              ? 'border-red-200 text-red-600 hover:bg-red-50'
+                              : 'border-green-200 text-green-600 hover:bg-green-50'
+                          }`}
+                        >
+                          {isLoading && actionLoading === member.id ? (
+                            <span className="h-3 w-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                          ) : member.is_active ? (
+                            <><ShieldOff className="h-3 w-3" /> Désactiver</>
+                          ) : (
+                            <><ShieldCheck className="h-3 w-3" /> Réactiver</>
+                          )}
+                        </Button>
+                      </div>
+
+                      {/* can_delete_sales toggle — only for cashier */}
+                      {member.role === 'cashier' && (
+                        <button
+                          onClick={() => toggleCanDelete(member)}
+                          disabled={isLoading}
+                          className={`flex items-center gap-1.5 text-[11px] rounded-lg px-2.5 py-1.5 transition-colors ${
+                            member.can_delete_sales
+                              ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                          }`}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          {member.can_delete_sales ? 'Peut supprimer ventes ✓' : 'Autoriser suppression'}
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
               </div>
             )
           })}
+
+          {members.length === 0 && !loading && (
+            <div className="flex h-32 items-center justify-center text-muted-foreground text-sm rounded-xl border bg-white">
+              Aucun membre dans cette boutique
+            </div>
+          )}
         </div>
       )}
 
@@ -296,58 +393,38 @@ export default function TeamPage({ params: { locale } }: { params: { locale: str
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {confirmDialog.action === 'deactivate' ? (
-                <><ShieldOff className="h-5 w-5 text-red-500" /> Désactiver le compte</>
-              ) : (
-                <><ShieldCheck className="h-5 w-5 text-green-500" /> Réactiver le compte</>
-              )}
+              {confirmDialog.action === 'deactivate'
+                ? <><ShieldOff className="h-5 w-5 text-red-500" /> Désactiver le compte</>
+                : <><ShieldCheck className="h-5 w-5 text-green-500" /> Réactiver le compte</>}
             </DialogTitle>
           </DialogHeader>
-
-          <div className="space-y-3">
+          <div>
             {confirmDialog.action === 'deactivate' ? (
-              <>
-                <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-100 p-3">
-                  <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
-                  <div className="text-sm text-red-700">
-                    <p className="font-semibold mb-1">
-                      Désactiver <span className="text-red-800">{confirmDialog.employee?.full_name}</span> ?
-                    </p>
-                    <ul className="text-xs space-y-1 text-red-600">
-                      <li>• La session sera révoquée <strong>immédiatement</strong></li>
-                      <li>• Il ne pourra plus se connecter</li>
-                      <li>• Ses ventes et données restent conservées</li>
-                      <li>• Vous pouvez le réactiver à tout moment</li>
-                    </ul>
-                  </div>
+              <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-100 p-3">
+                <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-red-700">
+                  <p className="font-semibold mb-1">Désactiver <span className="text-red-800">{confirmDialog.member?.profiles?.full_name}</span> ?</p>
+                  <ul className="text-xs space-y-1 text-red-600">
+                    <li>• Session révoquée <strong>immédiatement</strong></li>
+                    <li>• Il ne pourra plus se connecter</li>
+                    <li>• Ses ventes restent conservées</li>
+                  </ul>
                 </div>
-              </>
+              </div>
             ) : (
               <div className="flex items-start gap-2 rounded-lg bg-green-50 border border-green-100 p-3">
                 <ShieldCheck className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-green-700">
-                  <p className="font-semibold mb-1">
-                    Réactiver <span className="text-green-800">{confirmDialog.employee?.full_name}</span> ?
-                  </p>
-                  <p className="text-xs text-green-600">
-                    L'employé pourra se reconnecter avec ses identifiants habituels.
-                  </p>
-                </div>
+                <p className="text-sm text-green-700">
+                  <span className="font-semibold">{confirmDialog.member?.profiles?.full_name}</span> pourra se reconnecter avec ses identifiants.
+                </p>
               </div>
             )}
           </div>
-
           <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" onClick={() => setConfirmDialog(d => ({ ...d, open: false }))}>
-              Annuler
-            </Button>
+            <Button variant="outline" size="sm" onClick={() => setConfirmDialog(d => ({ ...d, open: false }))}>Annuler</Button>
             <Button
-              size="sm"
-              onClick={doToggleActive}
-              className={confirmDialog.action === 'deactivate'
-                ? 'bg-red-500 hover:bg-red-600 text-white'
-                : 'bg-green-500 hover:bg-green-600 text-white'
-              }
+              size="sm" onClick={doToggleActive}
+              className={confirmDialog.action === 'deactivate' ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'}
             >
               {confirmDialog.action === 'deactivate' ? 'Oui, désactiver' : 'Oui, réactiver'}
             </Button>
@@ -359,51 +436,58 @@ export default function TeamPage({ params: { locale } }: { params: { locale: str
       <Dialog open={showInviteModal} onOpenChange={setShowInviteModal}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('team.invite_employee')}</DialogTitle>
+            <DialogTitle>Inviter un employé</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Shop selector in invite */}
+            {isOwner && userShops.length > 1 && (
+              <div className="space-y-1">
+                <Label className="text-xs">Boutique *</Label>
+                <Select value={inviteShopId} onValueChange={setInviteShopId}>
+                  <SelectTrigger>
+                    <Store className="h-4 w-4 mr-2 text-muted-foreground" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {userShops.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-1">
               <Label>Nom complet *</Label>
               <Input value={inviteFullName} onChange={e => setInviteFullName(e.target.value)} placeholder="Nom de l'employé" />
             </div>
             <div className="space-y-1">
-              <Label>{t('team.invite_email')} *</Label>
+              <Label>Email *</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="email"
-                  value={inviteEmail}
-                  onChange={e => setInviteEmail(e.target.value)}
-                  className="pl-9"
-                  placeholder="employe@email.com"
-                />
+                <Input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="pl-9" placeholder="employe@email.com" />
               </div>
             </div>
             <div className="space-y-1">
-              <Label>{t('team.assign_role')}</Label>
+              <Label>Rôle</Label>
               <Select value={inviteRole} onValueChange={v => setInviteRole(v as UserRole)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="cashier">{t('roles.cashier')}</SelectItem>
-                  <SelectItem value="stock_manager">{t('roles.stock_manager')}</SelectItem>
-                  <SelectItem value="viewer">{t('roles.viewer')}</SelectItem>
+                  <SelectItem value="cashier">Caissier</SelectItem>
+                  <SelectItem value="stock_manager">Gestionnaire stock</SelectItem>
+                  <SelectItem value="viewer">Lecteur</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-sm text-blue-700">
-              Un email d'invitation sera envoyé. L'employé définira son propre mot de passe.
+              Un email d'invitation sera envoyé. L'employé définira son mot de passe.
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowInviteModal(false)}>{t('actions.cancel')}</Button>
+            <Button variant="outline" onClick={() => setShowInviteModal(false)}>Annuler</Button>
             <Button onClick={inviteEmployee} loading={inviting} className="bg-northcode-blue">
-              {t('team.invite_employee')}
+              Envoyer l'invitation
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Login page inactive message */}
     </div>
   )
 }

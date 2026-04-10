@@ -1,6 +1,7 @@
 export type UserRole = 'super_admin' | 'owner' | 'cashier' | 'stock_manager' | 'viewer'
 export type PaymentMethod = 'cash' | 'transfer' | 'credit' | 'paystack'
 export type PaymentStatus = 'paid' | 'pending' | 'partial'
+export type SaleStatus = 'active' | 'cancelled'
 export type StockMovementType = 'in' | 'out' | 'adjustment' | 'sale'
 
 export interface Shop {
@@ -105,6 +106,11 @@ export interface Sale {
   paystack_reference: string | null
   notes: string | null
   created_at: string
+  // Cancellation
+  sale_status: SaleStatus
+  cancelled_by: string | null
+  cancelled_at: string | null
+  cancel_reason: string | null
   // Joined fields
   customers?: Customer | null
   sale_items?: SaleItem[]
@@ -202,10 +208,12 @@ export interface ShopMember {
   user_id: string
   role: UserRole
   is_active: boolean
+  can_delete_sales: boolean
   invited_by: string | null
   joined_at: string
   created_at: string
   shops?: Shop
+  profiles?: Profile
 }
 
 export interface StockTransfer {

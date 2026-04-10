@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslations } from 'next-intl'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, Plus, Minus, Trash2, CheckCircle, MessageCircle, Printer, Scan, X, User } from 'lucide-react'
+import { Search, Plus, Minus, Trash2, CheckCircle, MessageCircle, Printer, Scan, X, User, Store, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
+import { cn } from '@/lib/utils/cn'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,7 +23,11 @@ import type { Product, Customer, CartItem, Sale, SaleItem } from '@/lib/types/da
 
 export default function NewSalePage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations()
-  const { profile, shop } = useAuth()
+  const { profile, shop, userShops } = useAuth()
+  const isOwner = profile?.role === 'owner' || profile?.role === 'super_admin'
+  const [selectedShopId, setSelectedShopId] = useState<string | null>(null)
+  const [shopPickerOpen, setShopPickerOpen] = useState(false)
+  const selectedShop = userShops.find(s => s.id === (selectedShopId || shop?.id)) || shop
   const { fmt: formatNaira } = useCurrency()
   const supabase = createClient()
   const { toast } = useToast()
@@ -52,19 +57,19 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
 
   // Load products and customers
   useEffect(() => {
-    if (!shop?.id) return
+    if (!selectedShop?.id) return
     const load = async () => {
       const [{ data: prods }, { data: custs }] = await Promise.all([
         supabase.from('products').select('*, categories(name), suppliers(name)')
-          .eq('shop_id', shop.id).eq('is_active', true).gt('quantity', 0).order('name'),
-        supabase.from('customers').select('*').eq('shop_id', shop.id).order('name'),
+          .eq('shop_id', selectedShop.id).eq('is_active', true).gt('quantity', 0).order('name'),
+        supabase.from('customers').select('*').eq('shop_id', selectedShop.id).order('name'),
       ])
       setProducts((prods || []) as unknown as Product[])
       setFilteredProducts((prods || []) as unknown as Product[])
       setCustomers((custs || []) as Customer[])
     }
     load()
-  }, [shop?.id])
+  }, [selectedShop?.id])
 
   // Filter products on search
   useEffect(() => {
@@ -184,7 +189,7 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
 
   const subtotal = cart.reduce((s, i) => s + i.subtotal, 0)
   const discountAmt = discount
-  const tax = Number(shop?.tax_rate || 0) > 0 ? (subtotal - discountAmt) * (shop!.tax_rate / 100) : 0
+  const tax = Number(selectedShop?.tax_rate || 0) > 0 ? (subtotal - discountAmt) * (selectedShop!.tax_rate / 100) : 0
   const total = subtotal - discountAmt + tax
   const paid = paymentMethod === 'cash' ? Number(amountPaid) || 0 : total
   const change = paymentMethod === 'cash' ? Math.max(0, paid - total) : 0
@@ -218,7 +223,7 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
       const { data: sale, error: saleError } = await db
         .from('sales')
         .insert({
-          shop_id: shop!.id,
+          shop_id: selectedShop!.id,
           customer_id: selectedCustomer?.id || null,
           cashier_id: profile!.id,
           subtotal,
@@ -283,7 +288,7 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
     if (!completedSale || !shop) return
     await generateReceiptPDF({
       sale: completedSale,
-      shop: shop as any,
+      shop: selectedShop as any,
       cashierName: profile?.full_name || '',
       customerName: completedSale.customers?.name,
     })
@@ -292,7 +297,7 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
   const handleWhatsAppReceipt = () => {
     if (!completedSale || !shop) return
     const message = buildReceiptWhatsAppMessage({
-      shopName: shop.name,
+      shopName: selectedShop?.name || '',
       saleNumber: completedSale.sale_number,
       date: new Date(completedSale.created_at).toLocaleString('en-NG'),
       items: completedSale.sale_items.map(i => ({
@@ -311,6 +316,47 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
 
   return (
     <div className="flex flex-col h-full gap-4 max-w-2xl mx-auto">
+
+      {/* Shop selector — visible only for owners with multiple shops */}
+      {isOwner && userShops.length > 1 && (
+        <div className="relative">
+          <button
+            onClick={() => setShopPickerOpen(o => !o)}
+            className="w-full flex items-center justify-between gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-medium shadow-sm hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <Store className="h-4 w-4 text-northcode-blue" />
+              <span>Vendre dans : <strong>{selectedShop?.name || shop?.name}</strong></span>
+            </div>
+            <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', shopPickerOpen && 'rotate-180')} />
+          </button>
+          {shopPickerOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setShopPickerOpen(false)} />
+              <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-xl border bg-white shadow-lg p-1.5">
+                {userShops.map(s => (
+                  <button
+                    key={s.id}
+                    onClick={() => { setSelectedShopId(s.id); setCart([]); setShopPickerOpen(false) }}
+                    className={cn(
+                      'w-full flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-left transition-colors',
+                      (selectedShopId || shop?.id) === s.id
+                        ? 'bg-northcode-blue-muted text-northcode-blue font-medium'
+                        : 'hover:bg-gray-50 text-gray-700'
+                    )}
+                  >
+                    <Store className="h-3.5 w-3.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium">{s.name}</p>
+                      {s.city && <p className="text-xs text-muted-foreground">{s.city}</p>}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Search + Scan */}
       <div className={`relative transition-all ${scanFlash ? 'ring-2 ring-green-400 rounded-lg' : ''}`}>
@@ -444,7 +490,7 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
               <div className="flex items-center gap-3">
                 <Label className="text-sm w-24 flex-shrink-0">{t('sales.discount')}</Label>
                 <div className="relative flex-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{shop?.currency || '₦'}</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{selectedShop?.currency || '₦'}</span>
                   <Input
                     type="number" min={0} max={subtotal}
                     value={discount || ''}
@@ -551,7 +597,7 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
               <div className="space-y-1.5">
                 <Label>{t('payment.amount_paid')}</Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-medium text-muted-foreground">{shop?.currency || '₦'}</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-medium text-muted-foreground">{selectedShop?.currency || '₦'}</span>
                   <Input
                     type="number" min={0}
                     value={amountPaid}
