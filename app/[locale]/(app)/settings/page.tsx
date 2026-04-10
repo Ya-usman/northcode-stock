@@ -20,7 +20,7 @@ import type { Shop } from '@/lib/types/database'
 export default function SettingsPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations()
   const { shop: shopData, profile } = useAuth()
-  const supabase = createClient()
+  const supabase = createClient() as any
   const { toast } = useToast()
   const router = useRouter()
   const pathname = usePathname()
@@ -222,6 +222,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
           <div className="grid grid-cols-2 gap-3">
             {[
               { code: 'en', label: '🇬🇧 English' },
+              { code: 'fr', label: '🇫🇷 Français' },
               { code: 'ha', label: '🇳🇬 Hausa' },
             ].map(lang => (
               <button

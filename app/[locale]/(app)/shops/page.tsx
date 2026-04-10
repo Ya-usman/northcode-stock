@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
-import { Plus, Store, Users, CheckCircle2, ArrowLeftRight } from 'lucide-react'
+import { Plus, Store, Users, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import type { Shop } from '@/lib/types/database'
 
@@ -58,7 +58,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
     }
   }
 
-  const isOwner = profile?.role === 'owner'
+  const isOwner = profile?.role === 'owner' || profile?.role === 'super_admin'
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -157,7 +157,6 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
                     onClick={() => switchShop(shop.id)}
                     className="gap-1.5 text-xs flex-shrink-0"
                   >
-                    <ArrowLeftRight className="h-3 w-3" />
                     Activer
                   </Button>
                 )}

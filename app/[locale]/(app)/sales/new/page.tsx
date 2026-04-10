@@ -233,6 +233,7 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
           payment_method: paymentMethod,
           payment_status: balance > 0 ? (paid > 0 ? 'partial' : 'pending') : 'paid',
           amount_paid: paymentMethod === 'credit' ? 0 : paid,
+          sale_status: 'active',
           notes: notes || null,
           paystack_reference: paymentMethod === 'paystack' ? `PAY-${Date.now()}` : null,
         })

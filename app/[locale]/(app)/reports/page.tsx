@@ -58,12 +58,14 @@ export default function ReportsPage() {
     const { start, end } = getDateRange()
 
     // Sales in period
-    const { data: sales } = await supabase
+    const { data: salesRaw } = await (supabase as any)
       .from('sales')
       .select('id, total, payment_method, created_at, cashier_id')
       .eq('shop_id', shop.id)
+      .eq('sale_status', 'active')
       .gte('created_at', start)
       .lte('created_at', end)
+    const sales = salesRaw as Array<{ id: string; total: number; payment_method: string; created_at: string; cashier_id: string | null }> | null
 
     // Revenue by method
     const byMethod: Record<string, number> = {}

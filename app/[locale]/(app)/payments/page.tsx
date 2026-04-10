@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -27,7 +27,7 @@ export default function PaymentsPage() {
   const t = useTranslations()
   const { shop, profile } = useAuth()
   const { fmt: formatNaira } = useCurrency()
-  const supabase = createClient()
+  const supabase = createClient() as any
   const { toast } = useToast()
 
   const [debtors, setDebtors] = useState<CustomerDebt[]>([])
@@ -57,6 +57,7 @@ export default function PaymentsPage() {
         .select('*, sale_items(product_name, quantity, subtotal)')
         .eq('customer_id', customer.id)
         .neq('payment_status', 'paid')
+        .eq('sale_status', 'active')
         .order('created_at', { ascending: false })
       debtorData.push({
         customer,

@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { LayoutDashboard, ShoppingBag, CreditCard, LogOut, Package, ArrowLeftRight, Users } from 'lucide-react'
+import { LayoutDashboard, ShoppingBag, CreditCard, LogOut, Package, Users } from 'lucide-react'
 
 const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim())
 
@@ -23,7 +23,7 @@ export default async function AdminLayout({
     { href: `/${locale}/admin`, label: 'Dashboard', icon: LayoutDashboard },
     { href: `/${locale}/admin/shops`, label: 'Boutiques', icon: ShoppingBag },
     { href: `/${locale}/admin/stock`, label: 'Stock', icon: Package },
-    { href: `/${locale}/admin/transfers`, label: 'Transferts', icon: ArrowLeftRight },
+
     { href: `/${locale}/admin/managers`, label: 'Responsables', icon: Users },
     { href: `/${locale}/admin/payments`, label: 'Paiements', icon: CreditCard },
   ]
