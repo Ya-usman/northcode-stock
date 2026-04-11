@@ -3,7 +3,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslations } from 'next-intl'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, Plus, Minus, Trash2, CheckCircle, MessageCircle, Printer, Scan, X, User, Store, ChevronDown } from 'lucide-react'
+import {
+  Search, Plus, Minus, Trash2, CheckCircle, MessageCircle, Printer,
+  Scan, X, User, Store, ChevronDown, Clock, PauseCircle, PlayCircle,
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { cn } from '@/lib/utils/cn'
@@ -20,6 +23,30 @@ import { useCurrency } from '@/lib/hooks/use-currency'
 import { generateReceiptPDF } from '@/lib/utils/pdf'
 import { shareReceiptWhatsApp, buildReceiptWhatsAppMessage } from '@/lib/utils/whatsapp'
 import type { Product, Customer, CartItem, Sale, SaleItem } from '@/lib/types/database'
+
+interface Draft {
+  id: string
+  createdAt: string
+  shopId: string
+  cart: CartItem[]
+  customerName: string
+  customerPhone: string
+  discount: number
+  notes: string
+  paymentMethod: 'cash' | 'transfer' | 'credit' | 'paystack'
+}
+
+const DRAFTS_KEY = 'nc_sale_drafts'
+
+function loadDraftsFromStorage(): Draft[] {
+  try {
+    return JSON.parse(localStorage.getItem(DRAFTS_KEY) || '[]')
+  } catch { return [] }
+}
+
+function saveDraftsToStorage(drafts: Draft[]) {
+  localStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts))
+}
 
 export default function NewSalePage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations()
@@ -39,7 +66,8 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
   const [cart, setCart] = useState<CartItem[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
-  const [customerName, setCustomerName] = useState('') // free text for walk-in
+  const [customerName, setCustomerName] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('')
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
   const [discount, setDiscount] = useState(0)
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer' | 'credit' | 'paystack'>('cash')
@@ -51,11 +79,20 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
   const [showReceipt, setShowReceipt] = useState(false)
   const [scanFlash, setScanFlash] = useState(false)
 
-  // Barcode scanner detection (keyboard wedge)
+  // Drafts (held invoices)
+  const [drafts, setDrafts] = useState<Draft[]>([])
+  const [showDrafts, setShowDrafts] = useState(false)
+  const [activeDraftId, setActiveDraftId] = useState<string | null>(null)
+
+  // Load drafts from localStorage on mount
+  useEffect(() => {
+    setDrafts(loadDraftsFromStorage())
+  }, [])
+
+  // Barcode scanner
   const barcodeBuffer = useRef('')
   const barcodeTimer = useRef<NodeJS.Timeout | null>(null)
 
-  // Load products and customers
   useEffect(() => {
     if (!selectedShop?.id) return
     const load = async () => {
@@ -71,12 +108,8 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
     load()
   }, [selectedShop?.id])
 
-  // Filter products on search
   useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredProducts(products)
-      return
-    }
+    if (!searchQuery.trim()) { setFilteredProducts(products); return }
     const q = searchQuery.toLowerCase()
     setFilteredProducts(products.filter(p =>
       p.name.toLowerCase().includes(q) ||
@@ -85,13 +118,10 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
     ))
   }, [searchQuery, products])
 
-  // Barcode scanner: detect rapid keystrokes ending with Enter
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if focus is in an input (except our search ref)
       const tag = (e.target as HTMLElement).tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA') {
-        // Only capture if it's a scanner (very fast, ends with Enter)
         if (e.key === 'Enter' && barcodeBuffer.current.length >= 3) {
           const scanned = barcodeBuffer.current.trim()
           barcodeBuffer.current = ''
@@ -101,7 +131,6 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
         }
         return
       }
-
       if (e.key === 'Enter') {
         const scanned = barcodeBuffer.current.trim()
         barcodeBuffer.current = ''
@@ -109,16 +138,12 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
         if (scanned.length >= 3) handleBarcodeScan(scanned)
         return
       }
-
       if (e.key.length === 1) {
         barcodeBuffer.current += e.key
         if (barcodeTimer.current) clearTimeout(barcodeTimer.current)
-        barcodeTimer.current = setTimeout(() => {
-          barcodeBuffer.current = ''
-        }, 120) // scanner types < 120ms per char
+        barcodeTimer.current = setTimeout(() => { barcodeBuffer.current = '' }, 120)
       }
     }
-
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [products])
@@ -152,12 +177,7 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
             : i
         )
       }
-      return [...prev, {
-        product,
-        quantity: 1,
-        unit_price: product.selling_price,
-        subtotal: product.selling_price,
-      }]
+      return [...prev, { product, quantity: 1, unit_price: product.selling_price, subtotal: product.selling_price }]
     })
   }
 
@@ -183,10 +203,80 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
     )
   }
 
+  const setQtyDirect = (productId: string, qty: number) => {
+    if (isNaN(qty) || qty < 1) return
+    setCart(prev => prev.map(item => {
+      if (item.product.id !== productId) return item
+      const capped = Math.min(qty, item.product.quantity)
+      return { ...item, quantity: capped, subtotal: capped * item.unit_price }
+    }))
+  }
+
   const removeFromCart = (productId: string) => {
     setCart(prev => prev.filter(i => i.product.id !== productId))
   }
 
+  const resetForm = () => {
+    setCart([])
+    setDiscount(0)
+    setAmountPaid('')
+    setSelectedCustomer(null)
+    setCustomerName('')
+    setCustomerPhone('')
+    setNotes('')
+    setTransferRef('')
+    setActiveDraftId(null)
+  }
+
+  // ── DRAFTS ─────────────────────────────────────────────
+  const holdInvoice = () => {
+    if (cart.length === 0) {
+      toast({ title: 'Panier vide', variant: 'destructive' })
+      return
+    }
+    const draft: Draft = {
+      id: activeDraftId || `draft_${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      shopId: selectedShop?.id || '',
+      cart,
+      customerName: selectedCustomer ? selectedCustomer.name : customerName,
+      customerPhone,
+      discount,
+      notes,
+      paymentMethod,
+    }
+    const updated = drafts.filter(d => d.id !== draft.id)
+    updated.unshift(draft)
+    setDrafts(updated)
+    saveDraftsToStorage(updated)
+    resetForm()
+    toast({ title: 'Facture mise en attente', variant: 'success' })
+  }
+
+  const resumeDraft = (draft: Draft) => {
+    // Only resume if products are still loaded (same shop)
+    setCart(draft.cart)
+    setCustomerName(draft.customerName)
+    setCustomerPhone(draft.customerPhone)
+    setDiscount(draft.discount)
+    setNotes(draft.notes)
+    setPaymentMethod(draft.paymentMethod)
+    setActiveDraftId(draft.id)
+    setShowDrafts(false)
+    toast({ title: 'Facture reprise', variant: 'success' })
+  }
+
+  const deleteDraft = (id: string) => {
+    const updated = drafts.filter(d => d.id !== id)
+    setDrafts(updated)
+    saveDraftsToStorage(updated)
+    if (activeDraftId === id) { setActiveDraftId(null) }
+  }
+
+  // Drafts for current shop
+  const shopDrafts = drafts.filter(d => d.shopId === selectedShop?.id)
+
+  // ── TOTALS ─────────────────────────────────────────────
   const subtotal = cart.reduce((s, i) => s + i.subtotal, 0)
   const discountAmt = discount
   const tax = Number(selectedShop?.tax_rate || 0) > 0 ? (subtotal - discountAmt) * (selectedShop!.tax_rate / 100) : 0
@@ -202,29 +292,47 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
       )
     : customers
 
+  // ── COMPLETE SALE ───────────────────────────────────────
   const completeSale = async () => {
-    if (cart.length === 0) {
-      toast({ title: 'Panier vide', variant: 'destructive' })
-      return
-    }
+    if (cart.length === 0) { toast({ title: 'Panier vide', variant: 'destructive' }); return }
     if (paymentMethod === 'credit' && !selectedCustomer && !customerName.trim()) {
-      toast({ title: 'Entre un nom de client pour une vente à crédit', variant: 'destructive' })
-      return
+      toast({ title: 'Entre un nom de client pour une vente à crédit', variant: 'destructive' }); return
     }
     if (paymentMethod === 'cash' && Number(amountPaid) < total) {
-      toast({ title: `Montant insuffisant (${formatNaira(Number(amountPaid))})`, variant: 'destructive' })
-      return
+      toast({ title: `Montant insuffisant (${formatNaira(Number(amountPaid))})`, variant: 'destructive' }); return
     }
 
     setCompleting(true)
     try {
       const db = supabase as any
 
+      // Create or find customer by phone/name if provided
+      let customerId = selectedCustomer?.id || null
+      if (!customerId && customerName.trim()) {
+        // Try to find existing customer with same phone
+        let existing = customerPhone
+          ? customers.find(c => c.phone === customerPhone)
+          : null
+        if (!existing) {
+          const { data: newCust } = await db.from('customers').insert({
+            shop_id: selectedShop!.id,
+            name: customerName.trim(),
+            phone: customerPhone.trim() || null,
+          }).select().single()
+          if (newCust) {
+            customerId = (newCust as any).id
+            setCustomers(prev => [...prev, newCust as Customer])
+          }
+        } else {
+          customerId = existing.id
+        }
+      }
+
       const { data: sale, error: saleError } = await db
         .from('sales')
         .insert({
           shop_id: selectedShop!.id,
-          customer_id: selectedCustomer?.id || null,
+          customer_id: customerId,
           cashier_id: profile!.id,
           subtotal,
           discount: discountAmt,
@@ -269,14 +377,12 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
         .eq('id', sale.id)
         .single()
 
+      // Remove from drafts if it was a held invoice
+      if (activeDraftId) deleteDraft(activeDraftId)
+
       setCompletedSale(fullSale as any)
       setShowReceipt(true)
-      setCart([])
-      setDiscount(0)
-      setAmountPaid('')
-      setSelectedCustomer(null)
-      setCustomerName('')
-      setNotes('')
+      resetForm()
       toast({ title: t('sales.receipt_ready'), variant: 'success' })
     } catch (err: any) {
       toast({ title: err.message || t('errors.generic'), variant: 'destructive' })
@@ -300,12 +406,8 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
     const message = buildReceiptWhatsAppMessage({
       shopName: selectedShop?.name || '',
       saleNumber: completedSale.sale_number,
-      date: new Date(completedSale.created_at).toLocaleString('en-NG'),
-      items: completedSale.sale_items.map(i => ({
-        name: i.product_name,
-        qty: i.quantity,
-        price: i.unit_price,
-      })),
+      date: new Date(completedSale.created_at).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }),
+      items: completedSale.sale_items.map(i => ({ name: i.product_name, qty: i.quantity, price: i.unit_price })),
       total: completedSale.total,
       paid: completedSale.amount_paid,
       balance: completedSale.balance,
@@ -315,10 +417,11 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
     shareReceiptWhatsApp(message)
   }
 
+  // ── RENDER ──────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full gap-4 max-w-2xl mx-auto">
 
-      {/* Shop selector — visible only for owners with multiple shops */}
+      {/* Shop selector */}
       {isOwner && userShops.length > 1 && (
         <div className="relative">
           <button
@@ -336,14 +439,10 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
               <div className="fixed inset-0 z-10" onClick={() => setShopPickerOpen(false)} />
               <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-xl border bg-white shadow-lg p-1.5">
                 {userShops.map(s => (
-                  <button
-                    key={s.id}
+                  <button key={s.id}
                     onClick={() => { setSelectedShopId(s.id); setCart([]); setShopPickerOpen(false) }}
-                    className={cn(
-                      'w-full flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-left transition-colors',
-                      (selectedShopId || shop?.id) === s.id
-                        ? 'bg-northcode-blue-muted text-northcode-blue font-medium'
-                        : 'hover:bg-gray-50 text-gray-700'
+                    className={cn('w-full flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-left transition-colors',
+                      (selectedShopId || shop?.id) === s.id ? 'bg-northcode-blue-muted text-northcode-blue font-medium' : 'hover:bg-gray-50 text-gray-700'
                     )}
                   >
                     <Store className="h-3.5 w-3.5 flex-shrink-0" />
@@ -359,6 +458,28 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
         </div>
       )}
 
+      {/* Held invoices banner */}
+      {shopDrafts.length > 0 && (
+        <button
+          onClick={() => setShowDrafts(true)}
+          className="flex items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700 hover:bg-amber-100 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            <span>{shopDrafts.length} facture{shopDrafts.length > 1 ? 's' : ''} en attente</span>
+          </div>
+          <Badge className="bg-amber-500 text-white text-xs">{shopDrafts.length}</Badge>
+        </button>
+      )}
+
+      {/* Active draft indicator */}
+      {activeDraftId && (
+        <div className="flex items-center gap-2 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-700">
+          <PlayCircle className="h-3.5 w-3.5" />
+          Facture en attente reprise — validez ou remettez en attente
+        </div>
+      )}
+
       {/* Search + Scan */}
       <div className={`relative transition-all ${scanFlash ? 'ring-2 ring-green-400 rounded-lg' : ''}`}>
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -366,11 +487,7 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
           ref={searchRef}
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'Enter' && filteredProducts.length === 1) {
-              addToCart(filteredProducts[0])
-            }
-          }}
+          onKeyDown={e => { if (e.key === 'Enter' && filteredProducts.length === 1) addToCart(filteredProducts[0]) }}
           placeholder="Chercher produit ou scanner code-barres…"
           className="pl-10 pr-12 h-12 text-base border-northcode-blue/30 focus:border-northcode-blue"
           autoFocus
@@ -385,7 +502,6 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
         </div>
       </div>
 
-      {/* Hint scanner */}
       <p className="text-xs text-muted-foreground -mt-2 px-1">
         Tape le nom, SKU ou scanne le code-barres avec un lecteur USB/Bluetooth
       </p>
@@ -393,43 +509,25 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
       {/* Product grid */}
       <AnimatePresence>
         {searchQuery && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden"
-          >
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
             <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
               {filteredProducts.slice(0, 20).map(product => (
-                <button
-                  key={product.id}
-                  onClick={() => addToCart(product)}
+                <button key={product.id} onClick={() => addToCart(product)}
                   className="flex flex-col items-start text-left rounded-lg border bg-white p-3 hover:border-northcode-blue hover:bg-northcode-blue-muted transition-colors tap-target"
                 >
                   <p className="text-sm font-medium truncate w-full">{product.name}</p>
-                  {product.name_hausa && (
-                    <p className="text-xs text-muted-foreground truncate w-full">{product.name_hausa}</p>
-                  )}
-                  {product.sku && (
-                    <p className="text-[10px] text-muted-foreground font-mono">{product.sku}</p>
-                  )}
+                  {product.name_hausa && <p className="text-xs text-muted-foreground truncate w-full">{product.name_hausa}</p>}
+                  {product.sku && <p className="text-[10px] text-muted-foreground font-mono">{product.sku}</p>}
                   <div className="flex items-center justify-between w-full mt-1">
-                    <span className="text-sm font-bold text-northcode-blue">
-                      {formatNaira(product.selling_price)}
-                    </span>
-                    <Badge
-                      variant={product.quantity <= 5 ? 'warning' : 'success'}
-                      className="text-[10px] px-1.5"
-                    >
+                    <span className="text-sm font-bold text-northcode-blue">{formatNaira(product.selling_price)}</span>
+                    <Badge variant={product.quantity <= 5 ? 'warning' : 'success'} className="text-[10px] px-1.5">
                       {product.quantity} {product.unit}
                     </Badge>
                   </div>
                 </button>
               ))}
               {filteredProducts.length === 0 && (
-                <p className="col-span-2 text-sm text-muted-foreground text-center py-4">
-                  Aucun produit trouvé
-                </p>
+                <p className="col-span-2 text-sm text-muted-foreground text-center py-4">Aucun produit trouvé</p>
               )}
             </div>
           </motion.div>
@@ -447,12 +545,7 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
         <div className="space-y-2">
           <AnimatePresence>
             {cart.map(item => (
-              <motion.div
-                key={item.product.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-              >
+              <motion.div key={item.product.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
                 <Card className="border-0 shadow-sm">
                   <CardContent className="p-3">
                     <div className="flex items-center gap-3">
@@ -460,11 +553,19 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
                         <p className="text-sm font-medium truncate">{item.product.name}</p>
                         <p className="text-xs text-muted-foreground">{formatNaira(item.unit_price)} / unité</p>
                       </div>
+                      {/* Quantity controls */}
                       <div className="flex items-center gap-1">
                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQty(item.product.id, -1)}>
                           <Minus className="h-3 w-3" />
                         </Button>
-                        <span className="w-8 text-center text-sm font-bold">{item.quantity}</span>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={item.product.quantity}
+                          value={item.quantity}
+                          onChange={e => setQtyDirect(item.product.id, parseInt(e.target.value))}
+                          className="w-14 h-8 text-center text-sm font-bold p-1"
+                        />
                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQty(item.product.id, 1)}>
                           <Plus className="h-3 w-3" />
                         </Button>
@@ -472,10 +573,8 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
                       <div className="text-right min-w-[70px]">
                         <p className="text-sm font-bold">{formatNaira(item.subtotal)}</p>
                       </div>
-                      <Button
-                        variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={() => removeFromCart(item.product.id)}
-                      >
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => removeFromCart(item.product.id)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -485,19 +584,14 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
             ))}
           </AnimatePresence>
 
-          {/* Totals + discount */}
+          {/* Totals */}
           <Card className="border-0 shadow-sm">
             <CardContent className="p-4 space-y-3">
               <div className="flex items-center gap-3">
                 <Label className="text-sm w-24 flex-shrink-0">{t('sales.discount')}</Label>
                 <div className="relative flex-1">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{selectedShop?.currency || '₦'}</span>
-                  <Input
-                    type="number" min={0} max={subtotal}
-                    value={discount || ''}
-                    onChange={e => setDiscount(Math.min(Number(e.target.value), subtotal))}
-                    className="pl-7 h-9" placeholder="0"
-                  />
+                  <Input type="number" min={0} max={subtotal} value={discount || ''} onChange={e => setDiscount(Math.min(Number(e.target.value), subtotal))} className="pl-7 h-9" placeholder="0" />
                 </div>
               </div>
               <Separator />
@@ -523,59 +617,68 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
             </CardContent>
           </Card>
 
-          {/* Customer — optional, free text or select existing */}
-          <div className="space-y-1.5 relative">
-            <Label className="flex items-center gap-1">
-              <User className="h-3.5 w-3.5" />
-              Client <span className="text-muted-foreground font-normal text-xs">(optionnel)</span>
-            </Label>
-            <div className="relative">
-              <Input
-                value={selectedCustomer ? selectedCustomer.name : customerName}
-                onChange={e => {
-                  setCustomerName(e.target.value)
-                  setSelectedCustomer(null)
-                  setShowCustomerDropdown(e.target.value.length > 0)
-                }}
-                onFocus={() => setShowCustomerDropdown(true)}
-                onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 150)}
-                placeholder="Tape un nom, téléphone, ou laisse vide…"
-                className="pr-8"
-              />
-              {(selectedCustomer || customerName) && (
-                <button
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  onClick={() => { setSelectedCustomer(null); setCustomerName('') }}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-            {/* Dropdown: existing customers matching search */}
-            {showCustomerDropdown && !selectedCustomer && filteredCustomers.length > 0 && (
-              <div className="absolute z-20 w-full bg-white border rounded-lg shadow-lg max-h-40 overflow-y-auto">
-                {filteredCustomers.slice(0, 8).map(c => (
-                  <button
-                    key={c.id}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex justify-between items-center"
-                    onMouseDown={() => { setSelectedCustomer(c); setCustomerName(''); setShowCustomerDropdown(false) }}
-                  >
-                    <span className="font-medium">{c.name}</span>
-                    <span className="text-xs text-muted-foreground">{c.phone}</span>
+          {/* Customer — nom, prénom, téléphone */}
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-4 space-y-3">
+              <p className="text-sm font-medium flex items-center gap-1.5">
+                <User className="h-4 w-4" /> Client <span className="text-muted-foreground font-normal text-xs">(optionnel)</span>
+              </p>
+
+              {/* Search existing customer */}
+              <div className="relative">
+                <Input
+                  value={selectedCustomer ? selectedCustomer.name : customerName}
+                  onChange={e => { setCustomerName(e.target.value); setSelectedCustomer(null); setShowCustomerDropdown(e.target.value.length > 0) }}
+                  onFocus={() => setShowCustomerDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 150)}
+                  placeholder="Nom complet du client…"
+                />
+                {(selectedCustomer || customerName) && (
+                  <button className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={() => { setSelectedCustomer(null); setCustomerName(''); setCustomerPhone('') }}>
+                    <X className="h-4 w-4" />
                   </button>
-                ))}
+                )}
+                {showCustomerDropdown && !selectedCustomer && filteredCustomers.length > 0 && (
+                  <div className="absolute z-20 w-full bg-white border rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                    {filteredCustomers.slice(0, 8).map(c => (
+                      <button key={c.id} className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex justify-between items-center"
+                        onMouseDown={() => { setSelectedCustomer(c); setCustomerName(''); setCustomerPhone(c.phone || ''); setShowCustomerDropdown(false) }}>
+                        <span className="font-medium">{c.name}</span>
+                        <span className="text-xs text-muted-foreground">{c.phone}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+
+              {/* Phone — only show if no existing customer selected or if walk-in */}
+              {!selectedCustomer && (
+                <Input
+                  value={customerPhone}
+                  onChange={e => setCustomerPhone(e.target.value)}
+                  placeholder="Numéro de téléphone (optionnel)"
+                  type="tel"
+                />
+              )}
+
+              {selectedCustomer && (
+                <p className="text-xs text-muted-foreground">
+                  Client existant · {selectedCustomer.phone || 'pas de téléphone'}
+                  {Number(selectedCustomer.total_debt) > 0 && (
+                    <span className="text-red-500 ml-2">· Dette: {formatNaira(selectedCustomer.total_debt)}</span>
+                  )}
+                </p>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Payment method */}
           <div className="space-y-1.5">
             <Label>{t('payment.method')}</Label>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {(['cash', 'transfer', 'credit', 'paystack'] as const).map(method => (
-                <button
-                  key={method}
-                  onClick={() => setPaymentMethod(method)}
+                <button key={method} onClick={() => setPaymentMethod(method)}
                   className={`rounded-lg border p-3 text-sm font-medium transition-colors tap-target ${
                     paymentMethod === method
                       ? 'border-northcode-blue bg-northcode-blue-muted text-northcode-blue'
@@ -592,20 +695,14 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
             </div>
           </div>
 
-          {/* Payment details */}
           {paymentMethod === 'cash' && (
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label>{t('payment.amount_paid')}</Label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 font-medium text-muted-foreground">{selectedShop?.currency || '₦'}</span>
-                  <Input
-                    type="number" min={0}
-                    value={amountPaid}
-                    onChange={e => setAmountPaid(e.target.value)}
-                    className="pl-7 h-12 text-lg font-bold"
-                    placeholder={total.toString()}
-                  />
+                  <Input type="number" min={0} value={amountPaid} onChange={e => setAmountPaid(e.target.value)}
+                    className="pl-7 h-12 text-lg font-bold" placeholder={total.toString()} />
                 </div>
               </div>
               {Number(amountPaid) > 0 && Number(amountPaid) >= total && (
@@ -621,11 +718,7 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label>{t('payment.reference')}</Label>
-                <Input
-                  value={transferRef}
-                  onChange={e => setTransferRef(e.target.value)}
-                  placeholder="Numéro de référence du virement bancaire"
-                />
+                <Input value={transferRef} onChange={e => setTransferRef(e.target.value)} placeholder="Numéro de référence du virement" />
               </div>
               <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-center">
                 <p className="text-sm text-muted-foreground">Montant à recevoir</p>
@@ -650,42 +743,85 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
             <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-center">
               <p className="text-sm text-northcode-blue font-medium">{t('payment.paystack_link')}</p>
               <p className="text-2xl font-bold text-northcode-blue mt-1">{formatNaira(total)}</p>
-              <Button
-                variant="outline"
-                className="mt-2 border-northcode-blue text-northcode-blue"
-                onClick={() => {
-                  const ref = `PAY-${Date.now()}`
-                  const url = `https://paystack.com/pay/${process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY}?amount=${total * 100}&reference=${ref}`
-                  window.open(url, '_blank')
-                }}
-              >
-                Ouvrir Paystack
-              </Button>
             </div>
           )}
 
           {/* Notes */}
           <div className="space-y-1.5">
             <Label>Notes (optionnel)</Label>
-            <Input
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="Remarques sur cette vente…"
-            />
+            <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Remarques sur cette vente…" />
           </div>
 
-          {/* Complete sale */}
-          <Button
-            className="w-full h-14 text-lg bg-northcode-blue hover:bg-northcode-blue-light"
-            onClick={completeSale}
-            loading={completing}
-            disabled={cart.length === 0}
-          >
-            <CheckCircle className="mr-2 h-5 w-5" />
-            {t('actions.complete_sale')} · {formatNaira(total)}
-          </Button>
+          {/* Action buttons */}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="flex-1 h-12 gap-2 border-amber-300 text-amber-700 hover:bg-amber-50"
+              onClick={holdInvoice}
+              disabled={cart.length === 0}
+            >
+              <PauseCircle className="h-4 w-4" />
+              Mettre en attente
+            </Button>
+            <Button
+              className="flex-[2] h-12 text-base bg-northcode-blue hover:bg-northcode-blue-light"
+              onClick={completeSale}
+              loading={completing}
+              disabled={cart.length === 0}
+            >
+              <CheckCircle className="mr-2 h-5 w-5" />
+              Valider · {formatNaira(total)}
+            </Button>
+          </div>
         </div>
       )}
+
+      {/* Drafts modal */}
+      <Dialog open={showDrafts} onOpenChange={setShowDrafts}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-amber-500" />
+              Factures en attente
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {shopDrafts.map(draft => {
+              const draftTotal = draft.cart.reduce((s, i) => s + i.subtotal, 0) - draft.discount
+              const itemCount = draft.cart.reduce((s, i) => s + i.quantity, 0)
+              return (
+                <div key={draft.id} className="rounded-xl border bg-white p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold">{draft.customerName || 'Client anonyme'}</p>
+                      {draft.customerPhone && <p className="text-xs text-muted-foreground">{draft.customerPhone}</p>}
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {itemCount} article{itemCount > 1 ? 's' : ''} ·{' '}
+                        {new Date(draft.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="font-bold text-northcode-blue">{formatNaira(draftTotal)}</p>
+                    </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {draft.cart.map(i => `${i.product.name} ×${i.quantity}`).join(', ')}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" className="flex-1 h-8 bg-northcode-blue gap-1" onClick={() => resumeDraft(draft)}>
+                      <PlayCircle className="h-3.5 w-3.5" /> Reprendre
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-8 border-red-200 text-red-500 hover:bg-red-50"
+                      onClick={() => deleteDraft(draft.id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Receipt Modal */}
       <Dialog open={showReceipt} onOpenChange={setShowReceipt}>
@@ -696,14 +832,16 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
               {t('sales.receipt_ready')}
             </DialogTitle>
           </DialogHeader>
-
           {completedSale && (
             <div className="space-y-4">
               <div className="rounded-lg bg-gray-50 border p-4 text-sm space-y-2">
                 <div className="flex justify-between font-bold">
                   <span>#{completedSale.sale_number}</span>
-                  <span>{new Date(completedSale.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })}</span>
+                  <span>{new Date(completedSale.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
+                {completedSale.customers && (
+                  <p className="text-xs text-muted-foreground">Client : {completedSale.customers.name}</p>
+                )}
                 <Separator />
                 {completedSale.sale_items?.map(item => (
                   <div key={item.id} className="flex justify-between text-xs">
@@ -723,22 +861,16 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
                   </div>
                 )}
               </div>
-
               <div className="grid grid-cols-2 gap-2">
                 <Button variant="outline" onClick={handleWhatsAppReceipt} className="gap-2">
-                  <MessageCircle className="h-4 w-4" />
-                  WhatsApp
+                  <MessageCircle className="h-4 w-4" /> WhatsApp
                 </Button>
                 <Button variant="outline" onClick={handlePrintReceipt} className="gap-2">
-                  <Printer className="h-4 w-4" />
-                  {t('actions.print_receipt')}
+                  <Printer className="h-4 w-4" /> {t('actions.print_receipt')}
                 </Button>
               </div>
-
-              <Button
-                className="w-full bg-northcode-blue hover:bg-northcode-blue-light"
-                onClick={() => { setShowReceipt(false); searchRef.current?.focus() }}
-              >
+              <Button className="w-full bg-northcode-blue hover:bg-northcode-blue-light"
+                onClick={() => { setShowReceipt(false); searchRef.current?.focus() }}>
                 Nouvelle vente →
               </Button>
             </div>
