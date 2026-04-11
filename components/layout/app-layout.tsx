@@ -77,7 +77,15 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
     })
   }, [shop?.id, profile?.role])
 
-  if (loading || !profile) return <LoadingSkeleton />
+  if (loading) return <LoadingSkeleton />
+
+  // Profile not found after loading — redirect to login
+  if (!profile) {
+    if (typeof window !== 'undefined') {
+      window.location.href = `/${locale}/login`
+    }
+    return <LoadingSkeleton />
+  }
 
   const trialDaysLeft = getTrialDaysLeft(shop?.trial_ends_at ?? null)
   const subscribed = hasActiveSubscription(shop?.plan ?? null, shop?.plan_expires_at ?? null)

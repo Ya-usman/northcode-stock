@@ -1,7 +1,15 @@
 import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+
+function getAdminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+}
 
 export async function POST(request: Request) {
   try {
@@ -37,7 +45,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Vous ne pouvez pas vous supprimer vous-même' }, { status: 400 })
     }
 
-    const admin = await createAdminClient() as any
+    const admin = getAdminClient()
 
     // 1. Remove from this shop's shop_members
     await admin.from('shop_members').delete().eq('user_id', employee_id).eq('shop_id', shop_id)
