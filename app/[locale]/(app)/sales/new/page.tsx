@@ -22,7 +22,7 @@ import { Separator } from '@/components/ui/separator'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { generateReceiptPDF } from '@/lib/utils/pdf'
 import { shareReceiptWhatsApp, buildReceiptWhatsAppMessage } from '@/lib/utils/whatsapp'
-import type { Product, Customer, CartItem, Sale, SaleItem } from '@/lib/types/database'
+import type { Product, Customer, CartItem, Sale, SaleItem, Category } from '@/lib/types/database'
 
 interface Draft {
   id: string
@@ -61,7 +61,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const searchRef = useRef<HTMLInputElement>(null)
 
   const [searchQuery, setSearchQuery] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [products, setProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -101,27 +103,35 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   useEffect(() => {
     if (!selectedShop?.id) return
     const load = async () => {
-      const [{ data: prods }, { data: custs }] = await Promise.all([
+      const [{ data: prods }, { data: custs }, { data: cats }] = await Promise.all([
         supabase.from('products').select('*, categories(name), suppliers(name)')
           .eq('shop_id', selectedShop.id).eq('is_active', true).gt('quantity', 0).order('name'),
         supabase.from('customers').select('*').eq('shop_id', selectedShop.id).order('name'),
+        supabase.from('categories').select('*').eq('shop_id', selectedShop.id).order('name'),
       ])
       setProducts((prods || []) as unknown as Product[])
       setFilteredProducts((prods || []) as unknown as Product[])
       setCustomers((custs || []) as Customer[])
+      setCategories((cats || []) as Category[])
     }
     load()
   }, [selectedShop?.id])
 
   useEffect(() => {
-    if (!searchQuery.trim()) { setFilteredProducts(products); return }
-    const q = searchQuery.toLowerCase()
-    setFilteredProducts(products.filter(p =>
-      p.name.toLowerCase().includes(q) ||
-      p.name_hausa?.toLowerCase().includes(q) ||
-      p.sku?.toLowerCase().includes(q)
-    ))
-  }, [searchQuery, products])
+    let list = products
+    if (categoryFilter !== 'all') {
+      list = list.filter(p => p.category_id === categoryFilter)
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      list = list.filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        p.name_hausa?.toLowerCase().includes(q) ||
+        p.sku?.toLowerCase().includes(q)
+      )
+    }
+    setFilteredProducts(list)
+  }, [searchQuery, categoryFilter, products])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -560,9 +570,38 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         Tape le nom, SKU ou scanne le code-barres avec un lecteur USB/Bluetooth
       </p>
 
+      {/* Category filter chips */}
+      {categories.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-0 scrollbar-hide">
+          <button
+            onClick={() => setCategoryFilter('all')}
+            className={`flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              categoryFilter === 'all'
+                ? 'bg-northcode-blue text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            Tous
+          </button>
+          {categories.map(cat => (
+            <button
+              key={cat.id}
+              onClick={() => setCategoryFilter(cat.id)}
+              className={`flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                categoryFilter === cat.id
+                  ? 'bg-northcode-blue text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {cat.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Product grid */}
       <AnimatePresence>
-        {searchQuery && (
+        {(searchQuery || categoryFilter !== 'all') && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
             <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
               {filteredProducts.slice(0, 20).map(product => (

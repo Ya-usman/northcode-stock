@@ -184,25 +184,33 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     a.click()
   }
 
+  // Valeurs surveillées pour les Select contrôlés
+  const watchUnit = productForm.watch('unit')
+  const watchCategoryId = productForm.watch('category_id')
+  const watchSupplierId = productForm.watch('supplier_id')
+
   const ProductForm = ({ onSubmit, isEdit }: { onSubmit: (d: ProductFormData) => void; isEdit?: boolean }) => (
     <form onSubmit={productForm.handleSubmit(onSubmit)} className="space-y-3 overflow-y-auto max-h-[70vh]">
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2 space-y-1">
           <Label>{t('products.name')} *</Label>
-          <Input {...productForm.register('name')} placeholder="Product name" />
+          <Input {...productForm.register('name')} placeholder="Nom du produit" />
           {productForm.formState.errors.name && <p className="text-xs text-destructive">{productForm.formState.errors.name.message}</p>}
         </div>
         <div className="col-span-2 space-y-1">
-          <Label>{t('products.name_hausa')}</Label>
-          <Input {...productForm.register('name_hausa')} placeholder="Sunan Hausa (optional)" />
+          <Label>{t('products.name_hausa')} <span className="text-muted-foreground text-xs font-normal">(optionnel)</span></Label>
+          <Input {...productForm.register('name_hausa')} placeholder="Sunan Hausa" />
         </div>
         <div className="space-y-1">
-          <Label>{t('products.sku')}</Label>
-          <Input {...productForm.register('sku')} placeholder="e.g. RICE-50KG" />
+          <Label>{t('products.sku')} <span className="text-muted-foreground text-xs font-normal">(optionnel)</span></Label>
+          <Input {...productForm.register('sku')} placeholder="ex: RIZ-50KG" />
         </div>
         <div className="space-y-1">
           <Label>{t('products.unit')}</Label>
-          <Select onValueChange={v => productForm.setValue('unit', v)} defaultValue={editingProduct?.unit || 'piece'}>
+          <Select
+            value={watchUnit || 'piece'}
+            onValueChange={v => productForm.setValue('unit', v, { shouldValidate: true })}
+          >
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               {['piece', 'kg', 'g', 'litre', 'ml', 'pack', 'carton', 'dozen', 'bag', 'bottle', 'tin', 'box'].map(u => (
@@ -212,19 +220,27 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           </Select>
         </div>
         <div className="space-y-1">
-          <Label>{t('products.category')}</Label>
-          <Select onValueChange={v => productForm.setValue('category_id', v)} defaultValue={editingProduct?.category_id || ''}>
-            <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+          <Label>{t('products.category')} <span className="text-muted-foreground text-xs font-normal">(optionnel)</span></Label>
+          <Select
+            value={watchCategoryId || ''}
+            onValueChange={v => productForm.setValue('category_id', v, { shouldValidate: true })}
+          >
+            <SelectTrigger><SelectValue placeholder="Sélectionner…" /></SelectTrigger>
             <SelectContent>
+              <SelectItem value="">— Aucune catégorie —</SelectItem>
               {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-1">
-          <Label>{t('products.supplier')}</Label>
-          <Select onValueChange={v => productForm.setValue('supplier_id', v)} defaultValue={editingProduct?.supplier_id || ''}>
-            <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
+          <Label>{t('products.supplier')} <span className="text-muted-foreground text-xs font-normal">(optionnel)</span></Label>
+          <Select
+            value={watchSupplierId || ''}
+            onValueChange={v => productForm.setValue('supplier_id', v, { shouldValidate: true })}
+          >
+            <SelectTrigger><SelectValue placeholder="Sélectionner…" /></SelectTrigger>
             <SelectContent>
+              <SelectItem value="">— Aucun fournisseur —</SelectItem>
               {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -232,24 +248,25 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         {profile?.role === 'owner' && (
           <div className="space-y-1">
             <Label>{t('products.buying_price')} <span className="text-muted-foreground text-xs">({shop?.currency || '₦'})</span></Label>
-            <Input type="number" {...productForm.register('buying_price')} placeholder="0" />
+            <Input type="number" min={0} {...productForm.register('buying_price')} placeholder="0" />
             {productForm.formState.errors.buying_price && <p className="text-xs text-destructive">{productForm.formState.errors.buying_price.message}</p>}
           </div>
         )}
         <div className="space-y-1">
-          <Label>{t('products.selling_price')} <span className="text-muted-foreground text-xs">({shop?.currency || '₦'})</span></Label>
-          <Input type="number" {...productForm.register('selling_price')} placeholder="0" />
+          <Label>{t('products.selling_price')} * <span className="text-muted-foreground text-xs">({shop?.currency || '₦'})</span></Label>
+          <Input type="number" min={0} {...productForm.register('selling_price')} placeholder="0" />
           {productForm.formState.errors.selling_price && <p className="text-xs text-destructive">{productForm.formState.errors.selling_price.message}</p>}
         </div>
         {!isEdit && (
           <div className="space-y-1">
-            <Label>{t('products.quantity')}</Label>
-            <Input type="number" {...productForm.register('quantity')} placeholder="0" />
+            <Label>{t('products.quantity')} *</Label>
+            <Input type="number" min={0} {...productForm.register('quantity')} placeholder="0" />
+            {productForm.formState.errors.quantity && <p className="text-xs text-destructive">{productForm.formState.errors.quantity.message}</p>}
           </div>
         )}
         <div className="space-y-1">
-          <Label>{t('products.low_stock_threshold')}</Label>
-          <Input type="number" {...productForm.register('low_stock_threshold')} placeholder={String(shop?.low_stock_threshold || 10)} />
+          <Label>{t('products.low_stock_threshold')} <span className="text-muted-foreground text-xs font-normal">(alerte)</span></Label>
+          <Input type="number" min={0} {...productForm.register('low_stock_threshold')} placeholder={String(shop?.low_stock_threshold || 10)} />
         </div>
       </div>
       <DialogFooter className="pt-2">
@@ -257,7 +274,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           {t('actions.cancel')}
         </Button>
         <Button type="submit" loading={saving} className="bg-northcode-blue">
-          {t('actions.save')}
+          {isEdit ? t('actions.update') : t('actions.save')}
         </Button>
       </DialogFooter>
     </form>
@@ -294,7 +311,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           <Button
             className="h-9 gap-1 bg-northcode-blue hover:bg-northcode-blue-light"
             size="sm"
-            onClick={() => { productForm.reset(); setShowAddModal(true) }}
+            onClick={() => { productForm.reset({ unit: 'piece', buying_price: 0, quantity: 0 }); setShowAddModal(true) }}
           >
             <Plus className="h-4 w-4" />
             {t('actions.add_product')}
