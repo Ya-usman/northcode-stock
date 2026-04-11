@@ -76,7 +76,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
   const onForgot = async (data: ForgotData) => {
     setError('')
     const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/${locale}/reset-password`,
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/en/reset-password`,
     })
     if (error) {
       setError(error.message)

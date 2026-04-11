@@ -10,7 +10,7 @@ const intlMiddleware = createMiddleware({
 })
 
 // Pages accessibles sans connexion
-const PUBLIC_PATHS = ['/', '/login', '/register', '/forgot-password', '/reset-password']
+const PUBLIC_PATHS = ['/', '/login', '/register', '/forgot-password', '/reset-password', '/update-password']
 
 // Restrictions par rôle
 const ROLE_ACCESS: Record<string, string[]> = {
