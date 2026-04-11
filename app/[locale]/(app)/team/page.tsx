@@ -91,14 +91,42 @@ export default function TeamPage() {
   const fetchMembers = async () => {
     if (!viewShopId) return
     setLoading(true)
-    const { data, error } = await supabase
-      .from('shop_members')
-      .select('id, user_id, shop_id, role, is_active, can_delete_sales, joined_at, profiles(id, full_name, last_seen, is_active)')
-      .eq('shop_id', viewShopId)
-      .order('role')
+    try {
+      // Step 1: get shop_members
+      const { data: membersData, error: membersError } = await supabase
+        .from('shop_members')
+        .select('id, user_id, shop_id, role, is_active, can_delete_sales, joined_at')
+        .eq('shop_id', viewShopId)
+        .order('role')
 
-    if (!error) setMembers((data || []) as Member[])
-    setLoading(false)
+      if (membersError) {
+        toast({ title: 'Erreur: ' + membersError.message, variant: 'destructive' })
+        setLoading(false)
+        return
+      }
+
+      const rows = (membersData || []) as any[]
+      if (rows.length === 0) { setMembers([]); setLoading(false); return }
+
+      // Step 2: get profiles for those user_ids (admin-level read via service key not needed — just read all visible profiles)
+      const userIds = rows.map(r => r.user_id)
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name, last_seen, is_active')
+        .in('id', userIds)
+
+      const profilesMap: Record<string, any> = {}
+      ;(profilesData || []).forEach((p: any) => { profilesMap[p.id] = p })
+
+      // Merge
+      setMembers(rows.map(m => ({
+        ...m,
+        can_delete_sales: m.can_delete_sales ?? false,
+        profiles: profilesMap[m.user_id] ?? { id: m.user_id, full_name: 'Invité', last_seen: null, is_active: m.is_active },
+      })) as Member[])
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { fetchMembers() }, [viewShopId])
