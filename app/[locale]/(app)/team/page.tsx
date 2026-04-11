@@ -76,6 +76,10 @@ export default function TeamPage() {
     open: boolean; member: Member | null; action: 'deactivate' | 'reactivate'
   }>({ open: false, member: null, action: 'deactivate' })
 
+  // Delete confirm dialog
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; member: Member | null }>({ open: false, member: null })
+  const [deleting, setDeleting] = useState(false)
+
   const isOwner = myProfile?.role === 'owner' || myProfile?.role === 'super_admin'
 
   // Sync viewShopId when shop loads
@@ -163,6 +167,28 @@ export default function TeamPage() {
       toast({ title: err.message, variant: 'destructive' })
     } finally {
       setActionLoading(null)
+    }
+  }
+
+  const doDeleteMember = async () => {
+    const { member } = deleteDialog
+    if (!member) return
+    setDeleting(true)
+    try {
+      const res = await fetch('/api/team/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employee_id: member.user_id, shop_id: member.shop_id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast({ title: `${member.profiles?.full_name} supprimé(e) définitivement`, variant: 'success' })
+      setDeleteDialog({ open: false, member: null })
+      fetchMembers()
+    } catch (err: any) {
+      toast({ title: err.message, variant: 'destructive' })
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -356,6 +382,16 @@ export default function TeamPage() {
                             <><ShieldCheck className="h-3 w-3" /> Réactiver</>
                           )}
                         </Button>
+
+                        {/* Delete permanently */}
+                        <Button
+                          size="sm" variant="outline" disabled={isLoading}
+                          onClick={() => setDeleteDialog({ open: true, member })}
+                          className="h-8 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50"
+                          title="Supprimer définitivement"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
 
                       {/* can_delete_sales toggle — only for cashier */}
@@ -427,6 +463,39 @@ export default function TeamPage() {
               className={confirmDialog.action === 'deactivate' ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'}
             >
               {confirmDialog.action === 'deactivate' ? 'Oui, désactiver' : 'Oui, réactiver'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete permanently dialog */}
+      <Dialog open={deleteDialog.open} onOpenChange={open => !open && setDeleteDialog({ open: false, member: null })}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="h-5 w-5" /> Supprimer définitivement
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-100 p-3">
+            <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-red-700">
+              <p className="font-semibold mb-1">Supprimer <span className="text-red-800">{deleteDialog.member?.profiles?.full_name}</span> ?</p>
+              <ul className="text-xs space-y-1 text-red-600">
+                <li>• Compte supprimé <strong>définitivement</strong></li>
+                <li>• Il ne pourra plus se connecter</li>
+                <li>• Ses ventes restent conservées</li>
+                <li>• Cette action est <strong>irréversible</strong></li>
+              </ul>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setDeleteDialog({ open: false, member: null })}>Annuler</Button>
+            <Button
+              size="sm" onClick={doDeleteMember} disabled={deleting}
+              className="bg-red-600 hover:bg-red-700 gap-1.5"
+            >
+              {deleting ? <span className="h-3 w-3 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <Trash2 className="h-3 w-3" />}
+              Supprimer
             </Button>
           </DialogFooter>
         </DialogContent>
