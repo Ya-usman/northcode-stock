@@ -10,13 +10,12 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import type { Customer, Sale } from '@/lib/types/database'
 import {
-  AlertCircle, ChevronDown, ChevronUp, Clock, CheckCircle2,
-  History, Plus, User, RefreshCw, Banknote,
+  ChevronDown, ChevronUp, Clock, CheckCircle2,
+  History, User, RefreshCw, Banknote,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -122,37 +121,46 @@ export default function DettesPage() {
 
   // ── Open repay dialog ───────────────────────────────────
   const openRepayDialog = (debtor: CustomerDebt) => {
-    const firstSale = debtor.unpaidSales[0]
     setRepayDebtor(debtor)
-    setRepaySaleId(firstSale?.id || '')
-    setRepayAmount(firstSale ? String(Math.round(firstSale.balance)) : '')
+    setRepayAmount(String(Math.round(debtor.totalDebt)))
     setRepayMethod('cash')
     setRepayRef('')
     setRepayNotes('')
   }
 
-  // ── Record repayment ────────────────────────────────────
+  // ── Record repayment (FIFO: oldest invoice first) ───────
   const recordRepayment = async () => {
-    if (!repayDebtor || !repaySaleId || !repayAmount || Number(repayAmount) <= 0) {
-      toast({ title: 'Veuillez remplir tous les champs obligatoires', variant: 'destructive' })
+    if (!repayDebtor || !repayAmount || Number(repayAmount) <= 0) {
+      toast({ title: 'Veuillez saisir un montant', variant: 'destructive' })
       return
     }
-    const sale = repayDebtor.unpaidSales.find(s => s.id === repaySaleId)
-    if (sale && Number(repayAmount) > sale.balance) {
-      toast({ title: `Le montant dépasse le solde dû (${fmt(sale.balance)})`, variant: 'destructive' })
+    const amount = Number(repayAmount)
+    if (amount > repayDebtor.totalDebt) {
+      toast({ title: `Le montant dépasse la dette totale (${fmt(repayDebtor.totalDebt)})`, variant: 'destructive' })
       return
     }
     setSaving(true)
     try {
-      const { error } = await supabase.from('payments').insert({
-        sale_id: repaySaleId,
-        amount: Number(repayAmount),
-        method: repayMethod,
-        reference: repayRef || null,
-        notes: repayNotes || null,
-        received_by: profile!.id,
-      })
-      if (error) throw error
+      // Appliquer en FIFO : factures les plus anciennes d'abord
+      let remaining = amount
+      const sorted = [...repayDebtor.unpaidSales].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      )
+      for (const sale of sorted) {
+        if (remaining <= 0) break
+        const toApply = Math.min(remaining, Number(sale.balance))
+        if (toApply <= 0) continue
+        const { error } = await supabase.from('payments').insert({
+          sale_id: sale.id,
+          amount: toApply,
+          method: repayMethod,
+          reference: repayRef || null,
+          notes: repayNotes || null,
+          received_by: profile!.id,
+        })
+        if (error) throw error
+        remaining -= toApply
+      }
       toast({ title: '✓ Remboursement enregistré', variant: 'success' })
       setRepayDebtor(null)
       fetchDebtors(true)
@@ -395,33 +403,20 @@ export default function DettesPage() {
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* Facture */}
-            <div className="space-y-1">
-              <Label>Facture à rembourser *</Label>
-              <Select
-                value={repaySaleId}
-                onValueChange={id => {
-                  setRepaySaleId(id)
-                  const sale = repayDebtor?.unpaidSales.find(s => s.id === id)
-                  if (sale) setRepayAmount(String(Math.round(sale.balance)))
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner une facture" />
-                </SelectTrigger>
-                <SelectContent>
-                  {repayDebtor?.unpaidSales.map(sale => (
-                    <SelectItem key={sale.id} value={sale.id}>
-                      #{sale.sale_number} — Solde dû : {fmt(sale.balance)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Résumé dette */}
+            {repayDebtor && (
+              <div className="rounded-lg bg-red-50 border border-red-200 p-3 space-y-1">
+                <p className="text-xs font-semibold text-red-700 uppercase tracking-wide">Dette totale</p>
+                <p className="text-2xl font-bold text-red-600">{fmt(repayDebtor.totalDebt)}</p>
+                <p className="text-xs text-red-500">
+                  {repayDebtor.unpaidSales.length} facture{repayDebtor.unpaidSales.length !== 1 ? 's' : ''} impayée{repayDebtor.unpaidSales.length !== 1 ? 's' : ''} — appliqué de la plus ancienne à la plus récente
+                </p>
+              </div>
+            )}
 
-            {/* Montant */}
+            {/* Montant donné par le client */}
             <div className="space-y-1">
-              <Label>Montant remboursé *</Label>
+              <Label>Montant donné par le client *</Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">
                   {shop?.currency || '₦'}
@@ -430,19 +425,21 @@ export default function DettesPage() {
                   type="number"
                   value={repayAmount}
                   onChange={e => setRepayAmount(e.target.value)}
-                  className="pl-8 h-11 text-lg font-bold"
+                  className="pl-8 h-12 text-lg font-bold"
                   min={1}
                   placeholder="0"
+                  autoFocus
                 />
               </div>
-              {repayDebtor && repaySaleId && (() => {
-                const sale = repayDebtor.unpaidSales.find(s => s.id === repaySaleId)
-                return sale ? (
-                  <p className="text-xs text-muted-foreground">
-                    Solde total dû sur cette facture : <strong>{fmt(sale.balance)}</strong>
-                  </p>
-                ) : null
-              })()}
+              {repayDebtor && Number(repayAmount) > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Reste après remboursement :{' '}
+                  <strong className={Number(repayAmount) >= repayDebtor.totalDebt ? 'text-green-600' : 'text-orange-600'}>
+                    {fmt(Math.max(0, repayDebtor.totalDebt - Number(repayAmount)))}
+                  </strong>
+                  {Number(repayAmount) >= repayDebtor.totalDebt && ' ✓ Dette soldée'}
+                </p>
+              )}
             </div>
 
             {/* Mode de paiement */}
