@@ -22,8 +22,11 @@ export default function LocaleError({
           <AlertTriangle className="h-7 w-7 text-red-500" />
         </div>
         <h1 className="text-xl font-bold text-foreground mb-2">Something went wrong</h1>
-        <p className="text-sm text-muted-foreground mb-6">
+        <p className="text-sm text-muted-foreground mb-2">
           The app ran into an error. Try refreshing — your data is safe.
+        </p>
+        <p className="text-xs font-mono bg-gray-100 rounded p-2 mb-4 text-left break-all text-red-600">
+          {error?.message || String(error)}
         </p>
         <div className="flex gap-3 justify-center">
           <Button onClick={reset} className="gap-2 bg-northcode-blue">
