@@ -107,24 +107,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (initialized.current) return
     initialized.current = true
 
-    // Primary bootstrap via onAuthStateChange — handles INITIAL_SESSION, TOKEN_REFRESHED, SIGNED_IN
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_OUT') {
-        setState({ user: null, profile: null, userShops: [], activeShop: null, roleInActiveShop: null, loading: false })
-        return
-      }
-
+    // 1. Bootstrap immédiat via getSession() — lit les cookies sans réseau
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
-        // Covers: INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED, USER_UPDATED
         try {
           const { profile, userShops, memberships: rows } = await fetchUserData(session.user.id)
           applyUserData(session.user, profile, userShops, rows, activeShopId)
         } catch {
           setState(s => ({ ...s, user: session.user, loading: false }))
         }
-      } else if (event === 'INITIAL_SESSION') {
-        // No session found on initial load → not logged in
+      } else {
         setState(s => ({ ...s, loading: false }))
+      }
+    }).catch(() => setState(s => ({ ...s, loading: false })))
+
+    // 2. Écouter les changements d'état (sign-in depuis une autre instance, token refresh, sign-out)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'INITIAL_SESSION') return // déjà géré par getSession() ci-dessus
+
+      if (event === 'SIGNED_OUT') {
+        setState({ user: null, profile: null, userShops: [], activeShop: null, roleInActiveShop: null, loading: false })
+        return
+      }
+
+      if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')) {
+        try {
+          const { profile, userShops, memberships: rows } = await fetchUserData(session.user.id)
+          applyUserData(session.user, profile, userShops, rows, activeShopId)
+        } catch {
+          setState(s => ({ ...s, user: session.user, loading: false }))
+        }
       }
     })
 
