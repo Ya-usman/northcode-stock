@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { motion } from 'framer-motion'
-import { Plus, Search, Edit2, Package, ArrowDown, FileDown } from 'lucide-react'
+import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -48,6 +48,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [restockProduct, setRestockProduct] = useState<Product | null>(null)
   const [saving, setSaving] = useState(false)
+  const [showCatModal, setShowCatModal] = useState(false)
+  const [newCatName, setNewCatName] = useState('')
+  const [savingCat, setSavingCat] = useState(false)
 
   const restockForm = useForm<RestockFormData>({ resolver: zodResolver(restockSchema) })
 
@@ -184,6 +187,23 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     a.click()
   }
 
+  const addCategory = async () => {
+    if (!shop?.id || !newCatName.trim()) return
+    setSavingCat(true)
+    const { error } = await (supabase as any).from('categories').insert({ shop_id: shop.id, name: newCatName.trim() })
+    setSavingCat(false)
+    if (error) { toast({ title: error.message, variant: 'destructive' }); return }
+    setNewCatName('')
+    fetchProducts()
+  }
+
+  const deleteCategory = async (catId: string) => {
+    if (!confirm('Supprimer cette catégorie ?')) return
+    await (supabase as any).from('categories').delete().eq('id', catId)
+    if (categoryFilter === catId) setCategoryFilter('all')
+    fetchProducts()
+  }
+
   const productFormProps = {
     categories,
     suppliers,
@@ -200,13 +220,20 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('products.search_placeholder')} className="pl-9 h-9" />
         </div>
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-[130px] h-9"><SelectValue placeholder="Category" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="flex gap-1">
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-[130px] h-9"><SelectValue placeholder="Category" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toutes</SelectItem>
+              {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {(profile?.role === 'owner' || profile?.role === 'stock_manager') && (
+            <Button variant="outline" size="sm" className="h-9 px-2" onClick={() => setShowCatModal(true)} title="Gérer les catégories">
+              <Settings2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[110px] h-9"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
@@ -360,6 +387,42 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             onCancel={() => setEditingProduct(null)}
           />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Categories Modal */}
+      <Dialog open={showCatModal} onOpenChange={setShowCatModal}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Gérer les catégories</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                value={newCatName}
+                onChange={e => setNewCatName(e.target.value)}
+                placeholder="Nom de la catégorie…"
+                onKeyDown={e => e.key === 'Enter' && addCategory()}
+              />
+              <Button onClick={addCategory} loading={savingCat} className="bg-northcode-blue shrink-0">
+                <Plus className="h-4 w-4 mr-1" /> Ajouter
+              </Button>
+            </div>
+            <div className="space-y-1 max-h-60 overflow-y-auto">
+              {categories.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">Aucune catégorie</p>
+              )}
+              {categories.map(c => (
+                <div key={c.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                  <span>{c.name}</span>
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => deleteCategory(c.id)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCatModal(false)}>Fermer</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
