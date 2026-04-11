@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Eye, EyeOff, Lock, CheckCircle2 } from 'lucide-react'
+import { Eye, EyeOff, Lock, CheckCircle2, Loader2 } from 'lucide-react'
 
 export default function ResetPasswordPage({ params: { locale } }: { params: { locale: string } }) {
   const router = useRouter()
@@ -16,19 +16,31 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
   const [confirm, setConfirm] = useState('')
   const [showPwd, setShowPwd] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [sessionReady, setSessionReady] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
   const [isInvite, setIsInvite] = useState(false)
 
-  // Supabase puts the token in the URL hash: #access_token=...&type=invite|recovery
   useEffect(() => {
+    // Detect type from hash
     const hash = window.location.hash
     const params = new URLSearchParams(hash.replace('#', ''))
-    const type = params.get('type')
-    if (type === 'invite') setIsInvite(true)
+    if (params.get('type') === 'invite') setIsInvite(true)
 
-    // Exchange the token so the session is active
-    supabase.auth.getSession()
+    // Supabase JS client automatically parses the hash and fires SIGNED_IN
+    // We wait for that event before allowing password update
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === 'SIGNED_IN' || event === 'PASSWORD_RECOVERY') && session) {
+        setSessionReady(true)
+      }
+    })
+
+    // Also check if session already exists (page reload case)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setSessionReady(true)
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -74,6 +86,11 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
               <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
               <h2 className="text-lg font-semibold mb-1">Mot de passe défini !</h2>
               <p className="text-sm text-muted-foreground">Redirection vers le dashboard…</p>
+            </div>
+          ) : !sessionReady ? (
+            <div className="text-center py-8">
+              <Loader2 className="h-8 w-8 text-northcode-blue animate-spin mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">Vérification du lien…</p>
             </div>
           ) : (
             <>
