@@ -13,7 +13,7 @@ const intlMiddleware = createMiddleware({
 const BETA_END = new Date('2026-07-13T00:00:00Z')
 function isBetaPeriod() {
   const now = new Date()
-  return now >= new Date('2026-04-13T00:00:00Z') && now < BETA_END
+  return now >= new Date('2026-04-11T00:00:00Z') && now < BETA_END
 }
 
 // Pages accessibles sans connexion

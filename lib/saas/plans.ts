@@ -94,7 +94,7 @@ export const PLANS: Record<PlanId, Plan> = {
 // Durant cette période, tout le monde a accès complet sans abonnement.
 // Après, le mur d'abonnement s'active normalement.
 // ---------------------------------------------------------------
-const BETA_START = new Date('2026-04-13T00:00:00Z')
+const BETA_START = new Date('2026-04-11T00:00:00Z')
 const BETA_END   = new Date('2026-07-13T00:00:00Z')
 
 /** True si on est actuellement dans la période d'accès gratuit bêta */
