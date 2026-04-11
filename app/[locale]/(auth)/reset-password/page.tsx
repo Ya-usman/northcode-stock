@@ -22,25 +22,36 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
   const [isInvite, setIsInvite] = useState(false)
 
   useEffect(() => {
-    // Detect type from hash
     const hash = window.location.hash
     const params = new URLSearchParams(hash.replace('#', ''))
-    if (params.get('type') === 'invite') setIsInvite(true)
+    const accessToken = params.get('access_token')
+    const refreshToken = params.get('refresh_token')
+    const type = params.get('type')
 
-    // Supabase JS client automatically parses the hash and fires SIGNED_IN
-    // We wait for that event before allowing password update
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if ((event === 'SIGNED_IN' || event === 'PASSWORD_RECOVERY') && session) {
-        setSessionReady(true)
-      }
-    })
+    if (type === 'invite') setIsInvite(true)
 
-    // Also check if session already exists (page reload case)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setSessionReady(true)
-    })
-
-    return () => subscription.unsubscribe()
+    if (accessToken && refreshToken) {
+      // Manually set session from hash tokens (event may have already fired)
+      supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+        .then(({ data: { session }, error }) => {
+          if (session && !error) {
+            setSessionReady(true)
+            // Clean the hash from the URL without reloading
+            window.history.replaceState(null, '', window.location.pathname)
+          } else {
+            setError('Lien invalide ou expiré. Demandez une nouvelle invitation.')
+          }
+        })
+    } else {
+      // No hash tokens — check if session already exists (e.g. page reload)
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          setSessionReady(true)
+        } else {
+          setError('Lien invalide ou expiré. Demandez une nouvelle invitation.')
+        }
+      })
+    }
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -89,8 +100,14 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
             </div>
           ) : !sessionReady ? (
             <div className="text-center py-8">
-              <Loader2 className="h-8 w-8 text-northcode-blue animate-spin mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">Vérification du lien…</p>
+              {error ? (
+                <p className="text-sm text-destructive">{error}</p>
+              ) : (
+                <>
+                  <Loader2 className="h-8 w-8 text-northcode-blue animate-spin mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground">Vérification du lien…</p>
+                </>
+              )}
             </div>
           ) : (
             <>
