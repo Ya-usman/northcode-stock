@@ -21,7 +21,6 @@ const ROLE_ACCESS: Record<string, string[]> = {
   '/admin':             ['owner'],
   '/shops':             ['owner'],
   '/stock':             ['owner', 'stock_manager'],
-  '/stock/movements':   ['owner', 'stock_manager'],
   '/suppliers':         ['owner', 'stock_manager'],
   '/sales/new':         ['owner', 'cashier'],
   '/sales/history':     ['owner', 'cashier'],
@@ -90,9 +89,11 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Root → dashboard or login
+  // Root → dashboard or login (respect user's preferred locale cookie)
   if (pathname === '/') {
-    const dest = user ? `/${locale}/dashboard` : `/${locale}/login`
+    const preferredLocale = request.cookies.get('NEXT_LOCALE')?.value
+    const resolvedLocale = preferredLocale && locales.includes(preferredLocale as any) ? preferredLocale : locale
+    const dest = user ? `/${resolvedLocale}/dashboard` : `/${resolvedLocale}/login`
     return mergeAuthCookies(NextResponse.redirect(new URL(dest, request.url)), response)
   }
 

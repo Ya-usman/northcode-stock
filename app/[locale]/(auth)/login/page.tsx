@@ -67,7 +67,9 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
         document.cookie = `user_role=${role}; path=/; max-age=3600`
       }
     }
-    router.push(`/${locale}/dashboard`)
+    // Redirect to the user's preferred locale (saved in cookie), fallback to current
+    const preferredLocale = document.cookie.match(/NEXT_LOCALE=([^;]+)/)?.[1] || locale
+    router.push(`/${preferredLocale}/dashboard`)
     router.refresh()
   }
 

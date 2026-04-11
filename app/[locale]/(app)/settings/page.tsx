@@ -97,6 +97,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const switchLanguage = (newLocale: string) => {
     const newPath = pathname.replace(`/${locale}`, `/${newLocale}`)
     localStorage.setItem('NEXT_LOCALE', newLocale)
+    // Also save in cookie so the server-side middleware can redirect to the right locale
+    document.cookie = `NEXT_LOCALE=${newLocale}; path=/; max-age=31536000; SameSite=lax`
     router.push(newPath)
   }
 

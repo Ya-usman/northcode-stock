@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import {
   LayoutDashboard, ShoppingCart, Package, BarChart2, Settings,
-  Users, Truck, CreditCard, History, TrendingUp, LogOut, ChevronRight, Zap,
+  Users, Truck, CreditCard, History, LogOut, ChevronRight, Zap,
   Store, ChevronDown,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
@@ -49,7 +49,6 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
       section: 'Inventory',
       items: [
         { href: `/${locale}/stock`, icon: Package, label: t('stock'), roles: ['owner', 'stock_manager'] },
-        { href: `/${locale}/stock/movements`, icon: TrendingUp, label: t('movements'), roles: ['owner', 'stock_manager'] },
         { href: `/${locale}/suppliers`, icon: Truck, label: t('suppliers'), roles: ['owner', 'stock_manager'] },
       ],
     },
