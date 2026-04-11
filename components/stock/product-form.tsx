@@ -46,9 +46,10 @@ export function ProductForm({
     },
   })
 
+  const NONE = '__none__'
   const unit = form.watch('unit') || 'piece'
-  const categoryId = form.watch('category_id') || ''
-  const supplierId = form.watch('supplier_id') || ''
+  const categoryId = form.watch('category_id') || NONE
+  const supplierId = form.watch('supplier_id') || NONE
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 overflow-y-auto max-h-[70vh] pr-1">
@@ -95,10 +96,10 @@ export function ProductForm({
             {t('products.category')}{' '}
             <span className="text-muted-foreground text-xs font-normal">(optionnel)</span>
           </Label>
-          <Select value={categoryId} onValueChange={v => form.setValue('category_id', v)}>
+          <Select value={categoryId} onValueChange={v => form.setValue('category_id', v === NONE ? '' : v)}>
             <SelectTrigger><SelectValue placeholder="Sélectionner…" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">— Aucune —</SelectItem>
+              <SelectItem value={NONE}>— Aucune —</SelectItem>
               {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -109,10 +110,10 @@ export function ProductForm({
             {t('products.supplier')}{' '}
             <span className="text-muted-foreground text-xs font-normal">(optionnel)</span>
           </Label>
-          <Select value={supplierId} onValueChange={v => form.setValue('supplier_id', v)}>
+          <Select value={supplierId} onValueChange={v => form.setValue('supplier_id', v === NONE ? '' : v)}>
             <SelectTrigger><SelectValue placeholder="Sélectionner…" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">— Aucun —</SelectItem>
+              <SelectItem value={NONE}>— Aucun —</SelectItem>
               {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
             </SelectContent>
           </Select>
