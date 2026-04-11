@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
-import type { Profile, Shop, UserRole, ShopMember } from '@/lib/types/database'
+import type { Profile, Shop, UserRole } from '@/lib/types/database'
 
 interface AuthState {
   user: User | null
@@ -107,34 +107,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (initialized.current) return
     initialized.current = true
 
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (user) {
-        try {
-          const { profile, userShops, memberships: rows } = await fetchUserData(user.id)
-          applyUserData(user, profile, userShops, rows, activeShopId)
-        } catch {
-          setState(s => ({ ...s, user, loading: false }))
-        }
-      } else {
-        setState(s => ({ ...s, loading: false }))
-      }
-    }).catch(() => setState(s => ({ ...s, loading: false })))
-
+    // Primary bootstrap via onAuthStateChange — handles INITIAL_SESSION, TOKEN_REFRESHED, SIGNED_IN
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'INITIAL_SESSION') return
-
       if (event === 'SIGNED_OUT') {
         setState({ user: null, profile: null, userShops: [], activeShop: null, roleInActiveShop: null, loading: false })
         return
       }
 
-      if (event === 'SIGNED_IN' && session?.user) {
+      if (session?.user) {
+        // Covers: INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED, USER_UPDATED
         try {
           const { profile, userShops, memberships: rows } = await fetchUserData(session.user.id)
           applyUserData(session.user, profile, userShops, rows, activeShopId)
         } catch {
           setState(s => ({ ...s, user: session.user, loading: false }))
         }
+      } else if (event === 'INITIAL_SESSION') {
+        // No session found on initial load → not logged in
+        setState(s => ({ ...s, loading: false }))
       }
     })
 
