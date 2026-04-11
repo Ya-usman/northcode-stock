@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { useState } from 'react'
 import type { UserRole, Profile, Shop } from '@/lib/types/database'
+import { isBetaPeriod } from '@/lib/saas/plans'
 
 interface SidebarProps {
   locale: string
@@ -59,7 +60,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
         { href: `/${locale}/team`, icon: Users, label: t('team'), roles: ['owner'] },
         { href: `/${locale}/shops`, icon: Store, label: 'Boutiques', roles: ['owner'] },
         { href: `/${locale}/settings`, icon: Settings, label: t('settings'), roles: ['owner'] },
-        { href: `/${locale}/billing`, icon: Zap, label: 'Abonnement', roles: ['owner'] },
+        ...(!isBetaPeriod() ? [{ href: `/${locale}/billing`, icon: Zap, label: 'Abonnement', roles: ['owner'] }] : []),
       ],
     },
   ]

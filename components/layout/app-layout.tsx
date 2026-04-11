@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { TrialBanner } from '@/components/saas/trial-banner'
 import { UpgradeWall } from '@/components/saas/upgrade-wall'
 import { PlanLimitAlert } from '@/components/saas/plan-limit-alert'
-import { getTrialDaysLeft, hasActiveSubscription, isAccessAllowed } from '@/lib/saas/plans'
+import { getTrialDaysLeft, hasActiveSubscription, isAccessAllowed, isBetaPeriod } from '@/lib/saas/plans'
 
 const supabase = createClient()
 
@@ -87,17 +87,18 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
     return <LoadingSkeleton />
   }
 
+  const beta = isBetaPeriod()
   const trialDaysLeft = getTrialDaysLeft(shop?.trial_ends_at ?? null)
   const subscribed = hasActiveSubscription(shop?.plan ?? null, shop?.plan_expires_at ?? null)
   // Don't show upgrade wall if shop hasn't loaded yet
   const accessAllowed = !shop || isAccessAllowed(shop.plan ?? null, shop.trial_ends_at ?? null, shop.plan_expires_at ?? null)
-  const showTrialBanner = !subscribed && accessAllowed && trialDaysLeft <= 7 && profile.role === 'owner'
+  const showTrialBanner = !beta && !subscribed && accessAllowed && trialDaysLeft <= 7 && profile.role === 'owner'
   const isBillingPage = pathname.includes('/billing')
   const title = getPageTitle(pathname, locale)
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {!accessAllowed && !isBillingPage && (
+      {!beta && !accessAllowed && !isBillingPage && (
         <UpgradeWall locale={locale} shopName={shop?.name} />
       )}
 
@@ -108,8 +109,8 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
 
         <Header title={title} shop={shop} locale={locale} onSignOut={handleSignOut} />
 
-        {/* Plan limit alert — shown when approaching or reaching product/team limits */}
-        {profile.role === 'owner' && accessAllowed && !isBillingPage && (
+        {/* Plan limit alert — masqué pendant la période bêta */}
+        {!beta && profile.role === 'owner' && accessAllowed && !isBillingPage && (
           <PlanLimitAlert
             currentPlan={shop?.plan ?? null}
             productCount={productCount}

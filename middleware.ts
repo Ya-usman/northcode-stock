@@ -9,6 +9,13 @@ const intlMiddleware = createMiddleware({
   localePrefix: 'always',
 })
 
+// Période d'accès gratuit bêta : 13 avril → 13 juillet 2026
+const BETA_END = new Date('2026-07-13T00:00:00Z')
+function isBetaPeriod() {
+  const now = new Date()
+  return now >= new Date('2026-04-13T00:00:00Z') && now < BETA_END
+}
+
 // Pages accessibles sans connexion
 const PUBLIC_PATHS = ['/', '/login', '/register', '/forgot-password', '/reset-password', '/update-password']
 
@@ -104,6 +111,11 @@ export async function middleware(request: NextRequest) {
     }
     const intlRes = intlMiddleware(request)
     return mergeAuthCookies(intlRes || response, response)
+  }
+
+  // Pendant la période bêta, /billing est redirigé vers le dashboard
+  if (isBetaPeriod() && pathnameWithoutLocale === '/billing') {
+    return mergeAuthCookies(NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url)), response)
   }
 
   // Page protégée sans session → login

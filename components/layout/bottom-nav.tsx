@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import type { UserRole } from '@/lib/types/database'
+import { isBetaPeriod } from '@/lib/saas/plans'
 
 interface BottomNavProps {
   locale: string
@@ -34,7 +35,7 @@ export function BottomNav({ locale, role, onSignOut }: BottomNavProps) {
     { href: `/${locale}/suppliers`,        icon: Truck,           label: t('suppliers'),      roles: ['owner', 'stock_manager'],                      primary: false },
     { href: `/${locale}/team`,              icon: Users,           label: t('team'),           roles: ['owner'],                                       primary: false },
     { href: `/${locale}/shops`,            icon: Store,           label: 'Boutiques',         roles: ['owner'],                                       primary: false },
-    { href: `/${locale}/billing`,          icon: Zap,             label: 'Abonnement',        roles: ['owner'],                                       primary: false },
+    ...(!isBetaPeriod() ? [{ href: `/${locale}/billing`, icon: Zap, label: 'Abonnement', roles: ['owner'], primary: false }] : []),
     { href: `/${locale}/settings`,         icon: Settings,        label: t('settings'),       roles: ['owner'],                                       primary: false },
   ].filter(item => item.roles.includes(role))
 
