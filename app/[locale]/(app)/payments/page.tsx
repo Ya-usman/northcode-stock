@@ -12,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrency } from '@/lib/hooks/use-currency'
-import type { Customer, Sale } from '@/lib/types/database'
+import type { Customer } from '@/lib/types/database'
 import {
   ChevronDown, ChevronUp, Clock, CheckCircle2,
   History, User, RefreshCw, Banknote,
@@ -20,7 +20,14 @@ import {
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
-interface UnpaidSale extends Sale {
+interface UnpaidSale {
+  id: string
+  sale_number: string
+  created_at: string
+  total: number
+  balance: number
+  amount_paid: number
+  payment_status: string
   sale_items?: { product_name: string; quantity: number; subtotal: number }[]
 }
 
@@ -63,7 +70,6 @@ export default function DettesPage() {
 
   // ── Repayment dialog state ──────────────────────────────
   const [repayDebtor, setRepayDebtor] = useState<CustomerDebt | null>(null)
-  const [repaySaleId, setRepaySaleId] = useState('')
   const [repayAmount, setRepayAmount] = useState('')
   const [repayMethod, setRepayMethod] = useState('cash')
   const [repayRef, setRepayRef] = useState('')
@@ -206,7 +212,7 @@ export default function DettesPage() {
     }
 
     // Fetch receiver names
-    const receiverIds = [...new Set(payments.map((p: any) => p.received_by).filter(Boolean))] as string[]
+    const receiverIds = Array.from(new Set(payments.map((p: any) => p.received_by).filter(Boolean))) as string[]
     let profileMap: Record<string, string> = {}
     if (receiverIds.length > 0) {
       const { data: profiles } = await supabase

@@ -287,7 +287,6 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   // Fetch unpaid sales when customer with debt is selected
   useEffect(() => {
     setDebtRepayEnabled(false)
-    setDebtRepaySaleId('')
     setDebtRepayAmount('')
     setCustomerUnpaidSales([])
     if (!selectedCustomer || Number(selectedCustomer.total_debt) <= 0) return
