@@ -184,12 +184,12 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     a.click()
   }
 
-  // Valeurs surveillées pour les Select contrôlés
-  const watchUnit = productForm.watch('unit')
-  const watchCategoryId = productForm.watch('category_id')
-  const watchSupplierId = productForm.watch('supplier_id')
+  // Valeurs surveillées pour les Select contrôlés (must be at component level, not inside a sub-component)
+  const watchUnit = productForm.watch('unit') ?? 'piece'
+  const watchCategoryId = productForm.watch('category_id') ?? ''
+  const watchSupplierId = productForm.watch('supplier_id') ?? ''
 
-  const ProductForm = ({ onSubmit, isEdit }: { onSubmit: (d: ProductFormData) => void; isEdit?: boolean }) => (
+  const renderProductForm = (onSubmit: (d: ProductFormData) => void, isEdit?: boolean) => (
     <form onSubmit={productForm.handleSubmit(onSubmit)} className="space-y-3 overflow-y-auto max-h-[70vh]">
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2 space-y-1">
@@ -207,10 +207,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         </div>
         <div className="space-y-1">
           <Label>{t('products.unit')}</Label>
-          <Select
-            value={watchUnit || 'piece'}
-            onValueChange={v => productForm.setValue('unit', v, { shouldValidate: true })}
-          >
+          <Select value={watchUnit} onValueChange={v => productForm.setValue('unit', v, { shouldValidate: true })}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               {['piece', 'kg', 'g', 'litre', 'ml', 'pack', 'carton', 'dozen', 'bag', 'bottle', 'tin', 'box'].map(u => (
@@ -221,26 +218,20 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         </div>
         <div className="space-y-1">
           <Label>{t('products.category')} <span className="text-muted-foreground text-xs font-normal">(optionnel)</span></Label>
-          <Select
-            value={watchCategoryId || ''}
-            onValueChange={v => productForm.setValue('category_id', v, { shouldValidate: true })}
-          >
+          <Select value={watchCategoryId} onValueChange={v => productForm.setValue('category_id', v, { shouldValidate: true })}>
             <SelectTrigger><SelectValue placeholder="Sélectionner…" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">— Aucune catégorie —</SelectItem>
+              <SelectItem value="">— Aucune —</SelectItem>
               {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-1">
           <Label>{t('products.supplier')} <span className="text-muted-foreground text-xs font-normal">(optionnel)</span></Label>
-          <Select
-            value={watchSupplierId || ''}
-            onValueChange={v => productForm.setValue('supplier_id', v, { shouldValidate: true })}
-          >
+          <Select value={watchSupplierId} onValueChange={v => productForm.setValue('supplier_id', v, { shouldValidate: true })}>
             <SelectTrigger><SelectValue placeholder="Sélectionner…" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">— Aucun fournisseur —</SelectItem>
+              <SelectItem value="">— Aucun —</SelectItem>
               {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -426,15 +417,15 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
         <DialogContent>
           <DialogHeader><DialogTitle>{t('actions.add_product')}</DialogTitle></DialogHeader>
-          <ProductForm onSubmit={onAddProduct} />
+          {renderProductForm(onAddProduct)}
         </DialogContent>
       </Dialog>
 
       {/* Edit Product Modal */}
       <Dialog open={!!editingProduct} onOpenChange={open => !open && setEditingProduct(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{t('actions.edit')} Product</DialogTitle></DialogHeader>
-          <ProductForm onSubmit={onEditProduct} isEdit />
+          <DialogHeader><DialogTitle>Modifier le produit</DialogTitle></DialogHeader>
+          {renderProductForm(onEditProduct, true)}
         </DialogContent>
       </Dialog>
 
