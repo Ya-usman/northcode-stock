@@ -79,6 +79,12 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
   const [showReceipt, setShowReceipt] = useState(false)
   const [scanFlash, setScanFlash] = useState(false)
 
+  // Debt repayment included in sale
+  const [customerUnpaidSales, setCustomerUnpaidSales] = useState<any[]>([])
+  const [debtRepayEnabled, setDebtRepayEnabled] = useState(false)
+  const [debtRepaySaleId, setDebtRepaySaleId] = useState('')
+  const [debtRepayAmount, setDebtRepayAmount] = useState('')
+
   // Drafts (held invoices)
   const [drafts, setDrafts] = useState<Draft[]>([])
   const [showDrafts, setShowDrafts] = useState(false)
@@ -226,6 +232,10 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
     setNotes('')
     setTransferRef('')
     setActiveDraftId(null)
+    setDebtRepayEnabled(false)
+    setDebtRepaySaleId('')
+    setDebtRepayAmount('')
+    setCustomerUnpaidSales([])
   }
 
   // ── DRAFTS ─────────────────────────────────────────────
@@ -275,6 +285,30 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
 
   // Drafts for current shop
   const shopDrafts = drafts.filter(d => d.shopId === selectedShop?.id)
+
+  // Fetch unpaid sales when customer with debt is selected
+  useEffect(() => {
+    setDebtRepayEnabled(false)
+    setDebtRepaySaleId('')
+    setDebtRepayAmount('')
+    setCustomerUnpaidSales([])
+    if (!selectedCustomer || Number(selectedCustomer.total_debt) <= 0) return
+    const db = supabase as any
+    db.from('sales')
+      .select('id, sale_number, total, balance, amount_paid')
+      .eq('customer_id', selectedCustomer.id)
+      .neq('payment_status', 'paid')
+      .eq('sale_status', 'active')
+      .order('created_at', { ascending: true })
+      .then(({ data }: any) => {
+        const sales = data || []
+        setCustomerUnpaidSales(sales)
+        if (sales[0]) {
+          setDebtRepaySaleId(sales[0].id)
+          setDebtRepayAmount(String(Math.round(sales[0].balance)))
+        }
+      })
+  }, [selectedCustomer?.id])
 
   // ── TOTALS ─────────────────────────────────────────────
   const subtotal = cart.reduce((s, i) => s + i.subtotal, 0)
@@ -367,6 +401,18 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
           amount: paid,
           method: paymentMethod,
           reference: paymentMethod === 'transfer' ? transferRef : null,
+          received_by: profile!.id,
+        })
+      }
+
+      // Include debt repayment from a previous sale
+      if (debtRepayEnabled && debtRepaySaleId && Number(debtRepayAmount) > 0) {
+        await db.from('payments').insert({
+          sale_id: debtRepaySaleId,
+          amount: Number(debtRepayAmount),
+          method: paymentMethod === 'credit' ? 'cash' : paymentMethod,
+          reference: paymentMethod === 'transfer' ? transferRef : null,
+          notes: `Inclus dans la vente #${(sale as any).sale_number}`,
           received_by: profile!.id,
         })
       }
@@ -672,6 +718,82 @@ export default function NewSalePage({ params: { locale } }: { params: { locale: 
               )}
             </CardContent>
           </Card>
+
+          {/* ── Debt repayment section ── */}
+          {selectedCustomer && Number(selectedCustomer.total_debt) > 0 && customerUnpaidSales.length > 0 && (
+            <Card className="border border-orange-200 bg-orange-50 shadow-sm">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-orange-800">Rembourser une dette</p>
+                    <p className="text-xs text-orange-600">
+                      {selectedCustomer.name} doit {formatNaira(selectedCustomer.total_debt)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setDebtRepayEnabled(v => !v)}
+                    className={`relative w-11 h-6 rounded-full transition-colors ${
+                      debtRepayEnabled ? 'bg-northcode-blue' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                      debtRepayEnabled ? 'translate-x-5' : 'translate-x-0.5'
+                    }`} />
+                  </button>
+                </div>
+
+                {debtRepayEnabled && (
+                  <div className="space-y-2 pt-1">
+                    {/* Choisir la facture */}
+                    <div className="space-y-1">
+                      <Label className="text-xs text-orange-800">Facture à rembourser</Label>
+                      <Select
+                        value={debtRepaySaleId}
+                        onValueChange={id => {
+                          setDebtRepaySaleId(id)
+                          const s = customerUnpaidSales.find((s: any) => s.id === id)
+                          if (s) setDebtRepayAmount(String(Math.round(s.balance)))
+                        }}
+                      >
+                        <SelectTrigger className="bg-white border-orange-200 h-9 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {customerUnpaidSales.map((s: any) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              #{s.sale_number} — Solde dû : {formatNaira(s.balance)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Montant */}
+                    <div className="space-y-1">
+                      <Label className="text-xs text-orange-800">Montant à rembourser</Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                          {selectedShop?.currency || '₦'}
+                        </span>
+                        <Input
+                          type="number"
+                          value={debtRepayAmount}
+                          onChange={e => setDebtRepayAmount(e.target.value)}
+                          className="pl-7 bg-white border-orange-200 h-9"
+                          min={1}
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] text-orange-600 italic">
+                      Ce montant sera enregistré comme remboursement de la facture sélectionnée.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Payment method */}
           <div className="space-y-1.5">

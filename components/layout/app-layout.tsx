@@ -23,7 +23,7 @@ function getPageTitle(pathname: string, locale: string): string {
     '/sales/history': 'Sales History',
     '/stock': 'Stock',
     '/stock/movements': 'Stock Movements',
-    '/payments': 'Payments',
+    '/payments': 'Dettes',
     '/customers': 'Customers',
     '/suppliers': 'Suppliers',
     '/reports': 'Reports',
