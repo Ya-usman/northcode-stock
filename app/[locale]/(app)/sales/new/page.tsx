@@ -313,8 +313,11 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const discountAmt = discount
   const tax = Number(selectedShop?.tax_rate || 0) > 0 ? (subtotal - discountAmt) * (selectedShop!.tax_rate / 100) : 0
   const total = subtotal - discountAmt + tax
+  // Montant total à encaisser = vente + remboursement dette si activé
+  const debtAmt = debtRepayEnabled ? (Number(debtRepayAmount) || 0) : 0
+  const totalToCollect = total + debtAmt
   const paid = paymentMethod === 'cash' ? Number(amountPaid) || 0 : total
-  const change = paymentMethod === 'cash' ? Math.max(0, paid - total) : 0
+  const change = paymentMethod === 'cash' ? Math.max(0, paid - totalToCollect) : 0
   const balance = Math.max(0, total - paid)
 
   const filteredCustomers = customerName
@@ -330,8 +333,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     if (paymentMethod === 'credit' && !selectedCustomer && !customerName.trim()) {
       toast({ title: 'Entre un nom de client pour une vente à crédit', variant: 'destructive' }); return
     }
-    if (paymentMethod === 'cash' && Number(amountPaid) < total) {
-      toast({ title: `Montant insuffisant (${formatNaira(Number(amountPaid))})`, variant: 'destructive' }); return
+    if (paymentMethod === 'cash' && Number(amountPaid) < totalToCollect) {
+      toast({ title: `Montant insuffisant — attendu ${formatNaira(totalToCollect)}`, variant: 'destructive' }); return
     }
 
     setCompleting(true)
@@ -772,23 +775,21 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                       )}
                     </div>
 
-                    {/* Résumé total à encaisser */}
-                    <div className="rounded-lg bg-white border border-orange-200 p-3 space-y-1.5 text-sm">
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>Vente</span>
-                        <span>{formatNaira(total)}</span>
+                    {/* Résumé */}
+                    {debtAmt > 0 && (
+                      <div className="rounded-lg bg-white border border-orange-200 p-3 space-y-1 text-sm">
+                        <div className="flex justify-between text-muted-foreground">
+                          <span>Vente</span><span>{formatNaira(total)}</span>
+                        </div>
+                        <div className="flex justify-between text-orange-700">
+                          <span>Remboursement dette</span><span>+{formatNaira(debtAmt)}</span>
+                        </div>
+                        <div className="flex justify-between font-bold border-t pt-1">
+                          <span>Total à encaisser</span>
+                          <span className="text-northcode-blue">{formatNaira(totalToCollect)}</span>
+                        </div>
                       </div>
-                      <div className="flex justify-between text-orange-700">
-                        <span>Remboursement dette</span>
-                        <span>+{formatNaira(Number(debtRepayAmount) || 0)}</span>
-                      </div>
-                      <div className="flex justify-between font-bold text-base border-t pt-1.5">
-                        <span>Total à encaisser</span>
-                        <span className="text-northcode-blue">
-                          {formatNaira(total + (Number(debtRepayAmount) || 0))}
-                        </span>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -824,14 +825,19 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 font-medium text-muted-foreground">{selectedShop?.currency || '₦'}</span>
                   <Input type="number" min={0} value={amountPaid} onChange={e => setAmountPaid(e.target.value)}
-                    className="pl-7 h-12 text-lg font-bold" placeholder={total.toString()} />
+                    className="pl-7 h-12 text-lg font-bold" placeholder={totalToCollect.toString()} />
                 </div>
               </div>
-              {Number(amountPaid) > 0 && Number(amountPaid) >= total && (
+              {Number(amountPaid) > 0 && Number(amountPaid) >= totalToCollect && (
                 <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-center">
                   <p className="text-sm text-muted-foreground">{t('payment.change_due')}</p>
                   <p className="text-2xl font-bold text-green-600">{formatNaira(change)}</p>
                 </div>
+              )}
+              {Number(amountPaid) > 0 && Number(amountPaid) < totalToCollect && (
+                <p className="text-xs text-red-500 text-center">
+                  Manque {formatNaira(totalToCollect - Number(amountPaid))}
+                </p>
               )}
             </div>
           )}
@@ -892,10 +898,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               disabled={cart.length === 0}
             >
               <CheckCircle className="mr-2 h-5 w-5" />
-              {debtRepayEnabled && Number(debtRepayAmount) > 0
-                ? `Valider · ${formatNaira(total + Number(debtRepayAmount))}`
-                : `Valider · ${formatNaira(total)}`
-              }
+              {`Valider · ${formatNaira(totalToCollect)}`}
             </Button>
           </div>
         </div>

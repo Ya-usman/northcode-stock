@@ -140,24 +140,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     })
 
-    const handleVisibility = () => {
-      if (document.visibilityState !== 'visible') return
-      supabase.auth.getUser().then(async ({ data: { user } }) => {
-        if (!user) {
-          setState(s => ({ ...s, user: null, loading: false }))
-          return
-        }
-        try {
-          const { profile, userShops, memberships: rows } = await fetchUserData(user.id)
-          if (profile) applyUserData(user, profile, userShops, rows, activeShopId)
-        } catch {/* keep state */}
-      }).catch(() => {/* keep state */})
-    }
-    document.addEventListener('visibilitychange', handleVisibility)
-
     return () => {
       subscription.unsubscribe()
-      document.removeEventListener('visibilitychange', handleVisibility)
     }
   }, [])
 
