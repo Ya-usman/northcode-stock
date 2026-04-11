@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslations } from 'next-intl'
@@ -46,23 +45,6 @@ export function ProductForm({
       ...defaultValues,
     },
   })
-
-  // Reset form when defaultValues change (e.g. opening edit modal)
-  useEffect(() => {
-    form.reset({
-      name: '',
-      name_hausa: '',
-      sku: '',
-      unit: 'piece',
-      category_id: '',
-      supplier_id: '',
-      buying_price: 0,
-      selling_price: 0,
-      quantity: 0,
-      low_stock_threshold: undefined,
-      ...defaultValues,
-    })
-  }, [defaultValues])
 
   const unit = form.watch('unit') || 'piece'
   const categoryId = form.watch('category_id') || ''

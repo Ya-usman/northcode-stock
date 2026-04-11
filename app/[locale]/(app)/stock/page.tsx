@@ -324,11 +324,14 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
         <DialogContent>
           <DialogHeader><DialogTitle>{t('actions.add_product')}</DialogTitle></DialogHeader>
-          <ProductForm
-            {...productFormProps}
-            onSubmit={onAddProduct}
-            onCancel={() => setShowAddModal(false)}
-          />
+          {showAddModal && (
+            <ProductForm
+              key="add"
+              {...productFormProps}
+              onSubmit={onAddProduct}
+              onCancel={() => setShowAddModal(false)}
+            />
+          )}
         </DialogContent>
       </Dialog>
 
@@ -336,7 +339,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       <Dialog open={!!editingProduct} onOpenChange={open => !open && setEditingProduct(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Modifier le produit</DialogTitle></DialogHeader>
+          {editingProduct && (
           <ProductForm
+            key={editingProduct.id}
             {...productFormProps}
             isEdit
             defaultValues={editingProduct ? {
@@ -354,6 +359,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             onSubmit={onEditProduct}
             onCancel={() => setEditingProduct(null)}
           />
+          )}
         </DialogContent>
       </Dialog>
 
