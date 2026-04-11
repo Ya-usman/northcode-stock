@@ -33,7 +33,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
     {
       section: null,
       items: [
-        { href: `/${locale}/dashboard`, icon: LayoutDashboard, label: t('dashboard'), roles: ['owner', 'viewer', 'cashier', 'stock_manager'] },
+        { href: `/${locale}/dashboard`, icon: LayoutDashboard, label: t('dashboard'), roles: ['super_admin', 'owner', 'viewer', 'cashier', 'stock_manager'] },
       ],
     },
     {

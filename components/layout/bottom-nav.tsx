@@ -24,7 +24,7 @@ export function BottomNav({ locale, role, onSignOut }: BottomNavProps) {
   const [moreOpen, setMoreOpen] = useState(false)
 
   const allItems = [
-    { href: `/${locale}/dashboard`,        icon: LayoutDashboard, label: t('dashboard'),     roles: ['owner', 'viewer', 'cashier', 'stock_manager'], primary: true },
+    { href: `/${locale}/dashboard`,        icon: LayoutDashboard, label: t('dashboard'),     roles: ['super_admin', 'owner', 'viewer', 'cashier', 'stock_manager'], primary: true },
     { href: `/${locale}/sales/new`,        icon: ShoppingCart,    label: t('new_sale'),       roles: ['owner', 'cashier'],                            primary: true },
     { href: `/${locale}/stock`,            icon: Package,         label: t('stock'),          roles: ['owner', 'stock_manager'],                      primary: true },
     { href: `/${locale}/reports`,          icon: BarChart2,       label: t('reports'),        roles: ['owner'],                                       primary: true },
