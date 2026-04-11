@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { motion } from 'framer-motion'
-import { Plus, Search, Edit2, Package, ArrowDown, Sliders, FileDown } from 'lucide-react'
+import { Plus, Search, Edit2, Package, ArrowDown, FileDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -17,8 +17,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { productSchema, type ProductFormData, restockSchema, type RestockFormData } from '@/lib/validations/product'
+import { restockSchema, type RestockFormData, type ProductFormData } from '@/lib/validations/product'
 import type { Product, Category, Supplier } from '@/lib/types/database'
+import { ProductForm } from '@/components/stock/product-form'
+
 
 function StockBadge({ quantity, threshold }: { quantity: number; threshold: number }) {
   const t = useTranslations('status')
@@ -47,7 +49,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [restockProduct, setRestockProduct] = useState<Product | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const productForm = useForm<ProductFormData>({ resolver: zodResolver(productSchema) })
   const restockForm = useForm<RestockFormData>({ resolver: zodResolver(restockSchema) })
 
   const fetchProducts = async () => {
@@ -102,9 +103,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         is_active: true,
       })
       if (error) { toast({ title: error.message, variant: 'destructive' }); return }
-      toast({ title: 'Product added!', variant: 'success' })
+      toast({ title: 'Produit ajouté !', variant: 'success' })
       setShowAddModal(false)
-      productForm.reset()
       fetchProducts()
     } finally {
       setSaving(false)
@@ -127,7 +127,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         low_stock_threshold: data.low_stock_threshold || null,
       }).eq('id', editingProduct.id)
       if (error) { toast({ title: error.message, variant: 'destructive' }); return }
-      toast({ title: 'Product updated!', variant: 'success' })
+      toast({ title: 'Produit mis à jour !', variant: 'success' })
       setEditingProduct(null)
       fetchProducts()
     } finally {
@@ -184,92 +184,13 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     a.click()
   }
 
-  // Valeurs surveillées pour les Select contrôlés (must be at component level, not inside a sub-component)
-  const watchUnit = productForm.watch('unit') ?? 'piece'
-  const watchCategoryId = productForm.watch('category_id') ?? ''
-  const watchSupplierId = productForm.watch('supplier_id') ?? ''
-
-  const renderProductForm = (onSubmit: (d: ProductFormData) => void, isEdit?: boolean) => (
-    <form onSubmit={productForm.handleSubmit(onSubmit)} className="space-y-3 overflow-y-auto max-h-[70vh]">
-      <div className="grid grid-cols-2 gap-3">
-        <div className="col-span-2 space-y-1">
-          <Label>{t('products.name')} *</Label>
-          <Input {...productForm.register('name')} placeholder="Nom du produit" />
-          {productForm.formState.errors.name && <p className="text-xs text-destructive">{productForm.formState.errors.name.message}</p>}
-        </div>
-        <div className="col-span-2 space-y-1">
-          <Label>{t('products.name_hausa')} <span className="text-muted-foreground text-xs font-normal">(optionnel)</span></Label>
-          <Input {...productForm.register('name_hausa')} placeholder="Sunan Hausa" />
-        </div>
-        <div className="space-y-1">
-          <Label>{t('products.sku')} <span className="text-muted-foreground text-xs font-normal">(optionnel)</span></Label>
-          <Input {...productForm.register('sku')} placeholder="ex: RIZ-50KG" />
-        </div>
-        <div className="space-y-1">
-          <Label>{t('products.unit')}</Label>
-          <Select value={watchUnit} onValueChange={v => productForm.setValue('unit', v, { shouldValidate: true })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {['piece', 'kg', 'g', 'litre', 'ml', 'pack', 'carton', 'dozen', 'bag', 'bottle', 'tin', 'box'].map(u => (
-                <SelectItem key={u} value={u}>{u}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label>{t('products.category')} <span className="text-muted-foreground text-xs font-normal">(optionnel)</span></Label>
-          <Select value={watchCategoryId} onValueChange={v => productForm.setValue('category_id', v, { shouldValidate: true })}>
-            <SelectTrigger><SelectValue placeholder="Sélectionner…" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">— Aucune —</SelectItem>
-              {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label>{t('products.supplier')} <span className="text-muted-foreground text-xs font-normal">(optionnel)</span></Label>
-          <Select value={watchSupplierId} onValueChange={v => productForm.setValue('supplier_id', v, { shouldValidate: true })}>
-            <SelectTrigger><SelectValue placeholder="Sélectionner…" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">— Aucun —</SelectItem>
-              {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-        {profile?.role === 'owner' && (
-          <div className="space-y-1">
-            <Label>{t('products.buying_price')} <span className="text-muted-foreground text-xs">({shop?.currency || '₦'})</span></Label>
-            <Input type="number" min={0} {...productForm.register('buying_price')} placeholder="0" />
-            {productForm.formState.errors.buying_price && <p className="text-xs text-destructive">{productForm.formState.errors.buying_price.message}</p>}
-          </div>
-        )}
-        <div className="space-y-1">
-          <Label>{t('products.selling_price')} * <span className="text-muted-foreground text-xs">({shop?.currency || '₦'})</span></Label>
-          <Input type="number" min={0} {...productForm.register('selling_price')} placeholder="0" />
-          {productForm.formState.errors.selling_price && <p className="text-xs text-destructive">{productForm.formState.errors.selling_price.message}</p>}
-        </div>
-        {!isEdit && (
-          <div className="space-y-1">
-            <Label>{t('products.quantity')} *</Label>
-            <Input type="number" min={0} {...productForm.register('quantity')} placeholder="0" />
-            {productForm.formState.errors.quantity && <p className="text-xs text-destructive">{productForm.formState.errors.quantity.message}</p>}
-          </div>
-        )}
-        <div className="space-y-1">
-          <Label>{t('products.low_stock_threshold')} <span className="text-muted-foreground text-xs font-normal">(alerte)</span></Label>
-          <Input type="number" min={0} {...productForm.register('low_stock_threshold')} placeholder={String(shop?.low_stock_threshold || 10)} />
-        </div>
-      </div>
-      <DialogFooter className="pt-2">
-        <Button type="button" variant="outline" onClick={() => { setShowAddModal(false); setEditingProduct(null) }}>
-          {t('actions.cancel')}
-        </Button>
-        <Button type="submit" loading={saving} className="bg-northcode-blue">
-          {isEdit ? t('actions.update') : t('actions.save')}
-        </Button>
-      </DialogFooter>
-    </form>
-  )
+  const productFormProps = {
+    categories,
+    suppliers,
+    currency: shop?.currency || '₦',
+    isOwner: profile?.role === 'owner',
+    saving,
+  }
 
   return (
     <div className="space-y-4">
@@ -302,7 +223,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           <Button
             className="h-9 gap-1 bg-northcode-blue hover:bg-northcode-blue-light"
             size="sm"
-            onClick={() => { productForm.reset({ unit: 'piece', buying_price: 0, quantity: 0 }); setShowAddModal(true) }}
+            onClick={() => setShowAddModal(true)}
           >
             <Plus className="h-4 w-4" />
             {t('actions.add_product')}
@@ -386,21 +307,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                         variant="outline"
                         size="sm"
                         className="h-7 px-2"
-                        onClick={() => {
-                          setEditingProduct(product)
-                          productForm.reset({
-                            name: product.name,
-                            name_hausa: product.name_hausa || '',
-                            sku: product.sku || '',
-                            category_id: product.category_id || '',
-                            supplier_id: product.supplier_id || '',
-                            buying_price: product.buying_price,
-                            selling_price: product.selling_price,
-                            quantity: product.quantity,
-                            unit: product.unit,
-                            low_stock_threshold: product.low_stock_threshold || undefined,
-                          })
-                        }}
+                        onClick={() => setEditingProduct(product)}
                       >
                         <Edit2 className="h-3 w-3" />
                       </Button>
@@ -417,7 +324,11 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
         <DialogContent>
           <DialogHeader><DialogTitle>{t('actions.add_product')}</DialogTitle></DialogHeader>
-          {renderProductForm(onAddProduct)}
+          <ProductForm
+            {...productFormProps}
+            onSubmit={onAddProduct}
+            onCancel={() => setShowAddModal(false)}
+          />
         </DialogContent>
       </Dialog>
 
@@ -425,7 +336,24 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       <Dialog open={!!editingProduct} onOpenChange={open => !open && setEditingProduct(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Modifier le produit</DialogTitle></DialogHeader>
-          {renderProductForm(onEditProduct, true)}
+          <ProductForm
+            {...productFormProps}
+            isEdit
+            defaultValues={editingProduct ? {
+              name: editingProduct.name,
+              name_hausa: editingProduct.name_hausa || '',
+              sku: editingProduct.sku || '',
+              category_id: editingProduct.category_id || '',
+              supplier_id: editingProduct.supplier_id || '',
+              buying_price: editingProduct.buying_price,
+              selling_price: editingProduct.selling_price,
+              quantity: editingProduct.quantity,
+              unit: editingProduct.unit,
+              low_stock_threshold: editingProduct.low_stock_threshold || undefined,
+            } : undefined}
+            onSubmit={onEditProduct}
+            onCancel={() => setEditingProduct(null)}
+          />
         </DialogContent>
       </Dialog>
 
