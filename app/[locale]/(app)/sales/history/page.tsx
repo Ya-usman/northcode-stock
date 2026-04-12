@@ -112,6 +112,13 @@ export default function SalesHistoryPage() {
 
   useEffect(() => { fetchSales() }, [shopId, dateFilter, methodFilter, statusFilter, saleStatusFilter])
 
+  // Refresh when tab regains focus (e.g. after recording a payment on the debts page)
+  useEffect(() => {
+    const onFocus = () => { if (document.visibilityState === 'visible') fetchSales() }
+    document.addEventListener('visibilitychange', onFocus)
+    return () => document.removeEventListener('visibilitychange', onFocus)
+  }, [shopId, dateFilter, methodFilter, statusFilter, saleStatusFilter])
+
   const filtered = sales.filter(s => {
     if (!search) return true
     const q = search.toLowerCase()

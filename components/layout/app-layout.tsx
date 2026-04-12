@@ -64,11 +64,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
 
   const handleSignOut = () => signOut()
 
-  useEffect(() => {
-    if (!loading && !user) {
-      window.location.href = `/${locale}/login`
-    }
-  }, [loading, user, locale])
+  // Redirect handled in render below (avoids double redirect race)
 
   // Fetch counts for plan limit checks (owner only)
   useEffect(() => {
@@ -84,13 +80,16 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
 
   if (loading) return <LoadingSkeleton />
 
-  // Profile not found after loading — redirect to login
-  if (!profile) {
+  // Not authenticated — redirect to login
+  if (!user) {
     if (typeof window !== 'undefined') {
       window.location.href = `/${locale}/login`
     }
     return <LoadingSkeleton />
   }
+
+  // Authenticated but profile not yet loaded (fetch in progress or failed) — wait, don't redirect
+  if (!profile) return <LoadingSkeleton />
 
   const beta = isBetaPeriod()
   const trialDaysLeft = getTrialDaysLeft(shop?.trial_ends_at ?? null)

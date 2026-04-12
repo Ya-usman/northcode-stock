@@ -136,42 +136,38 @@ export default function DettesPage() {
     setRepayNotes('')
   }
 
-  // ── Record repayment (FIFO: oldest invoice first) ───────
+  // ── Record repayment via server API (bypasses RLS) ──────
   const recordRepayment = async () => {
     if (!repayDebtor || !repayAmount || Number(repayAmount) <= 0) {
       toast({ title: t('toast.payment_amount_required'), variant: 'destructive' })
       return
     }
     const amount = Number(repayAmount)
-    if (amount > repayDebtor.totalDebt) {
+    if (amount > repayDebtor.totalDebt + 0.01) {
       toast({ title: t('toast.payment_exceeds_debt', { amount: fmt(repayDebtor.totalDebt) }), variant: 'destructive' })
       return
     }
     setSaving(true)
     try {
-      // Appliquer en FIFO : factures les plus anciennes d'abord
-      let remaining = amount
-      const sorted = [...repayDebtor.unpaidSales].sort(
-        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      )
-      for (const sale of sorted) {
-        if (remaining <= 0) break
-        const toApply = Math.min(remaining, Number(sale.balance))
-        if (toApply <= 0) continue
-        const { error } = await supabase.from('payments').insert({
-          sale_id: sale.id,
-          amount: toApply,
+      const res = await fetch('/api/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          unpaid_sale_ids: repayDebtor.unpaidSales.map(s => s.id),
+          amount,
           method: repayMethod,
           reference: repayRef || null,
           notes: repayNotes || null,
-          received_by: profile!.id,
-        })
-        if (error) throw error
-        remaining -= toApply
-      }
+          shop_id: shop!.id,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
       toast({ title: t('toast.payment_recorded'), variant: 'success' })
       setRepayDebtor(null)
-      fetchDebtors(true)
+      setRepayAmount('')
+      // Refresh after short delay to let DB trigger propagate
+      setTimeout(() => fetchDebtors(true), 300)
     } catch (e: any) {
       toast({ title: e.message, variant: 'destructive' })
     } finally {
@@ -179,9 +175,10 @@ export default function DettesPage() {
     }
   }
 
-  // ── Load payment history ────────────────────────────────
+  // ── Load payment history ─────────────────────────────────
   const openHistory = async (debtor: CustomerDebt) => {
     setHistoryDebtor(debtor)
+    setHistory([])
     setLoadingHistory(true)
 
     // Get all sales for this customer in this shop
