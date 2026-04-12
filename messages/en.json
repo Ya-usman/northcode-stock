@@ -249,6 +249,16 @@
     "alert_daily": "Daily Summary",
     "alert_each_sale": "Each Sale",
     "language": "Language",
+    "appearance": "Appearance",
+    "dark_mode": "Dark Mode",
+    "dark_mode_desc": "Dark interface to save battery",
+    "shop_info": "Shop Information",
+    "business": "Business Settings",
+    "upload_logo": "Upload Logo",
+    "uploading": "Uploading…",
+    "stock_alert_hint": "Alert when stock reaches this level",
+    "tax_hint": "0 = no tax applied",
+    "notif_hint": "Configure alerts sent to your phone and email",
     "saved": "Settings saved!"
   },
   "movements": {

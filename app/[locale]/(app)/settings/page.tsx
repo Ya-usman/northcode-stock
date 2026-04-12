@@ -2,17 +2,17 @@
 
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
-import { Save, Upload, Globe } from 'lucide-react'
+import { Save, Upload, Globe, Moon, Sun } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
+import { useTheme } from '@/lib/hooks/use-theme'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useRouter, usePathname } from 'next/navigation'
 import type { Shop } from '@/lib/types/database'
@@ -24,12 +24,12 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const { toast } = useToast()
   const router = useRouter()
   const pathname = usePathname()
+  const { isDark, setIsDark } = useTheme()
 
   const [shop, setShop] = useState<Shop | null>(shopData)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(!shopData)
 
-  // Form state
   const [name, setName] = useState('')
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
@@ -97,7 +97,6 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const switchLanguage = (newLocale: string) => {
     const newPath = pathname.replace(`/${locale}`, `/${newLocale}`)
     localStorage.setItem('NEXT_LOCALE', newLocale)
-    // Also save in cookie so the server-side middleware can redirect to the right locale
     document.cookie = `NEXT_LOCALE=${newLocale}; path=/; max-age=31536000; SameSite=lax`
     router.push(newPath)
   }
@@ -106,13 +105,13 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
 
   return (
     <div className="space-y-4 max-w-2xl">
+
       {/* Shop Info */}
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold">Shop Information</CardTitle>
+          <CardTitle className="text-sm font-semibold">{t('settings.shop_info')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Logo */}
           <div className="flex items-center gap-4">
             <div className="h-16 w-16 rounded-xl overflow-hidden border bg-northcode-blue-muted flex items-center justify-center flex-shrink-0">
               {shop?.logo_url ? (
@@ -125,7 +124,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
               <p className="text-sm font-medium">{t('settings.logo')}</p>
               <label className="mt-1 inline-flex items-center gap-2 cursor-pointer rounded-md border px-3 py-1.5 text-xs hover:bg-muted transition-colors">
                 <Upload className="h-3 w-3" />
-                {uploadingLogo ? 'Uploading…' : 'Upload Logo'}
+                {uploadingLogo ? t('settings.uploading') : t('settings.upload_logo')}
                 <input type="file" accept="image/*" className="hidden" onChange={uploadLogo} />
               </label>
             </div>
@@ -155,14 +154,14 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       {/* Business Settings */}
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold">Business Settings</CardTitle>
+          <CardTitle className="text-sm font-semibold">{t('settings.business')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>{t('settings.low_stock_threshold')}</Label>
               <Input type="number" min={1} value={threshold} onChange={e => setThreshold(Number(e.target.value))} />
-              <p className="text-xs text-muted-foreground">Alert when stock reaches this level</p>
+              <p className="text-xs text-muted-foreground">{t('settings.stock_alert_hint')}</p>
             </div>
             <div className="space-y-1">
               <Label>{t('settings.tax_rate')}</Label>
@@ -170,7 +169,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                 <Input type="number" min={0} max={100} step={0.5} value={taxRate} onChange={e => setTaxRate(Number(e.target.value))} className="pr-8" />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
               </div>
-              <p className="text-xs text-muted-foreground">0 = no tax applied</p>
+              <p className="text-xs text-muted-foreground">{t('settings.tax_hint')}</p>
             </div>
           </div>
         </CardContent>
@@ -182,7 +181,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
           <CardTitle className="text-sm font-semibold">{t('settings.notifications')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-xs text-muted-foreground">Configure alerts sent to your phone and email</p>
+          <p className="text-xs text-muted-foreground">{t('settings.notif_hint')}</p>
           <div className="space-y-3">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">WhatsApp</p>
             {[
@@ -212,6 +211,25 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
         </CardContent>
       </Card>
 
+      {/* Appearance — Dark Mode */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            {isDark ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+            {t('settings.appearance')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">{t('settings.dark_mode')}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{t('settings.dark_mode_desc')}</p>
+            </div>
+            <Switch checked={isDark} onCheckedChange={setIsDark} />
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Language */}
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-3">
@@ -233,7 +251,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                 className={`rounded-lg border p-3 text-sm font-medium transition-colors tap-target ${
                   locale === lang.code
                     ? 'border-northcode-blue bg-northcode-blue-muted text-northcode-blue'
-                    : 'border-input bg-white text-muted-foreground hover:bg-muted'
+                    : 'border-input bg-background text-muted-foreground hover:bg-muted'
                 }`}
               >
                 {lang.label}

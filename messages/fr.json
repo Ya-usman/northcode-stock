@@ -249,6 +249,16 @@
     "alert_daily": "Résumé quotidien",
     "alert_each_sale": "Chaque vente",
     "language": "Langue",
+    "appearance": "Apparence",
+    "dark_mode": "Mode sombre",
+    "dark_mode_desc": "Interface sombre pour économiser la batterie",
+    "shop_info": "Informations de la boutique",
+    "business": "Paramètres métier",
+    "upload_logo": "Changer le logo",
+    "uploading": "Envoi en cours…",
+    "stock_alert_hint": "Alerte quand le stock atteint ce niveau",
+    "tax_hint": "0 = aucune taxe appliquée",
+    "notif_hint": "Configurez les alertes envoyées sur votre téléphone et e-mail",
     "saved": "Paramètres enregistrés !"
   },
   "movements": {
