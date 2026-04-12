@@ -331,8 +331,8 @@ export default function TeamPage() {
                   !member.is_active ? 'opacity-60 border-red-100 bg-red-50/30' : ''
                 }`}
               >
+                {/* Top row: avatar + info */}
                 <div className="flex items-start gap-3">
-                  {/* Avatar */}
                   <div className="relative flex-shrink-0">
                     <Avatar className="h-10 w-10">
                       <AvatarFallback className={`text-white text-sm font-bold ${member.is_active ? 'bg-northcode-blue' : 'bg-gray-400'}`}>
@@ -344,14 +344,13 @@ export default function TeamPage() {
                     )}
                   </div>
 
-                  {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold text-sm">{p.full_name}</p>
-                      {isMe && <Badge variant="outline" className="text-[10px] px-1.5">Moi</Badge>}
-                      {!member.is_active && <Badge className="text-[10px] bg-red-100 text-red-600 border-red-200">Désactivé</Badge>}
+                      <p className="font-semibold text-sm truncate max-w-[160px]">{p.full_name}</p>
+                      {isMe && <Badge variant="outline" className="text-[10px] px-1.5 flex-shrink-0">Moi</Badge>}
+                      {!member.is_active && <Badge className="text-[10px] bg-red-100 text-red-600 border-red-200 flex-shrink-0">Désactivé</Badge>}
                       {member.can_delete_sales && (
-                        <Badge className="text-[10px] bg-orange-100 text-orange-700 border-orange-200 gap-0.5">
+                        <Badge className="text-[10px] bg-orange-100 text-orange-700 border-orange-200 gap-0.5 flex-shrink-0">
                           <Trash2 className="h-2.5 w-2.5" /> Peut supprimer
                         </Badge>
                       )}
@@ -371,75 +370,73 @@ export default function TeamPage() {
                       )}
                     </div>
                   </div>
-
-                  {/* Actions — not for self, not for owner */}
-                  {!isMe && member.role !== 'owner' && isOwner && (
-                    <div className="flex flex-col gap-2 items-end flex-shrink-0">
-                      <div className="flex items-center gap-2">
-                        {/* Role selector */}
-                        <Select
-                          value={member.role}
-                          onValueChange={v => changeRole(member, v as UserRole)}
-                          disabled={isLoading || !member.is_active}
-                        >
-                          <SelectTrigger className="w-[130px] h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="cashier">Caissier</SelectItem>
-                            <SelectItem value="stock_manager">Gest. stock</SelectItem>
-                            <SelectItem value="viewer">Lecteur</SelectItem>
-                          </SelectContent>
-                        </Select>
-
-                        {/* Activate / Deactivate */}
-                        <Button
-                          size="sm" variant="outline" disabled={isLoading}
-                          onClick={() => confirmToggleActive(member)}
-                          className={`h-8 gap-1.5 text-xs ${
-                            member.is_active
-                              ? 'border-red-200 text-red-600 hover:bg-red-50'
-                              : 'border-green-200 text-green-600 hover:bg-green-50'
-                          }`}
-                        >
-                          {isLoading && actionLoading === member.id ? (
-                            <span className="h-3 w-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                          ) : member.is_active ? (
-                            <><ShieldOff className="h-3 w-3" /> Désactiver</>
-                          ) : (
-                            <><ShieldCheck className="h-3 w-3" /> Réactiver</>
-                          )}
-                        </Button>
-
-                        {/* Delete permanently */}
-                        <Button
-                          size="sm" variant="outline" disabled={isLoading}
-                          onClick={() => setDeleteDialog({ open: true, member })}
-                          className="h-8 gap-1.5 text-xs border-red-300 text-red-600 hover:bg-red-50"
-                          title="Supprimer définitivement"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-
-                      {/* can_delete_sales toggle — only for cashier */}
-                      {member.role === 'cashier' && (
-                        <button
-                          onClick={() => toggleCanDelete(member)}
-                          disabled={isLoading}
-                          className={`flex items-center gap-1.5 text-[11px] rounded-lg px-2.5 py-1.5 transition-colors ${
-                            member.can_delete_sales
-                              ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-                              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                          }`}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                          {member.can_delete_sales ? 'Peut supprimer ventes ✓' : 'Autoriser suppression'}
-                        </button>
-                      )}
-                    </div>
-                  )}
                 </div>
+
+                {/* Actions — below info, wraps on small screens */}
+                {!isMe && member.role !== 'owner' && isOwner && (
+                  <div className="mt-3 pt-3 border-t flex flex-wrap gap-2 items-center">
+                    {/* Role selector */}
+                    <Select
+                      value={member.role}
+                      onValueChange={v => changeRole(member, v as UserRole)}
+                      disabled={isLoading || !member.is_active}
+                    >
+                      <SelectTrigger className="w-[120px] h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cashier">Caissier</SelectItem>
+                        <SelectItem value="stock_manager">Gest. stock</SelectItem>
+                        <SelectItem value="viewer">Lecteur</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {/* Activate / Deactivate */}
+                    <Button
+                      size="sm" variant="outline" disabled={isLoading}
+                      onClick={() => confirmToggleActive(member)}
+                      className={`h-8 gap-1.5 text-xs ${
+                        member.is_active
+                          ? 'border-red-200 text-red-600 hover:bg-red-50'
+                          : 'border-green-200 text-green-600 hover:bg-green-50'
+                      }`}
+                    >
+                      {isLoading && actionLoading === member.id ? (
+                        <span className="h-3 w-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                      ) : member.is_active ? (
+                        <><ShieldOff className="h-3 w-3" /> Désactiver</>
+                      ) : (
+                        <><ShieldCheck className="h-3 w-3" /> Réactiver</>
+                      )}
+                    </Button>
+
+                    {/* Delete permanently */}
+                    <Button
+                      size="sm" variant="outline" disabled={isLoading}
+                      onClick={() => setDeleteDialog({ open: true, member })}
+                      className="h-8 w-8 p-0 border-red-300 text-red-600 hover:bg-red-50"
+                      title="Supprimer définitivement"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+
+                    {/* can_delete_sales toggle — only for cashier */}
+                    {member.role === 'cashier' && (
+                      <button
+                        onClick={() => toggleCanDelete(member)}
+                        disabled={isLoading}
+                        className={`flex items-center gap-1.5 text-[11px] rounded-lg px-2.5 py-1.5 transition-colors ${
+                          member.can_delete_sales
+                            ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                        }`}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        {member.can_delete_sales ? 'Peut suppr. ✓' : 'Autoriser suppr.'}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             )
           })}

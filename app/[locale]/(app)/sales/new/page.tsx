@@ -20,7 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { useCurrency } from '@/lib/hooks/use-currency'
-import { generateReceiptPDF } from '@/lib/utils/pdf'
+import { generateReceiptPDF, generateReceiptPDFBlob } from '@/lib/utils/pdf'
 import { shareReceiptWhatsApp, buildReceiptWhatsAppMessage } from '@/lib/utils/whatsapp'
 import type { Product, Customer, CartItem, Sale, SaleItem, Category } from '@/lib/types/database'
 
@@ -423,14 +423,25 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           if (remaining <= 0) break
           const toApply = Math.min(remaining, Number(unpaid.balance))
           if (toApply <= 0) continue
+          const method = paymentMethod === 'credit' ? 'cash' : paymentMethod
+          // Insert payment record
           await db.from('payments').insert({
             sale_id: unpaid.id,
             amount: toApply,
-            method: paymentMethod === 'credit' ? 'cash' : paymentMethod,
+            method,
             reference: paymentMethod === 'transfer' ? transferRef : null,
             notes: `Inclus dans la vente #${(sale as any).sale_number}`,
             received_by: profile!.id,
           })
+          // Update the sale's amount_paid and payment_status
+          // (balance is a generated column: total - amount_paid, no need to set it)
+          const newAmountPaid = Number(unpaid.amount_paid) + toApply
+          const newBalance = Math.max(0, Number(unpaid.total) - newAmountPaid)
+          const newStatus = newBalance <= 0 ? 'paid' : 'partial'
+          await db.from('sales').update({
+            amount_paid: newAmountPaid,
+            payment_status: newStatus,
+          }).eq('id', unpaid.id)
           remaining -= toApply
         }
       }
@@ -458,25 +469,46 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const handlePrintReceipt = async () => {
     if (!completedSale || !shop) return
     await generateReceiptPDF({
-      sale: completedSale,
+      sale: completedSale as any,
       shop: selectedShop as any,
       cashierName: profile?.full_name || '',
-      customerName: completedSale.customers?.name,
+      customerName: (completedSale as any).customers?.name,
     })
   }
 
-  const handleWhatsAppReceipt = () => {
+  const handleWhatsAppReceipt = async () => {
     if (!completedSale || !shop) return
+    const fileName = `Receipt-${completedSale.sale_number}.pdf`
+    try {
+      const blob = await generateReceiptPDFBlob({
+        sale: completedSale as any,
+        shop: selectedShop as any,
+        cashierName: profile?.full_name || '',
+        customerName: (completedSale as any).customers?.name,
+      })
+      const file = new File([blob], fileName, { type: 'application/pdf' })
+      if (typeof navigator !== 'undefined' && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: `Receipt #${completedSale.sale_number}` })
+        return
+      }
+      // Fallback: download PDF then open WhatsApp
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a'); a.href = url; a.download = fileName; a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      // If PDF fails, fall back to text message
+    }
+    // Open WhatsApp with text summary
     const message = buildReceiptWhatsAppMessage({
       shopName: selectedShop?.name || '',
       saleNumber: completedSale.sale_number,
       date: new Date(completedSale.created_at).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }),
-      items: completedSale.sale_items.map(i => ({ name: i.product_name, qty: i.quantity, price: i.unit_price })),
+      items: ((completedSale as any).sale_items || []).map((i: any) => ({ name: i.product_name, qty: i.quantity, price: i.unit_price })),
       total: completedSale.total,
       paid: completedSale.amount_paid,
       balance: completedSale.balance,
       method: completedSale.payment_method,
-      customerName: completedSale.customers?.name,
+      customerName: (completedSale as any).customers?.name,
     })
     shareReceiptWhatsApp(message)
   }
@@ -1006,11 +1038,11 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   <span>#{completedSale.sale_number}</span>
                   <span>{new Date(completedSale.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
-                {completedSale.customers && (
-                  <p className="text-xs text-muted-foreground">Client : {completedSale.customers.name}</p>
+                {(completedSale as any).customers && (
+                  <p className="text-xs text-muted-foreground">Client : {(completedSale as any).customers.name}</p>
                 )}
                 <Separator />
-                {completedSale.sale_items?.map(item => (
+                {((completedSale as any).sale_items || []).map((item: any) => (
                   <div key={item.id} className="flex justify-between text-xs">
                     <span className="truncate">{item.product_name} × {item.quantity}</span>
                     <span className="font-medium flex-shrink-0 ml-2">{formatNaira(item.subtotal)}</span>

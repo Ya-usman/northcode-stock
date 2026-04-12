@@ -9,11 +9,21 @@ interface ReceiptData {
   customerName?: string
 }
 
-export async function generateReceiptPDF(data: ReceiptData): Promise<void> {
+async function buildReceiptDoc(data: ReceiptData) {
   const { jsPDF } = await import('jspdf')
   const autoTable = (await import('jspdf-autotable')).default
 
   const { sale, shop, cashierName, customerName } = data
+
+  // Currency formatter — jsPDF Helvetica can't render ₦, use sanitizePDF
+  const isFCFA = shop.currency === 'FCFA'
+  const fmtAmt = (n: number) => {
+    if (isFCFA) {
+      const formatted = n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+      return sanitizePDF(`${formatted} FCFA`)
+    }
+    return `NGN ${n.toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+  }
 
   // A5 format: 148 x 210 mm
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a5' })
@@ -23,8 +33,7 @@ export async function generateReceiptPDF(data: ReceiptData): Promise<void> {
   let y = 14
 
   // ─── HEADER ──────────────────────────────────
-  // NC Logo (blue square)
-  doc.setFillColor(10, 47, 110) // #0A2F6E
+  doc.setFillColor(10, 47, 110)
   doc.roundedRect(margin, y, 20, 20, 3, 3, 'F')
   doc.setTextColor(255, 255, 255)
   doc.setFontSize(14)
@@ -58,7 +67,7 @@ export async function generateReceiptPDF(data: ReceiptData): Promise<void> {
   doc.text(`Receipt #${sale.sale_number}`, margin, y)
   doc.setFont('helvetica', 'normal')
   doc.text(
-    new Date(sale.created_at).toLocaleString('en-NG', {
+    new Date(sale.created_at).toLocaleString('en-GB', {
       day: '2-digit', month: 'short', year: 'numeric',
       hour: '2-digit', minute: '2-digit',
     }),
@@ -75,32 +84,32 @@ export async function generateReceiptPDF(data: ReceiptData): Promise<void> {
   y += 7
 
   // ─── ITEMS TABLE ──────────────────────────────
+  const items = sale.sale_items || []
   autoTable(doc, {
     startY: y,
     head: [['Item', 'Qty', 'Unit Price', 'Total']],
-    body: sale.sale_items.map((item) => [
+    body: items.map((item) => [
       item.product_name,
       item.quantity.toString(),
-      `₦${Number(item.unit_price).toLocaleString('en-NG')}`,
-      `₦${Number(item.subtotal).toLocaleString('en-NG')}`,
+      fmtAmt(Number(item.unit_price)),
+      fmtAmt(Number(item.subtotal)),
     ]),
     margin: { left: margin, right: margin },
     styles: { fontSize: 8, cellPadding: 2 },
     headStyles: { fillColor: [10, 47, 110], textColor: 255, fontStyle: 'bold' },
     columnStyles: {
-      0: { cellWidth: 55 },
+      0: { cellWidth: 46 },
       1: { cellWidth: 12, halign: 'center' },
-      2: { cellWidth: 28, halign: 'right' },
-      3: { cellWidth: 28, halign: 'right' },
+      2: { cellWidth: 33, halign: 'right' },
+      3: { cellWidth: 33, halign: 'right' },
     },
   })
 
   y = (doc as any).lastAutoTable.finalY + 4
 
   // ─── TOTALS ───────────────────────────────────
-  const fmt = (n: number) => `₦${n.toLocaleString('en-NG')}`
   const rightCol = pageWidth - margin
-  const labelCol = pageWidth - margin - 50
+  const labelCol = pageWidth - margin - 54
 
   doc.setDrawColor(220, 220, 220)
   doc.setLineWidth(0.3)
@@ -113,18 +122,18 @@ export async function generateReceiptPDF(data: ReceiptData): Promise<void> {
 
   if (Number(sale.discount) > 0) {
     doc.text('Subtotal:', labelCol, y)
-    doc.text(fmt(Number(sale.subtotal)), rightCol, y, { align: 'right' })
+    doc.text(fmtAmt(Number(sale.subtotal)), rightCol, y, { align: 'right' })
     y += 5
     doc.setTextColor(220, 50, 50)
-    doc.text(`Discount:`, labelCol, y)
-    doc.text(`-${fmt(Number(sale.discount))}`, rightCol, y, { align: 'right' })
+    doc.text('Discount:', labelCol, y)
+    doc.text(`-${fmtAmt(Number(sale.discount))}`, rightCol, y, { align: 'right' })
     y += 5
     doc.setTextColor(60, 60, 60)
   }
 
   if (Number(sale.tax) > 0) {
     doc.text('Tax:', labelCol, y)
-    doc.text(fmt(Number(sale.tax)), rightCol, y, { align: 'right' })
+    doc.text(fmtAmt(Number(sale.tax)), rightCol, y, { align: 'right' })
     y += 5
   }
 
@@ -137,20 +146,20 @@ export async function generateReceiptPDF(data: ReceiptData): Promise<void> {
   doc.setFontSize(12)
   doc.setTextColor(10, 47, 110)
   doc.text('TOTAL:', labelCol, y)
-  doc.text(fmt(Number(sale.total)), rightCol, y, { align: 'right' })
+  doc.text(fmtAmt(Number(sale.total)), rightCol, y, { align: 'right' })
   y += 6
 
   // Paid / Balance
   doc.setFontSize(9)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(22, 163, 74)
-  doc.text(`Paid: ${fmt(Number(sale.amount_paid))} via ${sale.payment_method}`, labelCol, y)
+  doc.text(sanitizePDF(`Paid: ${fmtAmt(Number(sale.amount_paid))} via ${sale.payment_method}`), labelCol, y)
   y += 5
 
   if (Number(sale.balance) > 0) {
     doc.setTextColor(220, 38, 38)
     doc.setFont('helvetica', 'bold')
-    doc.text(`Balance Due: ${fmt(Number(sale.balance))}`, labelCol, y)
+    doc.text(`Balance Due: ${fmtAmt(Number(sale.balance))}`, labelCol, y)
     y += 5
   }
 
@@ -170,8 +179,17 @@ export async function generateReceiptPDF(data: ReceiptData): Promise<void> {
   doc.setTextColor(100, 100, 100)
   doc.text('Na gode da kasuwancin ku', pageWidth / 2, y, { align: 'center' })
 
-  // Save / open
-  doc.save(`Receipt-${sale.sale_number}.pdf`)
+  return { doc, fileName: `Receipt-${sale.sale_number}.pdf` }
+}
+
+export async function generateReceiptPDF(data: ReceiptData): Promise<void> {
+  const { doc, fileName } = await buildReceiptDoc(data)
+  doc.save(fileName)
+}
+
+export async function generateReceiptPDFBlob(data: ReceiptData): Promise<Blob> {
+  const { doc } = await buildReceiptDoc(data)
+  return doc.output('blob')
 }
 
 // Sanitize currency strings for jsPDF (Helvetica can't render ₦ or non-breaking spaces)

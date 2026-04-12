@@ -39,10 +39,9 @@ export async function POST(request: Request) {
       received_by: user.id,
     })
 
-    // Update sale
+    // Update sale — balance is a generated column, do NOT set it explicitly
     const { error: updateErr } = await admin.from('sales').update({
       amount_paid: newAmountPaid,
-      balance: newBalance,
       payment_status: newStatus,
       payment_method: method,
     }).eq('id', sale_id)
