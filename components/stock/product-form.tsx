@@ -56,7 +56,7 @@ export function ProductForm({
 
         <div className="col-span-2 space-y-1">
           <Label>{t('products.name')} *</Label>
-          <Input {...form.register('name')} placeholder="Nom du produit" />
+          <Input {...form.register('name')} placeholder={t('products.name')} />
           {form.formState.errors.name && (
             <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>
           )}
@@ -65,9 +65,9 @@ export function ProductForm({
         <div className="col-span-2 space-y-1">
           <Label>
             {t('products.name_hausa')}{' '}
-            <span className="text-muted-foreground text-xs font-normal">(optionnel)</span>
+            <span className="text-muted-foreground text-xs font-normal">({t('form.optional')})</span>
           </Label>
-          <Input {...form.register('name_hausa')} placeholder="Sunan Hausa" />
+          <Input {...form.register('name_hausa')} placeholder={t('products.name_hausa')} />
         </div>
 
         <div className="space-y-1">
@@ -85,12 +85,12 @@ export function ProductForm({
         <div className="space-y-1">
           <Label>
             {t('products.category')}{' '}
-            <span className="text-muted-foreground text-xs font-normal">(optionnel)</span>
+            <span className="text-muted-foreground text-xs font-normal">({t('form.optional')})</span>
           </Label>
           <Select value={categoryId} onValueChange={v => form.setValue('category_id', v === NONE ? '' : v)}>
-            <SelectTrigger><SelectValue placeholder="Sélectionner…" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
             <SelectContent>
-              <SelectItem value={NONE}>— Aucune —</SelectItem>
+              <SelectItem value={NONE}>{t('form.none_female')}</SelectItem>
               {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -99,12 +99,12 @@ export function ProductForm({
         <div className="space-y-1">
           <Label>
             {t('products.supplier')}{' '}
-            <span className="text-muted-foreground text-xs font-normal">(optionnel)</span>
+            <span className="text-muted-foreground text-xs font-normal">({t('form.optional')})</span>
           </Label>
           <Select value={supplierId} onValueChange={v => form.setValue('supplier_id', v === NONE ? '' : v)}>
-            <SelectTrigger><SelectValue placeholder="Sélectionner…" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
             <SelectContent>
-              <SelectItem value={NONE}>— Aucun —</SelectItem>
+              <SelectItem value={NONE}>{t('form.none_male')}</SelectItem>
               {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -147,7 +147,7 @@ export function ProductForm({
         <div className="space-y-1">
           <Label>
             {t('products.low_stock_threshold')}{' '}
-            <span className="text-muted-foreground text-xs font-normal">(alerte)</span>
+            <span className="text-muted-foreground text-xs font-normal">({t('form.alert_label')})</span>
           </Label>
           <Input type="number" min={0} {...form.register('low_stock_threshold')} placeholder="10" />
         </div>

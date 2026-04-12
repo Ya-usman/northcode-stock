@@ -55,11 +55,11 @@ export default function CustomersPage() {
     if (editingCustomer) {
       const { error } = await supabase.from('customers').update(data).eq('id', editingCustomer.id)
       if (error) { toast({ title: error.message, variant: 'destructive' }) }
-      else { toast({ title: 'Customer updated!', variant: 'success' }) }
+      else { toast({ title: t('toast.customer_updated'), variant: 'success' }) }
     } else {
       const { error } = await supabase.from('customers').insert({ ...data, shop_id: shop!.id })
       if (error) { toast({ title: error.message, variant: 'destructive' }) }
-      else { toast({ title: 'Customer added!', variant: 'success' }) }
+      else { toast({ title: t('toast.customer_added'), variant: 'success' }) }
     }
     setSaving(false)
     setShowModal(false)
@@ -70,12 +70,12 @@ export default function CustomersPage() {
 
   const deleteCustomer = async (c: Customer) => {
     if (c.total_debt > 0) {
-      toast({ title: `Cannot delete: ${c.name} has outstanding debt of ${formatNaira(c.total_debt)}`, variant: 'destructive' })
+      toast({ title: t('toast.customer_has_debt', { name: c.name, amount: formatNaira(c.total_debt) }), variant: 'destructive' })
       return
     }
-    if (!confirm(`Delete ${c.name}?`)) return
+    if (!confirm(t('confirm.delete_customer'))) return
     await supabase.from('customers').delete().eq('id', c.id)
-    toast({ title: 'Customer deleted' })
+    toast({ title: t('toast.customer_deleted') })
     fetchCustomers()
   }
 
@@ -84,7 +84,7 @@ export default function CustomersPage() {
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search customers…" className="pl-9 h-9" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('actions.search')} className="pl-9 h-9" />
         </div>
         {(profile?.role === 'owner' || profile?.role === 'cashier') && (
           <Button

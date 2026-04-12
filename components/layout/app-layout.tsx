@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { Sidebar } from './sidebar'
@@ -15,27 +16,29 @@ import { getTrialDaysLeft, hasActiveSubscription, isAccessAllowed, isBetaPeriod 
 
 const supabase = createClient()
 
-function getPageTitle(pathname: string, locale: string): string {
+function usePageTitle(pathname: string, locale: string) {
+  const t = useTranslations()
   const path = pathname.replace(`/${locale}`, '')
-  const titles: Record<string, string> = {
-    '/dashboard': 'Dashboard',
-    '/sales/new': 'Point of Sale',
-    '/sales/history': 'Sales History',
-    '/stock': 'Stock',
-    '/stock/movements': 'Stock Movements',
-    '/payments': 'Dettes',
-    '/customers': 'Customers',
-    '/categories': 'Catégories',
-    '/suppliers': 'Suppliers',
-    '/reports': 'Reports',
-    '/team': 'Team',
-    '/settings': 'Settings',
-    '/billing': 'Billing',
+  const map: Record<string, string> = {
+    '/dashboard': t('dashboard.title'),
+    '/sales/new': t('sales.new_title'),
+    '/sales/history': t('sales.history_title'),
+    '/stock/movements': t('movements.title'),
+    '/stock': t('products.title'),
+    '/payments': t('nav.payments'),
+    '/customers': t('customers.title'),
+    '/categories': t('categories.title'),
+    '/suppliers': t('suppliers.title'),
+    '/reports': t('reports.title'),
+    '/team': t('team.title'),
+    '/settings': t('settings.title'),
+    '/billing': t('nav.billing'),
+    '/shops': t('shops.title'),
   }
-  for (const [key, value] of Object.entries(titles)) {
+  for (const [key, value] of Object.entries(map)) {
     if (path.startsWith(key)) return value
   }
-  return 'NorthCode Stock'
+  return t('app.name')
 }
 
 function LoadingSkeleton() {
@@ -55,6 +58,7 @@ function LoadingSkeleton() {
 export function AppLayout({ children, locale }: { children: React.ReactNode; locale: string }) {
   const pathname = usePathname()
   const { user, profile, shop, loading, signOut } = useAuthContext()
+  const title = usePageTitle(pathname, locale)
   const [productCount, setProductCount] = useState(0)
   const [teamCount, setTeamCount] = useState(0)
 
@@ -95,7 +99,6 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   const accessAllowed = !shop || isAccessAllowed(shop.plan ?? null, shop.trial_ends_at ?? null, shop.plan_expires_at ?? null)
   const showTrialBanner = !beta && !subscribed && accessAllowed && trialDaysLeft <= 7 && profile.role === 'owner'
   const isBillingPage = pathname.includes('/billing')
-  const title = getPageTitle(pathname, locale)
 
   return (
     <div className="min-h-screen bg-gray-50">

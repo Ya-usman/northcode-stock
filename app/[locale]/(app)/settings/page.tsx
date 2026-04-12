@@ -91,7 +91,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
     const { data: { publicUrl } } = supabase.storage.from('shop-logos').getPublicUrl(path)
     await supabase.from('shops').update({ logo_url: publicUrl }).eq('id', shop.id)
     setUploadingLogo(false)
-    toast({ title: 'Logo updated!', variant: 'success' })
+    toast({ title: t('toast.logo_updated'), variant: 'success' })
   }
 
   const switchLanguage = (newLocale: string) => {

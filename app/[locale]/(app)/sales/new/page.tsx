@@ -172,9 +172,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       setScanFlash(true)
       setTimeout(() => setScanFlash(false), 600)
       addToCartById(product)
-      toast({ title: `✓ ${product.name} ajouté`, variant: 'success' })
+      toast({ title: t('toast.product_scanned', { name: product.name }), variant: 'success' })
     } else {
-      toast({ title: `Code non trouvé: ${code}`, variant: 'destructive' })
+      toast({ title: t('toast.barcode_not_found', { code }), variant: 'destructive' })
     }
   }, [products, toast])
 
@@ -183,7 +183,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       const existing = prev.find(i => i.product.id === product.id)
       if (existing) {
         if (existing.quantity >= product.quantity) {
-          toast({ title: `Stock max: ${product.quantity} ${product.unit}`, variant: 'destructive' })
+          toast({ title: t('toast.max_stock', { qty: product.quantity, unit: product.unit }), variant: 'destructive' })
           return prev
         }
         return prev.map(i =>
@@ -209,7 +209,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         const newQty = item.quantity + delta
         if (newQty <= 0) return null
         if (newQty > item.product.quantity) {
-          toast({ title: `Max stock: ${item.product.quantity}`, variant: 'destructive' })
+          toast({ title: t('toast.max_stock', { qty: item.product.quantity, unit: item.product.unit }), variant: 'destructive' })
           return item
         }
         return { ...item, quantity: newQty, subtotal: newQty * item.unit_price }
@@ -249,7 +249,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   // ── DRAFTS ─────────────────────────────────────────────
   const holdInvoice = () => {
     if (cart.length === 0) {
-      toast({ title: 'Panier vide', variant: 'destructive' })
+      toast({ title: t('toast.cart_empty'), variant: 'destructive' })
       return
     }
     const draft: Draft = {
@@ -268,7 +268,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     setDrafts(updated)
     saveDraftsToStorage(updated)
     resetForm()
-    toast({ title: 'Facture mise en attente', variant: 'success' })
+    toast({ title: t('toast.sale_held'), variant: 'success' })
   }
 
   const resumeDraft = (draft: Draft) => {
@@ -281,7 +281,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     setPaymentMethod(draft.paymentMethod)
     setActiveDraftId(draft.id)
     setShowDrafts(false)
-    toast({ title: 'Facture reprise', variant: 'success' })
+    toast({ title: t('toast.sale_resumed'), variant: 'success' })
   }
 
   const deleteDraft = (id: string) => {
@@ -339,12 +339,12 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
   // ── COMPLETE SALE ───────────────────────────────────────
   const completeSale = async () => {
-    if (cart.length === 0) { toast({ title: 'Panier vide', variant: 'destructive' }); return }
+    if (cart.length === 0) { toast({ title: t('toast.cart_empty'), variant: 'destructive' }); return }
     if (paymentMethod === 'credit' && !selectedCustomer && !customerName.trim()) {
-      toast({ title: 'Entre un nom de client pour une vente à crédit', variant: 'destructive' }); return
+      toast({ title: t('toast.customer_required_credit'), variant: 'destructive' }); return
     }
     if (paymentMethod === 'cash' && Number(amountPaid) < totalToCollect) {
-      toast({ title: `Montant insuffisant — attendu ${formatNaira(totalToCollect)}`, variant: 'destructive' }); return
+      toast({ title: t('toast.insufficient_amount', { amount: formatNaira(totalToCollect) }), variant: 'destructive' }); return
     }
 
     setCompleting(true)

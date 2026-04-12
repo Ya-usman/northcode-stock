@@ -50,7 +50,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
       section: 'Inventory',
       items: [
         { href: `/${locale}/stock`, icon: Package, label: t('stock'), roles: ['owner', 'stock_manager'] },
-        { href: `/${locale}/categories`, icon: Tag, label: 'Catégories', roles: ['owner', 'stock_manager'] },
+        { href: `/${locale}/categories`, icon: Tag, label: t('categories'), roles: ['owner', 'stock_manager'] },
         { href: `/${locale}/suppliers`, icon: Truck, label: t('suppliers'), roles: ['owner', 'stock_manager'] },
       ],
     },
@@ -59,9 +59,9 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
       items: [
         { href: `/${locale}/reports`, icon: BarChart2, label: t('reports'), roles: ['owner'] },
         { href: `/${locale}/team`, icon: Users, label: t('team'), roles: ['owner'] },
-        { href: `/${locale}/shops`, icon: Store, label: 'Boutiques', roles: ['owner'] },
+        { href: `/${locale}/shops`, icon: Store, label: t('shops'), roles: ['owner'] },
         { href: `/${locale}/settings`, icon: Settings, label: t('settings'), roles: ['owner'] },
-        ...(!isBetaPeriod() ? [{ href: `/${locale}/billing`, icon: Zap, label: 'Abonnement', roles: ['owner'] }] : []),
+        ...(!isBetaPeriod() ? [{ href: `/${locale}/billing`, icon: Zap, label: t('billing'), roles: ['owner'] }] : []),
       ],
     },
   ]

@@ -63,11 +63,11 @@ export default function SuppliersPage() {
     if (editingSupplier) {
       const { error } = await supabase.from('suppliers').update(data).eq('id', editingSupplier.id)
       if (error) { toast({ title: error.message, variant: 'destructive' }) }
-      else { toast({ title: 'Supplier updated!', variant: 'success' }) }
+      else { toast({ title: t('toast.supplier_updated'), variant: 'success' }) }
     } else {
       const { error } = await supabase.from('suppliers').insert({ ...data, shop_id: shop!.id })
       if (error) { toast({ title: error.message, variant: 'destructive' }) }
-      else { toast({ title: 'Supplier added!', variant: 'success' }) }
+      else { toast({ title: t('toast.supplier_added'), variant: 'success' }) }
     }
     setSaving(false)
     setShowModal(false)
@@ -78,12 +78,12 @@ export default function SuppliersPage() {
 
   const deleteSupplier = async (s: Supplier) => {
     if (productCounts[s.id] > 0) {
-      toast({ title: `Cannot delete: ${s.name} has ${productCounts[s.id]} linked products`, variant: 'destructive' })
+      toast({ title: t('toast.supplier_has_products', { name: s.name, count: productCounts[s.id] }), variant: 'destructive' })
       return
     }
-    if (!confirm(`Delete ${s.name}?`)) return
+    if (!confirm(t('confirm.delete_supplier'))) return
     await supabase.from('suppliers').delete().eq('id', s.id)
-    toast({ title: 'Supplier deleted' })
+    toast({ title: t('toast.supplier_deleted') })
     fetchSuppliers()
   }
 

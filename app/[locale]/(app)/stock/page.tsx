@@ -88,7 +88,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     })
 
   const onAddProduct = async (data: ProductFormData) => {
-    if (!shop?.id) { toast({ title: 'No active shop', variant: 'destructive' }); return }
+    if (!shop?.id) { toast({ title: t('toast.no_active_shop'), variant: 'destructive' }); return }
     setSaving(true)
     try {
       const res = await fetch('/api/products', {
@@ -109,8 +109,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         }),
       })
       const json = await res.json()
-      if (!res.ok) { toast({ title: json.error || 'Erreur', variant: 'destructive' }); return }
-      toast({ title: 'Produit ajouté !', variant: 'success' })
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      toast({ title: t('toast.product_added'), variant: 'success' })
       setShowAddModal(false)
       fetchProducts()
     } finally {
@@ -139,8 +139,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         }),
       })
       const json = await res.json()
-      if (!res.ok) { toast({ title: json.error || 'Erreur', variant: 'destructive' }); return }
-      toast({ title: 'Produit mis à jour !', variant: 'success' })
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      toast({ title: t('toast.product_updated'), variant: 'success' })
       setEditingProduct(null)
       fetchProducts()
     } finally {
@@ -167,8 +167,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     })
     setSaving(false)
     const json = await res.json()
-    if (!res.ok) { toast({ title: json.error || 'Erreur', variant: 'destructive' }); return }
-    toast({ title: `${data.quantity} unités ajoutées à ${restockProduct.name}`, variant: 'success' })
+    if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+    toast({ title: t('toast.restock_done', { qty: data.quantity, name: restockProduct.name }), variant: 'success' })
     setShowRestockModal(false)
     restockForm.reset()
     fetchProducts()
@@ -181,7 +181,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: product.id, shop_id: product.shop_id, is_active: false }),
     })
-    toast({ title: 'Produit supprimé' })
+    toast({ title: t('toast.product_deleted') })
     fetchProducts()
   }
 
@@ -218,7 +218,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   }
 
   const deleteCategory = async (catId: string) => {
-    if (!confirm('Supprimer cette catégorie ?')) return
+    if (!confirm(t('confirm.delete_category', { name: '' }))) return
     await fetch(`/api/categories?id=${catId}&shop_id=${shop?.id}`, { method: 'DELETE' })
     if (categoryFilter === catId) setCategoryFilter('all')
     fetchProducts()

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -58,6 +59,7 @@ const METHOD_LABELS: Record<string, string> = {
 }
 
 export default function DettesPage() {
+  const t = useTranslations()
   const { shop, profile } = useAuth()
   const { fmt } = useCurrency()
   const supabase = createClient() as any
@@ -137,12 +139,12 @@ export default function DettesPage() {
   // ── Record repayment (FIFO: oldest invoice first) ───────
   const recordRepayment = async () => {
     if (!repayDebtor || !repayAmount || Number(repayAmount) <= 0) {
-      toast({ title: 'Veuillez saisir un montant', variant: 'destructive' })
+      toast({ title: t('toast.payment_amount_required'), variant: 'destructive' })
       return
     }
     const amount = Number(repayAmount)
     if (amount > repayDebtor.totalDebt) {
-      toast({ title: `Le montant dépasse la dette totale (${fmt(repayDebtor.totalDebt)})`, variant: 'destructive' })
+      toast({ title: t('toast.payment_exceeds_debt', { amount: fmt(repayDebtor.totalDebt) }), variant: 'destructive' })
       return
     }
     setSaving(true)
@@ -167,7 +169,7 @@ export default function DettesPage() {
         if (error) throw error
         remaining -= toApply
       }
-      toast({ title: '✓ Remboursement enregistré', variant: 'success' })
+      toast({ title: t('toast.payment_recorded'), variant: 'success' })
       setRepayDebtor(null)
       fetchDebtors(true)
     } catch (e: any) {

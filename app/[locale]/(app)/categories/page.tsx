@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { Plus, Trash2, Tag } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext } from '@/lib/contexts/auth-context'
@@ -11,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import type { Category } from '@/lib/types/database'
 
 export default function CategoriesPage() {
+  const t = useTranslations()
   const { shop, profile } = useAuthContext()
   const supabase = createClient()
   const { toast } = useToast()
@@ -22,11 +24,7 @@ export default function CategoriesPage() {
 
   const fetchCategories = async () => {
     if (!shop?.id) return
-    const { data } = await supabase
-      .from('categories')
-      .select('*')
-      .eq('shop_id', shop.id)
-      .order('name')
+    const { data } = await supabase.from('categories').select('*').eq('shop_id', shop.id).order('name')
     setCategories((data || []) as Category[])
     setLoading(false)
   }
@@ -43,18 +41,18 @@ export default function CategoriesPage() {
     })
     setSaving(false)
     const json = await res.json()
-    if (!res.ok) { toast({ title: json.error || 'Erreur', variant: 'destructive' }); return }
+    if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
     setNewName('')
     fetchCategories()
-    toast({ title: 'Catégorie ajoutée', variant: 'success' })
+    toast({ title: t('categories.added'), variant: 'success' })
   }
 
   const deleteCategory = async (cat: Category) => {
-    if (!confirm(`Supprimer "${cat.name}" ? Les produits liés perdront leur catégorie.`)) return
+    if (!confirm(t('categories.delete_confirm', { name: cat.name }))) return
     const res = await fetch(`/api/categories?id=${cat.id}&shop_id=${shop?.id}`, { method: 'DELETE' })
-    if (!res.ok) { toast({ title: 'Erreur lors de la suppression', variant: 'destructive' }); return }
+    if (!res.ok) { toast({ title: t('categories.delete_error'), variant: 'destructive' }); return }
     fetchCategories()
-    toast({ title: 'Catégorie supprimée' })
+    toast({ title: t('categories.deleted') })
   }
 
   const canEdit = profile?.role === 'owner' || profile?.role === 'stock_manager'
@@ -62,10 +60,8 @@ export default function CategoriesPage() {
   return (
     <div className="max-w-lg space-y-6">
       <div>
-        <h1 className="text-xl font-bold">Catégories de produits</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Organisez vos produits par catégorie pour les retrouver facilement.
-        </p>
+        <h1 className="text-xl font-bold">{t('categories.title')}</h1>
+        <p className="text-sm text-muted-foreground mt-1">{t('categories.subtitle')}</p>
       </div>
 
       {canEdit && (
@@ -73,13 +69,13 @@ export default function CategoriesPage() {
           <Input
             value={newName}
             onChange={e => setNewName(e.target.value)}
-            placeholder="Nom de la catégorie…"
+            placeholder={t('categories.add_placeholder')}
             onKeyDown={e => e.key === 'Enter' && addCategory()}
             className="flex-1"
           />
           <Button onClick={addCategory} loading={saving} disabled={!newName.trim()} className="bg-northcode-blue shrink-0 gap-1">
             <Plus className="h-4 w-4" />
-            Ajouter
+            {t('categories.add')}
           </Button>
         </div>
       )}
@@ -90,8 +86,8 @@ export default function CategoriesPage() {
         ) : categories.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <Tag className="h-10 w-10 mb-3 opacity-30" />
-            <p className="text-sm">Aucune catégorie pour l'instant</p>
-            {canEdit && <p className="text-xs mt-1">Ajoutez-en une ci-dessus</p>}
+            <p className="text-sm">{t('categories.none')}</p>
+            {canEdit && <p className="text-xs mt-1">{t('categories.add_hint')}</p>}
           </div>
         ) : (
           categories.map(cat => (
@@ -118,9 +114,7 @@ export default function CategoriesPage() {
       </div>
 
       {categories.length > 0 && (
-        <p className="text-xs text-muted-foreground">
-          {categories.length} catégorie{categories.length > 1 ? 's' : ''}
-        </p>
+        <p className="text-xs text-muted-foreground">{t('categories.count', { count: categories.length })}</p>
       )}
     </div>
   )

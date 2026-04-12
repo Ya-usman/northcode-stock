@@ -34,8 +34,8 @@ export function BottomNav({ locale, role, onSignOut }: BottomNavProps) {
     { href: `/${locale}/customers`,        icon: Users,           label: t('customers'),      roles: ['owner', 'cashier'],                            primary: false },
     { href: `/${locale}/suppliers`,        icon: Truck,           label: t('suppliers'),      roles: ['owner', 'stock_manager'],                      primary: false },
     { href: `/${locale}/team`,              icon: Users,           label: t('team'),           roles: ['owner'],                                       primary: false },
-    { href: `/${locale}/shops`,            icon: Store,           label: 'Boutiques',         roles: ['owner'],                                       primary: false },
-    ...(!isBetaPeriod() ? [{ href: `/${locale}/billing`, icon: Zap, label: 'Abonnement', roles: ['owner'], primary: false }] : []),
+    { href: `/${locale}/shops`,            icon: Store,           label: t('shops'),          roles: ['owner'],                                       primary: false },
+    ...(!isBetaPeriod() ? [{ href: `/${locale}/billing`, icon: Zap, label: t('billing'), roles: ['owner'], primary: false }] : []),
     { href: `/${locale}/settings`,         icon: Settings,        label: t('settings'),       roles: ['owner'],                                       primary: false },
   ].filter(item => item.roles.includes(role))
 

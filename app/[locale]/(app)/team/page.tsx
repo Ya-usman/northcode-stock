@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import {
   UserPlus, Shield, Clock, Mail, ShieldOff, ShieldCheck,
   AlertTriangle, Trash2, Store, ChevronDown,
@@ -52,6 +53,7 @@ interface Member {
 }
 
 export default function TeamPage() {
+  const t = useTranslations()
   const { profile: myProfile, shop, userShops } = useAuth()
   const { toast } = useToast()
 
@@ -100,7 +102,7 @@ export default function TeamPage() {
         .order('role')
 
       if (membersError) {
-        toast({ title: 'Erreur: ' + membersError.message, variant: 'destructive' })
+        toast({ title: membersError.message, variant: 'destructive' })
         setLoading(false)
         return
       }
@@ -133,14 +135,14 @@ export default function TeamPage() {
 
   const changeRole = async (member: Member, newRole: UserRole) => {
     if (member.user_id === myProfile?.id) {
-      toast({ title: 'Vous ne pouvez pas modifier votre propre rôle', variant: 'destructive' })
+      toast({ title: t('toast.cannot_edit_own_role'), variant: 'destructive' })
       return
     }
     setActionLoading(member.id + '_role')
     const { error } = await supabase.from('shop_members').update({ role: newRole as string }).eq('id', member.id)
     setActionLoading(null)
     if (error) { toast({ title: error.message, variant: 'destructive' }); return }
-    toast({ title: 'Rôle mis à jour', variant: 'success' })
+    toast({ title: t('toast.role_updated'), variant: 'success' })
     fetchMembers()
   }
 
@@ -155,13 +157,13 @@ export default function TeamPage() {
     const json = await res.json()
     setActionLoading(null)
     if (!res.ok) { toast({ title: json.error, variant: 'destructive' }); return }
-    toast({ title: newVal ? 'Permission suppression activée' : 'Permission suppression retirée', variant: 'success' })
+    toast({ title: newVal ? t('toast.delete_permission_on') : t('toast.delete_permission_off'), variant: 'success' })
     fetchMembers()
   }
 
   const confirmToggleActive = (member: Member) => {
     if (member.user_id === myProfile?.id) {
-      toast({ title: 'Vous ne pouvez pas désactiver votre propre compte', variant: 'destructive' })
+      toast({ title: t('toast.cannot_deactivate_self'), variant: 'destructive' })
       return
     }
     setConfirmDialog({ open: true, member, action: member.is_active ? 'deactivate' : 'reactivate' })
@@ -185,9 +187,7 @@ export default function TeamPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       toast({
-        title: action === 'deactivate'
-          ? `${member.profiles?.full_name} désactivé(e). Session révoquée.`
-          : `${member.profiles?.full_name} réactivé(e).`,
+        title: `${member.profiles?.full_name} ${action === 'deactivate' ? t('status.inactive') : t('status.active')}`,
         variant: action === 'deactivate' ? 'default' : 'success',
       })
       fetchMembers()
@@ -210,7 +210,7 @@ export default function TeamPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      toast({ title: `${member.profiles?.full_name} supprimé(e) définitivement`, variant: 'success' })
+      toast({ title: t('toast.member_deleted', { name: member.profiles?.full_name }), variant: 'success' })
       setDeleteDialog({ open: false, member: null })
       fetchMembers()
     } catch (err: any) {
@@ -222,7 +222,7 @@ export default function TeamPage() {
 
   const inviteEmployee = async () => {
     if (!inviteEmail || !inviteFullName) {
-      toast({ title: 'Veuillez remplir tous les champs', variant: 'destructive' })
+      toast({ title: t('toast.invite_fields_required'), variant: 'destructive' })
       return
     }
     setInviting(true)
@@ -240,7 +240,7 @@ export default function TeamPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur')
-      toast({ title: `Invitation envoyée à ${inviteEmail}`, variant: 'success' })
+      toast({ title: t('toast.invite_sent', { email: inviteEmail }), variant: 'success' })
       setShowInviteModal(false)
       setInviteEmail(''); setInviteFullName('')
       if (inviteShopId === viewShopId) fetchMembers()
