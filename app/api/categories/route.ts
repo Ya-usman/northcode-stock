@@ -25,21 +25,18 @@ async function checkShopRole(supabase: any, userId: string, shopId: string) {
   return null
 }
 
-const WRITE_ROLES = ['owner', 'stock_manager', 'super_admin']
-
-// POST /api/products — create a product
+// POST /api/categories
 export async function POST(request: Request) {
   try {
     const { user, supabase } = await getAuthedUser()
     if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-    const body = await request.json()
-    const { shop_id } = body
-    if (!shop_id) return NextResponse.json({ error: 'shop_id requis' }, { status: 400 })
+    const { shop_id, name } = await request.json()
+    if (!shop_id || !name) return NextResponse.json({ error: 'shop_id et name requis' }, { status: 400 })
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !WRITE_ROLES.includes(role))
+    if (!role || !['owner', 'stock_manager', 'super_admin'].includes(role))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     const admin = await createAdminClient()
-    const { data, error } = await (admin as any).from('products').insert(body).select().single()
+    const { data, error } = await (admin as any).from('categories').insert({ shop_id, name }).select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
     return NextResponse.json({ data })
   } catch (e: any) {
@@ -47,49 +44,21 @@ export async function POST(request: Request) {
   }
 }
 
-// PATCH /api/products — update a product
-export async function PATCH(request: Request) {
+// DELETE /api/categories?id=xxx
+export async function DELETE(request: Request) {
   try {
     const { user, supabase } = await getAuthedUser()
     if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-    const { id, shop_id, ...updates } = await request.json()
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+    const shop_id = searchParams.get('shop_id')
     if (!id || !shop_id) return NextResponse.json({ error: 'id et shop_id requis' }, { status: 400 })
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !WRITE_ROLES.includes(role))
+    if (!role || !['owner', 'stock_manager', 'super_admin'].includes(role))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     const admin = await createAdminClient()
-    const { data, error } = await (admin as any).from('products').update(updates).eq('id', id).select().single()
+    const { error } = await (admin as any).from('categories').delete().eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-    return NextResponse.json({ data })
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
-  }
-}
-
-// PUT /api/products — restock (update quantity + insert stock_movement)
-export async function PUT(request: Request) {
-  try {
-    const { user, supabase } = await getAuthedUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-    const { product_id, shop_id, current_quantity, quantity_to_add, supplier_name, buying_price, notes, performed_by } = await request.json()
-    if (!product_id || !shop_id) return NextResponse.json({ error: 'product_id et shop_id requis' }, { status: 400 })
-    const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !WRITE_ROLES.includes(role))
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
-    const admin = await createAdminClient()
-    const { error: updateError } = await (admin as any).from('products')
-      .update({ quantity: current_quantity + quantity_to_add })
-      .eq('id', product_id)
-    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 })
-    await (admin as any).from('stock_movements').insert({
-      shop_id,
-      product_id,
-      type: 'in',
-      quantity: quantity_to_add,
-      reason: supplier_name ? `Restock from ${supplier_name}` : 'Restock',
-      notes: notes || null,
-      performed_by,
-    })
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })

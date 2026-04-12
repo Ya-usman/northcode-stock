@@ -151,25 +151,26 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   }
 
   const onRestock = async (data: RestockFormData) => {
-    if (!restockProduct) return
+    if (!restockProduct || !shop?.id) return
     setSaving(true)
-    const db = supabase as any
-    const { error: updateError } = await db.from('products')
-      .update({ quantity: restockProduct.quantity + data.quantity })
-      .eq('id', restockProduct.id)
-    if (updateError) { setSaving(false); toast({ title: updateError.message, variant: 'destructive' }); return }
-
-    await db.from('stock_movements').insert({
-      shop_id: shop!.id,
-      product_id: restockProduct.id,
-      type: 'in',
-      quantity: data.quantity,
-      reason: `Restock from ${suppliers.find(s => s.id === data.supplier_id)?.name || 'supplier'}`,
-      notes: data.notes || null,
-      performed_by: profile!.id,
+    const res = await fetch('/api/products', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        product_id: restockProduct.id,
+        shop_id: shop.id,
+        current_quantity: restockProduct.quantity,
+        quantity_to_add: data.quantity,
+        supplier_name: suppliers.find(s => s.id === data.supplier_id)?.name || null,
+        buying_price: data.buying_price || null,
+        notes: data.notes || null,
+        performed_by: profile!.id,
+      }),
     })
     setSaving(false)
-    toast({ title: `Added ${data.quantity} units to ${restockProduct.name}`, variant: 'success' })
+    const json = await res.json()
+    if (!res.ok) { toast({ title: json.error || 'Erreur', variant: 'destructive' }); return }
+    toast({ title: `${data.quantity} unités ajoutées à ${restockProduct.name}`, variant: 'success' })
     setShowRestockModal(false)
     restockForm.reset()
     fetchProducts()
@@ -177,8 +178,12 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
   const softDelete = async (product: Product) => {
     if (!confirm(t('products.delete_confirm'))) return
-    await (supabase as any).from('products').update({ is_active: false }).eq('id', product.id)
-    toast({ title: 'Product removed' })
+    await fetch('/api/products', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: product.id, shop_id: product.shop_id, is_active: false }),
+    })
+    toast({ title: 'Produit supprimé' })
     fetchProducts()
   }
 
@@ -202,16 +207,21 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const addCategory = async () => {
     if (!shop?.id || !newCatName.trim()) return
     setSavingCat(true)
-    const { error } = await (supabase as any).from('categories').insert({ shop_id: shop.id, name: newCatName.trim() })
+    const res = await fetch('/api/categories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shop_id: shop.id, name: newCatName.trim() }),
+    })
     setSavingCat(false)
-    if (error) { toast({ title: error.message, variant: 'destructive' }); return }
+    const json = await res.json()
+    if (!res.ok) { toast({ title: json.error || 'Erreur', variant: 'destructive' }); return }
     setNewCatName('')
     fetchProducts()
   }
 
   const deleteCategory = async (catId: string) => {
     if (!confirm('Supprimer cette catégorie ?')) return
-    await (supabase as any).from('categories').delete().eq('id', catId)
+    await fetch(`/api/categories?id=${catId}&shop_id=${shop?.id}`, { method: 'DELETE' })
     if (categoryFilter === catId) setCategoryFilter('all')
     fetchProducts()
   }
