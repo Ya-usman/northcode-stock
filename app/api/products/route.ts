@@ -40,7 +40,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     const admin = await createAdminClient()
     const { data, error } = await (admin as any).from('products').insert(body).select().single()
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) {
+      const msg = error.message?.includes('product_sku_shop_unique') || error.message?.includes('sku')
+        ? 'Ce SKU est déjà utilisé par un autre produit. Laissez le champ vide ou choisissez un SKU différent.'
+        : error.message
+      return NextResponse.json({ error: msg }, { status: 400 })
+    }
     return NextResponse.json({ data })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
