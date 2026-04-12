@@ -218,7 +218,22 @@
     "buying_value": "Buying Value",
     "selling_value": "Selling Value",
     "potential_profit": "Potential Profit",
-    "no_data": "No data for selected period."
+    "no_data": "No data for selected period.",
+    "total_revenue": "Total Revenue",
+    "est_profit": "Est. Profit",
+    "transactions": "Transactions",
+    "this_week": "This Week",
+    "this_month": "This Month",
+    "last_3_months": "Last 3 Months",
+    "this_year": "This Year",
+    "col_product": "Product",
+    "col_qty": "Qty",
+    "col_revenue": "Revenue",
+    "col_cashier": "Cashier",
+    "col_sales": "Sales",
+    "col_method": "Method",
+    "col_share": "Share",
+    "col_rank": "#"
   },
   "team": {
     "title": "Team",

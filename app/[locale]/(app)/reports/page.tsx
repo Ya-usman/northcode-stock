@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
-import { FileDown, BarChart2 } from 'lucide-react'
+import { FileDown } from 'lucide-react'
 import {
-  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend,
+  PieChart, Pie, Cell,
+  Tooltip, ResponsiveContainer,
 } from 'recharts'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -15,7 +15,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrency } from '@/lib/hooks/use-currency'
-import { profitMargin } from '@/lib/utils/currency'
 import { generateReportPDF } from '@/lib/utils/pdf'
 import { format, subDays, startOfDay, endOfDay, startOfMonth, startOfWeek } from 'date-fns'
 
@@ -23,16 +22,15 @@ const PIE_COLORS = ['#0A2F6E', '#D4AF37', '#16A34A', '#DC2626', '#7BB3F0']
 
 export default function ReportsPage() {
   const t = useTranslations()
-  const { shop, profile } = useAuth()
+  const { shop } = useAuth()
   const { fmt: formatNaira } = useCurrency()
-  const supabase = createClient()
+  const supabase = createClient() as any
 
   const [dateFilter, setDateFilter] = useState('month')
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
 
   const [revenueByMethod, setRevenueByMethod] = useState<{ name: string; value: number }[]>([])
-  const [profitData, setProfitData] = useState<{ date: string; revenue: number; profit: number }[]>([])
   const [topProducts, setTopProducts] = useState<{ name: string; qty: number; revenue: number }[]>([])
   const [stockValuation, setStockValuation] = useState({ buyingValue: 0, sellingValue: 0, potentialProfit: 0 })
   const [cashierPerf, setCashierPerf] = useState<{ name: string; sales: number; revenue: number }[]>([])
@@ -58,18 +56,18 @@ export default function ReportsPage() {
     const { start, end } = getDateRange()
 
     // Sales in period
-    const { data: salesRaw } = await (supabase as any)
+    const { data: salesRaw } = await supabase
       .from('sales')
       .select('id, total, payment_method, created_at, cashier_id')
       .eq('shop_id', shop.id)
       .eq('sale_status', 'active')
       .gte('created_at', start)
       .lte('created_at', end)
-    const sales = salesRaw as Array<{ id: string; total: number; payment_method: string; created_at: string; cashier_id: string | null }> | null
+    const sales = (salesRaw || []) as Array<{ id: string; total: number; payment_method: string; created_at: string; cashier_id: string | null }>
 
     // Revenue by method
     const byMethod: Record<string, number> = {}
-    sales?.forEach(s => { byMethod[s.payment_method] = (byMethod[s.payment_method] || 0) + Number(s.total) })
+    sales.forEach(s => { byMethod[s.payment_method] = (byMethod[s.payment_method] || 0) + Number(s.total) })
     setRevenueByMethod(
       Object.entries(byMethod).map(([name, value]) => ({
         name: name.charAt(0).toUpperCase() + name.slice(1),
@@ -77,35 +75,43 @@ export default function ReportsPage() {
       }))
     )
 
-    const totalRevenue = sales?.reduce((s, sale) => s + Number(sale.total), 0) || 0
+    const totalRevenue = sales.reduce((s, sale) => s + Number(sale.total), 0)
 
-    // Sale items for profit calculation
-    const { data: items } = await supabase
-      .from('sale_items')
-      .select('product_name, quantity, unit_price, subtotal, product_id, sale_id')
-      .in('sale_id', (sales || []).map(s => s.id))
+    // Sale items for profit calculation (only if there are sales)
+    let totalProfit = 0
+    let prodTotals: Record<string, { qty: number; revenue: number }> = {}
 
-    // Product buying prices for profit
-    const productIds = [...new Set(items?.map(i => i.product_id).filter(Boolean))]
-    const { data: prodPrices } = await supabase
-      .from('products').select('id, buying_price').in('id', productIds)
-    const priceMap: Record<string, number> = {}
-    prodPrices?.forEach(p => { priceMap[p.id] = Number(p.buying_price) })
+    if (sales.length > 0) {
+      const { data: items } = await supabase
+        .from('sale_items')
+        .select('product_name, quantity, unit_price, subtotal, product_id, sale_id')
+        .in('sale_id', sales.map(s => s.id))
 
-    const totalProfit = items?.reduce((s, item) => {
-      const buyingCost = (priceMap[item.product_id || ''] || 0) * Number(item.quantity)
-      return s + Number(item.subtotal) - buyingCost
-    }, 0) || 0
+      const safeItems = (items || []) as Array<{ product_name: string; quantity: number; unit_price: number; subtotal: number; product_id: string | null; sale_id: string }>
 
-    setTotals({ revenue: totalRevenue, profit: totalProfit, sales: sales?.length || 0 })
+      // Product buying prices for profit
+      const productIds = [...new Set(safeItems.map(i => i.product_id).filter(Boolean) as string[])]
+      let priceMap: Record<string, number> = {}
+      if (productIds.length > 0) {
+        const { data: prodPrices } = await supabase
+          .from('products').select('id, buying_price').in('id', productIds)
+        ;(prodPrices || []).forEach((p: any) => { priceMap[p.id] = Number(p.buying_price) })
+      }
 
-    // Top 10 products
-    const prodTotals: Record<string, { qty: number; revenue: number }> = {}
-    items?.forEach(item => {
-      if (!prodTotals[item.product_name]) prodTotals[item.product_name] = { qty: 0, revenue: 0 }
-      prodTotals[item.product_name].qty += Number(item.quantity)
-      prodTotals[item.product_name].revenue += Number(item.subtotal)
-    })
+      totalProfit = safeItems.reduce((s, item) => {
+        const buyingCost = (priceMap[item.product_id || ''] || 0) * Number(item.quantity)
+        return s + Number(item.subtotal) - buyingCost
+      }, 0)
+
+      // Top 10 products
+      safeItems.forEach(item => {
+        if (!prodTotals[item.product_name]) prodTotals[item.product_name] = { qty: 0, revenue: 0 }
+        prodTotals[item.product_name].qty += Number(item.quantity)
+        prodTotals[item.product_name].revenue += Number(item.subtotal)
+      })
+    }
+
+    setTotals({ revenue: totalRevenue, profit: totalProfit, sales: sales.length })
     setTopProducts(
       Object.entries(prodTotals)
         .map(([name, { qty, revenue }]) => ({ name, qty, revenue }))
@@ -117,27 +123,29 @@ export default function ReportsPage() {
     const { data: allProducts } = await supabase
       .from('products').select('quantity, buying_price, selling_price')
       .eq('shop_id', shop.id).eq('is_active', true)
-    const buyingValue = allProducts?.reduce((s, p) => s + Number(p.quantity) * Number(p.buying_price), 0) || 0
-    const sellingValue = allProducts?.reduce((s, p) => s + Number(p.quantity) * Number(p.selling_price), 0) || 0
+    const buyingValue = (allProducts || []).reduce((s: number, p: any) => s + Number(p.quantity) * Number(p.buying_price), 0)
+    const sellingValue = (allProducts || []).reduce((s: number, p: any) => s + Number(p.quantity) * Number(p.selling_price), 0)
     setStockValuation({ buyingValue, sellingValue, potentialProfit: sellingValue - buyingValue })
 
     // Cashier performance
     const cashierMap: Record<string, { sales: number; revenue: number }> = {}
-    sales?.forEach(s => {
+    sales.forEach(s => {
       if (!s.cashier_id) return
       if (!cashierMap[s.cashier_id]) cashierMap[s.cashier_id] = { sales: 0, revenue: 0 }
       cashierMap[s.cashier_id].sales += 1
       cashierMap[s.cashier_id].revenue += Number(s.total)
     })
     const cashierIds = Object.keys(cashierMap)
-    if (cashierIds.length) {
+    if (cashierIds.length > 0) {
       const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', cashierIds)
       setCashierPerf(
         cashierIds.map(id => ({
-          name: profiles?.find(p => p.id === id)?.full_name || 'Unknown',
+          name: (profiles || []).find((p: any) => p.id === id)?.full_name || 'Unknown',
           ...cashierMap[id],
         })).sort((a, b) => b.revenue - a.revenue)
       )
+    } else {
+      setCashierPerf([])
     }
 
     setLoading(false)
@@ -153,31 +161,31 @@ export default function ReportsPage() {
       dateRange: `${format(new Date(start), 'dd MMM yyyy')} – ${format(new Date(end), 'dd MMM yyyy')}`,
       sections: [
         {
-          title: 'Revenue by Payment Method',
-          headers: ['Method', `Amount (${shop?.currency || '₦'})`, '% Share'],
+          title: t('reports.revenue_by_method'),
+          headers: [t('reports.col_method'), formatNaira(0).replace('0', '').trim() || shop?.currency || '', t('reports.col_share')],
           rows: revenueByMethod.map(m => [
             m.name,
             formatNaira(m.value),
-            `${((m.value / totals.revenue) * 100).toFixed(1)}%`,
+            totals.revenue > 0 ? `${((m.value / totals.revenue) * 100).toFixed(1)}%` : '0%',
           ]),
         },
         {
-          title: 'Top Selling Products',
-          headers: ['Product', 'Qty Sold', `Revenue (${shop?.currency || '₦'})`],
+          title: t('reports.top_products'),
+          headers: [t('reports.col_product'), t('reports.col_qty'), t('reports.col_revenue')],
           rows: topProducts.map(p => [p.name, p.qty, formatNaira(p.revenue)]),
         },
         {
-          title: 'Stock Valuation',
-          headers: ['Metric', 'Value'],
+          title: t('reports.stock_valuation'),
+          headers: ['Métrique', 'Valeur'],
           rows: [
-            ['Buying Value', formatNaira(stockValuation.buyingValue)],
-            ['Selling Value', formatNaira(stockValuation.sellingValue)],
-            ['Potential Profit', formatNaira(stockValuation.potentialProfit)],
+            [t('reports.buying_value'), formatNaira(stockValuation.buyingValue)],
+            [t('reports.selling_value'), formatNaira(stockValuation.sellingValue)],
+            [t('reports.potential_profit'), formatNaira(stockValuation.potentialProfit)],
           ],
         },
         {
-          title: 'Cashier Performance',
-          headers: ['Name', 'Sales Count', `Revenue (${shop?.currency || '₦'})`],
+          title: t('reports.cashier_performance'),
+          headers: [t('reports.col_cashier'), t('reports.col_sales'), t('reports.col_revenue')],
           rows: cashierPerf.map(c => [c.name, c.sales, formatNaira(c.revenue)]),
         },
       ],
@@ -190,12 +198,12 @@ export default function ReportsPage() {
       {/* Controls */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <Select value={dateFilter} onValueChange={setDateFilter}>
-          <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="week">This Week</SelectItem>
-            <SelectItem value="month">This Month</SelectItem>
-            <SelectItem value="3months">Last 3 Months</SelectItem>
-            <SelectItem value="year">This Year</SelectItem>
+            <SelectItem value="week">{t('reports.this_week')}</SelectItem>
+            <SelectItem value="month">{t('reports.this_month')}</SelectItem>
+            <SelectItem value="3months">{t('reports.last_3_months')}</SelectItem>
+            <SelectItem value="year">{t('reports.this_year')}</SelectItem>
           </SelectContent>
         </Select>
         <Button variant="outline" onClick={exportPDF} loading={exporting} className="gap-2">
@@ -207,14 +215,14 @@ export default function ReportsPage() {
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'Total Revenue', value: formatNaira(totals.revenue), color: 'text-northcode-blue' },
-          { label: 'Est. Profit', value: formatNaira(totals.profit), color: 'text-green-600' },
-          { label: 'Transactions', value: String(totals.sales), color: 'text-foreground' },
+          { label: t('reports.total_revenue'), value: formatNaira(totals.revenue), color: 'text-northcode-blue' },
+          { label: t('reports.est_profit'), value: formatNaira(totals.profit), color: 'text-green-600' },
+          { label: t('reports.transactions'), value: String(totals.sales), color: 'text-foreground' },
         ].map(item => (
           <Card key={item.label} className="border-0 shadow-sm">
             <CardContent className="p-3 text-center">
-              <p className="text-xs text-muted-foreground">{item.label}</p>
-              <p className={`text-lg font-bold mt-0.5 ${item.color}`}>{loading ? '…' : item.value}</p>
+              <p className="text-xs text-muted-foreground leading-tight">{item.label}</p>
+              <p className={`text-sm sm:text-lg font-bold mt-0.5 ${item.color}`}>{loading ? '…' : item.value}</p>
             </CardContent>
           </Card>
         ))}
@@ -224,7 +232,7 @@ export default function ReportsPage() {
         <div className="space-y-4">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-48" />)}</div>
       ) : (
         <>
-          {/* Revenue by payment method - pie chart */}
+          {/* Revenue by payment method */}
           <Card className="border-0 shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">{t('reports.revenue_by_method')}</CardTitle>
@@ -268,10 +276,10 @@ export default function ReportsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>#</TableHead>
-                      <TableHead>Product</TableHead>
-                      <TableHead className="text-right">Qty</TableHead>
-                      <TableHead className="text-right">Revenue</TableHead>
+                      <TableHead className="w-8">{t('reports.col_rank')}</TableHead>
+                      <TableHead>{t('reports.col_product')}</TableHead>
+                      <TableHead className="text-right">{t('reports.col_qty')}</TableHead>
+                      <TableHead className="text-right">{t('reports.col_revenue')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -302,8 +310,8 @@ export default function ReportsPage() {
                   { label: t('reports.potential_profit'), value: formatNaira(stockValuation.potentialProfit), color: 'text-green-600' },
                 ].map(item => (
                   <div key={item.label} className="rounded-lg bg-muted/30 p-3">
-                    <p className="text-xs text-muted-foreground">{item.label}</p>
-                    <p className={`text-sm font-bold mt-1 ${item.color}`}>{item.value}</p>
+                    <p className="text-xs text-muted-foreground leading-tight">{item.label}</p>
+                    <p className={`text-xs sm:text-sm font-bold mt-1 ${item.color}`}>{item.value}</p>
                   </div>
                 ))}
               </div>
@@ -320,9 +328,9 @@ export default function ReportsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Cashier</TableHead>
-                      <TableHead className="text-right">Sales</TableHead>
-                      <TableHead className="text-right">Revenue</TableHead>
+                      <TableHead>{t('reports.col_cashier')}</TableHead>
+                      <TableHead className="text-right">{t('reports.col_sales')}</TableHead>
+                      <TableHead className="text-right">{t('reports.col_revenue')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

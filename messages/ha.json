@@ -215,7 +215,22 @@
     "buying_value": "Farashin Siye",
     "selling_value": "Farashin Sayarwa",
     "potential_profit": "Hasashen Riba",
-    "no_data": "Babu bayanan lokacin da aka zaɓa."
+    "no_data": "Babu bayanan lokacin da aka zaɓa.",
+    "total_revenue": "Jimlar Kuɗin Shiga",
+    "est_profit": "Ƙididdigan Riba",
+    "transactions": "Ma'amaloli",
+    "this_week": "Wannan Mako",
+    "this_month": "Wannan Wata",
+    "last_3_months": "Watanni 3 Da Suka Gabata",
+    "this_year": "Wannan Shekara",
+    "col_product": "Kaya",
+    "col_qty": "Adadi",
+    "col_revenue": "Kuɗin Shiga",
+    "col_cashier": "Ma'aunin Kudi",
+    "col_sales": "Sayarwa",
+    "col_method": "Hanya",
+    "col_share": "Rabo",
+    "col_rank": "#"
   },
   "team": {
     "title": "Ma'aikata",

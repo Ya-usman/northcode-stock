@@ -218,7 +218,22 @@
     "buying_value": "Valeur d'achat",
     "selling_value": "Valeur de vente",
     "potential_profit": "Bénéfice potentiel",
-    "no_data": "Aucune donnée pour la période sélectionnée."
+    "no_data": "Aucune donnée pour la période sélectionnée.",
+    "total_revenue": "Revenu total",
+    "est_profit": "Bénéfice estimé",
+    "transactions": "Transactions",
+    "this_week": "Cette semaine",
+    "this_month": "Ce mois",
+    "last_3_months": "3 derniers mois",
+    "this_year": "Cette année",
+    "col_product": "Produit",
+    "col_qty": "Qté",
+    "col_revenue": "Revenu",
+    "col_cashier": "Caissier",
+    "col_sales": "Ventes",
+    "col_method": "Méthode",
+    "col_share": "Part",
+    "col_rank": "#"
   },
   "team": {
     "title": "Équipe",
