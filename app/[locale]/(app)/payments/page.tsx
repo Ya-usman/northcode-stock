@@ -83,44 +83,23 @@ export default function DettesPage() {
   const [history, setHistory] = useState<PaymentRecord[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
 
-  // ── Fetch debtors ───────────────────────────────────────
+  // ── Fetch debtors via server route (bypasses RLS) ───────
   const fetchDebtors = async (quiet = false) => {
     if (!shop?.id) return
     if (!quiet) setLoading(true)
     else setRefreshing(true)
-
-    const { data: customers } = await supabase
-      .from('customers')
-      .select('*')
-      .eq('shop_id', shop.id)
-      .gt('total_debt', 0)
-      .order('total_debt', { ascending: false })
-
-    if (!customers?.length) {
+    try {
+      const res = await fetch(`/api/payments/debts?shop_id=${shop.id}`)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setDebtors(data.debtors || [])
+    } catch (e: any) {
+      toast({ title: e.message, variant: 'destructive' })
       setDebtors([])
+    } finally {
       setLoading(false)
       setRefreshing(false)
-      return
     }
-
-    const debtorData: CustomerDebt[] = []
-    for (const customer of customers) {
-      const { data: sales } = await supabase
-        .from('sales')
-        .select('*, sale_items(product_name, quantity, subtotal)')
-        .eq('customer_id', customer.id)
-        .neq('payment_status', 'paid')
-        .eq('sale_status', 'active')
-        .order('created_at', { ascending: true })
-      debtorData.push({
-        customer,
-        unpaidSales: (sales || []) as UnpaidSale[],
-        totalDebt: Number(customer.total_debt),
-      })
-    }
-    setDebtors(debtorData)
-    setLoading(false)
-    setRefreshing(false)
   }
 
   useEffect(() => { fetchDebtors() }, [shop?.id])

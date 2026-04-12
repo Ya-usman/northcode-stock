@@ -107,15 +107,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (initialized.current) return
     initialized.current = true
 
-    // 1. Bootstrap immédiat via getSession() — lit les cookies sans réseau
+    // 1. Bootstrap via getSession() — lit les cookies sans réseau
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
-        try {
-          const { profile, userShops, memberships: rows } = await fetchUserData(session.user.id)
-          applyUserData(session.user, profile, userShops, rows, activeShopId)
-        } catch {
-          setState(s => ({ ...s, user: session.user, loading: false }))
+        // Retry up to 3 times in case of transient network error
+        let lastErr: any = null
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const { profile, userShops, memberships: rows } = await fetchUserData(session.user.id)
+            applyUserData(session.user, profile, userShops, rows, activeShopId)
+            return
+          } catch (e) {
+            lastErr = e
+            if (attempt < 2) await new Promise(r => setTimeout(r, 400 * (attempt + 1)))
+          }
         }
+        // All retries failed — still show app with user but no profile (skeleton shown)
+        console.error('fetchUserData failed after 3 attempts', lastErr)
+        setState(s => ({ ...s, user: session.user, loading: false }))
       } else {
         setState(s => ({ ...s, loading: false }))
       }
@@ -135,7 +144,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const { profile, userShops, memberships: rows } = await fetchUserData(session.user.id)
           applyUserData(session.user, profile, userShops, rows, activeShopId)
         } catch {
-          setState(s => ({ ...s, user: session.user, loading: false }))
+          // Don't reset loading to false here if we already have a profile loaded
+          setState(s => s.profile ? s : { ...s, user: session.user, loading: false })
         }
       }
     })
