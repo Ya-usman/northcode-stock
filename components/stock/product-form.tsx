@@ -34,7 +34,6 @@ export function ProductForm({
     defaultValues: {
       name: '',
       name_hausa: '',
-      sku: '',
       unit: 'piece',
       category_id: '',
       supplier_id: '',
@@ -69,14 +68,6 @@ export function ProductForm({
             <span className="text-muted-foreground text-xs font-normal">(optionnel)</span>
           </Label>
           <Input {...form.register('name_hausa')} placeholder="Sunan Hausa" />
-        </div>
-
-        <div className="space-y-1">
-          <Label>
-            {t('products.sku')}{' '}
-            <span className="text-muted-foreground text-xs font-normal">(optionnel)</span>
-          </Label>
-          <Input {...form.register('sku')} placeholder="ex: RIZ-50KG" />
         </div>
 
         <div className="space-y-1">

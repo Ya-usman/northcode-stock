@@ -76,7 +76,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     .filter(p => {
       if (search) {
         const q = search.toLowerCase()
-        if (!p.name.toLowerCase().includes(q) && !p.sku?.toLowerCase().includes(q) &&
+        if (!p.name.toLowerCase().includes(q) &&
           !p.name_hausa?.toLowerCase().includes(q)) return false
       }
       if (categoryFilter !== 'all' && p.category_id !== categoryFilter) return false
@@ -98,7 +98,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           shop_id: shop.id,
           name: data.name,
           name_hausa: data.name_hausa || null,
-          sku: data.sku || null,
           category_id: data.category_id || null,
           supplier_id: data.supplier_id || null,
           buying_price: data.buying_price ?? 0,
@@ -131,7 +130,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           shop_id: editingProduct.shop_id,
           name: data.name,
           name_hausa: data.name_hausa || null,
-          sku: data.sku || null,
           category_id: data.category_id || null,
           supplier_id: data.supplier_id || null,
           buying_price: data.buying_price ?? 0,
@@ -189,11 +187,11 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
   const exportCSV = () => {
     const rows = [
-      ['Name', 'Hausa Name', 'SKU', 'Category', 'Buying Price', 'Selling Price', 'Quantity', 'Unit', 'Status'],
+      ['Name', 'Hausa Name', 'Category', 'Buying Price', 'Selling Price', 'Quantity', 'Unit', 'Status'],
       ...filtered.map(p => {
         const threshold = p.low_stock_threshold || shop?.low_stock_threshold || 10
         const status = p.quantity === 0 ? 'Out of Stock' : p.quantity <= threshold ? 'Low Stock' : 'In Stock'
-        return [p.name, p.name_hausa || '', p.sku || '', (p as any).categories?.name || '', p.buying_price, p.selling_price, p.quantity, p.unit, status]
+        return [p.name, p.name_hausa || '', (p as any).categories?.name || '', p.buying_price, p.selling_price, p.quantity, p.unit, status]
       })
     ]
     const csv = rows.map(r => r.join(',')).join('\n')
@@ -316,9 +314,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                     {product.name_hausa && (
                       <p className="text-xs text-muted-foreground truncate">{product.name_hausa}</p>
                     )}
-                    {product.sku && (
-                      <p className="text-[10px] font-mono text-muted-foreground">{product.sku}</p>
-                    )}
                   </div>
                   <StockBadge quantity={product.quantity} threshold={threshold} />
                 </div>
@@ -396,7 +391,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             defaultValues={editingProduct ? {
               name: editingProduct.name,
               name_hausa: editingProduct.name_hausa || '',
-              sku: editingProduct.sku || '',
               category_id: editingProduct.category_id || '',
               supplier_id: editingProduct.supplier_id || '',
               buying_price: editingProduct.buying_price,
