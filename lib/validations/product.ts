@@ -3,7 +3,7 @@ import { z } from 'zod'
 export const productSchema = z.object({
   name: z.string().min(1, 'Product name is required').max(200),
   name_hausa: z.string().max(200).optional().or(z.literal('')),
-  sku: z.string().max(50).optional().or(z.literal('')),
+  sku: z.string().max(50).transform(v => v?.trim() || undefined).optional().or(z.literal('')),
   category_id: z.string().uuid().optional().or(z.literal('')),
   supplier_id: z.string().uuid().optional().or(z.literal('')),
   buying_price: z.coerce.number().min(0, 'Buying price must be ≥ 0'),

@@ -38,6 +38,8 @@ export async function POST(request: Request) {
     const role = await checkShopRole(supabase, user.id, shop_id)
     if (!role || !WRITE_ROLES.includes(role))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    // Always null-ify empty SKU to avoid unique constraint on empty strings
+    body.sku = body.sku?.trim() || null
     const admin = await createAdminClient()
     const { data, error } = await (admin as any).from('products').insert(body).select().single()
     if (error) {
@@ -62,6 +64,7 @@ export async function PATCH(request: Request) {
     const role = await checkShopRole(supabase, user.id, shop_id)
     if (!role || !WRITE_ROLES.includes(role))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    if ('sku' in updates) updates.sku = updates.sku?.trim() || null
     const admin = await createAdminClient()
     const { data, error } = await (admin as any).from('products').update(updates).eq('id', id).select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
