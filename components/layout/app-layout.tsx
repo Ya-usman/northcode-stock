@@ -25,6 +25,7 @@ function getPageTitle(pathname: string, locale: string): string {
     '/stock/movements': 'Stock Movements',
     '/payments': 'Dettes',
     '/customers': 'Customers',
+    '/categories': 'Catégories',
     '/suppliers': 'Suppliers',
     '/reports': 'Reports',
     '/team': 'Team',
