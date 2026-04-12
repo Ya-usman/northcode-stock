@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
-import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 
 export async function POST(request: Request) {
   try {
@@ -9,40 +11,56 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
 
-    // Auth check — only owner of this shop can do this
-    const supabase = await createClient()
+    // Auth check
+    const cookieStore = cookies()
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
+    )
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
-    const { data: caller } = await supabase
-      .from('profiles')
-      .select('role, shop_id')
-      .eq('id', user.id)
+    // Check caller is owner of this shop (via shop_members OR profiles fallback)
+    const { data: memberRow } = await supabase
+      .from('shop_members')
+      .select('role')
+      .eq('shop_id', shop_id)
+      .eq('user_id', user.id)
+      .eq('is_active', true)
       .single()
 
-    if (!caller || caller.role !== 'owner' || caller.shop_id !== shop_id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    let callerRole = memberRow?.role
+    if (!callerRole) {
+      const { data: profile } = await supabase.from('profiles').select('role, shop_id').eq('id', user.id).single()
+      if ((profile as any)?.shop_id === shop_id) callerRole = (profile as any)?.role
     }
 
-    // Cannot deactivate yourself
+    if (!callerRole || !['owner', 'super_admin'].includes(callerRole)) {
+      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+    }
+
     if (employee_id === user.id) {
-      return NextResponse.json({ error: 'Cannot deactivate your own account' }, { status: 400 })
+      return NextResponse.json({ error: 'Impossible de modifier votre propre compte' }, { status: 400 })
     }
 
     const admin = await createAdminClient()
 
-    // Update is_active in profiles
-    const { error } = await admin
-      .from('profiles')
+    // Update shop_members.is_active for this shop
+    const { error: memberError } = await (admin as any)
+      .from('shop_members')
       .update({ is_active })
-      .eq('id', employee_id)
+      .eq('user_id', employee_id)
       .eq('shop_id', shop_id)
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (memberError) return NextResponse.json({ error: memberError.message }, { status: 500 })
 
-    // If deactivating: sign out all sessions for this user immediately
+    // Also update profiles.is_active
+    await (admin as any).from('profiles').update({ is_active }).eq('id', employee_id)
+
+    // If deactivating: sign out all sessions immediately
     if (!is_active) {
-      await admin.auth.admin.signOut(employee_id, 'global')
+      await (admin as any).auth.admin.signOut(employee_id, 'global')
     }
 
     return NextResponse.json({ success: true })
