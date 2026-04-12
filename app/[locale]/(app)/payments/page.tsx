@@ -104,6 +104,13 @@ export default function DettesPage() {
 
   useEffect(() => { fetchDebtors() }, [shop?.id])
 
+  // Auto-refresh when user comes back to this tab
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchDebtors(true) }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [shop?.id])
+
   const totalOutstanding = debtors.reduce((s, d) => s + d.totalDebt, 0)
 
   // ── Open repay dialog ───────────────────────────────────
