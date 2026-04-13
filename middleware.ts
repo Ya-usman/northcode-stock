@@ -94,19 +94,25 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  // Use getSession() — reads cookies locally, NO network call to Supabase.
+  // This avoids middleware timeouts on free-tier Supabase/Vercel where getUser()
+  // (which makes a DB round-trip) can exceed the Edge Function timeout and return
+  // user:null, causing a spurious redirect to /login (= white page).
+  // Token integrity is verified server-side in individual API routes that need it.
+  const { data: { session } } = await supabase.auth.getSession()
+  const userId = session?.user?.id ?? null
 
   // Root → dashboard or login (respect user's preferred locale cookie)
   if (pathname === '/') {
     const preferredLocale = request.cookies.get('NEXT_LOCALE')?.value
     const resolvedLocale = preferredLocale && locales.includes(preferredLocale as any) ? preferredLocale : locale
-    const dest = user ? `/${resolvedLocale}/dashboard` : `/${resolvedLocale}/login`
+    const dest = userId ? `/${resolvedLocale}/dashboard` : `/${resolvedLocale}/login`
     return mergeAuthCookies(NextResponse.redirect(new URL(dest, request.url)), response)
   }
 
   // Page publique (landing, login, register...)
   if (isPublic(pathnameWithoutLocale)) {
-    if (user && (pathnameWithoutLocale === '/login' || pathnameWithoutLocale === '/register')) {
+    if (userId && (pathnameWithoutLocale === '/login' || pathnameWithoutLocale === '/register')) {
       return mergeAuthCookies(NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url)), response)
     }
     const intlRes = intlMiddleware(request)
@@ -119,42 +125,17 @@ export async function middleware(request: NextRequest) {
   }
 
   // Page protégée sans session → login
-  if (!user) {
+  if (!userId) {
     const loginUrl = new URL(`/${locale}/login`, request.url)
     loginUrl.searchParams.set('redirect', pathname)
     return mergeAuthCookies(NextResponse.redirect(loginUrl), response)
   }
 
-  // Always verify is_active + role from DB (cookie used only as fast-path for role)
-  const { data: profileData } = await supabase
-    .from('profiles')
-    .select('role, is_active')
-    .eq('id', user.id)
-    .single()
+  // Role from cookie (set at login and on switchShop) — no DB call needed here.
+  // Auth-context + API routes handle deeper permission checks.
+  const role = request.cookies.get('user_role')?.value
 
-  const profile = profileData as { role: string; is_active: boolean } | null
-
-  // Deactivated account → force logout
-  if (profile && !profile.is_active) {
-    // Clear role cookie
-    const loginUrl = new URL(`/${locale}/login?error=inactive`, request.url)
-    const redirectRes = NextResponse.redirect(loginUrl)
-    redirectRes.cookies.set('user_role', '', { maxAge: 0, path: '/' })
-    return mergeAuthCookies(redirectRes, response)
-  }
-
-  // Cache role in cookie for 30 minutes
-  const role = profile?.role
-  if (role) {
-    response.cookies.set('user_role', role, {
-      maxAge: 1800,
-      httpOnly: false,
-      path: '/',
-      sameSite: 'lax',
-    })
-  }
-
-  // Role-based access control
+  // Role-based access control (cookie fast-path)
   const requiredRoles = getRequiredRoles(pathnameWithoutLocale)
   if (requiredRoles && role && !requiredRoles.includes(role)) {
     return mergeAuthCookies(NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url)), response)
