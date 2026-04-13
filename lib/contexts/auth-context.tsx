@@ -76,7 +76,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return null
   })
 
-  const initialized = useRef(false)
+  // Keep activeShopId accessible in async callbacks without stale closure
+  const activeShopIdRef = useRef(activeShopId)
+  useEffect(() => { activeShopIdRef.current = activeShopId }, [activeShopId])
 
   const applyUserData = useCallback((
     user: User,
@@ -104,35 +106,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
-    if (initialized.current) return
-    initialized.current = true
+    // Use a cancellation flag instead of initialized ref.
+    // This correctly handles React StrictMode (cleanup+remount) and concurrent mode.
+    let cancelled = false
 
-    // 1. Bootstrap via getSession() — lit les cookies sans réseau
+    // 1. Bootstrap via getSession() — reads cookies/localStorage, no network round-trip
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        // Retry up to 3 times in case of transient network error
-        let lastErr: any = null
-        for (let attempt = 0; attempt < 3; attempt++) {
-          try {
-            const { profile, userShops, memberships: rows } = await fetchUserData(session.user.id)
-            applyUserData(session.user, profile, userShops, rows, activeShopId)
-            return
-          } catch (e) {
-            lastErr = e
-            if (attempt < 2) await new Promise(r => setTimeout(r, 400 * (attempt + 1)))
-          }
-        }
-        // All retries failed — still show app with user but no profile (skeleton shown)
-        console.error('fetchUserData failed after 3 attempts', lastErr)
-        setState(s => ({ ...s, user: session.user, loading: false }))
-      } else {
-        setState(s => ({ ...s, loading: false }))
-      }
-    }).catch(() => setState(s => ({ ...s, loading: false })))
+      if (cancelled) return
 
-    // 2. Écouter les changements d'état (sign-in depuis une autre instance, token refresh, sign-out)
+      if (!session?.user) {
+        setState(s => ({ ...s, loading: false }))
+        return
+      }
+
+      let lastErr: unknown = null
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (cancelled) return
+        try {
+          const { profile, userShops, memberships: rows } = await fetchUserData(session.user.id)
+          if (cancelled) return
+          applyUserData(session.user, profile, userShops, rows, activeShopIdRef.current)
+          return
+        } catch (e) {
+          lastErr = e
+          if (attempt < 2) await new Promise(r => setTimeout(r, 400 * (attempt + 1)))
+        }
+      }
+      // All retries failed — show app with user so onAuthStateChange can retry later
+      console.error('fetchUserData failed after 3 attempts', lastErr)
+      if (!cancelled) setState(s => ({ ...s, user: session.user, loading: false }))
+    }).catch(() => {
+      if (!cancelled) setState(s => ({ ...s, loading: false }))
+    })
+
+    // Safety: never leave loading:true beyond 12 seconds
+    const safetyTimer = setTimeout(() => {
+      if (!cancelled) setState(s => s.loading ? { ...s, loading: false } : s)
+    }, 12000)
+
+    // 2. Listen to auth state changes (sign-in, token refresh, sign-out)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'INITIAL_SESSION') return // déjà géré par getSession() ci-dessus
+      if (cancelled) return
+      if (event === 'INITIAL_SESSION') return // already handled by getSession() above
 
       if (event === 'SIGNED_OUT') {
         setState({ user: null, profile: null, userShops: [], activeShop: null, roleInActiveShop: null, loading: false })
@@ -142,18 +157,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')) {
         try {
           const { profile, userShops, memberships: rows } = await fetchUserData(session.user.id)
-          applyUserData(session.user, profile, userShops, rows, activeShopId)
+          if (cancelled) return
+          applyUserData(session.user, profile, userShops, rows, activeShopIdRef.current)
         } catch {
-          // Don't reset loading to false here if we already have a profile loaded
-          setState(s => s.profile ? s : { ...s, user: session.user, loading: false })
+          // Keep existing state if profile already loaded; otherwise set user to unblock render
+          if (!cancelled) setState(s => s.profile ? s : { ...s, user: session.user, loading: false })
         }
       }
     })
 
     return () => {
+      cancelled = true
+      clearTimeout(safetyTimer)
       subscription.unsubscribe()
     }
-  }, [])
+  }, [applyUserData])
 
   const switchShop = useCallback((shopId: string) => {
     setActiveShopId(shopId)
@@ -177,9 +195,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return
     try {
       const { profile, userShops, memberships: rows } = await fetchUserData(user.id)
-      if (profile) applyUserData(user, profile, userShops, rows, activeShopId)
+      if (profile) applyUserData(user, profile, userShops, rows, activeShopIdRef.current)
     } catch {/* keep */}
-  }, [activeShopId, applyUserData])
+  }, [applyUserData])
 
   const signOut = useCallback(async () => {
     document.cookie = 'user_role=; path=/; max-age=0'

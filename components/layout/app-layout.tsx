@@ -88,7 +88,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
     return <LoadingSkeleton />
   }
 
-  // Authenticated but profile not yet loaded (fetch in progress or failed) — wait, don't redirect
+  // Authenticated but profile not yet loaded — wait (auth-context has a 12s safety timer)
   if (!profile) return <LoadingSkeleton />
 
   const beta = isBetaPeriod()
