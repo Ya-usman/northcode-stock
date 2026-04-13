@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
+import { generateDebtReceiptPDF } from '@/lib/utils/pdf'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -78,7 +79,7 @@ const STATUS_LABELS: Record<string, { label: string; variant: 'destructive' | 'w
 
 export default function DettesPage() {
   const t = useTranslations()
-  const { shop } = useAuth()
+  const { shop, profile } = useAuth()
   const { fmt } = useCurrency()
   const { toast } = useToast()
 
@@ -168,6 +169,23 @@ export default function DettesPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       toast({ title: t('toast.payment_recorded'), variant: 'success' })
+
+      // Generate receipt PDF
+      if (shop && data.applied?.length > 0) {
+        const remaining = repayDebtor.totalDebt - amount
+        generateDebtReceiptPDF({
+          customerName: repayDebtor.customer.name,
+          amount,
+          method: repayMethod,
+          reference: repayRef || null,
+          notes: repayNotes || null,
+          receivedBy: profile?.full_name || 'Caissier',
+          shop,
+          appliedSales: data.applied.map((a: any) => ({ sale_number: a.sale_number, amount: a.amount })),
+          remainingBalance: Math.max(0, remaining),
+        })
+      }
+
       setRepayDebtor(null)
       setRepayAmount('')
       setTimeout(() => fetchDebtors(true), 300)

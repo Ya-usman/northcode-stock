@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import {
   Search, FileDown, ChevronDown, ChevronUp,
-  XCircle, Trash2, CheckCircle2, Store,
+  XCircle, Trash2, CheckCircle2, Store, Printer,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { useCurrency } from '@/lib/hooks/use-currency'
+import { generateReceiptPDF } from '@/lib/utils/pdf'
 import { format, startOfDay, endOfDay, subDays, startOfWeek, startOfMonth } from 'date-fns'
 import type { Sale } from '@/lib/types/database'
 
@@ -35,6 +36,16 @@ type DialogType = 'cancel' | 'delete' | 'validate'
 export default function SalesHistoryPage() {
   const t = useTranslations()
   const { profile, shop, userShops } = useAuth()
+
+  const printSale = (sale: Sale) => {
+    if (!shop) return
+    generateReceiptPDF({
+      sale: sale as any,
+      shop,
+      cashierName: cashierMap[(sale as any).cashier_id] || 'Caissier',
+      customerName: (sale as any).customers?.name || undefined,
+    })
+  }
   const { fmt: formatNaira } = useCurrency()
   const { toast } = useToast()
 
@@ -416,6 +427,17 @@ export default function SalesHistoryPage() {
                                   onClick={() => setDialog({ type: 'delete', sale })}
                                 >
                                   <Trash2 className="h-3 w-3" /> Supprimer
+                                </Button>
+                              )}
+                              {/* Print receipt */}
+                              {!isCancelled && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-1.5 text-xs h-7"
+                                  onClick={() => printSale(sale)}
+                                >
+                                  <Printer className="h-3 w-3" /> Imprimer
                                 </Button>
                               )}
                             </div>

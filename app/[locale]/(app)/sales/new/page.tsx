@@ -619,10 +619,10 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
       {/* Product grid */}
       <AnimatePresence>
-        {(searchQuery || categoryFilter !== 'all') && (
+        {(products.length > 0 || searchQuery) && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
             <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
-              {filteredProducts.slice(0, 20).map(product => (
+              {filteredProducts.slice(0, 50).map(product => (
                 <button key={product.id} onClick={() => addToCart(product)}
                   className="flex flex-col items-start text-left rounded-lg border bg-white p-3 hover:border-northcode-blue hover:bg-northcode-blue-muted transition-colors tap-target"
                 >

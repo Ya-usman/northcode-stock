@@ -341,7 +341,7 @@ export default function TeamPage() {
                       </AvatarFallback>
                     </Avatar>
                     {member.is_active && p.last_seen && (
-                      <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${isOnline ? 'bg-green-500' : 'bg-gray-300'}`} />
+                      <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${isOnline ? 'bg-yellow-400' : 'bg-gray-300'}`} />
                     )}
                   </div>
 
@@ -363,9 +363,9 @@ export default function TeamPage() {
                       </span>
                       {member.is_active && (
                         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                          isOnline ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                          isOnline ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'
                         }`}>
-                          <span className={`h-1.5 w-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
+                          <span className={`h-1.5 w-1.5 rounded-full ${isOnline ? 'bg-yellow-400' : 'bg-gray-400'}`} />
                           {isOnline ? 'En ligne' : 'Hors ligne'}
                         </span>
                       )}

@@ -203,6 +203,168 @@ function sanitizePDF(value: string | number): string {
     .replace(/\u00a0/g, ' ')
 }
 
+interface DebtReceiptData {
+  customerName: string
+  amount: number
+  method: string
+  reference?: string | null
+  notes?: string | null
+  receivedBy: string
+  shop: Shop
+  appliedSales: { sale_number: string; amount: number }[]
+  remainingBalance: number
+}
+
+export async function generateDebtReceiptPDF(data: DebtReceiptData): Promise<void> {
+  const { jsPDF } = await import('jspdf')
+  const autoTable = (await import('jspdf-autotable')).default
+
+  const { customerName, amount, method, reference, notes, receivedBy, shop, appliedSales, remainingBalance } = data
+
+  const isFCFA = shop.currency === 'FCFA'
+  const fmtAmt = (n: number) => {
+    if (isFCFA) {
+      const formatted = n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+      return sanitizePDF(`${formatted} FCFA`)
+    }
+    return `NGN ${n.toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+  }
+
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a5' })
+  const pageWidth = 148
+  const margin = 12
+  let y = 14
+
+  // ─── HEADER ──────────────────────────────────
+  doc.setFillColor(10, 47, 110)
+  doc.roundedRect(margin, y, 20, 20, 3, 3, 'F')
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(14)
+  doc.setFont('helvetica', 'bold')
+  doc.text('NC', margin + 10, y + 13, { align: 'center' })
+
+  doc.setTextColor(10, 47, 110)
+  doc.setFontSize(14)
+  doc.text(shop.name, margin + 24, y + 7)
+  doc.setTextColor(80, 80, 80)
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'normal')
+  doc.text(`${shop.city}, ${shop.state || 'Nigeria'}`, margin + 24, y + 12)
+  if (shop.whatsapp) doc.text(`WhatsApp: ${shop.whatsapp}`, margin + 24, y + 17)
+
+  y += 26
+
+  doc.setDrawColor(10, 47, 110)
+  doc.setLineWidth(0.5)
+  doc.line(margin, y, pageWidth - margin, y)
+  y += 6
+
+  // ─── TITLE ───────────────────────────────────
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(10, 47, 110)
+  doc.text('RECU DE REMBOURSEMENT', pageWidth / 2, y, { align: 'center' })
+  y += 5
+
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(80, 80, 80)
+  doc.text(
+    new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    pageWidth / 2, y, { align: 'center' }
+  )
+  y += 8
+
+  // ─── CUSTOMER + RECEIVER ─────────────────────
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(0, 0, 0)
+  doc.text(`Client: ${customerName}`, margin, y)
+  doc.text(`Recu par: ${receivedBy}`, pageWidth - margin, y, { align: 'right' })
+  y += 6
+
+  const methodLabels: Record<string, string> = {
+    cash: 'Especes', transfer: 'Virement', mobile_money: 'Mobile Money', paystack: 'Paystack',
+  }
+  doc.text(`Mode: ${methodLabels[method] || method}`, margin, y)
+  if (reference) doc.text(`Ref: ${reference}`, pageWidth - margin, y, { align: 'right' })
+  y += 8
+
+  // ─── APPLIED INVOICES TABLE ───────────────────
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(80, 80, 80)
+  doc.text('FACTURES REGLEES :', margin, y)
+  y += 2
+
+  autoTable(doc, {
+    startY: y,
+    head: [['Facture #', 'Montant regle']],
+    body: appliedSales.map(s => [`#${s.sale_number}`, fmtAmt(s.amount)]),
+    margin: { left: margin, right: margin },
+    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [10, 47, 110], textColor: 255, fontStyle: 'bold' },
+    columnStyles: {
+      0: { cellWidth: 60 },
+      1: { cellWidth: 64, halign: 'right' },
+    },
+  })
+
+  y = (doc as any).lastAutoTable.finalY + 5
+
+  // ─── TOTAL + BALANCE ─────────────────────────
+  const rightCol = pageWidth - margin
+  const labelCol = pageWidth - margin - 70
+
+  doc.setDrawColor(10, 47, 110)
+  doc.setLineWidth(0.5)
+  doc.line(labelCol - 5, y, rightCol, y)
+  y += 5
+
+  doc.setFontSize(12)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(10, 47, 110)
+  doc.text('TOTAL PAYE :', labelCol, y)
+  doc.text(fmtAmt(amount), rightCol, y, { align: 'right' })
+  y += 6
+
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+  if (remainingBalance > 0) {
+    doc.setTextColor(220, 38, 38)
+    doc.text(`Solde restant: ${fmtAmt(remainingBalance)}`, labelCol, y)
+  } else {
+    doc.setTextColor(22, 163, 74)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Dette soldee integralement ✓', labelCol, y)
+  }
+  y += 8
+
+  if (notes) {
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'italic')
+    doc.setTextColor(100, 100, 100)
+    doc.text(`Note: ${notes}`, margin, y)
+    y += 6
+  }
+
+  // ─── FOOTER ───────────────────────────────────
+  doc.setDrawColor(220, 220, 220)
+  doc.setLineWidth(0.3)
+  doc.line(margin, y, pageWidth - margin, y)
+  y += 5
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(10, 47, 110)
+  doc.text('Merci pour votre confiance', pageWidth / 2, y, { align: 'center' })
+  y += 4
+  doc.setFont('helvetica', 'italic')
+  doc.setTextColor(100, 100, 100)
+  doc.text('Na gode da kasuwancin ku', pageWidth / 2, y, { align: 'center' })
+
+  doc.save(`Remboursement-${customerName.replace(/\s+/g, '-')}-${Date.now()}.pdf`)
+}
+
 export async function generateReportPDF(params: {
   shopName: string
   dateRange: string

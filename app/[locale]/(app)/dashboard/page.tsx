@@ -119,14 +119,17 @@ export default function DashboardPage() {
       const todayEnd = endOfDay(today).toISOString()
       const sevenDaysAgo = subDays(today, 6)
 
+      const weekStartISO = startOfDay(sevenDaysAgo).toISOString()
+
       // ── All parallel queries ────────────────────────────────────
       const [
         { data: todaySales },
         { data: debtData },
         { data: weekSales },
         { data: stockData },
+        paymentsRes,
       ] = await Promise.all([
-        // Today's sales
+        // Today's sales (for count + recent feed)
         supabase
           .from('sales')
           .select('id, total, amount_paid, balance, payment_method, payment_status, sale_status, created_at, customers(name), cashier_id, shop_id')
@@ -142,13 +145,13 @@ export default function DashboardPage() {
           .select('total_debt')
           .in('shop_id', shopIds),
 
-        // Last 7 days sales (for revenue chart + top products)
+        // Last 7 days sales (for top products)
         supabase
           .from('sales')
           .select('id, total, created_at, sale_items(product_name, quantity, subtotal)')
           .in('shop_id', shopIds)
           .eq('sale_status', 'active')
-          .gte('created_at', startOfDay(sevenDaysAgo).toISOString())
+          .gte('created_at', weekStartISO)
           .lte('created_at', todayEnd),
 
         // Stock alerts
@@ -159,7 +162,12 @@ export default function DashboardPage() {
           .eq('is_active', true)
           .lte('quantity', shop?.low_stock_threshold || 10)
           .order('quantity', { ascending: true }),
+
+        // Actual cash received (sales + debt repayments) via admin route
+        fetch(`/api/dashboard/payments-today?shop_ids=${shopIds.join(',')}&start=${encodeURIComponent(todayStart)}&end=${encodeURIComponent(todayEnd)}&week_start=${encodeURIComponent(weekStartISO)}`),
       ])
+
+      const paymentsData = paymentsRes.ok ? await paymentsRes.json() : { todayTotal: 0, weekPayments: [] as { date: string; amount: number }[] }
 
       // ── Process results ─────────────────────────────────────────
       const outOf = (stockData || []).filter((p: any) => p.quantity === 0) as unknown as Product[]
@@ -167,15 +175,27 @@ export default function DashboardPage() {
 
       const salesArr = (todaySales || []) as unknown as Sale[]
       const salesCount = salesArr.length
-      const revenue = salesArr.reduce((s, sale: any) => s + Number(sale.total), 0)
+      // Use actual cash received today (new sales + debt repayments) from the payments API
+      const revenue = paymentsData.todayTotal > 0 ? paymentsData.todayTotal : salesArr.reduce((s, sale: any) => s + Number(sale.amount_paid), 0)
       const debt = (debtData || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0)
+
+      // Build payments-per-day map for chart (actual cash received each day)
+      const paymentsPerDay: Record<string, number> = {}
+      ;(paymentsData.weekPayments as { date: string; amount: number }[]).forEach(p => {
+        paymentsPerDay[p.date] = (paymentsPerDay[p.date] || 0) + p.amount
+      })
 
       const last7 = Array.from({ length: 7 }, (_, i) => subDays(today, 6 - i))
       const dayMap: Record<string, { revenue: number; sales: number }> = {}
       last7.forEach(d => { dayMap[format(d, 'yyyy-MM-dd')] = { revenue: 0, sales: 0 } })
       ;(weekSales || []).forEach((sale: any) => {
         const key = format(parseISO(sale.created_at), 'yyyy-MM-dd')
-        if (dayMap[key]) { dayMap[key].revenue += Number(sale.total); dayMap[key].sales += 1 }
+        if (dayMap[key]) { dayMap[key].sales += 1 }
+      })
+      // Use payments-per-day for revenue bars (actual cash received, not sale totals)
+      last7.forEach(d => {
+        const key = format(d, 'yyyy-MM-dd')
+        if (dayMap[key]) dayMap[key].revenue = paymentsPerDay[key] || 0
       })
       const revData: RevenueDataPoint[] = last7.map(d => ({
         date: format(d, 'EEE'),

@@ -44,14 +44,14 @@ export async function POST(request: Request) {
     // Fetch all unpaid sales sorted oldest first (FIFO)
     const { data: salesRaw, error: salesErr } = await admin
       .from('sales')
-      .select('id, total, amount_paid, balance, payment_status, sale_status, shop_id')
+      .select('id, sale_number, total, amount_paid, balance, payment_status, sale_status, shop_id')
       .in('id', unpaid_sale_ids)
       .eq('shop_id', shop_id)
       .order('created_at', { ascending: true })
 
     if (salesErr) throw salesErr
     const sales = (salesRaw || []) as Array<{
-      id: string; total: number; amount_paid: number; balance: number
+      id: string; sale_number: string; total: number; amount_paid: number; balance: number
       payment_status: string; sale_status: string; shop_id: string
     }>
 
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
       })
       if (payErr) throw payErr
 
-      appliedTo.push({ sale_id: sale.id, amount: toApply })
+      appliedTo.push({ sale_id: sale.id, sale_number: sale.sale_number, amount: toApply })
       remaining -= toApply
     }
 
