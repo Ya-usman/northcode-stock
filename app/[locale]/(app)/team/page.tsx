@@ -323,7 +323,10 @@ export default function TeamPage() {
             const initials = p.full_name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
             const isMe = member.user_id === myProfile?.id
             const isLoading = actionLoading === member.id || actionLoading === member.id + '_role' || actionLoading === member.id + '_del'
-            const isOnline = p.last_seen && (Date.now() - new Date(p.last_seen).getTime()) < 5 * 60 * 1000
+            const lastSeenMs = p.last_seen ? Date.now() - new Date(p.last_seen).getTime() : Infinity
+            const isOnline  = lastSeenMs < 5 * 60 * 1000           // < 5 min
+            const isAway    = !isOnline && lastSeenMs < 2 * 60 * 60 * 1000  // 5 min – 2 h
+            // isOffline = > 2h or never connected
 
             return (
               <div
@@ -341,7 +344,9 @@ export default function TeamPage() {
                       </AvatarFallback>
                     </Avatar>
                     {member.is_active && p.last_seen && (
-                      <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${isOnline ? 'bg-yellow-400' : 'bg-gray-300'}`} />
+                      <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${
+                        isOnline ? 'bg-green-500' : isAway ? 'bg-yellow-400' : 'bg-gray-300'
+                      }`} />
                     )}
                   </div>
 
@@ -363,10 +368,14 @@ export default function TeamPage() {
                       </span>
                       {member.is_active && (
                         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                          isOnline ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'
+                          isOnline ? 'bg-green-100 text-green-700'
+                          : isAway  ? 'bg-yellow-100 text-yellow-700'
+                          :           'bg-gray-100 text-gray-500'
                         }`}>
-                          <span className={`h-1.5 w-1.5 rounded-full ${isOnline ? 'bg-yellow-400' : 'bg-gray-400'}`} />
-                          {isOnline ? 'En ligne' : 'Hors ligne'}
+                          <span className={`h-1.5 w-1.5 rounded-full ${
+                            isOnline ? 'bg-green-500' : isAway ? 'bg-yellow-400' : 'bg-gray-400'
+                          }`} />
+                          {isOnline ? 'En ligne' : isAway ? 'Absent' : 'Déconnecté'}
                         </span>
                       )}
                       {p.last_seen && !isOnline && (

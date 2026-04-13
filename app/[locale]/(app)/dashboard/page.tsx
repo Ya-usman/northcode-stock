@@ -145,10 +145,10 @@ export default function DashboardPage() {
           .select('total_debt')
           .in('shop_id', shopIds),
 
-        // Last 7 days sales (for top products)
+        // Last 7 days sales (for top products + chart fallback)
         supabase
           .from('sales')
-          .select('id, total, created_at, sale_items(product_name, quantity, subtotal)')
+          .select('id, total, amount_paid, created_at, sale_items(product_name, quantity, subtotal)')
           .in('shop_id', shopIds)
           .eq('sale_status', 'active')
           .gte('created_at', weekStartISO)
@@ -167,7 +167,10 @@ export default function DashboardPage() {
         fetch(`/api/dashboard/payments-today?shop_ids=${shopIds.join(',')}&start=${encodeURIComponent(todayStart)}&end=${encodeURIComponent(todayEnd)}&week_start=${encodeURIComponent(weekStartISO)}`),
       ])
 
-      const paymentsData = paymentsRes.ok ? await paymentsRes.json() : { todayTotal: 0, weekPayments: [] as { date: string; amount: number }[] }
+      const paymentsApiOk = paymentsRes.ok
+      const paymentsData = paymentsApiOk
+        ? await paymentsRes.json()
+        : { todayTotal: 0, weekPayments: [] as { date: string; amount: number }[] }
 
       // ── Process results ─────────────────────────────────────────
       const outOf = (stockData || []).filter((p: any) => p.quantity === 0) as unknown as Product[]
@@ -175,15 +178,13 @@ export default function DashboardPage() {
 
       const salesArr = (todaySales || []) as unknown as Sale[]
       const salesCount = salesArr.length
-      // Use actual cash received today (new sales + debt repayments) from the payments API
-      const revenue = paymentsData.todayTotal > 0 ? paymentsData.todayTotal : salesArr.reduce((s, sale: any) => s + Number(sale.amount_paid), 0)
       const debt = (debtData || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0)
 
-      // Build payments-per-day map for chart (actual cash received each day)
-      const paymentsPerDay: Record<string, number> = {}
-      ;(paymentsData.weekPayments as { date: string; amount: number }[]).forEach(p => {
-        paymentsPerDay[p.date] = (paymentsPerDay[p.date] || 0) + p.amount
-      })
+      // Revenue = actual cash received today (new sales + debt repayments).
+      // If payments API failed, fall back to sum of amount_paid on today's sales.
+      const revenue = paymentsApiOk
+        ? paymentsData.todayTotal
+        : salesArr.reduce((s, sale: any) => s + Number(sale.amount_paid), 0)
 
       const last7 = Array.from({ length: 7 }, (_, i) => subDays(today, 6 - i))
       const dayMap: Record<string, { revenue: number; sales: number }> = {}
@@ -192,11 +193,19 @@ export default function DashboardPage() {
         const key = format(parseISO(sale.created_at), 'yyyy-MM-dd')
         if (dayMap[key]) { dayMap[key].sales += 1 }
       })
-      // Use payments-per-day for revenue bars (actual cash received, not sale totals)
-      last7.forEach(d => {
-        const key = format(d, 'yyyy-MM-dd')
-        if (dayMap[key]) dayMap[key].revenue = paymentsPerDay[key] || 0
-      })
+
+      if (paymentsApiOk) {
+        // Preferred: actual cash received per day (includes debt repayments)
+        ;(paymentsData.weekPayments as { date: string; amount: number }[]).forEach(p => {
+          if (dayMap[p.date]) dayMap[p.date].revenue += p.amount
+        })
+      } else {
+        // Fallback: sum amount_paid per day from weekSales
+        ;(weekSales || []).forEach((sale: any) => {
+          const key = format(parseISO(sale.created_at), 'yyyy-MM-dd')
+          if (dayMap[key]) dayMap[key].revenue += Number(sale.amount_paid)
+        })
+      }
       const revData: RevenueDataPoint[] = last7.map(d => ({
         date: format(d, 'EEE'),
         revenue: dayMap[format(d, 'yyyy-MM-dd')].revenue,
@@ -248,7 +257,8 @@ export default function DashboardPage() {
       if (shopIds.includes(sale.shop_id || '')) {
         setRecentSales(prev => [sale, ...prev])
         setTodaySalesCount(prev => prev + 1)
-        setTodayRevenue(prev => prev + Number(sale.total))
+        // Add amount_paid (0 for credit sales) — not sale.total which inflates revenue
+        setTodayRevenue(prev => prev + Number(sale.amount_paid ?? sale.total))
         toast({ title: `Nouvelle vente: ${formatNaira(sale.total)}`, description: `#${sale.sale_number}`, variant: 'success' })
       }
     },
