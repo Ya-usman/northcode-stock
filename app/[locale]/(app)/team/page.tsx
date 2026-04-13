@@ -375,6 +375,9 @@ export default function TeamPage() {
                           {formatDistanceToNow(new Date(p.last_seen), { addSuffix: true, locale: fr })}
                         </span>
                       )}
+                      {!p.last_seen && (
+                        <span className="text-[10px] text-muted-foreground italic">Jamais connecté</span>
+                      )}
                     </div>
                   </div>
                 </div>
