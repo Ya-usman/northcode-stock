@@ -324,8 +324,11 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const debtAmt = debtRepayEnabled ? (Number(debtRepayAmount) || 0) : 0
   const totalToCollect = total + debtAmt
   // For credit: customer pays nothing now → paid = 0, balance = total
-  const paid = paymentMethod === 'cash' ? Number(amountPaid) || 0 : paymentMethod === 'credit' ? 0 : total
-  const change = paymentMethod === 'cash' ? Math.max(0, paid - totalToCollect) : 0
+  // For cash: cap at total — the change given back is NOT revenue
+  const paid = paymentMethod === 'cash'
+    ? Math.min(Number(amountPaid) || 0, total)
+    : paymentMethod === 'credit' ? 0 : total
+  const change = paymentMethod === 'cash' ? Math.max(0, (Number(amountPaid) || 0) - totalToCollect) : 0
   const balance = Math.max(0, total - paid)
 
   const filteredCustomers = customerName
