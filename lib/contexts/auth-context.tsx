@@ -275,6 +275,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch { /* keep */ }
   }, [applyUserData])
 
+  // Update last_seen every 3 minutes while the user is active
+  useEffect(() => {
+    const updateLastSeen = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) return
+      await (supabase as any).from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', session.user.id)
+    }
+    // Update immediately on mount
+    updateLastSeen()
+    // Then every 3 minutes
+    const interval = setInterval(updateLastSeen, 3 * 60 * 1000)
+    // Also update on visibility change (when user returns to tab)
+    const onVisible = () => { if (document.visibilityState === 'visible') updateLastSeen() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [])
+
   const signOut = useCallback(async () => {
     document.cookie = 'user_role=; path=/; max-age=0'
     localStorage.removeItem('active_shop_id')

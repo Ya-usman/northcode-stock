@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatDistanceToNow } from 'date-fns'
+import { fr } from 'date-fns/locale'
 import type { UserRole } from '@/lib/types/database'
 import { cn } from '@/lib/utils/cn'
 
@@ -355,18 +356,26 @@ export default function TeamPage() {
                         </Badge>
                       )}
                     </div>
-                    <div className="flex items-center gap-3 mt-1 flex-wrap">
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${ROLE_COLORS[member.role] || ROLE_COLORS.viewer}`}>
                         <Shield className="h-2.5 w-2.5" />
                         {ROLE_LABELS[member.role] || member.role}
                       </span>
+                      {member.is_active && (
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                          isOnline ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
+                          {isOnline ? 'En ligne' : 'Hors ligne'}
+                        </span>
+                      )}
                       {p.last_seen ? (
                         <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                           <Clock className="h-3 w-3" />
-                          {formatDistanceToNow(new Date(p.last_seen), { addSuffix: true })}
+                          {isOnline ? 'Actif maintenant' : `Vu ${formatDistanceToNow(new Date(p.last_seen), { addSuffix: true, locale: fr })}`}
                         </span>
                       ) : (
-                        <span className="text-[10px] text-muted-foreground">Jamais connecté</span>
+                        <span className="text-[10px] text-muted-foreground italic">Jamais connecté</span>
                       )}
                     </div>
                   </div>

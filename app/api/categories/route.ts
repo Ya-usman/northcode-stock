@@ -25,6 +25,25 @@ async function checkShopRole(supabase: any, userId: string, shopId: string) {
   return null
 }
 
+// GET /api/categories?shop_id=xxx
+export async function GET(request: Request) {
+  try {
+    const { user, supabase } = await getAuthedUser()
+    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { searchParams } = new URL(request.url)
+    const shop_id = searchParams.get('shop_id')
+    if (!shop_id) return NextResponse.json({ error: 'shop_id requis' }, { status: 400 })
+    const role = await checkShopRole(supabase, user.id, shop_id)
+    if (!role) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    const admin = await createAdminClient()
+    const { data, error } = await (admin as any).from('categories').select('*').eq('shop_id', shop_id).order('name')
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    return NextResponse.json({ data })
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
+}
+
 // POST /api/categories
 export async function POST(request: Request) {
   try {

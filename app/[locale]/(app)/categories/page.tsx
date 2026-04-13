@@ -24,9 +24,13 @@ export default function CategoriesPage() {
 
   const fetchCategories = async () => {
     if (!shop?.id) return
-    const { data } = await supabase.from('categories').select('*').eq('shop_id', shop.id).order('name')
-    setCategories((data || []) as Category[])
-    setLoading(false)
+    try {
+      const res = await fetch(`/api/categories?shop_id=${shop.id}`)
+      const json = await res.json()
+      setCategories((json.data || []) as Category[])
+    } catch { /* keep */ } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { fetchCategories() }, [shop?.id])

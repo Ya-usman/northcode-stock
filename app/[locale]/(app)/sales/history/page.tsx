@@ -39,6 +39,7 @@ export default function SalesHistoryPage() {
   const { toast } = useToast()
 
   const [sales, setSales] = useState<Sale[]>([])
+  const [cashierMap, setCashierMap] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [dateFilter, setDateFilter] = useState('today')
@@ -106,7 +107,19 @@ export default function SalesHistoryPage() {
     if (saleStatusFilter !== 'all') query = query.eq('sale_status', saleStatusFilter)
 
     const { data } = await query
-    setSales((data || []) as Sale[])
+    const salesData = (data || []) as Sale[]
+    setSales(salesData)
+
+    // Fetch cashier names
+    const ids = Array.from(new Set(salesData.map((s: any) => s.cashier_id).filter(Boolean))) as string[]
+    if (ids.length > 0) {
+      const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', ids)
+      const map: Record<string, string> = {}
+      for (const p of (profiles || [])) map[p.id] = p.full_name
+      setCashierMap(map)
+    } else {
+      setCashierMap({})
+    }
     setLoading(false)
   }
 
@@ -288,6 +301,7 @@ export default function SalesHistoryPage() {
               <TableRow>
                 <TableHead>Vente #</TableHead>
                 <TableHead>Client</TableHead>
+                <TableHead className="hidden lg:table-cell">Caissier</TableHead>
                 <TableHead className="hidden sm:table-cell">Date</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead className="hidden md:table-cell text-right">Payé</TableHead>
@@ -320,6 +334,9 @@ export default function SalesHistoryPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-sm">{(sale as any).customers?.name || 'Passant'}</TableCell>
+                      <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
+                        {cashierMap[(sale as any).cashier_id] || '—'}
+                      </TableCell>
                       <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
                         {format(new Date(sale.created_at), 'dd MMM · HH:mm')}
                       </TableCell>
@@ -350,7 +367,7 @@ export default function SalesHistoryPage() {
                     {/* Expanded: items + action buttons */}
                     {expandedId === sale.id && (
                       <TableRow key={`${sale.id}-expand`}>
-                        <TableCell colSpan={8} className="bg-muted/20 p-0">
+                        <TableCell colSpan={9} className="bg-muted/20 p-0">
                           <div className="p-3 space-y-2">
                             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Articles</p>
                             {(sale as any).sale_items?.map((item: any) => (
