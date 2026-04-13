@@ -23,7 +23,7 @@ const supabase = createClient() as any
 
 export default function DashboardPage() {
   const t = useTranslations()
-  const { profile, shop, userShops, loading: authLoading } = useAuth()
+  const { profile, shop, userShops } = useAuth()
   const { fmt: formatNaira } = useCurrency()
   const { toast } = useToast()
 
@@ -197,8 +197,9 @@ export default function DashboardPage() {
     },
   })
 
-  // Show skeleton only on very first load (auth loading or data not yet fetched)
-  if (authLoading || (firstLoad && shopIds.length === 0)) {
+  // Show skeleton only on very first load before any data arrives.
+  // Never blank on authLoading — token refreshes must not erase the dashboard.
+  if (firstLoad) {
     return (
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
