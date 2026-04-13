@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -14,7 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { RefreshCw, Store, ChevronDown, Check } from 'lucide-react'
-import { format, subDays, startOfDay, endOfDay } from 'date-fns'
+import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns'
 import type { Sale, Product, RevenueDataPoint, TopProduct } from '@/lib/types/database'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { cn } from '@/lib/utils/cn'
@@ -31,8 +31,10 @@ export default function DashboardPage() {
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null)
   const [shopPickerOpen, setShopPickerOpen] = useState(false)
 
-  const [loading, setLoading] = useState(true)
+  // firstLoad = show skeleton; refreshing = show spinner only (keep data)
+  const [firstLoad, setFirstLoad] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+
   const [todayRevenue, setTodayRevenue] = useState(0)
   const [todaySalesCount, setTodaySalesCount] = useState(0)
   const [outstandingDebt, setOutstandingDebt] = useState(0)
@@ -51,108 +53,130 @@ export default function DashboardPage() {
     ? userShops.find(s => s.id === selectedShopId)?.name || 'Boutique'
     : userShops.length > 1 ? 'Toutes les boutiques' : (shop?.name || 'Boutique')
 
-  const loadDashboard = useCallback(async () => {
+  // Track in-flight request to avoid stale updates
+  const loadingRef = useRef(false)
+
+  const loadDashboard = useCallback(async (quiet = false) => {
     if (shopIds.length === 0) return
+    if (loadingRef.current) return   // already fetching, skip duplicate
+    loadingRef.current = true
 
-    const today = new Date()
-    const todayStart = startOfDay(today).toISOString()
-    const todayEnd = endOfDay(today).toISOString()
+    if (quiet) setRefreshing(true)
 
-    // Today's sales (active only)
-    const { data: todaySales } = await supabase
-      .from('sales')
-      .select('id, total, amount_paid, balance, payment_method, payment_status, sale_status, created_at, customers(name), cashier_id, shop_id')
-      .in('shop_id', shopIds)
-      .eq('sale_status', 'active')
-      .gte('created_at', todayStart)
-      .lte('created_at', todayEnd)
-      .order('created_at', { ascending: false })
+    try {
+      const today = new Date()
+      const todayStart = startOfDay(today).toISOString()
+      const todayEnd = endOfDay(today).toISOString()
+      const sevenDaysAgo = subDays(today, 6)
 
-    setTodaySalesCount(todaySales?.length || 0)
-    setTodayRevenue((todaySales || []).reduce((s: number, sale: any) => s + Number(sale.total), 0))
-    setRecentSales((todaySales || []) as unknown as Sale[])
+      // ── All parallel queries ────────────────────────────────────
+      const [
+        { data: todaySales },
+        { data: debtData },
+        { data: weekSales },
+        { data: stockData },
+      ] = await Promise.all([
+        // Today's sales
+        supabase
+          .from('sales')
+          .select('id, total, amount_paid, balance, payment_method, payment_status, sale_status, created_at, customers(name), cashier_id, shop_id')
+          .in('shop_id', shopIds)
+          .eq('sale_status', 'active')
+          .gte('created_at', todayStart)
+          .lte('created_at', todayEnd)
+          .order('created_at', { ascending: false }),
 
-    // Outstanding debt
-    const { data: debtData } = await supabase
-      .from('customers')
-      .select('total_debt')
-      .in('shop_id', shopIds)
-    setOutstandingDebt((debtData || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0))
+        // Outstanding debt
+        supabase
+          .from('customers')
+          .select('total_debt')
+          .in('shop_id', shopIds),
 
-    // Revenue last 7 days
-    const last7 = Array.from({ length: 7 }, (_, i) => subDays(today, 6 - i))
-    const revenueArr: RevenueDataPoint[] = []
-    for (const day of last7) {
-      const { data } = await supabase
-        .from('sales')
-        .select('total')
-        .in('shop_id', shopIds)
-        .eq('sale_status', 'active')
-        .gte('created_at', startOfDay(day).toISOString())
-        .lte('created_at', endOfDay(day).toISOString())
-      revenueArr.push({
-        date: format(day, 'EEE'),
-        revenue: (data || []).reduce((s: number, d: any) => s + Number(d.total), 0),
-        sales: data?.length || 0,
-      })
-    }
-    setRevenueData(revenueArr)
+        // Last 7 days sales (for revenue chart + top products)
+        supabase
+          .from('sales')
+          .select('id, total, created_at, sale_items(product_name, quantity, subtotal)')
+          .in('shop_id', shopIds)
+          .eq('sale_status', 'active')
+          .gte('created_at', startOfDay(sevenDaysAgo).toISOString())
+          .lte('created_at', todayEnd),
 
-    // Top 5 products (last 7 days)
-    const { data: weekSales } = await supabase
-      .from('sales')
-      .select('id')
-      .in('shop_id', shopIds)
-      .eq('sale_status', 'active')
-      .gte('created_at', subDays(today, 7).toISOString())
+        // Stock alerts
+        supabase
+          .from('products')
+          .select('id, name, name_hausa, quantity, low_stock_threshold, unit, selling_price, buying_price, shop_id')
+          .in('shop_id', shopIds)
+          .eq('is_active', true)
+          .lte('quantity', shop?.low_stock_threshold || 10)
+          .order('quantity', { ascending: true }),
+      ])
 
-    if (weekSales && weekSales.length > 0) {
-      const { data: items } = await supabase
-        .from('sale_items')
-        .select('product_name, quantity, subtotal')
-        .in('sale_id', (weekSales as any[]).map((s: any) => s.id))
+      // ── Process today's sales ──────────────────────────────────
+      setTodaySalesCount(todaySales?.length || 0)
+      setTodayRevenue((todaySales || []).reduce((s: number, sale: any) => s + Number(sale.total), 0))
+      setRecentSales((todaySales || []) as unknown as Sale[])
 
-      const totals: Record<string, TopProduct> = {}
-      ;(items || []).forEach((item: any) => {
-        if (!totals[item.product_name]) {
-          totals[item.product_name] = { name: item.product_name, quantity: 0, revenue: 0 }
+      // ── Debt ───────────────────────────────────────────────────
+      setOutstandingDebt((debtData || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0))
+
+      // ── Revenue chart: group week sales by day in JS ───────────
+      const last7 = Array.from({ length: 7 }, (_, i) => subDays(today, 6 - i))
+      const dayMap: Record<string, { revenue: number; sales: number }> = {}
+      last7.forEach(d => { dayMap[format(d, 'yyyy-MM-dd')] = { revenue: 0, sales: 0 } })
+      ;(weekSales || []).forEach((sale: any) => {
+        const key = format(parseISO(sale.created_at), 'yyyy-MM-dd')
+        if (dayMap[key]) {
+          dayMap[key].revenue += Number(sale.total)
+          dayMap[key].sales += 1
         }
-        totals[item.product_name].quantity += Number(item.quantity)
-        totals[item.product_name].revenue += Number(item.subtotal)
+      })
+      setRevenueData(
+        last7.map(d => ({
+          date: format(d, 'EEE'),
+          revenue: dayMap[format(d, 'yyyy-MM-dd')].revenue,
+          sales: dayMap[format(d, 'yyyy-MM-dd')].sales,
+        }))
+      )
+
+      // ── Top 5 products ─────────────────────────────────────────
+      const totals: Record<string, TopProduct> = {}
+      ;(weekSales || []).forEach((sale: any) => {
+        ;(sale.sale_items || []).forEach((item: any) => {
+          if (!totals[item.product_name]) {
+            totals[item.product_name] = { name: item.product_name, quantity: 0, revenue: 0 }
+          }
+          totals[item.product_name].quantity += Number(item.quantity)
+          totals[item.product_name].revenue += Number(item.subtotal)
+        })
       })
       setTopProducts(Object.values(totals).sort((a, b) => b.revenue - a.revenue).slice(0, 5))
-    } else {
-      setTopProducts([])
+
+      // ── Stock alerts ───────────────────────────────────────────
+      setOutOfStockProducts((stockData || []).filter((p: any) => p.quantity === 0) as unknown as Product[])
+      setLowStockProducts((stockData || []).filter((p: any) => p.quantity > 0) as unknown as Product[])
+
+    } finally {
+      loadingRef.current = false
+      setFirstLoad(false)
+      setRefreshing(false)
     }
-
-    // Stock alerts (per selected shop or all)
-    const threshold = shop?.low_stock_threshold || 10
-    const { data: stockData } = await supabase
-      .from('products')
-      .select('id, name, name_hausa, quantity, low_stock_threshold, unit, selling_price, buying_price, shop_id')
-      .in('shop_id', shopIds)
-      .eq('is_active', true)
-      .lte('quantity', threshold)
-      .order('quantity', { ascending: true })
-
-    setOutOfStockProducts((stockData || []).filter((p: any) => p.quantity === 0) as unknown as Product[])
-    setLowStockProducts((stockData || []).filter((p: any) => p.quantity > 0) as unknown as Product[])
   }, [shopIds.join(','), shop?.low_stock_threshold])
 
+  // Initial load when shopIds become available
   useEffect(() => {
-    const load = async () => {
-      setLoading(true)
-      await loadDashboard()
-      setLoading(false)
-    }
-    load()
+    if (shopIds.length > 0) loadDashboard()
   }, [loadDashboard])
 
-  const handleRefresh = async () => {
-    setRefreshing(true)
-    await loadDashboard()
-    setRefreshing(false)
-  }
+  // Auto-refresh when user comes back to this tab
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && shopIds.length > 0) loadDashboard(true)
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [loadDashboard])
+
+  const handleRefresh = () => loadDashboard(true)
 
   useDashboardRealtime(shop?.id || null, {
     onNewSale: (sale) => {
@@ -173,7 +197,8 @@ export default function DashboardPage() {
     },
   })
 
-  if (authLoading || loading) {
+  // Show skeleton only on very first load (auth loading or data not yet fetched)
+  if (authLoading || (firstLoad && shopIds.length === 0)) {
     return (
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -213,7 +238,6 @@ export default function DashboardPage() {
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setShopPickerOpen(false)} />
                   <div className="absolute right-0 top-full z-20 mt-1 w-52 rounded-xl border bg-white shadow-lg p-1.5">
-                    {/* All shops option */}
                     <button
                       onClick={() => { setSelectedShopId(null); setShopPickerOpen(false) }}
                       className={cn(
@@ -243,7 +267,13 @@ export default function DashboardPage() {
             </div>
           )}
 
-          <Button variant="ghost" size="icon" onClick={handleRefresh} className={refreshing ? 'animate-spin' : ''}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className={refreshing ? 'animate-spin' : ''}
+          >
             <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
