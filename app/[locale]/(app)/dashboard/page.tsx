@@ -21,17 +21,41 @@ import { cn } from '@/lib/utils/cn'
 
 const supabase = createClient() as any
 
+// ── Dashboard cache (stale-while-revalidate) ────────────────────────────────
+const DASH_CACHE_KEY = 'dashboard_cache_v1'
+interface DashCache {
+  shopKey: string
+  todayRevenue: number; todaySalesCount: number; outstandingDebt: number
+  revenueData: RevenueDataPoint[]; topProducts: TopProduct[]
+  lowStock: Product[]; outOfStock: Product[]
+  recentSales: Sale[]
+  savedAt: number
+}
+function readDashCache(shopKey: string): DashCache | null {
+  try {
+    const raw = localStorage.getItem(DASH_CACHE_KEY)
+    if (!raw) return null
+    const c: DashCache = JSON.parse(raw)
+    // Cache valid for 10 minutes, same shop selection
+    if (c.shopKey !== shopKey || Date.now() - c.savedAt > 600000) return null
+    return c
+  } catch { return null }
+}
+function writeDashCache(data: Omit<DashCache, 'savedAt'>) {
+  try { localStorage.setItem(DASH_CACHE_KEY, JSON.stringify({ ...data, savedAt: Date.now() })) }
+  catch { /* ignore */ }
+}
+
 export default function DashboardPage() {
   const t = useTranslations()
   const { profile, shop, userShops } = useAuth()
   const { fmt: formatNaira } = useCurrency()
   const { toast } = useToast()
 
-  // Shop filter: null = all shops
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null)
   const [shopPickerOpen, setShopPickerOpen] = useState(false)
 
-  // firstLoad = show skeleton; refreshing = show spinner only (keep data)
+  // firstLoad = show skeleton only when no cached data available
   const [firstLoad, setFirstLoad] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -56,10 +80,36 @@ export default function DashboardPage() {
   // Track in-flight request to avoid stale updates
   const loadingRef = useRef(false)
 
+  const applyDashData = useCallback((
+    salesCount: number, revenue: number, debt: number,
+    sales: Sale[], revData: RevenueDataPoint[], tops: TopProduct[],
+    low: Product[], out: Product[]
+  ) => {
+    setTodaySalesCount(salesCount)
+    setTodayRevenue(revenue)
+    setRecentSales(sales)
+    setOutstandingDebt(debt)
+    setRevenueData(revData)
+    setTopProducts(tops)
+    setLowStockProducts(low)
+    setOutOfStockProducts(out)
+  }, [])
+
   const loadDashboard = useCallback(async (quiet = false) => {
     if (shopIds.length === 0) return
-    if (loadingRef.current) return   // already fetching, skip duplicate
+    if (loadingRef.current) return
     loadingRef.current = true
+
+    const shopKey = shopIds.join(',')
+
+    // ── Serve cache immediately, then refresh in background ────────
+    const cached = readDashCache(shopKey)
+    if (cached && !quiet) {
+      applyDashData(cached.todaySalesCount, cached.todayRevenue, cached.outstandingDebt,
+        cached.recentSales, cached.revenueData, cached.topProducts, cached.lowStock, cached.outOfStock)
+      setFirstLoad(false)
+      // Still fetch fresh data in background — don't block render
+    }
 
     if (quiet) setRefreshing(true)
 
@@ -111,56 +161,51 @@ export default function DashboardPage() {
           .order('quantity', { ascending: true }),
       ])
 
-      // ── Process today's sales ──────────────────────────────────
-      setTodaySalesCount(todaySales?.length || 0)
-      setTodayRevenue((todaySales || []).reduce((s: number, sale: any) => s + Number(sale.total), 0))
-      setRecentSales((todaySales || []) as unknown as Sale[])
+      // ── Process results ─────────────────────────────────────────
+      const outOf = (stockData || []).filter((p: any) => p.quantity === 0) as unknown as Product[]
+      const lowSt = (stockData || []).filter((p: any) => p.quantity > 0) as unknown as Product[]
 
-      // ── Debt ───────────────────────────────────────────────────
-      setOutstandingDebt((debtData || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0))
+      const salesArr = (todaySales || []) as unknown as Sale[]
+      const salesCount = salesArr.length
+      const revenue = salesArr.reduce((s, sale: any) => s + Number(sale.total), 0)
+      const debt = (debtData || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0)
 
-      // ── Revenue chart: group week sales by day in JS ───────────
       const last7 = Array.from({ length: 7 }, (_, i) => subDays(today, 6 - i))
       const dayMap: Record<string, { revenue: number; sales: number }> = {}
       last7.forEach(d => { dayMap[format(d, 'yyyy-MM-dd')] = { revenue: 0, sales: 0 } })
       ;(weekSales || []).forEach((sale: any) => {
         const key = format(parseISO(sale.created_at), 'yyyy-MM-dd')
-        if (dayMap[key]) {
-          dayMap[key].revenue += Number(sale.total)
-          dayMap[key].sales += 1
-        }
+        if (dayMap[key]) { dayMap[key].revenue += Number(sale.total); dayMap[key].sales += 1 }
       })
-      setRevenueData(
-        last7.map(d => ({
-          date: format(d, 'EEE'),
-          revenue: dayMap[format(d, 'yyyy-MM-dd')].revenue,
-          sales: dayMap[format(d, 'yyyy-MM-dd')].sales,
-        }))
-      )
+      const revData: RevenueDataPoint[] = last7.map(d => ({
+        date: format(d, 'EEE'),
+        revenue: dayMap[format(d, 'yyyy-MM-dd')].revenue,
+        sales: dayMap[format(d, 'yyyy-MM-dd')].sales,
+      }))
 
-      // ── Top 5 products ─────────────────────────────────────────
       const totals: Record<string, TopProduct> = {}
       ;(weekSales || []).forEach((sale: any) => {
         ;(sale.sale_items || []).forEach((item: any) => {
-          if (!totals[item.product_name]) {
-            totals[item.product_name] = { name: item.product_name, quantity: 0, revenue: 0 }
-          }
+          if (!totals[item.product_name]) totals[item.product_name] = { name: item.product_name, quantity: 0, revenue: 0 }
           totals[item.product_name].quantity += Number(item.quantity)
           totals[item.product_name].revenue += Number(item.subtotal)
         })
       })
-      setTopProducts(Object.values(totals).sort((a, b) => b.revenue - a.revenue).slice(0, 5))
+      const tops = Object.values(totals).sort((a, b) => b.revenue - a.revenue).slice(0, 5)
 
-      // ── Stock alerts ───────────────────────────────────────────
-      setOutOfStockProducts((stockData || []).filter((p: any) => p.quantity === 0) as unknown as Product[])
-      setLowStockProducts((stockData || []).filter((p: any) => p.quantity > 0) as unknown as Product[])
+      applyDashData(salesCount, revenue, debt, salesArr, revData, tops, lowSt, outOf)
+
+      // Persist to cache for next reload
+      writeDashCache({ shopKey, todaySalesCount: salesCount, todayRevenue: revenue,
+        outstandingDebt: debt, recentSales: salesArr, revenueData: revData,
+        topProducts: tops, lowStock: lowSt, outOfStock: outOf })
 
     } finally {
       loadingRef.current = false
       setFirstLoad(false)
       setRefreshing(false)
     }
-  }, [shopIds.join(','), shop?.low_stock_threshold])
+  }, [shopIds.join(','), shop?.low_stock_threshold, applyDashData])
 
   // Initial load when shopIds become available
   useEffect(() => {

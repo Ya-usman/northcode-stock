@@ -8,7 +8,6 @@ import type { Profile, Shop, UserRole } from '@/lib/types/database'
 interface AuthState {
   user: User | null
   profile: Profile | null
-  // Multi-boutique
   userShops: Shop[]
   activeShop: Shop | null
   roleInActiveShop: UserRole | null
@@ -16,7 +15,6 @@ interface AuthState {
 }
 
 interface AuthContextValue extends AuthState {
-  // Compat — pointe sur activeShop
   shop: Shop | null
   isSuperAdmin: boolean
   signOut: () => Promise<void>
@@ -25,11 +23,45 @@ interface AuthContextValue extends AuthState {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
-
 const supabase = createClient()
 
 type MemberRow = { role: UserRole; is_active: boolean; shops: Shop | null }
 
+// ── localStorage cache for profile + shops ──────────────────────────────────
+// Lets the app render instantly on reload even when Supabase is slow/unreachable
+const CACHE_KEY = 'auth_cache_v1'
+
+interface AuthCache {
+  userId: string
+  profile: Profile
+  userShops: Shop[]
+  memberships: MemberRow[]
+  savedAt: number
+}
+
+function readCache(userId: string): AuthCache | null {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY)
+    if (!raw) return null
+    const c: AuthCache = JSON.parse(raw)
+    // Discard if older than 24h or wrong user
+    if (c.userId !== userId || Date.now() - c.savedAt > 86400000) return null
+    return c
+  } catch { return null }
+}
+
+function writeCache(userId: string, profile: Profile, userShops: Shop[], memberships: MemberRow[]) {
+  try {
+    const c: AuthCache = { userId, profile, userShops, memberships, savedAt: Date.now() }
+    localStorage.setItem(CACHE_KEY, JSON.stringify(c))
+  } catch { /* storage full — ignore */ }
+}
+
+function clearCache() {
+  try { localStorage.removeItem(CACHE_KEY) } catch { /* ignore */ }
+}
+
+// ── Fetch from Supabase ─────────────────────────────────────────────────────
 async function fetchUserData(userId: string): Promise<{
   profile: Profile | null
   userShops: Shop[]
@@ -44,6 +76,7 @@ async function fetchUserData(userId: string): Promise<{
 
   if (profile && !profile.is_active) {
     document.cookie = 'user_role=; path=/; max-age=0'
+    clearCache()
     await supabase.auth.signOut()
     window.location.href = '/en/login?error=inactive'
     return { profile: null, userShops: [], memberships: [] }
@@ -52,7 +85,6 @@ async function fetchUserData(userId: string): Promise<{
   const rows = (memberships ?? []) as MemberRow[]
   const userShops = rows.map(m => m.shops).filter(Boolean) as Shop[]
 
-  // Fallback : si pas encore de shop_members (ancien compte), lire via profiles
   if (userShops.length === 0 && profile?.shop_id) {
     const { data: shop } = await supabase.from('shops').select('*').eq('id', profile.shop_id).single()
     if (shop) return { profile, userShops: [shop as Shop], memberships: rows }
@@ -61,6 +93,7 @@ async function fetchUserData(userId: string): Promise<{
   return { profile, userShops, memberships: rows }
 }
 
+// ── Provider ────────────────────────────────────────────────────────────────
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
     user: null,
@@ -76,7 +109,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return null
   })
 
-  // Keep activeShopId accessible in async callbacks without stale closure
   const activeShopIdRef = useRef(activeShopId)
   useEffect(() => { activeShopIdRef.current = activeShopId }, [activeShopId])
 
@@ -85,7 +117,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     profile: Profile | null,
     userShops: Shop[],
     rows: MemberRow[],
-    currentActiveId: string | null
+    currentActiveId: string | null,
+    skipCache = false
   ) => {
     setMemberships(rows)
     const resolvedId = currentActiveId && userShops.find(s => s.id === currentActiveId)
@@ -102,17 +135,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ?? profile?.role
       ?? null) as UserRole | null
 
+    // Persist to cache so next reload is instant
+    if (profile && !skipCache) writeCache(user.id, profile, userShops, rows)
+
     setState({ user, profile, userShops, activeShop, roleInActiveShop, loading: false })
   }, [])
 
   useEffect(() => {
-    // Use a cancellation flag instead of initialized ref.
-    // This correctly handles React StrictMode (cleanup+remount) and concurrent mode.
     let cancelled = false
     let bgRetryInterval: ReturnType<typeof setInterval> | null = null
     let bgRetryStop: ReturnType<typeof setTimeout> | null = null
 
-    // 1. Bootstrap via getSession() — reads cookies/localStorage, no network round-trip
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (cancelled) return
 
@@ -121,8 +154,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
+      // ── Step 1: serve from cache immediately (zero latency) ────────────
+      const cached = readCache(session.user.id)
+      if (cached) {
+        // Render instantly with cached data, then refresh in background
+        applyUserData(session.user, cached.profile, cached.userShops, cached.memberships, activeShopIdRef.current, true)
+        // Background refresh (no retry needed — cache already shown)
+        fetchUserData(session.user.id).then(({ profile, userShops, memberships: rows }) => {
+          if (!cancelled && profile) {
+            applyUserData(session.user, profile, userShops, rows, activeShopIdRef.current)
+          }
+        }).catch(() => { /* keep cached */ })
+        return
+      }
+
+      // ── Step 2: no cache — fetch with exponential backoff + jitter ─────
+      // Jitter: random 0–500ms offset so concurrent tabs don't all hit Supabase at once
+      const jitter = Math.random() * 500
+      await new Promise(r => setTimeout(r, jitter))
+
       let lastErr: unknown = null
-      // Up to 5 attempts with exponential backoff (400ms, 800ms, 1.6s, 3.2s)
       for (let attempt = 0; attempt < 5; attempt++) {
         if (cancelled) return
         try {
@@ -132,13 +183,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return
         } catch (e) {
           lastErr = e
-          if (attempt < 4) await new Promise(r => setTimeout(r, 400 * Math.pow(2, attempt)))
+          if (attempt < 4) {
+            // Exponential backoff + jitter to avoid thundering herd
+            const delay = 400 * Math.pow(2, attempt) + Math.random() * 300
+            await new Promise(r => setTimeout(r, delay))
+          }
         }
       }
-      // All retries failed — unblock render but schedule background retries
+
+      // All retries failed — unblock render, keep retrying in background
       console.error('fetchUserData failed after 5 attempts', lastErr)
       if (!cancelled) setState(s => ({ ...s, user: session.user, loading: false }))
-      // Background retry every 5s until profile loads or component unmounts
+
       if (!cancelled) {
         bgRetryInterval = setInterval(async () => {
           if (cancelled) { clearInterval(bgRetryInterval!); return }
@@ -151,8 +207,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               bgRetryInterval = null
             }
           } catch { /* keep retrying */ }
-        }, 5000)
-        // Stop after 2 minutes
+        }, 5000 + Math.random() * 2000) // 5–7s with jitter
         bgRetryStop = setTimeout(() => {
           if (bgRetryInterval) { clearInterval(bgRetryInterval); bgRetryInterval = null }
         }, 120000)
@@ -161,17 +216,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!cancelled) setState(s => ({ ...s, loading: false }))
     })
 
-    // Safety: never leave loading:true beyond 12 seconds
+    // Safety: never stay on skeleton beyond 12s
     const safetyTimer = setTimeout(() => {
       if (!cancelled) setState(s => s.loading ? { ...s, loading: false } : s)
     }, 12000)
 
-    // 2. Listen to auth state changes (sign-in, token refresh, sign-out)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (cancelled) return
-      if (event === 'INITIAL_SESSION') return // already handled by getSession() above
+      if (event === 'INITIAL_SESSION') return
 
       if (event === 'SIGNED_OUT') {
+        clearCache()
         setState({ user: null, profile: null, userShops: [], activeShop: null, roleInActiveShop: null, loading: false })
         return
       }
@@ -182,7 +237,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (cancelled) return
           applyUserData(session.user, profile, userShops, rows, activeShopIdRef.current)
         } catch {
-          // Keep existing state if profile already loaded; otherwise set user to unblock render
           if (!cancelled) setState(s => s.profile ? s : { ...s, user: session.user, loading: false })
         }
       }
@@ -200,13 +254,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const switchShop = useCallback((shopId: string) => {
     setActiveShopId(shopId)
     localStorage.setItem('active_shop_id', shopId)
-
     setState(prev => {
       const activeShop = prev.userShops.find(s => s.id === shopId) ?? prev.activeShop
       const roleInActiveShop = (memberships.find(m => m.shops?.id === shopId)?.role
         ?? prev.profile?.role
         ?? null) as UserRole | null
-      // Update role cookie for middleware
       if (roleInActiveShop) {
         document.cookie = `user_role=${roleInActiveShop}; path=/; max-age=1800; samesite=lax`
       }
@@ -220,19 +272,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { profile, userShops, memberships: rows } = await fetchUserData(user.id)
       if (profile) applyUserData(user, profile, userShops, rows, activeShopIdRef.current)
-    } catch {/* keep */}
+    } catch { /* keep */ }
   }, [applyUserData])
 
   const signOut = useCallback(async () => {
     document.cookie = 'user_role=; path=/; max-age=0'
     localStorage.removeItem('active_shop_id')
+    clearCache()
     await supabase.auth.signOut()
     window.location.href = '/en/login'
   }, [])
 
   const value = useMemo<AuthContextValue>(() => ({
     ...state,
-    shop: state.activeShop, // compat alias
+    shop: state.activeShop,
     isSuperAdmin: state.profile?.role === 'super_admin',
     signOut,
     refreshShop,
