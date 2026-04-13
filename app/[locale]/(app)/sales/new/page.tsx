@@ -295,28 +295,25 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const shopDrafts = drafts.filter(d => d.shopId === selectedShop?.id)
 
   // Fetch unpaid sales when customer with debt is selected
+  // Uses /api/payments/debts to bypass RLS for multi-shop accounts
   useEffect(() => {
     setDebtRepayEnabled(false)
     setDebtRepayAmount('')
     setCustomerUnpaidSales([])
-    if (!selectedCustomer || Number(selectedCustomer.total_debt) <= 0) return
-    const db = supabase as any
-    db.from('sales')
-      .select('id, sale_number, total, balance, amount_paid')
-      .eq('customer_id', selectedCustomer.id)
-      .neq('payment_status', 'paid')
-      .eq('sale_status', 'active')
-      .order('created_at', { ascending: true })
-      .then(({ data }: any) => {
-        const sales = data || []
+    if (!selectedCustomer || Number(selectedCustomer.total_debt) <= 0 || !selectedShop?.id) return
+    fetch(`/api/payments/debts?shop_id=${selectedShop.id}`)
+      .then(r => r.json())
+      .then(({ debtors }) => {
+        const debtor = (debtors || []).find((d: any) => d.customer.id === selectedCustomer.id)
+        const sales = debtor?.unpaidSales || []
         setCustomerUnpaidSales(sales)
-        if (sales[0]) {
-          // Pre-fill with total debt (FIFO will distribute automatically)
+        if (sales.length > 0) {
           const totalDebt = sales.reduce((s: number, x: any) => s + Number(x.balance), 0)
           setDebtRepayAmount(String(Math.round(totalDebt)))
         }
       })
-  }, [selectedCustomer?.id])
+      .catch(() => {/* keep empty */})
+  }, [selectedCustomer?.id, selectedShop?.id])
 
   // ── TOTALS ─────────────────────────────────────────────
   const subtotal = cart.reduce((s, i) => s + i.subtotal, 0)
@@ -326,7 +323,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   // Montant total à encaisser = vente + remboursement dette si activé
   const debtAmt = debtRepayEnabled ? (Number(debtRepayAmount) || 0) : 0
   const totalToCollect = total + debtAmt
-  const paid = paymentMethod === 'cash' ? Number(amountPaid) || 0 : total
+  // For credit: customer pays nothing now → paid = 0, balance = total
+  const paid = paymentMethod === 'cash' ? Number(amountPaid) || 0 : paymentMethod === 'credit' ? 0 : total
   const change = paymentMethod === 'cash' ? Math.max(0, paid - totalToCollect) : 0
   const balance = Math.max(0, total - paid)
 
@@ -384,7 +382,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           tax,
           total,
           payment_method: paymentMethod,
-          payment_status: balance > 0 ? (paid > 0 ? 'partial' : 'pending') : 'paid',
+          payment_status: paymentMethod === 'credit'
+            ? 'pending'
+            : balance > 0 ? (paid > 0 ? 'partial' : 'pending') : 'paid',
           amount_paid: paymentMethod === 'credit' ? 0 : paid,
           sale_status: 'active',
           notes: notes || null,
@@ -416,34 +416,20 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         })
       }
 
-      // Include debt repayment — FIFO across unpaid invoices
+      // Include debt repayment — FIFO via admin route (bypasses RLS)
       if (debtRepayEnabled && Number(debtRepayAmount) > 0 && customerUnpaidSales.length > 0) {
-        let remaining = Number(debtRepayAmount)
-        for (const unpaid of customerUnpaidSales) {
-          if (remaining <= 0) break
-          const toApply = Math.min(remaining, Number(unpaid.balance))
-          if (toApply <= 0) continue
-          const method = paymentMethod === 'credit' ? 'cash' : paymentMethod
-          // Insert payment record
-          await db.from('payments').insert({
-            sale_id: unpaid.id,
-            amount: toApply,
-            method,
+        await fetch('/api/payments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            unpaid_sale_ids: customerUnpaidSales.map((s: any) => s.id),
+            amount: Number(debtRepayAmount),
+            method: paymentMethod === 'credit' ? 'cash' : paymentMethod,
             reference: paymentMethod === 'transfer' ? transferRef : null,
             notes: `Inclus dans la vente #${(sale as any).sale_number}`,
-            received_by: profile!.id,
-          })
-          // Update the sale's amount_paid and payment_status
-          // (balance is a generated column: total - amount_paid, no need to set it)
-          const newAmountPaid = Number(unpaid.amount_paid) + toApply
-          const newBalance = Math.max(0, Number(unpaid.total) - newAmountPaid)
-          const newStatus = newBalance <= 0 ? 'paid' : 'partial'
-          await db.from('sales').update({
-            amount_paid: newAmountPaid,
-            payment_status: newStatus,
-          }).eq('id', unpaid.id)
-          remaining -= toApply
-        }
+            shop_id: selectedShop!.id,
+          }),
+        })
       }
 
       const { data: fullSale } = await db
