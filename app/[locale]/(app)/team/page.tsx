@@ -369,13 +369,11 @@ export default function TeamPage() {
                           {isOnline ? 'En ligne' : 'Hors ligne'}
                         </span>
                       )}
-                      {p.last_seen ? (
+                      {p.last_seen && !isOnline && (
                         <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                           <Clock className="h-3 w-3" />
-                          {isOnline ? 'Actif maintenant' : `Vu ${formatDistanceToNow(new Date(p.last_seen), { addSuffix: true, locale: fr })}`}
+                          {formatDistanceToNow(new Date(p.last_seen), { addSuffix: true, locale: fr })}
                         </span>
-                      ) : (
-                        <span className="text-[10px] text-muted-foreground italic">Jamais connecté</span>
                       )}
                     </div>
                   </div>
