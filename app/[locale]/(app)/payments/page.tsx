@@ -457,7 +457,7 @@ export default function DettesPage() {
                           <Badge variant="outline" className="text-[10px]">{METHOD_LABELS[sale.payment_method] || sale.payment_method}</Badge>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {format(new Date(sale.created_at), 'dd MMM yyyy', { locale: fr })}
+                          {format(new Date(sale.created_at), "dd MMM yyyy 'à' HH:mm", { locale: fr })}
                           {sale.cashier_name && <> · par <strong>{sale.cashier_name}</strong></>}
                         </p>
                       </div>
