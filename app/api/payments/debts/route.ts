@@ -51,23 +51,39 @@ export async function GET(request: Request) {
     if (!customers?.length) return NextResponse.json({ debtors: [] })
 
     // Fetch unpaid sales for all customers in one query
+    // Filter by balance > 0 (not by payment_status) to catch credit sales that were
+    // incorrectly recorded as 'paid' but have amount_paid = 0 (legacy bug)
     const customerIds = customers.map((c: any) => c.id)
     const { data: allSales, error: salesErr } = await admin
       .from('sales')
-      .select('id, sale_number, created_at, total, balance, amount_paid, payment_status, customer_id, sale_items(product_name, quantity, subtotal)')
+      .select('id, sale_number, created_at, total, balance, amount_paid, payment_status, customer_id, cashier_id, sale_items(product_name, quantity, subtotal)')
       .eq('shop_id', shop_id)
       .in('customer_id', customerIds)
-      .neq('payment_status', 'paid')
+      .gt('balance', 0)
       .eq('sale_status', 'active')
       .order('created_at', { ascending: true })
 
     if (salesErr) throw salesErr
 
+    // Fetch cashier names for all sales
+    const cashierIds = Array.from(new Set((allSales || []).map((s: any) => s.cashier_id).filter(Boolean)))
+    let cashierMap: Record<string, string> = {}
+    if (cashierIds.length > 0) {
+      const { data: cashierProfiles } = await admin
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', cashierIds)
+      for (const p of (cashierProfiles || [])) cashierMap[p.id] = p.full_name
+    }
+
     // Group sales by customer_id
     const salesByCustomer: Record<string, any[]> = {}
     for (const sale of (allSales || [])) {
       if (!salesByCustomer[sale.customer_id]) salesByCustomer[sale.customer_id] = []
-      salesByCustomer[sale.customer_id].push(sale)
+      salesByCustomer[sale.customer_id].push({
+        ...sale,
+        cashier_name: sale.cashier_id ? (cashierMap[sale.cashier_id] || null) : null,
+      })
     }
 
     const debtors = customers.map((customer: any) => ({

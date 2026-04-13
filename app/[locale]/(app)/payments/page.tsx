@@ -29,6 +29,7 @@ interface UnpaidSale {
   balance: number
   amount_paid: number
   payment_status: string
+  cashier_name?: string | null
   sale_items?: { product_name: string; quantity: number; subtotal: number }[]
 }
 
@@ -355,6 +356,12 @@ export default function DettesPage() {
                               <span className="text-xs font-bold text-red-600">Dû: {fmt(sale.balance)}</span>
                             </div>
                           )}
+                          {/* Cashier */}
+                          {sale.cashier_name && (
+                            <p className="text-[11px] text-muted-foreground">
+                              Vente par : <strong>{sale.cashier_name}</strong>
+                            </p>
+                          )}
                           {/* Items */}
                           {sale.sale_items && sale.sale_items.length > 0 && (
                             <div className="pt-1 border-t space-y-0.5">
@@ -395,7 +402,14 @@ export default function DettesPage() {
 
           <div className="space-y-4">
             {/* Résumé dette */}
-            {repayDebtor && (
+            {repayDebtor && repayDebtor.unpaidSales.length === 0 ? (
+              <div className="rounded-lg bg-orange-50 border border-orange-200 p-3 space-y-1">
+                <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide">Données à corriger</p>
+                <p className="text-sm text-orange-700">
+                  La dette de {fmt(repayDebtor.totalDebt)} est enregistrée mais aucune facture impayée n&apos;est trouvée. Les ventes à crédit concernées ont été enregistrées avec un ancien format. Contactez un administrateur pour corriger les données.
+                </p>
+              </div>
+            ) : repayDebtor ? (
               <div className="rounded-lg bg-red-50 border border-red-200 p-3 space-y-1">
                 <p className="text-xs font-semibold text-red-700 uppercase tracking-wide">Dette totale</p>
                 <p className="text-2xl font-bold text-red-600">{fmt(repayDebtor.totalDebt)}</p>
@@ -403,7 +417,7 @@ export default function DettesPage() {
                   {repayDebtor.unpaidSales.length} facture{repayDebtor.unpaidSales.length !== 1 ? 's' : ''} impayée{repayDebtor.unpaidSales.length !== 1 ? 's' : ''} — appliqué de la plus ancienne à la plus récente
                 </p>
               </div>
-            )}
+            ) : null}
 
             {/* Montant donné par le client */}
             <div className="space-y-1">
@@ -486,7 +500,7 @@ export default function DettesPage() {
             </Button>
             <Button
               onClick={recordRepayment}
-              disabled={saving}
+              disabled={saving || !repayDebtor || repayDebtor.unpaidSales.length === 0}
               className="bg-northcode-blue hover:bg-northcode-blue-light flex-1"
             >
               {saving ? 'Enregistrement…' : '✓ Confirmer le remboursement'}
