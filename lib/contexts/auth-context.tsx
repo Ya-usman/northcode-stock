@@ -109,6 +109,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Use a cancellation flag instead of initialized ref.
     // This correctly handles React StrictMode (cleanup+remount) and concurrent mode.
     let cancelled = false
+    let bgRetryInterval: ReturnType<typeof setInterval> | null = null
+    let bgRetryStop: ReturnType<typeof setTimeout> | null = null
 
     // 1. Bootstrap via getSession() — reads cookies/localStorage, no network round-trip
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -120,7 +122,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       let lastErr: unknown = null
-      for (let attempt = 0; attempt < 3; attempt++) {
+      // Up to 5 attempts with exponential backoff (400ms, 800ms, 1.6s, 3.2s)
+      for (let attempt = 0; attempt < 5; attempt++) {
         if (cancelled) return
         try {
           const { profile, userShops, memberships: rows } = await fetchUserData(session.user.id)
@@ -129,12 +132,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return
         } catch (e) {
           lastErr = e
-          if (attempt < 2) await new Promise(r => setTimeout(r, 400 * (attempt + 1)))
+          if (attempt < 4) await new Promise(r => setTimeout(r, 400 * Math.pow(2, attempt)))
         }
       }
-      // All retries failed — show app with user so onAuthStateChange can retry later
-      console.error('fetchUserData failed after 3 attempts', lastErr)
+      // All retries failed — unblock render but schedule background retries
+      console.error('fetchUserData failed after 5 attempts', lastErr)
       if (!cancelled) setState(s => ({ ...s, user: session.user, loading: false }))
+      // Background retry every 5s until profile loads or component unmounts
+      if (!cancelled) {
+        bgRetryInterval = setInterval(async () => {
+          if (cancelled) { clearInterval(bgRetryInterval!); return }
+          try {
+            const { profile, userShops, memberships: rows } = await fetchUserData(session.user.id)
+            if (cancelled) { clearInterval(bgRetryInterval!); return }
+            if (profile) {
+              applyUserData(session.user, profile, userShops, rows, activeShopIdRef.current)
+              clearInterval(bgRetryInterval!)
+              bgRetryInterval = null
+            }
+          } catch { /* keep retrying */ }
+        }, 5000)
+        // Stop after 2 minutes
+        bgRetryStop = setTimeout(() => {
+          if (bgRetryInterval) { clearInterval(bgRetryInterval); bgRetryInterval = null }
+        }, 120000)
+      }
     }).catch(() => {
       if (!cancelled) setState(s => ({ ...s, loading: false }))
     })
@@ -169,6 +191,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true
       clearTimeout(safetyTimer)
+      if (bgRetryInterval) clearInterval(bgRetryInterval)
+      if (bgRetryStop) clearTimeout(bgRetryStop)
       subscription.unsubscribe()
     }
   }, [applyUserData])
