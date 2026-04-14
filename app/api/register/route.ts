@@ -11,18 +11,7 @@ export async function POST(request: Request) {
     }
 
     const countryConfig = getCountry(country || 'NG')
-    const supabase = await createAdminClient() as any
-
-    // Wait for auth.users row to be committed (free-tier race condition)
-    let userConfirmed = false
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const { data: authUser } = await supabase.auth.admin.getUserById(user_id)
-      if (authUser?.user?.id) { userConfirmed = true; break }
-      await new Promise(r => setTimeout(r, 800 + attempt * 400))
-    }
-    if (!userConfirmed) {
-      return NextResponse.json({ error: 'Compte utilisateur non encore disponible, veuillez réessayer.' }, { status: 503 })
-    }
+    const supabase = await createAdminClient()
 
     // Create shop
     const { data: shop, error: shopError } = await supabase
@@ -37,7 +26,7 @@ export async function POST(request: Request) {
         country: countryConfig.code,
         plan: 'trial',
         trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      })
+      } as any)
       .select('id')
       .single()
 
@@ -54,21 +43,13 @@ export async function POST(request: Request) {
         full_name,
         role: 'owner',
         is_active: true,
-      })
+      } as any)
 
     if (profileError) {
       // Rollback shop
       await supabase.from('shops').delete().eq('id', shop.id)
       return NextResponse.json({ error: profileError.message }, { status: 500 })
     }
-
-    // Add owner to shop_members
-    await supabase.from('shop_members').upsert({
-      shop_id: shop.id,
-      user_id,
-      role: 'owner',
-      is_active: true,
-    }, { onConflict: 'shop_id,user_id' })
 
     return NextResponse.json({ success: true, shop_id: shop.id })
   } catch (err: any) {

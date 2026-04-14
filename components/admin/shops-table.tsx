@@ -10,10 +10,8 @@ import {
 } from '@/components/ui/dialog'
 import {
   ShieldOff, ShieldCheck, Clock, CreditCard, Search,
-  ChevronDown, ChevronUp, ExternalLink, Plus,
+  ChevronDown, ChevronUp, ExternalLink,
 } from 'lucide-react'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 
 interface Shop {
   id: string
@@ -46,41 +44,6 @@ export function AdminShopsTable({ shops, locale }: Props) {
   }>({ open: false, action: 'suspend', shop: null })
   const [extendDays, setExtendDays] = useState('7')
   const [grantPlan, setGrantPlan] = useState('starter')
-
-  // Create shop dialog
-  const [createOpen, setCreateOpen] = useState(false)
-  const [creating, setCreating] = useState(false)
-  const [createForm, setCreateForm] = useState({
-    owner_email: '', owner_name: '', shop_name: '', city: '', country: 'NG', temp_password: '',
-  })
-
-  const handleCreate = async () => {
-    if (!createForm.owner_email || !createForm.owner_name || !createForm.shop_name || !createForm.city) {
-      toast({ title: 'Tous les champs sont requis', variant: 'destructive' }); return
-    }
-    setCreating(true)
-    try {
-      const res = await fetch('/api/admin/create-shop', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(createForm),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      toast({
-        title: `Boutique créée${data.user_created ? ' + compte créé' : ''}`,
-        description: `${createForm.shop_name} — ${createForm.owner_email}`,
-        variant: 'success',
-      })
-      setCreateOpen(false)
-      setCreateForm({ owner_email: '', owner_name: '', shop_name: '', city: '', country: 'NG', temp_password: '' })
-      window.location.reload()
-    } catch (err: any) {
-      toast({ title: err.message, variant: 'destructive' })
-    } finally {
-      setCreating(false)
-    }
-  }
 
   const filtered = shops.filter(shop => {
     const subscribed = hasActiveSubscription(shop.plan, shop.plan_expires_at)
@@ -135,15 +98,8 @@ export function AdminShopsTable({ shops, locale }: Props) {
       <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
         {/* Table header + filters */}
         <div className="px-5 py-4 border-b border-gray-800 flex flex-wrap gap-3 items-center justify-between">
-          <h2 className="font-semibold text-white">All Shops ({filtered.length})</h2>
+          <h2 className="font-semibold text-white">All Shops</h2>
           <div className="flex flex-wrap gap-2 items-center">
-            <Button
-              size="sm"
-              className="gap-1.5 bg-northcode-blue hover:bg-northcode-blue-light h-8 text-xs"
-              onClick={() => setCreateOpen(true)}
-            >
-              <Plus className="h-3.5 w-3.5" /> Nouvelle boutique
-            </Button>
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
@@ -438,102 +394,6 @@ export function AdminShopsTable({ shops, locale }: Props) {
               }
             >
               Confirm
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Create shop dialog */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="bg-gray-900 border-gray-700 text-white max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-white">➕ Créer une nouvelle boutique</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <p className="text-gray-400 text-xs">
-              Si l'email n'existe pas encore, un compte sera créé automatiquement.
-            </p>
-            <div className="space-y-1">
-              <Label className="text-xs text-gray-400">Email du propriétaire *</Label>
-              <input
-                type="email"
-                value={createForm.owner_email}
-                onChange={e => setCreateForm(f => ({ ...f, owner_email: e.target.value }))}
-                placeholder="client@email.com"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-northcode-blue"
-                autoFocus
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-gray-400">Nom complet du propriétaire *</Label>
-              <input
-                type="text"
-                value={createForm.owner_name}
-                onChange={e => setCreateForm(f => ({ ...f, owner_name: e.target.value }))}
-                placeholder="Prénom Nom"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-northcode-blue"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-gray-400">Nom de la boutique *</Label>
-              <input
-                type="text"
-                value={createForm.shop_name}
-                onChange={e => setCreateForm(f => ({ ...f, shop_name: e.target.value }))}
-                placeholder="Ma Boutique"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-northcode-blue"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs text-gray-400">Ville *</Label>
-                <input
-                  type="text"
-                  value={createForm.city}
-                  onChange={e => setCreateForm(f => ({ ...f, city: e.target.value }))}
-                  placeholder="Lagos"
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-northcode-blue"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-gray-400">Pays</Label>
-                <select
-                  value={createForm.country}
-                  onChange={e => setCreateForm(f => ({ ...f, country: e.target.value }))}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-northcode-blue"
-                >
-                  <option value="NG">🇳🇬 Nigeria</option>
-                  <option value="CM">🇨🇲 Cameroun</option>
-                  <option value="CI">🇨🇮 Côte d'Ivoire</option>
-                  <option value="SN">🇸🇳 Sénégal</option>
-                  <option value="GH">🇬🇭 Ghana</option>
-                </select>
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-gray-400">Mot de passe temporaire <span className="text-gray-600">(optionnel — auto-généré si vide)</span></Label>
-              <input
-                type="text"
-                value={createForm.temp_password}
-                onChange={e => setCreateForm(f => ({ ...f, temp_password: e.target.value }))}
-                placeholder="Laissez vide pour auto-générer"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-northcode-blue"
-              />
-            </div>
-          </div>
-          <DialogFooter className="gap-2 mt-2">
-            <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)}
-              className="border-gray-700 text-gray-300 hover:bg-gray-800">
-              Annuler
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleCreate}
-              loading={creating}
-              disabled={!createForm.owner_email || !createForm.owner_name || !createForm.shop_name || !createForm.city}
-              className="bg-northcode-blue hover:bg-northcode-blue-light"
-            >
-              Créer la boutique
             </Button>
           </DialogFooter>
         </DialogContent>
