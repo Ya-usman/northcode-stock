@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import {
   Search, FileDown, ChevronDown, ChevronUp,
-  XCircle, Trash2, CheckCircle2, Store, Printer,
+  XCircle, CheckCircle2, Store, Printer,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -31,7 +31,7 @@ const methodLabels: Record<string, string> = {
   cash: 'Cash', transfer: 'Virement', credit: 'Crédit', paystack: 'Paystack',
 }
 
-type DialogType = 'cancel' | 'delete' | 'validate'
+type DialogType = 'cancel' | 'validate'
 
 export default function SalesHistoryPage() {
   const t = useTranslations()
@@ -72,7 +72,6 @@ export default function SalesHistoryPage() {
 
   const isOwner = profile?.role === 'owner' || profile?.role === 'super_admin'
   const isCashier = profile?.role === 'cashier'
-  const canDelete = isOwner
 
   const fetchSales = async () => {
     if (!shopId) return
@@ -163,15 +162,6 @@ export default function SalesHistoryPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sale_id: dialog.sale.id, reason: cancelReason }),
-        })
-        const json = await res.json()
-        if (!res.ok) throw new Error(json.error)
-        toast({ title: json.message, variant: 'success' })
-      } else if (dialog.type === 'delete') {
-        const res = await fetch('/api/sales/delete', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sale_id: dialog.sale.id }),
         })
         const json = await res.json()
         if (!res.ok) throw new Error(json.error)
@@ -312,7 +302,6 @@ export default function SalesHistoryPage() {
                   isOwner ||
                   (isCashier && sale.cashier_id === profile?.id && new Date(sale.created_at) >= startOfDay(new Date()))
                 )
-                const canDeleteThis = canDelete && !isCancelled
 
                 return (
                   <>
@@ -401,17 +390,6 @@ export default function SalesHistoryPage() {
                                   <XCircle className="h-3 w-3" /> Annuler
                                 </Button>
                               )}
-                              {/* Delete */}
-                              {canDeleteThis && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="gap-1.5 text-xs h-7 border-red-300 text-red-600 hover:bg-red-50"
-                                  onClick={() => setDialog({ type: 'delete', sale })}
-                                >
-                                  <Trash2 className="h-3 w-3" /> Supprimer
-                                </Button>
-                              )}
                               {/* Print receipt */}
                               {!isCancelled && (
                                 <Button
@@ -442,7 +420,6 @@ export default function SalesHistoryPage() {
           <DialogHeader>
             <DialogTitle>
               {dialog?.type === 'cancel' && '⚠️ Annuler la vente'}
-              {dialog?.type === 'delete' && '🗑️ Supprimer définitivement'}
               {dialog?.type === 'validate' && '✅ Valider le paiement'}
             </DialogTitle>
           </DialogHeader>
@@ -463,14 +440,6 @@ export default function SalesHistoryPage() {
                   />
                 </div>
               </>
-            )}
-
-            {dialog?.type === 'delete' && (
-              <p className="text-sm text-muted-foreground">
-                Supprimer définitivement la vente <strong>#{dialog.sale.sale_number}</strong> ?
-                Cette action est <strong className="text-red-600">irréversible</strong>.
-                Le stock sera restauré.
-              </p>
             )}
 
             {dialog?.type === 'validate' && dialog.sale && (
