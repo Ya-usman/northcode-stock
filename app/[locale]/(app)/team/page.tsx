@@ -43,7 +43,6 @@ interface Member {
   shop_id: string
   role: UserRole
   is_active: boolean
-  can_delete_sales: boolean
   joined_at: string
   profiles: {
     id: string
@@ -98,7 +97,7 @@ export default function TeamPage() {
       // Step 1: get shop_members
       const { data: membersData, error: membersError } = await supabase
         .from('shop_members')
-        .select('id, user_id, shop_id, role, is_active, can_delete_sales, joined_at')
+        .select('id, user_id, shop_id, role, is_active, joined_at')
         .eq('shop_id', viewShopId)
         .order('role')
 
@@ -124,7 +123,6 @@ export default function TeamPage() {
       // Merge
       setMembers(rows.map(m => ({
         ...m,
-        can_delete_sales: m.can_delete_sales ?? false,
         profiles: profilesMap[m.user_id] ?? { id: m.user_id, full_name: 'Invité', last_seen: null, is_active: m.is_active },
       })) as Member[])
     } finally {
@@ -144,21 +142,6 @@ export default function TeamPage() {
     setActionLoading(null)
     if (error) { toast({ title: error.message, variant: 'destructive' }); return }
     toast({ title: t('toast.role_updated'), variant: 'success' })
-    fetchMembers()
-  }
-
-  const toggleCanDelete = async (member: Member) => {
-    setActionLoading(member.id + '_del')
-    const newVal = !member.can_delete_sales
-    const res = await fetch('/api/team/permissions', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shop_id: member.shop_id, user_id: member.user_id, can_delete_sales: newVal }),
-    })
-    const json = await res.json()
-    setActionLoading(null)
-    if (!res.ok) { toast({ title: json.error, variant: 'destructive' }); return }
-    toast({ title: newVal ? t('toast.delete_permission_on') : t('toast.delete_permission_off'), variant: 'success' })
     fetchMembers()
   }
 
@@ -355,11 +338,6 @@ export default function TeamPage() {
                       <p className="font-semibold text-sm truncate max-w-[160px]">{p.full_name}</p>
                       {isMe && <Badge variant="outline" className="text-[10px] px-1.5 flex-shrink-0">Moi</Badge>}
                       {!member.is_active && <Badge className="text-[10px] bg-red-100 text-red-600 border-red-200 flex-shrink-0">Désactivé</Badge>}
-                      {member.can_delete_sales && (
-                        <Badge className="text-[10px] bg-orange-100 text-orange-700 border-orange-200 gap-0.5 flex-shrink-0">
-                          <Trash2 className="h-2.5 w-2.5" /> Peut supprimer
-                        </Badge>
-                      )}
                     </div>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${ROLE_COLORS[member.role] || ROLE_COLORS.viewer}`}>
@@ -439,21 +417,6 @@ export default function TeamPage() {
                       <Trash2 className="h-3 w-3" />
                     </Button>
 
-                    {/* can_delete_sales toggle — only for cashier */}
-                    {member.role === 'cashier' && (
-                      <button
-                        onClick={() => toggleCanDelete(member)}
-                        disabled={isLoading}
-                        className={`flex items-center gap-1.5 text-[11px] rounded-lg px-2.5 py-1.5 transition-colors ${
-                          member.can_delete_sales
-                            ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                        }`}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                        {member.can_delete_sales ? 'Peut suppr. ✓' : 'Autoriser suppr.'}
-                      </button>
-                    )}
                   </div>
                 )}
               </div>

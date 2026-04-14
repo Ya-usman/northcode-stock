@@ -70,26 +70,9 @@ export default function SalesHistoryPage() {
   const [validateMethod, setValidateMethod] = useState('cash')
   const [actionLoading, setActionLoading] = useState(false)
 
-  // can_delete_sales permission for current user
-  const [canDelete, setCanDelete] = useState(false)
-
   const isOwner = profile?.role === 'owner' || profile?.role === 'super_admin'
   const isCashier = profile?.role === 'cashier'
-
-  useEffect(() => {
-    if (!shopId || !profile) return
-    // Check can_delete_sales
-    if (!isOwner) {
-      supabase.from('shop_members')
-        .select('can_delete_sales')
-        .eq('shop_id', shopId)
-        .eq('user_id', profile.id)
-        .single()
-        .then(({ data }: any) => setCanDelete(!!data?.can_delete_sales))
-    } else {
-      setCanDelete(true)
-    }
-  }, [shopId, profile?.id, isOwner])
+  const canDelete = isOwner
 
   const fetchSales = async () => {
     if (!shopId) return
