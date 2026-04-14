@@ -703,9 +703,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             <CardContent className="p-4 space-y-3">
               <div className="flex items-center gap-3">
                 <Label className="text-sm w-24 flex-shrink-0">{t('sales.discount')}</Label>
-                <div className="relative flex-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{selectedShop?.currency || '₦'}</span>
-                  <Input type="number" min={0} max={subtotal} value={discount || ''} onChange={e => setDiscount(Math.min(Number(e.target.value), subtotal))} className="pl-7 h-9" placeholder="0" />
+                <div className="flex flex-1 rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-0">
+                  <span className="flex items-center px-2.5 bg-muted border-r text-sm text-muted-foreground font-medium whitespace-nowrap select-none">{selectedShop?.currency || '₦'}</span>
+                  <input type="number" min={0} max={subtotal} value={discount || ''} onChange={e => setDiscount(Math.min(Number(e.target.value), subtotal))} className="flex-1 h-9 px-3 text-sm bg-white outline-none" placeholder="0" />
                 </div>
               </div>
               <Separator />
@@ -814,15 +814,13 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   <div className="space-y-3 pt-1">
                     <div className="space-y-1">
                       <Label className="text-xs text-orange-800">Montant donné par le client pour la dette</Label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">
-                          {selectedShop?.currency || '₦'}
-                        </span>
-                        <Input
+                      <div className="flex rounded-md border border-orange-200 overflow-hidden focus-within:ring-2 focus-within:ring-orange-300">
+                        <span className="flex items-center px-2.5 bg-orange-50 border-r border-orange-200 text-sm text-muted-foreground font-medium whitespace-nowrap select-none">{selectedShop?.currency || '₦'}</span>
+                        <input
                           type="number"
                           value={debtRepayAmount}
                           onChange={e => setDebtRepayAmount(e.target.value)}
-                          className="pl-8 bg-white border-orange-200 h-11 text-base font-bold"
+                          className="flex-1 h-11 px-3 text-base font-bold bg-white outline-none"
                           min={1}
                           placeholder="0"
                         />
@@ -882,10 +880,10 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label>{t('payment.amount_paid')}</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-medium text-muted-foreground">{selectedShop?.currency || '₦'}</span>
-                  <Input type="number" min={0} value={amountPaid} onChange={e => setAmountPaid(e.target.value)}
-                    className="pl-7 h-12 text-lg font-bold" placeholder={totalToCollect.toString()} />
+                <div className="flex rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
+                  <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">{selectedShop?.currency || '₦'}</span>
+                  <input type="number" min={0} value={amountPaid} onChange={e => setAmountPaid(e.target.value)}
+                    className="flex-1 h-12 px-3 text-lg font-bold bg-white outline-none" placeholder={totalToCollect.toString()} />
                 </div>
               </div>
               {Number(amountPaid) > 0 && Number(amountPaid) >= totalToCollect && (

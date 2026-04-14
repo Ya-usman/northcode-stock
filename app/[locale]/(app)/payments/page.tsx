@@ -380,12 +380,12 @@ export default function DettesPage() {
 
             <div className="space-y-1">
               <Label>Montant donné par le client *</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">
+              <div className="flex rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
+                <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">
                   {shop?.currency || '₦'}
                 </span>
-                <Input type="number" value={repayAmount} onChange={e => setRepayAmount(e.target.value)}
-                  className="pl-8 h-12 text-lg font-bold" min={1} placeholder="0" autoFocus />
+                <input type="number" value={repayAmount} onChange={e => setRepayAmount(e.target.value)}
+                  className="flex-1 h-12 px-3 text-lg font-bold bg-white outline-none" min={1} placeholder="0" autoFocus />
               </div>
               {repayDebtor && Number(repayAmount) > 0 && (
                 <p className="text-xs text-muted-foreground">
