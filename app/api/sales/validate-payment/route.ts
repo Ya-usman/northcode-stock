@@ -34,28 +34,21 @@ export async function POST(request: Request) {
     const parsedAmount = Math.min(Number(amount), Number(sale.balance))
     if (parsedAmount <= 0) return NextResponse.json({ error: 'Montant invalide' }, { status: 400 })
 
-    const newAmountPaid = Number(sale.amount_paid) + parsedAmount
-    const newBalance = Math.max(0, Number(sale.total) - newAmountPaid)
-    const newStatus = newBalance <= 0 ? 'paid' : 'partial'
-
-    // Insert payment record
-    await admin.from('payments').insert({
+    // Insert payment — DB trigger (after_payment_insert) updates amount_paid + payment_status automatically.
+    // Do NOT manually update amount_paid here or it gets doubled.
+    const { error: payErr } = await admin.from('payments').insert({
       sale_id,
       amount: parsedAmount,
       method,
       reference: reference || null,
       received_by: user.id,
     })
+    if (payErr) throw payErr
 
-    // Update sale — balance is a generated column, do NOT set it explicitly
-    const { error: updateErr } = await admin.from('sales').update({
-      amount_paid: newAmountPaid,
-      payment_status: newStatus,
-      payment_method: method,
-    }).eq('id', sale_id)
+    // Only update payment_method (trigger doesn't touch it)
+    await admin.from('sales').update({ payment_method: method }).eq('id', sale_id)
 
-    if (updateErr) throw updateErr
-
+    const newBalance = Math.max(0, Number(sale.balance) - parsedAmount)
     return NextResponse.json({ success: true, message: newBalance <= 0 ? 'Paiement complet' : `Solde restant: ${newBalance}` })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })

@@ -388,7 +388,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           payment_status: paymentMethod === 'credit'
             ? 'pending'
             : balance > 0 ? (paid > 0 ? 'partial' : 'pending') : 'paid',
-          amount_paid: paymentMethod === 'credit' ? 0 : paid,
+          // Start at 0 — the DB trigger (after_payment_insert) will add the payment amount.
+          // Setting paid here would cause the trigger to double it.
+          amount_paid: 0,
           sale_status: 'active',
           notes: notes || null,
           paystack_reference: paymentMethod === 'paystack' ? `PAY-${Date.now()}` : null,
