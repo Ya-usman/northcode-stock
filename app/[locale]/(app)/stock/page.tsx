@@ -266,7 +266,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         <Button variant="outline" size="sm" onClick={exportCSV} className="h-9 gap-1">
           <FileDown className="h-3.5 w-3.5" /> CSV
         </Button>
-        {(profile?.role === 'owner' || profile?.role === 'stock_manager') && (
+        {(profile?.role === 'owner' || profile?.role === 'stock_manager' || profile?.role === 'cashier') && (
           <Button
             className="h-9 gap-1 bg-northcode-blue hover:bg-northcode-blue-light"
             size="sm"

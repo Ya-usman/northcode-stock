@@ -25,7 +25,7 @@ async function checkShopRole(supabase: any, userId: string, shopId: string) {
   return null
 }
 
-const WRITE_ROLES = ['owner', 'stock_manager', 'super_admin']
+const WRITE_ROLES = ['owner', 'stock_manager', 'super_admin', 'cashier']
 
 // POST /api/products — create a product
 export async function POST(request: Request) {

@@ -36,8 +36,8 @@ function readDashCache(shopKey: string): DashCache | null {
     const raw = localStorage.getItem(DASH_CACHE_KEY)
     if (!raw) return null
     const c: DashCache = JSON.parse(raw)
-    // Cache valid for 10 minutes, same shop selection
-    if (c.shopKey !== shopKey || Date.now() - c.savedAt > 600000) return null
+    // Cache valid for 1 minute, same shop selection
+    if (c.shopKey !== shopKey || Date.now() - c.savedAt > 60000) return null
     return c
   } catch { return null }
 }
@@ -100,6 +100,9 @@ export default function DashboardPage() {
     if (loadingRef.current) return
     loadingRef.current = true
 
+    const isCashier = profile?.role === 'cashier'
+    const cashierId = profile?.id
+
     const shopKey = shopIds.join(',')
 
     // ── Serve cache immediately, then refresh in background ────────
@@ -129,15 +132,19 @@ export default function DashboardPage() {
         { data: stockData },
         paymentsRes,
       ] = await Promise.all([
-        // Today's sales (for count + recent feed)
-        supabase
-          .from('sales')
-          .select('id, total, amount_paid, balance, payment_method, payment_status, sale_status, created_at, customers(name), cashier_id, shop_id')
-          .in('shop_id', shopIds)
-          .eq('sale_status', 'active')
-          .gte('created_at', todayStart)
-          .lte('created_at', todayEnd)
-          .order('created_at', { ascending: false }),
+        // Today's sales — cashier sees only their own, owner sees all
+        (() => {
+          let q = supabase
+            .from('sales')
+            .select('id, total, amount_paid, balance, payment_method, payment_status, sale_status, created_at, customers(name), cashier_id, shop_id')
+            .in('shop_id', shopIds)
+            .eq('sale_status', 'active')
+            .gte('created_at', todayStart)
+            .lte('created_at', todayEnd)
+            .order('created_at', { ascending: false })
+          if (isCashier && cashierId) q = (q as any).eq('cashier_id', cashierId)
+          return q
+        })(),
 
         // Outstanding debt
         supabase
@@ -180,11 +187,14 @@ export default function DashboardPage() {
       const salesCount = salesArr.length
       const debt = (debtData || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0)
 
-      // Revenue = actual cash received today (new sales + debt repayments).
-      // If payments API failed, fall back to sum of amount_paid on today's sales.
-      const revenue = paymentsApiOk
-        ? paymentsData.todayTotal
-        : salesArr.reduce((s, sale: any) => s + Number(sale.amount_paid), 0)
+      // Revenue = actual cash received today.
+      // Cashier: sum their own sales' amount_paid (payments API covers whole shop).
+      // Owner: use payments API (includes debt repayments), fallback to sales sum.
+      const revenue = isCashier
+        ? salesArr.reduce((s, sale: any) => s + Number(sale.amount_paid), 0)
+        : paymentsApiOk
+          ? paymentsData.todayTotal
+          : salesArr.reduce((s, sale: any) => s + Number(sale.amount_paid), 0)
 
       const last7 = Array.from({ length: 7 }, (_, i) => subDays(today, 6 - i))
       const dayMap: Record<string, { revenue: number; sales: number }> = {}
@@ -234,7 +244,7 @@ export default function DashboardPage() {
       setFirstLoad(false)
       setRefreshing(false)
     }
-  }, [shopIds.join(','), shop?.low_stock_threshold, applyDashData])
+  }, [shopIds.join(','), shop?.low_stock_threshold, applyDashData, profile?.role, profile?.id])
 
   // Initial load when shopIds become available
   useEffect(() => {
@@ -252,14 +262,20 @@ export default function DashboardPage() {
 
   const handleRefresh = () => loadDashboard(true)
 
+  const isCashierView = profile?.role === 'cashier'
   useDashboardRealtime(shop?.id || null, {
     onNewSale: (sale) => {
       if (shopIds.includes(sale.shop_id || '')) {
-        setRecentSales(prev => [sale, ...prev])
-        setTodaySalesCount(prev => prev + 1)
-        // Add amount_paid (0 for credit sales) — not sale.total which inflates revenue
-        setTodayRevenue(prev => prev + Number(sale.amount_paid ?? sale.total))
-        toast({ title: `Nouvelle vente: ${formatNaira(sale.total)}`, description: `#${sale.sale_number}`, variant: 'success' })
+        // Cashier only counts their own sales; owner/viewer counts all
+        const isOwnSale = !isCashierView || sale.cashier_id === profile?.id
+        if (isOwnSale) {
+          setRecentSales(prev => [sale, ...prev])
+          setTodaySalesCount(prev => prev + 1)
+          setTodayRevenue(prev => prev + Number(sale.amount_paid ?? sale.total))
+        }
+        if (!isCashierView) {
+          toast({ title: `Nouvelle vente: ${formatNaira(sale.total)}`, description: `#${sale.sale_number}`, variant: 'success' })
+        }
       }
     },
     onProductUpdate: (product) => {
@@ -362,6 +378,7 @@ export default function DashboardPage() {
         lowStockCount={lowStockProducts.length + outOfStockProducts.length}
         outstandingDebt={outstandingDebt}
         role={profile?.role || 'viewer'}
+        isCashier={isCashierView}
       />
 
       {/* Stock alerts */}

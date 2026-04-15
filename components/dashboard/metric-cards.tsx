@@ -12,6 +12,7 @@ interface MetricCardsProps {
   lowStockCount: number
   outstandingDebt: number
   role: string
+  isCashier?: boolean
 }
 
 const container = {
@@ -23,7 +24,7 @@ const item = {
   show: { opacity: 1, y: 0 },
 }
 
-export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outstandingDebt, role }: MetricCardsProps) {
+export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outstandingDebt, role, isCashier }: MetricCardsProps) {
   const t = useTranslations('dashboard')
   const { fmt, symbol } = useCurrency()
   const compact = (n: number) => {
@@ -34,7 +35,7 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
 
   const cards = [
     {
-      title: t('today_revenue'),
+      title: isCashier ? 'Mes ventes du jour' : t('today_revenue'),
       value: role === 'viewer' ? '—' : compact(todayRevenue),
       subValue: role !== 'viewer' ? fmt(todayRevenue) : undefined,
       icon: TrendingUp,
