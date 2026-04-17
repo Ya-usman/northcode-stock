@@ -77,13 +77,11 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
     <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 border-r bg-white z-30">
       {/* Logo + Shop switcher */}
       <div className="border-b">
-        <div className="flex h-16 items-center gap-3 px-4">
-          <img src="/icons/icon-96x96.png" alt="StockShop" className="h-9 w-9 rounded-lg flex-shrink-0" />
+        <div className="flex h-16 items-center gap-2 px-4">
+          <img src="/logo.png" alt="StockShop" className="h-8 w-auto flex-shrink-0" />
           <div className="min-w-0 flex-1">
-            <p className="font-semibold text-sm text-northcode-blue truncate">
-              {shop?.name || 'StockShop'}
-            </p>
-            <p className="text-xs text-muted-foreground truncate">{shop?.city}</p>
+            <p className="text-xs text-muted-foreground truncate">{shop?.name}</p>
+            <p className="text-[11px] text-muted-foreground/70 truncate">{shop?.city}</p>
           </div>
           {userShops.length > 1 && (
             <button

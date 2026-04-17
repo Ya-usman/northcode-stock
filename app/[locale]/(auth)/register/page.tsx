@@ -95,7 +95,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
       >
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-northcode-blue font-bold text-2xl shadow-lg mb-4">NC</div>
+          <img src="/logo.png" alt="StockShop" className="h-12 w-auto mx-auto mb-3 brightness-0 invert" />
           <h1 className="text-2xl font-bold text-white">Créer votre boutique</h1>
           <p className="text-blue-200 text-sm mt-1">7 jours gratuits · Sans carte bancaire</p>
         </div>
