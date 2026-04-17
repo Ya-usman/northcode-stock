@@ -74,7 +74,7 @@ const FAQ = [
     items: [
       {
         q: 'L\'application fonctionne-t-elle sans internet ?',
-        a: 'Oui. NorthCode Stock fonctionne en mode hors ligne. Les données se synchronisent automatiquement quand la connexion est rétablie.',
+        a: 'Oui. StockShop fonctionne en mode hors ligne. Les données se synchronisent automatiquement quand la connexion est rétablie.',
       },
       {
         q: 'Comment changer la langue ?',

@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "NorthCode Kaya",
+    "name": "StockShop",
     "tagline": "Lissafin kaya mai wayo a Najeriya & Kamaru"
   },
   "nav": {
@@ -333,7 +333,7 @@
       "rating": "4.9/5 daga sakonnin 200+",
       "t1_name": "Alhaji Musa Ibrahim",
       "t1_shop": "Musa General Store, Kano",
-      "t1_text": "Kafin NorthCode, ban taba sanin nawa nake samu kowace rana ba. Yanzu ina duba wayata kuma na san komai.",
+      "t1_text": "Kafin StockShop, ban taba sanin nawa nake samu kowace rana ba. Yanzu ina duba wayata kuma na san komai.",
       "t2_name": "Jean-Pierre Mbarga",
       "t2_shop": "Mbarga Electronics, Douala",
       "t2_text": "Bin diddigin bashi ya canza yadda nake gudanarwa. Duk ya rubuta, ba gardama da abokan ciniki.",
@@ -365,13 +365,13 @@
     },
     "cta": {
       "title": "Shirye don sanin lambobin kasuwancin ku?",
-      "subtitle": "Ku shiga daruruwan kantuna a Najeriya da Kamaru da ke amfani da NorthCode Stock.",
+      "subtitle": "Ku shiga daruruwan kantuna a Najeriya da Kamaru da ke amfani da StockShop.",
       "button": "Kirji Asusun Kyauta",
       "note": "Ba kati ba • Kafa cikin minti 2"
     },
     "footer": {
       "secure": "Amintacce • Mai zaman kansa • An yi a Afirka",
-      "rights": "© {year} NorthCode. Duk hakkokin an kiyaye."
+      "rights": "© {year} StockShop. Duk hakkokin an kiyaye."
     }
   }
 }

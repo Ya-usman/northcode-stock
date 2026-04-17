@@ -81,7 +81,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
         <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-northcode-blue flex items-center justify-center text-white font-bold text-sm">NC</div>
-            <span className="font-bold text-northcode-blue text-lg">NorthCode Stock</span>
+            <span className="font-bold text-northcode-blue text-lg">StockShop</span>
           </div>
           <nav className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
             <a href="#features" className="hover:text-foreground transition-colors">{t('nav.features')}</a>
@@ -356,7 +356,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <div className="h-7 w-7 rounded-lg bg-northcode-blue flex items-center justify-center text-white font-bold text-xs">NC</div>
-              <span className="font-semibold text-northcode-blue">NorthCode Stock</span>
+              <span className="font-semibold text-northcode-blue">StockShop</span>
             </div>
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
               <a href="#pricing" className="hover:text-foreground">{t('nav.pricing')}</a>

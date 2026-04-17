@@ -98,7 +98,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-northcode-blue font-bold text-2xl shadow-lg mb-4">
             NC
           </div>
-          <h1 className="text-2xl font-bold text-white">NorthCode Stock</h1>
+          <h1 className="text-2xl font-bold text-white">StockShop</h1>
           <p className="text-blue-200 text-sm mt-1">
             {locale === 'ha' ? 'Lissafin kaya mai wayo' : 'Smart inventory management'}
           </p>
@@ -258,7 +258,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
         </div>
 
         <p className="text-center text-blue-200 text-xs mt-6">
-          NorthCode Stock Manager · Built for Northern Nigeria
+          StockShop Manager · Built for Northern Nigeria
         </p>
       </motion.div>
     </div>

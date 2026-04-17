@@ -10,7 +10,7 @@ export default function OfflinePage() {
       <p className="text-muted-foreground max-w-sm">
         Ba ka da intanet. Some features are limited. Cached stock data is still available.
       </p>
-      <p className="text-sm text-muted-foreground mt-4">NorthCode Stock Manager</p>
+      <p className="text-sm text-muted-foreground mt-4">StockShop Manager</p>
     </div>
   )
 }

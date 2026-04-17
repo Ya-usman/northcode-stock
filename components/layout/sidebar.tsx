@@ -78,12 +78,12 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
       {/* Logo + Shop switcher */}
       <div className="border-b">
         <div className="flex h-16 items-center gap-3 px-4">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-northcode-blue text-white font-bold text-sm flex-shrink-0">
-            NC
+          <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-northcode-blue text-northcode-blue font-bold text-base flex-shrink-0">
+            S
           </div>
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-sm text-northcode-blue truncate">
-              {shop?.name || 'NorthCode Stock'}
+              {shop?.name || 'StockShop'}
             </p>
             <p className="text-xs text-muted-foreground truncate">{shop?.city}</p>
           </div>

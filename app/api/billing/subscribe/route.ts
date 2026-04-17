@@ -77,7 +77,7 @@ export async function POST(request: Request) {
           customer: { email },
           meta: { shop_id, plan_id, locale, billing_period: period },
           customizations: {
-            title: 'NorthCode Stock',
+            title: 'StockShop',
             description: `Abonnement Plan ${plan_id} (${period})`,
             logo: `${baseUrl}/icons/icon-192x192.png`,
           },

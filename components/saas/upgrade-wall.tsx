@@ -27,7 +27,7 @@ export function UpgradeWall({ locale, shopName }: UpgradeWallProps) {
             Your free trial has ended
           </h2>
           <p className="text-blue-200 text-sm">
-            {shopName ? `${shopName} needs an active plan` : 'Subscribe to continue using NorthCode Stock'}
+            {shopName ? `${shopName} needs an active plan` : 'Subscribe to continue using StockShop'}
           </p>
         </div>
 

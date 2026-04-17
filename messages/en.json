@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "NorthCode Stock",
+    "name": "StockShop",
     "tagline": "Smart inventory for Nigeria & Cameroon"
   },
   "nav": {
@@ -448,7 +448,7 @@
       "rating": "4.9/5 from 200+ reviews",
       "t1_name": "Alhaji Musa Ibrahim",
       "t1_shop": "Musa General Store, Kano",
-      "t1_text": "Before NorthCode, I never knew how much I was making daily. Now I check my phone and I know everything.",
+      "t1_text": "Before StockShop, I never knew how much I was making daily. Now I check my phone and I know everything.",
       "t2_name": "Jean-Pierre Mbarga",
       "t2_shop": "Mbarga Electronics, Douala",
       "t2_text": "The credit tracking changed my management. Everything is recorded, no more disputes with customers.",
@@ -480,13 +480,13 @@
     },
     "cta": {
       "title": "Ready to know your business numbers?",
-      "subtitle": "Join hundreds of boutiques in Nigeria and Cameroon already using NorthCode Stock.",
+      "subtitle": "Join hundreds of boutiques in Nigeria and Cameroon already using StockShop.",
       "button": "Create Free Account",
       "note": "No credit card • Setup in 2 minutes"
     },
     "footer": {
       "secure": "Secure • Private • Made in Africa",
-      "rights": "© {year} NorthCode. All rights reserved."
+      "rights": "© {year} StockShop. All rights reserved."
     }
   }
 }

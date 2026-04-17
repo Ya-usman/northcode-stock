@@ -301,7 +301,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
                             )}
                             {shop.whatsapp && (
                               <a
-                                href={`https://wa.me/${shop.whatsapp.replace(/\D/g, '')}?text=Hello from NorthCode`}
+                                href={`https://wa.me/${shop.whatsapp.replace(/\D/g, '')}?text=Hello from StockShop`}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="inline-flex items-center gap-1 text-xs text-green-400 hover:underline mt-2"

@@ -1,7 +1,7 @@
 {
-  "name": "NorthCode Stock Manager",
-  "short_name": "NC Stock",
-  "description": "Smart inventory management for Northern Nigeria boutiques",
+  "name": "StockShop",
+  "short_name": "StockShop",
+  "description": "Gérez votre boutique facilement avec StockShop",
   "start_url": "/en/dashboard",
   "scope": "/",
   "display": "standalone",

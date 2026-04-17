@@ -108,7 +108,7 @@ serve(async (req) => {
         `📦 *Stock Alerts:* ${lowStockCount ?? 0} item(s) low`,
         `💳 *Total Outstanding Debt:* ${formatNaira(totalDebt)}`,
         ``,
-        `_NorthCode Stock Manager_`,
+        `_StockShop Manager_`,
       ].filter(Boolean).join('\n')
 
       // WhatsApp
@@ -198,6 +198,6 @@ ${data.topProduct ? `
   <div class="stat"><span>Low Stock Items</span><span style="color:#D97706">${data.lowStockCount}</span></div>
   <div class="stat"><span>Total Outstanding Debt</span><span style="color:#DC2626">${fmt(data.totalDebt)}</span></div>
 </div>
-<div class="footer">NorthCode Stock Manager · Automated daily report</div>
+<div class="footer">StockShop Manager · Automated daily report</div>
 </body></html>`
 }
