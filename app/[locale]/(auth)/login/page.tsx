@@ -95,7 +95,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
       >
         {/* Logo */}
         <div className="text-center mb-8">
-          <img src="/logo.png" alt="StockShop" className="h-14 w-auto mx-auto mb-3 brightness-0 invert" />
+          <img src="/logo.png" alt="StockShop" className="h-28 w-auto mx-auto mb-4 brightness-0 invert" />
           <p className="text-blue-200 text-sm">
             {locale === 'ha' ? 'Lissafin kaya mai wayo' : 'Smart inventory management'}
           </p>

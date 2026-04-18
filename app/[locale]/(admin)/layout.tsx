@@ -34,7 +34,7 @@ export default async function AdminLayout({
       <aside className="hidden md:flex w-56 flex-col fixed inset-y-0 border-r border-gray-800 bg-gray-950 z-30">
         {/* Logo */}
         <div className="flex items-center gap-2.5 px-5 h-16 border-b border-gray-800">
-          <img src="/logo.png" alt="StockShop" className="h-7 w-auto brightness-0 invert" />
+          <img src="/logo.png" alt="StockShop" className="h-14 w-auto brightness-0 invert" />
           <div>
             <p className="font-bold text-white text-sm leading-none">StockShop</p>
             <p className="text-[10px] text-northcode-gold font-semibold mt-0.5">OWNER PANEL</p>
