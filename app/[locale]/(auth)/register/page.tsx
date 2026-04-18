@@ -87,15 +87,15 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
   const selectedCountry = country ? COUNTRIES[country] : null
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-northcode-blue via-northcode-blue-light to-blue-800 p-4">
+    <div className="min-h-screen overflow-y-auto flex items-center justify-center bg-gradient-to-br from-northcode-blue via-northcode-blue-light to-blue-800 p-4 py-8">
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-sm"
       >
         {/* Logo */}
-        <div className="text-center mb-8">
-          <img src="/logo.png" alt="StockShop" className="h-28 w-auto mx-auto mb-4 brightness-0 invert" />
+        <div className="text-center mb-6">
+          <img src="/logo.png" alt="StockShop" className="h-36 w-auto mx-auto mb-3 brightness-0 invert" />
           <h1 className="text-2xl font-bold text-white">Créer votre boutique</h1>
           <p className="text-blue-200 text-sm mt-1">7 jours gratuits · Sans carte bancaire</p>
         </div>
