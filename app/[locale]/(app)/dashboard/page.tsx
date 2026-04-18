@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useDashboardRealtime } from '@/lib/hooks/use-realtime'
@@ -48,6 +48,7 @@ function writeDashCache(data: Omit<DashCache, 'savedAt'>) {
 
 export default function DashboardPage() {
   const t = useTranslations()
+  const locale = useLocale()
   const { profile, shop, userShops } = useAuth()
   const { fmt: formatNaira } = useCurrency()
   const { toast } = useToast()
@@ -309,7 +310,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="font-bold text-lg text-foreground">{t('dashboard.title')}</h1>
           <p className="text-xs text-muted-foreground">
-            {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            {new Date().toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
         </div>
 

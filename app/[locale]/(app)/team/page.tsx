@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import {
   UserPlus, Shield, Clock, Mail, ShieldOff, ShieldCheck,
   AlertTriangle, Trash2, Store, ChevronDown,
@@ -18,7 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatDistanceToNow } from 'date-fns'
-import { fr } from 'date-fns/locale'
+import { fr, enUS } from 'date-fns/locale'
 import type { UserRole } from '@/lib/types/database'
 import { cn } from '@/lib/utils/cn'
 
@@ -30,11 +30,6 @@ const ROLE_COLORS: Record<string, string> = {
   stock_manager: 'bg-amber-100 text-amber-700',
   viewer:        'bg-gray-100 text-gray-600',
   super_admin:   'bg-purple-100 text-purple-700',
-}
-
-const ROLE_LABELS: Record<string, string> = {
-  owner: 'Propriétaire', cashier: 'Caissier', stock_manager: 'Gestionnaire stock',
-  viewer: 'Lecteur', super_admin: 'Super Admin',
 }
 
 interface Member {
@@ -54,6 +49,8 @@ interface Member {
 
 export default function TeamPage() {
   const t = useTranslations()
+  const locale = useLocale()
+  const dateFnsLocale = locale === 'fr' ? fr : enUS
   const { profile: myProfile, shop, userShops } = useAuth()
   const { toast } = useToast()
 
@@ -123,7 +120,7 @@ export default function TeamPage() {
       // Merge
       setMembers(rows.map(m => ({
         ...m,
-        profiles: profilesMap[m.user_id] ?? { id: m.user_id, full_name: 'Invité', last_seen: null, is_active: m.is_active },
+        profiles: profilesMap[m.user_id] ?? { id: m.user_id, full_name: t('actions.invite'), last_seen: null, is_active: m.is_active },
       })) as Member[])
     } finally {
       setLoading(false)
@@ -244,10 +241,10 @@ export default function TeamPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="font-bold text-lg">Équipe</h1>
+          <h1 className="font-bold text-lg">{t('team.title')}</h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {members.length} membre(s) · {activeCount} actif(s)
-            {inactiveCount > 0 && <span className="text-red-500 ml-1">· {inactiveCount} désactivé(s)</span>}
+            {t('team.members_summary', { total: members.length, active: activeCount })}
+            {inactiveCount > 0 && <span className="text-red-500 ml-1">· {inactiveCount} {t('team.deactivated_badge').toLowerCase()}</span>}
           </p>
         </div>
 
@@ -290,7 +287,7 @@ export default function TeamPage() {
             onClick={() => { setInviteShopId(viewShopId); setShowInviteModal(true) }}
           >
             <UserPlus className="h-4 w-4" />
-            Inviter
+            {t('team.invite_btn')}
           </Button>
         </div>
       </div>
@@ -336,13 +333,13 @@ export default function TeamPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold text-sm truncate max-w-[160px]">{p.full_name}</p>
-                      {isMe && <Badge variant="outline" className="text-[10px] px-1.5 flex-shrink-0">Moi</Badge>}
-                      {!member.is_active && <Badge className="text-[10px] bg-red-100 text-red-600 border-red-200 flex-shrink-0">Désactivé</Badge>}
+                      {isMe && <Badge variant="outline" className="text-[10px] px-1.5 flex-shrink-0">{t('team.me')}</Badge>}
+                      {!member.is_active && <Badge className="text-[10px] bg-red-100 text-red-600 border-red-200 flex-shrink-0">{t('team.deactivated_badge')}</Badge>}
                     </div>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${ROLE_COLORS[member.role] || ROLE_COLORS.viewer}`}>
                         <Shield className="h-2.5 w-2.5" />
-                        {ROLE_LABELS[member.role] || member.role}
+                        {t(`roles.${member.role}` as any) || member.role}
                       </span>
                       {member.is_active && (
                         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
@@ -353,17 +350,17 @@ export default function TeamPage() {
                           <span className={`h-1.5 w-1.5 rounded-full ${
                             isOnline ? 'bg-green-500' : isAway ? 'bg-yellow-400' : 'bg-gray-400'
                           }`} />
-                          {isOnline ? 'En ligne' : isAway ? 'Absent' : 'Déconnecté'}
+                          {isOnline ? t('team.online') : isAway ? t('team.away') : t('team.offline')}
                         </span>
                       )}
                       {p.last_seen && !isOnline && (
                         <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                           <Clock className="h-3 w-3" />
-                          {formatDistanceToNow(new Date(p.last_seen), { addSuffix: true, locale: fr })}
+                          {formatDistanceToNow(new Date(p.last_seen), { addSuffix: true, locale: dateFnsLocale })}
                         </span>
                       )}
                       {!p.last_seen && (
-                        <span className="text-[10px] text-muted-foreground italic">Jamais connecté</span>
+                        <span className="text-[10px] text-muted-foreground italic">{t('team.never_connected')}</span>
                       )}
                     </div>
                   </div>
@@ -382,9 +379,9 @@ export default function TeamPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="cashier">Caissier</SelectItem>
-                        <SelectItem value="stock_manager">Gest. stock</SelectItem>
-                        <SelectItem value="viewer">Lecteur</SelectItem>
+                        <SelectItem value="cashier">{t('roles.cashier')}</SelectItem>
+                        <SelectItem value="stock_manager">{t('roles.stock_manager')}</SelectItem>
+                        <SelectItem value="viewer">{t('roles.viewer')}</SelectItem>
                       </SelectContent>
                     </Select>
 
@@ -401,9 +398,9 @@ export default function TeamPage() {
                       {isLoading && actionLoading === member.id ? (
                         <span className="h-3 w-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
                       ) : member.is_active ? (
-                        <><ShieldOff className="h-3 w-3" /> Désactiver</>
+                        <><ShieldOff className="h-3 w-3" /> {t('team.deactivate')}</>
                       ) : (
-                        <><ShieldCheck className="h-3 w-3" /> Réactiver</>
+                        <><ShieldCheck className="h-3 w-3" /> {t('team.reactivate')}</>
                       )}
                     </Button>
 
@@ -412,7 +409,7 @@ export default function TeamPage() {
                       size="sm" variant="outline" disabled={isLoading}
                       onClick={() => setDeleteDialog({ open: true, member })}
                       className="h-8 w-8 p-0 border-red-300 text-red-600 hover:bg-red-50"
-                      title="Supprimer définitivement"
+                      title={t('team.delete_title')}
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
@@ -425,7 +422,7 @@ export default function TeamPage() {
 
           {members.length === 0 && !loading && (
             <div className="flex h-32 items-center justify-center text-muted-foreground text-sm rounded-xl border bg-white">
-              Aucun membre dans cette boutique
+              {t('team.no_members')}
             </div>
           )}
         </div>
@@ -437,8 +434,8 @@ export default function TeamPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {confirmDialog.action === 'deactivate'
-                ? <><ShieldOff className="h-5 w-5 text-red-500" /> Désactiver le compte</>
-                : <><ShieldCheck className="h-5 w-5 text-green-500" /> Réactiver le compte</>}
+                ? <><ShieldOff className="h-5 w-5 text-red-500" /> {t('team.deactivate_title')}</>
+                : <><ShieldCheck className="h-5 w-5 text-green-500" /> {t('team.reactivate_title')}</>}
             </DialogTitle>
           </DialogHeader>
           <div>
@@ -446,11 +443,11 @@ export default function TeamPage() {
               <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-100 p-3">
                 <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
                 <div className="text-sm text-red-700">
-                  <p className="font-semibold mb-1">Désactiver <span className="text-red-800">{confirmDialog.member?.profiles?.full_name}</span> ?</p>
+                  <p className="font-semibold mb-1">{t('team.deactivate_confirm', { name: confirmDialog.member?.profiles?.full_name })}</p>
                   <ul className="text-xs space-y-1 text-red-600">
-                    <li>• Session révoquée <strong>immédiatement</strong></li>
-                    <li>• Il ne pourra plus se connecter</li>
-                    <li>• Ses ventes restent conservées</li>
+                    <li>• {t('team.deactivate_effect_session')}</li>
+                    <li>• {t('team.deactivate_effect_login')}</li>
+                    <li>• {t('team.deactivate_effect_sales')}</li>
                   </ul>
                 </div>
               </div>
@@ -458,18 +455,18 @@ export default function TeamPage() {
               <div className="flex items-start gap-2 rounded-lg bg-green-50 border border-green-100 p-3">
                 <ShieldCheck className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-green-700">
-                  <span className="font-semibold">{confirmDialog.member?.profiles?.full_name}</span> pourra se reconnecter avec ses identifiants.
+                  {t('team.reactivate_confirm', { name: confirmDialog.member?.profiles?.full_name })}
                 </p>
               </div>
             )}
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" onClick={() => setConfirmDialog(d => ({ ...d, open: false }))}>Annuler</Button>
+            <Button variant="outline" size="sm" onClick={() => setConfirmDialog(d => ({ ...d, open: false }))}>{t('actions.cancel')}</Button>
             <Button
               size="sm" onClick={doToggleActive}
               className={confirmDialog.action === 'deactivate' ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'}
             >
-              {confirmDialog.action === 'deactivate' ? 'Oui, désactiver' : 'Oui, réactiver'}
+              {confirmDialog.action === 'deactivate' ? t('team.yes_deactivate') : t('team.yes_reactivate')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -480,29 +477,29 @@ export default function TeamPage() {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-600">
-              <Trash2 className="h-5 w-5" /> Supprimer définitivement
+              <Trash2 className="h-5 w-5" /> {t('team.delete_title')}
             </DialogTitle>
           </DialogHeader>
           <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-100 p-3">
             <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-red-700">
-              <p className="font-semibold mb-1">Supprimer <span className="text-red-800">{deleteDialog.member?.profiles?.full_name}</span> ?</p>
+              <p className="font-semibold mb-1">{t('team.delete_confirm', { name: deleteDialog.member?.profiles?.full_name })}</p>
               <ul className="text-xs space-y-1 text-red-600">
-                <li>• Compte supprimé <strong>définitivement</strong></li>
-                <li>• Il ne pourra plus se connecter</li>
-                <li>• Ses ventes restent conservées</li>
-                <li>• Cette action est <strong>irréversible</strong></li>
+                <li>• {t('team.delete_effect_permanent')}</li>
+                <li>• {t('team.deactivate_effect_login')}</li>
+                <li>• {t('team.deactivate_effect_sales')}</li>
+                <li>• {t('team.delete_effect_irreversible')}</li>
               </ul>
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" onClick={() => setDeleteDialog({ open: false, member: null })}>Annuler</Button>
+            <Button variant="outline" size="sm" onClick={() => setDeleteDialog({ open: false, member: null })}>{t('actions.cancel')}</Button>
             <Button
               size="sm" onClick={doDeleteMember} disabled={deleting}
               className="bg-red-600 hover:bg-red-700 gap-1.5"
             >
               {deleting ? <span className="h-3 w-3 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <Trash2 className="h-3 w-3" />}
-              Supprimer
+              {t('actions.delete')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -512,13 +509,13 @@ export default function TeamPage() {
       <Dialog open={showInviteModal} onOpenChange={setShowInviteModal}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Inviter un employé</DialogTitle>
+            <DialogTitle>{t('team.invite_title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {/* Shop selector in invite */}
             {isOwner && userShops.length > 1 && (
               <div className="space-y-1">
-                <Label className="text-xs">Boutique *</Label>
+                <Label className="text-xs">{t('team.shop_label')}</Label>
                 <Select value={inviteShopId} onValueChange={setInviteShopId}>
                   <SelectTrigger>
                     <Store className="h-4 w-4 mr-2 text-muted-foreground" />
@@ -531,35 +528,35 @@ export default function TeamPage() {
               </div>
             )}
             <div className="space-y-1">
-              <Label>Nom complet *</Label>
-              <Input value={inviteFullName} onChange={e => setInviteFullName(e.target.value)} placeholder="Nom de l'employé" />
+              <Label>{t('team.full_name_label')}</Label>
+              <Input value={inviteFullName} onChange={e => setInviteFullName(e.target.value)} placeholder={t('team.name_placeholder')} />
             </div>
             <div className="space-y-1">
-              <Label>Email *</Label>
+              <Label>{t('team.invite_email')} *</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="pl-9" placeholder="employe@email.com" />
               </div>
             </div>
             <div className="space-y-1">
-              <Label>Rôle</Label>
+              <Label>{t('team.role_label')}</Label>
               <Select value={inviteRole} onValueChange={v => setInviteRole(v as UserRole)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="cashier">Caissier</SelectItem>
-                  <SelectItem value="stock_manager">Gestionnaire stock</SelectItem>
-                  <SelectItem value="viewer">Lecteur</SelectItem>
+                  <SelectItem value="cashier">{t('roles.cashier')}</SelectItem>
+                  <SelectItem value="stock_manager">{t('roles.stock_manager')}</SelectItem>
+                  <SelectItem value="viewer">{t('roles.viewer')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-sm text-blue-700">
-              Un email d'invitation sera envoyé. L'employé définira son mot de passe.
+              {t('team.invite_info')}
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowInviteModal(false)}>Annuler</Button>
+            <Button variant="outline" onClick={() => setShowInviteModal(false)}>{t('actions.cancel')}</Button>
             <Button onClick={inviteEmployee} loading={inviting} className="bg-northcode-blue">
-              Envoyer l'invitation
+              {t('team.send_invite')}
             </Button>
           </DialogFooter>
         </DialogContent>

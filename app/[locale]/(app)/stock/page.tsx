@@ -212,7 +212,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     })
     setSavingCat(false)
     const json = await res.json()
-    if (!res.ok) { toast({ title: json.error || 'Erreur', variant: 'destructive' }); return }
+    if (!res.ok) { toast({ title: json.error || t('errors.generic'), variant: 'destructive' }); return }
     setNewCatName('')
     fetchProducts()
   }
@@ -242,25 +242,25 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         </div>
         <div className="flex gap-1">
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-[130px] h-9"><SelectValue placeholder="Category" /></SelectTrigger>
+            <SelectTrigger className="w-[130px] h-9"><SelectValue placeholder={t('products.all_categories')} /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Toutes</SelectItem>
+              <SelectItem value="all">{t('products.all_categories')}</SelectItem>
               {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
           {(profile?.role === 'owner' || profile?.role === 'stock_manager') && (
-            <Button variant="outline" size="sm" className="h-9 px-2" onClick={() => setShowCatModal(true)} title="Gérer les catégories">
+            <Button variant="outline" size="sm" className="h-9 px-2" onClick={() => setShowCatModal(true)} title={t('products.manage_categories')}>
               <Settings2 className="h-4 w-4" />
             </Button>
           )}
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[110px] h-9"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectTrigger className="w-[110px] h-9"><SelectValue placeholder={t('status.all')} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="ok">In Stock</SelectItem>
-            <SelectItem value="low">Low Stock</SelectItem>
-            <SelectItem value="out">Out of Stock</SelectItem>
+            <SelectItem value="all">{t('status.all')}</SelectItem>
+            <SelectItem value="ok">{t('status.in_stock')}</SelectItem>
+            <SelectItem value="low">{t('status.low_stock')}</SelectItem>
+            <SelectItem value="out">{t('status.out_of_stock')}</SelectItem>
           </SelectContent>
         </Select>
         <Button variant="outline" size="sm" onClick={exportCSV} className="h-9 gap-1">
@@ -280,9 +280,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
       {/* Stats */}
       <div className="flex gap-4 text-sm text-muted-foreground">
-        <span>{filtered.length} products</span>
-        <span className="text-amber-600">{filtered.filter(p => p.quantity > 0 && p.quantity <= (p.low_stock_threshold || shop?.low_stock_threshold || 10)).length} low</span>
-        <span className="text-red-500">{filtered.filter(p => p.quantity === 0).length} out of stock</span>
+        <span>{t('products.stats_count', { count: filtered.length })}</span>
+        <span className="text-amber-600">{t('products.stats_low', { count: filtered.filter(p => p.quantity > 0 && p.quantity <= (p.low_stock_threshold || shop?.low_stock_threshold || 10)).length })}</span>
+        <span className="text-red-500">{t('products.stats_out', { count: filtered.filter(p => p.quantity === 0).length })}</span>
       </div>
 
       {/* Product grid */}
@@ -321,7 +321,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-bold text-northcode-blue">{formatNaira(product.selling_price)}</span>
                   {profile?.role === 'owner' && (
-                    <span className="text-xs text-muted-foreground">Cost: {formatNaira(product.buying_price)}</span>
+                    <span className="text-xs text-muted-foreground">{t('products.cost_label')}: {formatNaira(product.buying_price)}</span>
                   )}
                 </div>
 
@@ -382,7 +382,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       {/* Edit Product Modal */}
       <Dialog open={!!editingProduct} onOpenChange={open => !open && setEditingProduct(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Modifier le produit</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t('products.edit_title')}</DialogTitle></DialogHeader>
           {editingProduct && (
           <ProductForm
             key={editingProduct.id}
@@ -409,22 +409,22 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       {/* Categories Modal */}
       <Dialog open={showCatModal} onOpenChange={setShowCatModal}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Gérer les catégories</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t('products.manage_categories')}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="flex gap-2">
               <Input
                 value={newCatName}
                 onChange={e => setNewCatName(e.target.value)}
-                placeholder="Nom de la catégorie…"
+                placeholder={t('categories.add_placeholder')}
                 onKeyDown={e => e.key === 'Enter' && addCategory()}
               />
               <Button onClick={addCategory} loading={savingCat} className="bg-northcode-blue shrink-0">
-                <Plus className="h-4 w-4 mr-1" /> Ajouter
+                <Plus className="h-4 w-4 mr-1" /> {t('categories.add')}
               </Button>
             </div>
             <div className="space-y-1 max-h-60 overflow-y-auto">
               {categories.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">Aucune catégorie</p>
+                <p className="text-sm text-muted-foreground text-center py-4">{t('categories.none')}</p>
               )}
               {categories.map(c => (
                 <div key={c.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
@@ -437,7 +437,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCatModal(false)}>Fermer</Button>
+            <Button variant="outline" onClick={() => setShowCatModal(false)}>{t('actions.close')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -457,7 +457,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             <div className="space-y-1">
               <Label>{t('products.supplier')}</Label>
               <Select onValueChange={v => restockForm.setValue('supplier_id', v)}>
-                <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
                 <SelectContent>
                   {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                 </SelectContent>
@@ -465,13 +465,13 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             </div>
             {profile?.role === 'owner' && (
               <div className="space-y-1">
-                <Label>Buying Price (this batch)</Label>
+                <Label>{t('products.restock_buying_price')}</Label>
                 <Input type="number" {...restockForm.register('buying_price')} placeholder={String(restockProduct?.buying_price)} />
               </div>
             )}
             <div className="space-y-1">
-              <Label>Notes</Label>
-              <Input {...restockForm.register('notes')} placeholder="Optional notes…" />
+              <Label>{t('products.notes_label')}</Label>
+              <Input {...restockForm.register('notes')} placeholder={t('products.notes_placeholder')} />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowRestockModal(false)}>{t('actions.cancel')}</Button>

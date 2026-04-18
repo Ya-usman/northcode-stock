@@ -54,7 +54,12 @@
     "view_all": "View All",
     "all_shops": "All Shops",
     "active_shop": "Active Shop",
-    "my_sales_today": "My Sales Today"
+    "my_sales_today": "My Sales Today",
+    "transactions_today": "{count} transaction(s) today",
+    "all_stocked": "All stocked",
+    "items_low": "{count} item(s) low",
+    "more_items": "+{count} more",
+    "qty_left": "{qty} left"
   },
   "metrics": {
     "revenue": "Revenue",
@@ -108,7 +113,8 @@
     "pending": "Pending",
     "partial": "Partial",
     "active": "Active",
-    "inactive": "Inactive"
+    "inactive": "Inactive",
+    "all": "All"
   },
   "payment": {
     "method": "Payment Method",
@@ -168,7 +174,17 @@
     "theft": "Theft",
     "expiry": "Expiry",
     "correction": "Stock Correction",
-    "other": "Other"
+    "other": "Other",
+    "all_categories": "All Categories",
+    "edit_title": "Edit Product",
+    "manage_categories": "Manage Categories",
+    "restock_buying_price": "Buying Price (this batch)",
+    "notes_label": "Notes",
+    "notes_placeholder": "Optional notes…",
+    "stats_count": "{count} product(s)",
+    "stats_low": "{count} low",
+    "stats_out": "{count} out of stock",
+    "cost_label": "Cost"
   },
   "sales": {
     "title": "Sales",
@@ -222,7 +238,9 @@
     "no_customers": "No customers yet.",
     "add_customer": "Add Customer",
     "payment_history": "Payment History",
-    "sale_history": "Purchase History"
+    "sale_history": "Purchase History",
+    "name_placeholder": "Full name",
+    "city_placeholder": "e.g. Kano"
   },
   "suppliers": {
     "title": "Suppliers",
@@ -231,7 +249,12 @@
     "city": "City",
     "products": "Products",
     "no_suppliers": "No suppliers yet.",
-    "add_supplier": "Add Supplier"
+    "add_supplier": "Add Supplier",
+    "search_placeholder": "Search suppliers…",
+    "products_count": "{count} product(s)",
+    "edit_title": "Edit Supplier",
+    "name_placeholder": "Supplier name",
+    "city_placeholder": "e.g. Kano"
   },
   "payments": {
     "title": "Credit & Payments",
@@ -302,7 +325,36 @@
     "reactivate": "Reactivate",
     "never": "Never",
     "invite_sent": "Invitation sent to {email}",
-    "cannot_delete_owner": "Owner account cannot be deleted."
+    "cannot_delete_owner": "Owner account cannot be deleted.",
+    "members_summary": "{total} member(s) · {active} active",
+    "me": "Me",
+    "deactivated_badge": "Deactivated",
+    "online": "Online",
+    "away": "Away",
+    "offline": "Offline",
+    "never_connected": "Never connected",
+    "invite_btn": "Invite",
+    "no_members": "No members in this shop",
+    "deactivate_title": "Deactivate Account",
+    "reactivate_title": "Reactivate Account",
+    "deactivate_confirm": "Deactivate {name}?",
+    "deactivate_effect_session": "Session revoked immediately",
+    "deactivate_effect_login": "They will no longer be able to log in",
+    "deactivate_effect_sales": "Their sales remain preserved",
+    "reactivate_confirm": "{name} will be able to log back in with their credentials.",
+    "delete_title": "Permanently Delete",
+    "delete_confirm": "Delete {name}?",
+    "delete_effect_permanent": "Account permanently deleted",
+    "delete_effect_irreversible": "This action is irreversible",
+    "yes_deactivate": "Yes, Deactivate",
+    "yes_reactivate": "Yes, Reactivate",
+    "invite_title": "Invite an Employee",
+    "full_name_label": "Full Name *",
+    "name_placeholder": "Employee name",
+    "role_label": "Role",
+    "shop_label": "Shop *",
+    "invite_info": "An invitation email will be sent. The employee will set their password.",
+    "send_invite": "Send Invitation"
   },
   "settings": {
     "title": "Settings",
@@ -384,7 +436,14 @@
     "city_placeholder": "City",
     "created": "Shop created successfully!",
     "active": "Active",
-    "switch": "Switch"
+    "switch": "Switch",
+    "count": "{count} shop(s)",
+    "new_form_title": "Create a new shop",
+    "name_label": "Shop name *",
+    "city_label": "City",
+    "members": "{count} member(s)",
+    "no_shops": "No shops",
+    "no_shops_detail": "Create your first shop to get started."
   },
   "toast": {
     "no_active_shop": "No active shop",
@@ -473,7 +532,14 @@
     "feature_cancel": "Cancel or change plan anytime",
     "feature_instant": "Instant activation after payment",
     "choose_plan": "Choose a Plan",
-    "questions_whatsapp": "Questions? WhatsApp us"
+    "questions_whatsapp": "Questions? WhatsApp us",
+    "plan_limit_reached": "You've reached the limit of {limit} products on your {plan} plan. Upgrade to add more.",
+    "plan_limit_warning": "You're using {count}/{limit} products ({pct}%). Consider upgrading.",
+    "team_limit_reached": "You've reached the limit of {limit} team members on your {plan} plan.",
+    "team_limit_warning": "You have {count}/{limit} team members.",
+    "upgrade_to_plan": "Upgrade to {plan} — {price}/month",
+    "unlimited_products": "Unlimited products",
+    "up_to_products": "Up to {count} products"
   },
   "landing": {
     "nav": {

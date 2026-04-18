@@ -92,7 +92,7 @@ export default function SuppliersPage() {
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search suppliers…" className="pl-9 h-9" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('suppliers.search_placeholder')} className="pl-9 h-9" />
         </div>
         <Button
           className="h-9 gap-1 bg-northcode-blue hover:bg-northcode-blue-light"
@@ -129,7 +129,7 @@ export default function SuppliersPage() {
                       </span>
                     )}
                     <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Package className="h-3 w-3" />{productCounts[supplier.id] || 0} products
+                      <Package className="h-3 w-3" />{t('suppliers.products_count', { count: productCounts[supplier.id] || 0 })}
                     </span>
                   </div>
                 </div>
@@ -161,12 +161,12 @@ export default function SuppliersPage() {
       <Dialog open={showModal} onOpenChange={open => { if (!open) { setShowModal(false); setEditingSupplier(null) } }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingSupplier ? 'Edit Supplier' : t('suppliers.add_supplier')}</DialogTitle>
+            <DialogTitle>{editingSupplier ? t('suppliers.edit_title') : t('suppliers.add_supplier')}</DialogTitle>
           </DialogHeader>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-1">
               <Label>{t('suppliers.name')} *</Label>
-              <Input {...form.register('name')} placeholder="Supplier name" />
+              <Input {...form.register('name')} placeholder={t('suppliers.name_placeholder')} />
               {form.formState.errors.name && <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>}
             </div>
             <div className="space-y-1">
@@ -175,7 +175,7 @@ export default function SuppliersPage() {
             </div>
             <div className="space-y-1">
               <Label>{t('suppliers.city')}</Label>
-              <Input {...form.register('city')} placeholder="e.g. Kano" />
+              <Input {...form.register('city')} placeholder={t('suppliers.city_placeholder')} />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowModal(false)}>{t('actions.cancel')}</Button>

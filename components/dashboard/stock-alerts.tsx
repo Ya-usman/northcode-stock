@@ -25,7 +25,7 @@ export function StockAlerts({ lowStockProducts, outOfStockProducts }: StockAlert
           </AlertTitle>
           <AlertDescription className="text-xs mt-1">
             {outOfStockProducts.slice(0, 5).map(p => p.name).join(', ')}
-            {outOfStockProducts.length > 5 && ` +${outOfStockProducts.length - 5} more`}
+            {outOfStockProducts.length > 5 && ` ${t('dashboard.more_items', { count: outOfStockProducts.length - 5 })}`}
           </AlertDescription>
         </Alert>
       )}
@@ -37,8 +37,8 @@ export function StockAlerts({ lowStockProducts, outOfStockProducts }: StockAlert
             {t('dashboard.low_stock_warning', { count: lowStockProducts.length })}
           </AlertTitle>
           <AlertDescription className="text-xs mt-1">
-            {lowStockProducts.slice(0, 5).map(p => `${p.name} (${p.quantity} left)`).join(', ')}
-            {lowStockProducts.length > 5 && ` +${lowStockProducts.length - 5} more`}
+            {lowStockProducts.slice(0, 5).map(p => `${p.name} (${t('dashboard.qty_left', { qty: p.quantity })})`).join(', ')}
+            {lowStockProducts.length > 5 && ` ${t('dashboard.more_items', { count: lowStockProducts.length - 5 })}`}
           </AlertDescription>
         </Alert>
       )}

@@ -1,7 +1,7 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -18,15 +18,9 @@ const statusVariant: Record<string, 'success' | 'warning' | 'danger'> = {
   pending: 'danger',
 }
 
-const methodLabels: Record<string, string> = {
-  cash: 'Cash',
-  transfer: 'Transfer',
-  credit: 'Credit',
-  paystack: 'Paystack',
-}
-
 export function RecentSalesFeed({ sales, role }: RecentSalesFeedProps) {
   const t = useTranslations()
+  const locale = useLocale()
   const { fmt: formatNaira } = useCurrency()
 
   return (
@@ -63,19 +57,19 @@ export function RecentSalesFeed({ sales, role }: RecentSalesFeedProps) {
                         {t(`status.${sale.payment_status}`)}
                       </Badge>
                       <span className="text-[10px] text-muted-foreground">
-                        {methodLabels[sale.payment_method]}
+                        {t(`payment.${sale.payment_method}` as any)}
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5 truncate">
                       {sale.customers?.name || t('sales.walk_in')} ·{' '}
-                      {new Date(sale.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(sale.created_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
                   {role !== 'viewer' && (
                     <div className="text-right flex-shrink-0 ml-2">
                       <p className="text-sm font-semibold">{formatNaira(sale.total)}</p>
                       {Number(sale.balance) > 0 && (
-                        <p className="text-[10px] text-red-500">Due: {formatNaira(sale.balance)}</p>
+                        <p className="text-[10px] text-red-500">{t('payment.due')}: {formatNaira(sale.balance)}</p>
                       )}
                     </div>
                   )}

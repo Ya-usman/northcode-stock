@@ -54,7 +54,12 @@
     "view_all": "Voir tout",
     "all_shops": "Toutes les boutiques",
     "active_shop": "Boutique active",
-    "my_sales_today": "Mes ventes du jour"
+    "my_sales_today": "Mes ventes du jour",
+    "transactions_today": "{count} transaction(s) aujourd'hui",
+    "all_stocked": "Tout en stock",
+    "items_low": "{count} article(s) en alerte",
+    "more_items": "+{count} de plus",
+    "qty_left": "{qty} restant(s)"
   },
   "metrics": {
     "revenue": "Revenus",
@@ -108,7 +113,8 @@
     "pending": "En attente",
     "partial": "Partiel",
     "active": "Actif",
-    "inactive": "Inactif"
+    "inactive": "Inactif",
+    "all": "Tous"
   },
   "payment": {
     "method": "Mode de paiement",
@@ -168,7 +174,17 @@
     "theft": "Vol",
     "expiry": "Expiration",
     "correction": "Correction de stock",
-    "other": "Autre"
+    "other": "Autre",
+    "all_categories": "Toutes catégories",
+    "edit_title": "Modifier le produit",
+    "manage_categories": "Gérer les catégories",
+    "restock_buying_price": "Prix d'achat (ce lot)",
+    "notes_label": "Notes",
+    "notes_placeholder": "Notes optionnelles…",
+    "stats_count": "{count} produit(s)",
+    "stats_low": "{count} en alerte",
+    "stats_out": "{count} en rupture",
+    "cost_label": "Coût"
   },
   "sales": {
     "title": "Ventes",
@@ -222,7 +238,9 @@
     "no_customers": "Aucun client pour l'instant.",
     "add_customer": "Ajouter un client",
     "payment_history": "Historique des paiements",
-    "sale_history": "Historique des achats"
+    "sale_history": "Historique des achats",
+    "name_placeholder": "Nom complet",
+    "city_placeholder": "ex. Kano"
   },
   "suppliers": {
     "title": "Fournisseurs",
@@ -231,7 +249,12 @@
     "city": "Ville",
     "products": "Produits",
     "no_suppliers": "Aucun fournisseur pour l'instant.",
-    "add_supplier": "Ajouter un fournisseur"
+    "add_supplier": "Ajouter un fournisseur",
+    "search_placeholder": "Rechercher fournisseurs…",
+    "products_count": "{count} produit(s)",
+    "edit_title": "Modifier fournisseur",
+    "name_placeholder": "Nom du fournisseur",
+    "city_placeholder": "ex. Kano"
   },
   "payments": {
     "title": "Crédit & Paiements",
@@ -302,7 +325,36 @@
     "reactivate": "Réactiver",
     "never": "Jamais",
     "invite_sent": "Invitation envoyée à {email}",
-    "cannot_delete_owner": "Le compte propriétaire ne peut pas être supprimé."
+    "cannot_delete_owner": "Le compte propriétaire ne peut pas être supprimé.",
+    "members_summary": "{total} membre(s) · {active} actif(s)",
+    "me": "Moi",
+    "deactivated_badge": "Désactivé",
+    "online": "En ligne",
+    "away": "Absent",
+    "offline": "Déconnecté",
+    "never_connected": "Jamais connecté",
+    "invite_btn": "Inviter",
+    "no_members": "Aucun membre dans cette boutique",
+    "deactivate_title": "Désactiver le compte",
+    "reactivate_title": "Réactiver le compte",
+    "deactivate_confirm": "Désactiver {name} ?",
+    "deactivate_effect_session": "Session révoquée immédiatement",
+    "deactivate_effect_login": "Il ne pourra plus se connecter",
+    "deactivate_effect_sales": "Ses ventes restent conservées",
+    "reactivate_confirm": "{name} pourra se reconnecter avec ses identifiants.",
+    "delete_title": "Supprimer définitivement",
+    "delete_confirm": "Supprimer {name} ?",
+    "delete_effect_permanent": "Compte supprimé définitivement",
+    "delete_effect_irreversible": "Cette action est irréversible",
+    "yes_deactivate": "Oui, désactiver",
+    "yes_reactivate": "Oui, réactiver",
+    "invite_title": "Inviter un employé",
+    "full_name_label": "Nom complet *",
+    "name_placeholder": "Nom de l'employé",
+    "role_label": "Rôle",
+    "shop_label": "Boutique *",
+    "invite_info": "Un email d'invitation sera envoyé. L'employé définira son mot de passe.",
+    "send_invite": "Envoyer l'invitation"
   },
   "settings": {
     "title": "Paramètres",
@@ -384,7 +436,14 @@
     "city_placeholder": "Ville",
     "created": "Boutique créée avec succès !",
     "active": "Active",
-    "switch": "Changer"
+    "switch": "Changer",
+    "count": "{count} boutique(s)",
+    "new_form_title": "Créer une nouvelle boutique",
+    "name_label": "Nom de la boutique *",
+    "city_label": "Ville",
+    "members": "{count} membre(s)",
+    "no_shops": "Aucune boutique",
+    "no_shops_detail": "Créez votre première boutique pour commencer."
   },
   "toast": {
     "no_active_shop": "Aucune boutique active",
@@ -473,7 +532,14 @@
     "feature_cancel": "Annulation ou changement de plan à tout moment",
     "feature_instant": "Activation instantanée après paiement",
     "choose_plan": "Choisir un plan",
-    "questions_whatsapp": "Questions ? Écrivez-nous sur WhatsApp"
+    "questions_whatsapp": "Questions ? Écrivez-nous sur WhatsApp",
+    "plan_limit_reached": "Vous avez atteint la limite de {limit} produits de votre plan {plan}. Passez au plan supérieur pour en ajouter.",
+    "plan_limit_warning": "Vous utilisez {count}/{limit} produits ({pct}%). Pensez à upgrader.",
+    "team_limit_reached": "Vous avez atteint la limite de {limit} membres d'équipe de votre plan {plan}.",
+    "team_limit_warning": "Vous avez {count}/{limit} membres d'équipe.",
+    "upgrade_to_plan": "Passer au plan {plan} — {price}/mois",
+    "unlimited_products": "Produits illimités",
+    "up_to_products": "Jusqu'à {count} produits"
   },
   "landing": {
     "nav": {

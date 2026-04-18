@@ -166,7 +166,7 @@ export default function CustomersPage() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-1">
               <Label>{t('customers.name')} *</Label>
-              <Input {...form.register('name')} placeholder="Full name" />
+              <Input {...form.register('name')} placeholder={t('customers.name_placeholder')} />
               {form.formState.errors.name && <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>}
             </div>
             <div className="space-y-1">
@@ -176,7 +176,7 @@ export default function CustomersPage() {
             </div>
             <div className="space-y-1">
               <Label>{t('customers.city')}</Label>
-              <Input {...form.register('city')} placeholder="e.g. Kano" />
+              <Input {...form.register('city')} placeholder={t('customers.city_placeholder')} />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowModal(false)}>{t('actions.cancel')}</Button>

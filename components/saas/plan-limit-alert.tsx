@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowUpRight, X, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { getPlan, PLANS } from '@/lib/saas/plans'
 import type { PlanId } from '@/lib/saas/plans'
 
@@ -15,6 +16,7 @@ interface PlanLimitAlertProps {
 }
 
 export function PlanLimitAlert({ currentPlan, productCount, teamMemberCount, locale }: PlanLimitAlertProps) {
+  const t = useTranslations('saas')
   const [dismissed, setDismissed] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [isWarning, setIsWarning] = useState(false) // warning = near limit, error = at limit
@@ -27,12 +29,12 @@ export function PlanLimitAlert({ currentPlan, productCount, teamMemberCount, loc
     if (limits.products !== -1) {
       const pct = productCount / limits.products
       if (productCount >= limits.products) {
-        setMessage(`Vous avez atteint la limite de ${limits.products} produits de votre plan ${plan.name}. Passez au plan supérieur pour ajouter plus.`)
+        setMessage(t('plan_limit_reached', { limit: limits.products, plan: plan.name }))
         setIsWarning(false)
         setDismissed(false)
         return
       } else if (pct >= 0.8) {
-        setMessage(`Vous utilisez ${productCount}/${limits.products} produits (${Math.round(pct * 100)}%). Pensez à upgrader votre plan.`)
+        setMessage(t('plan_limit_warning', { count: productCount, limit: limits.products, pct: Math.round(pct * 100) }))
         setIsWarning(true)
         setDismissed(false)
         return
@@ -42,12 +44,12 @@ export function PlanLimitAlert({ currentPlan, productCount, teamMemberCount, loc
     // Team members limit
     if (limits.team_members !== -1) {
       if (teamMemberCount >= limits.team_members) {
-        setMessage(`Vous avez atteint la limite de ${limits.team_members} membres d'équipe de votre plan ${plan.name}.`)
+        setMessage(t('team_limit_reached', { limit: limits.team_members, plan: plan.name }))
         setIsWarning(false)
         setDismissed(false)
         return
       } else if (teamMemberCount / limits.team_members >= 0.8) {
-        setMessage(`Vous avez ${teamMemberCount}/${limits.team_members} membres d'équipe.`)
+        setMessage(t('team_limit_warning', { count: teamMemberCount, limit: limits.team_members }))
         setIsWarning(true)
         setDismissed(false)
         return
@@ -55,7 +57,7 @@ export function PlanLimitAlert({ currentPlan, productCount, teamMemberCount, loc
     }
 
     setMessage(null)
-  }, [currentPlan, productCount, teamMemberCount])
+  }, [currentPlan, productCount, teamMemberCount, t])
 
   // Find next plan to recommend
   const planOrder: PlanId[] = ['trial', 'starter', 'pro', 'business']
@@ -93,11 +95,11 @@ export function PlanLimitAlert({ currentPlan, productCount, teamMemberCount, loc
                     : 'bg-red-500 hover:bg-red-600 text-white'
                 }`}
               >
-                Passer au plan {nextPlanData.name} — ₦{nextPlanData.price_monthly.toLocaleString('en-NG')}/mois
+                {t('upgrade_to_plan', { plan: nextPlanData.name, price: `₦${nextPlanData.price_monthly.toLocaleString()}` })}
                 <ArrowUpRight className="h-3.5 w-3.5" />
               </Link>
               <span className="text-xs text-gray-500">
-                {nextPlanData.limits.products === -1 ? 'Produits illimités' : `Jusqu'à ${nextPlanData.limits.products} produits`}
+                {nextPlanData.limits.products === -1 ? t('unlimited_products') : t('up_to_products', { count: nextPlanData.limits.products })}
               </span>
             </div>
           )}

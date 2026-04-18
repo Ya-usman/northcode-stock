@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuthContext } from '@/lib/contexts/auth-context'
+import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -15,6 +16,7 @@ const supabase = createClient()
 export default function ShopsPage({ params: { locale } }: { params: { locale: string } }) {
   const { user, userShops, activeShop, switchShop, profile, refreshShop } = useAuthContext()
   const { toast } = useToast()
+  const t = useTranslations()
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const [newCity, setNewCity] = useState('')
@@ -42,17 +44,17 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
         body: JSON.stringify({ name: newName.trim(), city: newCity.trim() }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur création boutique')
+      if (!res.ok) throw new Error(json.error || t('errors.generic'))
       const shop = json.shop
 
       await refreshShop()
       switchShop((shop as Shop).id)
-      toast({ title: `Boutique "${newName}" créée !`, variant: 'success' })
+      toast({ title: t('shops.created'), variant: 'success' })
       setCreating(false)
       setNewName('')
       setNewCity('')
     } catch (err: any) {
-      toast({ title: err?.message ?? 'Erreur', variant: 'destructive' })
+      toast({ title: err?.message ?? t('errors.generic'), variant: 'destructive' })
     } finally {
       setLoading(false)
     }
@@ -65,13 +67,13 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
       <div className="rounded-xl border bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="font-bold text-lg">Mes boutiques</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">{userShops.length} boutique{userShops.length !== 1 ? 's' : ''}</p>
+            <h1 className="font-bold text-lg">{t('shops.title')}</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">{t('shops.count', { count: userShops.length })}</p>
           </div>
           {isOwner && (
             <Button onClick={() => setCreating(true)} className="gap-2">
               <Plus className="h-4 w-4" />
-              Nouvelle boutique
+              {t('shops.new')}
             </Button>
           )}
         </div>
@@ -80,32 +82,32 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
       {/* Create form */}
       {creating && (
         <div className="rounded-xl border bg-white p-5 shadow-sm space-y-3">
-          <h2 className="font-semibold text-gray-900">Créer une nouvelle boutique</h2>
+          <h2 className="font-semibold text-gray-900">{t('shops.new_form_title')}</h2>
           <div>
-            <label className="text-xs font-medium text-gray-700 block mb-1">Nom de la boutique *</label>
+            <label className="text-xs font-medium text-gray-700 block mb-1">{t('shops.name_label')}</label>
             <input
               className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-northcode-blue"
-              placeholder="Ex: Ma Boutique Kano"
+              placeholder={t('shops.name_placeholder')}
               value={newName}
               onChange={e => setNewName(e.target.value)}
               autoFocus
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-700 block mb-1">Ville</label>
+            <label className="text-xs font-medium text-gray-700 block mb-1">{t('shops.city_label')}</label>
             <input
               className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-northcode-blue"
-              placeholder="Ex: Lagos"
+              placeholder={t('shops.city_placeholder')}
               value={newCity}
               onChange={e => setNewCity(e.target.value)}
             />
           </div>
           <div className="flex gap-2">
             <Button onClick={handleCreate} loading={loading} disabled={!newName.trim()}>
-              Créer
+              {t('shops.create')}
             </Button>
             <Button variant="outline" onClick={() => setCreating(false)}>
-              Annuler
+              {t('actions.cancel')}
             </Button>
           </div>
         </div>
@@ -135,7 +137,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
                     <p className="font-semibold text-sm truncate">{shop.name}</p>
                     {isActive && (
                       <Badge className="bg-northcode-blue text-white text-[10px] px-1.5 py-0.5 flex items-center gap-1">
-                        <CheckCircle2 className="h-2.5 w-2.5" /> Active
+                        <CheckCircle2 className="h-2.5 w-2.5" /> {t('shops.active')}
                       </Badge>
                     )}
                   </div>
@@ -143,7 +145,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
                     {shop.city && <span>{shop.city}</span>}
                     <span className="flex items-center gap-1">
                       <Users className="h-3 w-3" />
-                      {memberCounts[shop.id] ?? '–'} membre{(memberCounts[shop.id] ?? 0) !== 1 ? 's' : ''}
+                      {t('shops.members', { count: memberCounts[shop.id] ?? 0 })}
                     </span>
                     <Badge variant={shop.plan === 'trial' ? 'warning' : 'success'} className="text-[10px]">
                       {shop.plan ?? 'trial'}
@@ -157,7 +159,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
                     onClick={() => switchShop(shop.id)}
                     className="gap-1.5 text-xs flex-shrink-0"
                   >
-                    Activer
+                    {t('shops.switch')}
                   </Button>
                 )}
               </div>
@@ -169,8 +171,8 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
       {userShops.length === 0 && (
         <div className="rounded-xl border bg-white p-8 shadow-sm text-center">
           <Store className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-          <p className="font-medium text-gray-900">Aucune boutique</p>
-          <p className="text-sm text-muted-foreground mt-1">Créez votre première boutique pour commencer.</p>
+          <p className="font-medium text-gray-900">{t('shops.no_shops')}</p>
+          <p className="text-sm text-muted-foreground mt-1">{t('shops.no_shops_detail')}</p>
         </div>
       )}
     </div>

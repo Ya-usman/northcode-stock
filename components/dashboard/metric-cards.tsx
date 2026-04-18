@@ -35,7 +35,7 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
 
   const cards = [
     {
-      title: isCashier ? 'Mes ventes du jour' : t('today_revenue'),
+      title: isCashier ? t('my_sales_today') : t('today_revenue'),
       value: role === 'viewer' ? '—' : compact(todayRevenue),
       subValue: role !== 'viewer' ? fmt(todayRevenue) : undefined,
       icon: TrendingUp,
@@ -46,7 +46,7 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
     {
       title: t('sales_count'),
       value: todaySalesCount.toString(),
-      subValue: `${todaySalesCount === 1 ? 'transaction' : 'transactions'} today`,
+      subValue: t('transactions_today', { count: todaySalesCount }),
       icon: ShoppingCart,
       color: 'text-northcode-blue',
       bg: 'bg-northcode-blue-muted',
@@ -55,7 +55,7 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
     {
       title: t('stock_alerts'),
       value: lowStockCount.toString(),
-      subValue: lowStockCount === 0 ? 'All stocked' : `item${lowStockCount !== 1 ? 's' : ''} low`,
+      subValue: lowStockCount === 0 ? t('all_stocked') : t('items_low', { count: lowStockCount }),
       icon: AlertTriangle,
       color: lowStockCount > 0 ? 'text-amber-600' : 'text-green-600',
       bg: lowStockCount > 0 ? 'bg-amber-50' : 'bg-green-50',

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, Plus, Minus, Trash2, CheckCircle, MessageCircle, Printer,
@@ -50,6 +50,7 @@ function saveDraftsToStorage(drafts: Draft[]) {
 
 export default function NewSalePage({ params: { locale: _locale } }: { params: { locale: string } }) {
   const t = useTranslations()
+  const locale = useLocale()
   const { profile, shop, userShops } = useAuth()
   const isOwner = profile?.role === 'owner' || profile?.role === 'super_admin'
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null)
@@ -493,7 +494,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     const message = buildReceiptWhatsAppMessage({
       shopName: selectedShop?.name || '',
       saleNumber: completedSale.sale_number,
-      date: new Date(completedSale.created_at).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }),
+      date: new Date(completedSale.created_at).toLocaleString(locale, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }),
       items: ((completedSale as any).sale_items || []).map((i: any) => ({ name: i.product_name, qty: i.quantity, price: i.unit_price })),
       total: completedSale.total,
       paid: completedSale.amount_paid,
@@ -985,7 +986,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                       {draft.customerPhone && <p className="text-xs text-muted-foreground">{draft.customerPhone}</p>}
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {itemCount} article{itemCount > 1 ? 's' : ''} ·{' '}
-                        {new Date(draft.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(draft.createdAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </div>
                     <div className="text-right flex-shrink-0">
@@ -1025,7 +1026,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               <div className="rounded-lg bg-gray-50 border p-4 text-sm space-y-2">
                 <div className="flex justify-between font-bold">
                   <span>#{completedSale.sale_number}</span>
-                  <span>{new Date(completedSale.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
+                  <span>{new Date(completedSale.created_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
                 {(completedSale as any).customers && (
                   <p className="text-xs text-muted-foreground">Client : {(completedSale as any).customers.name}</p>

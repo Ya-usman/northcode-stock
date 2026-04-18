@@ -189,7 +189,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
 
             {isSubscribed && shop?.plan_expires_at && (
               <p className="text-sm text-muted-foreground">
-                Renouvellement le {new Date(shop.plan_expires_at).toLocaleDateString('fr-FR', {
+                Renouvellement le {new Date(shop.plan_expires_at).toLocaleDateString(locale, {
                   day: 'numeric', month: 'long', year: 'numeric',
                 })}
               </p>
