@@ -27,9 +27,6 @@ const supabase = createClient() as any
 const statusVariant: Record<string, any> = {
   paid: 'success', partial: 'warning', pending: 'danger',
 }
-const methodLabels: Record<string, string> = {
-  cash: 'Cash', transfer: 'Virement', credit: 'Crédit', paystack: 'Paystack',
-}
 
 type DialogType = 'cancel' | 'validate'
 
@@ -42,7 +39,7 @@ export default function SalesHistoryPage() {
     generateReceiptPDF({
       sale: sale as any,
       shop,
-      cashierName: cashierMap[(sale as any).cashier_id] || 'Caissier',
+      cashierName: cashierMap[(sale as any).cashier_id] || t('sales.cashier'),
       customerName: (sale as any).customers?.name || undefined,
     })
   }
@@ -136,11 +133,11 @@ export default function SalesHistoryPage() {
 
   const exportCSV = () => {
     const rows = [
-      ['Vente #', 'Date', 'Client', 'Total', 'Payé', 'Solde', 'Méthode', 'Statut paiement', 'Statut vente'],
+      [t('sales.sale_number'), t('sales.date'), t('sales.customer'), t('sales.total'), t('payment.amount_paid'), t('payment.balance'), t('payment.method'), t('status.paid'), t('status.active')],
       ...filtered.map(s => [
         s.sale_number,
         format(new Date(s.created_at), 'dd/MM/yyyy HH:mm'),
-        (s as any).customers?.name || 'Passant',
+        (s as any).customers?.name || t('sales.walk_in'),
         s.total, s.amount_paid, s.balance,
         s.payment_method, s.payment_status,
         s.sale_status || 'active',
@@ -192,7 +189,7 @@ export default function SalesHistoryPage() {
       <div className="flex flex-wrap gap-2">
         <div className="relative flex-1 min-w-[160px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Chercher vente # ou client…" className="pl-9 h-9" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('sales.search_history')} className="pl-9 h-9" />
         </div>
 
         {/* Multi-shop selector for owners */}
@@ -203,7 +200,7 @@ export default function SalesHistoryPage() {
               <SelectValue placeholder="Boutique" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="current">Boutique active</SelectItem>
+              <SelectItem value="current">{t('dashboard.active_shop')}</SelectItem>
               {userShops.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -212,40 +209,40 @@ export default function SalesHistoryPage() {
         <Select value={dateFilter} onValueChange={setDateFilter}>
           <SelectTrigger className="w-[120px] h-9"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="today">Aujourd'hui</SelectItem>
-            <SelectItem value="week">Cette semaine</SelectItem>
-            <SelectItem value="month">Ce mois</SelectItem>
-            <SelectItem value="custom">30 derniers jours</SelectItem>
+            <SelectItem value="today">{t('sales.filter_today')}</SelectItem>
+            <SelectItem value="week">{t('sales.filter_week')}</SelectItem>
+            <SelectItem value="month">{t('sales.filter_month')}</SelectItem>
+            <SelectItem value="custom">{t('sales.filter_30days')}</SelectItem>
           </SelectContent>
         </Select>
 
         <Select value={methodFilter} onValueChange={setMethodFilter}>
           <SelectTrigger className="w-[120px] h-9"><SelectValue placeholder="Méthode" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Toutes méthodes</SelectItem>
-            <SelectItem value="cash">Cash</SelectItem>
-            <SelectItem value="transfer">Virement</SelectItem>
-            <SelectItem value="credit">Crédit</SelectItem>
-            <SelectItem value="paystack">Paystack</SelectItem>
+            <SelectItem value="all">{t('sales.all_methods')}</SelectItem>
+            <SelectItem value="cash">{t('payment.cash')}</SelectItem>
+            <SelectItem value="transfer">{t('payment.transfer')}</SelectItem>
+            <SelectItem value="credit">{t('payment.credit')}</SelectItem>
+            <SelectItem value="paystack">{t('payment.paystack')}</SelectItem>
           </SelectContent>
         </Select>
 
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[110px] h-9"><SelectValue placeholder="Statut" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tous statuts</SelectItem>
-            <SelectItem value="paid">Payé</SelectItem>
-            <SelectItem value="partial">Partiel</SelectItem>
-            <SelectItem value="pending">En attente</SelectItem>
+            <SelectItem value="all">{t('sales.all_statuses')}</SelectItem>
+            <SelectItem value="paid">{t('status.paid')}</SelectItem>
+            <SelectItem value="partial">{t('status.partial')}</SelectItem>
+            <SelectItem value="pending">{t('status.pending')}</SelectItem>
           </SelectContent>
         </Select>
 
         <Select value={saleStatusFilter} onValueChange={v => setSaleStatusFilter(v as any)}>
           <SelectTrigger className="w-[110px] h-9"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Toutes ventes</SelectItem>
-            <SelectItem value="active">Actives</SelectItem>
-            <SelectItem value="cancelled">Annulées</SelectItem>
+            <SelectItem value="all">{t('sales.filter_all')}</SelectItem>
+            <SelectItem value="active">{t('sales.filter_active')}</SelectItem>
+            <SelectItem value="cancelled">{t('sales.filter_cancelled')}</SelectItem>
           </SelectContent>
         </Select>
 
@@ -260,13 +257,13 @@ export default function SalesHistoryPage() {
       {isOwner && (
         <div className="flex gap-4 text-sm flex-wrap">
           <span className="text-muted-foreground">
-            {filtered.filter(s => (s.sale_status || 'active') === 'active').length} ventes ·{' '}
+            {filtered.filter(s => (s.sale_status || 'active') === 'active').length} {t('sales.sales_count_label')} ·{' '}
             <span className="font-semibold text-foreground">
               {formatNaira(filtered.filter(s => (s.sale_status || 'active') === 'active').reduce((s, sale) => s + Number(sale.total), 0))}
             </span>
           </span>
           <span className="text-red-500">
-            Solde dû: {formatNaira(filtered.filter(s => (s.sale_status || 'active') === 'active').reduce((s, sale) => s + Number(sale.balance), 0))}
+            {t('sales.balance_summary')}: {formatNaira(filtered.filter(s => (s.sale_status || 'active') === 'active').reduce((s, sale) => s + Number(sale.balance), 0))}
           </span>
         </div>
       )}
@@ -277,20 +274,20 @@ export default function SalesHistoryPage() {
           <div className="p-4 space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
         ) : filtered.length === 0 ? (
           <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
-            Aucune vente trouvée
+            {t('sales.no_sales')}
           </div>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Vente #</TableHead>
-                <TableHead>Client</TableHead>
-                <TableHead className="hidden lg:table-cell">Caissier</TableHead>
-                <TableHead className="hidden sm:table-cell">Date</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="hidden md:table-cell text-right">Payé</TableHead>
-                <TableHead className="hidden md:table-cell text-right">Solde</TableHead>
-                <TableHead>Statut</TableHead>
+                <TableHead>{t('sales.sale_number')}</TableHead>
+                <TableHead>{t('sales.customer')}</TableHead>
+                <TableHead className="hidden lg:table-cell">{t('sales.cashier')}</TableHead>
+                <TableHead className="hidden sm:table-cell">{t('sales.date')}</TableHead>
+                <TableHead className="text-right">{t('sales.total')}</TableHead>
+                <TableHead className="hidden md:table-cell text-right">{t('payment.amount_paid')}</TableHead>
+                <TableHead className="hidden md:table-cell text-right">{t('payment.balance')}</TableHead>
+                <TableHead>{t('status.active')}</TableHead>
                 <TableHead className="w-8"></TableHead>
               </TableRow>
             </TableHeader>
@@ -313,10 +310,10 @@ export default function SalesHistoryPage() {
                       <TableCell className="font-mono text-xs font-medium text-northcode-blue">
                         #{sale.sale_number}
                         {isCancelled && (
-                          <span className="ml-1.5 text-[10px] font-semibold text-red-500 bg-red-50 border border-red-200 rounded px-1">ANNULÉ</span>
+                          <span className="ml-1.5 text-[10px] font-semibold text-red-500 bg-red-50 border border-red-200 rounded px-1">{t('sales.cancelled_badge')}</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-sm">{(sale as any).customers?.name || 'Passant'}</TableCell>
+                      <TableCell className="text-sm">{(sale as any).customers?.name || t('sales.walk_in_short')}</TableCell>
                       <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
                         {cashierMap[(sale as any).cashier_id] || '—'}
                       </TableCell>
@@ -338,7 +335,7 @@ export default function SalesHistoryPage() {
                             </Badge>
                           )}
                           <Badge variant="outline" className="text-[10px] px-1.5 hidden sm:inline-flex">
-                            {methodLabels[sale.payment_method] || sale.payment_method}
+                            {t(`payment.${sale.payment_method}` as any) || sale.payment_method}
                           </Badge>
                         </div>
                       </TableCell>
@@ -352,7 +349,7 @@ export default function SalesHistoryPage() {
                       <TableRow key={`${sale.id}-expand`}>
                         <TableCell colSpan={9} className="bg-muted/20 p-0">
                           <div className="p-3 space-y-2">
-                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Articles</p>
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('sales.items')}</p>
                             {(sale as any).sale_items?.map((item: any) => (
                               <div key={item.id} className="flex justify-between text-xs">
                                 <span>{item.product_name} × {item.quantity} @ {formatNaira(item.unit_price)}</span>
@@ -360,10 +357,10 @@ export default function SalesHistoryPage() {
                               </div>
                             ))}
                             {sale.notes && (
-                              <p className="text-xs text-muted-foreground pt-2 border-t">Note: {sale.notes}</p>
+                              <p className="text-xs text-muted-foreground pt-2 border-t">{t('sales.note_label')}: {sale.notes}</p>
                             )}
                             {isCancelled && sale.cancel_reason && (
-                              <p className="text-xs text-red-500 pt-2 border-t">Motif annulation: {sale.cancel_reason}</p>
+                              <p className="text-xs text-red-500 pt-2 border-t">{t('sales.cancel_reason_label')}: {sale.cancel_reason}</p>
                             )}
 
                             {/* Action buttons */}
@@ -376,7 +373,7 @@ export default function SalesHistoryPage() {
                                   className="gap-1.5 text-xs h-7 border-green-300 text-green-700 hover:bg-green-50"
                                   onClick={() => { setDialog({ type: 'validate', sale }); setValidateAmount(String(sale.balance)) }}
                                 >
-                                  <CheckCircle2 className="h-3 w-3" /> Valider paiement
+                                  <CheckCircle2 className="h-3 w-3" /> {t('sales.validate_payment_action')}
                                 </Button>
                               )}
                               {/* Cancel */}
@@ -387,7 +384,7 @@ export default function SalesHistoryPage() {
                                   className="gap-1.5 text-xs h-7 border-amber-300 text-amber-700 hover:bg-amber-50"
                                   onClick={() => { setDialog({ type: 'cancel', sale }); setCancelReason('') }}
                                 >
-                                  <XCircle className="h-3 w-3" /> Annuler
+                                  <XCircle className="h-3 w-3" /> {t('actions.cancel')}
                                 </Button>
                               )}
                               {/* Print receipt */}
@@ -398,7 +395,7 @@ export default function SalesHistoryPage() {
                                   className="gap-1.5 text-xs h-7"
                                   onClick={() => printSale(sale)}
                                 >
-                                  <Printer className="h-3 w-3" /> Imprimer
+                                  <Printer className="h-3 w-3" /> {t('actions.print')}
                                 </Button>
                               )}
                             </div>
@@ -419,8 +416,8 @@ export default function SalesHistoryPage() {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>
-              {dialog?.type === 'cancel' && '⚠️ Annuler la vente'}
-              {dialog?.type === 'validate' && '✅ Valider le paiement'}
+              {dialog?.type === 'cancel' && `⚠️ ${t('sales.cancel_sale_dialog_title')}`}
+              {dialog?.type === 'validate' && `✅ ${t('sales.validate_payment_dialog_title')}`}
             </DialogTitle>
           </DialogHeader>
 
@@ -428,14 +425,14 @@ export default function SalesHistoryPage() {
             {dialog?.type === 'cancel' && (
               <>
                 <p className="text-sm text-muted-foreground">
-                  La vente <strong>#{dialog.sale.sale_number}</strong> sera marquée "Annulée" et le stock sera restauré.
+                  {t('confirm.cancel_sale')} <strong>#{dialog.sale.sale_number}</strong>
                 </p>
                 <div className="space-y-1">
-                  <Label className="text-xs">Motif (optionnel)</Label>
+                  <Label className="text-xs">{t('sales.cancel_reason_label')} ({t('form.optional')})</Label>
                   <Input
                     value={cancelReason}
                     onChange={e => setCancelReason(e.target.value)}
-                    placeholder="Erreur de caisse, retour client…"
+                    placeholder={t('sales.cancel_reason_placeholder')}
                     autoFocus
                   />
                 </div>
@@ -445,10 +442,10 @@ export default function SalesHistoryPage() {
             {dialog?.type === 'validate' && dialog.sale && (
               <>
                 <p className="text-sm text-muted-foreground">
-                  Solde restant: <strong>{formatNaira(dialog.sale.balance)}</strong>
+                  {t('sales.remaining_balance_label')}: <strong>{formatNaira(dialog.sale.balance)}</strong>
                 </p>
                 <div className="space-y-1">
-                  <Label className="text-xs">Montant reçu</Label>
+                  <Label className="text-xs">{t('payment.amount_paid')}</Label>
                   <Input
                     type="number"
                     value={validateAmount}
@@ -457,13 +454,13 @@ export default function SalesHistoryPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Méthode</Label>
+                  <Label className="text-xs">{t('payment.method')}</Label>
                   <Select value={validateMethod} onValueChange={setValidateMethod}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="transfer">Virement</SelectItem>
-                      <SelectItem value="paystack">Paystack</SelectItem>
+                      <SelectItem value="cash">{t('payment.cash')}</SelectItem>
+                      <SelectItem value="transfer">{t('payment.transfer')}</SelectItem>
+                      <SelectItem value="paystack">{t('payment.paystack')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -472,20 +469,18 @@ export default function SalesHistoryPage() {
           </div>
 
           <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" onClick={() => setDialog(null)}>Annuler</Button>
+            <Button variant="outline" size="sm" onClick={() => setDialog(null)}>{t('actions.cancel')}</Button>
             <Button
               size="sm"
               loading={actionLoading}
               onClick={doAction}
               className={
-                dialog?.type === 'delete' ? 'bg-red-600 hover:bg-red-700' :
                 dialog?.type === 'cancel' ? 'bg-amber-600 hover:bg-amber-700' :
                 'bg-green-600 hover:bg-green-700'
               }
             >
-              {dialog?.type === 'cancel' && 'Confirmer annulation'}
-              {dialog?.type === 'delete' && 'Supprimer définitivement'}
-              {dialog?.type === 'validate' && 'Valider paiement'}
+              {dialog?.type === 'cancel' && t('actions.confirm')}
+              {dialog?.type === 'validate' && t('sales.validate_payment_action')}
             </Button>
           </DialogFooter>
         </DialogContent>

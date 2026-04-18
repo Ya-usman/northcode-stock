@@ -63,18 +63,10 @@ interface SaleRecord {
   sale_items: { product_name: string; quantity: number; unit_price: number; subtotal: number }[]
 }
 
-const METHOD_LABELS: Record<string, string> = {
-  cash: 'Espèces',
-  transfer: 'Virement',
-  mobile_money: 'Mobile Money',
-  paystack: 'Paystack',
-  credit: 'Crédit',
-}
-
-const STATUS_LABELS: Record<string, { label: string; variant: 'destructive' | 'warning' | 'success' }> = {
-  pending:  { label: 'Impayé',  variant: 'destructive' },
-  partial:  { label: 'Partiel', variant: 'warning' },
-  paid:     { label: 'Payé',    variant: 'success' },
+const STATUS_VARIANTS: Record<string, 'destructive' | 'warning' | 'success'> = {
+  pending: 'destructive',
+  partial: 'warning',
+  paid: 'success',
 }
 
 export default function DettesPage() {
@@ -225,10 +217,10 @@ export default function DettesPage() {
         <CardContent className="p-4">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm opacity-80">Total des dettes en cours</p>
+              <p className="text-sm opacity-80">{t('payments.total_outstanding_label')}</p>
               <p className="text-3xl font-bold mt-1">{fmt(totalOutstanding)}</p>
               <p className="text-sm opacity-70 mt-1">
-                {debtors.length} client{debtors.length !== 1 ? 's' : ''} avec dette en cours
+                {t('payments.clients_with_debt', { count: debtors.length })}
               </p>
             </div>
             <button
@@ -250,8 +242,8 @@ export default function DettesPage() {
       ) : debtors.length === 0 ? (
         <div className="flex h-48 flex-col items-center justify-center text-muted-foreground">
           <CheckCircle2 className="h-12 w-12 mb-3 opacity-30" />
-          <p className="font-medium">Aucune dette en cours</p>
-          <p className="text-sm mt-1 opacity-70">Tous les clients sont à jour</p>
+          <p className="font-medium">{t('payments.no_debts')}</p>
+          <p className="text-sm mt-1 opacity-70">{t('payments.no_debts_detail')}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -275,18 +267,18 @@ export default function DettesPage() {
                       <div className="text-right flex-shrink-0">
                         <p className="text-lg font-bold text-red-600">{fmt(totalDebt)}</p>
                         <p className="text-xs text-muted-foreground">
-                          {unpaidSales.length} facture{unpaidSales.length !== 1 ? 's' : ''} impayée{unpaidSales.length !== 1 ? 's' : ''}
+                          {t('payments.invoices_count', { count: unpaidSales.length })}
                         </p>
                       </div>
                     </div>
                     <div className="flex gap-2 mt-3">
                       <Button size="sm" className="flex-1 h-9 text-xs bg-northcode-blue hover:bg-northcode-blue-light gap-1"
                         onClick={() => openRepayDialog({ customer, unpaidSales, totalDebt })}>
-                        <Banknote className="h-3.5 w-3.5" /> Rembourser
+                        <Banknote className="h-3.5 w-3.5" /> {t('payments.repay')}
                       </Button>
                       <Button size="sm" variant="outline" className="flex-1 h-9 text-xs gap-1"
                         onClick={() => openHistory({ customer, unpaidSales, totalDebt })}>
-                        <History className="h-3.5 w-3.5" /> Historique
+                        <History className="h-3.5 w-3.5" /> {t('payments.history_btn')}
                       </Button>
                       <Button size="sm" variant="ghost" className="h-9 w-9 p-0 flex-shrink-0"
                         onClick={() => setExpandedId(isExpanded ? null : customer.id)}>
@@ -297,13 +289,13 @@ export default function DettesPage() {
 
                   {isExpanded && (
                     <div className="border-t bg-gray-50 px-4 py-3 space-y-2">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Factures impayées</p>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('payments.unpaid_invoices')}</p>
                       {unpaidSales.map(sale => (
                         <div key={sale.id} className="bg-white rounded-lg border p-3 space-y-1">
                           <div className="flex items-center justify-between">
                             <span className="font-mono text-northcode-blue font-semibold text-sm">#{sale.sale_number}</span>
                             <Badge variant={sale.payment_status === 'partial' ? 'warning' : 'destructive'} className="text-[10px]">
-                              {sale.payment_status === 'partial' ? 'Partiel' : 'Impayé'}
+                              {sale.payment_status === 'partial' ? t('payments.partial_label') : t('payments.unpaid_label')}
                             </Badge>
                           </div>
                           <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -312,17 +304,17 @@ export default function DettesPage() {
                           </div>
                           {sale.amount_paid > 0 && (
                             <div className="flex items-center justify-between text-xs">
-                              <span className="text-green-600">Déjà payé: {fmt(sale.amount_paid)}</span>
-                              <span className="font-bold text-red-600">Reste: {fmt(sale.balance)}</span>
+                              <span className="text-green-600">{t('payment.already_paid')}: {fmt(sale.amount_paid)}</span>
+                              <span className="font-bold text-red-600">{t('payment.remaining')}: {fmt(sale.balance)}</span>
                             </div>
                           )}
                           {sale.amount_paid === 0 && (
                             <div className="flex justify-end">
-                              <span className="text-xs font-bold text-red-600">Dû: {fmt(sale.balance)}</span>
+                              <span className="text-xs font-bold text-red-600">{t('payment.due')}: {fmt(sale.balance)}</span>
                             </div>
                           )}
                           {sale.cashier_name && (
-                            <p className="text-[11px] text-muted-foreground">Vente par : <strong>{sale.cashier_name}</strong></p>
+                            <p className="text-[11px] text-muted-foreground">{t('payments.sold_by')} : <strong>{sale.cashier_name}</strong></p>
                           )}
                           {sale.sale_items && sale.sale_items.length > 0 && (
                             <div className="pt-1 border-t space-y-0.5">
@@ -349,12 +341,12 @@ export default function DettesPage() {
       <Dialog open={!!repayDebtor} onOpenChange={open => !open && setRepayDebtor(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Enregistrer un remboursement</DialogTitle>
+            <DialogTitle>{t('payments.record_repayment_title')}</DialogTitle>
             {repayDebtor && (
               <div className="flex items-center gap-2 mt-1">
                 <User className="h-4 w-4 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">{repayDebtor.customer.name}</p>
-                <Badge variant="destructive" className="text-[10px]">Dette: {fmt(repayDebtor.totalDebt)}</Badge>
+                <Badge variant="destructive" className="text-[10px]">{t('payments.debt_badge')}: {fmt(repayDebtor.totalDebt)}</Badge>
               </div>
             )}
           </DialogHeader>
@@ -362,7 +354,7 @@ export default function DettesPage() {
           <div className="space-y-4">
             {repayDebtor && repayDebtor.unpaidSales.length === 0 ? (
               <div className="rounded-lg bg-orange-50 border border-orange-200 p-3">
-                <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-1">Données à corriger</p>
+                <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-1">{t('payments.data_to_fix')}</p>
                 <p className="text-sm text-orange-700">
                   La dette de {fmt(repayDebtor.totalDebt)} est enregistrée mais aucune facture impayée n&apos;est trouvée.
                   Contactez un administrateur pour corriger les données.
@@ -370,7 +362,7 @@ export default function DettesPage() {
               </div>
             ) : repayDebtor ? (
               <div className="rounded-lg bg-red-50 border border-red-200 p-3 space-y-1">
-                <p className="text-xs font-semibold text-red-700 uppercase tracking-wide">Dette totale</p>
+                <p className="text-xs font-semibold text-red-700 uppercase tracking-wide">{t('payments.total_debt_label')}</p>
                 <p className="text-2xl font-bold text-red-600">{fmt(repayDebtor.totalDebt)}</p>
                 <p className="text-xs text-red-500">
                   {repayDebtor.unpaidSales.length} facture{repayDebtor.unpaidSales.length !== 1 ? 's' : ''} impayée{repayDebtor.unpaidSales.length !== 1 ? 's' : ''} — du plus ancien au plus récent
@@ -379,7 +371,7 @@ export default function DettesPage() {
             ) : null}
 
             <div className="space-y-1">
-              <Label>Montant donné par le client *</Label>
+              <Label>{t('payment.amount_given')}</Label>
               <div className="flex rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
                 <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">
                   {shop?.currency || '₦'}
@@ -389,11 +381,11 @@ export default function DettesPage() {
               </div>
               {repayDebtor && Number(repayAmount) > 0 && (
                 <p className="text-xs text-muted-foreground">
-                  Reste :{' '}
+                  {t('payment.remaining')} :{' '}
                   <strong className={Number(repayAmount) >= repayDebtor.totalDebt ? 'text-green-600' : 'text-orange-600'}>
                     {fmt(Math.max(0, repayDebtor.totalDebt - Number(repayAmount)))}
                   </strong>
-                  {Number(repayAmount) >= repayDebtor.totalDebt && ' ✓ Dette soldée'}
+                  {Number(repayAmount) >= repayDebtor.totalDebt && ` ✓ ${t('payment.debt_settled')}`}
                 </p>
               )}
             </div>
@@ -408,7 +400,7 @@ export default function DettesPage() {
                         ? 'border-northcode-blue bg-northcode-blue-muted text-northcode-blue'
                         : 'border-input bg-white text-muted-foreground hover:bg-muted'
                     }`}>
-                    {m === 'cash' ? '💵 Espèces' : m === 'transfer' ? '🏦 Virement' : m === 'mobile_money' ? '📱 Mobile Money' : '💳 Paystack'}
+                    {m === 'cash' ? `💵 ${t('payment.cash')}` : m === 'transfer' ? `🏦 ${t('payment.transfer')}` : m === 'mobile_money' ? `📱 ${t('payment.mobile_money')}` : `💳 ${t('payment.paystack')}`}
                   </button>
                 ))}
               </div>
@@ -416,23 +408,23 @@ export default function DettesPage() {
 
             {repayMethod !== 'cash' && (
               <div className="space-y-1">
-                <Label>Référence de paiement</Label>
-                <Input value={repayRef} onChange={e => setRepayRef(e.target.value)} placeholder="Numéro de transaction…" />
+                <Label>{t('payment.reference')}</Label>
+                <Input value={repayRef} onChange={e => setRepayRef(e.target.value)} placeholder={t('payment.reference_placeholder')} />
               </div>
             )}
 
             <div className="space-y-1">
-              <Label>Note <span className="text-muted-foreground font-normal">(optionnel)</span></Label>
-              <Input value={repayNotes} onChange={e => setRepayNotes(e.target.value)} placeholder="Contexte, remarque…" />
+              <Label>{t('sales.note_label')} <span className="text-muted-foreground font-normal">({t('form.optional')})</span></Label>
+              <Input value={repayNotes} onChange={e => setRepayNotes(e.target.value)} placeholder={t('payment.notes_placeholder')} />
             </div>
           </div>
 
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setRepayDebtor(null)}>Annuler</Button>
+            <Button variant="outline" onClick={() => setRepayDebtor(null)}>{t('actions.cancel')}</Button>
             <Button onClick={recordRepayment}
               disabled={saving || !repayDebtor || repayDebtor.unpaidSales.length === 0}
               className="bg-northcode-blue hover:bg-northcode-blue-light flex-1">
-              {saving ? 'Enregistrement…' : '✓ Confirmer le remboursement'}
+              {saving ? t('payment.saving') : `✓ ${t('payment.confirm_repayment')}`}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -442,7 +434,7 @@ export default function DettesPage() {
       <Dialog open={!!historyDebtor} onOpenChange={open => { if (!open) { setHistoryDebtor(null); setHistorySales([]); setHistoryPayments([]) } }}>
         <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Historique des paiements</DialogTitle>
+            <DialogTitle>{t('customers.payment_history')}</DialogTitle>
             {historyDebtor && <p className="text-sm text-muted-foreground">{historyDebtor.customer.name}</p>}
           </DialogHeader>
 
@@ -453,14 +445,15 @@ export default function DettesPage() {
           ) : historySales.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
               <Clock className="h-8 w-8 mb-2 opacity-30" />
-              <p className="text-sm">Aucune vente trouvée pour ce client</p>
+              <p className="text-sm">{t('payments.no_sales_for_customer')}</p>
             </div>
           ) : (
             <div className="space-y-3 overflow-y-auto flex-1 pr-1">
               {historySales.map(sale => {
                 const salePayments = historyPayments.filter(p => p.sale_id === sale.id)
                 const isOpen = expandedSaleId === sale.id
-                const statusInfo = STATUS_LABELS[sale.payment_status] || { label: sale.payment_status, variant: 'outline' as any }
+                const statusVariant = STATUS_VARIANTS[sale.payment_status] || ('outline' as any)
+                const statusLabel = sale.payment_status === 'paid' ? t('status.paid') : sale.payment_status === 'partial' ? t('status.partial') : t('status.pending')
                 return (
                   <div key={sale.id} className="border rounded-xl overflow-hidden">
                     {/* Sale header */}
@@ -471,8 +464,8 @@ export default function DettesPage() {
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-mono text-sm font-bold text-northcode-blue">#{sale.sale_number}</span>
-                          <Badge variant={statusInfo.variant} className="text-[10px]">{statusInfo.label}</Badge>
-                          <Badge variant="outline" className="text-[10px]">{METHOD_LABELS[sale.payment_method] || sale.payment_method}</Badge>
+                          <Badge variant={statusVariant} className="text-[10px]">{statusLabel}</Badge>
+                          <Badge variant="outline" className="text-[10px]">{t(`payment.${sale.payment_method}` as any) || sale.payment_method}</Badge>
                         </div>
                         <p className="text-xs text-muted-foreground">
                           {format(new Date(sale.created_at), "dd MMM yyyy 'à' HH:mm", { locale: fr })}
@@ -482,10 +475,10 @@ export default function DettesPage() {
                       <div className="text-right flex-shrink-0">
                         <p className="text-sm font-bold">{fmt(sale.total)}</p>
                         {sale.balance > 0 && (
-                          <p className="text-xs text-red-500">Reste: {fmt(sale.balance)}</p>
+                          <p className="text-xs text-red-500">{t('payment.remaining')}: {fmt(sale.balance)}</p>
                         )}
                         {sale.balance <= 0 && (
-                          <p className="text-xs text-green-600">Soldée ✓</p>
+                          <p className="text-xs text-green-600">{t('payments.paid_off')} ✓</p>
                         )}
                       </div>
                     </button>
@@ -496,7 +489,7 @@ export default function DettesPage() {
                         {/* Sale items */}
                         {sale.sale_items.length > 0 && (
                           <div className="px-3 py-2 bg-white space-y-0.5">
-                            <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">Articles</p>
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">{t('sales.items')}</p>
                             {sale.sale_items.map((item, i) => (
                               <div key={i} className="flex justify-between text-[11px] text-muted-foreground">
                                 <span>{item.product_name} × {item.quantity}</span>
@@ -509,10 +502,10 @@ export default function DettesPage() {
                         {/* Payment breakdown */}
                         <div className="px-3 py-2 bg-white">
                           <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-2">
-                            Paiements reçus ({salePayments.length})
+                            {t('payments.payments_received')} ({salePayments.length})
                           </p>
                           {salePayments.length === 0 ? (
-                            <p className="text-xs text-muted-foreground italic">Aucun paiement enregistré</p>
+                            <p className="text-xs text-muted-foreground italic">{t('payments.no_payments_recorded')}</p>
                           ) : (
                             <div className="space-y-1.5">
                               {salePayments.map(p => (
@@ -520,7 +513,7 @@ export default function DettesPage() {
                                   <div className="space-y-0.5">
                                     <div className="flex items-center gap-1.5 flex-wrap">
                                       <Badge variant="outline" className="text-[10px] px-1.5 bg-white">
-                                        {METHOD_LABELS[p.method] || p.method}
+                                        {t(`payment.${p.method}` as any) || p.method}
                                       </Badge>
                                       {p.received_by_name && (
                                         <span className="text-[11px] text-muted-foreground">par <strong>{p.received_by_name}</strong></span>
@@ -529,7 +522,7 @@ export default function DettesPage() {
                                     <p className="text-[11px] text-muted-foreground">
                                       {format(new Date(p.paid_at), "dd MMM yyyy 'à' HH:mm", { locale: fr })}
                                     </p>
-                                    {p.reference && <p className="text-[11px] text-muted-foreground">Réf: {p.reference}</p>}
+                                    {p.reference && <p className="text-[11px] text-muted-foreground">{t('payments.ref_label')}: {p.reference}</p>}
                                     {p.notes && <p className="text-[11px] text-muted-foreground italic">{p.notes}</p>}
                                   </div>
                                   <span className="font-bold text-green-600 text-sm flex-shrink-0">+{fmt(p.amount)}</span>
@@ -537,12 +530,12 @@ export default function DettesPage() {
                               ))}
                               {/* Running total */}
                               <div className="flex justify-between text-xs pt-1 border-t">
-                                <span className="text-muted-foreground">Total payé</span>
+                                <span className="text-muted-foreground">{t('payments.total_paid')}</span>
                                 <span className="font-semibold text-green-600">{fmt(sale.amount_paid)}</span>
                               </div>
                               {sale.balance > 0 && (
                                 <div className="flex justify-between text-xs">
-                                  <span className="text-muted-foreground">Reste dû</span>
+                                  <span className="text-muted-foreground">{t('payments.remaining_due')}</span>
                                   <span className="font-semibold text-red-600">{fmt(sale.balance)}</span>
                                 </div>
                               )}
@@ -559,7 +552,7 @@ export default function DettesPage() {
 
           <DialogFooter className="pt-2">
             <Button variant="outline" className="w-full" onClick={() => { setHistoryDebtor(null); setHistorySales([]); setHistoryPayments([]) }}>
-              Fermer
+              {t('actions.close')}
             </Button>
           </DialogFooter>
         </DialogContent>

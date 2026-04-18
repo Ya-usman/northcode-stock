@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { AlertTriangle, X, Zap } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils/cn'
 
 interface TrialBannerProps {
@@ -11,11 +12,19 @@ interface TrialBannerProps {
 }
 
 export function TrialBanner({ daysLeft, locale }: TrialBannerProps) {
+  const t = useTranslations('saas')
   const [dismissed, setDismissed] = useState(false)
   if (dismissed) return null
 
   const isUrgent = daysLeft <= 3
   const isExpiringSoon = daysLeft <= 7
+
+  const message =
+    daysLeft === 0
+      ? t('trial_expires_today')
+      : daysLeft === 1
+      ? t('trial_last_day')
+      : t('trial_days_left', { daysLeft })
 
   return (
     <div
@@ -35,17 +44,12 @@ export function TrialBanner({ daysLeft, locale }: TrialBannerProps) {
       )}
 
       <span className="flex-1 text-center text-xs sm:text-sm">
-        {daysLeft === 0
-          ? 'Your free trial expires today!'
-          : daysLeft === 1
-          ? 'Last day of your free trial!'
-          : `${daysLeft} days left in your free trial.`}
-        {' '}
+        {message}{' '}
         <Link
           href={`/${locale}/billing`}
           className="underline font-bold hover:no-underline"
         >
-          Upgrade now →
+          {t('upgrade_now')}
         </Link>
       </span>
 

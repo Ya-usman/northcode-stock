@@ -19,7 +19,10 @@
     "shops": "Shops",
     "billing": "Subscription",
     "movements": "Movements",
-    "logout": "Log Out"
+    "logout": "Log Out",
+    "section_sales": "Sales",
+    "section_inventory": "Inventory",
+    "section_management": "Management"
   },
   "auth": {
     "login": "Log In",
@@ -48,7 +51,10 @@
     "new_sale": "Record Sale",
     "low_stock_warning": "{count} product(s) running low",
     "out_of_stock_warning": "{count} product(s) out of stock",
-    "view_all": "View All"
+    "view_all": "View All",
+    "all_shops": "All Shops",
+    "active_shop": "Active Shop",
+    "my_sales_today": "My Sales Today"
   },
   "metrics": {
     "revenue": "Revenue",
@@ -117,7 +123,17 @@
     "bank_name": "Bank Name",
     "reference": "Reference Number",
     "paystack_link": "Generate Paystack Link",
-    "awaiting_payment": "Awaiting Paystack confirmation…"
+    "awaiting_payment": "Awaiting Paystack confirmation…",
+    "mobile_money": "Mobile Money",
+    "amount_given": "Amount given by customer *",
+    "debt_settled": "Debt settled",
+    "already_paid": "Already paid",
+    "remaining": "Remaining",
+    "due": "Due",
+    "reference_placeholder": "Transaction number…",
+    "notes_placeholder": "Context, remarks…",
+    "confirm_repayment": "Confirm Repayment",
+    "saving": "Saving…"
   },
   "roles": {
     "owner": "Owner (Maigida)",
@@ -177,7 +193,25 @@
     "filter_today": "Today",
     "filter_week": "This Week",
     "filter_month": "This Month",
-    "filter_custom": "Custom Range"
+    "filter_custom": "Custom Range",
+    "filter_30days": "Last 30 Days",
+    "filter_all": "All Sales",
+    "filter_active": "Active",
+    "filter_cancelled": "Cancelled",
+    "search_history": "Search sale # or customer…",
+    "all_methods": "All Methods",
+    "all_statuses": "All Statuses",
+    "cancelled_badge": "CANCELLED",
+    "note_label": "Note",
+    "cancel_reason_label": "Cancellation reason",
+    "cancel_reason_placeholder": "Cash error, customer return…",
+    "validate_payment_action": "Validate Payment",
+    "cancel_sale_dialog_title": "Cancel Sale",
+    "validate_payment_dialog_title": "Validate Payment",
+    "balance_summary": "Balance due",
+    "sales_count_label": "sales",
+    "remaining_balance_label": "Remaining balance",
+    "walk_in_short": "Walk-in"
   },
   "customers": {
     "title": "Customers",
@@ -205,7 +239,29 @@
     "total_debt": "Total Outstanding",
     "no_debts": "No outstanding debts.",
     "record_payment": "Record Payment",
-    "payment_received": "Payment recorded successfully!"
+    "payment_received": "Payment recorded successfully!",
+    "total_outstanding_label": "Total outstanding debts",
+    "clients_with_debt": "{count} client(s) with outstanding debt",
+    "no_debts_detail": "All customers are up to date",
+    "repay": "Repay",
+    "history_btn": "History",
+    "unpaid_invoices": "Unpaid Invoices",
+    "invoices_count": "{count} unpaid invoice(s)",
+    "record_repayment_title": "Record Repayment",
+    "data_to_fix": "Data to fix",
+    "total_debt_label": "Total Debt",
+    "payments_received": "Payments received",
+    "no_payments_recorded": "No payments recorded",
+    "total_paid": "Total paid",
+    "remaining_due": "Remaining due",
+    "paid_off": "Paid off",
+    "ref_label": "Ref",
+    "no_sales_for_customer": "No sales found for this customer",
+    "sold_by": "Sold by",
+    "debt_badge": "Debt",
+    "partial_label": "Partial",
+    "unpaid_label": "Unpaid",
+    "from_oldest": "from oldest to newest"
   },
   "reports": {
     "title": "Reports",
@@ -402,6 +458,22 @@
     "create_account": "Create Account",
     "already_have_account": "Already have an account?",
     "login_link": "Log in"
+  },
+  "saas": {
+    "trial_expires_today": "Your free trial expires today!",
+    "trial_last_day": "Last day of your free trial!",
+    "trial_days_left": "{daysLeft} days left in your free trial.",
+    "upgrade_now": "Upgrade now →",
+    "trial_ended_title": "Your free trial has ended",
+    "trial_ended_subtitle_shop": "{shopName} needs an active plan",
+    "trial_ended_subtitle": "Subscribe to continue using StockShop",
+    "data_safe": "Your data is safe. Subscribe to any plan to get back to work.",
+    "feature_history": "All your products and sales history are saved",
+    "feature_starter": "Starter plan from ₦4,500/month",
+    "feature_cancel": "Cancel or change plan anytime",
+    "feature_instant": "Instant activation after payment",
+    "choose_plan": "Choose a Plan",
+    "questions_whatsapp": "Questions? WhatsApp us"
   },
   "landing": {
     "nav": {

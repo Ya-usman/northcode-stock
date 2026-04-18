@@ -19,7 +19,10 @@
     "shops": "Boutiques",
     "billing": "Abonnement",
     "movements": "Mouvements",
-    "logout": "Se déconnecter"
+    "logout": "Se déconnecter",
+    "section_sales": "Ventes",
+    "section_inventory": "Inventaire",
+    "section_management": "Gestion"
   },
   "auth": {
     "login": "Se connecter",
@@ -48,7 +51,10 @@
     "new_sale": "Enregistrer une vente",
     "low_stock_warning": "{count} produit(s) en stock faible",
     "out_of_stock_warning": "{count} produit(s) en rupture de stock",
-    "view_all": "Voir tout"
+    "view_all": "Voir tout",
+    "all_shops": "Toutes les boutiques",
+    "active_shop": "Boutique active",
+    "my_sales_today": "Mes ventes du jour"
   },
   "metrics": {
     "revenue": "Revenus",
@@ -117,7 +123,17 @@
     "bank_name": "Nom de la banque",
     "reference": "Numéro de référence",
     "paystack_link": "Générer un lien Paystack",
-    "awaiting_payment": "En attente de confirmation Paystack…"
+    "awaiting_payment": "En attente de confirmation Paystack…",
+    "mobile_money": "Mobile Money",
+    "amount_given": "Montant donné par le client *",
+    "debt_settled": "Dette soldée",
+    "already_paid": "Déjà payé",
+    "remaining": "Reste",
+    "due": "Dû",
+    "reference_placeholder": "Numéro de transaction…",
+    "notes_placeholder": "Contexte, remarque…",
+    "confirm_repayment": "Confirmer le remboursement",
+    "saving": "Enregistrement…"
   },
   "roles": {
     "owner": "Propriétaire",
@@ -177,7 +193,25 @@
     "filter_today": "Aujourd'hui",
     "filter_week": "Cette semaine",
     "filter_month": "Ce mois",
-    "filter_custom": "Période personnalisée"
+    "filter_custom": "Période personnalisée",
+    "filter_30days": "30 derniers jours",
+    "filter_all": "Toutes ventes",
+    "filter_active": "Actives",
+    "filter_cancelled": "Annulées",
+    "search_history": "Chercher vente # ou client…",
+    "all_methods": "Toutes méthodes",
+    "all_statuses": "Tous statuts",
+    "cancelled_badge": "ANNULÉ",
+    "note_label": "Note",
+    "cancel_reason_label": "Motif annulation",
+    "cancel_reason_placeholder": "Erreur de caisse, retour client…",
+    "validate_payment_action": "Valider paiement",
+    "cancel_sale_dialog_title": "Annuler la vente",
+    "validate_payment_dialog_title": "Valider le paiement",
+    "balance_summary": "Solde dû",
+    "sales_count_label": "ventes",
+    "remaining_balance_label": "Solde restant",
+    "walk_in_short": "Passant"
   },
   "customers": {
     "title": "Clients",
@@ -205,7 +239,29 @@
     "total_debt": "Total des dettes",
     "no_debts": "Aucune dette en cours.",
     "record_payment": "Enregistrer le paiement",
-    "payment_received": "Paiement enregistré avec succès !"
+    "payment_received": "Paiement enregistré avec succès !",
+    "total_outstanding_label": "Total des dettes en cours",
+    "clients_with_debt": "{count} client(s) avec dette en cours",
+    "no_debts_detail": "Tous les clients sont à jour",
+    "repay": "Rembourser",
+    "history_btn": "Historique",
+    "unpaid_invoices": "Factures impayées",
+    "invoices_count": "{count} facture(s) impayée(s)",
+    "record_repayment_title": "Enregistrer un remboursement",
+    "data_to_fix": "Données à corriger",
+    "total_debt_label": "Dette totale",
+    "payments_received": "Paiements reçus",
+    "no_payments_recorded": "Aucun paiement enregistré",
+    "total_paid": "Total payé",
+    "remaining_due": "Reste dû",
+    "paid_off": "Soldée",
+    "ref_label": "Réf",
+    "no_sales_for_customer": "Aucune vente trouvée pour ce client",
+    "sold_by": "Vente par",
+    "debt_badge": "Dette",
+    "partial_label": "Partiel",
+    "unpaid_label": "Impayé",
+    "from_oldest": "du plus ancien au plus récent"
   },
   "reports": {
     "title": "Rapports",
@@ -402,6 +458,22 @@
     "create_account": "Créer mon compte",
     "already_have_account": "Déjà un compte ?",
     "login_link": "Se connecter"
+  },
+  "saas": {
+    "trial_expires_today": "Votre essai gratuit expire aujourd'hui !",
+    "trial_last_day": "Dernier jour de votre essai gratuit !",
+    "trial_days_left": "Il vous reste {daysLeft} jours d'essai gratuit.",
+    "upgrade_now": "Passer au plan payant →",
+    "trial_ended_title": "Votre essai gratuit est terminé",
+    "trial_ended_subtitle_shop": "{shopName} a besoin d'un abonnement actif",
+    "trial_ended_subtitle": "Abonnez-vous pour continuer à utiliser StockShop",
+    "data_safe": "Vos données sont en sécurité. Abonnez-vous pour reprendre le travail.",
+    "feature_history": "Tous vos produits et l'historique des ventes sont sauvegardés",
+    "feature_starter": "Plan Starter à partir de ₦4 500/mois",
+    "feature_cancel": "Annulation ou changement de plan à tout moment",
+    "feature_instant": "Activation instantanée après paiement",
+    "choose_plan": "Choisir un plan",
+    "questions_whatsapp": "Questions ? Écrivez-nous sur WhatsApp"
   },
   "landing": {
     "nav": {

@@ -74,8 +74,8 @@ export default function DashboardPage() {
     : userShops.map(s => s.id).filter(Boolean)
 
   const activeShopLabel = selectedShopId
-    ? userShops.find(s => s.id === selectedShopId)?.name || 'Boutique'
-    : userShops.length > 1 ? 'Toutes les boutiques' : (shop?.name || 'Boutique')
+    ? userShops.find(s => s.id === selectedShopId)?.name || t('nav.shops')
+    : userShops.length > 1 ? t('dashboard.all_shops') : (shop?.name || t('nav.shops'))
 
   // Track in-flight request to avoid stale updates
   const loadingRef = useRef(false)
@@ -337,7 +337,7 @@ export default function DashboardPage() {
                         !selectedShopId ? 'bg-northcode-blue-muted text-northcode-blue font-medium' : 'hover:bg-gray-50 text-gray-700'
                       )}
                     >
-                      <span>Toutes les boutiques</span>
+                      <span>{t('dashboard.all_shops')}</span>
                       {!selectedShopId && <Check className="h-3.5 w-3.5" />}
                     </button>
                     {userShops.map(s => (

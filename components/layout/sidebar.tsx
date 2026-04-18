@@ -38,7 +38,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
       ],
     },
     {
-      section: 'Sales',
+      section: t('section_sales'),
       items: [
         { href: `/${locale}/sales/new`, icon: ShoppingCart, label: t('new_sale'), roles: ['owner', 'cashier'] },
         { href: `/${locale}/sales/history`, icon: History, label: t('sales_history'), roles: ['owner', 'cashier'] },
@@ -47,7 +47,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
       ],
     },
     {
-      section: 'Inventory',
+      section: t('section_inventory'),
       items: [
         { href: `/${locale}/stock`, icon: Package, label: t('stock'), roles: ['owner', 'stock_manager'] },
         { href: `/${locale}/categories`, icon: Tag, label: t('categories'), roles: ['owner', 'stock_manager'] },
@@ -55,7 +55,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
       ],
     },
     {
-      section: 'Management',
+      section: t('section_management'),
       items: [
         { href: `/${locale}/reports`, icon: BarChart2, label: t('reports'), roles: ['owner'] },
         { href: `/${locale}/team`, icon: Users, label: t('team'), roles: ['owner'] },

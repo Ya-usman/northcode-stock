@@ -16,7 +16,10 @@
     "customers": "Abokan Ciniki",
     "suppliers": "Masu Samar da Kaya",
     "movements": "Motsi na Kaya",
-    "logout": "Fita"
+    "logout": "Fita",
+    "section_sales": "Sayarwa",
+    "section_inventory": "Kayan Hannun",
+    "section_management": "Gudanarwa"
   },
   "auth": {
     "login": "Shiga",
@@ -45,7 +48,10 @@
     "new_sale": "Yi Sayarwa",
     "low_stock_warning": "Kayan {count} suna ƙarewa",
     "out_of_stock_warning": "Kayan {count} sun ƙare",
-    "view_all": "Duba Duka"
+    "view_all": "Duba Duka",
+    "all_shops": "Dukkan Kantuna",
+    "active_shop": "Kantin da ke Aiki",
+    "my_sales_today": "Sayarwata ta Yau"
   },
   "metrics": {
     "revenue": "Kudin Shiga",
@@ -114,7 +120,17 @@
     "bank_name": "Sunan Banki",
     "reference": "Lambar Aiki",
     "paystack_link": "Ƙirƙiri Hanyar Paystack",
-    "awaiting_payment": "Ana jiran tabbacin Paystack…"
+    "awaiting_payment": "Ana jiran tabbacin Paystack…",
+    "mobile_money": "Mobile Money",
+    "amount_given": "Adadin da abokin ciniki ya biya *",
+    "debt_settled": "An gama bashi",
+    "already_paid": "An riga an biya",
+    "remaining": "Saura",
+    "due": "Da ake bashi",
+    "reference_placeholder": "Lambar ma'amala…",
+    "notes_placeholder": "Bayani, lura…",
+    "confirm_repayment": "Tabbatar Biya",
+    "saving": "Ana ajiyewa…"
   },
   "roles": {
     "owner": "Maigida",
@@ -174,7 +190,25 @@
     "filter_today": "Yau",
     "filter_week": "Wannan Mako",
     "filter_month": "Wannan Wata",
-    "filter_custom": "Keɓantaccen Lokaci"
+    "filter_custom": "Keɓantaccen Lokaci",
+    "filter_30days": "Kwanaki 30 Da Suka Wuce",
+    "filter_all": "Dukkan Sayarwa",
+    "filter_active": "Masu Aiki",
+    "filter_cancelled": "Sokakku",
+    "search_history": "Nemi lamba ko abokin ciniki…",
+    "all_methods": "Dukkan Hanyoyi",
+    "all_statuses": "Dukkan Matsayi",
+    "cancelled_badge": "SOKE",
+    "note_label": "Bayani",
+    "cancel_reason_label": "Dalilin Soke",
+    "cancel_reason_placeholder": "Kuskure, dawo da kaya…",
+    "validate_payment_action": "Tabbatar Biya",
+    "cancel_sale_dialog_title": "Soke Sayarwa",
+    "validate_payment_dialog_title": "Tabbatar Biya",
+    "balance_summary": "Saura",
+    "sales_count_label": "sayarwa",
+    "remaining_balance_label": "Saura",
+    "walk_in_short": "Abokin Yau"
   },
   "customers": {
     "title": "Abokan Ciniki",
@@ -202,7 +236,29 @@
     "total_debt": "Jimillar Bashi",
     "no_debts": "Babu bashi da ya rage.",
     "record_payment": "Yi Rikodin Biya",
-    "payment_received": "An yi rikodin biya!"
+    "payment_received": "An yi rikodin biya!",
+    "total_outstanding_label": "Jimillar Bashin da Ya Rage",
+    "clients_with_debt": "Abokan ciniki {count} masu bashi",
+    "no_debts_detail": "Dukkan abokan ciniki sun biya",
+    "repay": "Biya Bashi",
+    "history_btn": "Tarihi",
+    "unpaid_invoices": "Takardun da ba a Biya",
+    "invoices_count": "Takarda {count} da ba a biya",
+    "record_repayment_title": "Yi Rikodin Biya",
+    "data_to_fix": "Bayanan da za a gyara",
+    "total_debt_label": "Jimillar Bashi",
+    "payments_received": "Biyar da aka karɓa",
+    "no_payments_recorded": "Babu biya da aka yi",
+    "total_paid": "Jimillar da aka biya",
+    "remaining_due": "Saura",
+    "paid_off": "An gama",
+    "ref_label": "Ref",
+    "no_sales_for_customer": "Ba a sami sayarwa ga wannan abokin ciniki ba",
+    "sold_by": "Sayarwa ta",
+    "debt_badge": "Bashi",
+    "partial_label": "Wani ɓangare",
+    "unpaid_label": "Ba a biya",
+    "from_oldest": "daga tsoho zuwa sabo"
   },
   "reports": {
     "title": "Rahoto",
@@ -287,6 +343,22 @@
     "title": "Ba ka da intanet",
     "body": "Wasu ayyuka na iya iyakance. Ana nuna bayanan kaya na ƙarshen aiki anan.",
     "cached": "Ana nuna bayanan da aka ajiye"
+  },
+  "saas": {
+    "trial_expires_today": "Gwajin ku kyauta ya ƙare yau!",
+    "trial_last_day": "Ranar ƙarshe ta gwajin ku!",
+    "trial_days_left": "Kwanaki {daysLeft} suka rage na gwajin ku.",
+    "upgrade_now": "Canza zuwa shirin biya →",
+    "trial_ended_title": "Gwajin ku kyauta ya ƙare",
+    "trial_ended_subtitle_shop": "{shopName} yana buƙatar shiri mai aiki",
+    "trial_ended_subtitle": "Biyan kuɗi don ci gaba da amfani da StockShop",
+    "data_safe": "Bayananku na aminci. Biyan kuɗi don dawo da aiki.",
+    "feature_history": "Dukkan kayayyakinku da tarihin sayarwa an ajiye",
+    "feature_starter": "Shirin Starter daga ₦4,500/wata",
+    "feature_cancel": "Soke ko canza shiri kowane lokaci",
+    "feature_instant": "Kunna nan take bayan biya",
+    "choose_plan": "Zaɓi Shiri",
+    "questions_whatsapp": "Tambayoyi? Tuntuɓe mu ta WhatsApp"
   },
   "landing": {
     "nav": {
