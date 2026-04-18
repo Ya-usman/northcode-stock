@@ -244,7 +244,7 @@ export default function ReportsPage() {
                 <div className="flex flex-col sm:flex-row items-center gap-4">
                   <ResponsiveContainer width="100%" height={200}>
                     <PieChart>
-                      <Pie data={revenueByMethod} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" label={({ name }) => name}>
+                      <Pie data={revenueByMethod} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value">
                         {revenueByMethod.map((_, idx) => <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />)}
                       </Pie>
                       <Tooltip formatter={(v: any) => formatNaira(v)} />

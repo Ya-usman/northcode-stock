@@ -554,7 +554,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         >
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4" />
-            <span>{shopDrafts.length} facture{shopDrafts.length > 1 ? 's' : ''} en attente</span>
+            <span>{t('sales.invoices_pending', { count: shopDrafts.length })}</span>
           </div>
           <Badge className="bg-amber-500 text-white text-xs">{shopDrafts.length}</Badge>
         </button>
@@ -576,7 +576,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && filteredProducts.length === 1) addToCart(filteredProducts[0]) }}
-          placeholder="Chercher produit ou scanner code-barres…"
+          placeholder={t('sales.search_or_scan')}
           className="pl-10 pr-12 h-12 text-base border-northcode-blue/30 focus:border-northcode-blue"
           autoFocus
         />
@@ -591,7 +591,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       </div>
 
       <p className="text-xs text-muted-foreground -mt-2 px-1">
-        Tape le nom, SKU ou scanne le code-barres avec un lecteur USB/Bluetooth
+        {t('sales.scan_hint')}
       </p>
 
       {/* Category filter chips */}
@@ -1024,12 +1024,26 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           {completedSale && (
             <div className="space-y-4">
               <div className="rounded-lg bg-gray-50 border p-4 text-sm space-y-2">
+                {/* Shop header */}
+                <div className="flex items-center gap-2 pb-2 border-b">
+                  {selectedShop?.logo_url ? (
+                    <img src={selectedShop.logo_url} alt={selectedShop.name} className="h-8 w-8 object-contain rounded" />
+                  ) : (
+                    <div className="h-8 w-8 rounded bg-northcode-blue flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                      {selectedShop?.name?.slice(0, 2).toUpperCase() || 'NC'}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-xs truncate">{selectedShop?.name}</p>
+                    {selectedShop?.city && <p className="text-[10px] text-muted-foreground">{selectedShop.city}</p>}
+                  </div>
+                </div>
                 <div className="flex justify-between font-bold">
                   <span>#{completedSale.sale_number}</span>
                   <span>{new Date(completedSale.created_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
                 {(completedSale as any).customers && (
-                  <p className="text-xs text-muted-foreground">Client : {(completedSale as any).customers.name}</p>
+                  <p className="text-xs text-muted-foreground">{t('sales.customer_label')} : {(completedSale as any).customers.name}</p>
                 )}
                 <Separator />
                 {((completedSale as any).sale_items || []).map((item: any) => (
@@ -1045,7 +1059,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 </div>
                 {Number(completedSale.balance) > 0 && (
                   <div className="flex justify-between text-red-500 text-xs">
-                    <span>Solde dû</span>
+                    <span>{t('sales.balance_due')}</span>
                     <span>{formatNaira(completedSale.balance)}</span>
                   </div>
                 )}
@@ -1060,7 +1074,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               </div>
               <Button className="w-full bg-northcode-blue hover:bg-northcode-blue-light"
                 onClick={() => { setShowReceipt(false); searchRef.current?.focus() }}>
-                Nouvelle vente →
+                {t('sales.new_sale_cta')}
               </Button>
             </div>
           )}

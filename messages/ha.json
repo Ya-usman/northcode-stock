@@ -202,6 +202,8 @@
     "total": "Jimlar Duka",
     "no_sales": "Ba a sami sayarwa ba.",
     "search_products": "Nemi kaya da suna…",
+    "search_or_scan": "Nemi kaya ko duba lambar barcode…",
+    "scan_hint": "Shigar da suna, SKU ko duba barcode da na'urar USB/Bluetooth",
     "cart_empty": "Kwandon sayan ya fanko",
     "add_items": "Nemi kaya a sama domin ƙarawa",
     "receipt": "Rasit",
@@ -227,7 +229,11 @@
     "balance_summary": "Saura",
     "sales_count_label": "sayarwa",
     "remaining_balance_label": "Saura",
-    "walk_in_short": "Abokin Yau"
+    "walk_in_short": "Abokin Yau",
+    "invoices_pending": "takardun {count} da ke jira",
+    "balance_due": "Saura Da Ake Bashi",
+    "new_sale_cta": "Sayarwa Sabuwa →",
+    "customer_label": "Abokin Ciniki"
   },
   "customers": {
     "title": "Abokan Ciniki",

@@ -202,6 +202,8 @@
     "total": "Total",
     "no_sales": "No sales found.",
     "search_products": "Search products by name…",
+    "search_or_scan": "Search product or scan barcode…",
+    "scan_hint": "Type the name, SKU or scan barcode with a USB/Bluetooth reader",
     "cart_empty": "Your cart is empty",
     "add_items": "Search and add products above",
     "receipt": "Receipt",
@@ -227,7 +229,11 @@
     "balance_summary": "Balance due",
     "sales_count_label": "sales",
     "remaining_balance_label": "Remaining balance",
-    "walk_in_short": "Walk-in"
+    "walk_in_short": "Walk-in",
+    "invoices_pending": "{count} invoice(s) on hold",
+    "balance_due": "Balance Due",
+    "new_sale_cta": "New Sale →",
+    "customer_label": "Customer"
   },
   "customers": {
     "title": "Customers",

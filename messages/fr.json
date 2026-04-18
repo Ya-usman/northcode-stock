@@ -202,6 +202,8 @@
     "total": "Total",
     "no_sales": "Aucune vente trouvée.",
     "search_products": "Rechercher des produits par nom…",
+    "search_or_scan": "Chercher produit ou scanner code-barres…",
+    "scan_hint": "Tape le nom, SKU ou scanne le code-barres avec un lecteur USB/Bluetooth",
     "cart_empty": "Votre panier est vide",
     "add_items": "Recherchez et ajoutez des produits ci-dessus",
     "receipt": "Reçu",
@@ -227,7 +229,11 @@
     "balance_summary": "Solde dû",
     "sales_count_label": "ventes",
     "remaining_balance_label": "Solde restant",
-    "walk_in_short": "Passant"
+    "walk_in_short": "Passant",
+    "invoices_pending": "{count} facture(s) en attente",
+    "balance_due": "Solde dû",
+    "new_sale_cta": "Nouvelle vente →",
+    "customer_label": "Client"
   },
   "customers": {
     "title": "Clients",
