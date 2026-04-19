@@ -171,8 +171,8 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                         onClick={() => setCountry(c.code)}
                         className="flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all"
                         style={selected
-                          ? { borderColor: c.flagColor, backgroundColor: `${c.flagColor}12` }
-                          : { borderColor: '#e5e7eb' }
+                          ? { borderColor: c.flagColor, backgroundColor: `${c.flagColor}15` }
+                          : { borderColor: `${c.flagColor}55` }
                         }
                       >
                         <span className="text-4xl">{c.flag}</span>
