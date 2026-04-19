@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react'
@@ -254,8 +255,15 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
           </AnimatePresence>
         </div>
 
-        <p className="text-center text-blue-200 text-xs mt-6">
-          StockShop Manager · Built for Northern Nigeria
+        <p className="text-center text-blue-200 text-sm mt-5">
+          {t('no_account')}{' '}
+          <Link href={`/${locale}/register`} className="text-white font-semibold hover:underline">
+            {t('register_link')}
+          </Link>
+        </p>
+
+        <p className="text-center text-blue-200 text-xs mt-3">
+          StockShop Manager · Built for Africa
         </p>
       </motion.div>
     </div>

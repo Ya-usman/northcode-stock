@@ -707,7 +707,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 : 'bg-muted text-muted-foreground hover:bg-muted'
             }`}
           >
-            Tous
+            {t('products.all_categories')}
           </button>
           {categories.map(cat => (
             <button

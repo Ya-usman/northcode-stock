@@ -35,7 +35,9 @@
     "logging_in": "Connexion en cours…",
     "reset_sent": "Lien envoyé ! Vérifiez votre e-mail.",
     "invalid_credentials": "E-mail ou mot de passe invalide.",
-    "welcome_back": "Content de vous revoir"
+    "welcome_back": "Content de vous revoir",
+    "no_account": "Pas encore de compte ?",
+    "register_link": "Créer un compte"
   },
   "dashboard": {
     "title": "Tableau de bord",

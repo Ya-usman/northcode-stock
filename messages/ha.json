@@ -35,7 +35,9 @@
     "logging_in": "Ana shiga…",
     "reset_sent": "An aika hanyar sake saita! Duba imelinka.",
     "invalid_credentials": "Imel ko kalmar sirri ba daidai ba ne.",
-    "welcome_back": "Barka da dawowa"
+    "welcome_back": "Barka da dawowa",
+    "no_account": "Ba ka da asusun ku?",
+    "register_link": "Ƙirƙiri asusun"
   },
   "dashboard": {
     "title": "Taswirar Aiki",
