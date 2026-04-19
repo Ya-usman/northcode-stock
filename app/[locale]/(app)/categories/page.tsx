@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useTranslations } from 'next-intl'
-import { Plus, Trash2, Tag, Search } from 'lucide-react'
+import { Plus, Trash2, Tag, Search, RotateCcw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -26,6 +26,7 @@ export default function CategoriesPage() {
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [seeding, setSeeding] = useState(false)
 
   const fetchCategories = async () => {
     if (!shop?.id) return
@@ -71,6 +72,30 @@ export default function CategoriesPage() {
     toast({ title: t('categories.deleted') })
   }
 
+  const restoreDefaults = async () => {
+    if (!shop?.id) return
+    setSeeding(true)
+    try {
+      const res = await fetch('/api/categories/seed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop_id: shop.id }),
+      })
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      await fetchCategories()
+      toast({
+        title: t('categories.restored'),
+        description: `${json.categoriesCreated} catégorie(s) ajoutée(s) · ${json.productsAssigned} produit(s) mis à jour`,
+        variant: 'success',
+      })
+    } catch {
+      toast({ title: t('toast.error'), variant: 'destructive' })
+    } finally {
+      setSeeding(false)
+    }
+  }
+
   const canEdit = profile?.role === 'owner' || profile?.role === 'stock_manager'
   const filtered = categories.filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
 
@@ -93,10 +118,22 @@ export default function CategoriesPage() {
           />
         </div>
         {canEdit && (
-          <Button onClick={openDialog} className="bg-northcode-blue shrink-0 gap-1.5 h-9 px-3 text-sm">
-            <Plus className="h-4 w-4" />
-            {t('categories.add')}
-          </Button>
+          <div className="flex gap-2 shrink-0">
+            <Button
+              variant="outline"
+              onClick={restoreDefaults}
+              loading={seeding}
+              className="gap-1.5 h-9 px-3 text-sm text-muted-foreground"
+              title={t('categories.restore_hint')}
+            >
+              <RotateCcw className="h-4 w-4" />
+              <span className="hidden sm:inline">{t('categories.restore')}</span>
+            </Button>
+            <Button onClick={openDialog} className="bg-northcode-blue gap-1.5 h-9 px-3 text-sm">
+              <Plus className="h-4 w-4" />
+              {t('categories.add')}
+            </Button>
+          </div>
         )}
       </div>
 
