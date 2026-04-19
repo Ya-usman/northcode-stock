@@ -20,7 +20,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null
     return (
-      <div className="rounded-lg border bg-white p-3 shadow-lg text-sm">
+      <div className="rounded-lg border bg-card p-3 shadow-lg text-sm">
         <p className="font-medium text-foreground mb-1">{label}</p>
         <p className="text-northcode-blue">{fmt(payload[0]?.value || 0)}</p>
         <p className="text-muted-foreground">{payload[1]?.value || 0} sales</p>

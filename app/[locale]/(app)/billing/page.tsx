@@ -45,7 +45,7 @@ const PLAN_DETAILS = [
   {
     id: 'business' as const,
     icon: Building2,
-    color: 'border-gray-200 hover:border-gray-400',
+    color: 'border-border hover:border-gray-400',
     headerColor: 'bg-gray-900 text-white',
     features: [
       'Produits & employés illimités',
@@ -148,7 +148,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
     <div className="max-w-4xl mx-auto space-y-6">
 
       {/* Current plan status */}
-      <div className="rounded-xl border bg-white p-5 shadow-sm">
+      <div className="rounded-xl border bg-card p-5 shadow-sm">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <h1 className="font-bold text-lg">Abonnement</h1>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -170,7 +170,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
         <div className="mt-4 flex flex-wrap items-center gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <p className="font-semibold text-gray-900">Plan actuel :</p>
+              <p className="font-semibold text-foreground">Plan actuel :</p>
               <Badge variant={isSubscribed ? 'success' : isTrialActive ? 'warning' : 'danger'}>
                 {isSubscribed ? currentPlan.name : isTrialActive ? 'Essai gratuit' : 'Expiré'}
               </Badge>
@@ -206,12 +206,12 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
 
       {/* Period selector */}
       <div>
-        <h2 className="font-semibold text-gray-900 mb-3">
+        <h2 className="font-semibold text-foreground mb-3">
           {isSubscribed ? 'Changer de plan' : 'Choisir un plan'}
         </h2>
 
         {/* Billing period tabs */}
-        <div className="flex gap-2 mb-4 bg-gray-100 rounded-lg p-1 w-fit">
+        <div className="flex gap-2 mb-4 bg-muted rounded-lg p-1 w-fit">
           {(Object.entries(BILLING_PERIODS) as [BillingPeriod, typeof BILLING_PERIODS[BillingPeriod]][]).map(([key, cfg]) => (
             <button
               key={key}
@@ -219,15 +219,15 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
               className={cn(
                 'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all',
                 period === key
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-muted-foreground hover:text-gray-700'
+                  ? 'bg-card text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground/80'
               )}
             >
               {cfg.label}
               {cfg.badge && (
                 <span className={cn(
                   'text-[10px] font-bold rounded-full px-1.5 py-0.5',
-                  period === key ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'
+                  period === key ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400' : 'bg-muted text-muted-foreground'
                 )}>
                   {cfg.badge}
                 </span>
@@ -246,7 +246,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
               <div
                 key={id}
                 className={cn(
-                  'relative rounded-xl border-2 bg-white overflow-hidden transition-all',
+                  'relative rounded-xl border-2 bg-card overflow-hidden transition-all',
                   color
                 )}
               >
@@ -281,7 +281,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                 <div className="p-4">
                   <ul className="space-y-2 mb-4">
                     {features.map(f => (
-                      <li key={f} className="flex items-center gap-2 text-xs text-gray-700">
+                      <li key={f} className="flex items-center gap-2 text-xs text-foreground/80">
                         <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
                         {f}
                       </li>
@@ -321,8 +321,8 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
       </div>
 
       {/* FAQ */}
-      <div className="rounded-xl border bg-white p-5 shadow-sm">
-        <h2 className="font-semibold text-gray-900 mb-4">Questions fréquentes</h2>
+      <div className="rounded-xl border bg-card p-5 shadow-sm">
+        <h2 className="font-semibold text-foreground mb-4">Questions fréquentes</h2>
         <div className="space-y-4 text-sm">
           {[
             {
@@ -345,7 +345,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
             },
           ].map(({ q, a }) => (
             <div key={q}>
-              <p className="font-medium text-gray-900 mb-1">{q}</p>
+              <p className="font-medium text-foreground mb-1">{q}</p>
               <p className="text-muted-foreground">{a}</p>
             </div>
           ))}

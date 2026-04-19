@@ -107,7 +107,7 @@ export function PlanLimitAlert({ currentPlan, productCount, teamMemberCount, loc
 
         <button
           onClick={() => setDismissed(true)}
-          className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
+          className="flex-shrink-0 text-gray-400 hover:text-muted-foreground transition-colors"
         >
           <X className="h-4 w-4" />
         </button>

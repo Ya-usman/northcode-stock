@@ -64,7 +64,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div className="rounded-xl border bg-white p-5 shadow-sm">
+      <div className="rounded-xl border bg-card p-5 shadow-sm">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-bold text-lg">{t('shops.title')}</h1>
@@ -81,10 +81,10 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
 
       {/* Create form */}
       {creating && (
-        <div className="rounded-xl border bg-white p-5 shadow-sm space-y-3">
-          <h2 className="font-semibold text-gray-900">{t('shops.new_form_title')}</h2>
+        <div className="rounded-xl border bg-card p-5 shadow-sm space-y-3">
+          <h2 className="font-semibold text-foreground">{t('shops.new_form_title')}</h2>
           <div>
-            <label className="text-xs font-medium text-gray-700 block mb-1">{t('shops.name_label')}</label>
+            <label className="text-xs font-medium text-foreground/80 block mb-1">{t('shops.name_label')}</label>
             <input
               className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-northcode-blue"
               placeholder={t('shops.name_placeholder')}
@@ -94,7 +94,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-700 block mb-1">{t('shops.city_label')}</label>
+            <label className="text-xs font-medium text-foreground/80 block mb-1">{t('shops.city_label')}</label>
             <input
               className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-northcode-blue"
               placeholder={t('shops.city_placeholder')}
@@ -121,14 +121,14 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
             <div
               key={shop.id}
               className={cn(
-                'rounded-xl border-2 bg-white p-4 shadow-sm transition-all',
-                isActive ? 'border-northcode-blue' : 'border-gray-100 hover:border-gray-200'
+                'rounded-xl border-2 bg-card p-4 shadow-sm transition-all',
+                isActive ? 'border-northcode-blue' : 'border-border hover:border-border'
               )}
             >
               <div className="flex items-center gap-3">
                 <div className={cn(
                   'flex h-10 w-10 items-center justify-center rounded-lg font-bold text-sm flex-shrink-0',
-                  isActive ? 'bg-northcode-blue text-white' : 'bg-gray-100 text-gray-600'
+                  isActive ? 'bg-northcode-blue text-white' : 'bg-muted text-muted-foreground'
                 )}>
                   {shop.name.slice(0, 2).toUpperCase()}
                 </div>
@@ -169,9 +169,9 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
       </div>
 
       {userShops.length === 0 && (
-        <div className="rounded-xl border bg-white p-8 shadow-sm text-center">
+        <div className="rounded-xl border bg-card p-8 shadow-sm text-center">
           <Store className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-          <p className="font-medium text-gray-900">{t('shops.no_shops')}</p>
+          <p className="font-medium text-foreground">{t('shops.no_shops')}</p>
           <p className="text-sm text-muted-foreground mt-1">{t('shops.no_shops_detail')}</p>
         </div>
       )}

@@ -269,7 +269,7 @@ export default function SalesHistoryPage() {
       )}
 
       {/* Table */}
-      <div className="rounded-lg border bg-white shadow-sm overflow-hidden">
+      <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
         {loading ? (
           <div className="p-4 space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
         ) : filtered.length === 0 ? (

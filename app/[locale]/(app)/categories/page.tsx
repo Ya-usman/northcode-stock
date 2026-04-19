@@ -95,7 +95,7 @@ export default function CategoriesPage() {
           </div>
         ) : (
           categories.map(cat => (
-            <div key={cat.id} className="flex items-center justify-between rounded-lg border bg-white px-4 py-3 shadow-sm">
+            <div key={cat.id} className="flex items-center justify-between rounded-lg border bg-card px-4 py-3 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="h-8 w-8 rounded-md bg-northcode-blue-muted flex items-center justify-center">
                   <Tag className="h-4 w-4 text-northcode-blue" />

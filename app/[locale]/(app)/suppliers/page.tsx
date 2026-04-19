@@ -113,7 +113,7 @@ export default function SuppliersPage() {
       ) : (
         <div className="space-y-2">
           {filtered.map(supplier => (
-            <div key={supplier.id} className="rounded-lg border bg-white shadow-sm p-4">
+            <div key={supplier.id} className="rounded-lg border bg-card shadow-sm p-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-sm">{supplier.name}</p>

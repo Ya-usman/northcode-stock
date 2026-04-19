@@ -320,7 +320,7 @@ export default function DashboardPage() {
             <div className="relative">
               <button
                 onClick={() => setShopPickerOpen(o => !o)}
-                className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm font-medium shadow-sm hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm font-medium shadow-sm hover:bg-accent transition-colors"
               >
                 <Store className="h-4 w-4 text-northcode-blue" />
                 <span className="max-w-[140px] truncate">{activeShopLabel}</span>
@@ -330,12 +330,12 @@ export default function DashboardPage() {
               {shopPickerOpen && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setShopPickerOpen(false)} />
-                  <div className="absolute right-0 top-full z-20 mt-1 w-52 rounded-xl border bg-white shadow-lg p-1.5">
+                  <div className="absolute right-0 top-full z-20 mt-1 w-52 rounded-xl border bg-card shadow-lg p-1.5">
                     <button
                       onClick={() => { setSelectedShopId(null); setShopPickerOpen(false) }}
                       className={cn(
                         'w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors',
-                        !selectedShopId ? 'bg-northcode-blue-muted text-northcode-blue font-medium' : 'hover:bg-gray-50 text-gray-700'
+                        !selectedShopId ? 'bg-northcode-blue-muted text-northcode-blue font-medium' : 'hover:bg-accent text-foreground/80'
                       )}
                     >
                       <span>{t('dashboard.all_shops')}</span>
@@ -347,7 +347,7 @@ export default function DashboardPage() {
                         onClick={() => { setSelectedShopId(s.id); setShopPickerOpen(false) }}
                         className={cn(
                           'w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors',
-                          selectedShopId === s.id ? 'bg-northcode-blue-muted text-northcode-blue font-medium' : 'hover:bg-gray-50 text-gray-700'
+                          selectedShopId === s.id ? 'bg-northcode-blue-muted text-northcode-blue font-medium' : 'hover:bg-accent text-foreground/80'
                         )}
                       >
                         <span className="truncate">{s.name}</span>

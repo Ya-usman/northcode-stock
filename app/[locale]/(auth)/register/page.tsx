@@ -100,12 +100,12 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
           <p className="text-blue-200 text-sm mt-1">7 jours gratuits · Sans carte bancaire</p>
         </div>
 
-        <div className="rounded-2xl bg-white shadow-2xl p-6">
+        <div className="rounded-2xl bg-card shadow-2xl p-6">
           {/* Step indicator */}
           <div className="flex items-center gap-2 mb-6">
-            <div className={`flex-1 h-1.5 rounded-full transition-colors ${step >= 1 ? 'bg-northcode-blue' : 'bg-gray-200'}`} />
-            <div className={`flex-1 h-1.5 rounded-full transition-colors ${step >= 2 ? 'bg-northcode-blue' : 'bg-gray-200'}`} />
-            <div className={`flex-1 h-1.5 rounded-full transition-colors ${step >= 3 ? 'bg-northcode-blue' : 'bg-gray-200'}`} />
+            <div className={`flex-1 h-1.5 rounded-full transition-colors ${step >= 1 ? 'bg-northcode-blue' : 'bg-muted'}`} />
+            <div className={`flex-1 h-1.5 rounded-full transition-colors ${step >= 2 ? 'bg-northcode-blue' : 'bg-muted'}`} />
+            <div className={`flex-1 h-1.5 rounded-full transition-colors ${step >= 3 ? 'bg-northcode-blue' : 'bg-muted'}`} />
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

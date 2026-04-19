@@ -36,7 +36,7 @@ export function RecentPayments({ payments, shops }: Props) {
 
   if (payments.length === 0) {
     return (
-      <div className="flex items-center justify-center h-24 text-gray-600 text-sm">
+      <div className="flex items-center justify-center h-24 text-muted-foreground text-sm">
         No payments yet
       </div>
     )
@@ -68,7 +68,7 @@ export function RecentPayments({ payments, shops }: Props) {
                     {shop?.city}
                   </span>
                   {payment.paystack_reference && (
-                    <span className="text-[10px] font-mono text-gray-600 truncate max-w-[100px]">
+                    <span className="text-[10px] font-mono text-muted-foreground truncate max-w-[100px]">
                       {payment.paystack_reference}
                     </span>
                   )}

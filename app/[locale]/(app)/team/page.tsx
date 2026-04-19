@@ -28,7 +28,7 @@ const ROLE_COLORS: Record<string, string> = {
   owner:         'bg-northcode-blue text-white',
   cashier:       'bg-green-100 text-green-700',
   stock_manager: 'bg-amber-100 text-amber-700',
-  viewer:        'bg-gray-100 text-gray-600',
+  viewer:        'bg-muted text-muted-foreground',
   super_admin:   'bg-purple-100 text-purple-700',
 }
 
@@ -254,7 +254,7 @@ export default function TeamPage() {
             <div className="relative">
               <button
                 onClick={() => setShopPickerOpen(o => !o)}
-                className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm font-medium shadow-sm hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm font-medium shadow-sm hover:bg-accent transition-colors"
               >
                 <Store className="h-4 w-4 text-northcode-blue" />
                 <span className="max-w-[120px] truncate">{viewShopName}</span>
@@ -263,14 +263,14 @@ export default function TeamPage() {
               {shopPickerOpen && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setShopPickerOpen(false)} />
-                  <div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-xl border bg-white shadow-lg p-1.5">
+                  <div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-xl border bg-card shadow-lg p-1.5">
                     {userShops.map(s => (
                       <button
                         key={s.id}
                         onClick={() => { setViewShopId(s.id); setShopPickerOpen(false) }}
                         className={cn(
                           'w-full text-left rounded-lg px-3 py-2 text-sm transition-colors',
-                          viewShopId === s.id ? 'bg-northcode-blue-muted text-northcode-blue font-medium' : 'hover:bg-gray-50 text-gray-700'
+                          viewShopId === s.id ? 'bg-northcode-blue-muted text-northcode-blue font-medium' : 'hover:bg-accent text-foreground/80'
                         )}
                       >
                         {s.name}
@@ -311,7 +311,7 @@ export default function TeamPage() {
             return (
               <div
                 key={member.id}
-                className={`rounded-xl border bg-white shadow-sm p-4 transition-opacity ${
+                className={`rounded-xl border bg-card shadow-sm p-4 transition-opacity ${
                   !member.is_active ? 'opacity-60 border-red-100 bg-red-50/30' : ''
                 }`}
               >
@@ -345,7 +345,7 @@ export default function TeamPage() {
                         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
                           isOnline ? 'bg-green-100 text-green-700'
                           : isAway  ? 'bg-yellow-100 text-yellow-700'
-                          :           'bg-gray-100 text-gray-500'
+                          :           'bg-muted text-gray-500'
                         }`}>
                           <span className={`h-1.5 w-1.5 rounded-full ${
                             isOnline ? 'bg-green-500' : isAway ? 'bg-yellow-400' : 'bg-gray-400'
@@ -421,7 +421,7 @@ export default function TeamPage() {
           })}
 
           {members.length === 0 && !loading && (
-            <div className="flex h-32 items-center justify-center text-muted-foreground text-sm rounded-xl border bg-white">
+            <div className="flex h-32 items-center justify-center text-muted-foreground text-sm rounded-xl border bg-card">
               {t('team.no_members')}
             </div>
           )}

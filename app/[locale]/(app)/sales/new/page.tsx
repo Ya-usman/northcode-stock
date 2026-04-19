@@ -616,7 +616,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         <div className="relative">
           <button
             onClick={() => setShopPickerOpen(o => !o)}
-            className="w-full flex items-center justify-between gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-medium shadow-sm hover:bg-gray-50 transition-colors"
+            className="w-full flex items-center justify-between gap-2 rounded-xl border bg-card px-4 py-3 text-sm font-medium shadow-sm hover:bg-accent transition-colors"
           >
             <div className="flex items-center gap-2">
               <Store className="h-4 w-4 text-northcode-blue" />
@@ -627,12 +627,12 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           {shopPickerOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShopPickerOpen(false)} />
-              <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-xl border bg-white shadow-lg p-1.5">
+              <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-xl border bg-card shadow-lg p-1.5">
                 {userShops.map(s => (
                   <button key={s.id}
                     onClick={() => { setSelectedShopId(s.id); setCart([]); setShopPickerOpen(false) }}
                     className={cn('w-full flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-left transition-colors',
-                      (selectedShopId || shop?.id) === s.id ? 'bg-northcode-blue-muted text-northcode-blue font-medium' : 'hover:bg-gray-50 text-gray-700'
+                      (selectedShopId || shop?.id) === s.id ? 'bg-northcode-blue-muted text-northcode-blue font-medium' : 'hover:bg-accent text-foreground/80'
                     )}
                   >
                     <Store className="h-3.5 w-3.5 flex-shrink-0" />
@@ -704,7 +704,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             className={`flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
               categoryFilter === 'all'
                 ? 'bg-northcode-blue text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                : 'bg-muted text-muted-foreground hover:bg-muted'
             }`}
           >
             Tous
@@ -716,7 +716,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               className={`flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                 categoryFilter === cat.id
                   ? 'bg-northcode-blue text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  : 'bg-muted text-muted-foreground hover:bg-muted'
               }`}
             >
               {cat.name}
@@ -732,7 +732,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
               {filteredProducts.slice(0, 50).map(product => (
                 <button key={product.id} onClick={() => addToCart(product)}
-                  className="flex flex-col items-start text-left rounded-lg border bg-white p-3 hover:border-northcode-blue hover:bg-northcode-blue-muted transition-colors tap-target"
+                  className="flex flex-col items-start text-left rounded-lg border bg-card p-3 hover:border-northcode-blue hover:bg-northcode-blue-muted transition-colors tap-target"
                 >
                   <p className="text-sm font-medium truncate w-full">{product.name}</p>
                   {product.name_hausa && <p className="text-xs text-muted-foreground truncate w-full">{product.name_hausa}</p>}
@@ -810,7 +810,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 <Label className="text-sm w-24 flex-shrink-0">{t('sales.discount')}</Label>
                 <div className="flex flex-1 rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-0">
                   <span className="flex items-center px-2.5 bg-muted border-r text-sm text-muted-foreground font-medium whitespace-nowrap select-none">{selectedShop?.currency || '₦'}</span>
-                  <input type="number" min={0} max={subtotal} value={discount || ''} onChange={e => setDiscount(Math.min(Number(e.target.value), subtotal))} className="flex-1 h-9 px-3 text-sm bg-white outline-none" placeholder="0" />
+                  <input type="number" min={0} max={subtotal} value={discount || ''} onChange={e => setDiscount(Math.min(Number(e.target.value), subtotal))} className="flex-1 h-9 px-3 text-sm bg-card outline-none" placeholder="0" />
                 </div>
               </div>
               <Separator />
@@ -859,7 +859,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   </button>
                 )}
                 {showCustomerDropdown && !selectedCustomer && filteredCustomers.length > 0 && (
-                  <div className="absolute z-20 w-full bg-white border rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                  <div className="absolute z-20 w-full bg-card border rounded-lg shadow-lg max-h-40 overflow-y-auto">
                     {filteredCustomers.slice(0, 8).map(c => (
                       <button key={c.id} className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex justify-between items-center"
                         onMouseDown={() => { setSelectedCustomer(c); setCustomerName(''); setCustomerPhone(c.phone || ''); setShowCustomerDropdown(false) }}>
@@ -909,7 +909,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                       debtRepayEnabled ? 'bg-northcode-blue' : 'bg-gray-300'
                     }`}
                   >
-                    <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                    <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-card shadow transition-transform ${
                       debtRepayEnabled ? 'translate-x-5' : 'translate-x-0.5'
                     }`} />
                   </button>
@@ -925,7 +925,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                           type="number"
                           value={debtRepayAmount}
                           onChange={e => setDebtRepayAmount(e.target.value)}
-                          className="flex-1 h-11 px-3 text-base font-bold bg-white outline-none"
+                          className="flex-1 h-11 px-3 text-base font-bold bg-card outline-none"
                           min={1}
                           placeholder="0"
                         />
@@ -940,7 +940,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
                     {/* Résumé */}
                     {debtAmt > 0 && (
-                      <div className="rounded-lg bg-white border border-orange-200 p-3 space-y-1 text-sm">
+                      <div className="rounded-lg bg-card border border-orange-200 p-3 space-y-1 text-sm">
                         <div className="flex justify-between text-muted-foreground">
                           <span>Vente</span><span>{formatNaira(total)}</span>
                         </div>
@@ -968,7 +968,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   className={`rounded-lg border p-3 text-sm font-medium transition-colors tap-target ${
                     paymentMethod === method
                       ? 'border-northcode-blue bg-northcode-blue-muted text-northcode-blue'
-                      : 'border-input bg-white text-muted-foreground hover:bg-muted'
+                      : 'border-input bg-card text-muted-foreground hover:bg-muted'
                   }`}
                 >
                   {method === 'cash' && '💵 '}
@@ -988,7 +988,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 <div className="flex rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
                   <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">{selectedShop?.currency || '₦'}</span>
                   <input type="number" min={0} value={amountPaid} onChange={e => setAmountPaid(e.target.value)}
-                    className="flex-1 h-12 px-3 text-lg font-bold bg-white outline-none" placeholder={totalToCollect.toString()} />
+                    className="flex-1 h-12 px-3 text-lg font-bold bg-card outline-none" placeholder={totalToCollect.toString()} />
                 </div>
               </div>
               {Number(amountPaid) > 0 && Number(amountPaid) >= totalToCollect && (
@@ -1081,7 +1081,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               const draftTotal = draft.cart.reduce((s, i) => s + i.subtotal, 0) - draft.discount
               const itemCount = draft.cart.reduce((s, i) => s + i.quantity, 0)
               return (
-                <div key={draft.id} className="rounded-xl border bg-white p-3 space-y-2">
+                <div key={draft.id} className="rounded-xl border bg-card p-3 space-y-2">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="text-sm font-semibold">{draft.customerName || 'Client anonyme'}</p>
@@ -1125,7 +1125,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           </DialogHeader>
           {completedSale && (
             <div className="space-y-4">
-              <div className="rounded-lg bg-gray-50 border p-4 text-sm space-y-2">
+              <div className="rounded-lg bg-muted/40 border p-4 text-sm space-y-2">
                 {/* Shop header */}
                 <div className="flex items-center gap-2 pb-2 border-b">
                   {selectedShop?.logo_url ? (

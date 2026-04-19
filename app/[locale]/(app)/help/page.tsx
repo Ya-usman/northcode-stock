@@ -94,7 +94,7 @@ function FAQItem({ q, a }: { q: string; a: string }) {
     <div className="border-b last:border-0">
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex w-full items-center justify-between py-3 text-left text-sm font-medium text-gray-900 hover:text-northcode-blue transition-colors"
+        className="flex w-full items-center justify-between py-3 text-left text-sm font-medium text-foreground hover:text-northcode-blue transition-colors"
       >
         <span>{q}</span>
         {open ? <ChevronUp className="h-4 w-4 flex-shrink-0 text-northcode-blue" /> : <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />}
@@ -109,14 +109,14 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 export default function HelpPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div className="rounded-xl border bg-white p-5 shadow-sm">
+      <div className="rounded-xl border bg-card p-5 shadow-sm">
         <h1 className="font-bold text-lg mb-1">Aide & FAQ</h1>
         <p className="text-sm text-muted-foreground">Trouvez rapidement une réponse à votre question.</p>
       </div>
 
       {FAQ.map(({ category, items }) => (
-        <div key={category} className="rounded-xl border bg-white p-5 shadow-sm">
-          <h2 className="font-semibold text-gray-900 mb-3 text-sm uppercase tracking-wide text-northcode-blue">{category}</h2>
+        <div key={category} className="rounded-xl border bg-card p-5 shadow-sm">
+          <h2 className="font-semibold text-foreground mb-3 text-sm uppercase tracking-wide text-northcode-blue">{category}</h2>
           <div>
             {items.map(item => <FAQItem key={item.q} {...item} />)}
           </div>
@@ -130,7 +130,7 @@ export default function HelpPage() {
         <div className="flex flex-wrap gap-3">
           <a
             href="https://wa.me/message/northcode"
-            className="flex items-center gap-2 rounded-lg bg-white text-northcode-blue px-4 py-2 text-sm font-medium hover:bg-blue-50 transition-colors"
+            className="flex items-center gap-2 rounded-lg bg-card text-northcode-blue px-4 py-2 text-sm font-medium hover:bg-blue-50 transition-colors"
           >
             <MessageCircle className="h-4 w-4" />
             WhatsApp

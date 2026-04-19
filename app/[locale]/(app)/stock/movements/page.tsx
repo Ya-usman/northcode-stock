@@ -65,7 +65,7 @@ export default function StockMovementsPage() {
         <span className="text-sm text-muted-foreground">{movements.length} entries</span>
       </div>
 
-      <div className="rounded-lg border bg-white shadow-sm overflow-hidden">
+      <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
         {loading ? (
           <div className="p-4 space-y-2">{[...Array(8)].map((_, i) => <Skeleton key={i} className="h-10" />)}</div>
         ) : movements.length === 0 ? (

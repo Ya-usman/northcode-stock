@@ -223,13 +223,13 @@ export function AdminShopsTable({ shops, locale }: Props) {
                         ) : isExpired ? (
                           <span className="text-xs text-red-400">Expired</span>
                         ) : (
-                          <span className="text-xs text-gray-600">—</span>
+                          <span className="text-xs text-muted-foreground">—</span>
                         )}
                       </td>
 
                       {/* Revenue */}
                       <td className="px-5 py-3 text-gray-300 text-xs font-medium">
-                        {totalRevenue > 0 ? formatNaira(totalRevenue) : <span className="text-gray-600">₦0</span>}
+                        {totalRevenue > 0 ? formatNaira(totalRevenue) : <span className="text-muted-foreground">₦0</span>}
                       </td>
 
                       {/* Actions */}
@@ -281,7 +281,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
                           <div className="space-y-2">
                             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Payment History</p>
                             {shop.subscriptions.length === 0 ? (
-                              <p className="text-xs text-gray-600">No payments recorded yet.</p>
+                              <p className="text-xs text-muted-foreground">No payments recorded yet.</p>
                             ) : (
                               shop.subscriptions.map((sub, i) => (
                                 <div key={i} className="flex items-center justify-between bg-gray-900 rounded-lg px-3 py-2">
@@ -292,7 +292,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
                                       {new Date(sub.created_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
                                     </span>
                                     {sub.paystack_reference && (
-                                      <span className="text-xs font-mono text-gray-600">{sub.paystack_reference}</span>
+                                      <span className="text-xs font-mono text-muted-foreground">{sub.paystack_reference}</span>
                                     )}
                                   </div>
                                   <span className="text-xs font-bold text-green-400">{formatNaira(sub.amount)}</span>

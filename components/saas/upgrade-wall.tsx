@@ -26,7 +26,7 @@ export function UpgradeWall({ locale, shopName }: UpgradeWallProps) {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden"
+        className="w-full max-w-md bg-card rounded-2xl shadow-2xl overflow-hidden"
       >
         {/* Header */}
         <div className="bg-gradient-to-br from-northcode-blue to-[#1a4f9e] p-8 text-center">
@@ -49,7 +49,7 @@ export function UpgradeWall({ locale, shopName }: UpgradeWallProps) {
 
           <ul className="space-y-2.5 mb-6">
             {features.map(item => (
-              <li key={item} className="flex items-center gap-2.5 text-sm text-gray-700">
+              <li key={item} className="flex items-center gap-2.5 text-sm text-foreground/80">
                 <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
                 {item}
               </li>

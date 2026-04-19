@@ -288,10 +288,10 @@ export default function DettesPage() {
                   </div>
 
                   {isExpanded && (
-                    <div className="border-t bg-gray-50 px-4 py-3 space-y-2">
+                    <div className="border-t bg-muted/40 px-4 py-3 space-y-2">
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('payments.unpaid_invoices')}</p>
                       {unpaidSales.map(sale => (
-                        <div key={sale.id} className="bg-white rounded-lg border p-3 space-y-1">
+                        <div key={sale.id} className="bg-card rounded-lg border p-3 space-y-1">
                           <div className="flex items-center justify-between">
                             <span className="font-mono text-northcode-blue font-semibold text-sm">#{sale.sale_number}</span>
                             <Badge variant={sale.payment_status === 'partial' ? 'warning' : 'destructive'} className="text-[10px]">
@@ -377,7 +377,7 @@ export default function DettesPage() {
                   {shop?.currency || '₦'}
                 </span>
                 <input type="number" value={repayAmount} onChange={e => setRepayAmount(e.target.value)}
-                  className="flex-1 h-12 px-3 text-lg font-bold bg-white outline-none" min={1} placeholder="0" autoFocus />
+                  className="flex-1 h-12 px-3 text-lg font-bold bg-card outline-none" min={1} placeholder="0" autoFocus />
               </div>
               {repayDebtor && Number(repayAmount) > 0 && (
                 <p className="text-xs text-muted-foreground">
@@ -398,7 +398,7 @@ export default function DettesPage() {
                     className={`rounded-lg border p-2.5 text-sm font-medium transition-colors ${
                       repayMethod === m
                         ? 'border-northcode-blue bg-northcode-blue-muted text-northcode-blue'
-                        : 'border-input bg-white text-muted-foreground hover:bg-muted'
+                        : 'border-input bg-card text-muted-foreground hover:bg-muted'
                     }`}>
                     {m === 'cash' ? `💵 ${t('payment.cash')}` : m === 'transfer' ? `🏦 ${t('payment.transfer')}` : m === 'mobile_money' ? `📱 ${t('payment.mobile_money')}` : `💳 ${t('payment.paystack')}`}
                   </button>
@@ -458,7 +458,7 @@ export default function DettesPage() {
                   <div key={sale.id} className="border rounded-xl overflow-hidden">
                     {/* Sale header */}
                     <button
-                      className="w-full flex items-start justify-between gap-2 p-3 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+                      className="w-full flex items-start justify-between gap-2 p-3 bg-muted/40 hover:bg-accent transition-colors text-left"
                       onClick={() => setExpandedSaleId(isOpen ? null : sale.id)}
                     >
                       <div className="space-y-0.5">
@@ -488,7 +488,7 @@ export default function DettesPage() {
                       <div className="divide-y">
                         {/* Sale items */}
                         {sale.sale_items.length > 0 && (
-                          <div className="px-3 py-2 bg-white space-y-0.5">
+                          <div className="px-3 py-2 bg-card space-y-0.5">
                             <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">{t('sales.items')}</p>
                             {sale.sale_items.map((item, i) => (
                               <div key={i} className="flex justify-between text-[11px] text-muted-foreground">
@@ -500,7 +500,7 @@ export default function DettesPage() {
                         )}
 
                         {/* Payment breakdown */}
-                        <div className="px-3 py-2 bg-white">
+                        <div className="px-3 py-2 bg-card">
                           <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-2">
                             {t('payments.payments_received')} ({salePayments.length})
                           </p>
@@ -512,7 +512,7 @@ export default function DettesPage() {
                                 <div key={p.id} className="flex items-start justify-between gap-2 rounded-lg bg-green-50 border border-green-100 px-2.5 py-2">
                                   <div className="space-y-0.5">
                                     <div className="flex items-center gap-1.5 flex-wrap">
-                                      <Badge variant="outline" className="text-[10px] px-1.5 bg-white">
+                                      <Badge variant="outline" className="text-[10px] px-1.5 bg-card">
                                         {t(`payment.${p.method}` as any) || p.method}
                                       </Badge>
                                       {p.received_by_name && (

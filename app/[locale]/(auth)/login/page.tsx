@@ -101,7 +101,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
           </p>
         </div>
 
-        <div className="rounded-2xl bg-white shadow-2xl overflow-hidden">
+        <div className="rounded-2xl bg-card shadow-2xl overflow-hidden">
           <AnimatePresence mode="wait">
             {mode === 'login' ? (
               <motion.div
@@ -161,7 +161,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
-                        className="rounded border-gray-300"
+                        className="rounded border-border"
                         {...loginForm.register('rememberMe')}
                       />
                       <span className="text-muted-foreground">{t('remember_me')}</span>

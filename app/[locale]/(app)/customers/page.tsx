@@ -107,7 +107,7 @@ export default function CustomersPage() {
       ) : (
         <div className="space-y-2">
           {filtered.map(customer => (
-            <div key={customer.id} className="rounded-lg border bg-white shadow-sm p-4">
+            <div key={customer.id} className="rounded-lg border bg-card shadow-sm p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
