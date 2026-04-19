@@ -732,13 +732,13 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
               {filteredProducts.slice(0, 50).map(product => (
                 <button key={product.id} onClick={() => addToCart(product)}
-                  className="flex flex-col items-start text-left rounded-lg border bg-card p-3 hover:border-northcode-blue hover:bg-northcode-blue-muted transition-colors tap-target"
+                  className="flex flex-col items-start text-left rounded-lg border bg-card p-3 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors tap-target"
                 >
-                  <p className="text-sm font-medium truncate w-full">{product.name}</p>
+                  <p className="text-sm font-medium truncate w-full text-foreground">{product.name}</p>
                   {product.name_hausa && <p className="text-xs text-muted-foreground truncate w-full">{product.name_hausa}</p>}
                   {product.sku && <p className="text-[10px] text-muted-foreground font-mono">{product.sku}</p>}
                   <div className="flex items-center justify-between w-full mt-1">
-                    <span className="text-sm font-bold text-northcode-blue">{formatNaira(product.selling_price)}</span>
+                    <span className="text-sm font-bold text-blue-600 dark:text-blue-400">{formatNaira(product.selling_price)}</span>
                     <Badge variant={product.quantity <= 5 ? 'warning' : 'success'} className="text-[10px] px-1.5">
                       {product.quantity} {product.unit}
                     </Badge>

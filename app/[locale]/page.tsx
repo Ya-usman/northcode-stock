@@ -74,26 +74,25 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
       : `${n.toLocaleString('fr-FR')} FCFA`
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white text-gray-900">
 
       {/* ── NAVBAR ── */}
-      <header className="sticky top-0 z-50 border-b bg-white/90 backdrop-blur-md">
+      <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur-md">
         <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-northcode-blue flex items-center justify-center text-white font-bold text-sm">NC</div>
-            <span className="font-bold text-northcode-blue text-lg">StockShop</span>
+            <img src="/logo.png" alt="StockShop" className="h-9 w-auto" />
           </div>
-          <nav className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
-            <a href="#features" className="hover:text-foreground transition-colors">{t('nav.features')}</a>
-            <a href="#pricing" className="hover:text-foreground transition-colors">{t('nav.pricing')}</a>
-            <a href="#testimonials" className="hover:text-foreground transition-colors">{t('nav.reviews')}</a>
+          <nav className="hidden md:flex items-center gap-6 text-sm text-gray-500">
+            <a href="#features" className="hover:text-gray-900 transition-colors">{t('nav.features')}</a>
+            <a href="#pricing" className="hover:text-gray-900 transition-colors">{t('nav.pricing')}</a>
+            <a href="#testimonials" className="hover:text-gray-900 transition-colors">{t('nav.reviews')}</a>
           </nav>
           <div className="flex items-center gap-2">
             <Link href={`/${locale}/login`}>
-              <Button variant="ghost" size="sm">{t('nav.login')}</Button>
+              <Button variant="ghost" size="sm" className="text-gray-700 hover:text-gray-900 hover:bg-gray-100">{t('nav.login')}</Button>
             </Link>
             <Link href={`/${locale}/register`}>
-              <Button size="sm" className="bg-northcode-blue hover:bg-northcode-blue-light">
+              <Button size="sm" className="bg-northcode-blue hover:bg-northcode-blue-light text-white">
                 {t('nav.start_trial')}
               </Button>
             </Link>
@@ -131,7 +130,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
                 </Button>
               </Link>
               <a href="#features">
-                <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10 h-12 px-8 text-base">
+                <Button size="lg" className="bg-white/15 border border-white/40 text-white hover:bg-white/25 h-12 px-8 text-base backdrop-blur-sm">
                   {t('hero.cta_secondary')}
                 </Button>
               </a>
@@ -346,8 +345,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
         <div className="mx-auto max-w-6xl">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded-lg bg-northcode-blue flex items-center justify-center text-white font-bold text-xs">NC</div>
-              <span className="font-semibold text-northcode-blue">StockShop</span>
+              <img src="/logo.png" alt="StockShop" className="h-7 w-auto" />
             </div>
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
               <a href="#pricing" className="hover:text-foreground">{t('nav.pricing')}</a>
