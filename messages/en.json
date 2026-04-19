@@ -426,6 +426,8 @@
   "categories": {
     "title": "Product Categories",
     "subtitle": "Organize your products by category for easy browsing.",
+    "search_placeholder": "Search categories…",
+    "no_results": "No results found",
     "add_placeholder": "Category name…",
     "add": "Add",
     "none": "No categories yet",

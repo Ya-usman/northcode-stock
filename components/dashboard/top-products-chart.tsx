@@ -12,7 +12,7 @@ interface TopProductsChartProps {
   data: TopProduct[]
 }
 
-const COLORS = ['#0A2F6E', '#1A4F9E', '#2D6CC7', '#4B8FE0', '#7BB3F0']
+const COLORS = ['#60a5fa', '#34d399', '#f59e0b', '#f87171', '#a78bfa']
 
 export function TopProductsChart({ data }: TopProductsChartProps) {
   const t = useTranslations('dashboard')
@@ -53,7 +53,7 @@ export function TopProductsChart({ data }: TopProductsChartProps) {
         ) : (
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
               <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} tickFormatter={tickFormatter} width={46} />
               <Tooltip content={<CustomTooltip />} />

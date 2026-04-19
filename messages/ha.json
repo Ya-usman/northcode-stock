@@ -449,6 +449,8 @@
   "categories": {
     "title": "Nau'ikan Kaya",
     "subtitle": "Shirya kayanka bisa nau'i don sauƙin bincike.",
+    "search_placeholder": "Bincika nau'i…",
+    "no_results": "Babu sakamako",
     "add_placeholder": "Sunan nau'i…",
     "add": "Ƙara",
     "none": "Babu nau'i tukuna",

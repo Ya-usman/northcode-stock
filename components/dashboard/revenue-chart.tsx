@@ -43,15 +43,15 @@ export function RevenueChart({ data }: RevenueChartProps) {
           <AreaChart data={data} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#0A2F6E" stopOpacity={0.15} />
-                <stop offset="95%" stopColor="#0A2F6E" stopOpacity={0} />
+                <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#60a5fa" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
             <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} tickFormatter={tickFormatter} width={46} />
             <Tooltip content={<CustomTooltip />} />
-            <Area type="monotone" dataKey="revenue" stroke="#0A2F6E" strokeWidth={2} fill="url(#revenueGrad)" dot={{ fill: '#0A2F6E', r: 3 }} activeDot={{ r: 5 }} />
+            <Area type="monotone" dataKey="revenue" stroke="#60a5fa" strokeWidth={2.5} fill="url(#revenueGrad)" dot={{ fill: '#60a5fa', r: 3 }} activeDot={{ r: 5, fill: '#3b82f6' }} />
           </AreaChart>
         </ResponsiveContainer>
       </CardContent>

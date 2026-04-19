@@ -426,6 +426,8 @@
   "categories": {
     "title": "Catégories de produits",
     "subtitle": "Organisez vos produits par catégorie pour les retrouver facilement.",
+    "search_placeholder": "Rechercher une catégorie…",
+    "no_results": "Aucun résultat",
     "add_placeholder": "Nom de la catégorie…",
     "add": "Ajouter",
     "none": "Aucune catégorie pour l'instant",

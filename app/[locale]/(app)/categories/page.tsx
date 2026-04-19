@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
-import { Plus, Trash2, Tag } from 'lucide-react'
+import { Plus, Trash2, Tag, Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -21,6 +21,7 @@ export default function CategoriesPage() {
   const [loading, setLoading] = useState(true)
   const [newName, setNewName] = useState('')
   const [saving, setSaving] = useState(false)
+  const [search, setSearch] = useState('')
 
   const fetchCategories = async () => {
     if (!shop?.id) return
@@ -60,6 +61,7 @@ export default function CategoriesPage() {
   }
 
   const canEdit = profile?.role === 'owner' || profile?.role === 'stock_manager'
+  const filtered = categories.filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
 
   return (
     <div className="max-w-lg space-y-6">
@@ -68,33 +70,45 @@ export default function CategoriesPage() {
         <p className="text-sm text-muted-foreground mt-1">{t('categories.subtitle')}</p>
       </div>
 
-      {canEdit && (
-        <div className="flex gap-2">
+      {/* Search + Add row */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-            placeholder={t('categories.add_placeholder')}
-            onKeyDown={e => e.key === 'Enter' && addCategory()}
-            className="flex-1"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder={t('categories.search_placeholder')}
+            className="pl-9 h-9"
           />
-          <Button onClick={addCategory} loading={saving} disabled={!newName.trim()} className="bg-northcode-blue shrink-0 gap-1">
-            <Plus className="h-4 w-4" />
-            {t('categories.add')}
-          </Button>
         </div>
-      )}
+        {canEdit && (
+          <>
+            <Input
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              placeholder={t('categories.add_placeholder')}
+              onKeyDown={e => e.key === 'Enter' && addCategory()}
+              className="h-9 flex-1"
+            />
+            <Button onClick={addCategory} loading={saving} disabled={!newName.trim()} className="bg-northcode-blue shrink-0 gap-1.5 h-9 px-3 text-sm">
+              <Plus className="h-4 w-4" />
+              {t('categories.add')}
+            </Button>
+          </>
+        )}
+      </div>
 
       <div className="space-y-2">
         {loading ? (
           [...Array(4)].map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)
-        ) : categories.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <Tag className="h-10 w-10 mb-3 opacity-30" />
-            <p className="text-sm">{t('categories.none')}</p>
-            {canEdit && <p className="text-xs mt-1">{t('categories.add_hint')}</p>}
+            <p className="text-sm">{search ? t('categories.no_results') : t('categories.none')}</p>
+            {canEdit && !search && <p className="text-xs mt-1">{t('categories.add_hint')}</p>}
           </div>
         ) : (
-          categories.map(cat => (
+          filtered.map(cat => (
             <div key={cat.id} className="flex items-center justify-between rounded-lg border bg-card px-4 py-3 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="h-8 w-8 rounded-md bg-northcode-blue-muted flex items-center justify-center">
@@ -117,8 +131,8 @@ export default function CategoriesPage() {
         )}
       </div>
 
-      {categories.length > 0 && (
-        <p className="text-xs text-muted-foreground">{t('categories.count', { count: categories.length })}</p>
+      {filtered.length > 0 && (
+        <p className="text-xs text-muted-foreground">{t('categories.count', { count: filtered.length })}</p>
       )}
     </div>
   )
