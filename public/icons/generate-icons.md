@@ -3,6 +3,7 @@
 Use `icon.svg` (already updated) to regenerate all icon sizes.
 
 ## Generate commands (using sharp CLI):
+
 ```bash
 npm install -g sharp-cli
 
@@ -12,4 +13,5 @@ done
 ```
 
 ## Or use an online tool:
+
 Upload `icon.svg` to https://realfavicongenerator.net and download all sizes.

@@ -1,5 +1,6 @@
 import { AppLayout } from '@/components/layout/app-layout'
 import { AuthProvider } from '@/lib/contexts/auth-context'
+import { OfflineBanner } from '@/components/offline/offline-banner'
 
 // AuthProvider wraps the entire app group — single subscription for all pages.
 export default function AppRouteLayout({
@@ -11,6 +12,7 @@ export default function AppRouteLayout({
 }) {
   return (
     <AuthProvider>
+      <OfflineBanner />
       <AppLayout locale={locale}>
         {children}
       </AppLayout>

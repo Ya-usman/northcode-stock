@@ -23,6 +23,8 @@ import { useCurrency } from '@/lib/hooks/use-currency'
 import { generateReceiptPDF, generateReceiptPDFBlob } from '@/lib/utils/pdf'
 import { shareReceiptWhatsApp, buildReceiptWhatsAppMessage } from '@/lib/utils/whatsapp'
 import type { Product, Customer, CartItem, Sale, SaleItem, Category } from '@/lib/types/database'
+import { cacheProducts, getCachedProducts, savePendingSale } from '@/lib/offline/db'
+import { useOffline } from '@/lib/offline/use-offline'
 
 interface Draft {
   id: string
@@ -77,6 +79,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const [amountPaid, setAmountPaid] = useState('')
   const [transferRef, setTransferRef] = useState('')
   const [notes, setNotes] = useState('')
+  const { isOnline, refreshPendingCount } = useOffline()
   const [completing, setCompleting] = useState(false)
   const [completedSale, setCompletedSale] = useState<Sale & { sale_items: SaleItem[] } | null>(null)
   const [showReceipt, setShowReceipt] = useState(false)
@@ -104,16 +107,40 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   useEffect(() => {
     if (!selectedShop?.id) return
     const load = async () => {
+      // Offline: use IndexedDB cache
+      if (!navigator.onLine) {
+        const cached = await getCachedProducts(selectedShop.id)
+        if (cached.length > 0) {
+          setProducts(cached as unknown as Product[])
+          setFilteredProducts(cached as unknown as Product[])
+        }
+        return
+      }
       const [{ data: prods }, { data: custs }, { data: cats }] = await Promise.all([
         supabase.from('products').select('*, categories(name), suppliers(name)')
           .eq('shop_id', selectedShop.id).eq('is_active', true).gt('quantity', 0).order('name'),
         supabase.from('customers').select('*').eq('shop_id', selectedShop.id).order('name'),
         supabase.from('categories').select('*').eq('shop_id', selectedShop.id).order('name'),
       ])
-      setProducts((prods || []) as unknown as Product[])
-      setFilteredProducts((prods || []) as unknown as Product[])
+      const safeProds = (prods || []) as unknown as Product[]
+      setProducts(safeProds)
+      setFilteredProducts(safeProds)
       setCustomers((custs || []) as Customer[])
       setCategories((cats || []) as Category[])
+      // Cache products for offline use
+      if (safeProds.length > 0) {
+        await cacheProducts(selectedShop.id, safeProds.map((p: any) => ({
+          id: p.id,
+          shop_id: selectedShop.id,
+          name: p.name,
+          sku: p.sku ?? null,
+          selling_price: Number(p.selling_price),
+          buying_price: Number(p.buying_price),
+          quantity: Number(p.quantity),
+          category_id: p.category_id ?? null,
+          is_active: p.is_active,
+        })))
+      }
     }
     load()
   }, [selectedShop?.id])
@@ -350,6 +377,81 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     }
 
     setCompleting(true)
+
+    // ── OFFLINE PATH ────────────────────────────────────────────────────────
+    if (!navigator.onLine) {
+      try {
+        const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+        const saleNumber = `HL-${localId.slice(-5).toUpperCase()}`
+        await savePendingSale({
+          local_id: localId,
+          shop_id: selectedShop!.id,
+          cashier_id: profile!.id,
+          subtotal,
+          discount: discountAmt,
+          tax,
+          total,
+          payment_method: paymentMethod,
+          payment_status: paymentMethod === 'credit'
+            ? 'pending'
+            : balance > 0 ? (paid > 0 ? 'partial' : 'pending') : 'paid',
+          amount_paid: paid,
+          balance,
+          customer_name: customerName.trim() || selectedCustomer?.name || null,
+          customer_phone: customerPhone.trim() || selectedCustomer?.phone || null,
+          notes: notes || null,
+          created_at: new Date().toISOString(),
+          items: cart.map((item: any) => ({
+            product_id: item.product.id,
+            product_name: item.product.name,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            subtotal: item.quantity * item.unit_price,
+          })),
+          payment_amount: paymentMethod !== 'credit' ? paid : 0,
+          payment_reference: paymentMethod === 'transfer' ? transferRef : null,
+          synced: false,
+        })
+        await refreshPendingCount()
+        // Build a fake completed sale for the receipt modal
+        setCompletedSale({
+          id: localId,
+          sale_number: saleNumber,
+          shop_id: selectedShop!.id,
+          cashier_id: profile!.id,
+          subtotal,
+          discount: discountAmt,
+          tax,
+          total,
+          payment_method: paymentMethod,
+          payment_status: 'pending',
+          amount_paid: paid,
+          balance,
+          sale_status: 'active',
+          notes: notes || null,
+          created_at: new Date().toISOString(),
+          sale_items: cart.map((item: any) => ({
+            id: `li-${Math.random()}`,
+            sale_id: localId,
+            product_id: item.product.id,
+            product_name: item.product.name,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            subtotal: item.quantity * item.unit_price,
+          })),
+        } as any)
+        setShowReceipt(true)
+        resetForm()
+        toast({ title: 'Vente sauvegardée hors-ligne · sera synchronisée automatiquement', variant: 'success' })
+      } catch (err: any) {
+        toast({ title: err.message || t('errors.generic'), variant: 'destructive' })
+      } finally {
+        setCompleting(false)
+      }
+      return
+    }
+
+    // ── ONLINE PATH ──────────────────────────────────────────────────────────
     try {
       const db = supabase as any
 
