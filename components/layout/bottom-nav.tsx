@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl'
 import {
   LayoutDashboard, ShoppingCart, Package, BarChart2, Settings,
   MoreHorizontal, History, CreditCard, Users, Truck, Zap,
-  X, LogOut, Store,
+  X, LogOut, Store, Tag,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import type { UserRole } from '@/lib/types/database'
@@ -32,6 +32,7 @@ export function BottomNav({ locale, role, onSignOut }: BottomNavProps) {
     { href: `/${locale}/sales/history`,    icon: History,         label: t('sales_history'),  roles: ['owner', 'cashier'],                            primary: false },
     { href: `/${locale}/payments`,         icon: CreditCard,      label: t('payments'),       roles: ['owner'],                                       primary: false },
     { href: `/${locale}/customers`,        icon: Users,           label: t('customers'),      roles: ['owner', 'cashier'],                            primary: false },
+    { href: `/${locale}/categories`,        icon: Tag,             label: t('categories'),     roles: ['owner', 'stock_manager'],                      primary: false },
     { href: `/${locale}/suppliers`,        icon: Truck,           label: t('suppliers'),      roles: ['owner', 'stock_manager'],                      primary: false },
     { href: `/${locale}/team`,              icon: Users,           label: t('team'),           roles: ['owner'],                                       primary: false },
     { href: `/${locale}/shops`,            icon: Store,           label: t('shops'),          roles: ['owner'],                                       primary: false },
