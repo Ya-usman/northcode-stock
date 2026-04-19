@@ -72,7 +72,7 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           tx_ref,
           amount,
-          currency: 'XAF',
+          currency: country.currency,
           redirect_url: `${baseUrl}/api/billing/flutterwave/verify?locale=${locale}`,
           customer: { email },
           meta: { shop_id, plan_id, locale, billing_period: period },
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
             description: `Abonnement Plan ${plan_id} (${period})`,
             logo: `${baseUrl}/icons/icon-192x192.png`,
           },
-          payment_options: 'mobilemoneyfranco',
+          payment_options: 'mobilemoneycameroon,mobilemoneycotedivoire,mobilemoneymali,mobilemoneyniger,card',
         }),
       })
       const data = await res.json()

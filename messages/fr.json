@@ -569,7 +569,7 @@
     },
     "trust": {
       "label": "Utilisé par des boutiques à",
-      "cities": "Lagos · Kano · Abuja · Kaduna · Douala · Yaoundé · Bafoussam · Sokoto"
+      "cities": "Lagos · Douala · Abidjan · Bamako · Niamey · Kano · Yaoundé · Bouaké"
     },
     "features": {
       "title": "Tout ce dont votre boutique a besoin",
@@ -596,9 +596,9 @@
       "t2_name": "Jean-Pierre Mbarga",
       "t2_shop": "Mbarga Electronics, Douala",
       "t2_text": "Le suivi des crédits a changé ma gestion. Tout est enregistré, plus de disputes avec les clients.",
-      "t3_name": "Usman Garba",
-      "t3_shop": "Garba Electronics, Sokoto",
-      "t3_text": "Mon caissier l'utilise sans formation. Très simple. Le mode hors ligne fonctionne parfaitement."
+      "t3_name": "Mamadou Koné",
+      "t3_shop": "Koné Mobile Store, Abidjan",
+      "t3_text": "StockShop a transformé la gestion de ma boutique. Je connais mon stock et mes bénéfices en temps réel, même quand je suis absent."
     },
     "pricing": {
       "title": "Tarifs simples et transparents",

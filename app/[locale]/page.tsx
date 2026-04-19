@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils/cn'
 import { useTranslations } from 'next-intl'
-import { COUNTRIES } from '@/lib/saas/countries'
+import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
 
 const FEATURE_ICONS = [ShoppingCart, Package, Users, BarChart2, MessageCircle, CreditCard]
 const FEATURE_COLORS = [
@@ -25,7 +25,7 @@ const FEATURE_COLORS = [
 
 export default function LandingPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('landing')
-  const [pricingCountry, setPricingCountry] = useState<'NG' | 'CM'>('NG')
+  const [pricingCountry, setPricingCountry] = useState<CountryCode>('NG')
 
   const country = COUNTRIES[pricingCountry]
 
@@ -69,9 +69,9 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
   ]
 
   const formatPrice = (n: number) =>
-    pricingCountry === 'CM'
-      ? `${n.toLocaleString('fr-FR')} FCFA`
-      : `₦${n.toLocaleString('en-NG')}`
+    country.currency === 'NGN'
+      ? `₦${n.toLocaleString('en-NG')}`
+      : `${n.toLocaleString('fr-FR')} FCFA`
 
   return (
     <div className="min-h-screen bg-white">
@@ -242,40 +242,29 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
             <p className="text-lg text-muted-foreground mb-6">{t('pricing.subtitle')}</p>
 
             {/* Country toggle */}
-            <div className="inline-flex rounded-xl border bg-gray-50 p-1 gap-1">
-              <button
-                onClick={() => setPricingCountry('NG')}
-                className={cn(
-                  'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all',
-                  pricingCountry === 'NG'
-                    ? 'bg-white shadow text-northcode-blue'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                <span>🇳🇬</span> {t('pricing.toggle_ng')}
-                {pricingCountry === 'NG' && (
-                  <span className="flex items-center gap-1 text-[10px] text-green-600 bg-green-50 border border-green-100 rounded-full px-1.5 py-0.5">
-                    <CreditCard className="h-2.5 w-2.5" /> Paystack
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => setPricingCountry('CM')}
-                className={cn(
-                  'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all',
-                  pricingCountry === 'CM'
-                    ? 'bg-white shadow text-northcode-blue'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                <span>🇨🇲</span> {t('pricing.toggle_cm')}
-                {pricingCountry === 'CM' && (
-                  <span className="flex items-center gap-1 text-[10px] text-orange-600 bg-orange-50 border border-orange-100 rounded-full px-1.5 py-0.5">
-                    <Smartphone className="h-2.5 w-2.5" /> MoMo
-                  </span>
-                )}
-              </button>
+            <div className="inline-flex flex-wrap justify-center rounded-xl border bg-gray-50 p-1 gap-1">
+              {Object.values(COUNTRIES).map(c => (
+                <button
+                  key={c.code}
+                  onClick={() => setPricingCountry(c.code)}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all',
+                    pricingCountry === c.code
+                      ? 'bg-white shadow text-northcode-blue'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <span className="text-base">{c.flag}</span>
+                  <span className="hidden sm:inline">{c.name}</span>
+                </button>
+              ))}
             </div>
+            <p className="text-xs text-muted-foreground mt-2 flex items-center justify-center gap-1">
+              {country.gateway === 'paystack'
+                ? <><CreditCard className="h-3.5 w-3.5" /> Paystack · Carte, Virement, USSD</>
+                : <><Smartphone className="h-3.5 w-3.5" /> Flutterwave · MTN MoMo · Orange Money · Wave</>
+              }
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

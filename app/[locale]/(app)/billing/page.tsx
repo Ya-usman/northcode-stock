@@ -92,7 +92,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
 
   const country = getCountry(shop?.country)
   const isNigeria = country.code === 'NG'
-  const isCameroon = country.code === 'CM'
+  const isFlutterwave = country.gateway === 'flutterwave'
 
   const handleSubscribe = useCallback(async (planId: 'starter' | 'pro' | 'business') => {
     if (!shop || !user) return
@@ -159,9 +159,9 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                 <CreditCard className="h-3 w-3" /> Paystack
               </span>
             )}
-            {isCameroon && (
+            {isFlutterwave && (
               <span className="flex items-center gap-1 text-xs bg-orange-50 text-orange-700 border border-orange-200 rounded-full px-2 py-0.5">
-                <Smartphone className="h-3 w-3" /> MTN / Orange
+                <Smartphone className="h-3 w-3" /> Flutterwave
               </span>
             )}
           </div>
@@ -305,6 +305,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                     >
                       {isNigeria ? '💳' : '📱'} {isSubscribed ? 'Passer à ' : ''}{id.charAt(0).toUpperCase() + id.slice(1)}
                     </Button>
+
                   )}
                 </div>
               </div>
@@ -315,7 +316,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
         <p className="text-center text-xs text-muted-foreground mt-4">
           {isNigeria
             ? 'Paiement sécurisé via Paystack · Carte, virement, USSD'
-            : 'Paiement mobile via Flutterwave · MTN MoMo · Orange Money'}
+            : `Paiement mobile via Flutterwave · MTN MoMo · Orange Money · Wave (${country.name})`}
         </p>
       </div>
 
@@ -336,7 +337,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
               q: 'Comment fonctionne le paiement ?',
               a: isNigeria
                 ? 'Nous utilisons Paystack pour les paiements sécurisés. Carte, virement bancaire ou USSD acceptés.'
-                : 'Nous utilisons Flutterwave pour les paiements Mobile Money. MTN MoMo et Orange Money acceptés.',
+                : `Nous utilisons Flutterwave pour les paiements Mobile Money en ${country.name}. MTN MoMo, Orange Money et Wave acceptés.`,
             },
             {
               q: 'Y a-t-il un remboursement ?',

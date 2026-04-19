@@ -569,7 +569,7 @@
     },
     "trust": {
       "label": "Trusted by boutiques in",
-      "cities": "Lagos · Kano · Abuja · Kaduna · Douala · Yaoundé · Bafoussam · Sokoto"
+      "cities": "Lagos · Douala · Abidjan · Bamako · Niamey · Kano · Yaoundé · Bouaké"
     },
     "features": {
       "title": "Everything your shop needs",
@@ -596,9 +596,9 @@
       "t2_name": "Jean-Pierre Mbarga",
       "t2_shop": "Mbarga Electronics, Douala",
       "t2_text": "The credit tracking changed my management. Everything is recorded, no more disputes with customers.",
-      "t3_name": "Usman Garba",
-      "t3_shop": "Garba Electronics, Sokoto",
-      "t3_text": "My cashier uses it without any training. Very easy. The offline mode works perfectly."
+      "t3_name": "Mamadou Koné",
+      "t3_shop": "Koné Mobile Store, Abidjan",
+      "t3_text": "StockShop transformed my shop management. I know my stock and profits in real time, even when I am away."
     },
     "pricing": {
       "title": "Simple, honest pricing",

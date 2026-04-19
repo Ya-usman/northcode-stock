@@ -569,7 +569,7 @@
     },
     "trust": {
       "label": "Kantuna suna amfani a",
-      "cities": "Kano · Kaduna · Sokoto · Abuja · Douala · Maiduguri"
+      "cities": "Lagos · Douala · Abidjan · Bamako · Niamey · Kano · Yaoundé · Bouaké"
     },
     "features": {
       "title": "Duk abin da kantin ku ke bukata",
@@ -596,9 +596,9 @@
       "t2_name": "Jean-Pierre Mbarga",
       "t2_shop": "Mbarga Electronics, Douala",
       "t2_text": "Bin diddigin bashi ya canza yadda nake gudanarwa. Duk ya rubuta, ba gardama da abokan ciniki.",
-      "t3_name": "Usman Garba",
-      "t3_shop": "Garba Electronics, Sokoto",
-      "t3_text": "Ma'aikacina yana amfani da shi ba tare da horarwa ba. Sauqi sosai."
+      "t3_name": "Mamadou Koné",
+      "t3_shop": "Koné Mobile Store, Abidjan",
+      "t3_text": "StockShop ya canza yadda nake gudanar da kantin ku. Ina san abubuwan da nake da su da riba a lokacin gaske."
     },
     "pricing": {
       "title": "Farashi mai sauki da gaskiya",
