@@ -43,7 +43,7 @@ function usePageTitle(pathname: string, locale: string) {
 
 function LoadingSkeleton() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <div className="p-4 space-y-4 pt-16">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-lg" />)}
@@ -100,7 +100,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   const isBillingPage = pathname.includes('/billing')
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {!beta && !accessAllowed && !isBillingPage && (
         <UpgradeWall locale={locale} shopName={shop?.name} />
       )}

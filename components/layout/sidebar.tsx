@@ -74,11 +74,11 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
     .toUpperCase()
 
   return (
-    <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 border-r bg-white z-30">
+    <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 border-r bg-card z-30">
       {/* Logo + Shop switcher */}
       <div className="border-b">
         <div className="flex h-16 items-center gap-2 px-4">
-          <img src="/logo.png" alt="StockShop" className="h-14 w-auto flex-shrink-0" />
+          <img src="/logo.png" alt="StockShop" className="h-14 w-auto flex-shrink-0 dark:brightness-0 dark:invert" />
           <div className="min-w-0 flex-1">
             <p className="text-xs text-muted-foreground truncate">{shop?.name}</p>
             <p className="text-[11px] text-muted-foreground/70 truncate">{shop?.city}</p>
@@ -86,7 +86,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
           {userShops.length > 1 && (
             <button
               onClick={() => setShopPickerOpen(o => !o)}
-              className="flex-shrink-0 p-1 rounded hover:bg-gray-100 transition-colors"
+              className="flex-shrink-0 p-1 rounded hover:bg-accent transition-colors"
               title="Changer de boutique"
             >
               <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', shopPickerOpen && 'rotate-180')} />
@@ -102,8 +102,8 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
                 className={cn(
                   'w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors',
                   s.id === shop?.id
-                    ? 'bg-northcode-blue-muted text-northcode-blue font-medium'
-                    : 'hover:bg-gray-50 text-gray-700'
+                    ? 'bg-northcode-blue-muted text-northcode-blue dark:bg-blue-950 dark:text-blue-400 font-medium'
+                    : 'hover:bg-accent text-muted-foreground hover:text-foreground'
                 )}
               >
                 <Store className="h-3.5 w-3.5 flex-shrink-0" />
@@ -137,8 +137,8 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
                     className={cn(
                       'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors tap-target',
                       isActive
-                        ? 'bg-northcode-blue-muted text-northcode-blue'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                        ? 'bg-northcode-blue-muted text-northcode-blue dark:bg-blue-950 dark:text-blue-400'
+                        : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                     )}
                   >
                     <Icon className="h-4 w-4 flex-shrink-0" />

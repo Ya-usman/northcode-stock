@@ -45,7 +45,7 @@ export function BottomNav({ locale, role, onSignOut }: BottomNavProps) {
   return (
     <>
       {/* Bottom bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-white safe-bottom md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-card safe-bottom md:hidden">
         <div className="flex h-16 items-stretch">
           {primaryItems.map((item) => {
             const Icon = item.icon
@@ -93,9 +93,9 @@ export function BottomNav({ locale, role, onSignOut }: BottomNavProps) {
           />
 
           {/* Panel */}
-          <div className="fixed bottom-16 left-0 right-0 z-40 bg-white rounded-t-2xl shadow-2xl md:hidden animate-in slide-in-from-bottom-4 duration-200">
+          <div className="fixed bottom-16 left-0 right-0 z-40 bg-card rounded-t-2xl shadow-2xl border-t md:hidden animate-in slide-in-from-bottom-4 duration-200">
             <div className="px-4 pt-4 pb-2">
-              <div className="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-4" />
+              <div className="w-10 h-1 rounded-full bg-border mx-auto mb-4" />
 
               <div className="grid grid-cols-4 gap-1">
                 {moreItems.map((item) => {
@@ -109,8 +109,8 @@ export function BottomNav({ locale, role, onSignOut }: BottomNavProps) {
                       className={cn(
                         'flex flex-col items-center gap-1.5 rounded-xl p-3 transition-colors',
                         isActive
-                          ? 'bg-northcode-blue-muted text-northcode-blue'
-                          : 'text-muted-foreground hover:bg-gray-50 hover:text-foreground'
+                          ? 'bg-northcode-blue-muted text-northcode-blue dark:bg-blue-950 dark:text-blue-400'
+                          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                       )}
                     >
                       <Icon className="h-5 w-5" strokeWidth={isActive ? 2.5 : 2} />

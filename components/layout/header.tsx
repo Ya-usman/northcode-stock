@@ -26,9 +26,9 @@ export function Header({ title, locale, onSignOut }: HeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-white px-4 md:px-6">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-card px-4 md:px-6">
       {/* Mobile: StockShop logo */}
-      <img src="/logo.png" alt="StockShop" className="h-14 w-auto md:hidden flex-shrink-0" />
+      <img src="/logo.png" alt="StockShop" className="h-14 w-auto md:hidden flex-shrink-0 dark:brightness-0 dark:invert" />
 
       <h1 className="flex-1 font-semibold text-base text-foreground truncate">{title}</h1>
 

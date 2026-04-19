@@ -27,25 +27,26 @@
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    /* ── NorthCode dark palette — inspired by Vercel / Linear ── */
+    --background: 240 6% 4%;          /* #09090c  near-black base */
+    --foreground: 0 0% 94%;           /* #f0f0f0  primary text */
+    --card: 240 5% 8%;                /* #111115  card surface, slightly elevated */
+    --card-foreground: 0 0% 94%;
+    --popover: 240 5% 9%;
+    --popover-foreground: 0 0% 94%;
+    --primary: 217 91% 60%;           /* #3b82f6  blue-500, visible on dark */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 4% 14%;          /* #1f2025  subtle secondary surface */
+    --secondary-foreground: 0 0% 94%;
+    --muted: 240 4% 14%;
+    --muted-foreground: 240 5% 60%;   /* #919196  secondary text */
+    --accent: 240 4% 18%;             /* #27272f  hover/active surface */
+    --accent-foreground: 0 0% 94%;
+    --destructive: 0 72% 51%;         /* #dc2626  red visible on dark */
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 4% 17%;             /* #252529  visible border */
+    --input: 240 4% 12%;              /* slightly darker than card */
+    --ring: 217 91% 60%;
   }
 }
 
