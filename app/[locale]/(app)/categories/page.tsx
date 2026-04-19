@@ -84,8 +84,8 @@ export default function CategoriesPage() {
     if (!shop?.id) return
     setSeeding(true)
     try {
-      const res = await fetch('/api/categories/seed', {
-        method: 'POST',
+      const res = await fetch('/api/categories', {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ shop_id: shop.id }),
       })
