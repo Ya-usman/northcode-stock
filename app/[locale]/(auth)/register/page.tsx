@@ -162,27 +162,30 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  {(Object.values(COUNTRIES)).map(c => (
-                    <button
-                      key={c.code}
-                      type="button"
-                      onClick={() => setCountry(c.code)}
-                      className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all ${
-                        country === c.code
-                          ? 'border-northcode-blue bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <span className="text-4xl">{c.flag}</span>
-                      <div className="text-center">
-                        <p className="font-semibold text-sm">{c.name}</p>
-                        <p className="text-xs text-muted-foreground">{c.currencySymbol}</p>
-                      </div>
-                      {country === c.code && (
-                        <div className="h-2 w-2 rounded-full bg-northcode-blue" />
-                      )}
-                    </button>
-                  ))}
+                  {(Object.values(COUNTRIES)).map(c => {
+                    const selected = country === c.code
+                    return (
+                      <button
+                        key={c.code}
+                        type="button"
+                        onClick={() => setCountry(c.code)}
+                        className="flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all"
+                        style={selected
+                          ? { borderColor: c.flagColor, backgroundColor: `${c.flagColor}12` }
+                          : { borderColor: '#e5e7eb' }
+                        }
+                      >
+                        <span className="text-4xl">{c.flag}</span>
+                        <div className="text-center">
+                          <p className="font-semibold text-sm">{c.name}</p>
+                          <p className="text-xs text-muted-foreground">{c.currencySymbol}</p>
+                        </div>
+                        {selected && (
+                          <div className="h-2 w-2 rounded-full" style={{ backgroundColor: c.flagColor }} />
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
 
                 <div className="flex gap-2 pt-1">

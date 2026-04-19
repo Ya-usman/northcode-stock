@@ -1,4 +1,4 @@
-export type CountryCode = 'NG' | 'CM' | 'CI' | 'ML' | 'NE'
+export type CountryCode = 'NG' | 'CM' | 'CI' | 'ML' | 'NE' | 'BJ' | 'TG'
 export type BillingPeriod = 'monthly' | 'quarterly' | 'annual'
 
 export const BILLING_PERIODS: Record<BillingPeriod, { months: number; days: number; discount: number; label: string; badge?: string }> = {
@@ -20,10 +20,11 @@ export interface CountryConfig {
   code: CountryCode
   name: string
   flag: string
+  /** Primary flag color used for UI accents (border, bg tint) */
+  flagColor: string
   currency: string
   currencySymbol: string
   gateway: 'paystack' | 'flutterwave'
-  /** Price multiplier vs NGN base prices */
   prices: {
     starter: number
     pro: number
@@ -38,6 +39,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'NG',
     name: 'Nigeria',
     flag: '🇳🇬',
+    flagColor: '#008751',
     currency: 'NGN',
     currencySymbol: '₦',
     gateway: 'paystack',
@@ -49,6 +51,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'CM',
     name: 'Cameroun',
     flag: '🇨🇲',
+    flagColor: '#CE1126',
     currency: 'XAF',
     currencySymbol: 'FCFA',
     gateway: 'flutterwave',
@@ -60,6 +63,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'CI',
     name: "Côte d'Ivoire",
     flag: '🇨🇮',
+    flagColor: '#F77F00',
     currency: 'XOF',
     currencySymbol: 'FCFA',
     gateway: 'flutterwave',
@@ -71,6 +75,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'ML',
     name: 'Mali',
     flag: '🇲🇱',
+    flagColor: '#FCD116',
     currency: 'XOF',
     currencySymbol: 'FCFA',
     gateway: 'flutterwave',
@@ -82,12 +87,37 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'NE',
     name: 'Niger',
     flag: '🇳🇪',
+    flagColor: '#E05206',
     currency: 'XOF',
     currencySymbol: 'FCFA',
     gateway: 'flutterwave',
     prices: { starter: 1999, pro: 3999, business: 7999 },
     phonePrefix: '+227',
     cityPlaceholder: 'Niamey, Zinder, Maradi…',
+  },
+  BJ: {
+    code: 'BJ',
+    name: 'Bénin',
+    flag: '🇧🇯',
+    flagColor: '#008751',
+    currency: 'XOF',
+    currencySymbol: 'FCFA',
+    gateway: 'flutterwave',
+    prices: { starter: 1999, pro: 3999, business: 7999 },
+    phonePrefix: '+229',
+    cityPlaceholder: 'Cotonou, Porto-Novo, Parakou…',
+  },
+  TG: {
+    code: 'TG',
+    name: 'Togo',
+    flag: '🇹🇬',
+    flagColor: '#D21034',
+    currency: 'XOF',
+    currencySymbol: 'FCFA',
+    gateway: 'flutterwave',
+    prices: { starter: 1999, pro: 3999, business: 7999 },
+    phonePrefix: '+228',
+    cityPlaceholder: 'Lomé, Sokodé, Kara…',
   },
 }
 

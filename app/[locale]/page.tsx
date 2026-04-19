@@ -243,21 +243,23 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
 
             {/* Country toggle */}
             <div className="inline-flex flex-wrap justify-center rounded-xl border bg-gray-50 p-1 gap-1">
-              {Object.values(COUNTRIES).map(c => (
-                <button
-                  key={c.code}
-                  onClick={() => setPricingCountry(c.code)}
-                  className={cn(
-                    'flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all',
-                    pricingCountry === c.code
-                      ? 'bg-white shadow text-northcode-blue'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  <span className="text-base">{c.flag}</span>
-                  <span className="hidden sm:inline">{c.name}</span>
-                </button>
-              ))}
+              {Object.values(COUNTRIES).map(c => {
+                const selected = pricingCountry === c.code
+                return (
+                  <button
+                    key={c.code}
+                    onClick={() => setPricingCountry(c.code)}
+                    className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all"
+                    style={selected
+                      ? { backgroundColor: '#fff', boxShadow: `0 0 0 2px ${c.flagColor}`, color: c.flagColor }
+                      : { color: '#6b7280' }
+                    }
+                  >
+                    <span className="text-base">{c.flag}</span>
+                    <span className="hidden sm:inline">{c.name}</span>
+                  </button>
+                )
+              })}
             </div>
             <p className="text-xs text-muted-foreground mt-2 flex items-center justify-center gap-1">
               {country.gateway === 'paystack'
