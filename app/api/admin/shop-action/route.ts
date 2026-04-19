@@ -8,7 +8,8 @@ export async function POST(request: Request) {
   try {
     // Auth check
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session: _sess } } = await supabase.auth.getSession()
+    const user = _sess?.user ?? null
     if (!user || !SUPER_ADMIN_EMAILS.includes(user.email || '')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }

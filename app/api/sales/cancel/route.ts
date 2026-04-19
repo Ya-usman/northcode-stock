@@ -4,7 +4,8 @@ import { createAdminClient, createClient } from '@/lib/supabase/server'
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session: _sess } } = await supabase.auth.getSession()
+    const user = _sess?.user ?? null
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { sale_id, reason } = await request.json()

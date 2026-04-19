@@ -10,7 +10,8 @@ async function getAuthedUser() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   )
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { session: _sess } } = await supabase.auth.getSession()
+    const user = _sess?.user ?? null
   return { user, supabase }
 }
 
