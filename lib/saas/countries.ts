@@ -1,4 +1,4 @@
-export type CountryCode = 'NG' | 'CM'
+export type CountryCode = 'NG' | 'CM' | 'CI' | 'ML' | 'NE'
 export type BillingPeriod = 'monthly' | 'quarterly' | 'annual'
 
 export const BILLING_PERIODS: Record<BillingPeriod, { months: number; days: number; discount: number; label: string; badge?: string }> = {
@@ -56,6 +56,39 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     phonePrefix: '+237',
     cityPlaceholder: 'Douala, Yaoundé, Bafoussam…',
   },
+  CI: {
+    code: 'CI',
+    name: "Côte d'Ivoire",
+    flag: '🇨🇮',
+    currency: 'XOF',
+    currencySymbol: 'FCFA',
+    gateway: 'flutterwave',
+    prices: { starter: 1999, pro: 3999, business: 7999 },
+    phonePrefix: '+225',
+    cityPlaceholder: 'Abidjan, Bouaké, San-Pédro…',
+  },
+  ML: {
+    code: 'ML',
+    name: 'Mali',
+    flag: '🇲🇱',
+    currency: 'XOF',
+    currencySymbol: 'FCFA',
+    gateway: 'flutterwave',
+    prices: { starter: 1999, pro: 3999, business: 7999 },
+    phonePrefix: '+223',
+    cityPlaceholder: 'Bamako, Sikasso, Ségou…',
+  },
+  NE: {
+    code: 'NE',
+    name: 'Niger',
+    flag: '🇳🇪',
+    currency: 'XOF',
+    currencySymbol: 'FCFA',
+    gateway: 'flutterwave',
+    prices: { starter: 1999, pro: 3999, business: 7999 },
+    phonePrefix: '+227',
+    cityPlaceholder: 'Niamey, Zinder, Maradi…',
+  },
 }
 
 export function getCountry(code: string | null | undefined): CountryConfig {
@@ -63,7 +96,7 @@ export function getCountry(code: string | null | undefined): CountryConfig {
 }
 
 export function formatPrice(amount: number, country: CountryConfig): string {
-  if (country.currency === 'XAF') {
+  if (country.currency === 'XAF' || country.currency === 'XOF') {
     return `${amount.toLocaleString('fr-FR')} FCFA/mois`
   }
   return `₦${amount.toLocaleString('en-NG')}/mo`
