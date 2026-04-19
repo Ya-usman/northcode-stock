@@ -457,6 +457,8 @@
     "add_hint": "Ƙara ɗaya a sama",
     "count": "nau'i {count}",
     "delete_confirm": "Goge \"{name}\"? Kayan da ke da wannan nau'i za su rasa nau'insu.",
+    "add_dialog_title": "Sabon nau'i",
+    "add_dialog_label": "Sunan nau'i",
     "added": "An ƙara nau'i",
     "deleted": "An goge nau'i",
     "delete_error": "Kuskure wajen goge"

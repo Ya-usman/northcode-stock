@@ -434,6 +434,8 @@
     "add_hint": "Ajoutez-en une ci-dessus",
     "count": "{count} catégorie(s)",
     "delete_confirm": "Supprimer \"{name}\" ? Les produits liés perdront leur catégorie.",
+    "add_dialog_title": "Nouvelle catégorie",
+    "add_dialog_label": "Nom de la catégorie",
     "added": "Catégorie ajoutée",
     "deleted": "Catégorie supprimée",
     "delete_error": "Erreur lors de la suppression"

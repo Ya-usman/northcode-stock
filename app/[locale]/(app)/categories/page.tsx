@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslations } from 'next-intl'
 import { Plus, Trash2, Tag, Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -8,7 +8,9 @@ import { useAuthContext } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import type { Category } from '@/lib/types/database'
 
 export default function CategoriesPage() {
@@ -16,12 +18,14 @@ export default function CategoriesPage() {
   const { shop, profile } = useAuthContext()
   const supabase = createClient()
   const { toast } = useToast()
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [newName, setNewName] = useState('')
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
+  const [dialogOpen, setDialogOpen] = useState(false)
 
   const fetchCategories = async () => {
     if (!shop?.id) return
@@ -36,6 +40,12 @@ export default function CategoriesPage() {
 
   useEffect(() => { fetchCategories() }, [shop?.id])
 
+  const openDialog = () => {
+    setNewName('')
+    setDialogOpen(true)
+    setTimeout(() => inputRef.current?.focus(), 50)
+  }
+
   const addCategory = async () => {
     if (!shop?.id || !newName.trim()) return
     setSaving(true)
@@ -47,6 +57,7 @@ export default function CategoriesPage() {
     setSaving(false)
     const json = await res.json()
     if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+    setDialogOpen(false)
     setNewName('')
     fetchCategories()
     toast({ title: t('categories.added'), variant: 'success' })
@@ -82,19 +93,10 @@ export default function CategoriesPage() {
           />
         </div>
         {canEdit && (
-          <>
-            <Input
-              value={newName}
-              onChange={e => setNewName(e.target.value)}
-              placeholder={t('categories.add_placeholder')}
-              onKeyDown={e => e.key === 'Enter' && addCategory()}
-              className="h-9 flex-1"
-            />
-            <Button onClick={addCategory} loading={saving} disabled={!newName.trim()} className="bg-northcode-blue shrink-0 gap-1.5 h-9 px-3 text-sm">
-              <Plus className="h-4 w-4" />
-              {t('categories.add')}
-            </Button>
-          </>
+          <Button onClick={openDialog} className="bg-northcode-blue shrink-0 gap-1.5 h-9 px-3 text-sm">
+            <Plus className="h-4 w-4" />
+            {t('categories.add')}
+          </Button>
         )}
       </div>
 
@@ -111,8 +113,8 @@ export default function CategoriesPage() {
           filtered.map(cat => (
             <div key={cat.id} className="flex items-center justify-between rounded-lg border bg-card px-4 py-3 shadow-sm">
               <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-md bg-northcode-blue-muted flex items-center justify-center">
-                  <Tag className="h-4 w-4 text-northcode-blue" />
+                <div className="h-8 w-8 rounded-md bg-northcode-blue-muted dark:bg-blue-950 flex items-center justify-center">
+                  <Tag className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 </div>
                 <span className="font-medium text-sm">{cat.name}</span>
               </div>
@@ -134,6 +136,47 @@ export default function CategoriesPage() {
       {filtered.length > 0 && (
         <p className="text-xs text-muted-foreground">{t('categories.count', { count: filtered.length })}</p>
       )}
+
+      {/* Add category dialog */}
+      <Dialog open={dialogOpen} onOpenChange={open => { setDialogOpen(open); if (!open) setNewName('') }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Tag className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              {t('categories.add_dialog_title')}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="cat-name">{t('categories.add_dialog_label')}</Label>
+            <Input
+              id="cat-name"
+              ref={inputRef}
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              placeholder={t('categories.add_placeholder')}
+              onKeyDown={e => e.key === 'Enter' && addCategory()}
+              autoFocus
+            />
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setDialogOpen(false)}>
+              {t('actions.cancel')}
+            </Button>
+            <Button
+              size="sm"
+              loading={saving}
+              disabled={!newName.trim()}
+              onClick={addCategory}
+              className="bg-northcode-blue hover:bg-northcode-blue-light"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              {t('categories.add')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

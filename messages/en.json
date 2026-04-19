@@ -434,6 +434,8 @@
     "add_hint": "Add one above",
     "count": "{count} category(ies)",
     "delete_confirm": "Delete \"{name}\"? Linked products will lose their category.",
+    "add_dialog_title": "New category",
+    "add_dialog_label": "Category name",
     "added": "Category added",
     "deleted": "Category deleted",
     "delete_error": "Error while deleting"
