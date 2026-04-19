@@ -43,14 +43,14 @@ export function RecentSalesFeed({ sales, role }: RecentSalesFeedProps) {
               {sales.slice(0, 10).map((sale, idx) => (
                 <motion.div
                   key={sale.id}
-                  initial={{ opacity: 0, x: -20, backgroundColor: '#EEF2FF' }}
-                  animate={{ opacity: 1, x: 0, backgroundColor: '#ffffff' }}
-                  transition={{ duration: 0.4, delay: idx * 0.03 }}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: idx * 0.03 }}
                   className="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-mono font-medium text-northcode-blue">
+                      <span className="text-xs font-mono font-medium text-blue-600 dark:text-blue-400">
                         #{sale.sale_number}
                       </span>
                       <Badge variant={statusVariant[sale.payment_status] || 'secondary'} className="text-[10px] px-1.5 py-0">

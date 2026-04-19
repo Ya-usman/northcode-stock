@@ -319,7 +319,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 </div>
 
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-bold text-northcode-blue">{formatNaira(product.selling_price)}</span>
+                  <span className="font-bold text-blue-600 dark:text-blue-400">{formatNaira(product.selling_price)}</span>
                   {profile?.role === 'owner' && (
                     <span className="text-xs text-muted-foreground">{t('products.cost_label')}: {formatNaira(product.buying_price)}</span>
                   )}

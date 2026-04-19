@@ -304,13 +304,13 @@ export default function SalesHistoryPage() {
                   <>
                     <TableRow
                       key={sale.id}
-                      className={`cursor-pointer ${isCancelled ? 'opacity-50 bg-red-50/30' : 'hover:bg-muted/30'}`}
+                      className={`cursor-pointer ${isCancelled ? 'opacity-50 bg-red-50/30 dark:bg-red-950/20' : 'hover:bg-muted/30'}`}
                       onClick={() => setExpandedId(expandedId === sale.id ? null : sale.id)}
                     >
-                      <TableCell className="font-mono text-xs font-medium text-northcode-blue">
+                      <TableCell className="font-mono text-xs font-medium text-blue-600 dark:text-blue-400">
                         #{sale.sale_number}
                         {isCancelled && (
-                          <span className="ml-1.5 text-[10px] font-semibold text-red-500 bg-red-50 border border-red-200 rounded px-1">{t('sales.cancelled_badge')}</span>
+                          <span className="ml-1.5 text-[10px] font-semibold text-red-500 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded px-1">{t('sales.cancelled_badge')}</span>
                         )}
                       </TableCell>
                       <TableCell className="text-sm">{(sale as any).customers?.name || t('sales.walk_in_short')}</TableCell>
@@ -370,7 +370,7 @@ export default function SalesHistoryPage() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="gap-1.5 text-xs h-7 border-green-300 text-green-700 hover:bg-green-50"
+                                  className="gap-1.5 text-xs h-7 border-green-300 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/40"
                                   onClick={() => { setDialog({ type: 'validate', sale }); setValidateAmount(String(sale.balance)) }}
                                 >
                                   <CheckCircle2 className="h-3 w-3" /> {t('sales.validate_payment_action')}
@@ -381,7 +381,7 @@ export default function SalesHistoryPage() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="gap-1.5 text-xs h-7 border-amber-300 text-amber-700 hover:bg-amber-50"
+                                  className="gap-1.5 text-xs h-7 border-amber-300 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40"
                                   onClick={() => { setDialog({ type: 'cancel', sale }); setCancelReason('') }}
                                 >
                                   <XCircle className="h-3 w-3" /> {t('actions.cancel')}
