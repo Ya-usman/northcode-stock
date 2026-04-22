@@ -15,6 +15,7 @@ import { useAuthContext } from '@/lib/contexts/auth-context'
 import { useState } from 'react'
 import type { UserRole, Profile, Shop } from '@/lib/types/database'
 import { isBetaPeriod } from '@/lib/saas/plans'
+import { StockShopLogo } from '@/components/ui/stockshop-logo'
 
 interface SidebarProps {
   locale: string
@@ -78,10 +79,9 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
       {/* Logo + Shop switcher */}
       <div className="border-b">
         <div className="flex h-16 items-center gap-2 px-4">
-          <img src="/logo.png" alt="StockShop" className="h-14 w-auto flex-shrink-0 dark:brightness-0 dark:invert" />
           <div className="min-w-0 flex-1">
-            <p className="text-xs text-muted-foreground truncate">{shop?.name}</p>
-            <p className="text-[11px] text-muted-foreground/70 truncate">{shop?.city}</p>
+            <StockShopLogo iconSize={32} />
+            <p className="text-[11px] text-muted-foreground truncate mt-1">{shop?.name} · {shop?.city}</p>
           </div>
           {userShops.length > 1 && (
             <button

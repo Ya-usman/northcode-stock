@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils/cn'
 import { useTranslations } from 'next-intl'
 import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
+import { StockShopLogo } from '@/components/ui/stockshop-logo'
 
 const FEATURE_ICONS = [ShoppingCart, Package, Users, BarChart2, MessageCircle, CreditCard]
 const FEATURE_COLORS = [
@@ -80,7 +81,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
       <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur-md">
         <div className="mx-auto max-w-6xl px-4 h-20 flex items-center justify-between">
           <Link href={`/${locale}`}>
-            <img src="/logo.png" alt="StockShop" className="h-16 w-auto max-w-[180px] object-contain" />
+            <StockShopLogo iconSize={32} />
           </Link>
           <nav className="hidden md:flex items-center gap-6 text-sm text-gray-500">
             <a href="#features" className="hover:text-gray-900 transition-colors">{t('nav.features')}</a>
@@ -341,25 +342,57 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
       </section>
 
       {/* ── FOOTER ── */}
-      <footer className="border-t py-10 px-4 bg-white">
+      <footer className="bg-[#073e8a] text-white px-4 pt-14 pb-8">
         <div className="mx-auto max-w-6xl">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <Link href={`/${locale}`}>
-              <img src="/logo.png" alt="StockShop" className="h-12 w-auto max-w-[160px] object-contain" />
-            </Link>
-            <div className="flex items-center gap-6 text-sm text-muted-foreground">
-              <a href="#pricing" className="hover:text-foreground">{t('nav.pricing')}</a>
-              <Link href={`/${locale}/login`} className="hover:text-foreground">{t('nav.login')}</Link>
-              <Link href={`/${locale}/register`} className="hover:text-foreground">{t('nav.start_trial')}</Link>
+          {/* Top row */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
+            {/* Brand */}
+            <div className="md:col-span-2">
+              <Link href={`/${locale}`}>
+                <StockShopLogo iconSize={24} variant="white" />
+              </Link>
+              <p className="mt-4 text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                Manage smarter. Sell faster. Grow bigger.
+              </p>
+              <div className="flex items-center gap-2 mt-5 text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                <Shield className="h-3.5 w-3.5" />
+                <span>{t('footer.secure')}</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Shield className="h-3.5 w-3.5" />
-              <span>{t('footer.secure')}</span>
+
+            {/* Product */}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                Product
+              </p>
+              <ul className="space-y-2.5 text-sm" style={{ color: 'rgba(255,255,255,0.75)' }}>
+                <li><a href="#features" className="hover:text-white transition-colors">{t('nav.features')}</a></li>
+                <li><a href="#pricing" className="hover:text-white transition-colors">{t('nav.pricing')}</a></li>
+                <li><Link href={`/${locale}/register`} className="hover:text-white transition-colors">{t('nav.start_trial')}</Link></li>
+              </ul>
+            </div>
+
+            {/* Company & Support */}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                Support
+              </p>
+              <ul className="space-y-2.5 text-sm" style={{ color: 'rgba(255,255,255,0.75)' }}>
+                <li><Link href={`/${locale}/login`} className="hover:text-white transition-colors">{t('nav.login')}</Link></li>
+                <li><a href="mailto:support@northcode.ng" className="hover:text-white transition-colors">support@northcode.ng</a></li>
+              </ul>
             </div>
           </div>
-          <p className="text-center text-xs text-muted-foreground mt-6">
-            {t('footer.rights', { year: new Date().getFullYear() })}
-          </p>
+
+          {/* Divider + copyright */}
+          <div className="border-t pt-6 flex flex-col md:flex-row items-center justify-between gap-3" style={{ borderColor: 'rgba(255,255,255,0.12)' }}>
+            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              {t('footer.rights', { year: new Date().getFullYear() })}
+            </p>
+            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              Built for Africa · Powered by NorthCode
+            </p>
+          </div>
         </div>
       </footer>
     </div>
