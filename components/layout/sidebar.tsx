@@ -75,49 +75,40 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
 
   return (
     <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 border-r bg-card z-30">
-      {/* Logo header — premium */}
-      <div
-        className="relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, #073e8a 0%, #0d52b8 100%)' }}
-      >
-        {/* Subtle circle decoration */}
-        <div className="absolute -top-6 -right-6 h-24 w-24 rounded-full opacity-10 bg-white" />
-        <div className="absolute -bottom-4 -left-4 h-16 w-16 rounded-full opacity-10 bg-white" />
-
-        <div className="relative px-4 pt-4 pb-3">
-          {/* Logo HTML — S circle + STOCKSHOP text */}
-          <div className="flex items-center gap-2.5 mb-3">
-            <div className="h-8 w-8 rounded-full border-2 border-white/90 bg-white/15 flex items-center justify-center flex-shrink-0">
-              <span className="text-white font-extrabold text-[15px] leading-none">S</span>
-            </div>
-            <span className="text-white font-bold text-[15px] tracking-[0.08em]">
-              STOCK<span className="font-light">SHOP</span>
-            </span>
-          </div>
-
-          {/* Shop name row */}
-          <button
-            onClick={() => userShops.length > 1 && setShopPickerOpen(o => !o)}
-            className={cn(
-              'w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 transition-colors text-left',
-              userShops.length > 1 ? 'hover:bg-white/10 cursor-pointer' : 'cursor-default'
-            )}
-          >
-            <div className="h-5 w-5 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-              <Store className="h-3 w-3 text-white" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-white truncate leading-none">{shop?.name}</p>
-              <p className="text-[10px] text-blue-200 truncate mt-0.5">{shop?.city}</p>
-            </div>
-            {userShops.length > 1 && (
-              <ChevronDown className={cn('h-3.5 w-3.5 text-blue-200 flex-shrink-0 transition-transform', shopPickerOpen && 'rotate-180')} />
-            )}
-          </button>
+      {/* Logo header */}
+      <div className="border-b bg-card">
+        {/* Brand logo */}
+        <div className="px-4 pt-4 pb-3">
+          <img
+            src="/logo-full.png"
+            alt="StockShop"
+            className="h-8 w-auto object-contain"
+            style={{ mixBlendMode: 'multiply' }}
+          />
         </div>
 
+        {/* Shop name row */}
+        <button
+          onClick={() => userShops.length > 1 && setShopPickerOpen(o => !o)}
+          className={cn(
+            'w-full flex items-center gap-2 px-4 pb-3 transition-colors text-left',
+            userShops.length > 1 ? 'cursor-pointer' : 'cursor-default'
+          )}
+        >
+          <div className="h-5 w-5 rounded-full bg-northcode-blue/10 flex items-center justify-center flex-shrink-0">
+            <Store className="h-3 w-3 text-northcode-blue" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold text-foreground truncate leading-none">{shop?.name}</p>
+            <p className="text-[10px] text-muted-foreground truncate mt-0.5">{shop?.city}</p>
+          </div>
+          {userShops.length > 1 && (
+            <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground flex-shrink-0 transition-transform', shopPickerOpen && 'rotate-180')} />
+          )}
+        </button>
+
         {shopPickerOpen && userShops.length > 1 && (
-          <div className="px-3 pb-3 space-y-1 border-t border-white/10 pt-2 mt-0">
+          <div className="px-3 pb-3 space-y-1 border-t pt-2">
             {userShops.map(s => (
               <button
                 key={s.id}
@@ -125,8 +116,8 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
                 className={cn(
                   'w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors',
                   s.id === shop?.id
-                    ? 'bg-white/20 text-white font-medium'
-                    : 'hover:bg-white/10 text-blue-200 hover:text-white'
+                    ? 'bg-blue-50 dark:bg-blue-950 text-northcode-blue dark:text-blue-400 font-medium'
+                    : 'hover:bg-accent text-muted-foreground hover:text-foreground'
                 )}
               >
                 <Store className="h-3.5 w-3.5 flex-shrink-0" />
