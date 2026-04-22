@@ -117,7 +117,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
               {shop?.logo_url ? (
                 <img src={shop.logo_url} alt="Logo" className="h-full w-full object-cover" />
               ) : (
-                <span className="text-blue-600 dark:text-blue-400 font-bold text-xl">NC</span>
+                <span className="text-northcode-blue dark:text-blue-400 font-bold text-xl">NC</span>
               )}
             </div>
             <div>
@@ -250,7 +250,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                 onClick={() => switchLanguage(lang.code)}
                 className={`rounded-lg border p-3 text-sm font-medium transition-colors tap-target ${
                   locale === lang.code
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
+                    ? 'border-blue-500 bg-northcode-blue-muted dark:bg-blue-950/40 text-northcode-blue dark:text-blue-400'
                     : 'border-input bg-background text-muted-foreground hover:bg-muted'
                 }`}
               >
@@ -265,7 +265,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       <Button
         onClick={saveSettings}
         loading={saving}
-        className="w-full h-12 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500"
+        className="w-full h-12 bg-northcode-blue hover:bg-northcode-blue-light dark:bg-blue-500"
         size="lg"
       >
         <Save className="mr-2 h-4 w-4" />

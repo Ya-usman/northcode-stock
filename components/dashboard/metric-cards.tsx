@@ -48,7 +48,7 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
       value: todaySalesCount.toString(),
       subValue: t('transactions_today', { count: todaySalesCount }),
       icon: ShoppingCart,
-      color: 'text-blue-600 dark:text-blue-400',
+      color: 'text-northcode-blue dark:text-blue-400',
       bg: 'bg-blue-50 dark:bg-blue-950/40',
       show: true,
     },

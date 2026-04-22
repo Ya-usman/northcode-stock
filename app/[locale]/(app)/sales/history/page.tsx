@@ -307,7 +307,7 @@ export default function SalesHistoryPage() {
                       className={`cursor-pointer ${isCancelled ? 'opacity-50 bg-red-50/30 dark:bg-red-950/20' : 'hover:bg-muted/30'}`}
                       onClick={() => setExpandedId(expandedId === sale.id ? null : sale.id)}
                     >
-                      <TableCell className="font-mono text-xs font-medium text-blue-600 dark:text-blue-400">
+                      <TableCell className="font-mono text-xs font-medium text-northcode-blue dark:text-blue-400">
                         #{sale.sale_number}
                         {isCancelled && (
                           <span className="ml-1.5 text-[10px] font-semibold text-red-500 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded px-1">{t('sales.cancelled_badge')}</span>

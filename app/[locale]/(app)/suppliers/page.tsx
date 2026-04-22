@@ -95,7 +95,7 @@ export default function SuppliersPage() {
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('suppliers.search_placeholder')} className="pl-9 h-9" />
         </div>
         <Button
-          className="h-9 gap-1 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500"
+          className="h-9 gap-1 bg-northcode-blue hover:bg-northcode-blue-light dark:bg-blue-500"
           size="sm"
           onClick={() => { form.reset(); setEditingSupplier(null); setShowModal(true) }}
         >

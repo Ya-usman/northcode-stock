@@ -88,7 +88,7 @@ export default function AdminManagersPage() {
       {adding && (
         <div className="bg-gray-900 rounded-xl border border-gray-700 p-5 space-y-4">
           <h2 className="font-semibold text-white flex items-center gap-2">
-            <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400" /> Assigner un responsable
+            <Shield className="h-4 w-4 text-northcode-blue dark:text-blue-400" /> Assigner un responsable
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -133,7 +133,7 @@ export default function AdminManagersPage() {
         return (
           <div key={shop.id} className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-800 flex items-center gap-3">
-              <Store className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+              <Store className="h-4 w-4 text-northcode-blue dark:text-blue-400 flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-white">{shop.name}</p>
                 {shop.city && <p className="text-xs text-gray-500">{shop.city} · {shop.country === 'CM' ? '🇨🇲 Cameroun' : '🇳🇬 Nigeria'}</p>}

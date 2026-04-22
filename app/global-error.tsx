@@ -19,7 +19,7 @@ export default function GlobalError({
             </p>
             <button
               onClick={reset}
-              style={{ background: '#0A2F6E', color: 'white', border: 'none', padding: '0.625rem 1.5rem', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.875rem' }}
+              style={{ background: '#073e8a', color: 'white', border: 'none', padding: '0.625rem 1.5rem', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.875rem' }}
             >
               Reload
             </button>

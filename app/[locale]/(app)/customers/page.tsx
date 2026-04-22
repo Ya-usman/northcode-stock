@@ -88,7 +88,7 @@ export default function CustomersPage() {
         </div>
         {(profile?.role === 'owner' || profile?.role === 'cashier') && (
           <Button
-            className="h-9 gap-1 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500"
+            className="h-9 gap-1 bg-northcode-blue hover:bg-northcode-blue-light dark:bg-blue-500"
             size="sm"
             onClick={() => { form.reset(); setEditingCustomer(null); setShowModal(true) }}
           >

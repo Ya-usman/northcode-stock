@@ -268,7 +268,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         </Button>
         {(profile?.role === 'owner' || profile?.role === 'stock_manager' || profile?.role === 'cashier') && (
           <Button
-            className="h-9 gap-1 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500"
+            className="h-9 gap-1 bg-northcode-blue hover:bg-northcode-blue-light dark:bg-blue-500"
             size="sm"
             onClick={() => setShowAddModal(true)}
           >
@@ -319,7 +319,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 </div>
 
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-bold text-blue-600 dark:text-blue-400">{formatNaira(product.selling_price)}</span>
+                  <span className="font-bold text-northcode-blue dark:text-blue-400">{formatNaira(product.selling_price)}</span>
                   {profile?.role === 'owner' && (
                     <span className="text-xs text-muted-foreground">{t('products.cost_label')}: {formatNaira(product.buying_price)}</span>
                   )}
@@ -418,7 +418,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 placeholder={t('categories.add_placeholder')}
                 onKeyDown={e => e.key === 'Enter' && addCategory()}
               />
-              <Button onClick={addCategory} loading={savingCat} className="bg-blue-600 dark:bg-blue-500 shrink-0">
+              <Button onClick={addCategory} loading={savingCat} className="bg-northcode-blue dark:bg-blue-500 shrink-0">
                 <Plus className="h-4 w-4 mr-1" /> {t('categories.add')}
               </Button>
             </div>

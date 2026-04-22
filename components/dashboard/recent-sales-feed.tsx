@@ -50,7 +50,7 @@ export function RecentSalesFeed({ sales, role }: RecentSalesFeedProps) {
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-mono font-medium text-blue-600 dark:text-blue-400">
+                      <span className="text-xs font-mono font-medium text-northcode-blue dark:text-blue-400">
                         #{sale.sale_number}
                       </span>
                       <Badge variant={statusVariant[sale.payment_status] || 'secondary'} className="text-[10px] px-1.5 py-0">

@@ -52,9 +52,9 @@ const config: Config = {
         },
         // NorthCode brand colors
         northcode: {
-          blue: '#0A2F6E',
-          'blue-light': '#1A4F9E',
-          'blue-muted': '#EEF2FF',
+          blue: '#073e8a',
+          'blue-light': '#0d52b8',
+          'blue-muted': '#e8eef8',
           gold: '#D4AF37',
           'gold-light': '#F5E580',
           green: '#16A34A',

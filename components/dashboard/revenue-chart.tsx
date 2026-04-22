@@ -22,7 +22,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
     return (
       <div className="rounded-lg border bg-card p-3 shadow-lg text-sm">
         <p className="font-medium text-foreground mb-1">{label}</p>
-        <p className="text-blue-600 dark:text-blue-400">{fmt(payload[0]?.value || 0)}</p>
+        <p className="text-northcode-blue dark:text-blue-400">{fmt(payload[0]?.value || 0)}</p>
         <p className="text-muted-foreground">{payload[1]?.value || 0} sales</p>
       </div>
     )

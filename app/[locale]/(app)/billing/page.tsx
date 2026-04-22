@@ -264,7 +264,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                     <p className="font-bold text-sm">{id.charAt(0).toUpperCase() + id.slice(1)}</p>
                   </div>
                   <div className="flex items-baseline gap-1">
-                    <span className={cn('text-2xl font-extrabold', popular ? 'text-white' : 'text-blue-600 dark:text-blue-400')}>
+                    <span className={cn('text-2xl font-extrabold', popular ? 'text-white' : 'text-northcode-blue dark:text-blue-400')}>
                       {country.currencySymbol}{price.toLocaleString('fr-FR')}
                     </span>
                     <span className={cn('text-xs', popular ? 'text-blue-100' : 'text-muted-foreground')}>

@@ -58,10 +58,10 @@ export function BottomNav({ locale, role, onSignOut }: BottomNavProps) {
                 onClick={() => setMoreOpen(false)}
                 className={cn(
                   'relative flex flex-1 flex-col items-center justify-center gap-0.5 text-xs transition-colors tap-target',
-                  isActive ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground hover:text-foreground'
+                  isActive ? 'text-northcode-blue dark:text-blue-400' : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                <Icon className={cn('h-5 w-5', isActive && 'text-blue-600 dark:text-blue-400')} strokeWidth={isActive ? 2.5 : 2} />
+                <Icon className={cn('h-5 w-5', isActive && 'text-northcode-blue dark:text-blue-400')} strokeWidth={isActive ? 2.5 : 2} />
                 <span className="text-[10px] font-medium leading-none">{item.label}</span>
                 {isActive && <span className="absolute bottom-0 h-0.5 w-8 rounded-full bg-blue-600 dark:bg-blue-400" />}
               </Link>
@@ -74,7 +74,7 @@ export function BottomNav({ locale, role, onSignOut }: BottomNavProps) {
               onClick={() => setMoreOpen(o => !o)}
               className={cn(
                 'relative flex flex-1 flex-col items-center justify-center gap-0.5 text-xs transition-colors tap-target',
-                moreOpen ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground'
+                moreOpen ? 'text-northcode-blue dark:text-blue-400' : 'text-muted-foreground'
               )}
             >
               {moreOpen ? <X className="h-5 w-5" /> : <MoreHorizontal className="h-5 w-5" />}
@@ -110,7 +110,7 @@ export function BottomNav({ locale, role, onSignOut }: BottomNavProps) {
                       className={cn(
                         'flex flex-col items-center gap-1.5 rounded-xl p-3 transition-colors',
                         isActive
-                          ? 'bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400'
+                          ? 'bg-blue-50 dark:bg-blue-950 text-northcode-blue dark:text-blue-400'
                           : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                       )}
                     >

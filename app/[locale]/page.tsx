@@ -290,7 +290,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
                 <div className="mb-6">
                   <p className="font-bold text-gray-900 text-lg mb-1">{plan.name}</p>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-extrabold text-blue-600 dark:text-blue-400">
+                    <span className="text-3xl font-extrabold text-northcode-blue dark:text-blue-400">
                       {formatPrice(plan.price)}
                     </span>
                     <span className="text-muted-foreground text-sm">{t('pricing.per_month')}</span>
@@ -311,7 +311,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
                     'w-full',
                     plan.popular
                       ? 'bg-northcode-blue hover:bg-northcode-blue-light text-white'
-                      : 'border border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 bg-transparent'
+                      : 'border border-blue-600 dark:border-blue-400 text-northcode-blue dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 bg-transparent'
                   )}>
                     {t('pricing.cta')}
                   </Button>

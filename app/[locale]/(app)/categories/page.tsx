@@ -172,7 +172,7 @@ export default function CategoriesPage() {
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="h-8 w-8 rounded-md bg-blue-50 dark:bg-blue-950 flex items-center justify-center shrink-0">
-                      <Tag className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      <Tag className="h-4 w-4 text-northcode-blue dark:text-blue-400" />
                     </div>
                     <span className="font-medium text-sm truncate">{cat.name}</span>
                     <Badge variant="secondary" className="text-xs shrink-0">
@@ -211,7 +211,7 @@ export default function CategoriesPage() {
                             </div>
                             <div className="flex items-center gap-3 shrink-0 ml-2">
                               <span className="text-xs text-muted-foreground">{p.quantity} {(p as any).unit}</span>
-                              <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                              <span className="text-sm font-semibold text-northcode-blue dark:text-blue-400">
                                 {Number(p.selling_price).toLocaleString('fr-FR')}
                               </span>
                             </div>
@@ -253,7 +253,7 @@ export default function CategoriesPage() {
                       <Package className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                       <span className="text-sm truncate">{p.name}</span>
                     </div>
-                    <span className="text-sm font-semibold text-blue-600 dark:text-blue-400 shrink-0 ml-2">
+                    <span className="text-sm font-semibold text-northcode-blue dark:text-blue-400 shrink-0 ml-2">
                       {Number(p.selling_price).toLocaleString('fr-FR')}
                     </span>
                   </div>
@@ -275,7 +275,7 @@ export default function CategoriesPage() {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Tag className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <Tag className="h-4 w-4 text-northcode-blue dark:text-blue-400" />
               {t('categories.add_dialog_title')}
             </DialogTitle>
           </DialogHeader>
@@ -302,7 +302,7 @@ export default function CategoriesPage() {
               loading={saving}
               disabled={!newName.trim()}
               onClick={addCategory}
-              className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500"
+              className="bg-northcode-blue hover:bg-northcode-blue-light dark:bg-blue-500"
             >
               <Plus className="h-4 w-4 mr-1" />
               {t('categories.add')}
