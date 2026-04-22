@@ -15,11 +15,11 @@ export default function Icon() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          borderRadius: 8,
+          borderRadius: '50%',
         }}
       >
-        <div style={{ color: 'white', fontSize: 18, fontWeight: 900, letterSpacing: -1 }}>
-          NC
+        <div style={{ color: 'white', fontSize: 20, fontWeight: 900 }}>
+          S
         </div>
       </div>
     ),

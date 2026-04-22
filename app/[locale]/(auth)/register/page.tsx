@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
+import { ForceLight } from '@/components/force-light'
 
 const schema = z.object({
   full_name: z.string().min(2, 'Nom requis'),
@@ -87,6 +88,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
   const selectedCountry = country ? COUNTRIES[country] : null
 
   return (
+    <ForceLight>
     <div className="min-h-screen overflow-y-auto flex items-center justify-center bg-gradient-to-br from-northcode-blue via-northcode-blue-light to-blue-800 p-4 py-8">
       <motion.div
         initial={{ opacity: 0, y: 24 }}
@@ -252,5 +254,6 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
         </p>
       </motion.div>
     </div>
+    </ForceLight>
   )
 }

@@ -13,6 +13,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ForceLight } from '@/components/force-light'
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -87,6 +88,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
   }
 
   return (
+    <ForceLight>
     <div className="min-h-screen overflow-y-auto flex items-center justify-center bg-gradient-to-br from-northcode-blue via-northcode-blue-light to-blue-800 p-4 py-8">
       <motion.div
         initial={{ opacity: 0, y: 24 }}
@@ -267,5 +269,6 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
         </p>
       </motion.div>
     </div>
+    </ForceLight>
   )
 }

@@ -1,12 +1,18 @@
 'use client'
 
-import { Globe, LogOut } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useRouter, usePathname } from 'next/navigation'
 import type { Shop } from '@/lib/types/database'
+
+const LOCALE_FLAGS: Record<string, string> = {
+  en: '🇬🇧',
+  fr: '🇫🇷',
+  ha: '🇳🇬',
+}
 
 interface HeaderProps {
   title: string
@@ -36,8 +42,8 @@ export function Header({ title, locale, onSignOut }: HeaderProps) {
         {/* Language toggle */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <Globe className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-base">
+              {LOCALE_FLAGS[locale] ?? '🌐'}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
