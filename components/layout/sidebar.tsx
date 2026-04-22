@@ -89,7 +89,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
           <img
             src="/logo-full-t.png"
             alt="StockShop"
-            className="h-8 w-auto object-contain brightness-0 invert"
+            className="h-14 w-auto object-contain brightness-0 invert"
           />
         </div>
 
