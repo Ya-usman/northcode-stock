@@ -97,8 +97,13 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
         className="w-full max-w-sm"
       >
         {/* Logo */}
-        <div className="text-center mb-6">
-          <img src="/logo-full.png" alt="StockShop" className="h-12 w-auto mx-auto mb-3 brightness-0 invert" />
+        <div className="flex flex-col items-center mb-8 gap-2">
+          <div className="h-16 w-16 rounded-full border-[2.5px] border-white/90 bg-white/15 flex items-center justify-center">
+            <span className="text-white font-extrabold text-3xl leading-none">S</span>
+          </div>
+          <span className="text-white font-bold text-xl tracking-[0.1em]">
+            STOCK<span className="font-light">SHOP</span>
+          </span>
           <p className="text-blue-200 text-sm">
             {locale === 'ha' ? 'Lissafin kaya mai wayo' : 'Smart inventory management'}
           </p>

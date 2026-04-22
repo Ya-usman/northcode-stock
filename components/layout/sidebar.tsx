@@ -84,13 +84,16 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
         <div className="absolute -top-6 -right-6 h-24 w-24 rounded-full opacity-10 bg-white" />
         <div className="absolute -bottom-4 -left-4 h-16 w-16 rounded-full opacity-10 bg-white" />
 
-        <div className="relative px-4 pt-5 pb-4">
-          {/* Full logo inverted white */}
-          <img
-            src="/logo-full.png"
-            alt="StockShop"
-            className="h-7 w-auto brightness-0 invert mb-3.5"
-          />
+        <div className="relative px-4 pt-4 pb-3">
+          {/* Logo HTML — S circle + STOCKSHOP text */}
+          <div className="flex items-center gap-2.5 mb-3">
+            <div className="h-8 w-8 rounded-full border-2 border-white/90 bg-white/15 flex items-center justify-center flex-shrink-0">
+              <span className="text-white font-extrabold text-[15px] leading-none">S</span>
+            </div>
+            <span className="text-white font-bold text-[15px] tracking-[0.08em]">
+              STOCK<span className="font-light">SHOP</span>
+            </span>
+          </div>
 
           {/* Shop name row */}
           <button
