@@ -80,7 +80,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
       <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur-md">
         <div className="mx-auto max-w-6xl px-4 h-20 flex items-center justify-between">
           <Link href={`/${locale}`}>
-            <img src="/logo.png" alt="StockShop" className="h-16 w-auto max-w-[180px] object-contain" />
+            <img src="/logo-full.png" alt="StockShop" className="h-10 w-auto object-contain" />
           </Link>
           <nav className="hidden md:flex items-center gap-6 text-sm text-gray-500">
             <a href="#features" className="hover:text-gray-900 transition-colors">{t('nav.features')}</a>
@@ -345,7 +345,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
         <div className="mx-auto max-w-6xl">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <Link href={`/${locale}`}>
-              <img src="/logo.png" alt="StockShop" className="h-12 w-auto max-w-[160px] object-contain" />
+              <img src="/logo-full.png" alt="StockShop" className="h-8 w-auto object-contain" />
             </Link>
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
               <a href="#pricing" className="hover:text-foreground">{t('nav.pricing')}</a>
