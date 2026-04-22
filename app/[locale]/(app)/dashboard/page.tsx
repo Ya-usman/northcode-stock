@@ -322,7 +322,7 @@ export default function DashboardPage() {
                 onClick={() => setShopPickerOpen(o => !o)}
                 className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm font-medium shadow-sm hover:bg-accent transition-colors"
               >
-                <Store className="h-4 w-4 text-northcode-blue" />
+                <Store className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 <span className="max-w-[140px] truncate">{activeShopLabel}</span>
                 <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform', shopPickerOpen && 'rotate-180')} />
               </button>
@@ -335,7 +335,7 @@ export default function DashboardPage() {
                       onClick={() => { setSelectedShopId(null); setShopPickerOpen(false) }}
                       className={cn(
                         'w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors',
-                        !selectedShopId ? 'bg-northcode-blue-muted text-northcode-blue font-medium' : 'hover:bg-accent text-foreground/80'
+                        !selectedShopId ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-medium' : 'hover:bg-accent text-foreground/80'
                       )}
                     >
                       <span>{t('dashboard.all_shops')}</span>
@@ -347,7 +347,7 @@ export default function DashboardPage() {
                         onClick={() => { setSelectedShopId(s.id); setShopPickerOpen(false) }}
                         className={cn(
                           'w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors',
-                          selectedShopId === s.id ? 'bg-northcode-blue-muted text-northcode-blue font-medium' : 'hover:bg-accent text-foreground/80'
+                          selectedShopId === s.id ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-medium' : 'hover:bg-accent text-foreground/80'
                         )}
                       >
                         <span className="truncate">{s.name}</span>

@@ -57,7 +57,7 @@ export function UpgradeWall({ locale, shopName }: UpgradeWallProps) {
           </ul>
 
           <Link href={`/${locale}/billing`} className="block">
-            <Button className="w-full h-11 bg-northcode-blue hover:bg-northcode-blue-light font-semibold gap-2">
+            <Button className="w-full h-11 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 font-semibold gap-2">
               {t('choose_plan')}
               <ArrowRight className="h-4 w-4" />
             </Button>

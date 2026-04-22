@@ -88,7 +88,7 @@ export default function CustomersPage() {
         </div>
         {(profile?.role === 'owner' || profile?.role === 'cashier') && (
           <Button
-            className="h-9 gap-1 bg-northcode-blue hover:bg-northcode-blue-light"
+            className="h-9 gap-1 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500"
             size="sm"
             onClick={() => { form.reset(); setEditingCustomer(null); setShowModal(true) }}
           >
@@ -180,7 +180,7 @@ export default function CustomersPage() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowModal(false)}>{t('actions.cancel')}</Button>
-              <Button type="submit" loading={saving} className="bg-northcode-blue">{t('actions.save')}</Button>
+              <Button type="submit" loading={saving} className="bg-blue-600 dark:bg-blue-500">{t('actions.save')}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

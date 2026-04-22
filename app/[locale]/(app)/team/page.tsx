@@ -25,7 +25,7 @@ import { cn } from '@/lib/utils/cn'
 const supabase = createClient() as any
 
 const ROLE_COLORS: Record<string, string> = {
-  owner:         'bg-northcode-blue text-white',
+  owner:         'bg-blue-600 dark:bg-blue-500 text-white',
   cashier:       'bg-green-100 text-green-700',
   stock_manager: 'bg-amber-100 text-amber-700',
   viewer:        'bg-muted text-muted-foreground',
@@ -256,7 +256,7 @@ export default function TeamPage() {
                 onClick={() => setShopPickerOpen(o => !o)}
                 className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm font-medium shadow-sm hover:bg-accent transition-colors"
               >
-                <Store className="h-4 w-4 text-northcode-blue" />
+                <Store className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 <span className="max-w-[120px] truncate">{viewShopName}</span>
                 <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform', shopPickerOpen && 'rotate-180')} />
               </button>
@@ -270,7 +270,7 @@ export default function TeamPage() {
                         onClick={() => { setViewShopId(s.id); setShopPickerOpen(false) }}
                         className={cn(
                           'w-full text-left rounded-lg px-3 py-2 text-sm transition-colors',
-                          viewShopId === s.id ? 'bg-northcode-blue-muted text-northcode-blue font-medium' : 'hover:bg-accent text-foreground/80'
+                          viewShopId === s.id ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-medium' : 'hover:bg-accent text-foreground/80'
                         )}
                       >
                         {s.name}
@@ -283,7 +283,7 @@ export default function TeamPage() {
           )}
 
           <Button
-            className="gap-2 bg-northcode-blue hover:bg-northcode-blue-light"
+            className="gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500"
             onClick={() => { setInviteShopId(viewShopId); setShowInviteModal(true) }}
           >
             <UserPlus className="h-4 w-4" />
@@ -319,7 +319,7 @@ export default function TeamPage() {
                 <div className="flex items-start gap-3">
                   <div className="relative flex-shrink-0">
                     <Avatar className="h-10 w-10">
-                      <AvatarFallback className={`text-white text-sm font-bold ${member.is_active ? 'bg-northcode-blue' : 'bg-gray-400'}`}>
+                      <AvatarFallback className={`text-white text-sm font-bold ${member.is_active ? 'bg-blue-600 dark:bg-blue-500' : 'bg-gray-400'}`}>
                         {initials}
                       </AvatarFallback>
                     </Avatar>

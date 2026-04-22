@@ -175,7 +175,7 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
                   </div>
                   <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-northcode-blue rounded-full"
+                      className="h-full bg-blue-500 rounded-full"
                       style={{ width: `${pct}%` }}
                     />
                   </div>

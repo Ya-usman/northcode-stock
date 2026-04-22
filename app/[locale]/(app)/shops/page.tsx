@@ -86,7 +86,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
           <div>
             <label className="text-xs font-medium text-foreground/80 block mb-1">{t('shops.name_label')}</label>
             <input
-              className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-northcode-blue"
+              className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder={t('shops.name_placeholder')}
               value={newName}
               onChange={e => setNewName(e.target.value)}
@@ -96,7 +96,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
           <div>
             <label className="text-xs font-medium text-foreground/80 block mb-1">{t('shops.city_label')}</label>
             <input
-              className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-northcode-blue"
+              className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder={t('shops.city_placeholder')}
               value={newCity}
               onChange={e => setNewCity(e.target.value)}
@@ -122,13 +122,13 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
               key={shop.id}
               className={cn(
                 'rounded-xl border-2 bg-card p-4 shadow-sm transition-all',
-                isActive ? 'border-northcode-blue' : 'border-border hover:border-border'
+                isActive ? 'border-blue-500' : 'border-border hover:border-border'
               )}
             >
               <div className="flex items-center gap-3">
                 <div className={cn(
                   'flex h-10 w-10 items-center justify-center rounded-lg font-bold text-sm flex-shrink-0',
-                  isActive ? 'bg-northcode-blue text-white' : 'bg-muted text-muted-foreground'
+                  isActive ? 'bg-blue-600 dark:bg-blue-500 text-white' : 'bg-muted text-muted-foreground'
                 )}>
                   {shop.name.slice(0, 2).toUpperCase()}
                 </div>
@@ -136,7 +136,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
                   <div className="flex items-center gap-2">
                     <p className="font-semibold text-sm truncate">{shop.name}</p>
                     {isActive && (
-                      <Badge className="bg-northcode-blue text-white text-[10px] px-1.5 py-0.5 flex items-center gap-1">
+                      <Badge className="bg-blue-600 dark:bg-blue-500 text-white text-[10px] px-1.5 py-0.5 flex items-center gap-1">
                         <CheckCircle2 className="h-2.5 w-2.5" /> {t('shops.active')}
                       </Badge>
                     )}

@@ -268,7 +268,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         </Button>
         {(profile?.role === 'owner' || profile?.role === 'stock_manager' || profile?.role === 'cashier') && (
           <Button
-            className="h-9 gap-1 bg-northcode-blue hover:bg-northcode-blue-light"
+            className="h-9 gap-1 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500"
             size="sm"
             onClick={() => setShowAddModal(true)}
           >
@@ -418,7 +418,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 placeholder={t('categories.add_placeholder')}
                 onKeyDown={e => e.key === 'Enter' && addCategory()}
               />
-              <Button onClick={addCategory} loading={savingCat} className="bg-northcode-blue shrink-0">
+              <Button onClick={addCategory} loading={savingCat} className="bg-blue-600 dark:bg-blue-500 shrink-0">
                 <Plus className="h-4 w-4 mr-1" /> {t('categories.add')}
               </Button>
             </div>
@@ -475,7 +475,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowRestockModal(false)}>{t('actions.cancel')}</Button>
-              <Button type="submit" loading={saving} className="bg-northcode-blue">{t('actions.restock')}</Button>
+              <Button type="submit" loading={saving} className="bg-blue-600 dark:bg-blue-500">{t('actions.restock')}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

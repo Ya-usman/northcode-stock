@@ -80,7 +80,7 @@ export default async function AdminStockPage() {
           <div key={shop.id} className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-800 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <Store className="h-4 w-4 text-northcode-blue" />
+                <Store className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 <h2 className="font-semibold text-white">{shop.name}</h2>
                 {shop.city && <span className="text-xs text-gray-500">— {shop.city}</span>}
                 <span className="text-xs bg-gray-800 text-gray-400 rounded-full px-2 py-0.5">{shop.country === 'CM' ? '🇨🇲' : '🇳🇬'}</span>

@@ -619,7 +619,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             className="w-full flex items-center justify-between gap-2 rounded-xl border bg-card px-4 py-3 text-sm font-medium shadow-sm hover:bg-accent transition-colors"
           >
             <div className="flex items-center gap-2">
-              <Store className="h-4 w-4 text-northcode-blue" />
+              <Store className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               <span>Vendre dans : <strong>{selectedShop?.name || shop?.name}</strong></span>
             </div>
             <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', shopPickerOpen && 'rotate-180')} />
@@ -632,7 +632,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   <button key={s.id}
                     onClick={() => { setSelectedShopId(s.id); setCart([]); setShopPickerOpen(false) }}
                     className={cn('w-full flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-left transition-colors',
-                      (selectedShopId || shop?.id) === s.id ? 'bg-northcode-blue-muted text-northcode-blue font-medium' : 'hover:bg-accent text-foreground/80'
+                      (selectedShopId || shop?.id) === s.id ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-medium' : 'hover:bg-accent text-foreground/80'
                     )}
                   >
                     <Store className="h-3.5 w-3.5 flex-shrink-0" />
@@ -679,7 +679,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           onChange={e => setSearchQuery(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && filteredProducts.length === 1) addToCart(filteredProducts[0]) }}
           placeholder={t('sales.search_or_scan')}
-          className="pl-10 pr-12 h-12 text-base border-northcode-blue/30 focus:border-northcode-blue"
+          className="pl-10 pr-12 h-12 text-base border-blue-500/30 focus:border-blue-500"
           autoFocus
         />
         <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
@@ -703,7 +703,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             onClick={() => setCategoryFilter('all')}
             className={`flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
               categoryFilter === 'all'
-                ? 'bg-northcode-blue text-white'
+                ? 'bg-blue-600 dark:bg-blue-500 text-white'
                 : 'bg-muted text-muted-foreground hover:bg-muted'
             }`}
           >
@@ -715,7 +715,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               onClick={() => setCategoryFilter(cat.id)}
               className={`flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                 categoryFilter === cat.id
-                  ? 'bg-northcode-blue text-white'
+                  ? 'bg-blue-600 dark:bg-blue-500 text-white'
                   : 'bg-muted text-muted-foreground hover:bg-muted'
               }`}
             >
@@ -830,7 +830,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 )}
                 <div className="flex justify-between font-bold text-base pt-1 border-t">
                   <span>{t('sales.total')}</span>
-                  <span className="text-northcode-blue">{formatNaira(total)}</span>
+                  <span className="text-blue-600 dark:text-blue-400">{formatNaira(total)}</span>
                 </div>
               </div>
             </CardContent>
@@ -906,7 +906,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   <button
                     onClick={() => setDebtRepayEnabled(v => !v)}
                     className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${
-                      debtRepayEnabled ? 'bg-northcode-blue' : 'bg-gray-300'
+                      debtRepayEnabled ? 'bg-blue-600' : 'bg-gray-300'
                     }`}
                   >
                     <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-card shadow transition-transform ${
@@ -949,7 +949,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                         </div>
                         <div className="flex justify-between font-bold border-t pt-1">
                           <span>Total à encaisser</span>
-                          <span className="text-northcode-blue">{formatNaira(totalToCollect)}</span>
+                          <span className="text-blue-600 dark:text-blue-400">{formatNaira(totalToCollect)}</span>
                         </div>
                       </div>
                     )}
@@ -967,7 +967,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 <button key={method} onClick={() => setPaymentMethod(method)}
                   className={`rounded-lg border p-3 text-sm font-medium transition-colors tap-target ${
                     paymentMethod === method
-                      ? 'border-northcode-blue bg-northcode-blue-muted text-northcode-blue'
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
                       : 'border-input bg-card text-muted-foreground hover:bg-muted'
                   }`}
                 >
@@ -1013,7 +1013,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               </div>
               <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-center">
                 <p className="text-sm text-muted-foreground">Montant à recevoir</p>
-                <p className="text-2xl font-bold text-northcode-blue">{formatNaira(total)}</p>
+                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{formatNaira(total)}</p>
               </div>
             </div>
           )}
@@ -1032,8 +1032,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
           {paymentMethod === 'paystack' && (
             <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-center">
-              <p className="text-sm text-northcode-blue font-medium">{t('payment.paystack_link')}</p>
-              <p className="text-2xl font-bold text-northcode-blue mt-1">{formatNaira(total)}</p>
+              <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">{t('payment.paystack_link')}</p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">{formatNaira(total)}</p>
             </div>
           )}
 
@@ -1055,7 +1055,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               Mettre en attente
             </Button>
             <Button
-              className="flex-[2] h-12 text-base bg-northcode-blue hover:bg-northcode-blue-light"
+              className="flex-[2] h-12 text-base bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
               onClick={completeSale}
               loading={completing}
               disabled={cart.length === 0}
@@ -1092,14 +1092,14 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                       </p>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <p className="font-bold text-northcode-blue">{formatNaira(draftTotal)}</p>
+                      <p className="font-bold text-blue-600 dark:text-blue-400">{formatNaira(draftTotal)}</p>
                     </div>
                   </div>
                   <div className="text-xs text-muted-foreground truncate">
                     {draft.cart.map(i => `${i.product.name} ×${i.quantity}`).join(', ')}
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" className="flex-1 h-8 bg-northcode-blue gap-1" onClick={() => resumeDraft(draft)}>
+                    <Button size="sm" className="flex-1 h-8 bg-blue-600 dark:bg-blue-500 gap-1" onClick={() => resumeDraft(draft)}>
                       <PlayCircle className="h-3.5 w-3.5" /> Reprendre
                     </Button>
                     <Button size="sm" variant="outline" className="h-8 border-red-200 text-red-500 hover:bg-red-50"
@@ -1131,7 +1131,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   {selectedShop?.logo_url ? (
                     <img src={selectedShop.logo_url} alt={selectedShop.name} className="h-8 w-8 object-contain rounded" />
                   ) : (
-                    <div className="h-8 w-8 rounded bg-northcode-blue flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                    <div className="h-8 w-8 rounded bg-blue-600 dark:bg-blue-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                       {selectedShop?.name?.slice(0, 2).toUpperCase() || 'NC'}
                     </div>
                   )}
@@ -1157,7 +1157,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 <Separator />
                 <div className="flex justify-between font-bold text-base">
                   <span>TOTAL</span>
-                  <span className="text-northcode-blue">{formatNaira(completedSale.total)}</span>
+                  <span className="text-blue-600 dark:text-blue-400">{formatNaira(completedSale.total)}</span>
                 </div>
                 {Number(completedSale.balance) > 0 && (
                   <div className="flex justify-between text-red-500 text-xs">
@@ -1174,7 +1174,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   <Printer className="h-4 w-4" /> {t('actions.print_receipt')}
                 </Button>
               </div>
-              <Button className="w-full bg-northcode-blue hover:bg-northcode-blue-light"
+              <Button className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
                 onClick={() => { setShowReceipt(false); searchRef.current?.focus() }}>
                 {t('sales.new_sale_cta')}
               </Button>

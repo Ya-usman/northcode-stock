@@ -53,7 +53,7 @@ export function RecentPayments({ payments, shops }: Props) {
           <div key={payment.id} className="flex items-center justify-between px-5 py-3.5 hover:bg-gray-800/20 transition-colors">
             <div className="flex items-center gap-3 min-w-0">
               {/* Avatar */}
-              <div className="h-8 w-8 rounded-full bg-northcode-blue/20 flex items-center justify-center text-northcode-blue font-bold text-xs flex-shrink-0">
+              <div className="h-8 w-8 rounded-full bg-blue-600/20 flex items-center justify-center text-blue-400 font-bold text-xs flex-shrink-0">
                 {shop?.name?.[0]?.toUpperCase() || '?'}
               </div>
               <div className="min-w-0">

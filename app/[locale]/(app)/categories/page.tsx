@@ -171,7 +171,7 @@ export default function CategoriesPage() {
                   onClick={() => setExpandedId(isExpanded ? null : cat.id)}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-8 w-8 rounded-md bg-northcode-blue-muted dark:bg-blue-950 flex items-center justify-center shrink-0">
+                    <div className="h-8 w-8 rounded-md bg-blue-50 dark:bg-blue-950 flex items-center justify-center shrink-0">
                       <Tag className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     </div>
                     <span className="font-medium text-sm truncate">{cat.name}</span>
@@ -302,7 +302,7 @@ export default function CategoriesPage() {
               loading={saving}
               disabled={!newName.trim()}
               onClick={addCategory}
-              className="bg-northcode-blue hover:bg-northcode-blue-light"
+              className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500"
             >
               <Plus className="h-4 w-4 mr-1" />
               {t('categories.add')}

@@ -158,7 +158,7 @@ export function ProductForm({
         <Button type="button" variant="outline" onClick={onCancel}>
           {t('actions.cancel')}
         </Button>
-        <Button type="submit" disabled={saving} className="bg-northcode-blue">
+        <Button type="submit" disabled={saving} className="bg-blue-600 dark:bg-blue-500">
           {saving ? t('actions.saving') : isEdit ? t('actions.update') : t('actions.save')}
         </Button>
       </DialogFooter>

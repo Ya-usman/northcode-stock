@@ -102,7 +102,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
                 className={cn(
                   'w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors',
                   s.id === shop?.id
-                    ? 'bg-northcode-blue-muted text-northcode-blue dark:bg-blue-950 dark:text-blue-400 font-medium'
+                    ? 'bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 font-medium'
                     : 'hover:bg-accent text-muted-foreground hover:text-foreground'
                 )}
               >
@@ -137,7 +137,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
                     className={cn(
                       'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors tap-target',
                       isActive
-                        ? 'bg-northcode-blue-muted text-northcode-blue dark:bg-blue-950 dark:text-blue-400'
+                        ? 'bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400'
                         : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                     )}
                   >

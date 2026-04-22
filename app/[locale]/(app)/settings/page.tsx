@@ -113,11 +113,11 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4">
-            <div className="h-16 w-16 rounded-xl overflow-hidden border bg-northcode-blue-muted flex items-center justify-center flex-shrink-0">
+            <div className="h-16 w-16 rounded-xl overflow-hidden border bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center flex-shrink-0">
               {shop?.logo_url ? (
                 <img src={shop.logo_url} alt="Logo" className="h-full w-full object-cover" />
               ) : (
-                <span className="text-northcode-blue font-bold text-xl">NC</span>
+                <span className="text-blue-600 dark:text-blue-400 font-bold text-xl">NC</span>
               )}
             </div>
             <div>
@@ -250,7 +250,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                 onClick={() => switchLanguage(lang.code)}
                 className={`rounded-lg border p-3 text-sm font-medium transition-colors tap-target ${
                   locale === lang.code
-                    ? 'border-northcode-blue bg-northcode-blue-muted text-northcode-blue'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
                     : 'border-input bg-background text-muted-foreground hover:bg-muted'
                 }`}
               >
@@ -265,7 +265,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       <Button
         onClick={saveSettings}
         loading={saving}
-        className="w-full h-12 bg-northcode-blue hover:bg-northcode-blue-light"
+        className="w-full h-12 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500"
         size="lg"
       >
         <Save className="mr-2 h-4 w-4" />

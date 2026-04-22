@@ -85,7 +85,7 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-card text-northcode-blue font-bold text-2xl shadow-lg mb-4">
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-card text-blue-600 dark:text-blue-400 font-bold text-2xl shadow-lg mb-4">
             NC
           </div>
           <h1 className="text-2xl font-bold text-white">StockShop</h1>
@@ -104,7 +104,7 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
                 <p className="text-sm text-destructive">{error}</p>
               ) : (
                 <>
-                  <Loader2 className="h-8 w-8 text-northcode-blue animate-spin mx-auto mb-3" />
+                  <Loader2 className="h-8 w-8 text-blue-600 dark:text-blue-400 animate-spin mx-auto mb-3" />
                   <p className="text-sm text-muted-foreground">Vérification du lien…</p>
                 </>
               )}

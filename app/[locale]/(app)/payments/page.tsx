@@ -293,7 +293,7 @@ export default function DettesPage() {
                       {unpaidSales.map(sale => (
                         <div key={sale.id} className="bg-card rounded-lg border p-3 space-y-1">
                           <div className="flex items-center justify-between">
-                            <span className="font-mono text-northcode-blue font-semibold text-sm">#{sale.sale_number}</span>
+                            <span className="font-mono text-blue-600 dark:text-blue-400 font-semibold text-sm">#{sale.sale_number}</span>
                             <Badge variant={sale.payment_status === 'partial' ? 'warning' : 'destructive'} className="text-[10px]">
                               {sale.payment_status === 'partial' ? t('payments.partial_label') : t('payments.unpaid_label')}
                             </Badge>
@@ -397,7 +397,7 @@ export default function DettesPage() {
                   <button key={m} onClick={() => setRepayMethod(m)}
                     className={`rounded-lg border p-2.5 text-sm font-medium transition-colors ${
                       repayMethod === m
-                        ? 'border-northcode-blue bg-northcode-blue-muted text-northcode-blue'
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
                         : 'border-input bg-card text-muted-foreground hover:bg-muted'
                     }`}>
                     {m === 'cash' ? `💵 ${t('payment.cash')}` : m === 'transfer' ? `🏦 ${t('payment.transfer')}` : m === 'mobile_money' ? `📱 ${t('payment.mobile_money')}` : `💳 ${t('payment.paystack')}`}
@@ -463,7 +463,7 @@ export default function DettesPage() {
                     >
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-sm font-bold text-northcode-blue">#{sale.sale_number}</span>
+                          <span className="font-mono text-sm font-bold text-blue-600 dark:text-blue-400">#{sale.sale_number}</span>
                           <Badge variant={statusVariant} className="text-[10px]">{statusLabel}</Badge>
                           <Badge variant="outline" className="text-[10px]">{t(`payment.${sale.payment_method}` as any) || sale.payment_method}</Badge>
                         </div>

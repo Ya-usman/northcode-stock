@@ -95,7 +95,7 @@ export default function SuppliersPage() {
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('suppliers.search_placeholder')} className="pl-9 h-9" />
         </div>
         <Button
-          className="h-9 gap-1 bg-northcode-blue hover:bg-northcode-blue-light"
+          className="h-9 gap-1 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500"
           size="sm"
           onClick={() => { form.reset(); setEditingSupplier(null); setShowModal(true) }}
         >
@@ -179,7 +179,7 @@ export default function SuppliersPage() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowModal(false)}>{t('actions.cancel')}</Button>
-              <Button type="submit" loading={saving} className="bg-northcode-blue">{t('actions.save')}</Button>
+              <Button type="submit" loading={saving} className="bg-blue-600 dark:bg-blue-500">{t('actions.save')}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

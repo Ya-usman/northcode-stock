@@ -23,7 +23,7 @@ export function TopProductsChart({ data }: TopProductsChartProps) {
     return (
       <div className="rounded-lg border bg-card p-3 shadow-lg text-sm">
         <p className="font-medium mb-1 max-w-[140px] truncate">{label}</p>
-        <p className="text-northcode-blue">{fmt(payload[0]?.value || 0)}</p>
+        <p className="text-blue-600 dark:text-blue-400">{fmt(payload[0]?.value || 0)}</p>
         <p className="text-muted-foreground">{payload[0]?.payload?.quantity || 0} units sold</p>
       </div>
     )

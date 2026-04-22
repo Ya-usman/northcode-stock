@@ -44,3 +44,12 @@ next-env.d.ts
 
 # supabase local
 .supabase/
+
+# Capacitor
+# android/ et ios/ sont committés pour permettre la build native
+# mais on exclut les fichiers de build locaux
+android/.gradle/
+android/build/
+android/app/build/
+ios/App/Pods/
+ios/.xcode.env.local

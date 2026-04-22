@@ -170,7 +170,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
                     <button
                       type="button"
                       onClick={() => { setMode('forgot'); setError('') }}
-                      className="text-northcode-blue hover:underline font-medium"
+                      className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
                     >
                       {t('forgot_password')}
                     </button>
@@ -208,7 +208,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
                     <p className="text-sm text-green-700 bg-green-50 rounded-md p-3">{success}</p>
                     <button
                       onClick={() => { setMode('login'); setSuccess(''); forgotForm.reset() }}
-                      className="mt-4 text-sm text-northcode-blue hover:underline"
+                      className="mt-4 text-sm text-blue-600 dark:text-blue-400 hover:underline"
                     >
                       {t('back_to_login')}
                     </button>

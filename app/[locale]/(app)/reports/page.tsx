@@ -18,7 +18,7 @@ import { useCurrency } from '@/lib/hooks/use-currency'
 import { generateReportPDF } from '@/lib/utils/pdf'
 import { format, subDays, startOfDay, endOfDay, startOfMonth, startOfWeek } from 'date-fns'
 
-const PIE_COLORS = ['#0A2F6E', '#D4AF37', '#16A34A', '#DC2626', '#7BB3F0']
+const PIE_COLORS = ['#60a5fa', '#D4AF37', '#16A34A', '#DC2626', '#a78bfa']
 
 export default function ReportsPage() {
   const t = useTranslations()
@@ -215,7 +215,7 @@ export default function ReportsPage() {
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: t('reports.total_revenue'), value: formatNaira(totals.revenue), color: 'text-northcode-blue' },
+          { label: t('reports.total_revenue'), value: formatNaira(totals.revenue), color: 'text-blue-600 dark:text-blue-400' },
           { label: t('reports.est_profit'), value: formatNaira(totals.profit), color: 'text-green-600' },
           { label: t('reports.transactions'), value: String(totals.sales), color: 'text-foreground' },
         ].map(item => (
@@ -288,7 +288,7 @@ export default function ReportsPage() {
                         <TableCell className="text-muted-foreground text-sm">{idx + 1}</TableCell>
                         <TableCell className="text-sm font-medium">{p.name}</TableCell>
                         <TableCell className="text-right text-sm">{p.qty}</TableCell>
-                        <TableCell className="text-right text-sm font-medium text-northcode-blue">{formatNaira(p.revenue)}</TableCell>
+                        <TableCell className="text-right text-sm font-medium text-blue-600 dark:text-blue-400">{formatNaira(p.revenue)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -306,7 +306,7 @@ export default function ReportsPage() {
               <div className="grid grid-cols-3 gap-3 text-center">
                 {[
                   { label: t('reports.buying_value'), value: formatNaira(stockValuation.buyingValue), color: 'text-muted-foreground' },
-                  { label: t('reports.selling_value'), value: formatNaira(stockValuation.sellingValue), color: 'text-northcode-blue' },
+                  { label: t('reports.selling_value'), value: formatNaira(stockValuation.sellingValue), color: 'text-blue-600 dark:text-blue-400' },
                   { label: t('reports.potential_profit'), value: formatNaira(stockValuation.potentialProfit), color: 'text-green-600' },
                 ].map(item => (
                   <div key={item.label} className="rounded-lg bg-muted/30 p-3">
@@ -338,7 +338,7 @@ export default function ReportsPage() {
                       <TableRow key={c.name}>
                         <TableCell className="font-medium text-sm">{c.name}</TableCell>
                         <TableCell className="text-right">{c.sales}</TableCell>
-                        <TableCell className="text-right font-medium text-northcode-blue">{formatNaira(c.revenue)}</TableCell>
+                        <TableCell className="text-right font-medium text-blue-600 dark:text-blue-400">{formatNaira(c.revenue)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
