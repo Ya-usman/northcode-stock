@@ -100,7 +100,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
           <img
             src="/logo-login-t.png"
             alt="StockShop"
-            className="h-28 w-auto object-contain brightness-0 invert drop-shadow-lg"
+            className="h-40 w-auto object-contain brightness-0 invert drop-shadow-lg"
           />
           <h1 className="text-xl font-bold text-white mt-3">Créer votre boutique</h1>
           <p className="text-blue-200 text-sm mt-1">7 jours gratuits · Sans carte bancaire</p>
