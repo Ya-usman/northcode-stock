@@ -96,16 +96,13 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
         className="w-full max-w-sm"
       >
         {/* Logo */}
-        <div className="flex flex-col items-center mb-6 gap-2">
-          <div className="h-16 w-16 rounded-full border-[2.5px] border-white/90 bg-white/15 flex items-center justify-center">
-            <span className="text-white font-extrabold text-3xl leading-none">S</span>
-          </div>
-          <span className="text-white font-bold text-xl tracking-[0.1em]">
-            STOCK<span className="font-light">SHOP</span>
-          </span>
-        </div>
-        <div className="text-center mb-0">
-          <h1 className="text-2xl font-bold text-white">Créer votre boutique</h1>
+        <div className="flex flex-col items-center mb-5">
+          <img
+            src="/logo-login-t.png"
+            alt="StockShop"
+            className="h-28 w-auto object-contain brightness-0 invert drop-shadow-lg"
+          />
+          <h1 className="text-xl font-bold text-white mt-3">Créer votre boutique</h1>
           <p className="text-blue-200 text-sm mt-1">7 jours gratuits · Sans carte bancaire</p>
         </div>
 
