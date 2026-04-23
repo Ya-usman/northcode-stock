@@ -36,6 +36,14 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = await createAdminClient()
+
+    // Idempotency: skip if this reference was already processed
+    const { data: existing } = await supabase
+      .from('subscriptions').select('id').eq('paystack_reference', reference).maybeSingle()
+    if (existing) {
+      return NextResponse.redirect(new URL(`/${locale}/billing?success=1`, baseUrl))
+    }
+
     const days = getPeriodDays(billing_period as BillingPeriod)
     const plan_expires_at = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
 

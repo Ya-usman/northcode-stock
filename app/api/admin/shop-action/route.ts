@@ -2,16 +2,22 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { createClient } from '@/lib/supabase/server'
 
-const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim())
+const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean)
 
 export async function POST(request: Request) {
   try {
-    // Auth check
+    // Auth check — email allowlist OR super_admin DB role required
     const supabase = await createClient()
     const { data: { session: _sess } } = await supabase.auth.getSession()
     const user = _sess?.user ?? null
-    if (!user || !SUPER_ADMIN_EMAILS.includes(user.email || '')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+
+    const emailAllowed = SUPER_ADMIN_EMAILS.length > 0 && SUPER_ADMIN_EMAILS.includes(user.email || '')
+    if (!emailAllowed) {
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      if (profile?.role !== 'super_admin') {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+      }
     }
 
     const { action, shop_id, days } = await request.json()

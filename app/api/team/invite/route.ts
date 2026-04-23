@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createClient as createServerClient } from '@/lib/supabase/server'
+import { cookies } from 'next/headers'
 
 // Use raw supabase-js client with service role to bypass RLS entirely
 function getAdminClient() {
@@ -12,10 +14,29 @@ function getAdminClient() {
 
 export async function POST(request: Request) {
   try {
+    // Verify caller is authenticated and is an owner of the target shop
+    const supabase = await createServerClient()
+    const { data: { session: _sess } } = await supabase.auth.getSession()
+    const caller = _sess?.user ?? null
+    if (!caller) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
     const { email, full_name, role, shop_id, invited_by } = await request.json()
 
     if (!email || !full_name || !role || !shop_id) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
+    }
+
+    // Only owners and super_admins can invite
+    const { data: callerMember } = await supabase
+      .from('shop_members')
+      .select('role')
+      .eq('shop_id', shop_id)
+      .eq('user_id', caller.id)
+      .eq('is_active', true)
+      .single()
+
+    if (!callerMember || !['owner', 'super_admin'].includes(callerMember.role)) {
+      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
     }
 
     const admin = getAdminClient()

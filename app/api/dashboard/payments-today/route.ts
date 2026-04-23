@@ -28,6 +28,21 @@ export async function GET(request: Request) {
     }
 
     const shopIds = shopIdsParam.split(',').filter(Boolean)
+
+    // Verify user has access to ALL requested shops
+    const { data: memberRows } = await supabase
+      .from('shop_members')
+      .select('shop_id')
+      .in('shop_id', shopIds)
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+
+    const accessibleShopIds = (memberRows || []).map((r: any) => r.shop_id)
+    const unauthorizedShops = shopIds.filter(id => !accessibleShopIds.includes(id))
+    if (unauthorizedShops.length > 0) {
+      return NextResponse.json({ error: 'Accès refusé à certains magasins' }, { status: 403 })
+    }
+
     const admin = await createAdminClient() as any
 
     // Fetch all payments in the full window (week or today)

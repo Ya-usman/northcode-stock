@@ -30,14 +30,17 @@ export async function POST(request: Request) {
     const user = _sess?.user ?? null
     if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
-    const { data: callerProfile } = await supabase
-      .from('profiles')
+    // Verify caller is owner/super_admin of THIS specific shop
+    const { data: callerMember } = await supabase
+      .from('shop_members')
       .select('role')
-      .eq('id', user.id)
+      .eq('shop_id', shop_id)
+      .eq('user_id', user.id)
+      .eq('is_active', true)
       .single()
 
-    const callerRole = (callerProfile as any)?.role
-    if (!['owner', 'super_admin'].includes(callerRole)) {
+    const callerRole = callerMember?.role
+    if (!callerRole || !['owner', 'super_admin'].includes(callerRole)) {
       return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
     }
 

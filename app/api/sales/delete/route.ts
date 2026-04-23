@@ -22,20 +22,22 @@ export async function POST(request: Request) {
 
     if (saleErr || !sale) return NextResponse.json({ error: 'Vente introuvable' }, { status: 404 })
 
-    // Check permission: owner, super_admin, or shop_member with can_delete_sales
-    const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).single()
-    const isOwnerOrAdmin = profile?.role === 'owner' || profile?.role === 'super_admin'
+    // Check permission: owner/super_admin in THIS shop, or member with can_delete_sales
+    const { data: member } = await supabase
+      .from('shop_members')
+      .select('role, can_delete_sales')
+      .eq('shop_id', sale.shop_id)
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .single()
 
-    if (!isOwnerOrAdmin) {
-      const { data: member } = await admin.from('shop_members')
-        .select('can_delete_sales')
-        .eq('shop_id', sale.shop_id)
-        .eq('user_id', user.id)
-        .eq('is_active', true)
-        .single()
-      if (!member?.can_delete_sales) {
-        return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
-      }
+    if (!member) {
+      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+    }
+
+    const isOwnerOrAdmin = member.role === 'owner' || member.role === 'super_admin'
+    if (!isOwnerOrAdmin && !member.can_delete_sales) {
+      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
     }
 
     // Restore stock only if sale was NOT already cancelled (cancelled already restored stock)

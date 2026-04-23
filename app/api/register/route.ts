@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getCountry } from '@/lib/saas/countries'
 
 export async function POST(request: Request) {
@@ -8,6 +8,13 @@ export async function POST(request: Request) {
 
     if (!user_id || !full_name || !shop_name || !city) {
       return NextResponse.json({ error: 'Champs manquants' }, { status: 400 })
+    }
+
+    // Verify the caller's session matches the user_id in the body
+    const userClient = await createClient()
+    const { data: { session } } = await userClient.auth.getSession()
+    if (!session?.user || session.user.id !== user_id) {
+      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
     }
 
     const countryConfig = getCountry(country || 'NG')

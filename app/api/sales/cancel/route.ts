@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
+// supabase user client used for shop membership check (respects RLS)
 
 export async function POST(request: Request) {
   try {
@@ -23,10 +24,21 @@ export async function POST(request: Request) {
     if (saleErr || !sale) return NextResponse.json({ error: 'Vente introuvable' }, { status: 404 })
     if (sale.sale_status === 'cancelled') return NextResponse.json({ error: 'Vente déjà annulée' }, { status: 400 })
 
-    // Get caller profile to check role
-    const { data: profile } = await admin.from('profiles').select('role, shop_id').eq('id', user.id).single()
-    const isOwner = profile?.role === 'owner' || profile?.role === 'super_admin'
-    const isCashierOwn = profile?.role === 'cashier' && sale.cashier_id === user.id
+    // Verify caller has access to the sale's shop
+    const { data: memberRow } = await supabase
+      .from('shop_members')
+      .select('role')
+      .eq('shop_id', sale.shop_id)
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .single()
+
+    if (!memberRow) {
+      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+    }
+
+    const isOwner = memberRow.role === 'owner' || memberRow.role === 'super_admin'
+    const isCashierOwn = memberRow.role === 'cashier' && sale.cashier_id === user.id
 
     if (!isOwner && !isCashierOwn) {
       return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })

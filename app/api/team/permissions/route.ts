@@ -19,19 +19,19 @@ export async function PUT(request: Request) {
     const { shop_id, user_id, can_delete_sales } = await request.json()
     if (!shop_id || !user_id) return NextResponse.json({ error: 'Champs manquants' }, { status: 400 })
 
-    const admin = await createAdminClient() as any
-
-    // Verify caller is owner of this shop
-    const { data: callerMember } = await admin.from('shop_members')
+    // Verify caller is owner of this specific shop (via user client — respects session)
+    const { data: callerMember } = await supabase
+      .from('shop_members')
       .select('role')
       .eq('shop_id', shop_id)
       .eq('user_id', user.id)
+      .eq('is_active', true)
       .single()
 
-    const { data: callerProfile } = await admin.from('profiles').select('role').eq('id', user.id).single()
-    const isOwner = callerMember?.role === 'owner' || callerProfile?.role === 'owner' || callerProfile?.role === 'super_admin'
-
+    const isOwner = callerMember?.role === 'owner' || callerMember?.role === 'super_admin'
     if (!isOwner) return NextResponse.json({ error: 'Seul le propriétaire peut modifier ces permissions' }, { status: 403 })
+
+    const admin = await createAdminClient() as any
 
     const { error } = await admin.from('shop_members').update({ can_delete_sales }).eq('shop_id', shop_id).eq('user_id', user_id)
     if (error) throw error

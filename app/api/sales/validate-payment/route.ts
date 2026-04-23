@@ -31,6 +31,19 @@ export async function POST(request: Request) {
     if (saleErr || !sale) return NextResponse.json({ error: 'Vente introuvable' }, { status: 404 })
     if (sale.sale_status === 'cancelled') return NextResponse.json({ error: 'Vente annulée' }, { status: 400 })
 
+    // Verify caller has access to the sale's shop
+    const { data: memberRow } = await supabase
+      .from('shop_members')
+      .select('role')
+      .eq('shop_id', sale.shop_id)
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .single()
+
+    if (!memberRow) {
+      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+    }
+
     const parsedAmount = Math.min(Number(amount), Number(sale.balance))
     if (parsedAmount <= 0) return NextResponse.json({ error: 'Montant invalide' }, { status: 400 })
 
