@@ -20,8 +20,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { useCurrency } from '@/lib/hooks/use-currency'
-import { generateReceiptPDF, generateReceiptPDFBlob } from '@/lib/utils/pdf'
+import { generateReceiptPDFBlob } from '@/lib/utils/pdf'
 import { shareReceiptWhatsApp, buildReceiptWhatsAppMessage } from '@/lib/utils/whatsapp'
+import { sharePDFNative, printPDFNative } from '@/lib/utils/native-share'
 import type { Product, Customer, CartItem, Sale, SaleItem, Category } from '@/lib/types/database'
 import { cacheProducts, getCachedProducts, savePendingSale } from '@/lib/offline/db'
 import { useOffline } from '@/lib/offline/use-offline'
@@ -574,16 +575,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       cashierName: profile?.full_name || '',
       customerName: (completedSale as any).customers?.name,
     })
-    const url = URL.createObjectURL(blob)
-    const win = window.open(url, '_blank')
-    // On desktop trigger print dialog automatically; on mobile user can use browser print button
-    if (win) {
-      win.onload = () => {
-        win.focus()
-        win.print()
-      }
-    }
-    setTimeout(() => URL.revokeObjectURL(url), 60000)
+    await printPDFNative(blob, `Recu-${completedSale.sale_number}.pdf`)
   }
 
   const handleWhatsAppReceipt = async () => {
@@ -596,23 +588,15 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         cashierName: profile?.full_name || '',
         customerName: (completedSale as any).customers?.name,
       })
-      const file = new File([blob], fileName, { type: 'application/pdf' })
-      // Mobile native share — opens WhatsApp, Telegram, email, etc. with the PDF
-      if (typeof navigator !== 'undefined' && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: `Reçu #${completedSale.sale_number} — ${selectedShop?.name}`,
-        })
-        return
-      }
-      // Desktop fallback: open PDF in new tab so user can download/send manually
-      const url = URL.createObjectURL(blob)
-      window.open(url, '_blank')
-      setTimeout(() => URL.revokeObjectURL(url), 60000)
+      await sharePDFNative(
+        blob,
+        fileName,
+        `Reçu #${completedSale.sale_number} — ${selectedShop?.name}`,
+      )
       return
     } catch (err: any) {
-      if (err?.name === 'AbortError') return // user cancelled share sheet
-      // PDF generation failed — fall through to text fallback
+      if (err?.name === 'AbortError') return // user cancelled native share sheet
+      // PDF generation or share failed — fall through to text fallback
     }
     // Last resort: WhatsApp text message
     const message = buildReceiptWhatsAppMessage({
