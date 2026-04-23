@@ -25,6 +25,7 @@ import { shareReceiptWhatsApp, buildReceiptWhatsAppMessage } from '@/lib/utils/w
 import type { Product, Customer, CartItem, Sale, SaleItem, Category } from '@/lib/types/database'
 import { cacheProducts, getCachedProducts, savePendingSale } from '@/lib/offline/db'
 import { useOffline } from '@/lib/offline/use-offline'
+import { getCountry, getMethodType } from '@/lib/saas/countries'
 
 interface Draft {
   id: string
@@ -35,7 +36,7 @@ interface Draft {
   customerPhone: string
   discount: number
   notes: string
-  paymentMethod: 'cash' | 'transfer' | 'credit' | 'paystack'
+  paymentMethod: string
 }
 
 const DRAFTS_KEY = 'nc_sale_drafts'
@@ -75,7 +76,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const [customerPhone, setCustomerPhone] = useState('')
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
   const [discount, setDiscount] = useState(0)
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer' | 'credit' | 'paystack'>('cash')
+  const [paymentMethod, setPaymentMethod] = useState<string>('cash')
   const [amountPaid, setAmountPaid] = useState('')
   const [transferRef, setTransferRef] = useState('')
   const [notes, setNotes] = useState('')
@@ -351,12 +352,14 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   // Montant total à encaisser = vente + remboursement dette si activé
   const debtAmt = debtRepayEnabled ? (Number(debtRepayAmount) || 0) : 0
   const totalToCollect = total + debtAmt
+  const shopCountry = getCountry(selectedShop?.country)
+  const methodType = getMethodType(paymentMethod, shopCountry)
   // For credit: customer pays nothing now → paid = 0, balance = total
   // For cash: cap at total — the change given back is NOT revenue
-  const paid = paymentMethod === 'cash'
+  const paid = methodType === 'cash'
     ? Math.min(Number(amountPaid) || 0, total)
-    : paymentMethod === 'credit' ? 0 : total
-  const change = paymentMethod === 'cash' ? Math.max(0, (Number(amountPaid) || 0) - totalToCollect) : 0
+    : methodType === 'credit' ? 0 : total
+  const change = methodType === 'cash' ? Math.max(0, (Number(amountPaid) || 0) - totalToCollect) : 0
   const balance = Math.max(0, total - paid)
 
   const filteredCustomers = customerName
@@ -369,10 +372,10 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   // ── COMPLETE SALE ───────────────────────────────────────
   const completeSale = async () => {
     if (cart.length === 0) { toast({ title: t('toast.cart_empty'), variant: 'destructive' }); return }
-    if (paymentMethod === 'credit' && !selectedCustomer && !customerName.trim()) {
+    if (methodType === 'credit' && !selectedCustomer && !customerName.trim()) {
       toast({ title: t('toast.customer_required_credit'), variant: 'destructive' }); return
     }
-    if (paymentMethod === 'cash' && Number(amountPaid) < totalToCollect) {
+    if (methodType === 'cash' && Number(amountPaid) < totalToCollect) {
       toast({ title: t('toast.insufficient_amount', { amount: formatNaira(totalToCollect) }), variant: 'destructive' }); return
     }
 
@@ -392,7 +395,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           tax,
           total,
           payment_method: paymentMethod,
-          payment_status: paymentMethod === 'credit'
+          payment_status: methodType === 'credit'
             ? 'pending'
             : balance > 0 ? (paid > 0 ? 'partial' : 'pending') : 'paid',
           amount_paid: paid,
@@ -408,8 +411,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             unit_price: item.unit_price,
             subtotal: item.quantity * item.unit_price,
           })),
-          payment_amount: paymentMethod !== 'credit' ? paid : 0,
-          payment_reference: paymentMethod === 'transfer' ? transferRef : null,
+          payment_amount: methodType !== 'credit' ? paid : 0,
+          payment_reference: methodType === 'transfer' ? transferRef : null,
           synced: false,
         })
         await refreshPendingCount()
@@ -488,7 +491,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           tax,
           total,
           payment_method: paymentMethod,
-          payment_status: paymentMethod === 'credit'
+          payment_status: methodType === 'credit'
             ? 'pending'
             : balance > 0 ? (paid > 0 ? 'partial' : 'pending') : 'paid',
           // Start at 0 — the DB trigger (after_payment_insert) will add the payment amount.
@@ -496,7 +499,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           amount_paid: 0,
           sale_status: 'active',
           notes: notes || null,
-          paystack_reference: paymentMethod === 'paystack' ? `PAY-${Date.now()}` : null,
+          paystack_reference: methodType === 'card' ? `PAY-${Date.now()}` : null,
         })
         .select()
         .single()
@@ -514,12 +517,12 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       )
       if (itemsError) throw itemsError
 
-      if (paymentMethod !== 'credit' && paid > 0) {
+      if (methodType !== 'credit' && paid > 0) {
         await db.from('payments').insert({
           sale_id: sale.id,
           amount: paid,
           method: paymentMethod,
-          reference: paymentMethod === 'transfer' ? transferRef : null,
+          reference: methodType === 'transfer' ? transferRef : null,
           received_by: profile!.id,
         })
       }
@@ -532,8 +535,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           body: JSON.stringify({
             unpaid_sale_ids: customerUnpaidSales.map((s: any) => s.id),
             amount: Number(debtRepayAmount),
-            method: paymentMethod === 'credit' ? 'cash' : paymentMethod,
-            reference: paymentMethod === 'transfer' ? transferRef : null,
+            method: methodType === 'credit' ? 'cash' : paymentMethod,
+            reference: methodType === 'transfer' ? transferRef : null,
             notes: `Inclus dans la vente #${(sale as any).sale_number}`,
             shop_id: selectedShop!.id,
           }),
@@ -962,26 +965,22 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           {/* Payment method */}
           <div className="space-y-1.5">
             <Label>{t('payment.method')}</Label>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {(['cash', 'transfer', 'credit', 'paystack'] as const).map(method => (
-                <button key={method} onClick={() => setPaymentMethod(method)}
-                  className={`rounded-lg border p-3 text-sm font-medium transition-colors tap-target ${
-                    paymentMethod === method
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {getCountry(selectedShop?.country).paymentMethods.map(method => (
+                <button key={method.id} onClick={() => setPaymentMethod(method.id)}
+                  className={`rounded-lg border p-3 text-sm font-medium transition-colors tap-target text-left ${
+                    paymentMethod === method.id
                       ? 'border-blue-500 bg-northcode-blue-muted dark:bg-blue-950/40 text-northcode-blue dark:text-blue-400'
                       : 'border-input bg-card text-muted-foreground hover:bg-muted'
                   }`}
                 >
-                  {method === 'cash' && '💵 '}
-                  {method === 'transfer' && '🏦 '}
-                  {method === 'credit' && '📝 '}
-                  {method === 'paystack' && '💳 '}
-                  {t(`payment.${method}`)}
+                  {method.icon} {method.label}
                 </button>
               ))}
             </div>
           </div>
 
-          {paymentMethod === 'cash' && (
+          {methodType === 'cash' && (
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label>{t('payment.amount_paid')}</Label>
@@ -1005,11 +1004,19 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             </div>
           )}
 
-          {paymentMethod === 'transfer' && (
+          {(methodType === 'transfer' || methodType === 'mobile_money' || methodType === 'card') && (
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label>{t('payment.reference')}</Label>
-                <Input value={transferRef} onChange={e => setTransferRef(e.target.value)} placeholder="Numéro de référence du virement" />
+                <Input
+                  value={transferRef}
+                  onChange={e => setTransferRef(e.target.value)}
+                  placeholder={
+                    methodType === 'mobile_money' ? 'Numéro de transaction / téléphone' :
+                    methodType === 'card' ? 'Référence POS / reçu' :
+                    'Numéro de référence du virement'
+                  }
+                />
               </div>
               <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-center">
                 <p className="text-sm text-muted-foreground">Montant à recevoir</p>
@@ -1018,7 +1025,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             </div>
           )}
 
-          {paymentMethod === 'credit' && (
+          {methodType === 'credit' && (
             <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
               <p className="text-sm font-medium text-amber-700">
                 📝 Ajoute {formatNaira(total)} à la dette de{' '}
@@ -1030,12 +1037,6 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             </div>
           )}
 
-          {paymentMethod === 'paystack' && (
-            <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-center">
-              <p className="text-sm text-northcode-blue dark:text-blue-400 font-medium">{t('payment.paystack_link')}</p>
-              <p className="text-2xl font-bold text-northcode-blue dark:text-blue-400 mt-1">{formatNaira(total)}</p>
-            </div>
-          )}
 
           {/* Notes */}
           <div className="space-y-1.5">

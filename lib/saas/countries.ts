@@ -16,6 +16,15 @@ export function getPeriodDays(period: BillingPeriod): number {
   return BILLING_PERIODS[period].days
 }
 
+export type PaymentMethodType = 'cash' | 'mobile_money' | 'transfer' | 'card' | 'credit'
+
+export interface PaymentMethod {
+  id: string
+  label: string
+  icon: string
+  type: PaymentMethodType
+}
+
 export interface CountryConfig {
   code: CountryCode
   name: string
@@ -32,92 +41,109 @@ export interface CountryConfig {
   }
   phonePrefix: string
   cityPlaceholder: string
+  paymentMethods: PaymentMethod[]
+}
+
+export function getMethodType(methodId: string, country: CountryConfig): PaymentMethodType {
+  return country.paymentMethods.find(m => m.id === methodId)?.type ?? 'cash'
 }
 
 export const COUNTRIES: Record<CountryCode, CountryConfig> = {
   NG: {
-    code: 'NG',
-    name: 'Nigeria',
-    flag: '🇳🇬',
-    flagColor: '#008751',
-    currency: 'NGN',
-    currencySymbol: '₦',
-    gateway: 'paystack',
+    code: 'NG', name: 'Nigeria', flag: '🇳🇬', flagColor: '#008751',
+    currency: 'NGN', currencySymbol: '₦', gateway: 'paystack',
     prices: { starter: 4999, pro: 9999, business: 19999 },
-    phonePrefix: '+234',
-    cityPlaceholder: 'Lagos, Kano, Abuja…',
+    phonePrefix: '+234', cityPlaceholder: 'Lagos, Kano, Abuja…',
+    paymentMethods: [
+      { id: 'cash',       label: 'Cash',        icon: '💵', type: 'cash' },
+      { id: 'transfer',   label: 'Bank Transfer',icon: '🏦', type: 'transfer' },
+      { id: 'pos',        label: 'POS / Card',   icon: '💳', type: 'card' },
+      { id: 'opay',       label: 'OPay',         icon: '📱', type: 'mobile_money' },
+      { id: 'palmpay',    label: 'PalmPay',      icon: '📱', type: 'mobile_money' },
+      { id: 'moniepoint', label: 'Moniepoint',   icon: '📱', type: 'mobile_money' },
+      { id: 'credit',     label: 'Credit',       icon: '📝', type: 'credit' },
+    ],
   },
   CM: {
-    code: 'CM',
-    name: 'Cameroun',
-    flag: '🇨🇲',
-    flagColor: '#CE1126',
-    currency: 'XAF',
-    currencySymbol: 'FCFA',
-    gateway: 'flutterwave',
+    code: 'CM', name: 'Cameroun', flag: '🇨🇲', flagColor: '#CE1126',
+    currency: 'XAF', currencySymbol: 'FCFA', gateway: 'flutterwave',
     prices: { starter: 1999, pro: 4999, business: 9999 },
-    phonePrefix: '+237',
-    cityPlaceholder: 'Douala, Yaoundé, Bafoussam…',
+    phonePrefix: '+237', cityPlaceholder: 'Douala, Yaoundé, Bafoussam…',
+    paymentMethods: [
+      { id: 'cash',         label: 'Espèces',      icon: '💵', type: 'cash' },
+      { id: 'mtn_momo',     label: 'MTN MoMo',     icon: '📱', type: 'mobile_money' },
+      { id: 'orange_money', label: 'Orange Money', icon: '🟠', type: 'mobile_money' },
+      { id: 'transfer',     label: 'Virement',     icon: '🏦', type: 'transfer' },
+      { id: 'credit',       label: 'Crédit',       icon: '📝', type: 'credit' },
+    ],
   },
   CI: {
-    code: 'CI',
-    name: "Côte d'Ivoire",
-    flag: '🇨🇮',
-    flagColor: '#F77F00',
-    currency: 'XOF',
-    currencySymbol: 'FCFA',
-    gateway: 'flutterwave',
+    code: 'CI', name: "Côte d'Ivoire", flag: '🇨🇮', flagColor: '#F77F00',
+    currency: 'XOF', currencySymbol: 'FCFA', gateway: 'flutterwave',
     prices: { starter: 1999, pro: 4999, business: 9999 },
-    phonePrefix: '+225',
-    cityPlaceholder: 'Abidjan, Bouaké, San-Pédro…',
+    phonePrefix: '+225', cityPlaceholder: 'Abidjan, Bouaké, San-Pédro…',
+    paymentMethods: [
+      { id: 'cash',         label: 'Espèces',      icon: '💵', type: 'cash' },
+      { id: 'orange_money', label: 'Orange Money', icon: '🟠', type: 'mobile_money' },
+      { id: 'mtn_momo',     label: 'MTN MoMo',     icon: '📱', type: 'mobile_money' },
+      { id: 'wave',         label: 'Wave',         icon: '🌊', type: 'mobile_money' },
+      { id: 'moov_money',   label: 'Moov Money',   icon: '📱', type: 'mobile_money' },
+      { id: 'transfer',     label: 'Virement',     icon: '🏦', type: 'transfer' },
+      { id: 'credit',       label: 'Crédit',       icon: '📝', type: 'credit' },
+    ],
   },
   ML: {
-    code: 'ML',
-    name: 'Mali',
-    flag: '🇲🇱',
-    flagColor: '#FCD116',
-    currency: 'XOF',
-    currencySymbol: 'FCFA',
-    gateway: 'flutterwave',
+    code: 'ML', name: 'Mali', flag: '🇲🇱', flagColor: '#FCD116',
+    currency: 'XOF', currencySymbol: 'FCFA', gateway: 'flutterwave',
     prices: { starter: 1999, pro: 4999, business: 9999 },
-    phonePrefix: '+223',
-    cityPlaceholder: 'Bamako, Sikasso, Ségou…',
+    phonePrefix: '+223', cityPlaceholder: 'Bamako, Sikasso, Ségou…',
+    paymentMethods: [
+      { id: 'cash',         label: 'Espèces',      icon: '💵', type: 'cash' },
+      { id: 'orange_money', label: 'Orange Money', icon: '🟠', type: 'mobile_money' },
+      { id: 'wave',         label: 'Wave',         icon: '🌊', type: 'mobile_money' },
+      { id: 'moov_money',   label: 'Moov Money',   icon: '📱', type: 'mobile_money' },
+      { id: 'transfer',     label: 'Virement',     icon: '🏦', type: 'transfer' },
+      { id: 'credit',       label: 'Crédit',       icon: '📝', type: 'credit' },
+    ],
   },
   NE: {
-    code: 'NE',
-    name: 'Niger',
-    flag: '🇳🇪',
-    flagColor: '#E05206',
-    currency: 'XOF',
-    currencySymbol: 'FCFA',
-    gateway: 'flutterwave',
+    code: 'NE', name: 'Niger', flag: '🇳🇪', flagColor: '#E05206',
+    currency: 'XOF', currencySymbol: 'FCFA', gateway: 'flutterwave',
     prices: { starter: 1999, pro: 4999, business: 9999 },
-    phonePrefix: '+227',
-    cityPlaceholder: 'Niamey, Zinder, Maradi…',
+    phonePrefix: '+227', cityPlaceholder: 'Niamey, Zinder, Maradi…',
+    paymentMethods: [
+      { id: 'cash',         label: 'Espèces',      icon: '💵', type: 'cash' },
+      { id: 'orange_money', label: 'Orange Money', icon: '🟠', type: 'mobile_money' },
+      { id: 'airtel_money', label: 'Airtel Money', icon: '📱', type: 'mobile_money' },
+      { id: 'transfer',     label: 'Virement',     icon: '🏦', type: 'transfer' },
+      { id: 'credit',       label: 'Crédit',       icon: '📝', type: 'credit' },
+    ],
   },
   BJ: {
-    code: 'BJ',
-    name: 'Bénin',
-    flag: '🇧🇯',
-    flagColor: '#008751',
-    currency: 'XOF',
-    currencySymbol: 'FCFA',
-    gateway: 'flutterwave',
+    code: 'BJ', name: 'Bénin', flag: '🇧🇯', flagColor: '#008751',
+    currency: 'XOF', currencySymbol: 'FCFA', gateway: 'flutterwave',
     prices: { starter: 1999, pro: 4999, business: 9999 },
-    phonePrefix: '+229',
-    cityPlaceholder: 'Cotonou, Porto-Novo, Parakou…',
+    phonePrefix: '+229', cityPlaceholder: 'Cotonou, Porto-Novo, Parakou…',
+    paymentMethods: [
+      { id: 'cash',       label: 'Espèces',    icon: '💵', type: 'cash' },
+      { id: 'mtn_momo',   label: 'MTN MoMo',   icon: '📱', type: 'mobile_money' },
+      { id: 'moov_money', label: 'Moov Money', icon: '📱', type: 'mobile_money' },
+      { id: 'transfer',   label: 'Virement',   icon: '🏦', type: 'transfer' },
+      { id: 'credit',     label: 'Crédit',     icon: '📝', type: 'credit' },
+    ],
   },
   TG: {
-    code: 'TG',
-    name: 'Togo',
-    flag: '🇹🇬',
-    flagColor: '#D21034',
-    currency: 'XOF',
-    currencySymbol: 'FCFA',
-    gateway: 'flutterwave',
+    code: 'TG', name: 'Togo', flag: '🇹🇬', flagColor: '#D21034',
+    currency: 'XOF', currencySymbol: 'FCFA', gateway: 'flutterwave',
     prices: { starter: 1999, pro: 4999, business: 9999 },
-    phonePrefix: '+228',
-    cityPlaceholder: 'Lomé, Sokodé, Kara…',
+    phonePrefix: '+228', cityPlaceholder: 'Lomé, Sokodé, Kara…',
+    paymentMethods: [
+      { id: 'cash',     label: 'Espèces', icon: '💵', type: 'cash' },
+      { id: 'flooz',    label: 'Flooz',   icon: '📱', type: 'mobile_money' },
+      { id: 'tmoney',   label: 'T-Money', icon: '📱', type: 'mobile_money' },
+      { id: 'transfer', label: 'Virement',icon: '🏦', type: 'transfer' },
+      { id: 'credit',   label: 'Crédit',  icon: '📝', type: 'credit' },
+    ],
   },
 }
 
