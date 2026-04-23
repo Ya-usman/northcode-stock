@@ -2,10 +2,11 @@
 -- Migration 013 — Security hardening
 -- ============================================================
 
--- 1. Unique constraint on subscriptions.paystack_reference to enforce idempotency
+-- 1. Unique index on subscriptions.paystack_reference to enforce idempotency
 --    (prevents replayed payment references from being processed twice)
-ALTER TABLE subscriptions
-  ADD CONSTRAINT IF NOT EXISTS subscriptions_reference_unique UNIQUE (paystack_reference);
+CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_reference_unique
+  ON subscriptions (paystack_reference)
+  WHERE paystack_reference IS NOT NULL;
 
 -- 2. Tighten profiles RLS: ensure no "read all" policy exists
 --    Migration 009 already sets the correct policy, but drop any legacy open policy just in case
@@ -34,3 +35,4 @@ CREATE POLICY "payments_shop_member_insert" ON payments
       WHERE shop_id IN (SELECT get_user_shop_ids())
     )
   );
+ 
