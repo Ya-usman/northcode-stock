@@ -229,10 +229,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const addToCart = (product: Product) => {
     addToCartById(product)
     setSearchQuery('')
-    // Do NOT focus search on mobile — would open the keyboard unexpectedly
-    if (window.matchMedia('(hover: hover)').matches) {
-      searchRef.current?.focus()
-    }
+    // Always blur active element to dismiss keyboard on Android/mobile
+    ;(document.activeElement as HTMLElement)?.blur()
   }
 
   const updateQty = (productId: string, delta: number) => {
@@ -686,7 +684,6 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           onKeyDown={e => { if (e.key === 'Enter' && filteredProducts.length === 1) addToCart(filteredProducts[0]) }}
           placeholder={t('sales.search_or_scan')}
           className="pl-10 pr-12 h-12 text-base border-blue-500/30 focus:border-blue-500"
-          autoFocus
         />
         <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
           {searchQuery && (
@@ -1179,7 +1176,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 </Button>
               </div>
               <Button className="w-full bg-northcode-blue hover:bg-northcode-blue-light dark:bg-blue-500 dark:hover:bg-blue-600"
-                onClick={() => { setShowReceipt(false); searchRef.current?.focus() }}>
+                onClick={() => { setShowReceipt(false) }}>
                 {t('sales.new_sale_cta')}
               </Button>
             </div>
