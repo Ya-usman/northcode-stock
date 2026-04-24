@@ -19,7 +19,7 @@ import type { Shop } from '@/lib/types/database'
 
 export default function SettingsPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations()
-  const { shop: shopData, profile } = useAuth()
+  const { shop: shopData, profile, refreshShop } = useAuth()
   const supabase = createClient() as any
   const { toast } = useToast()
   const router = useRouter()
@@ -80,18 +80,57 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
     toast({ title: t('settings.saved'), variant: 'success' })
   }
 
+  const compressImage = (file: File, maxSize = 800, quality = 0.75): Promise<Blob> =>
+    new Promise((resolve, reject) => {
+      const img = new Image()
+      const url = URL.createObjectURL(file)
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        const scale = Math.min(1, maxSize / Math.max(img.width, img.height))
+        const w = Math.round(img.width * scale)
+        const h = Math.round(img.height * scale)
+        const canvas = document.createElement('canvas')
+        canvas.width = w; canvas.height = h
+        canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
+        canvas.toBlob(b => b ? resolve(b) : reject(new Error('Compression failed')), 'image/jpeg', quality)
+      }
+      img.onerror = reject
+      img.src = url
+    })
+
   const uploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file || !shop?.id) return
     setUploadingLogo(true)
-    const ext = file.name.split('.').pop()
-    const path = `${shop.id}/logo.${ext}`
-    const { error: uploadError } = await supabase.storage.from('shop-logos').upload(path, file, { upsert: true })
-    if (uploadError) { toast({ title: uploadError.message, variant: 'destructive' }); setUploadingLogo(false); return }
-    const { data: { publicUrl } } = supabase.storage.from('shop-logos').getPublicUrl(path)
-    await supabase.from('shops').update({ logo_url: publicUrl }).eq('id', shop.id)
-    setUploadingLogo(false)
-    toast({ title: t('toast.logo_updated'), variant: 'success' })
+    try {
+      // Compress before upload (max 800px, JPEG 75%)
+      const compressed = await compressImage(file)
+      // Always use .jpg so the same path is overwritten each time
+      const path = `${shop.id}/logo.jpg`
+      const { error: uploadError } = await supabase.storage
+        .from('shop-logos')
+        .upload(path, compressed, { upsert: true, contentType: 'image/jpeg' })
+      if (uploadError) throw uploadError
+
+      // Add timestamp to bust CDN cache
+      const { data: { publicUrl } } = supabase.storage.from('shop-logos').getPublicUrl(path)
+      const urlWithBust = `${publicUrl}?t=${Date.now()}`
+
+      await supabase.from('shops').update({ logo_url: urlWithBust }).eq('id', shop.id)
+
+      // Update local state immediately so the image shows right away
+      setShop(prev => prev ? { ...prev, logo_url: urlWithBust } : prev)
+      // Also refresh the global auth context
+      await refreshShop()
+
+      toast({ title: t('toast.logo_updated'), variant: 'success' })
+    } catch (err: any) {
+      toast({ title: err.message, variant: 'destructive' })
+    } finally {
+      setUploadingLogo(false)
+      // Reset input so the same file can be re-selected
+      e.target.value = ''
+    }
   }
 
   const switchLanguage = (newLocale: string) => {
