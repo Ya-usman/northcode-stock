@@ -320,7 +320,10 @@
     "col_sales": "Sales",
     "col_method": "Method",
     "col_share": "Share",
-    "col_rank": "#"
+    "col_rank": "#",
+    "today": "Today",
+    "this_quarter": "This Quarter",
+    "this_semester": "This Semester"
   },
   "team": {
     "title": "Team",

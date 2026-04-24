@@ -320,7 +320,10 @@
     "col_sales": "Sayarwa",
     "col_method": "Hanya",
     "col_share": "Rabo",
-    "col_rank": "#"
+    "col_rank": "#",
+    "today": "Yau",
+    "this_quarter": "Wannan Kwata",
+    "this_semester": "Wannan Rabin Shekara"
   },
   "team": {
     "title": "Ma'aikata",

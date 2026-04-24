@@ -17,7 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { generateReportPDFBlob } from '@/lib/utils/pdf'
 import { sharePDFNative } from '@/lib/utils/native-share'
-import { format, subDays, startOfDay, endOfDay, startOfMonth, startOfWeek } from 'date-fns'
+import { format, startOfDay, endOfDay, startOfMonth, startOfWeek, startOfQuarter, startOfYear } from 'date-fns'
 
 const PIE_COLORS = ['#60a5fa', '#D4AF37', '#16A34A', '#DC2626', '#a78bfa']
 
@@ -42,11 +42,13 @@ export default function ReportsPage() {
     const end = endOfDay(now)
     let start: Date
     switch (dateFilter) {
-      case 'week': start = startOfWeek(now); break
-      case 'month': start = startOfMonth(now); break
-      case '3months': start = subDays(now, 90); break
-      case 'year': start = new Date(now.getFullYear(), 0, 1); break
-      default: start = startOfMonth(now)
+      case 'today':    start = startOfDay(now); break
+      case 'week':     start = startOfWeek(now, { weekStartsOn: 1 }); break
+      case 'month':    start = startOfMonth(now); break
+      case 'quarter':  start = startOfQuarter(now); break
+      case 'semester': start = new Date(now.getFullYear(), now.getMonth() < 6 ? 0 : 6, 1); break
+      case 'year':     start = startOfYear(now); break
+      default:         start = startOfMonth(now)
     }
     return { start: start.toISOString(), end: end.toISOString() }
   }
@@ -204,11 +206,13 @@ export default function ReportsPage() {
       {/* Controls */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <Select value={dateFilter} onValueChange={setDateFilter}>
-          <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-[170px]"><SelectValue /></SelectTrigger>
           <SelectContent>
+            <SelectItem value="today">{t('reports.today')}</SelectItem>
             <SelectItem value="week">{t('reports.this_week')}</SelectItem>
             <SelectItem value="month">{t('reports.this_month')}</SelectItem>
-            <SelectItem value="3months">{t('reports.last_3_months')}</SelectItem>
+            <SelectItem value="quarter">{t('reports.this_quarter')}</SelectItem>
+            <SelectItem value="semester">{t('reports.this_semester')}</SelectItem>
             <SelectItem value="year">{t('reports.this_year')}</SelectItem>
           </SelectContent>
         </Select>

@@ -320,7 +320,10 @@
     "col_sales": "Ventes",
     "col_method": "Méthode",
     "col_share": "Part",
-    "col_rank": "#"
+    "col_rank": "#",
+    "today": "Aujourd'hui",
+    "this_quarter": "Ce trimestre",
+    "this_semester": "Ce semestre"
   },
   "team": {
     "title": "Équipe",
