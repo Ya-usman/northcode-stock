@@ -43,8 +43,12 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const [notifyEmailDaily, setNotifyEmailDaily] = useState(true)
   const [uploadingLogo, setUploadingLogo] = useState(false)
 
+  // Initialise the form only once when shopData first loads (not on every re-render)
+  // so that navigating away and back doesn't reset unsaved or just-saved values.
+  const initialised = useState(false)
   useEffect(() => {
-    if (shopData) {
+    if (shopData && !initialised[0]) {
+      initialised[1](true)
       setShop(shopData)
       setName(shopData.name)
       setCity(shopData.city)
@@ -64,7 +68,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const saveSettings = async () => {
     if (!shop?.id) return
     setSaving(true)
-    const { error } = await supabase.from('shops').update({
+    const updates = {
       name, city, state,
       whatsapp: whatsapp || null,
       low_stock_threshold: threshold,
@@ -74,9 +78,14 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       notify_whatsapp_each_sale: notifyWaEachSale,
       notify_email_low_stock: notifyEmailLowStock,
       notify_email_daily: notifyEmailDaily,
-    }).eq('id', shop.id)
+    }
+    const { error } = await supabase.from('shops').update(updates).eq('id', shop.id)
     setSaving(false)
     if (error) { toast({ title: error.message, variant: 'destructive' }); return }
+    // Update local state immediately so navigating away and back doesn't reset the form
+    setShop(prev => prev ? { ...prev, ...updates } : prev)
+    // Sync the global auth context so the new values persist across navigation
+    await refreshShop()
     toast({ title: t('settings.saved'), variant: 'success' })
   }
 
