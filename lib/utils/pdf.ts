@@ -440,11 +440,22 @@ async function buildReportDoc(params: ReportParams) {
       reader.onerror = reject
       reader.readAsDataURL(blob)
     })
-    doc.addImage(base64, 'PNG', margin, 3, 16, 16)
+    // Gold outer ring
+    doc.setFillColor(212, 175, 55)
+    doc.roundedRect(margin - 1, 2, 18, 18, 2.5, 2.5, 'F')
+    // White inner background
+    doc.setFillColor(255, 255, 255)
+    doc.roundedRect(margin, 3, 16, 16, 2, 2, 'F')
+    // Logo on top
+    doc.addImage(base64, 'PNG', margin + 0.5, 3.5, 15, 15)
     logoLoaded = true
   } catch { /* fallback below */ }
 
   if (!logoLoaded) {
+    doc.setFillColor(212, 175, 55)
+    doc.roundedRect(margin - 1, 2, 18, 18, 2.5, 2.5, 'F')
+    doc.setFillColor(10, 47, 110)
+    doc.roundedRect(margin, 3, 16, 16, 2, 2, 'F')
     doc.setTextColor(255, 255, 255)
     doc.setFontSize(14); doc.setFont('helvetica', 'bold')
     doc.text('S', margin + 8, 14, { align: 'center' })
