@@ -18,7 +18,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { useCurrency } from '@/lib/hooks/use-currency'
-import { generateReceiptPDF } from '@/lib/utils/pdf'
+import { generateReceiptPDFBlob } from '@/lib/utils/pdf'
+import { printPDFNative, downloadOrShareCSV } from '@/lib/utils/native-share'
 import { format, startOfDay, endOfDay, subDays, startOfWeek, startOfMonth } from 'date-fns'
 import type { Sale } from '@/lib/types/database'
 
@@ -34,14 +35,15 @@ export default function SalesHistoryPage() {
   const t = useTranslations()
   const { profile, shop, userShops } = useAuth()
 
-  const printSale = (sale: Sale) => {
+  const printSale = async (sale: Sale) => {
     if (!shop) return
-    generateReceiptPDF({
+    const blob = await generateReceiptPDFBlob({
       sale: sale as any,
       shop,
       cashierName: cashierMap[(sale as any).cashier_id] || t('sales.cashier'),
       customerName: (sale as any).customers?.name || undefined,
     })
+    await printPDFNative(blob, `Recu-${sale.sale_number}.pdf`)
   }
   const { fmt: formatNaira } = useCurrency()
   const { toast } = useToast()
@@ -131,7 +133,7 @@ export default function SalesHistoryPage() {
     )
   })
 
-  const exportCSV = () => {
+  const exportCSV = async () => {
     const rows = [
       [t('sales.sale_number'), t('sales.date'), t('sales.customer'), t('sales.total'), t('payment.amount_paid'), t('payment.balance'), t('payment.method'), t('status.paid'), t('status.active')],
       ...filtered.map(s => [
@@ -143,11 +145,8 @@ export default function SalesHistoryPage() {
         s.sale_status || 'active',
       ]),
     ]
-    const csv = rows.map(r => r.join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url; a.download = `ventes-${dateFilter}-${Date.now()}.csv`; a.click()
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    await downloadOrShareCSV(csv, `ventes-${dateFilter}-${Date.now()}.csv`)
   }
 
   const doAction = async () => {

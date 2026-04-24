@@ -82,3 +82,35 @@ export async function printPDFNative(blob: Blob, fileName: string): Promise<void
   }
   setTimeout(() => URL.revokeObjectURL(url), 60000)
 }
+
+/**
+ * Download or share a CSV file.
+ * On Capacitor: writes to cache + opens native share sheet.
+ * On web: triggers a download via anchor click.
+ */
+export async function downloadOrShareCSV(csvContent: string, fileName: string): Promise<void> {
+  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+
+  if (isCapacitor()) {
+    const { Filesystem, Directory } = await import('@capacitor/filesystem')
+    const { Share } = await import('@capacitor/share')
+    const base64 = await blobToBase64(blob)
+    const result = await Filesystem.writeFile({
+      path: fileName,
+      data: base64,
+      directory: Directory.Cache,
+    })
+    await Share.share({ title: fileName, url: result.uri, dialogTitle: fileName })
+    return
+  }
+
+  // Web: anchor download
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = fileName
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 10000)
+}

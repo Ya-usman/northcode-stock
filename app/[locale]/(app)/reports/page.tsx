@@ -15,7 +15,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrency } from '@/lib/hooks/use-currency'
-import { generateReportPDF } from '@/lib/utils/pdf'
+import { generateReportPDFBlob } from '@/lib/utils/pdf'
+import { sharePDFNative } from '@/lib/utils/native-share'
 import { format, subDays, startOfDay, endOfDay, startOfMonth, startOfWeek } from 'date-fns'
 
 const PIE_COLORS = ['#60a5fa', '#D4AF37', '#16A34A', '#DC2626', '#a78bfa']
@@ -155,42 +156,47 @@ export default function ReportsPage() {
 
   const exportPDF = async () => {
     setExporting(true)
-    const { start, end } = getDateRange()
-    await generateReportPDF({
-      shopName: shop!.name,
-      dateRange: `${format(new Date(start), 'dd MMM yyyy')} – ${format(new Date(end), 'dd MMM yyyy')}`,
-      sections: [
-        {
-          title: t('reports.revenue_by_method'),
-          headers: [t('reports.col_method'), formatNaira(0).replace('0', '').trim() || shop?.currency || '', t('reports.col_share')],
-          rows: revenueByMethod.map(m => [
-            m.name,
-            formatNaira(m.value),
-            totals.revenue > 0 ? `${((m.value / totals.revenue) * 100).toFixed(1)}%` : '0%',
-          ]),
-        },
-        {
-          title: t('reports.top_products'),
-          headers: [t('reports.col_product'), t('reports.col_qty'), t('reports.col_revenue')],
-          rows: topProducts.map(p => [p.name, p.qty, formatNaira(p.revenue)]),
-        },
-        {
-          title: t('reports.stock_valuation'),
-          headers: ['Métrique', 'Valeur'],
-          rows: [
-            [t('reports.buying_value'), formatNaira(stockValuation.buyingValue)],
-            [t('reports.selling_value'), formatNaira(stockValuation.sellingValue)],
-            [t('reports.potential_profit'), formatNaira(stockValuation.potentialProfit)],
-          ],
-        },
-        {
-          title: t('reports.cashier_performance'),
-          headers: [t('reports.col_cashier'), t('reports.col_sales'), t('reports.col_revenue')],
-          rows: cashierPerf.map(c => [c.name, c.sales, formatNaira(c.revenue)]),
-        },
-      ],
-    })
-    setExporting(false)
+    try {
+      const { start, end } = getDateRange()
+      const dateRange = `${format(new Date(start), 'dd MMM yyyy')} – ${format(new Date(end), 'dd MMM yyyy')}`
+      const { blob, fileName } = await generateReportPDFBlob({
+        shopName: shop!.name,
+        dateRange,
+        sections: [
+          {
+            title: t('reports.revenue_by_method'),
+            headers: [t('reports.col_method'), formatNaira(0).replace('0', '').trim() || shop?.currency || '', t('reports.col_share')],
+            rows: revenueByMethod.map(m => [
+              m.name,
+              formatNaira(m.value),
+              totals.revenue > 0 ? `${((m.value / totals.revenue) * 100).toFixed(1)}%` : '0%',
+            ]),
+          },
+          {
+            title: t('reports.top_products'),
+            headers: [t('reports.col_product'), t('reports.col_qty'), t('reports.col_revenue')],
+            rows: topProducts.map(p => [p.name, p.qty, formatNaira(p.revenue)]),
+          },
+          {
+            title: t('reports.stock_valuation'),
+            headers: ['Métrique', 'Valeur'],
+            rows: [
+              [t('reports.buying_value'), formatNaira(stockValuation.buyingValue)],
+              [t('reports.selling_value'), formatNaira(stockValuation.sellingValue)],
+              [t('reports.potential_profit'), formatNaira(stockValuation.potentialProfit)],
+            ],
+          },
+          {
+            title: t('reports.cashier_performance'),
+            headers: [t('reports.col_cashier'), t('reports.col_sales'), t('reports.col_revenue')],
+            rows: cashierPerf.map(c => [c.name, c.sales, formatNaira(c.revenue)]),
+          },
+        ],
+      })
+      await sharePDFNative(blob, fileName, `Rapport — ${shop!.name}`)
+    } finally {
+      setExporting(false)
+    }
   }
 
   return (
