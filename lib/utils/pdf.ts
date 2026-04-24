@@ -104,6 +104,7 @@ async function buildReceiptDoc(data: ReceiptData) {
   y += 7
 
   // ─── ITEMS TABLE ──────────────────────────────
+  // A5 usable width = 148 - 2×12 = 124mm → 50 + 10 + 32 + 32 = 124
   const items = sale.sale_items || []
   autoTable(doc, {
     startY: y,
@@ -115,13 +116,32 @@ async function buildReceiptDoc(data: ReceiptData) {
       fmtAmt(Number(item.subtotal)),
     ]),
     margin: { left: margin, right: margin },
-    styles: { fontSize: 8, cellPadding: 2 },
-    headStyles: { fillColor: [10, 47, 110], textColor: 255, fontStyle: 'bold' },
+    styles: {
+      fontSize: 8,
+      cellPadding: { top: 2.5, bottom: 2.5, left: 3, right: 3 },
+      lineColor: [220, 225, 240],
+      lineWidth: 0.2,
+      overflow: 'ellipsize',
+    },
+    headStyles: {
+      fillColor: [10, 47, 110],
+      textColor: 255,
+      fontStyle: 'bold',
+      fontSize: 8,
+    },
+    alternateRowStyles: { fillColor: [246, 249, 255] },
     columnStyles: {
-      0: { cellWidth: 46 },
-      1: { cellWidth: 12, halign: 'center' },
-      2: { cellWidth: 33, halign: 'right' },
-      3: { cellWidth: 33, halign: 'right' },
+      0: { cellWidth: 50, overflow: 'ellipsize' },
+      1: { cellWidth: 10, halign: 'center' },
+      2: { cellWidth: 32, halign: 'right' },
+      3: { cellWidth: 32, halign: 'right', fontStyle: 'bold' },
+    },
+    // Align header text to match data alignment
+    didParseCell: (data: any) => {
+      if (data.section === 'head') {
+        if (data.column.index === 1) data.cell.styles.halign = 'center'
+        if (data.column.index === 2 || data.column.index === 3) data.cell.styles.halign = 'right'
+      }
     },
   })
 
