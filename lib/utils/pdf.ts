@@ -104,7 +104,7 @@ async function buildReceiptDoc(data: ReceiptData) {
   y += 7
 
   // ─── ITEMS TABLE ──────────────────────────────
-  // A5 usable width = 148 - 2×12 = 124mm → 50 + 10 + 32 + 32 = 124
+  // A5 usable width = 148 - 2×12 = 124mm → 38 + 20 + 34 + 32 = 124
   const items = sale.sale_items || []
   autoTable(doc, {
     startY: y,
@@ -118,7 +118,7 @@ async function buildReceiptDoc(data: ReceiptData) {
     margin: { left: margin, right: margin },
     styles: {
       fontSize: 8,
-      cellPadding: { top: 2.5, bottom: 2.5, left: 3, right: 3 },
+      cellPadding: { top: 2.5, bottom: 2.5, left: 2, right: 2 },
       lineColor: [220, 225, 240],
       lineWidth: 0.2,
       overflow: 'ellipsize',
@@ -128,12 +128,13 @@ async function buildReceiptDoc(data: ReceiptData) {
       textColor: 255,
       fontStyle: 'bold',
       fontSize: 8,
+      overflow: 'visible',
     },
     alternateRowStyles: { fillColor: [246, 249, 255] },
     columnStyles: {
-      0: { cellWidth: 50, overflow: 'ellipsize' },
-      1: { cellWidth: 10, halign: 'center' },
-      2: { cellWidth: 32, halign: 'right' },
+      0: { cellWidth: 38, overflow: 'ellipsize' },
+      1: { cellWidth: 20, halign: 'center' },
+      2: { cellWidth: 34, halign: 'right' },
       3: { cellWidth: 32, halign: 'right', fontStyle: 'bold' },
     },
     // Align header text to match data alignment
@@ -430,7 +431,7 @@ async function buildReportDoc(params: ReportParams) {
   // App logo (logo-tab.png) — white rounded square background
   let logoLoaded = false
   try {
-    const logoUrl = `${window.location.origin}/logo-tab.png`
+    const logoUrl = `${window.location.origin}/logo-icon.png`
     const res = await fetch(logoUrl)
     const blob = await res.blob()
     const base64 = await new Promise<string>((resolve, reject) => {
@@ -439,18 +440,14 @@ async function buildReportDoc(params: ReportParams) {
       reader.onerror = reject
       reader.readAsDataURL(blob)
     })
-    doc.setFillColor(255, 255, 255)
-    doc.roundedRect(margin, 3, 16, 16, 2, 2, 'F')
-    doc.addImage(base64, 'PNG', margin + 1, 4, 14, 14)
+    doc.addImage(base64, 'PNG', margin, 3, 16, 16)
     logoLoaded = true
   } catch { /* fallback below */ }
 
   if (!logoLoaded) {
-    doc.setFillColor(255, 255, 255)
-    doc.roundedRect(margin, 4, 14, 14, 2, 2, 'F')
-    doc.setTextColor(10, 47, 110)
-    doc.setFontSize(9); doc.setFont('helvetica', 'bold')
-    doc.text('S', margin + 7, 13, { align: 'center' })
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(14); doc.setFont('helvetica', 'bold')
+    doc.text('S', margin + 8, 14, { align: 'center' })
   }
 
   // Title
