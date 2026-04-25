@@ -742,7 +742,16 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   {product.sku && <p className="text-[10px] text-muted-foreground font-mono">{product.sku}</p>}
                   <div className="flex items-center justify-between w-full mt-1">
                     <span className="text-sm font-bold text-northcode-blue dark:text-blue-400">{formatNaira(product.selling_price)}</span>
-                    <Badge variant={product.quantity <= 5 ? 'warning' : 'success'} className="text-[10px] px-1.5">
+                    <Badge
+                      variant={
+                        product.quantity === 0
+                          ? 'destructive'
+                          : product.quantity <= ((product as any).low_stock_threshold || shop?.low_stock_threshold || 10)
+                          ? 'warning'
+                          : 'success'
+                      }
+                      className="text-[10px] px-1.5"
+                    >
                       {product.quantity} {product.unit}
                     </Badge>
                   </div>
