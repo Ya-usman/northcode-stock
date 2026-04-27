@@ -88,8 +88,37 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
     return <LoadingSkeleton />
   }
 
-  // Authenticated but profile not yet loaded — wait (auth-context has a 12s safety timer)
-  if (!profile) return <LoadingSkeleton />
+  // Auth user exists but profile missing — registration was incomplete
+  if (!profile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-6">
+        <div className="max-w-sm w-full text-center space-y-4">
+          <div className="text-4xl">⚠️</div>
+          <h2 className="text-lg font-bold text-foreground">Configuration incomplète</h2>
+          <p className="text-sm text-muted-foreground">
+            Votre profil n&apos;a pas pu être chargé. Veuillez vous déconnecter et recréer votre compte.
+          </p>
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={() => window.location.reload()}
+              className="w-full rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors"
+            >
+              Réessayer
+            </button>
+            <button
+              onClick={async () => {
+                await supabase.auth.signOut()
+                window.location.href = `/${locale}/login`
+              }}
+              className="w-full rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-white hover:bg-destructive/90 transition-colors"
+            >
+              Se déconnecter
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const beta = isBetaPeriod()
   const trialDaysLeft = getTrialDaysLeft(shop?.trial_ends_at ?? null)
