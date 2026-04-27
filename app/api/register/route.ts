@@ -10,15 +10,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Champs manquants' }, { status: 400 })
     }
 
-    // Verify the caller's session matches the user_id in the body
-    const userClient = await createClient()
-    const { data: { session } } = await userClient.auth.getSession()
-    if (!session?.user || session.user.id !== user_id) {
+    // Verify via Bearer token (sent immediately after signUp before cookies are set)
+    const supabase = await createAdminClient()
+    const authHeader = request.headers.get('Authorization')
+    const token = authHeader?.replace('Bearer ', '')
+
+    let verifiedUserId: string | null = null
+    if (token) {
+      const { data: { user } } = await supabase.auth.getUser(token)
+      verifiedUserId = user?.id ?? null
+    } else {
+      // Fallback: session cookie (already logged-in user creating a second shop)
+      const userClient = await createClient()
+      const { data: { session } } = await userClient.auth.getSession()
+      verifiedUserId = session?.user?.id ?? null
+    }
+
+    if (!verifiedUserId || verifiedUserId !== user_id) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
     }
 
     const countryConfig = getCountry(country || 'NG')
-    const supabase = await createAdminClient()
 
     // Create shop
     const { data: shop, error: shopError } = await supabase

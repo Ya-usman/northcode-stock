@@ -62,7 +62,12 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
 
       const res = await fetch('/api/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authData.session?.access_token
+            ? { Authorization: `Bearer ${authData.session.access_token}` }
+            : {}),
+        },
         body: JSON.stringify({
           user_id: authData.user.id,
           full_name: data.full_name,
