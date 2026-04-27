@@ -98,11 +98,13 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
       >
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <img
-            src="/logo-login-t.png"
-            alt="StockShop"
-            className="h-44 w-auto object-contain brightness-0 invert drop-shadow-lg"
-          />
+          <Link href={`/${locale}`}>
+            <img
+              src="/logo-login-t.png"
+              alt="StockShop"
+              className="h-44 w-auto object-contain brightness-0 invert drop-shadow-lg"
+            />
+          </Link>
           <p className="text-blue-200 text-sm mt-3">
             {locale === 'ha' ? 'Lissafin kaya mai wayo' : 'Smart inventory management'}
           </p>

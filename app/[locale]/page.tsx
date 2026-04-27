@@ -10,14 +10,17 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils/cn'
 import { useTranslations } from 'next-intl'
 import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
 
 const LANGUAGES = [
-  { code: 'en', flag: '🇬🇧', label: 'EN' },
-  { code: 'fr', flag: '🇫🇷', label: 'FR' },
-  { code: 'ha', flag: '🇳🇬', label: 'HA' },
+  { code: 'en', flag: '🇬🇧', label: 'English' },
+  { code: 'fr', flag: '🇫🇷', label: 'Français' },
+  { code: 'ha', flag: '🇳🇬', label: 'Hausa' },
 ]
 
 const FEATURE_ICONS = [ShoppingCart, Package, Users, BarChart2, MessageCircle, CreditCard]
@@ -103,24 +106,27 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
             <a href="#testimonials" className="hover:text-gray-900 transition-colors">{t('nav.reviews')}</a>
           </nav>
           <div className="flex items-center gap-2">
-            {/* Language switcher */}
-            <div className="flex items-center gap-0.5 mr-1">
-              {LANGUAGES.map(lang => (
-                <button
-                  key={lang.code}
-                  onClick={() => switchLanguage(lang.code)}
-                  className={cn(
-                    'flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors',
-                    locale === lang.code
-                      ? 'bg-northcode-blue/10 text-northcode-blue font-semibold'
-                      : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
-                  )}
-                >
-                  <span>{lang.flag}</span>
-                  <span>{lang.label}</span>
-                </button>
-              ))}
-            </div>
+            {/* Language switcher — shows only active language */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="text-gray-700 hover:text-gray-900 hover:bg-gray-100 gap-1.5">
+                  <span>{LANGUAGES.find(l => l.code === locale)?.flag ?? '🌐'}</span>
+                  <span className="text-sm font-medium">{(LANGUAGES.find(l => l.code === locale)?.label ?? locale).split(' ')[0]}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {LANGUAGES.map(lang => (
+                  <DropdownMenuItem
+                    key={lang.code}
+                    onClick={() => switchLanguage(lang.code)}
+                    className={locale === lang.code ? 'font-semibold text-northcode-blue' : ''}
+                  >
+                    <span className="mr-2">{lang.flag}</span>
+                    {lang.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             <Link href={`/${locale}/login`}>
               <Button variant="ghost" size="sm" className="text-gray-700 hover:text-gray-900 hover:bg-gray-100">{t('nav.login')}</Button>
@@ -143,10 +149,6 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
 
         <div className="relative mx-auto max-w-6xl px-4 text-center">
           <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-            <Badge className="mb-4 bg-white/20 text-white border-white/30 text-xs">
-              {t('hero.badge')}
-            </Badge>
-
             <h1 className="text-4xl md:text-6xl font-extrabold text-white leading-tight mb-6">
               {t('hero.title')}<br />
               <span className="text-northcode-gold">{t('hero.title_highlight')}</span>

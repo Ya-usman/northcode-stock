@@ -102,11 +102,19 @@ export async function middleware(request: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession()
   const userId = session?.user?.id ?? null
 
-  // Root → dashboard or login (respect user's preferred locale cookie)
+  // Root → dashboard or login (cookie → Accept-Language → default)
   if (pathname === '/') {
-    const preferredLocale = request.cookies.get('NEXT_LOCALE')?.value
-    const resolvedLocale = preferredLocale && locales.includes(preferredLocale as any) ? preferredLocale : locale
-    const dest = userId ? `/${resolvedLocale}/dashboard` : `/${resolvedLocale}/login`
+    const cookieLocale = request.cookies.get('NEXT_LOCALE')?.value
+    let resolvedLocale: string = defaultLocale
+    if (cookieLocale && locales.includes(cookieLocale as any)) {
+      resolvedLocale = cookieLocale
+    } else {
+      // Auto-detect from browser's Accept-Language header
+      const acceptLang = request.headers.get('Accept-Language') || ''
+      const browserLang = acceptLang.split(',')[0].split('-')[0].toLowerCase()
+      resolvedLocale = locales.includes(browserLang as any) ? browserLang : defaultLocale
+    }
+    const dest = userId ? `/${resolvedLocale}/dashboard` : `/${resolvedLocale}`
     return mergeAuthCookies(NextResponse.redirect(new URL(dest, request.url)), response)
   }
 
