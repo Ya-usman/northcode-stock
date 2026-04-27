@@ -174,20 +174,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await new Promise(r => setTimeout(r, jitter))
 
       let lastErr: unknown = null
-      for (let attempt = 0; attempt < 5; attempt++) {
+      for (let attempt = 0; attempt < 8; attempt++) {
         if (cancelled) return
         try {
           const { profile, userShops, memberships: rows } = await fetchUserData(session.user.id)
           if (cancelled) return
-          applyUserData(session.user, profile, userShops, rows, activeShopIdRef.current)
-          return
+          // Only stop retrying when profile is found — profile:null means data not ready yet
+          if (profile) {
+            applyUserData(session.user, profile, userShops, rows, activeShopIdRef.current)
+            return
+          }
         } catch (e) {
           lastErr = e
-          if (attempt < 4) {
-            // Exponential backoff + jitter to avoid thundering herd
-            const delay = 400 * Math.pow(2, attempt) + Math.random() * 300
-            await new Promise(r => setTimeout(r, delay))
-          }
+        }
+        if (attempt < 7) {
+          const delay = Math.min(400 * Math.pow(2, attempt), 5000) + Math.random() * 300
+          await new Promise(r => setTimeout(r, delay))
         }
       }
 
