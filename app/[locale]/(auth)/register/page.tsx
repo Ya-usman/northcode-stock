@@ -138,12 +138,8 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
       >
         {/* Logo */}
         <div className="flex flex-col items-center mb-5">
-          <Link href={`/${locale}`}>
-            <img
-              src="/logo-login-t.png"
-              alt="StockShop"
-              className="h-40 w-auto object-contain brightness-0 invert drop-shadow-lg"
-            />
+          <Link href={`/${locale}`} onClick={e => { if ((window as any).Capacitor?.isNativePlatform?.()) e.preventDefault() }}>
+            <img src="/logo-login-t.png" alt="StockShop" className="h-40 w-auto object-contain brightness-0 invert drop-shadow-lg" />
           </Link>
           <h1 className="text-xl font-bold text-white mt-3">{t('page_title')}</h1>
           <p className="text-blue-200 text-sm mt-1">{t('trial_note')}</p>
