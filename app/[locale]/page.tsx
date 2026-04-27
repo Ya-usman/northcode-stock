@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter, usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
   ShoppingCart, Package, Users, BarChart2, MessageCircle,
@@ -12,6 +13,12 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils/cn'
 import { useTranslations } from 'next-intl'
 import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
+
+const LANGUAGES = [
+  { code: 'en', flag: '🇬🇧', label: 'EN' },
+  { code: 'fr', flag: '🇫🇷', label: 'FR' },
+  { code: 'ha', flag: '🇳🇬', label: 'HA' },
+]
 
 const FEATURE_ICONS = [ShoppingCart, Package, Users, BarChart2, MessageCircle, CreditCard]
 const FEATURE_COLORS = [
@@ -25,7 +32,15 @@ const FEATURE_COLORS = [
 
 export default function LandingPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('landing')
+  const router = useRouter()
+  const pathname = usePathname()
   const [pricingCountry, setPricingCountry] = useState<CountryCode>('NG')
+
+  const switchLanguage = (newLocale: string) => {
+    const newPath = pathname.replace(`/${locale}`, `/${newLocale}`)
+    localStorage.setItem('NEXT_LOCALE', newLocale)
+    router.push(newPath)
+  }
 
   const country = COUNTRIES[pricingCountry]
 
@@ -88,6 +103,25 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
             <a href="#testimonials" className="hover:text-gray-900 transition-colors">{t('nav.reviews')}</a>
           </nav>
           <div className="flex items-center gap-2">
+            {/* Language switcher */}
+            <div className="flex items-center gap-0.5 mr-1">
+              {LANGUAGES.map(lang => (
+                <button
+                  key={lang.code}
+                  onClick={() => switchLanguage(lang.code)}
+                  className={cn(
+                    'flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors',
+                    locale === lang.code
+                      ? 'bg-northcode-blue/10 text-northcode-blue font-semibold'
+                      : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+                  )}
+                >
+                  <span>{lang.flag}</span>
+                  <span>{lang.label}</span>
+                </button>
+              ))}
+            </div>
+
             <Link href={`/${locale}/login`}>
               <Button variant="ghost" size="sm" className="text-gray-700 hover:text-gray-900 hover:bg-gray-100">{t('nav.login')}</Button>
             </Link>
