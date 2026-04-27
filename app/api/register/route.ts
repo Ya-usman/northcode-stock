@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { getCountry } from '@/lib/saas/countries'
 
 export async function POST(request: Request) {
@@ -10,17 +11,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Champs manquants' }, { status: 400 })
     }
 
-    // Verify via Bearer token (sent immediately after signUp before cookies are set)
-    const supabase = await createAdminClient()
+    // Verify the caller owns the user_id
     const authHeader = request.headers.get('Authorization')
     const token = authHeader?.replace('Bearer ', '')
 
     let verifiedUserId: string | null = null
     if (token) {
-      const { data: { user } } = await supabase.auth.getUser(token)
+      // Use anon key client to validate the user JWT (service role can't verify user JWTs)
+      const anonClient = createSupabaseClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+      const { data: { user } } = await anonClient.auth.getUser(token)
       verifiedUserId = user?.id ?? null
     } else {
-      // Fallback: session cookie (already logged-in user creating a second shop)
+      // Fallback: session cookie (already logged-in user)
       const userClient = await createClient()
       const { data: { session } } = await userClient.auth.getSession()
       verifiedUserId = session?.user?.id ?? null
