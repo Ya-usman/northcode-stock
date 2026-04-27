@@ -78,6 +78,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
     if (!country) return
     setError('')
     setCountdown(0)
+    let authUserId: string | null = null
     try {
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: data.email,
@@ -86,6 +87,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
       })
       if (signUpError) throw signUpError
       if (!authData.user) throw new Error(t('account_error'))
+      authUserId = authData.user.id
 
       const res = await fetch('/api/register', {
         method: 'POST',
@@ -114,6 +116,15 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
       await supabase.auth.refreshSession()
       router.push(`/${locale}/dashboard`)
     } catch (err: any) {
+      // Clean up orphan auth user if registration failed after signUp succeeded
+      if (authUserId) {
+        fetch('/api/cleanup-registration', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: authUserId }),
+        }).catch(() => {})
+      }
+
       const msg: string = err.message || ''
       const secondsMatch = msg.match(/(\d+)\s*second/i)
       if (secondsMatch) {

@@ -36,7 +36,13 @@ export async function POST(request: Request) {
       .select('id')
       .single()
 
+    const cleanup = async (shopId?: string) => {
+      if (shopId) await supabase.from('shops').delete().eq('id', shopId)
+      await supabase.auth.admin.deleteUser(user_id)
+    }
+
     if (shopError || !shop) {
+      await cleanup()
       return NextResponse.json({ error: shopError?.message || 'Erreur création boutique' }, { status: 500 })
     }
 
@@ -52,7 +58,7 @@ export async function POST(request: Request) {
       } as any)
 
     if (profileError) {
-      await supabase.from('shops').delete().eq('id', shop.id)
+      await cleanup(shop.id)
       return NextResponse.json({ error: profileError.message }, { status: 500 })
     }
 
@@ -67,7 +73,7 @@ export async function POST(request: Request) {
       } as any)
 
     if (memberError) {
-      await supabase.from('shops').delete().eq('id', shop.id)
+      await cleanup(shop.id)
       return NextResponse.json({ error: memberError.message }, { status: 500 })
     }
 
