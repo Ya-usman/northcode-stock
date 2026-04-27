@@ -32,9 +32,9 @@ export function Header({ title, locale, onSignOut }: HeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-card px-4 md:px-6">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-card px-4 sm:px-6">
       {/* Mobile: StockShop logo */}
-      <img src="/logo-icon-t.png" alt="StockShop" className="h-10 w-10 md:hidden flex-shrink-0 dark:brightness-0 dark:invert" />
+      <img src="/logo-icon-t.png" alt="StockShop" className="h-10 w-10 sm:hidden flex-shrink-0 dark:brightness-0 dark:invert" />
 
       <h1 className="flex-1 font-semibold text-base text-foreground truncate">{title}</h1>
 
@@ -73,7 +73,7 @@ export function Header({ title, locale, onSignOut }: HeaderProps) {
           variant="ghost"
           size="icon"
           onClick={onSignOut}
-          className="h-8 w-8 md:hidden text-muted-foreground hover:text-destructive"
+          className="h-8 w-8 sm:hidden text-muted-foreground hover:text-destructive"
           aria-label="Sign out"
         >
           <LogOut className="h-4 w-4" />

@@ -136,7 +136,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
 
       <Sidebar locale={locale} role={profile.role} profile={profile} shop={shop} onSignOut={handleSignOut} />
 
-      <div className="md:pl-64 flex flex-col min-h-screen">
+      <div className="sm:pl-64 flex flex-col min-h-screen">
         {showTrialBanner && <TrialBanner daysLeft={trialDaysLeft} locale={locale} />}
 
         <Header title={title} shop={shop} locale={locale} onSignOut={handleSignOut} />
@@ -151,7 +151,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
           />
         )}
 
-        <main className="flex-1 p-4 md:p-6 has-bottom-nav md:pb-6">
+        <main className="flex-1 p-4 sm:p-6 has-bottom-nav sm:pb-6">
           {children}
         </main>
       </div>

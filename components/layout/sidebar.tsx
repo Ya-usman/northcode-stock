@@ -74,7 +74,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
     .toUpperCase()
 
   return (
-    <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 border-r bg-card z-30">
+    <aside className="hidden sm:flex sm:w-64 sm:flex-col sm:fixed sm:inset-y-0 border-r bg-card z-30">
       {/* Logo header — premium gradient */}
       <div
         className="relative overflow-hidden"
