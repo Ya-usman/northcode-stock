@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -8,6 +8,7 @@ import { z } from 'zod'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Eye, EyeOff, Store, User, Phone, MapPin } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,24 +16,49 @@ import { Label } from '@/components/ui/label'
 import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
 import { ForceLight } from '@/components/force-light'
 
-const schema = z.object({
-  full_name: z.string().min(2, 'Nom requis'),
-  email: z.string().email('Email invalide'),
-  password: z.string().min(8, 'Minimum 8 caractères'),
-  shop_name: z.string().min(2, 'Nom de boutique requis'),
-  city: z.string().min(2, 'Ville requise'),
-  phone: z.string().optional(),
-})
-
-type FormData = z.infer<typeof schema>
+type FormData = {
+  full_name: string
+  email: string
+  password: string
+  shop_name: string
+  city: string
+  phone?: string
+}
 
 export default function RegisterPage({ params: { locale } }: { params: { locale: string } }) {
+  const t = useTranslations('register')
   const router = useRouter()
   const supabase = createClient()
   const [showPwd, setShowPwd] = useState(false)
   const [error, setError] = useState('')
+  const [countdown, setCountdown] = useState(0)
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [country, setCountry] = useState<CountryCode | null>(null)
+
+  useEffect(() => {
+    if (countdown <= 0) return
+    const timer = setInterval(() => {
+      setCountdown(c => {
+        if (c <= 1) return 0
+        return c - 1
+      })
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [countdown])
+
+  // Clear error when rate-limit countdown ends
+  useEffect(() => {
+    if (countdown === 0 && error) setError('')
+  }, [countdown])
+
+  const schema = z.object({
+    full_name: z.string().min(2, t('name_required')),
+    email: z.string().email(t('email_invalid')),
+    password: z.string().min(8, t('password_min')),
+    shop_name: z.string().min(2, t('shop_name_required')),
+    city: z.string().min(2, t('city_required')),
+    phone: z.string().optional(),
+  })
 
   const { register, handleSubmit, formState: { errors, isSubmitting }, trigger } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -51,6 +77,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
   const onSubmit = async (data: FormData) => {
     if (!country) return
     setError('')
+    setCountdown(0)
     try {
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: data.email,
@@ -58,7 +85,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
         options: { data: { full_name: data.full_name } },
       })
       if (signUpError) throw signUpError
-      if (!authData.user) throw new Error('Erreur création compte')
+      if (!authData.user) throw new Error(t('account_error'))
 
       const res = await fetch('/api/register', {
         method: 'POST',
@@ -80,16 +107,22 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
       })
       if (!res.ok) {
         const err = await res.json()
-        throw new Error(err.error || 'Erreur serveur')
+        throw new Error(err.error || t('account_error'))
       }
 
       document.cookie = `user_role=owner; path=/; max-age=3600`
-      // Force a session refresh so the auth context re-fetches profile+shop
-      // (the SIGNED_IN event fired before the profile was created)
       await supabase.auth.refreshSession()
       router.push(`/${locale}/dashboard`)
     } catch (err: any) {
-      setError(err.message)
+      const msg: string = err.message || ''
+      const secondsMatch = msg.match(/(\d+)\s*second/i)
+      if (secondsMatch) {
+        const secs = parseInt(secondsMatch[1])
+        setCountdown(secs)
+        setError(t('rate_limit', { seconds: secs }))
+      } else {
+        setError(msg)
+      }
     }
   }
 
@@ -110,8 +143,8 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
             alt="StockShop"
             className="h-40 w-auto object-contain brightness-0 invert drop-shadow-lg"
           />
-          <h1 className="text-xl font-bold text-white mt-3">Créer votre boutique</h1>
-          <p className="text-blue-200 text-sm mt-1">7 jours gratuits · Sans carte bancaire</p>
+          <h1 className="text-xl font-bold text-white mt-3">{t('page_title')}</h1>
+          <p className="text-blue-200 text-sm mt-1">{t('trial_note')}</p>
         </div>
 
         <div className="rounded-2xl bg-card shadow-2xl p-6">
@@ -127,10 +160,10 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
             {/* Step 1 — Compte */}
             {step === 1 && (
               <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
-                <h2 className="font-semibold text-lg">Votre compte</h2>
+                <h2 className="font-semibold text-lg">{t('account_section')}</h2>
 
                 <div className="space-y-1.5">
-                  <Label>Nom complet</Label>
+                  <Label>{t('full_name')}</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input {...register('full_name')} placeholder="Malam Usman" className="pl-9" />
@@ -139,18 +172,18 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>Email</Label>
+                  <Label>{t('email')}</Label>
                   <Input {...register('email')} type="email" placeholder="vous@email.com" />
                   {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>Mot de passe</Label>
+                  <Label>{t('password')}</Label>
                   <div className="relative">
                     <Input
                       {...register('password')}
                       type={showPwd ? 'text' : 'password'}
-                      placeholder="Minimum 8 caractères"
+                      placeholder={t('password_min')}
                       className="pr-10"
                     />
                     <button type="button" onClick={() => setShowPwd(!showPwd)}
@@ -162,7 +195,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                 </div>
 
                 <Button type="button" onClick={goStep2} className="w-full bg-northcode-blue h-11">
-                  Suivant →
+                  {t('next')}
                 </Button>
               </motion.div>
             )}
@@ -171,8 +204,8 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
             {step === 2 && (
               <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
                 <div>
-                  <h2 className="font-semibold text-lg">Votre pays</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">Détermine la devise et le mode de paiement pour votre abonnement</p>
+                  <h2 className="font-semibold text-lg">{t('country')}</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">{t('country_subtitle')}</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -203,9 +236,9 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                 </div>
 
                 <div className="flex gap-2 pt-1">
-                  <Button type="button" variant="outline" onClick={() => setStep(1)} className="flex-1">← Retour</Button>
+                  <Button type="button" variant="outline" onClick={() => setStep(1)} className="flex-1">{t('back')}</Button>
                   <Button type="button" onClick={goStep3} disabled={!country} className="flex-1 bg-northcode-blue">
-                    Suivant →
+                    {t('next')}
                   </Button>
                 </div>
               </motion.div>
@@ -215,12 +248,12 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
             {step === 3 && selectedCountry && (
               <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
                 <div className="flex items-center gap-2">
-                  <h2 className="font-semibold text-lg">Votre boutique</h2>
+                  <h2 className="font-semibold text-lg">{t('shop_section')}</h2>
                   <span className="text-lg">{selectedCountry.flag}</span>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>Nom de la boutique</Label>
+                  <Label>{t('shop_name')}</Label>
                   <div className="relative">
                     <Store className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input {...register('shop_name')} placeholder="Boutique Alhaji Musa" className="pl-9" />
@@ -229,7 +262,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>Ville</Label>
+                  <Label>{t('shop_city')}</Label>
                   <div className="relative">
                     <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input {...register('city')} placeholder={selectedCountry.cityPlaceholder} className="pl-9" />
@@ -238,19 +271,30 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>Téléphone <span className="text-muted-foreground text-xs">(optionnel)</span></Label>
+                  <Label>{t('phone')} <span className="text-muted-foreground text-xs">({t('optional')})</span></Label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">{selectedCountry.phonePrefix}</span>
                     <Input {...register('phone')} placeholder="XXXXXXXXXX" className="pl-14" />
                   </div>
                 </div>
 
-                {error && <p className="text-sm text-destructive bg-red-50 rounded-md p-2 text-center">{error}</p>}
+                {error && (
+                  <p className="text-sm text-destructive bg-red-50 rounded-md p-2 text-center">
+                    {countdown > 0
+                      ? t('rate_limit', { seconds: countdown })
+                      : error}
+                  </p>
+                )}
 
                 <div className="flex gap-2">
-                  <Button type="button" variant="outline" onClick={() => setStep(2)} className="flex-1">← Retour</Button>
-                  <Button type="submit" loading={isSubmitting} className="flex-1 bg-northcode-blue">
-                    Créer ma boutique
+                  <Button type="button" variant="outline" onClick={() => setStep(2)} className="flex-1">{t('back')}</Button>
+                  <Button
+                    type="submit"
+                    loading={isSubmitting}
+                    disabled={isSubmitting || countdown > 0}
+                    className="flex-1 bg-northcode-blue"
+                  >
+                    {t('create_shop')}
                   </Button>
                 </div>
               </motion.div>
@@ -259,9 +303,9 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
         </div>
 
         <p className="text-center text-blue-200 text-sm mt-4">
-          Déjà un compte ?{' '}
+          {t('already_have_account')}{' '}
           <Link href={`/${locale}/login`} className="text-white font-medium hover:underline">
-            Se connecter
+            {t('login_link')}
           </Link>
         </p>
       </motion.div>
