@@ -84,6 +84,9 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
       }
 
       document.cookie = `user_role=owner; path=/; max-age=3600`
+      // Force a session refresh so the auth context re-fetches profile+shop
+      // (the SIGNED_IN event fired before the profile was created)
+      await supabase.auth.refreshSession()
       router.push(`/${locale}/dashboard`)
     } catch (err: any) {
       setError(err.message)

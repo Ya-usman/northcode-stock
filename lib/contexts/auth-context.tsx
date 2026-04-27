@@ -232,13 +232,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')) {
-        try {
-          const { profile, userShops, memberships: rows } = await fetchUserData(session.user.id)
+        // Retry loop: profile may not exist yet if SIGNED_IN fires before /api/register completes
+        let fetched = false
+        for (let attempt = 0; attempt < 6; attempt++) {
           if (cancelled) return
-          applyUserData(session.user, profile, userShops, rows, activeShopIdRef.current)
-        } catch {
-          if (!cancelled) setState(s => s.profile ? s : { ...s, user: session.user, loading: false })
+          try {
+            const { profile, userShops, memberships: rows } = await fetchUserData(session.user.id)
+            if (cancelled) return
+            if (profile) {
+              applyUserData(session.user, profile, userShops, rows, activeShopIdRef.current)
+              fetched = true
+              break
+            }
+          } catch { /* keep retrying */ }
+          // Wait before next attempt: 500ms, 1s, 2s, 3s, 4s
+          await new Promise(r => setTimeout(r, Math.min(500 * Math.pow(2, attempt), 4000)))
         }
+        if (!fetched && !cancelled) setState(s => s.profile ? s : { ...s, user: session.user, loading: false })
       }
     })
 
