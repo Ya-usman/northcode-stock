@@ -75,7 +75,7 @@ async function fetchUserData(userId: string): Promise<{
   const profile = profileData as Profile | null
 
   if (profile && !profile.is_active) {
-    document.cookie = 'user_role=; path=/; max-age=0'
+    fetch('/api/auth/set-role', { method: 'DELETE' }).catch(() => {})
     clearCache()
     await supabase.auth.signOut()
     window.location.href = '/en/login?error=inactive'
@@ -266,14 +266,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const switchShop = useCallback((shopId: string) => {
     setActiveShopId(shopId)
     localStorage.setItem('active_shop_id', shopId)
+    // Update HttpOnly role cookie via server endpoint
+    fetch('/api/auth/set-role', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shop_id: shopId }),
+    }).catch(() => {})
     setState(prev => {
       const activeShop = prev.userShops.find(s => s.id === shopId) ?? prev.activeShop
       const roleInActiveShop = (memberships.find(m => m.shops?.id === shopId)?.role
         ?? prev.profile?.role
         ?? null) as UserRole | null
-      if (roleInActiveShop) {
-        document.cookie = `user_role=${roleInActiveShop}; path=/; max-age=1800; samesite=lax`
-      }
       return { ...prev, activeShop, roleInActiveShop }
     })
   }, [memberships])
@@ -308,9 +311,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signOut = useCallback(async () => {
-    document.cookie = 'user_role=; path=/; max-age=0'
     localStorage.removeItem('active_shop_id')
     clearCache()
+    await fetch('/api/auth/set-role', { method: 'DELETE' }).catch(() => {})
     await supabase.auth.signOut()
     window.location.href = '/en/login'
   }, [])

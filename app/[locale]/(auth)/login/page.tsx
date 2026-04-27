@@ -57,18 +57,8 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
       setError(t('invalid_credentials'))
       return
     }
-    // Cache role in cookie to avoid DB call on every middleware request
-    if (authData.user) {
-      const { data } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', authData.user.id)
-        .single()
-      const role = (data as { role: string } | null)?.role
-      if (role) {
-        document.cookie = `user_role=${role}; path=/; max-age=3600`
-      }
-    }
+    // Set HttpOnly role cookie via server endpoint
+    await fetch('/api/auth/set-role', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
     // Redirect to the user's preferred locale (saved in cookie), fallback to current
     const preferredLocale = document.cookie.match(/NEXT_LOCALE=([^;]+)/)?.[1] || locale
     router.push(`/${preferredLocale}/dashboard`)

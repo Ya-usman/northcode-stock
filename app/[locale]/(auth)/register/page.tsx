@@ -112,8 +112,8 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
         throw new Error(err.error || t('account_error'))
       }
 
-      document.cookie = `user_role=owner; path=/; max-age=3600`
       await supabase.auth.refreshSession()
+      await fetch('/api/auth/set-role', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
       router.push(`/${locale}/dashboard`)
     } catch (err: any) {
       // Clean up orphan auth user if registration failed after signUp succeeded
