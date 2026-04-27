@@ -65,9 +65,23 @@ export async function POST(request: Request) {
       } as any)
 
     if (profileError) {
-      // Rollback shop
       await supabase.from('shops').delete().eq('id', shop.id)
       return NextResponse.json({ error: profileError.message }, { status: 500 })
+    }
+
+    // Create shop_members entry so RLS lets the owner read their own shop
+    const { error: memberError } = await supabase
+      .from('shop_members')
+      .insert({
+        shop_id: shop.id,
+        user_id,
+        role: 'owner',
+        is_active: true,
+      } as any)
+
+    if (memberError) {
+      await supabase.from('shops').delete().eq('id', shop.id)
+      return NextResponse.json({ error: memberError.message }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, shop_id: shop.id })
