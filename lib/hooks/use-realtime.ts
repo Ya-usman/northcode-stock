@@ -15,12 +15,15 @@ interface RealtimeHandlers {
 
 export function useDashboardRealtime(shopId: string | null, handlers: RealtimeHandlers) {
   const channelRef = useRef<any>(null)
+  const handlersRef = useRef(handlers)
+  // Keep handlers ref current on every render so callbacks never go stale
+  handlersRef.current = handlers
 
   useEffect(() => {
     if (!shopId) return
 
     const channel = supabase
-      .channel('dashboard-live')
+      .channel(`dashboard-live-${shopId}`)
       .on(
         'postgres_changes',
         {
@@ -30,7 +33,7 @@ export function useDashboardRealtime(shopId: string | null, handlers: RealtimeHa
           filter: `shop_id=eq.${shopId}`,
         },
         (payload) => {
-          handlers.onNewSale?.(payload.new as Sale)
+          handlersRef.current.onNewSale?.(payload.new as Sale)
         }
       )
       .on(
@@ -42,7 +45,7 @@ export function useDashboardRealtime(shopId: string | null, handlers: RealtimeHa
           filter: `shop_id=eq.${shopId}`,
         },
         (payload) => {
-          handlers.onProductUpdate?.(payload.new as Product)
+          handlersRef.current.onProductUpdate?.(payload.new as Product)
         }
       )
       .on(
@@ -53,7 +56,7 @@ export function useDashboardRealtime(shopId: string | null, handlers: RealtimeHa
           table: 'payments',
         },
         (payload) => {
-          handlers.onPaymentUpdate?.(payload.new)
+          handlersRef.current.onPaymentUpdate?.(payload.new)
         }
       )
       .subscribe()

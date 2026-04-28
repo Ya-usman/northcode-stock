@@ -323,7 +323,13 @@
     "col_rank": "#",
     "today": "Aujourd'hui",
     "this_quarter": "Ce trimestre",
-    "this_semester": "Ce semestre"
+    "this_semester": "Ce semestre",
+    "col_metric": "Métrique",
+    "col_value": "Valeur",
+    "pdf_business_report": "Rapport d'activité",
+    "pdf_generated_by": "Généré par StockShop",
+    "pdf_page": "Page",
+    "pdf_of": "sur"
   },
   "team": {
     "title": "Équipe",

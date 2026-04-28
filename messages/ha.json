@@ -323,7 +323,13 @@
     "col_rank": "#",
     "today": "Yau",
     "this_quarter": "Wannan Kwata",
-    "this_semester": "Wannan Rabin Shekara"
+    "this_semester": "Wannan Rabin Shekara",
+    "col_metric": "Ma'auni",
+    "col_value": "Ƙima",
+    "pdf_business_report": "Rahoton Kasuwanci",
+    "pdf_generated_by": "An Ƙirƙira ta StockShop",
+    "pdf_page": "Shafi",
+    "pdf_of": "na"
   },
   "team": {
     "title": "Ma'aikata",

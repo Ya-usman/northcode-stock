@@ -164,6 +164,12 @@ export default function ReportsPage() {
       const { blob, fileName } = await generateReportPDFBlob({
         shopName: shop!.name,
         dateRange,
+        labels: {
+          businessReport: t('reports.pdf_business_report'),
+          generatedBy: t('reports.pdf_generated_by'),
+          page: t('reports.pdf_page'),
+          of: t('reports.pdf_of'),
+        },
         sections: [
           {
             title: t('reports.revenue_by_method'),
@@ -181,7 +187,7 @@ export default function ReportsPage() {
           },
           {
             title: t('reports.stock_valuation'),
-            headers: ['Métrique', 'Valeur'],
+            headers: [t('reports.col_metric'), t('reports.col_value')],
             rows: [
               [t('reports.buying_value'), formatNaira(stockValuation.buyingValue)],
               [t('reports.selling_value'), formatNaira(stockValuation.sellingValue)],
