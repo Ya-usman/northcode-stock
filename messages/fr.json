@@ -77,6 +77,7 @@
     "restock": "Réapprovisionner",
     "print_receipt": "Imprimer le reçu",
     "export_pdf": "Exporter en PDF",
+    "download_pdf": "Télécharger le PDF",
     "export_csv": "Exporter en CSV",
     "save": "Enregistrer",
     "saving": "Enregistrement…",

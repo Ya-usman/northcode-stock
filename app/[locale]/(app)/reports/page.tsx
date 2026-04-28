@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
-import { FileDown } from 'lucide-react'
+import { Download } from 'lucide-react'
 import {
   PieChart, Pie, Cell,
   Tooltip, ResponsiveContainer,
@@ -16,7 +16,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { generateReportPDFBlob } from '@/lib/utils/pdf'
-import { sharePDFNative } from '@/lib/utils/native-share'
 import { format, startOfDay, endOfDay, startOfMonth, startOfWeek, startOfQuarter, startOfYear } from 'date-fns'
 
 const PIE_COLORS = ['#60a5fa', '#D4AF37', '#16A34A', '#DC2626', '#a78bfa']
@@ -201,7 +200,14 @@ export default function ReportsPage() {
           },
         ],
       })
-      await sharePDFNative(blob, fileName, `Rapport — ${shop!.name}`)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = fileName
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 10000)
     } finally {
       setExporting(false)
     }
@@ -223,8 +229,8 @@ export default function ReportsPage() {
           </SelectContent>
         </Select>
         <Button variant="outline" onClick={exportPDF} loading={exporting} className="gap-2">
-          <FileDown className="h-4 w-4" />
-          {t('actions.export_pdf')}
+          <Download className="h-4 w-4" />
+          {t('actions.download_pdf')}
         </Button>
       </div>
 
