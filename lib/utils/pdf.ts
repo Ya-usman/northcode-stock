@@ -2,18 +2,54 @@
 
 import type { Sale, SaleItem, Shop } from '@/lib/types/database'
 
+interface ReceiptLabels {
+  receipt: string
+  cashier: string
+  customer: string
+  colItem: string
+  colQty: string
+  colUnitPrice: string
+  colTotal: string
+  subtotal: string
+  discount: string
+  tax: string
+  total: string
+  paid: string
+  via: string
+  balanceDue: string
+  thankYou: string
+}
+
 interface ReceiptData {
   sale: Sale & { sale_items: SaleItem[] }
   shop: Shop
   cashierName: string
   customerName?: string
+  labels?: ReceiptLabels
 }
 
 async function buildReceiptDoc(data: ReceiptData) {
   const { jsPDF } = await import('jspdf')
   const autoTable = (await import('jspdf-autotable')).default
 
-  const { sale, shop, cashierName, customerName } = data
+  const { sale, shop, cashierName, customerName, labels } = data
+  const L: ReceiptLabels = {
+    receipt: labels?.receipt ?? 'Receipt',
+    cashier: labels?.cashier ?? 'Cashier',
+    customer: labels?.customer ?? 'Customer',
+    colItem: labels?.colItem ?? 'Item',
+    colQty: labels?.colQty ?? 'Qty',
+    colUnitPrice: labels?.colUnitPrice ?? 'Unit Price',
+    colTotal: labels?.colTotal ?? 'Total',
+    subtotal: labels?.subtotal ?? 'Subtotal',
+    discount: labels?.discount ?? 'Discount',
+    tax: labels?.tax ?? 'Tax',
+    total: labels?.total ?? 'TOTAL',
+    paid: labels?.paid ?? 'Paid',
+    via: labels?.via ?? 'via',
+    balanceDue: labels?.balanceDue ?? 'Balance Due',
+    thankYou: labels?.thankYou ?? 'Thank you for your business',
+  }
 
   // Currency formatter — jsPDF Helvetica can't render ₦, use sanitizePDF
   const isFCFA = shop.currency === 'FCFA'
@@ -84,7 +120,7 @@ async function buildReceiptDoc(data: ReceiptData) {
   doc.setFontSize(9)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(0, 0, 0)
-  doc.text(`Receipt #${sale.sale_number}`, margin, y)
+  doc.text(`${L.receipt} #${sale.sale_number}`, margin, y)
   doc.setFont('helvetica', 'normal')
   doc.text(
     new Date(sale.created_at).toLocaleString('en-GB', {
@@ -97,9 +133,9 @@ async function buildReceiptDoc(data: ReceiptData) {
   )
   y += 5
 
-  doc.text(`Cashier: ${cashierName}`, margin, y)
+  doc.text(`${L.cashier}: ${cashierName}`, margin, y)
   if (customerName) {
-    doc.text(`Customer: ${customerName}`, pageWidth - margin, y, { align: 'right' })
+    doc.text(`${L.customer}: ${customerName}`, pageWidth - margin, y, { align: 'right' })
   }
   y += 7
 
@@ -108,7 +144,7 @@ async function buildReceiptDoc(data: ReceiptData) {
   const items = sale.sale_items || []
   autoTable(doc, {
     startY: y,
-    head: [['Item', 'Qty', 'Unit Price', 'Total']],
+    head: [[L.colItem, L.colQty, L.colUnitPrice, L.colTotal]],
     body: items.map((item) => [
       item.product_name,
       item.quantity.toString(),
@@ -162,18 +198,18 @@ async function buildReceiptDoc(data: ReceiptData) {
   doc.setTextColor(60, 60, 60)
 
   if (Number(sale.discount) > 0) {
-    doc.text('Subtotal:', labelCol, y)
+    doc.text(`${L.subtotal}:`, labelCol, y)
     doc.text(fmtAmt(Number(sale.subtotal)), rightCol, y, { align: 'right' })
     y += 5
     doc.setTextColor(220, 50, 50)
-    doc.text('Discount:', labelCol, y)
+    doc.text(`${L.discount}:`, labelCol, y)
     doc.text(`-${fmtAmt(Number(sale.discount))}`, rightCol, y, { align: 'right' })
     y += 5
     doc.setTextColor(60, 60, 60)
   }
 
   if (Number(sale.tax) > 0) {
-    doc.text('Tax:', labelCol, y)
+    doc.text(`${L.tax}:`, labelCol, y)
     doc.text(fmtAmt(Number(sale.tax)), rightCol, y, { align: 'right' })
     y += 5
   }
@@ -186,7 +222,7 @@ async function buildReceiptDoc(data: ReceiptData) {
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(12)
   doc.setTextColor(10, 47, 110)
-  doc.text('TOTAL:', labelCol, y)
+  doc.text(`${L.total}:`, labelCol, y)
   doc.text(fmtAmt(Number(sale.total)), rightCol, y, { align: 'right' })
   y += 6
 
@@ -194,13 +230,13 @@ async function buildReceiptDoc(data: ReceiptData) {
   doc.setFontSize(9)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(22, 163, 74)
-  doc.text(sanitizePDF(`Paid: ${fmtAmt(Number(sale.amount_paid))} via ${sale.payment_method}`), labelCol, y)
+  doc.text(sanitizePDF(`${L.paid}: ${fmtAmt(Number(sale.amount_paid))} ${L.via} ${sale.payment_method}`), labelCol, y)
   y += 5
 
   if (Number(sale.balance) > 0) {
     doc.setTextColor(220, 38, 38)
     doc.setFont('helvetica', 'bold')
-    doc.text(`Balance Due: ${fmtAmt(Number(sale.balance))}`, labelCol, y)
+    doc.text(`${L.balanceDue}: ${fmtAmt(Number(sale.balance))}`, labelCol, y)
     y += 5
   }
 
@@ -214,11 +250,7 @@ async function buildReceiptDoc(data: ReceiptData) {
   doc.setFontSize(8)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(10, 47, 110)
-  doc.text('Thank you for your business', pageWidth / 2, y, { align: 'center' })
-  y += 4
-  doc.setFont('helvetica', 'italic')
-  doc.setTextColor(100, 100, 100)
-  doc.text('Na gode da kasuwancin ku', pageWidth / 2, y, { align: 'center' })
+  doc.text(L.thankYou, pageWidth / 2, y, { align: 'center' })
 
   return { doc, fileName: `Receipt-${sale.sale_number}.pdf` }
 }
@@ -244,6 +276,25 @@ function sanitizePDF(value: string | number): string {
     .replace(/\u00a0/g, ' ')
 }
 
+interface DebtReceiptLabels {
+  title: string
+  client: string
+  receivedBy: string
+  mode: string
+  ref: string
+  invoicesSettled: string
+  colInvoice: string
+  colAmountSettled: string
+  totalPaid: string
+  remainingBalance: string
+  debtCleared: string
+  thankYou: string
+  methodCash: string
+  methodTransfer: string
+  methodMobile: string
+  methodPaystack: string
+}
+
 interface DebtReceiptData {
   customerName: string
   amount: number
@@ -254,13 +305,32 @@ interface DebtReceiptData {
   shop: Shop
   appliedSales: { sale_number: string; amount: number }[]
   remainingBalance: number
+  labels?: DebtReceiptLabels
 }
 
 export async function generateDebtReceiptPDF(data: DebtReceiptData): Promise<void> {
   const { jsPDF } = await import('jspdf')
   const autoTable = (await import('jspdf-autotable')).default
 
-  const { customerName, amount, method, reference, notes, receivedBy, shop, appliedSales, remainingBalance } = data
+  const { customerName, amount, method, reference, notes, receivedBy, shop, appliedSales, remainingBalance, labels } = data
+  const DL: DebtReceiptLabels = {
+    title: labels?.title ?? 'DEBT REPAYMENT RECEIPT',
+    client: labels?.client ?? 'Client',
+    receivedBy: labels?.receivedBy ?? 'Received by',
+    mode: labels?.mode ?? 'Mode',
+    ref: labels?.ref ?? 'Ref',
+    invoicesSettled: labels?.invoicesSettled ?? 'INVOICES SETTLED:',
+    colInvoice: labels?.colInvoice ?? 'Invoice #',
+    colAmountSettled: labels?.colAmountSettled ?? 'Amount settled',
+    totalPaid: labels?.totalPaid ?? 'TOTAL PAID:',
+    remainingBalance: labels?.remainingBalance ?? 'Remaining balance:',
+    debtCleared: labels?.debtCleared ?? 'Debt fully cleared ✓',
+    thankYou: labels?.thankYou ?? 'Thank you for your trust',
+    methodCash: labels?.methodCash ?? 'Cash',
+    methodTransfer: labels?.methodTransfer ?? 'Transfer',
+    methodMobile: labels?.methodMobile ?? 'Mobile Money',
+    methodPaystack: labels?.methodPaystack ?? 'Paystack',
+  }
 
   const isFCFA = shop.currency === 'FCFA'
   const fmtAmt = (n: number) => {
@@ -304,7 +374,7 @@ export async function generateDebtReceiptPDF(data: DebtReceiptData): Promise<voi
   doc.setFontSize(11)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(10, 47, 110)
-  doc.text('RECU DE REMBOURSEMENT', pageWidth / 2, y, { align: 'center' })
+  doc.text(DL.title, pageWidth / 2, y, { align: 'center' })
   y += 5
 
   doc.setFontSize(8)
@@ -320,27 +390,27 @@ export async function generateDebtReceiptPDF(data: DebtReceiptData): Promise<voi
   doc.setFontSize(9)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(0, 0, 0)
-  doc.text(`Client: ${customerName}`, margin, y)
-  doc.text(`Recu par: ${receivedBy}`, pageWidth - margin, y, { align: 'right' })
+  doc.text(`${DL.client}: ${customerName}`, margin, y)
+  doc.text(`${DL.receivedBy}: ${receivedBy}`, pageWidth - margin, y, { align: 'right' })
   y += 6
 
   const methodLabels: Record<string, string> = {
-    cash: 'Especes', transfer: 'Virement', mobile_money: 'Mobile Money', paystack: 'Paystack',
+    cash: DL.methodCash, transfer: DL.methodTransfer, mobile_money: DL.methodMobile, paystack: DL.methodPaystack,
   }
-  doc.text(`Mode: ${methodLabels[method] || method}`, margin, y)
-  if (reference) doc.text(`Ref: ${reference}`, pageWidth - margin, y, { align: 'right' })
+  doc.text(`${DL.mode}: ${methodLabels[method] || method}`, margin, y)
+  if (reference) doc.text(`${DL.ref}: ${reference}`, pageWidth - margin, y, { align: 'right' })
   y += 8
 
   // ─── APPLIED INVOICES TABLE ───────────────────
   doc.setFontSize(8)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(80, 80, 80)
-  doc.text('FACTURES REGLEES :', margin, y)
+  doc.text(DL.invoicesSettled, margin, y)
   y += 2
 
   autoTable(doc, {
     startY: y,
-    head: [['Facture #', 'Montant regle']],
+    head: [[DL.colInvoice, DL.colAmountSettled]],
     body: appliedSales.map(s => [`#${s.sale_number}`, fmtAmt(s.amount)]),
     margin: { left: margin, right: margin },
     styles: { fontSize: 8, cellPadding: 2 },
@@ -365,7 +435,7 @@ export async function generateDebtReceiptPDF(data: DebtReceiptData): Promise<voi
   doc.setFontSize(12)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(10, 47, 110)
-  doc.text('TOTAL PAYE :', labelCol, y)
+  doc.text(DL.totalPaid, labelCol, y)
   doc.text(fmtAmt(amount), rightCol, y, { align: 'right' })
   y += 6
 
@@ -373,11 +443,11 @@ export async function generateDebtReceiptPDF(data: DebtReceiptData): Promise<voi
   doc.setFont('helvetica', 'normal')
   if (remainingBalance > 0) {
     doc.setTextColor(220, 38, 38)
-    doc.text(`Solde restant: ${fmtAmt(remainingBalance)}`, labelCol, y)
+    doc.text(`${DL.remainingBalance} ${fmtAmt(remainingBalance)}`, labelCol, y)
   } else {
     doc.setTextColor(22, 163, 74)
     doc.setFont('helvetica', 'bold')
-    doc.text('Dette soldee integralement ✓', labelCol, y)
+    doc.text(DL.debtCleared, labelCol, y)
   }
   y += 8
 
@@ -397,11 +467,7 @@ export async function generateDebtReceiptPDF(data: DebtReceiptData): Promise<voi
   doc.setFontSize(8)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(10, 47, 110)
-  doc.text('Merci pour votre confiance', pageWidth / 2, y, { align: 'center' })
-  y += 4
-  doc.setFont('helvetica', 'italic')
-  doc.setTextColor(100, 100, 100)
-  doc.text('Na gode da kasuwancin ku', pageWidth / 2, y, { align: 'center' })
+  doc.text(DL.thankYou, pageWidth / 2, y, { align: 'center' })
 
   doc.save(`Remboursement-${customerName.replace(/\s+/g, '-')}-${Date.now()}.pdf`)
 }

@@ -35,6 +35,24 @@ export default function SalesHistoryPage() {
   const t = useTranslations()
   const { profile, shop, userShops } = useAuth()
 
+  const receiptLabels = {
+    receipt: t('receipt.receipt'),
+    cashier: t('receipt.cashier'),
+    customer: t('receipt.customer'),
+    colItem: t('receipt.col_item'),
+    colQty: t('receipt.col_qty'),
+    colUnitPrice: t('receipt.col_unit_price'),
+    colTotal: t('receipt.col_total'),
+    subtotal: t('receipt.subtotal'),
+    discount: t('receipt.discount'),
+    tax: t('receipt.tax'),
+    total: t('receipt.total'),
+    paid: t('receipt.paid'),
+    via: t('receipt.via'),
+    balanceDue: t('receipt.balance_due'),
+    thankYou: t('receipt.thank_you'),
+  }
+
   const printSale = async (sale: Sale) => {
     if (!shop) return
     const blob = await generateReceiptPDFBlob({
@@ -42,6 +60,7 @@ export default function SalesHistoryPage() {
       shop,
       cashierName: cashierMap[(sale as any).cashier_id] || t('sales.cashier'),
       customerName: (sale as any).customers?.name || undefined,
+      labels: receiptLabels,
     })
     await printPDFNative(blob, `Recu-${sale.sale_number}.pdf`)
   }
