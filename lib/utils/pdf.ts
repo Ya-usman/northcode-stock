@@ -250,7 +250,10 @@ async function buildReceiptDoc(data: ReceiptData) {
   doc.setFontSize(8)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(10, 47, 110)
-  doc.text(L.thankYou, pageWidth / 2, y, { align: 'center' })
+  doc.setFont('helvetica', 'italic')
+  doc.setFontSize(7.5)
+  doc.setTextColor(120, 120, 120)
+  doc.text('Manage smarter. Sell faster. Grow bigger.', pageWidth / 2, y, { align: 'center' })
 
   return { doc, fileName: `Receipt-${sale.sale_number}.pdf` }
 }
@@ -467,7 +470,10 @@ export async function generateDebtReceiptPDF(data: DebtReceiptData): Promise<voi
   doc.setFontSize(8)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(10, 47, 110)
-  doc.text(DL.thankYou, pageWidth / 2, y, { align: 'center' })
+  doc.setFont('helvetica', 'italic')
+  doc.setFontSize(7.5)
+  doc.setTextColor(120, 120, 120)
+  doc.text('Manage smarter. Sell faster. Grow bigger.', pageWidth / 2, y, { align: 'center' })
 
   doc.save(`Remboursement-${customerName.replace(/\s+/g, '-')}-${Date.now()}.pdf`)
 }
@@ -592,11 +598,14 @@ async function buildReportDoc(params: ReportParams) {
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i)
     doc.setFillColor(245, 247, 252)
-    doc.rect(0, 284, pageWidth, 13, 'F')
+    doc.rect(0, 281, pageWidth, 16, 'F')
+    doc.setFontSize(6.5); doc.setFont('helvetica', 'italic')
+    doc.setTextColor(160, 130, 40)
+    doc.text('Manage smarter. Sell faster. Grow bigger.', pageWidth / 2, 286, { align: 'center' })
     doc.setFontSize(7); doc.setFont('helvetica', 'normal')
     doc.setTextColor(140, 150, 170)
-    doc.text(`${lbl.generatedBy} — northcode-stock.vercel.app`, margin, 291)
-    doc.text(`${lbl.page} ${i} ${lbl.of} ${pageCount}`, pageWidth - margin, 291, { align: 'right' })
+    doc.text(`${lbl.generatedBy} — northcode-stock.vercel.app`, margin, 293)
+    doc.text(`${lbl.page} ${i} ${lbl.of} ${pageCount}`, pageWidth - margin, 293, { align: 'right' })
   }
 
   return { doc, fileName: `Report-${shopName}-${dateRange}.pdf` }

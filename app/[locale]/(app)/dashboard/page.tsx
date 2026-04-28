@@ -188,14 +188,8 @@ export default function DashboardPage() {
       const salesCount = salesArr.length
       const debt = (debtData || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0)
 
-      // Revenue = actual cash received today.
-      // Cashier: sum their own sales' amount_paid (payments API covers whole shop).
-      // Owner: use payments API (includes debt repayments), fallback to sales sum.
-      const revenue = isCashier
-        ? salesArr.reduce((s, sale: any) => s + Number(sale.amount_paid), 0)
-        : paymentsApiOk
-          ? paymentsData.todayTotal
-          : salesArr.reduce((s, sale: any) => s + Number(sale.amount_paid), 0)
+      // Revenue = sum of today's sales totals (face value of all sales created today)
+      const revenue = salesArr.reduce((s, sale: any) => s + Number(sale.total), 0)
 
       const last7 = Array.from({ length: 7 }, (_, i) => subDays(today, 6 - i))
       const dayMap: Record<string, { revenue: number; sales: number }> = {}
@@ -272,7 +266,7 @@ export default function DashboardPage() {
         if (isOwnSale) {
           setRecentSales(prev => [sale, ...prev])
           setTodaySalesCount(prev => prev + 1)
-          setTodayRevenue(prev => prev + Number(sale.amount_paid ?? sale.total))
+          setTodayRevenue(prev => prev + Number(sale.total))
         }
         if (!isCashierView) {
           toast({ title: `Nouvelle vente: ${formatNaira(sale.total)}`, description: `#${sale.sale_number}`, variant: 'success' })
