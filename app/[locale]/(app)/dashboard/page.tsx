@@ -25,7 +25,7 @@ const supabase = createClient() as any
 const DASH_CACHE_KEY = 'dashboard_cache_v1'
 interface DashCache {
   shopKey: string
-  todayRevenue: number; todaySalesCount: number; outstandingDebt: number
+  todayRevenue: number; todayCash: number; todaySalesCount: number; outstandingDebt: number
   revenueData: RevenueDataPoint[]; topProducts: TopProduct[]
   lowStock: Product[]; outOfStock: Product[]
   recentSales: Sale[]
@@ -61,6 +61,7 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false)
 
   const [todayRevenue, setTodayRevenue] = useState(0)
+  const [todayCash, setTodayCash] = useState(0)
   const [todaySalesCount, setTodaySalesCount] = useState(0)
   const [outstandingDebt, setOutstandingDebt] = useState(0)
   const [recentSales, setRecentSales] = useState<Sale[]>([])
@@ -82,12 +83,13 @@ export default function DashboardPage() {
   const loadingRef = useRef(false)
 
   const applyDashData = useCallback((
-    salesCount: number, revenue: number, debt: number,
+    salesCount: number, revenue: number, cash: number, debt: number,
     sales: Sale[], revData: RevenueDataPoint[], tops: TopProduct[],
     low: Product[], out: Product[]
   ) => {
     setTodaySalesCount(salesCount)
     setTodayRevenue(revenue)
+    setTodayCash(cash)
     setRecentSales(sales)
     setOutstandingDebt(debt)
     setRevenueData(revData)
@@ -109,7 +111,7 @@ export default function DashboardPage() {
     // ── Serve cache immediately, then refresh in background ────────
     const cached = readDashCache(shopKey)
     if (cached && !quiet) {
-      applyDashData(cached.todaySalesCount, cached.todayRevenue, cached.outstandingDebt,
+      applyDashData(cached.todaySalesCount, cached.todayRevenue, cached.todayCash ?? 0, cached.outstandingDebt,
         cached.recentSales, cached.revenueData, cached.topProducts, cached.lowStock, cached.outOfStock)
       setFirstLoad(false)
       // Still fetch fresh data in background — don't block render
@@ -188,8 +190,12 @@ export default function DashboardPage() {
       const salesCount = salesArr.length
       const debt = (debtData || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0)
 
-      // Revenue = sum of today's sales totals (face value of all sales created today)
+      // Revenue = face value of all sales created today
       const revenue = salesArr.reduce((s, sale: any) => s + Number(sale.total), 0)
+      // Cash received = actual payments collected today (sales + debt repayments)
+      const cash = paymentsApiOk
+        ? paymentsData.todayTotal
+        : salesArr.reduce((s, sale: any) => s + Number(sale.amount_paid), 0)
 
       const last7 = Array.from({ length: 7 }, (_, i) => subDays(today, 6 - i))
       const dayMap: Record<string, { revenue: number; sales: number }> = {}
@@ -227,10 +233,10 @@ export default function DashboardPage() {
       })
       const tops = Object.values(totals).sort((a, b) => b.revenue - a.revenue).slice(0, 5)
 
-      applyDashData(salesCount, revenue, debt, salesArr, revData, tops, lowSt, outOf)
+      applyDashData(salesCount, revenue, cash, debt, salesArr, revData, tops, lowSt, outOf)
 
       // Persist to cache for next reload
-      writeDashCache({ shopKey, todaySalesCount: salesCount, todayRevenue: revenue,
+      writeDashCache({ shopKey, todaySalesCount: salesCount, todayRevenue: revenue, todayCash: cash,
         outstandingDebt: debt, recentSales: salesArr, revenueData: revData,
         topProducts: tops, lowStock: lowSt, outOfStock: outOf })
 
@@ -369,6 +375,7 @@ export default function DashboardPage() {
       {/* Metric cards */}
       <MetricCards
         todayRevenue={todayRevenue}
+        todayCash={todayCash}
         todaySalesCount={todaySalesCount}
         lowStockCount={lowStockProducts.length + outOfStockProducts.length}
         outstandingDebt={outstandingDebt}

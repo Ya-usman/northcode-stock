@@ -1,13 +1,14 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { TrendingUp, ShoppingCart, AlertTriangle, CreditCard } from 'lucide-react'
+import { TrendingUp, ShoppingCart, AlertTriangle, CreditCard, Wallet } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { useTranslations } from 'next-intl'
 import { useCurrency } from '@/lib/hooks/use-currency'
 
 interface MetricCardsProps {
   todayRevenue: number
+  todayCash: number
   todaySalesCount: number
   lowStockCount: number
   outstandingDebt: number
@@ -24,7 +25,7 @@ const item = {
   show: { opacity: 1, y: 0 },
 }
 
-export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outstandingDebt, role, isCashier }: MetricCardsProps) {
+export function MetricCards({ todayRevenue, todayCash, todaySalesCount, lowStockCount, outstandingDebt, role, isCashier }: MetricCardsProps) {
   const t = useTranslations('dashboard')
   const { fmt, symbol } = useCurrency()
   const compact = (n: number) => {
@@ -42,6 +43,15 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
       color: 'text-green-600',
       bg: 'bg-green-50',
       show: true,
+    },
+    {
+      title: t('today_cash'),
+      value: role === 'viewer' ? '—' : compact(todayCash),
+      subValue: role !== 'viewer' ? t('today_cash_sub') : undefined,
+      icon: Wallet,
+      color: 'text-emerald-600',
+      bg: 'bg-emerald-50',
+      show: !isCashier && role !== 'viewer',
     },
     {
       title: t('sales_count'),

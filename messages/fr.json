@@ -56,6 +56,8 @@
     "view_all": "Voir tout",
     "all_shops": "Toutes les boutiques",
     "active_shop": "Boutique active",
+    "today_cash": "Encaissements",
+    "today_cash_sub": "Ventes + remboursements",
     "my_sales_today": "Mes ventes du jour",
     "transactions_today": "{count} transaction(s) aujourd'hui",
     "all_stocked": "Tout en stock",

@@ -56,6 +56,8 @@
     "view_all": "View All",
     "all_shops": "All Shops",
     "active_shop": "Active Shop",
+    "today_cash": "Cash Received",
+    "today_cash_sub": "Sales + repayments",
     "my_sales_today": "My Sales Today",
     "transactions_today": "{count} transaction(s) today",
     "all_stocked": "All stocked",
