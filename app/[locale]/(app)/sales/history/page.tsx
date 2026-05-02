@@ -67,8 +67,10 @@ export default function SalesHistoryPage() {
   const { fmt: formatNaira } = useCurrency()
   const { toast } = useToast()
 
+  const [view, setView] = useState<'sales' | 'repayments'>('sales')
   const [sales, setSales] = useState<Sale[]>([])
   const [cashierMap, setCashierMap] = useState<Record<string, string>>({})
+  const [repayments, setRepayments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [dateFilter, setDateFilter] = useState('today')
@@ -91,18 +93,23 @@ export default function SalesHistoryPage() {
   const isOwner = profile?.role === 'owner' || profile?.role === 'super_admin'
   const isCashier = profile?.role === 'cashier'
 
-  const fetchSales = async () => {
-    if (!shopId) return
-    setLoading(true)
-
+  const getDateBounds = () => {
     const now = new Date()
-    let start: Date, end: Date = endOfDay(now)
+    const end = endOfDay(now)
+    let start: Date
     switch (dateFilter) {
       case 'today': start = startOfDay(now); break
       case 'week': start = startOfWeek(now); break
       case 'month': start = startOfMonth(now); break
       default: start = subDays(now, 30)
     }
+    return { start, end }
+  }
+
+  const fetchSales = async () => {
+    if (!shopId) return
+    setLoading(true)
+    const { start, end } = getDateBounds()
 
     let query = supabase
       .from('sales')
@@ -121,7 +128,6 @@ export default function SalesHistoryPage() {
     const salesData = (data || []) as Sale[]
     setSales(salesData)
 
-    // Fetch cashier names
     const ids = Array.from(new Set(salesData.map((s: any) => s.cashier_id).filter(Boolean))) as string[]
     if (ids.length > 0) {
       const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', ids)
@@ -134,7 +140,29 @@ export default function SalesHistoryPage() {
     setLoading(false)
   }
 
-  useEffect(() => { fetchSales() }, [shopId, dateFilter, methodFilter, statusFilter, saleStatusFilter])
+  const fetchRepayments = async () => {
+    if (!shopId) return
+    setLoading(true)
+    const { start, end } = getDateBounds()
+
+    const { data } = await supabase
+      .from('payments')
+      .select('id, amount, paid_at, method, sales!inner(shop_id, sale_number, customers(name))')
+      .eq('sales.shop_id', shopId)
+      .gte('paid_at', start.toISOString())
+      .lte('paid_at', end.toISOString())
+      .order('paid_at', { ascending: false })
+
+    setRepayments(
+      (data || []).filter((p: any) => p.sales?.shop_id === shopId)
+    )
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    if (view === 'sales') fetchSales()
+    else fetchRepayments()
+  }, [shopId, dateFilter, methodFilter, statusFilter, saleStatusFilter, view])
 
   // Refresh when tab regains focus (e.g. after recording a payment on the debts page)
   useEffect(() => {
@@ -203,6 +231,22 @@ export default function SalesHistoryPage() {
 
   return (
     <div className="space-y-4">
+      {/* View toggle */}
+      <div className="flex gap-1 rounded-lg border bg-muted/30 p-1 w-fit">
+        <button
+          onClick={() => setView('sales')}
+          className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${view === 'sales' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+        >
+          {t('sales.sales_tab')}
+        </button>
+        <button
+          onClick={() => setView('repayments')}
+          className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${view === 'repayments' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+        >
+          ↩ {t('sales.repayments_tab')}
+        </button>
+      </div>
+
       {/* Filters row */}
       <div className="flex flex-wrap gap-2">
         <div className="relative flex-1 min-w-[160px]">
@@ -271,8 +315,57 @@ export default function SalesHistoryPage() {
         )}
       </div>
 
-      {/* Summary */}
-      {isOwner && (
+      {/* ── Repayments view ─────────────────────────────────── */}
+      {view === 'repayments' && (
+        <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+          {loading ? (
+            <div className="p-4 space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
+          ) : repayments.length === 0 ? (
+            <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
+              {t('sales.no_repayments')}
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('sales.customer')}</TableHead>
+                  <TableHead className="hidden sm:table-cell">{t('sales.sale_number')}</TableHead>
+                  <TableHead className="hidden sm:table-cell">{t('sales.date')}</TableHead>
+                  <TableHead>{t('payment.method')}</TableHead>
+                  <TableHead className="text-right">{t('sales.total')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {repayments.map((p: any) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-medium text-sm">
+                      <span className="text-emerald-600 dark:text-emerald-400 mr-1.5">↩</span>
+                      {p.sales?.customers?.name || '—'}
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell font-mono text-xs text-northcode-blue dark:text-blue-400">
+                      #{p.sales?.sale_number}
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
+                      {format(new Date(p.paid_at), 'dd MMM · HH:mm')}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-[10px] px-1.5 border-emerald-300 text-emerald-600 dark:text-emerald-400">
+                        {t(`payment.${p.method}` as any) || p.method}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right font-semibold text-emerald-600 dark:text-emerald-400">
+                      +{formatNaira(p.amount)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+      )}
+
+      {/* ── Sales view ──────────────────────────────────────── */}
+      {view === 'sales' && isOwner && (
         <div className="flex gap-4 text-sm flex-wrap">
           <span className="text-muted-foreground">
             {filtered.filter(s => (s.sale_status || 'active') === 'active').length} {t('sales.sales_count_label')} ·{' '}
@@ -287,7 +380,7 @@ export default function SalesHistoryPage() {
       )}
 
       {/* Table */}
-      <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+      {view === 'sales' && <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
         {loading ? (
           <div className="p-4 space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
         ) : filtered.length === 0 ? (
@@ -427,7 +520,7 @@ export default function SalesHistoryPage() {
             </TableBody>
           </Table>
         )}
-      </div>
+      </div>}
 
       {/* Action dialog */}
       <Dialog open={!!dialog} onOpenChange={open => !open && setDialog(null)}>

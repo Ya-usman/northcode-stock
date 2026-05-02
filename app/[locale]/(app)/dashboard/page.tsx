@@ -8,7 +8,7 @@ import { useDashboardRealtime } from '@/lib/hooks/use-realtime'
 import { MetricCards } from '@/components/dashboard/metric-cards'
 import { RevenueChart } from '@/components/dashboard/revenue-chart'
 import { TopProductsChart } from '@/components/dashboard/top-products-chart'
-import { RecentSalesFeed } from '@/components/dashboard/recent-sales-feed'
+import { RecentSalesFeed, type RepaymentFeedItem, type FeedItem } from '@/components/dashboard/recent-sales-feed'
 import { StockAlerts } from '@/components/dashboard/stock-alerts'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
@@ -25,10 +25,10 @@ const supabase = createClient() as any
 const DASH_CACHE_KEY = 'dashboard_cache_v1'
 interface DashCache {
   shopKey: string
-  todayRevenue: number; todayCash: number; todaySalesCount: number; outstandingDebt: number
+  todayRevenue: number; todaySalesCount: number; outstandingDebt: number
   revenueData: RevenueDataPoint[]; topProducts: TopProduct[]
   lowStock: Product[]; outOfStock: Product[]
-  recentSales: Sale[]
+  recentSales: Sale[]; repaymentItems: RepaymentFeedItem[]
   savedAt: number
 }
 function readDashCache(shopKey: string): DashCache | null {
@@ -61,8 +61,8 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false)
 
   const [todayRevenue, setTodayRevenue] = useState(0)
-  const [todayCash, setTodayCash] = useState(0)
   const [todaySalesCount, setTodaySalesCount] = useState(0)
+  const [repaymentFeed, setRepaymentFeed] = useState<RepaymentFeedItem[]>([])
   const [outstandingDebt, setOutstandingDebt] = useState(0)
   const [recentSales, setRecentSales] = useState<Sale[]>([])
   const [revenueData, setRevenueData] = useState<RevenueDataPoint[]>([])
@@ -83,14 +83,14 @@ export default function DashboardPage() {
   const loadingRef = useRef(false)
 
   const applyDashData = useCallback((
-    salesCount: number, revenue: number, cash: number, debt: number,
-    sales: Sale[], revData: RevenueDataPoint[], tops: TopProduct[],
+    salesCount: number, revenue: number, debt: number,
+    sales: Sale[], repayments: RepaymentFeedItem[], revData: RevenueDataPoint[], tops: TopProduct[],
     low: Product[], out: Product[]
   ) => {
     setTodaySalesCount(salesCount)
     setTodayRevenue(revenue)
-    setTodayCash(cash)
     setRecentSales(sales)
+    setRepaymentFeed(repayments)
     setOutstandingDebt(debt)
     setRevenueData(revData)
     setTopProducts(tops)
@@ -111,8 +111,8 @@ export default function DashboardPage() {
     // ── Serve cache immediately, then refresh in background ────────
     const cached = readDashCache(shopKey)
     if (cached && !quiet) {
-      applyDashData(cached.todaySalesCount, cached.todayRevenue, cached.todayCash ?? 0, cached.outstandingDebt,
-        cached.recentSales, cached.revenueData, cached.topProducts, cached.lowStock, cached.outOfStock)
+      applyDashData(cached.todaySalesCount, cached.todayRevenue, cached.outstandingDebt,
+        cached.recentSales, cached.repaymentItems ?? [], cached.revenueData, cached.topProducts, cached.lowStock, cached.outOfStock)
       setFirstLoad(false)
       // Still fetch fresh data in background — don't block render
     }
@@ -133,6 +133,7 @@ export default function DashboardPage() {
         { data: debtData },
         { data: weekSales },
         { data: stockData },
+        { data: todayPaymentsRaw },
         paymentsRes,
       ] = await Promise.all([
         // Today's sales — cashier sees only their own, owner sees all
@@ -173,7 +174,15 @@ export default function DashboardPage() {
           .lte('quantity', shop?.low_stock_threshold || 10)
           .order('quantity', { ascending: true }),
 
-        // Actual cash received (sales + debt repayments) via admin route
+        // Today's debt repayments (payments table)
+        supabase
+          .from('payments')
+          .select('id, amount, paid_at, method, sales!inner(shop_id, customers(name))')
+          .gte('paid_at', todayStart)
+          .lte('paid_at', todayEnd)
+          .order('paid_at', { ascending: false }),
+
+        // Actual cash received via admin route (for weekly chart)
         fetch(`/api/dashboard/payments-today?shop_ids=${shopIds.join(',')}&start=${encodeURIComponent(todayStart)}&end=${encodeURIComponent(todayEnd)}&week_start=${encodeURIComponent(weekStartISO)}`),
       ])
 
@@ -192,10 +201,18 @@ export default function DashboardPage() {
 
       // Revenue = face value of all sales created today
       const revenue = salesArr.reduce((s, sale: any) => s + Number(sale.total), 0)
-      // Cash received = actual payments collected today (sales + debt repayments)
-      const cash = paymentsApiOk
-        ? paymentsData.todayTotal
-        : salesArr.reduce((s, sale: any) => s + Number(sale.amount_paid), 0)
+
+      // Build repayment feed items
+      const repaymentItems: RepaymentFeedItem[] = (todayPaymentsRaw || [])
+        .filter((p: any) => shopIds.includes(p.sales?.shop_id))
+        .map((p: any) => ({
+          type: 'repayment' as const,
+          id: p.id,
+          amount: Number(p.amount),
+          paid_at: p.paid_at,
+          method: p.method,
+          customerName: p.sales?.customers?.name || '—',
+        }))
 
       const last7 = Array.from({ length: 7 }, (_, i) => subDays(today, 6 - i))
       const dayMap: Record<string, { revenue: number; sales: number }> = {}
@@ -233,12 +250,11 @@ export default function DashboardPage() {
       })
       const tops = Object.values(totals).sort((a, b) => b.revenue - a.revenue).slice(0, 5)
 
-      applyDashData(salesCount, revenue, cash, debt, salesArr, revData, tops, lowSt, outOf)
+      applyDashData(salesCount, revenue, debt, salesArr, repaymentItems, revData, tops, lowSt, outOf)
 
-      // Persist to cache for next reload
-      writeDashCache({ shopKey, todaySalesCount: salesCount, todayRevenue: revenue, todayCash: cash,
-        outstandingDebt: debt, recentSales: salesArr, revenueData: revData,
-        topProducts: tops, lowStock: lowSt, outOfStock: outOf })
+      writeDashCache({ shopKey, todaySalesCount: salesCount, todayRevenue: revenue,
+        outstandingDebt: debt, recentSales: salesArr, repaymentItems,
+        revenueData: revData, topProducts: tops, lowStock: lowSt, outOfStock: outOf })
 
     } finally {
       loadingRef.current = false
@@ -278,6 +294,26 @@ export default function DashboardPage() {
           toast({ title: `Nouvelle vente: ${formatNaira(sale.total)}`, description: `#${sale.sale_number}`, variant: 'success' })
         }
       }
+    },
+    onPaymentUpdate: async (payment: any) => {
+      try {
+        const { data: sale } = await supabase
+          .from('sales')
+          .select('shop_id, customers(name)')
+          .eq('id', payment.sale_id)
+          .single()
+        if (sale && shopIds.includes(sale.shop_id)) {
+          const item: RepaymentFeedItem = {
+            type: 'repayment',
+            id: payment.id,
+            amount: Number(payment.amount),
+            paid_at: payment.paid_at || new Date().toISOString(),
+            method: payment.method,
+            customerName: (sale as any).customers?.name || '—',
+          }
+          setRepaymentFeed(prev => [item, ...prev])
+        }
+      } catch { /* ignore */ }
     },
     onProductUpdate: (product) => {
       const threshold = shop?.low_stock_threshold || 10
@@ -375,7 +411,6 @@ export default function DashboardPage() {
       {/* Metric cards */}
       <MetricCards
         todayRevenue={todayRevenue}
-        todayCash={todayCash}
         todaySalesCount={todaySalesCount}
         lowStockCount={lowStockProducts.length + outOfStockProducts.length}
         outstandingDebt={outstandingDebt}
@@ -396,7 +431,17 @@ export default function DashboardPage() {
 
       {/* Recent sales */}
       {(profile?.role === 'owner' || profile?.role === 'viewer') && (
-        <RecentSalesFeed sales={recentSales} role={profile?.role || 'viewer'} />
+        <RecentSalesFeed
+          items={[
+            ...recentSales.map(s => ({ ...s, type: 'sale' as const })),
+            ...repaymentFeed,
+          ].sort((a, b) => {
+            const tA = a.type === 'repayment' ? a.paid_at : (a as Sale).created_at
+            const tB = b.type === 'repayment' ? b.paid_at : (b as Sale).created_at
+            return new Date(tB).getTime() - new Date(tA).getTime()
+          })}
+          role={profile?.role || 'viewer'}
+        />
       )}
     </div>
   )
