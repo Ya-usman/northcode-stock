@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import {
   LayoutDashboard, ShoppingCart, Package, BarChart2, Settings,
   Users, Truck, CreditCard, History, LogOut, ChevronRight, Zap,
-  Store, ChevronDown, Tag,
+  Store, ChevronDown, Tag, Check, Layers,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -27,7 +27,7 @@ interface SidebarProps {
 export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps) {
   const t = useTranslations('nav')
   const pathname = usePathname()
-  const { userShops, switchShop } = useAuthContext()
+  const { userShops, switchShop, dashboardShopFilter, setDashboardShopFilter } = useAuthContext()
   const [shopPickerOpen, setShopPickerOpen] = useState(false)
 
   const navItems = [
@@ -102,11 +102,20 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
           )}
         >
           <div className="h-5 w-5 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-            <Store className="h-3 w-3 text-white" />
+            {dashboardShopFilter === null && userShops.length > 1
+              ? <Layers className="h-3 w-3 text-white" />
+              : <Store className="h-3 w-3 text-white" />
+            }
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-white truncate leading-none">{shop?.name}</p>
-            <p className="text-[10px] text-blue-200 truncate mt-0.5">{shop?.city}</p>
+            {dashboardShopFilter === null && userShops.length > 1 ? (
+              <p className="text-xs font-semibold text-blue-200 italic truncate leading-none">Toutes les boutiques</p>
+            ) : (
+              <>
+                <p className="text-xs font-semibold text-white truncate leading-none">{shop?.name}</p>
+                <p className="text-[10px] text-blue-200 truncate mt-0.5">{shop?.city}</p>
+              </>
+            )}
           </div>
           {userShops.length > 1 && (
             <ChevronDown className={cn('h-3.5 w-3.5 text-blue-200 flex-shrink-0 transition-transform', shopPickerOpen && 'rotate-180')} />
@@ -115,19 +124,34 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
 
         {shopPickerOpen && userShops.length > 1 && (
           <div className="px-3 pb-3 space-y-1 border-t border-white/10 pt-2">
+            {/* All shops option */}
+            <button
+              onClick={() => { setDashboardShopFilter(null); setShopPickerOpen(false) }}
+              className={cn(
+                'w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors',
+                dashboardShopFilter === null
+                  ? 'bg-white/20 text-white font-medium'
+                  : 'hover:bg-white/10 text-blue-200 hover:text-white'
+              )}
+            >
+              <Layers className="h-3.5 w-3.5 flex-shrink-0" />
+              <span className="truncate italic">Toutes les boutiques</span>
+              {dashboardShopFilter === null && <Check className="ml-auto h-3.5 w-3.5 flex-shrink-0" />}
+            </button>
             {userShops.map(s => (
               <button
                 key={s.id}
-                onClick={() => { switchShop(s.id); setShopPickerOpen(false) }}
+                onClick={() => { setDashboardShopFilter(s.id); switchShop(s.id); setShopPickerOpen(false) }}
                 className={cn(
                   'w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors',
-                  s.id === shop?.id
+                  s.id === dashboardShopFilter
                     ? 'bg-white/20 text-white font-medium'
                     : 'hover:bg-white/10 text-blue-200 hover:text-white'
                 )}
               >
                 <Store className="h-3.5 w-3.5 flex-shrink-0" />
                 <span className="truncate">{s.name}</span>
+                {s.id === dashboardShopFilter && <Check className="ml-auto h-3.5 w-3.5 flex-shrink-0" />}
               </button>
             ))}
           </div>

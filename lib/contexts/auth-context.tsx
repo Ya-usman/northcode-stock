@@ -20,6 +20,8 @@ interface AuthContextValue extends AuthState {
   signOut: () => Promise<void>
   refreshShop: () => Promise<void>
   switchShop: (shopId: string) => void
+  dashboardShopFilter: string | null
+  setDashboardShopFilter: (id: string | null) => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -125,6 +127,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [memberships, setMemberships] = useState<MemberRow[]>([])
   const [activeShopId, setActiveShopId] = useState<string | null>(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('active_shop_id')
+    return null
+  })
+  const [dashboardShopFilter, setDashboardShopFilterState] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('dashboard_shop_filter') ?? null
     return null
   })
 
@@ -281,6 +287,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [applyUserData])
 
+  const setDashboardShopFilter = useCallback((id: string | null) => {
+    setDashboardShopFilterState(id)
+    if (id === null) localStorage.removeItem('dashboard_shop_filter')
+    else localStorage.setItem('dashboard_shop_filter', id)
+  }, [])
+
   const switchShop = useCallback((shopId: string) => {
     setActiveShopId(shopId)
     localStorage.setItem('active_shop_id', shopId)
@@ -342,7 +354,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     refreshShop,
     switchShop,
-  }), [state, signOut, refreshShop, switchShop])
+    dashboardShopFilter,
+    setDashboardShopFilter,
+  }), [state, signOut, refreshShop, switchShop, dashboardShopFilter, setDashboardShopFilter])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

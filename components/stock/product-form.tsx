@@ -1,10 +1,11 @@
 'use client'
 
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { NumericInput } from '@/components/ui/numeric-input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DialogFooter } from '@/components/ui/dialog'
@@ -116,7 +117,9 @@ export function ProductForm({
               {t('products.buying_price')}{' '}
               <span className="text-muted-foreground text-xs">({currency})</span>
             </Label>
-            <Input type="number" min={0} step="any" {...form.register('buying_price')} placeholder="0" />
+            <Controller control={form.control} name="buying_price" render={({ field }) => (
+              <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" />
+            )} />
             {form.formState.errors.buying_price && (
               <p className="text-xs text-destructive">{form.formState.errors.buying_price.message}</p>
             )}
@@ -128,7 +131,9 @@ export function ProductForm({
             {t('products.selling_price')} *{' '}
             <span className="text-muted-foreground text-xs">({currency})</span>
           </Label>
-          <Input type="number" min={0} step="any" {...form.register('selling_price')} placeholder="0" />
+          <Controller control={form.control} name="selling_price" render={({ field }) => (
+            <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" />
+          )} />
           {form.formState.errors.selling_price && (
             <p className="text-xs text-destructive">{form.formState.errors.selling_price.message}</p>
           )}
@@ -137,7 +142,9 @@ export function ProductForm({
         {!isEdit && (
           <div className="space-y-1">
             <Label>{t('products.quantity')} *</Label>
-            <Input type="number" min={0} {...form.register('quantity')} placeholder="0" />
+            <Controller control={form.control} name="quantity" render={({ field }) => (
+              <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" />
+            )} />
             {form.formState.errors.quantity && (
               <p className="text-xs text-destructive">{form.formState.errors.quantity.message}</p>
             )}
@@ -149,7 +156,9 @@ export function ProductForm({
             {t('products.low_stock_threshold')}{' '}
             <span className="text-muted-foreground text-xs font-normal">({t('form.alert_label')})</span>
           </Label>
-          <Input type="number" min={0} {...form.register('low_stock_threshold')} placeholder="10" />
+          <Controller control={form.control} name="low_stock_threshold" render={({ field }) => (
+            <NumericInput value={field.value ?? 0} onChange={field.onChange} onBlur={field.onBlur} placeholder="10" />
+          )} />
         </div>
 
       </div>

@@ -49,11 +49,10 @@ function writeDashCache(data: Omit<DashCache, 'savedAt'>) {
 export default function DashboardPage() {
   const t = useTranslations()
   const locale = useLocale()
-  const { profile, shop, userShops } = useAuth()
+  const { profile, shop, userShops, dashboardShopFilter, setDashboardShopFilter } = useAuth()
   const { fmt: formatNaira } = useCurrency()
   const { toast } = useToast()
 
-  const [selectedShopId, setSelectedShopId] = useState<string | null>(null)
   const [shopPickerOpen, setShopPickerOpen] = useState(false)
 
   // firstLoad = show skeleton only when no cached data available
@@ -71,12 +70,12 @@ export default function DashboardPage() {
   const [outOfStockProducts, setOutOfStockProducts] = useState<Product[]>([])
 
   // Determine which shop IDs to query
-  const shopIds = selectedShopId
-    ? [selectedShopId]
+  const shopIds = dashboardShopFilter
+    ? [dashboardShopFilter]
     : userShops.map(s => s.id).filter(Boolean)
 
-  const activeShopLabel = selectedShopId
-    ? userShops.find(s => s.id === selectedShopId)?.name || t('nav.shops')
+  const activeShopLabel = dashboardShopFilter
+    ? userShops.find(s => s.id === dashboardShopFilter)?.name || t('nav.shops')
     : userShops.length > 1 ? t('dashboard.all_shops') : (shop?.name || t('nav.shops'))
 
   // Track in-flight request to avoid stale updates
@@ -375,26 +374,26 @@ export default function DashboardPage() {
                   <div className="fixed inset-0 z-10" onClick={() => setShopPickerOpen(false)} />
                   <div className="absolute right-0 top-full z-20 mt-1 w-52 rounded-xl border bg-card shadow-lg p-1.5">
                     <button
-                      onClick={() => { setSelectedShopId(null); setShopPickerOpen(false) }}
+                      onClick={() => { setDashboardShopFilter(null); setShopPickerOpen(false) }}
                       className={cn(
                         'w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors',
-                        !selectedShopId ? 'bg-northcode-blue-muted dark:bg-blue-950/40 text-northcode-blue dark:text-blue-400 font-medium' : 'hover:bg-accent text-foreground/80'
+                        !dashboardShopFilter ? 'bg-northcode-blue-muted dark:bg-blue-950/40 text-northcode-blue dark:text-blue-400 font-medium' : 'hover:bg-accent text-foreground/80'
                       )}
                     >
                       <span>{t('dashboard.all_shops')}</span>
-                      {!selectedShopId && <Check className="h-3.5 w-3.5" />}
+                      {!dashboardShopFilter && <Check className="h-3.5 w-3.5" />}
                     </button>
                     {userShops.map(s => (
                       <button
                         key={s.id}
-                        onClick={() => { setSelectedShopId(s.id); setShopPickerOpen(false) }}
+                        onClick={() => { setDashboardShopFilter(s.id); setShopPickerOpen(false) }}
                         className={cn(
                           'w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors',
-                          selectedShopId === s.id ? 'bg-northcode-blue-muted dark:bg-blue-950/40 text-northcode-blue dark:text-blue-400 font-medium' : 'hover:bg-accent text-foreground/80'
+                          dashboardShopFilter === s.id ? 'bg-northcode-blue-muted dark:bg-blue-950/40 text-northcode-blue dark:text-blue-400 font-medium' : 'hover:bg-accent text-foreground/80'
                         )}
                       >
                         <span className="truncate">{s.name}</span>
-                        {selectedShopId === s.id && <Check className="h-3.5 w-3.5" />}
+                        {dashboardShopFilter === s.id && <Check className="h-3.5 w-3.5" />}
                       </button>
                     ))}
                   </div>
