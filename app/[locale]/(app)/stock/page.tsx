@@ -31,7 +31,8 @@ function StockBadge({ quantity, threshold }: { quantity: number; threshold: numb
 
 export default function StockPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations()
-  const { profile, shop } = useAuth()
+  const { profile, shop, roleInActiveShop } = useAuth()
+  const effectiveRole = roleInActiveShop ?? profile?.role
   const { fmt: formatNaira } = useCurrency()
   const supabase = createClient()
   const { toast } = useToast()
@@ -228,7 +229,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     categories,
     suppliers,
     currency: shop?.currency || '₦',
-    isOwner: profile?.role === 'owner',
+    isOwner: effectiveRole === 'owner' || effectiveRole === 'super_admin',
     saving,
   }
 
@@ -248,7 +249,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          {(profile?.role === 'owner' || profile?.role === 'stock_manager') && (
+          {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin') && (
             <Button variant="outline" size="sm" className="h-9 px-2" onClick={() => setShowCatModal(true)} title={t('products.manage_categories')}>
               <Settings2 className="h-4 w-4" />
             </Button>
@@ -266,7 +267,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         <Button variant="outline" size="sm" onClick={exportCSV} className="h-9 gap-1">
           <FileDown className="h-3.5 w-3.5" /> CSV
         </Button>
-        {(profile?.role === 'owner' || profile?.role === 'stock_manager' || profile?.role === 'cashier') && (
+        {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'cashier' || effectiveRole === 'super_admin') && (
           <Button
             className="h-9 gap-1 bg-northcode-blue hover:bg-northcode-blue-light dark:bg-blue-500"
             size="sm"
@@ -320,7 +321,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-bold text-northcode-blue dark:text-blue-400">{formatNaira(product.selling_price)}</span>
-                  {profile?.role === 'owner' && (
+                  {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
                     <span className="text-xs text-muted-foreground">{t('products.cost_label')}: {formatNaira(product.buying_price)}</span>
                   )}
                 </div>
@@ -346,7 +347,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                       <ArrowDown className="h-3 w-3 mr-1" />
                       {t('actions.restock')}
                     </Button>
-                    {(profile?.role === 'owner' || profile?.role === 'stock_manager') && (
+                    {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin') && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -463,7 +464,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 </SelectContent>
               </Select>
             </div>
-            {profile?.role === 'owner' && (
+            {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
               <div className="space-y-1">
                 <Label>{t('products.restock_buying_price')}</Label>
                 <Input type="number" {...restockForm.register('buying_price')} placeholder={String(restockProduct?.buying_price)} />

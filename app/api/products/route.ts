@@ -22,6 +22,7 @@ async function checkShopRole(supabase: any, userId: string, shopId: string) {
   if (member?.role) return member.role
   const { data: profile } = await supabase
     .from('profiles').select('role, shop_id').eq('id', userId).single()
+  if (profile?.role === 'super_admin') return 'super_admin'
   if (profile?.shop_id === shopId) return profile.role
   return null
 }

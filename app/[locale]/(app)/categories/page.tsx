@@ -17,7 +17,7 @@ import type { Category, Product } from '@/lib/types/database'
 
 export default function CategoriesPage() {
   const t = useTranslations()
-  const { shop, profile } = useAuthContext()
+  const { shop, profile, roleInActiveShop } = useAuthContext()
   const supabase = createClient()
   const { toast } = useToast()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -104,7 +104,8 @@ export default function CategoriesPage() {
     }
   }
 
-  const canEdit = profile?.role === 'owner' || profile?.role === 'stock_manager'
+  const effectiveRole = roleInActiveShop ?? profile?.role
+  const canEdit = effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin'
   const filtered = categories.filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
 
   // Products without any category
