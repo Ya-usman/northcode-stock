@@ -31,7 +31,7 @@ function StockBadge({ quantity, threshold }: { quantity: number; threshold: numb
 
 export default function StockPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations()
-  const { profile, shop, roleInActiveShop } = useAuth()
+  const { profile, shop, roleInActiveShop, effectiveShopIds } = useAuth()
   const effectiveRole = roleInActiveShop ?? profile?.role
   const { fmt: formatNaira } = useCurrency()
   const supabase = createClient()
@@ -56,14 +56,14 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const restockForm = useForm<RestockFormData>({ resolver: zodResolver(restockSchema) })
 
   const fetchProducts = async () => {
-    if (!shop?.id) return
+    if (!effectiveShopIds.length) return
     const [{ data: prods }, { data: cats }, { data: sups }] = await Promise.all([
       supabase.from('products')
         .select('*, categories(name), suppliers(name)')
-        .eq('shop_id', shop.id)
+        .in('shop_id', effectiveShopIds)
         .order('name'),
-      supabase.from('categories').select('*').eq('shop_id', shop.id).order('name'),
-      supabase.from('suppliers').select('*').eq('shop_id', shop.id).order('name'),
+      supabase.from('categories').select('*').in('shop_id', effectiveShopIds).order('name'),
+      supabase.from('suppliers').select('*').in('shop_id', effectiveShopIds).order('name'),
     ])
     setProducts((prods || []) as unknown as Product[])
     setCategories((cats || []) as Category[])
@@ -71,7 +71,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     setLoading(false)
   }
 
-  useEffect(() => { fetchProducts() }, [shop?.id])
+  useEffect(() => { fetchProducts() }, [effectiveShopIds.join(',')])
 
   const filtered = products
     .filter(p => {
@@ -226,8 +226,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   }
 
   const productFormProps = {
-    categories,
-    suppliers,
+    categories: categories.filter((c: any) => !shop?.id || c.shop_id === shop.id),
+    suppliers: suppliers.filter((s: any) => !shop?.id || s.shop_id === shop.id),
     currency: shop?.currency || '₦',
     isOwner: effectiveRole === 'owner' || effectiveRole === 'super_admin',
     saving,

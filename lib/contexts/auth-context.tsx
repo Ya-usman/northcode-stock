@@ -22,6 +22,7 @@ interface AuthContextValue extends AuthState {
   switchShop: (shopId: string) => void
   dashboardShopFilter: string | null
   setDashboardShopFilter: (id: string | null) => void
+  effectiveShopIds: string[]
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -347,6 +348,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.location.href = '/en/login'
   }, [])
 
+  const effectiveShopIds = useMemo<string[]>(() => {
+    if (dashboardShopFilter === null) return state.userShops.map(s => s.id)
+    return [dashboardShopFilter]
+  }, [dashboardShopFilter, state.userShops])
+
   const value = useMemo<AuthContextValue>(() => ({
     ...state,
     shop: state.activeShop,
@@ -356,7 +362,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     switchShop,
     dashboardShopFilter,
     setDashboardShopFilter,
-  }), [state, signOut, refreshShop, switchShop, dashboardShopFilter, setDashboardShopFilter])
+    effectiveShopIds,
+  }), [state, signOut, refreshShop, switchShop, dashboardShopFilter, setDashboardShopFilter, effectiveShopIds])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

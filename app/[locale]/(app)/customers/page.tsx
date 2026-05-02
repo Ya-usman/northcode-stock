@@ -20,7 +20,7 @@ import type { Customer } from '@/lib/types/database'
 
 export default function CustomersPage() {
   const t = useTranslations()
-  const { profile, shop } = useAuth()
+  const { profile, shop, effectiveShopIds } = useAuth()
   const { fmt: formatNaira } = useCurrency()
   const supabase = createClient()
   const { toast } = useToast()
@@ -35,14 +35,14 @@ export default function CustomersPage() {
   const form = useForm<CustomerFormData>({ resolver: zodResolver(customerSchema) })
 
   const fetchCustomers = async () => {
-    if (!shop?.id) return
+    if (!effectiveShopIds.length) return
     const { data } = await supabase
-      .from('customers').select('*').eq('shop_id', shop.id).order('name')
+      .from('customers').select('*').in('shop_id', effectiveShopIds).order('name')
     setCustomers((data || []) as Customer[])
     setLoading(false)
   }
 
-  useEffect(() => { fetchCustomers() }, [shop?.id])
+  useEffect(() => { fetchCustomers() }, [effectiveShopIds.join(',')])
 
   const filtered = customers.filter(c => {
     if (!search) return true

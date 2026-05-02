@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import {
   Search, FileDown, ChevronDown, ChevronUp,
-  XCircle, CheckCircle2, Store, Printer,
+  XCircle, CheckCircle2, Printer,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -33,7 +33,7 @@ type DialogType = 'cancel' | 'validate'
 
 export default function SalesHistoryPage() {
   const t = useTranslations()
-  const { profile, shop, userShops } = useAuth()
+  const { profile, shop, effectiveShopIds } = useAuth()
 
   const receiptLabels = {
     receipt: t('receipt.receipt'),
@@ -79,9 +79,7 @@ export default function SalesHistoryPage() {
   const [saleStatusFilter, setSaleStatusFilter] = useState<'all' | 'active' | 'cancelled'>('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
-  // Multi-shop filter for owners
-  const [selectedShopId, setSelectedShopId] = useState<string | null>(null)
-  const shopId = selectedShopId || shop?.id
+  const shopId = effectiveShopIds[0]
 
   // Dialog state
   const [dialog, setDialog] = useState<{ type: DialogType; sale: Sale } | null>(null)
@@ -107,14 +105,14 @@ export default function SalesHistoryPage() {
   }
 
   const fetchSales = async () => {
-    if (!shopId) return
+    if (!effectiveShopIds.length) return
     setLoading(true)
     const { start, end } = getDateBounds()
 
     let query = supabase
       .from('sales')
       .select('*, customers(name, phone), sale_items(product_name, quantity, unit_price, subtotal)')
-      .eq('shop_id', shopId)
+      .in('shop_id', effectiveShopIds)
       .gte('created_at', start.toISOString())
       .lte('created_at', end.toISOString())
       .order('created_at', { ascending: false })
@@ -141,35 +139,37 @@ export default function SalesHistoryPage() {
   }
 
   const fetchRepayments = async () => {
-    if (!shopId) return
+    if (!effectiveShopIds.length) return
     setLoading(true)
     const { start, end } = getDateBounds()
 
     const { data } = await supabase
       .from('payments')
       .select('id, amount, paid_at, method, sales!inner(shop_id, sale_number, customers(name))')
-      .eq('sales.shop_id', shopId)
+      .in('sales.shop_id', effectiveShopIds)
       .gte('paid_at', start.toISOString())
       .lte('paid_at', end.toISOString())
       .order('paid_at', { ascending: false })
 
     setRepayments(
-      (data || []).filter((p: any) => p.sales?.shop_id === shopId)
+      (data || []).filter((p: any) => effectiveShopIds.includes(p.sales?.shop_id))
     )
     setLoading(false)
   }
 
+  const shopKey = effectiveShopIds.join(',')
+
   useEffect(() => {
     if (view === 'sales') fetchSales()
     else fetchRepayments()
-  }, [shopId, dateFilter, methodFilter, statusFilter, saleStatusFilter, view])
+  }, [shopKey, dateFilter, methodFilter, statusFilter, saleStatusFilter, view])
 
   // Refresh when tab regains focus (e.g. after recording a payment on the debts page)
   useEffect(() => {
     const onFocus = () => { if (document.visibilityState === 'visible') fetchSales() }
     document.addEventListener('visibilitychange', onFocus)
     return () => document.removeEventListener('visibilitychange', onFocus)
-  }, [shopId, dateFilter, methodFilter, statusFilter, saleStatusFilter])
+  }, [shopKey, dateFilter, methodFilter, statusFilter, saleStatusFilter])
 
   const filtered = sales.filter(s => {
     if (!search) return true
@@ -253,20 +253,6 @@ export default function SalesHistoryPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('sales.search_history')} className="pl-9 h-9" />
         </div>
-
-        {/* Multi-shop selector for owners */}
-        {isOwner && userShops.length > 1 && (
-          <Select value={selectedShopId || 'current'} onValueChange={v => setSelectedShopId(v === 'current' ? null : v)}>
-            <SelectTrigger className="w-[150px] h-9">
-              <Store className="h-3.5 w-3.5 mr-1.5" />
-              <SelectValue placeholder="Boutique" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="current">{t('dashboard.active_shop')}</SelectItem>
-              {userShops.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        )}
 
         <Select value={dateFilter} onValueChange={setDateFilter}>
           <SelectTrigger className="w-[120px] h-9"><SelectValue /></SelectTrigger>

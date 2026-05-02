@@ -22,7 +22,7 @@ const PIE_COLORS = ['#60a5fa', '#D4AF37', '#16A34A', '#DC2626', '#a78bfa']
 
 export default function ReportsPage() {
   const t = useTranslations()
-  const { shop } = useAuth()
+  const { shop, effectiveShopIds } = useAuth()
   const { fmt: formatNaira } = useCurrency()
   const supabase = createClient() as any
 
@@ -53,7 +53,7 @@ export default function ReportsPage() {
   }
 
   const fetchReports = async () => {
-    if (!shop?.id) return
+    if (!effectiveShopIds.length) return
     setLoading(true)
     const { start, end } = getDateRange()
 
@@ -61,7 +61,7 @@ export default function ReportsPage() {
     const { data: salesRaw } = await supabase
       .from('sales')
       .select('id, total, payment_method, created_at, cashier_id')
-      .eq('shop_id', shop.id)
+      .in('shop_id', effectiveShopIds)
       .eq('sale_status', 'active')
       .gte('created_at', start)
       .lte('created_at', end)
@@ -124,7 +124,7 @@ export default function ReportsPage() {
     // Stock valuation
     const { data: allProducts } = await supabase
       .from('products').select('quantity, buying_price, selling_price')
-      .eq('shop_id', shop.id).eq('is_active', true)
+      .in('shop_id', effectiveShopIds).eq('is_active', true)
     const buyingValue = (allProducts || []).reduce((s: number, p: any) => s + Number(p.quantity) * Number(p.buying_price), 0)
     const sellingValue = (allProducts || []).reduce((s: number, p: any) => s + Number(p.quantity) * Number(p.selling_price), 0)
     setStockValuation({ buyingValue, sellingValue, potentialProfit: sellingValue - buyingValue })
@@ -153,7 +153,7 @@ export default function ReportsPage() {
     setLoading(false)
   }
 
-  useEffect(() => { fetchReports() }, [shop?.id, dateFilter])
+  useEffect(() => { fetchReports() }, [effectiveShopIds.join(','), dateFilter])
 
   const exportPDF = async () => {
     setExporting(true)

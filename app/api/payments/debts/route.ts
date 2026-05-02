@@ -3,13 +3,15 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-// GET /api/payments/debts?shop_id=xxx
+// GET /api/payments/debts?shop_ids=id1,id2  (or legacy ?shop_id=xxx)
 // Returns all customers with debt + their unpaid sales (bypasses RLS)
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const shop_id = searchParams.get('shop_id')
-    if (!shop_id) return NextResponse.json({ error: 'shop_id requis' }, { status: 400 })
+    const shopIdsParam = searchParams.get('shop_ids') || searchParams.get('shop_id')
+    if (!shopIdsParam) return NextResponse.json({ error: 'shop_ids requis' }, { status: 400 })
+    const shopIds = shopIdsParam.split(',').map(s => s.trim()).filter(Boolean)
+    if (!shopIds.length) return NextResponse.json({ error: 'shop_ids requis' }, { status: 400 })
 
     // Auth check
     const cookieStore = cookies()
@@ -22,43 +24,47 @@ export async function GET(request: Request) {
     const user = _sess?.user ?? null
     if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
-    // Verify caller has access to this shop
-    const { data: memberRow } = await supabase
+    // Verify caller has access to all requested shops
+    const { data: memberRows } = await supabase
       .from('shop_members')
-      .select('role')
-      .eq('shop_id', shop_id)
+      .select('shop_id, role')
+      .in('shop_id', shopIds)
       .eq('user_id', user.id)
       .eq('is_active', true)
-      .single()
 
-    let callerRole = memberRow?.role
-    if (!callerRole) {
+    const accessibleShopIds = (memberRows || []).map((m: any) => m.shop_id)
+
+    // Fallback: profile primary shop
+    if (accessibleShopIds.length < shopIds.length) {
       const { data: profile } = await supabase.from('profiles').select('role, shop_id').eq('id', user.id).single()
-      if ((profile as any)?.shop_id === shop_id) callerRole = (profile as any)?.role
+      for (const sid of shopIds) {
+        if (!accessibleShopIds.includes(sid) && (profile as any)?.shop_id === sid) {
+          accessibleShopIds.push(sid)
+        }
+      }
     }
-    if (!callerRole) return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+
+    const allowedIds = shopIds.filter(id => accessibleShopIds.includes(id))
+    if (!allowedIds.length) return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
 
     const admin = await createAdminClient() as any
 
-    // Customers with debt in this shop
+    // Customers with debt across all allowed shops
     const { data: customers, error: custErr } = await admin
       .from('customers')
       .select('*')
-      .eq('shop_id', shop_id)
+      .in('shop_id', allowedIds)
       .gt('total_debt', 0)
       .order('total_debt', { ascending: false })
 
     if (custErr) throw custErr
     if (!customers?.length) return NextResponse.json({ debtors: [] })
 
-    // Fetch unpaid sales for all customers in one query
-    // Filter by balance > 0 (not by payment_status) to catch credit sales that were
-    // incorrectly recorded as 'paid' but have amount_paid = 0 (legacy bug)
     const customerIds = customers.map((c: any) => c.id)
     const { data: allSales, error: salesErr } = await admin
       .from('sales')
       .select('id, sale_number, created_at, total, balance, amount_paid, payment_status, customer_id, cashier_id, sale_items(product_name, quantity, subtotal)')
-      .eq('shop_id', shop_id)
+      .in('shop_id', allowedIds)
       .in('customer_id', customerIds)
       .gt('balance', 0)
       .eq('sale_status', 'active')

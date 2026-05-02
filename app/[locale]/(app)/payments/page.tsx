@@ -71,7 +71,7 @@ const STATUS_VARIANTS: Record<string, 'destructive' | 'warning' | 'success'> = {
 
 export default function DettesPage() {
   const t = useTranslations()
-  const { shop, profile } = useAuth()
+  const { shop, profile, effectiveShopIds } = useAuth()
   const { fmt } = useCurrency()
   const { toast } = useToast()
 
@@ -97,11 +97,11 @@ export default function DettesPage() {
 
   // ── Fetch debtors ───────────────────────────────────────
   const fetchDebtors = async (quiet = false) => {
-    if (!shop?.id) return
+    if (!effectiveShopIds.length) return
     if (!quiet) setLoading(true)
     else setRefreshing(true)
     try {
-      const res = await fetch(`/api/payments/debts?shop_id=${shop.id}`)
+      const res = await fetch(`/api/payments/debts?shop_ids=${effectiveShopIds.join(',')}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setDebtors(data.debtors || [])
@@ -114,13 +114,15 @@ export default function DettesPage() {
     }
   }
 
-  useEffect(() => { fetchDebtors() }, [shop?.id])
+  const shopKey = effectiveShopIds.join(',')
+
+  useEffect(() => { fetchDebtors() }, [shopKey])
 
   useEffect(() => {
     const onVisible = () => { if (document.visibilityState === 'visible') fetchDebtors(true) }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [shop?.id])
+  }, [shopKey])
 
   const totalOutstanding = debtors.reduce((s, d) => s + d.totalDebt, 0)
 
