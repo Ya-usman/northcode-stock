@@ -22,7 +22,8 @@ const PIE_COLORS = ['#60a5fa', '#D4AF37', '#16A34A', '#DC2626', '#a78bfa']
 
 export default function ReportsPage() {
   const t = useTranslations()
-  const { shop, effectiveShopIds } = useAuth()
+  const { shop, effectiveShopIds, userShops } = useAuth()
+  const isMultiShop = effectiveShopIds.length > 1
   const { fmt: formatNaira } = useCurrency()
   const supabase = createClient() as any
 
@@ -33,7 +34,7 @@ export default function ReportsPage() {
   const [revenueByMethod, setRevenueByMethod] = useState<{ name: string; value: number }[]>([])
   const [topProducts, setTopProducts] = useState<{ name: string; qty: number; revenue: number }[]>([])
   const [stockValuation, setStockValuation] = useState({ buyingValue: 0, sellingValue: 0, potentialProfit: 0 })
-  const [cashierPerf, setCashierPerf] = useState<{ name: string; sales: number; revenue: number }[]>([])
+  const [cashierPerf, setCashierPerf] = useState<{ name: string; shopName?: string; sales: number; revenue: number }[]>([])
   const [totals, setTotals] = useState({ revenue: 0, profit: 0, sales: 0 })
 
   const getDateRange = () => {
@@ -60,12 +61,12 @@ export default function ReportsPage() {
     // Sales in period
     const { data: salesRaw } = await supabase
       .from('sales')
-      .select('id, total, payment_method, created_at, cashier_id')
+      .select('id, total, payment_method, created_at, cashier_id, shop_id')
       .in('shop_id', effectiveShopIds)
       .eq('sale_status', 'active')
       .gte('created_at', start)
       .lte('created_at', end)
-    const sales = (salesRaw || []) as Array<{ id: string; total: number; payment_method: string; created_at: string; cashier_id: string | null }>
+    const sales = (salesRaw || []) as Array<{ id: string; total: number; payment_method: string; created_at: string; cashier_id: string | null; shop_id: string }>
 
     // Revenue by method
     const byMethod: Record<string, number> = {}
@@ -130,19 +131,22 @@ export default function ReportsPage() {
     setStockValuation({ buyingValue, sellingValue, potentialProfit: sellingValue - buyingValue })
 
     // Cashier performance
-    const cashierMap: Record<string, { sales: number; revenue: number }> = {}
+    const cashierMap: Record<string, { sales: number; revenue: number; shopId: string }> = {}
     sales.forEach(s => {
       if (!s.cashier_id) return
-      if (!cashierMap[s.cashier_id]) cashierMap[s.cashier_id] = { sales: 0, revenue: 0 }
+      if (!cashierMap[s.cashier_id]) cashierMap[s.cashier_id] = { sales: 0, revenue: 0, shopId: s.shop_id }
       cashierMap[s.cashier_id].sales += 1
       cashierMap[s.cashier_id].revenue += Number(s.total)
     })
     const cashierIds = Object.keys(cashierMap)
     if (cashierIds.length > 0) {
       const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', cashierIds)
+      const shopNameMap: Record<string, string> = {}
+      userShops.forEach((s: any) => { shopNameMap[s.id] = s.name })
       setCashierPerf(
         cashierIds.map(id => ({
           name: (profiles || []).find((p: any) => p.id === id)?.full_name || 'Unknown',
+          shopName: shopNameMap[cashierMap[id].shopId],
           ...cashierMap[id],
         })).sort((a, b) => b.revenue - a.revenue)
       )
@@ -195,8 +199,13 @@ export default function ReportsPage() {
           },
           {
             title: t('reports.cashier_performance'),
-            headers: [t('reports.col_cashier'), t('reports.col_sales'), t('reports.col_revenue')],
-            rows: cashierPerf.map(c => [c.name, c.sales, formatNaira(c.revenue)]),
+            headers: isMultiShop
+              ? [t('reports.col_rank'), t('reports.col_cashier'), t('nav.shops'), t('reports.col_sales'), t('reports.col_revenue')]
+              : [t('reports.col_rank'), t('reports.col_cashier'), t('reports.col_sales'), t('reports.col_revenue')],
+            rows: cashierPerf.map((c, idx) => isMultiShop
+              ? [idx + 1, c.name, c.shopName || '', c.sales, formatNaira(c.revenue)]
+              : [idx + 1, c.name, c.sales, formatNaira(c.revenue)]
+            ),
           },
         ],
       })
@@ -350,15 +359,19 @@ export default function ReportsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-8">{t('reports.col_rank')}</TableHead>
                       <TableHead>{t('reports.col_cashier')}</TableHead>
+                      {isMultiShop && <TableHead className="text-muted-foreground">{t('nav.shops')}</TableHead>}
                       <TableHead className="text-right">{t('reports.col_sales')}</TableHead>
                       <TableHead className="text-right">{t('reports.col_revenue')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {cashierPerf.map(c => (
+                    {cashierPerf.map((c, idx) => (
                       <TableRow key={c.name}>
+                        <TableCell className="text-muted-foreground text-sm font-medium">{idx + 1}</TableCell>
                         <TableCell className="font-medium text-sm">{c.name}</TableCell>
+                        {isMultiShop && <TableCell className="text-xs text-muted-foreground">{c.shopName}</TableCell>}
                         <TableCell className="text-right">{c.sales}</TableCell>
                         <TableCell className="text-right font-medium text-northcode-blue dark:text-blue-400">{formatNaira(c.revenue)}</TableCell>
                       </TableRow>
