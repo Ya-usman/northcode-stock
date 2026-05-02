@@ -114,7 +114,10 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                       <div className="text-right flex-shrink-0 ml-2">
                         <p className="text-sm font-semibold">{formatNaira(item.total)}</p>
                         {Number(item.balance) > 0 && (
-                          <p className="text-[10px] text-red-500">{t('payment.due')}: {formatNaira(item.balance)}</p>
+                          <>
+                            <p className="text-[10px] text-emerald-600 dark:text-emerald-400">+{formatNaira(item.amount_paid)}</p>
+                            <p className="text-[10px] text-red-500">{t('payment.due')}: {formatNaira(item.balance)}</p>
+                          </>
                         )}
                       </div>
                     )}
