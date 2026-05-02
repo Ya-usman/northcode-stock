@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslations, useLocale } from 'next-intl'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { getPlan, getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
 import { getCountry, BILLING_PERIODS, getPeriodPrice, type BillingPeriod } from '@/lib/saas/countries'
@@ -12,53 +13,8 @@ import { cn } from '@/lib/utils/cn'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Script from 'next/script'
 
-const PLAN_DETAILS = [
-  {
-    id: 'starter' as const,
-    icon: Zap,
-    color: 'border-blue-200 hover:border-northcode-blue',
-    headerColor: 'bg-blue-50',
-    features: [
-      '200 produits',
-      '3 comptes employés',
-      'Export CSV & PDF',
-      '90 jours d\'historique',
-      'Gestion de stock complète',
-      'Suivi crédits clients',
-    ],
-  },
-  {
-    id: 'pro' as const,
-    icon: Crown,
-    color: 'border-northcode-blue ring-2 ring-northcode-blue',
-    headerColor: 'bg-northcode-blue text-white',
-    popular: true,
-    features: [
-      'Produits illimités',
-      '10 comptes employés',
-      'Reçus WhatsApp',
-      '1 an d\'historique',
-      'Rapports avancés',
-      'Support prioritaire',
-    ],
-  },
-  {
-    id: 'business' as const,
-    icon: Building2,
-    color: 'border-border hover:border-gray-400',
-    headerColor: 'bg-gray-900 text-white',
-    features: [
-      'Produits & employés illimités',
-      'Multi-boutiques',
-      'Transferts de stock',
-      'Historique complet',
-      'Support dédié',
-      'Garantie SLA',
-    ],
-  },
-]
-
 export default function BillingPage({ params: { locale } }: { params: { locale: string } }) {
+  const t = useTranslations('billing_page')
   const { shop, user, refreshShop } = useAuth()
   const { toast } = useToast()
   const [loading, setLoading] = useState<string | null>(null)
@@ -66,21 +22,55 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   const searchParams = useSearchParams()
   const router = useRouter()
 
+  const PLAN_DETAILS = [
+    {
+      id: 'starter' as const,
+      icon: Zap,
+      color: 'border-blue-200 hover:border-northcode-blue',
+      headerColor: 'bg-blue-50',
+      features: [
+        t('starter_f1'), t('starter_f2'), t('starter_f3'),
+        t('starter_f4'), t('starter_f5'), t('starter_f6'),
+      ],
+    },
+    {
+      id: 'pro' as const,
+      icon: Crown,
+      color: 'border-northcode-blue ring-2 ring-northcode-blue',
+      headerColor: 'bg-northcode-blue text-white',
+      popular: true,
+      features: [
+        t('pro_f1'), t('pro_f2'), t('pro_f3'),
+        t('pro_f4'), t('pro_f5'), t('pro_f6'),
+      ],
+    },
+    {
+      id: 'business' as const,
+      icon: Building2,
+      color: 'border-border hover:border-gray-400',
+      headerColor: 'bg-gray-900 text-white',
+      features: [
+        t('business_f1'), t('business_f2'), t('business_f3'),
+        t('business_f4'), t('business_f5'), t('business_f6'),
+      ],
+    },
+  ]
+
   useEffect(() => {
     const success = searchParams.get('success')
     const error = searchParams.get('error')
 
     if (success === '1') {
-      toast({ title: 'Paiement réussi !', description: 'Votre abonnement est maintenant actif.', variant: 'success' })
+      toast({ title: t('payment_success'), description: t('payment_success_desc'), variant: 'success' })
       router.replace(`/${locale}/billing`)
     } else if (error) {
       const messages: Record<string, string> = {
-        payment_failed: 'Le paiement a échoué. Veuillez réessayer.',
-        no_reference: 'Référence de paiement manquante.',
-        invalid_plan: 'Plan invalide.',
-        server: 'Erreur serveur. Veuillez contacter le support.',
+        payment_failed: t('err_failed'),
+        no_reference: t('err_no_ref'),
+        invalid_plan: t('err_invalid_plan'),
+        server: t('err_server'),
       }
-      toast({ title: 'Erreur de paiement', description: messages[error] || 'Une erreur est survenue.', variant: 'destructive' })
+      toast({ title: t('payment_error'), description: messages[error] || t('err_failed'), variant: 'destructive' })
       router.replace(`/${locale}/billing`)
     }
   }, [searchParams])
@@ -104,7 +94,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
         body: JSON.stringify({ plan_id: planId, shop_id: shop.id, email: user.email, locale, billing_period: period }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Erreur initialisation paiement')
+      if (!res.ok) throw new Error(data.error || t('err_failed'))
 
       if (country.code === 'NG') {
         const PaystackPop = (window as any).PaystackPop
@@ -120,15 +110,15 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
           metadata: { shop_id: shop.id, plan_id: planId, billing_period: period },
           onClose: () => {
             setLoading(null)
-            toast({ title: 'Paiement annulé', variant: 'destructive' })
+            toast({ title: t('payment_cancelled'), variant: 'destructive' })
           },
           callback: (response: { reference: string }) => {
             fetch(`/api/billing/verify?reference=${response.reference}&locale=${locale}`)
               .then(() => refreshShop())
               .then(() => {
-                toast({ title: 'Paiement réussi !', description: 'Votre abonnement est actif.', variant: 'success' })
+                toast({ title: t('payment_success'), description: t('payment_active'), variant: 'success' })
               })
-              .catch(() => toast({ title: 'Erreur de vérification', variant: 'destructive' }))
+              .catch(() => toast({ title: t('verify_error'), variant: 'destructive' }))
               .finally(() => setLoading(null))
           },
         })
@@ -140,7 +130,19 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
       toast({ title: err.message, variant: 'destructive' })
       setLoading(null)
     }
-  }, [shop, user, country, locale, toast, refreshShop, period])
+  }, [shop, user, country, locale, toast, refreshShop, period, t])
+
+  const periodLabel = period === 'monthly' ? t('per_month') : period === 'quarterly' ? t('per_3months') : t('per_year')
+
+  const faqItems = [
+    { q: t('faq_1_q'), a: t('faq_1_a') },
+    { q: t('faq_2_q'), a: t('faq_2_a') },
+    {
+      q: t('faq_3_q'),
+      a: isNigeria ? t('faq_3_paystack') : t('faq_3_flutterwave', { country: country.name }),
+    },
+    { q: t('faq_4_q'), a: t('faq_4_a') },
+  ]
 
   return (
     <>
@@ -150,7 +152,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
       {/* Current plan status */}
       <div className="rounded-xl border bg-card p-5 shadow-sm">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <h1 className="font-bold text-lg">Abonnement</h1>
+          <h1 className="font-bold text-lg">{t('title')}</h1>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span className="text-xl">{country.flag}</span>
             <span>{country.name} · {country.currencySymbol}</span>
@@ -170,9 +172,9 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
         <div className="mt-4 flex flex-wrap items-center gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <p className="font-semibold text-foreground">Plan actuel :</p>
+              <p className="font-semibold text-foreground">{t('current_plan_label')}</p>
               <Badge variant={isSubscribed ? 'success' : isTrialActive ? 'warning' : 'danger'}>
-                {isSubscribed ? currentPlan.name : isTrialActive ? 'Essai gratuit' : 'Expiré'}
+                {isSubscribed ? currentPlan.name : isTrialActive ? t('trial_active') : t('expired')}
               </Badge>
             </div>
 
@@ -181,24 +183,24 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                 <Clock className="h-4 w-4" />
                 <span>
                   {trialDaysLeft === 0
-                    ? 'L\'essai expire aujourd\'hui'
-                    : `${trialDaysLeft} jour${trialDaysLeft !== 1 ? 's' : ''} restant${trialDaysLeft !== 1 ? 's' : ''}`}
+                    ? t('trial_expires_today')
+                    : t('trial_days_left', { days: trialDaysLeft })}
                 </span>
               </div>
             )}
 
             {isSubscribed && shop?.plan_expires_at && (
               <p className="text-sm text-muted-foreground">
-                Renouvellement le {new Date(shop.plan_expires_at).toLocaleDateString(locale, {
-                  day: 'numeric', month: 'long', year: 'numeric',
+                {t('renewal_date', {
+                  date: new Date(shop.plan_expires_at).toLocaleDateString(locale, {
+                    day: 'numeric', month: 'long', year: 'numeric',
+                  }),
                 })}
               </p>
             )}
 
             {!isSubscribed && !isTrialActive && (
-              <p className="text-sm text-red-600 font-medium">
-                Votre plan a expiré. Abonnez-vous pour continuer.
-              </p>
+              <p className="text-sm text-red-600 font-medium">{t('plan_expired_msg')}</p>
             )}
           </div>
         </div>
@@ -207,7 +209,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
       {/* Period selector */}
       <div>
         <h2 className="font-semibold text-foreground mb-3">
-          {isSubscribed ? 'Changer de plan' : 'Choisir un plan'}
+          {isSubscribed ? t('change_plan') : t('choose_plan')}
         </h2>
 
         {/* Billing period tabs */}
@@ -253,7 +255,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                 {popular && (
                   <div className="absolute top-3 right-3">
                     <Badge className="bg-northcode-blue text-white text-[10px] px-2 py-0.5">
-                      Populaire
+                      {t('popular_badge')}
                     </Badge>
                   </div>
                 )}
@@ -268,12 +270,12 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                       {country.currencySymbol}{price.toLocaleString('fr-FR')}
                     </span>
                     <span className={cn('text-xs', popular ? 'text-blue-100' : 'text-muted-foreground')}>
-                      /{period === 'monthly' ? 'mois' : period === 'quarterly' ? '3 mois' : 'an'}
+                      {periodLabel}
                     </span>
                   </div>
                   {period !== 'monthly' && (
                     <p className={cn('text-xs mt-0.5', popular ? 'text-blue-100' : 'text-muted-foreground')}>
-                      soit {country.currencySymbol}{Math.floor(price / BILLING_PERIODS[period].months).toLocaleString('fr-FR')}/mois
+                      {t('per_month_equiv', { price: Math.floor(price / BILLING_PERIODS[period].months).toLocaleString('fr-FR') + country.currencySymbol })}
                     </p>
                   )}
                 </div>
@@ -290,7 +292,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
 
                   {isCurrent ? (
                     <Button disabled className="w-full h-9 text-sm" variant="outline">
-                      Plan actuel
+                      {t('current_plan_btn')}
                     </Button>
                   ) : (
                     <Button
@@ -303,9 +305,8 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                           : 'bg-gray-900 hover:bg-gray-700'
                       )}
                     >
-                      {isNigeria ? '💳' : '📱'} {isSubscribed ? 'Passer à ' : ''}{id.charAt(0).toUpperCase() + id.slice(1)}
+                      {isNigeria ? '💳' : '📱'} {isSubscribed ? `${t('upgrade_to')} ` : ''}{id.charAt(0).toUpperCase() + id.slice(1)}
                     </Button>
-
                   )}
                 </div>
               </div>
@@ -315,35 +316,16 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
 
         <p className="text-center text-xs text-muted-foreground mt-4">
           {isNigeria
-            ? 'Paiement sécurisé via Paystack · Carte, virement, USSD'
-            : `Paiement mobile via Flutterwave · MTN MoMo · Orange Money · Wave (${country.name})`}
+            ? t('payment_paystack')
+            : t('payment_flutterwave', { country: country.name })}
         </p>
       </div>
 
       {/* FAQ */}
       <div className="rounded-xl border bg-card p-5 shadow-sm">
-        <h2 className="font-semibold text-foreground mb-4">Questions fréquentes</h2>
+        <h2 className="font-semibold text-foreground mb-4">{t('faq_title')}</h2>
         <div className="space-y-4 text-sm">
-          {[
-            {
-              q: 'Mes données sont-elles supprimées si mon plan expire ?',
-              a: 'Non. Vos données sont conservées en sécurité et restent accessibles dès que vous souscrivez à nouveau.',
-            },
-            {
-              q: 'Puis-je changer de plan ou de période ?',
-              a: 'Oui. Vous pouvez upgrader, downgrader ou changer de période à tout moment. Le changement est immédiat.',
-            },
-            {
-              q: 'Comment fonctionne le paiement ?',
-              a: isNigeria
-                ? 'Nous utilisons Paystack pour les paiements sécurisés. Carte, virement bancaire ou USSD acceptés.'
-                : `Nous utilisons Flutterwave pour les paiements Mobile Money en ${country.name}. MTN MoMo, Orange Money et Wave acceptés.`,
-            },
-            {
-              q: 'Y a-t-il un remboursement ?',
-              a: 'Oui. Contactez-nous dans les 7 jours suivant le paiement pour un remboursement complet.',
-            },
-          ].map(({ q, a }) => (
+          {faqItems.map(({ q, a }) => (
             <div key={q}>
               <p className="font-medium text-foreground mb-1">{q}</p>
               <p className="text-muted-foreground">{a}</p>
