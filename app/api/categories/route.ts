@@ -17,15 +17,21 @@ async function getAuthedUser() {
 }
 
 async function checkShopRole(supabase: any, userId: string, shopId: string) {
-  const [{ data: member }, { data: profile }] = await Promise.all([
+  const [{ data: member }, { data: profile }, { data: shop }] = await Promise.all([
     supabase.from('shop_members').select('role').eq('shop_id', shopId).eq('user_id', userId).eq('is_active', true).single(),
     supabase.from('profiles').select('role, shop_id').eq('id', userId).single(),
+    supabase.from('shops').select('owner_id').eq('id', shopId).single(),
   ])
   if (!profile) return null
   if (profile.role === 'super_admin') return 'super_admin'
   if (profile.role === 'owner') {
+    // Has an explicit membership row → use it
     if (member?.role) return member.role
-    return profile.shop_id === shopId ? 'owner' : null
+    // Is the shop's creator (owner_id) even without a shop_members row
+    if (shop?.owner_id === userId) return 'owner'
+    // Primary shop
+    if (profile.shop_id === shopId) return 'owner'
+    return null
   }
   // Non-owner: full role only in their primary shop; viewer elsewhere
   if (profile.shop_id === shopId) return member?.role ?? profile.role
