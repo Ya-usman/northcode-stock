@@ -27,6 +27,25 @@ const supabase = createClient()
 
 type MemberRow = { role: UserRole; is_active: boolean; shops: Shop | null }
 
+// Resolve the effective role for a given shop.
+// owner / super_admin keep their full role anywhere.
+// Other members (cashier, stock_manager, viewer) have full access only in
+// their primary shop; in any other shop they are downgraded to 'viewer'.
+function resolveRoleInShop(
+  memberRole: UserRole | undefined | null,
+  profile: Profile | null,
+  shopId: string,
+): UserRole | null {
+  if (!profile) return memberRole ?? null
+  if (profile.role === 'super_admin') return 'super_admin'
+  if (profile.role === 'owner') return memberRole ?? (profile.shop_id === shopId ? 'owner' : null)
+  // Non-owner: full role only in primary shop
+  if (profile.shop_id === shopId) return memberRole ?? profile.role
+  // In a non-primary shop: read-only if they have any membership
+  if (memberRole) return 'viewer'
+  return null
+}
+
 // ── localStorage cache for profile + shops ──────────────────────────────────
 // Lets the app render instantly on reload even when Supabase is slow/unreachable
 const CACHE_KEY = 'auth_cache_v1'
@@ -131,9 +150,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const activeShop = userShops.find(s => s.id === (resolvedId ?? userShops[0]?.id)) ?? userShops[0] ?? null
-    const roleInActiveShop = (rows.find(m => m.shops?.id === activeShop?.id)?.role
-      ?? profile?.role
-      ?? null) as UserRole | null
+    const memberRole = rows.find(m => m.shops?.id === activeShop?.id)?.role
+    const roleInActiveShop = resolveRoleInShop(memberRole, profile, activeShop?.id ?? '')
 
     // Persist to cache so next reload is instant
     if (profile && !skipCache) writeCache(user.id, profile, userShops, rows)
@@ -274,9 +292,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }).catch(() => {})
     setState(prev => {
       const activeShop = prev.userShops.find(s => s.id === shopId) ?? prev.activeShop
-      const roleInActiveShop = (memberships.find(m => m.shops?.id === shopId)?.role
-        ?? prev.profile?.role
-        ?? null) as UserRole | null
+      const memberRole = memberships.find(m => m.shops?.id === shopId)?.role
+      const roleInActiveShop = resolveRoleInShop(memberRole, prev.profile, shopId)
       return { ...prev, activeShop, roleInActiveShop }
     })
   }, [memberships])
