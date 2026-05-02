@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { useTranslations } from 'next-intl'
 import {
   Search, FileDown, ChevronDown, ChevronUp,
-  XCircle, CheckCircle2, Printer,
+  XCircle, CheckCircle2, Printer, Store,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -33,7 +33,8 @@ type DialogType = 'cancel' | 'validate'
 
 export default function SalesHistoryPage() {
   const t = useTranslations()
-  const { profile, shop, effectiveShopIds } = useAuth()
+  const { profile, shop, effectiveShopIds, userShops } = useAuth()
+  const isMultiShop = effectiveShopIds.length > 1
 
   const receiptLabels = {
     receipt: t('receipt.receipt'),
@@ -229,6 +230,121 @@ export default function SalesHistoryPage() {
     }
   }
 
+  const renderSaleRow = (sale: Sale) => {
+    const isCancelled = sale.sale_status === 'cancelled'
+    const isPending = sale.payment_status === 'pending' || sale.payment_status === 'partial'
+    const canCancelThis = !isCancelled && (
+      isOwner ||
+      (isCashier && sale.cashier_id === profile?.id && new Date(sale.created_at) >= startOfDay(new Date()))
+    )
+    return (
+      <Fragment key={sale.id}>
+        <TableRow
+          className={`cursor-pointer ${isCancelled ? 'opacity-50 bg-red-50/30 dark:bg-red-950/20' : 'hover:bg-muted/30'}`}
+          onClick={() => setExpandedId(expandedId === sale.id ? null : sale.id)}
+        >
+          <TableCell className="font-mono text-xs font-medium text-northcode-blue dark:text-blue-400">
+            #{sale.sale_number}
+            {isCancelled && (
+              <span className="ml-1.5 text-[10px] font-semibold text-red-500 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded px-1">{t('sales.cancelled_badge')}</span>
+            )}
+          </TableCell>
+          <TableCell className="text-sm">{(sale as any).customers?.name || t('sales.walk_in_short')}</TableCell>
+          <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
+            {cashierMap[(sale as any).cashier_id] || '—'}
+          </TableCell>
+          <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
+            {format(new Date(sale.created_at), 'dd MMM · HH:mm')}
+          </TableCell>
+          <TableCell className="text-right font-medium">{formatNaira(sale.total)}</TableCell>
+          <TableCell className="hidden md:table-cell text-right text-green-600">{formatNaira(sale.amount_paid)}</TableCell>
+          <TableCell className="hidden md:table-cell text-right">
+            {Number(sale.balance) > 0
+              ? <span className="text-red-500">{formatNaira(sale.balance)}</span>
+              : <span className="text-muted-foreground">—</span>}
+          </TableCell>
+          <TableCell>
+            <div className="flex gap-1 flex-wrap">
+              {!isCancelled && (
+                <Badge variant={statusVariant[sale.payment_status]} className="text-[10px] px-1.5">
+                  {t(`status.${sale.payment_status}`)}
+                </Badge>
+              )}
+              <Badge variant="outline" className="text-[10px] px-1.5 hidden sm:inline-flex">
+                {t(`payment.${sale.payment_method}` as any) || sale.payment_method}
+              </Badge>
+            </div>
+          </TableCell>
+          <TableCell>
+            {expandedId === sale.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </TableCell>
+        </TableRow>
+        {expandedId === sale.id && (
+          <TableRow key={`${sale.id}-expand`}>
+            <TableCell colSpan={9} className="bg-muted/20 p-0">
+              <div className="p-3 space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('sales.items')}</p>
+                {(sale as any).sale_items?.map((item: any) => (
+                  <div key={item.id} className="flex justify-between text-xs">
+                    <span>{item.product_name} × {item.quantity} @ {formatNaira(item.unit_price)}</span>
+                    <span className="font-medium">{formatNaira(item.subtotal)}</span>
+                  </div>
+                ))}
+                {sale.notes && (
+                  <p className="text-xs text-muted-foreground pt-2 border-t">{t('sales.note_label')}: {sale.notes}</p>
+                )}
+                {isCancelled && sale.cancel_reason && (
+                  <p className="text-xs text-red-500 pt-2 border-t">{t('sales.cancel_reason_label')}: {sale.cancel_reason}</p>
+                )}
+                <div className="flex flex-wrap gap-2 pt-2 border-t" onClick={e => e.stopPropagation()}>
+                  {!isCancelled && isPending && (isOwner || isCashier) && (
+                    <Button
+                      size="sm" variant="outline"
+                      className="gap-1.5 text-xs h-7 border-green-300 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/40"
+                      onClick={() => { setDialog({ type: 'validate', sale }); setValidateAmount(String(sale.balance)) }}
+                    >
+                      <CheckCircle2 className="h-3 w-3" /> {t('sales.validate_payment_action')}
+                    </Button>
+                  )}
+                  {canCancelThis && (
+                    <Button
+                      size="sm" variant="outline"
+                      className="gap-1.5 text-xs h-7 border-amber-300 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                      onClick={() => { setDialog({ type: 'cancel', sale }); setCancelReason('') }}
+                    >
+                      <XCircle className="h-3 w-3" /> {t('actions.cancel')}
+                    </Button>
+                  )}
+                  {!isCancelled && (
+                    <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7" onClick={() => printSale(sale)}>
+                      <Printer className="h-3 w-3" /> {t('actions.print')}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </TableCell>
+          </TableRow>
+        )}
+      </Fragment>
+    )
+  }
+
+  const salesTableHeader = (
+    <TableHeader>
+      <TableRow>
+        <TableHead>{t('sales.sale_number')}</TableHead>
+        <TableHead>{t('sales.customer')}</TableHead>
+        <TableHead className="hidden lg:table-cell">{t('sales.cashier')}</TableHead>
+        <TableHead className="hidden sm:table-cell">{t('sales.date')}</TableHead>
+        <TableHead className="text-right">{t('sales.total')}</TableHead>
+        <TableHead className="hidden md:table-cell text-right">{t('payment.amount_paid')}</TableHead>
+        <TableHead className="hidden md:table-cell text-right">{t('payment.balance')}</TableHead>
+        <TableHead>{t('status.active')}</TableHead>
+        <TableHead className="w-8"></TableHead>
+      </TableRow>
+    </TableHeader>
+  )
+
   return (
     <div className="space-y-4">
       {/* View toggle */}
@@ -302,53 +418,76 @@ export default function SalesHistoryPage() {
       </div>
 
       {/* ── Repayments view ─────────────────────────────────── */}
-      {view === 'repayments' && (
-        <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
-          {loading ? (
+      {view === 'repayments' && (() => {
+        const repaymentTableHeader = (
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t('sales.customer')}</TableHead>
+              <TableHead className="hidden sm:table-cell">{t('sales.sale_number')}</TableHead>
+              <TableHead className="hidden sm:table-cell">{t('sales.date')}</TableHead>
+              <TableHead>{t('payment.method')}</TableHead>
+              <TableHead className="text-right">{t('sales.total')}</TableHead>
+            </TableRow>
+          </TableHeader>
+        )
+        const renderRepaymentRow = (p: any) => (
+          <TableRow key={p.id}>
+            <TableCell className="font-medium text-sm">
+              <span className="text-emerald-600 dark:text-emerald-400 mr-1.5">↩</span>
+              {p.sales?.customers?.name || '—'}
+            </TableCell>
+            <TableCell className="hidden sm:table-cell font-mono text-xs text-northcode-blue dark:text-blue-400">
+              #{p.sales?.sale_number}
+            </TableCell>
+            <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
+              {format(new Date(p.paid_at), 'dd MMM · HH:mm')}
+            </TableCell>
+            <TableCell>
+              <Badge variant="outline" className="text-[10px] px-1.5 border-emerald-300 text-emerald-600 dark:text-emerald-400">
+                {t(`payment.${p.method}` as any) || p.method}
+              </Badge>
+            </TableCell>
+            <TableCell className="text-right font-semibold text-emerald-600 dark:text-emerald-400">
+              +{formatNaira(p.amount)}
+            </TableCell>
+          </TableRow>
+        )
+        if (loading) return (
+          <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
             <div className="p-4 space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
-          ) : repayments.length === 0 ? (
-            <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
-              {t('sales.no_repayments')}
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('sales.customer')}</TableHead>
-                  <TableHead className="hidden sm:table-cell">{t('sales.sale_number')}</TableHead>
-                  <TableHead className="hidden sm:table-cell">{t('sales.date')}</TableHead>
-                  <TableHead>{t('payment.method')}</TableHead>
-                  <TableHead className="text-right">{t('sales.total')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {repayments.map((p: any) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-medium text-sm">
-                      <span className="text-emerald-600 dark:text-emerald-400 mr-1.5">↩</span>
-                      {p.sales?.customers?.name || '—'}
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell font-mono text-xs text-northcode-blue dark:text-blue-400">
-                      #{p.sales?.sale_number}
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
-                      {format(new Date(p.paid_at), 'dd MMM · HH:mm')}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-[10px] px-1.5 border-emerald-300 text-emerald-600 dark:text-emerald-400">
-                        {t(`payment.${p.method}` as any) || p.method}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-semibold text-emerald-600 dark:text-emerald-400">
-                      +{formatNaira(p.amount)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </div>
-      )}
+          </div>
+        )
+        if (repayments.length === 0) return (
+          <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+            <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">{t('sales.no_repayments')}</div>
+          </div>
+        )
+        if (isMultiShop) return (
+          <div className="space-y-4">
+            {userShops.filter(s => effectiveShopIds.includes(s.id)).map(shopEntry => {
+              const shopRepayments = repayments.filter((p: any) => p.sales?.shop_id === shopEntry.id)
+              if (!shopRepayments.length) return null
+              return (
+                <div key={shopEntry.id} className="space-y-2">
+                  <div className="flex items-center gap-2 pt-1">
+                    <Store className="h-3.5 w-3.5 text-northcode-blue dark:text-blue-400 flex-shrink-0" />
+                    <span className="text-xs font-semibold text-northcode-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
+                    <div className="flex-1 h-px bg-border" />
+                  </div>
+                  <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+                    <Table>{repaymentTableHeader}<TableBody>{shopRepayments.map(renderRepaymentRow)}</TableBody></Table>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )
+        return (
+          <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+            <Table>{repaymentTableHeader}<TableBody>{repayments.map(renderRepaymentRow)}</TableBody></Table>
+          </div>
+        )
+      })()}
 
       {/* ── Sales view ──────────────────────────────────────── */}
       {view === 'sales' && isOwner && (
@@ -366,147 +505,50 @@ export default function SalesHistoryPage() {
       )}
 
       {/* Table */}
-      {view === 'sales' && <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
-        {loading ? (
-          <div className="p-4 space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
+      {view === 'sales' && (
+        loading ? (
+          <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+            <div className="p-4 space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
+          </div>
         ) : filtered.length === 0 ? (
-          <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
-            {t('sales.no_sales')}
+          <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+            <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">{t('sales.no_sales')}</div>
+          </div>
+        ) : isMultiShop ? (
+          <div className="space-y-4">
+            {userShops.filter(s => effectiveShopIds.includes(s.id)).map(shopEntry => {
+              const shopSales = filtered.filter(s => (s as any).shop_id === shopEntry.id)
+              if (!shopSales.length) return null
+              return (
+                <div key={shopEntry.id} className="space-y-2">
+                  <div className="flex items-center gap-2 pt-1">
+                    <Store className="h-3.5 w-3.5 text-northcode-blue dark:text-blue-400 flex-shrink-0" />
+                    <span className="text-xs font-semibold text-northcode-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
+                    <span className="text-xs text-muted-foreground ml-1">
+                      {shopSales.filter(s => (s.sale_status || 'active') === 'active').length} {t('sales.sales_count_label')} ·{' '}
+                      {formatNaira(shopSales.filter(s => (s.sale_status || 'active') === 'active').reduce((acc, s) => acc + Number(s.total), 0))}
+                    </span>
+                    <div className="flex-1 h-px bg-border" />
+                  </div>
+                  <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+                    <Table>
+                      {salesTableHeader}
+                      <TableBody>{shopSales.map(renderSaleRow)}</TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('sales.sale_number')}</TableHead>
-                <TableHead>{t('sales.customer')}</TableHead>
-                <TableHead className="hidden lg:table-cell">{t('sales.cashier')}</TableHead>
-                <TableHead className="hidden sm:table-cell">{t('sales.date')}</TableHead>
-                <TableHead className="text-right">{t('sales.total')}</TableHead>
-                <TableHead className="hidden md:table-cell text-right">{t('payment.amount_paid')}</TableHead>
-                <TableHead className="hidden md:table-cell text-right">{t('payment.balance')}</TableHead>
-                <TableHead>{t('status.active')}</TableHead>
-                <TableHead className="w-8"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map(sale => {
-                const isCancelled = sale.sale_status === 'cancelled'
-                const isPending = sale.payment_status === 'pending' || sale.payment_status === 'partial'
-                const canCancelThis = !isCancelled && (
-                  isOwner ||
-                  (isCashier && sale.cashier_id === profile?.id && new Date(sale.created_at) >= startOfDay(new Date()))
-                )
-
-                return (
-                  <>
-                    <TableRow
-                      key={sale.id}
-                      className={`cursor-pointer ${isCancelled ? 'opacity-50 bg-red-50/30 dark:bg-red-950/20' : 'hover:bg-muted/30'}`}
-                      onClick={() => setExpandedId(expandedId === sale.id ? null : sale.id)}
-                    >
-                      <TableCell className="font-mono text-xs font-medium text-northcode-blue dark:text-blue-400">
-                        #{sale.sale_number}
-                        {isCancelled && (
-                          <span className="ml-1.5 text-[10px] font-semibold text-red-500 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded px-1">{t('sales.cancelled_badge')}</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-sm">{(sale as any).customers?.name || t('sales.walk_in_short')}</TableCell>
-                      <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
-                        {cashierMap[(sale as any).cashier_id] || '—'}
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
-                        {format(new Date(sale.created_at), 'dd MMM · HH:mm')}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">{formatNaira(sale.total)}</TableCell>
-                      <TableCell className="hidden md:table-cell text-right text-green-600">{formatNaira(sale.amount_paid)}</TableCell>
-                      <TableCell className="hidden md:table-cell text-right">
-                        {Number(sale.balance) > 0
-                          ? <span className="text-red-500">{formatNaira(sale.balance)}</span>
-                          : <span className="text-muted-foreground">—</span>}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1 flex-wrap">
-                          {!isCancelled && (
-                            <Badge variant={statusVariant[sale.payment_status]} className="text-[10px] px-1.5">
-                              {t(`status.${sale.payment_status}`)}
-                            </Badge>
-                          )}
-                          <Badge variant="outline" className="text-[10px] px-1.5 hidden sm:inline-flex">
-                            {t(`payment.${sale.payment_method}` as any) || sale.payment_method}
-                          </Badge>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {expandedId === sale.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                      </TableCell>
-                    </TableRow>
-
-                    {/* Expanded: items + action buttons */}
-                    {expandedId === sale.id && (
-                      <TableRow key={`${sale.id}-expand`}>
-                        <TableCell colSpan={9} className="bg-muted/20 p-0">
-                          <div className="p-3 space-y-2">
-                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('sales.items')}</p>
-                            {(sale as any).sale_items?.map((item: any) => (
-                              <div key={item.id} className="flex justify-between text-xs">
-                                <span>{item.product_name} × {item.quantity} @ {formatNaira(item.unit_price)}</span>
-                                <span className="font-medium">{formatNaira(item.subtotal)}</span>
-                              </div>
-                            ))}
-                            {sale.notes && (
-                              <p className="text-xs text-muted-foreground pt-2 border-t">{t('sales.note_label')}: {sale.notes}</p>
-                            )}
-                            {isCancelled && sale.cancel_reason && (
-                              <p className="text-xs text-red-500 pt-2 border-t">{t('sales.cancel_reason_label')}: {sale.cancel_reason}</p>
-                            )}
-
-                            {/* Action buttons */}
-                            <div className="flex flex-wrap gap-2 pt-2 border-t" onClick={e => e.stopPropagation()}>
-                              {/* Validate payment */}
-                              {!isCancelled && isPending && (isOwner || isCashier) && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="gap-1.5 text-xs h-7 border-green-300 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/40"
-                                  onClick={() => { setDialog({ type: 'validate', sale }); setValidateAmount(String(sale.balance)) }}
-                                >
-                                  <CheckCircle2 className="h-3 w-3" /> {t('sales.validate_payment_action')}
-                                </Button>
-                              )}
-                              {/* Cancel */}
-                              {canCancelThis && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="gap-1.5 text-xs h-7 border-amber-300 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40"
-                                  onClick={() => { setDialog({ type: 'cancel', sale }); setCancelReason('') }}
-                                >
-                                  <XCircle className="h-3 w-3" /> {t('actions.cancel')}
-                                </Button>
-                              )}
-                              {/* Print receipt */}
-                              {!isCancelled && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="gap-1.5 text-xs h-7"
-                                  onClick={() => printSale(sale)}
-                                >
-                                  <Printer className="h-3 w-3" /> {t('actions.print')}
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </>
-                )
-              })}
-            </TableBody>
-          </Table>
-        )}
-      </div>}
+          <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+            <Table>
+              {salesTableHeader}
+              <TableBody>{filtered.map(renderSaleRow)}</TableBody>
+            </Table>
+          </div>
+        )
+      )}
 
       {/* Action dialog */}
       <Dialog open={!!dialog} onOpenChange={open => !open && setDialog(null)}>

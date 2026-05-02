@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { motion } from 'framer-motion'
-import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2 } from 'lucide-react'
+import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -31,8 +31,9 @@ function StockBadge({ quantity, threshold }: { quantity: number; threshold: numb
 
 export default function StockPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations()
-  const { profile, shop, roleInActiveShop, effectiveShopIds } = useAuth()
+  const { profile, shop, roleInActiveShop, effectiveShopIds, userShops } = useAuth()
   const effectiveRole = roleInActiveShop ?? profile?.role
+  const isMultiShop = effectiveShopIds.length > 1
   const { fmt: formatNaira } = useCurrency()
   const supabase = createClient()
   const { toast } = useToast()
@@ -225,6 +226,57 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     fetchProducts()
   }
 
+  const renderProductCard = (product: Product, idx: number) => {
+    const threshold = product.low_stock_threshold || shop?.low_stock_threshold || 10
+    return (
+      <motion.div
+        key={product.id}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: idx * 0.02 }}
+        className="rounded-lg border bg-card shadow-sm p-4 space-y-2"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="font-medium text-sm truncate">{product.name}</p>
+            {product.name_hausa && (
+              <p className="text-xs text-muted-foreground truncate">{product.name_hausa}</p>
+            )}
+          </div>
+          <StockBadge quantity={product.quantity} threshold={threshold} />
+        </div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="font-bold text-northcode-blue dark:text-blue-400">{formatNaira(product.selling_price)}</span>
+          {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
+            <span className="text-xs text-muted-foreground">{t('products.cost_label')}: {formatNaira(product.buying_price)}</span>
+          )}
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-sm">
+            <span className={`font-bold ${product.quantity === 0 ? 'text-red-500' : product.quantity <= threshold ? 'text-amber-500' : 'text-green-600'}`}>
+              {product.quantity}
+            </span>{' '}
+            <span className="text-muted-foreground text-xs">{product.unit}s</span>
+          </span>
+          <div className="flex gap-1">
+            <Button
+              variant="outline" size="sm" className="h-7 px-2 text-xs"
+              onClick={() => { setRestockProduct(product); restockForm.reset({ product_id: product.id, quantity: 1 }); setShowRestockModal(true) }}
+            >
+              <ArrowDown className="h-3 w-3 mr-1" />
+              {t('actions.restock')}
+            </Button>
+            {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin') && (
+              <Button variant="outline" size="sm" className="h-7 px-2" onClick={() => setEditingProduct(product)}>
+                <Edit2 className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    )
+  }
+
   const productFormProps = {
     categories: categories.filter((c: any) => !shop?.id || c.shop_id === shop.id),
     suppliers: suppliers.filter((s: any) => !shop?.id || s.shop_id === shop.id),
@@ -297,71 +349,28 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           <p>{t('products.no_products')}</p>
           <p className="text-sm mt-1">{t('products.add_first')}</p>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {filtered.map((product, idx) => {
-            const threshold = product.low_stock_threshold || shop?.low_stock_threshold || 10
+      ) : isMultiShop ? (
+        <div className="space-y-4">
+          {userShops.filter(s => effectiveShopIds.includes(s.id)).map(shopEntry => {
+            const shopProducts = filtered.filter(p => p.shop_id === shopEntry.id)
+            if (!shopProducts.length) return null
             return (
-              <motion.div
-                key={product.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.02 }}
-                className="rounded-lg border bg-card shadow-sm p-4 space-y-2"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-sm truncate">{product.name}</p>
-                    {product.name_hausa && (
-                      <p className="text-xs text-muted-foreground truncate">{product.name_hausa}</p>
-                    )}
-                  </div>
-                  <StockBadge quantity={product.quantity} threshold={threshold} />
+              <div key={shopEntry.id} className="space-y-2">
+                <div className="flex items-center gap-2 pt-1">
+                  <Store className="h-3.5 w-3.5 text-northcode-blue dark:text-blue-400 flex-shrink-0" />
+                  <span className="text-xs font-semibold text-northcode-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
+                  <div className="flex-1 h-px bg-border" />
                 </div>
-
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-bold text-northcode-blue dark:text-blue-400">{formatNaira(product.selling_price)}</span>
-                  {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
-                    <span className="text-xs text-muted-foreground">{t('products.cost_label')}: {formatNaira(product.buying_price)}</span>
-                  )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {shopProducts.map((product, idx) => renderProductCard(product, idx))}
                 </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">
-                    <span className={`font-bold ${product.quantity === 0 ? 'text-red-500' : product.quantity <= threshold ? 'text-amber-500' : 'text-green-600'}`}>
-                      {product.quantity}
-                    </span>{' '}
-                    <span className="text-muted-foreground text-xs">{product.unit}s</span>
-                  </span>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 px-2 text-xs"
-                      onClick={() => {
-                        setRestockProduct(product)
-                        restockForm.reset({ product_id: product.id, quantity: 1 })
-                        setShowRestockModal(true)
-                      }}
-                    >
-                      <ArrowDown className="h-3 w-3 mr-1" />
-                      {t('actions.restock')}
-                    </Button>
-                    {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin') && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 px-2"
-                        onClick={() => setEditingProduct(product)}
-                      >
-                        <Edit2 className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
+              </div>
             )
           })}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {filtered.map((product, idx) => renderProductCard(product, idx))}
         </div>
       )}
 
