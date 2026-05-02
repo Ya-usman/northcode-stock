@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
-import { Search, Plus, Edit2, Trash2, Phone, MapPin } from 'lucide-react'
+import { Search, Plus, Edit2, Trash2, Phone, MapPin, Store } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -18,9 +18,53 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { customerSchema, type CustomerFormData } from '@/lib/validations/customer'
 import type { Customer } from '@/lib/types/database'
 
+function CustomerCard({ customer, profile, formatNaira, setEditingCustomer, form, setShowModal, deleteCustomer, t }: any) {
+  return (
+    <div className="rounded-lg border bg-card shadow-sm p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-semibold text-sm">{customer.name}</p>
+            {customer.total_debt > 0 && (
+              <Badge variant="danger" className="text-[10px]">
+                {t('customers.total_debt')}: {formatNaira(customer.total_debt)}
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-3 mt-1 flex-wrap">
+            {customer.phone && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Phone className="h-3 w-3" />{customer.phone}
+              </span>
+            )}
+            {customer.city && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <MapPin className="h-3 w-3" />{customer.city}
+              </span>
+            )}
+          </div>
+        </div>
+        {profile?.role === 'owner' && (
+          <div className="flex gap-1">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0"
+              onClick={() => { setEditingCustomer(customer); form.reset({ name: customer.name, phone: customer.phone || '', city: customer.city || '' }); setShowModal(true) }}>
+              <Edit2 className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+              onClick={() => deleteCustomer(customer)}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function CustomersPage() {
   const t = useTranslations()
-  const { profile, shop, effectiveShopIds } = useAuth()
+  const { profile, shop, effectiveShopIds, userShops } = useAuth()
+  const isMultiShop = effectiveShopIds.length > 1
   const { fmt: formatNaira } = useCurrency()
   const supabase = createClient()
   const { toast } = useToast()
@@ -104,57 +148,26 @@ export default function CustomersPage() {
         <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
           {t('customers.no_customers')}
         </div>
+      ) : isMultiShop ? (
+        <div className="space-y-4">
+          {userShops.filter(s => effectiveShopIds.includes(s.id)).map(shopEntry => {
+            const shopCustomers = filtered.filter(c => c.shop_id === shopEntry.id)
+            if (!shopCustomers.length) return null
+            return (
+              <div key={shopEntry.id} className="space-y-2">
+                <div className="flex items-center gap-2 pt-1">
+                  <Store className="h-3.5 w-3.5 text-northcode-blue dark:text-blue-400 flex-shrink-0" />
+                  <span className="text-xs font-semibold text-northcode-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+                {shopCustomers.map(customer => <CustomerCard key={customer.id} customer={customer} profile={profile} formatNaira={formatNaira} setEditingCustomer={setEditingCustomer} form={form} setShowModal={setShowModal} deleteCustomer={deleteCustomer} t={t} />)}
+              </div>
+            )
+          })}
+        </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map(customer => (
-            <div key={customer.id} className="rounded-lg border bg-card shadow-sm p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-semibold text-sm">{customer.name}</p>
-                    {customer.total_debt > 0 && (
-                      <Badge variant="danger" className="text-[10px]">
-                        {t('customers.total_debt')}: {formatNaira(customer.total_debt)}
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3 mt-1 flex-wrap">
-                    {customer.phone && (
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Phone className="h-3 w-3" />{customer.phone}
-                      </span>
-                    )}
-                    {customer.city && (
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <MapPin className="h-3 w-3" />{customer.city}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {profile?.role === 'owner' && (
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost" size="sm" className="h-8 w-8 p-0"
-                      onClick={() => {
-                        setEditingCustomer(customer)
-                        form.reset({ name: customer.name, phone: customer.phone || '', city: customer.city || '' })
-                        setShowModal(true)
-                      }}
-                    >
-                      <Edit2 className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost" size="sm"
-                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                      onClick={() => deleteCustomer(customer)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
+          {filtered.map(customer => <CustomerCard key={customer.id} customer={customer} profile={profile} formatNaira={formatNaira} setEditingCustomer={setEditingCustomer} form={form} setShowModal={setShowModal} deleteCustomer={deleteCustomer} t={t} />)}
         </div>
       )}
 

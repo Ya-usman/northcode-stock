@@ -16,7 +16,7 @@ import { useCurrency } from '@/lib/hooks/use-currency'
 import type { Customer } from '@/lib/types/database'
 import {
   ChevronDown, ChevronUp, Clock, CheckCircle2,
-  History, User, RefreshCw, Banknote,
+  History, User, RefreshCw, Banknote, Store,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -69,9 +69,92 @@ const STATUS_VARIANTS: Record<string, 'destructive' | 'warning' | 'success'> = {
   paid: 'success',
 }
 
+function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedId, openRepayDialog, openHistory, fmt, t }: any) {
+  return (
+    <Card className="border-0 shadow-sm overflow-hidden">
+      <CardContent className="p-0">
+        <div className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="h-9 w-9 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                <User className="h-4 w-4 text-red-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold text-sm truncate">{customer.name}</p>
+                {customer.phone && <p className="text-xs text-muted-foreground">{customer.phone}</p>}
+                {customer.city && <Badge variant="outline" className="text-[10px] px-1.5 mt-0.5">{customer.city}</Badge>}
+              </div>
+            </div>
+            <div className="text-right flex-shrink-0">
+              <p className="text-lg font-bold text-red-600">{fmt(totalDebt)}</p>
+              <p className="text-xs text-muted-foreground">{t('payments.invoices_count', { count: unpaidSales.length })}</p>
+            </div>
+          </div>
+          <div className="flex gap-2 mt-3">
+            <Button size="sm" className="flex-1 h-9 text-xs bg-northcode-blue hover:bg-northcode-blue-light gap-1"
+              onClick={() => openRepayDialog({ customer, unpaidSales, totalDebt })}>
+              <Banknote className="h-3.5 w-3.5" /> {t('payments.repay')}
+            </Button>
+            <Button size="sm" variant="outline" className="flex-1 h-9 text-xs gap-1"
+              onClick={() => openHistory({ customer, unpaidSales, totalDebt })}>
+              <History className="h-3.5 w-3.5" /> {t('payments.history_btn')}
+            </Button>
+            <Button size="sm" variant="ghost" className="h-9 w-9 p-0 flex-shrink-0"
+              onClick={() => setExpandedId(isExpanded ? null : customer.id)}>
+              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+          </div>
+        </div>
+        {isExpanded && (
+          <div className="border-t bg-muted/40 px-4 py-3 space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('payments.unpaid_invoices')}</p>
+            {unpaidSales.map((sale: any) => (
+              <div key={sale.id} className="bg-card rounded-lg border p-3 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-northcode-blue dark:text-blue-400 font-semibold text-sm">#{sale.sale_number}</span>
+                  <Badge variant={sale.payment_status === 'partial' ? 'warning' : 'destructive'} className="text-[10px]">
+                    {sale.payment_status === 'partial' ? t('payments.partial_label') : t('payments.unpaid_label')}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{format(new Date(sale.created_at), 'dd MMM yyyy', { locale: fr })}</span>
+                  <span>Total: {fmt(sale.total)}</span>
+                </div>
+                {sale.amount_paid > 0 && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-green-600">{t('payment.already_paid')}: {fmt(sale.amount_paid)}</span>
+                    <span className="font-bold text-red-600">{t('payment.remaining')}: {fmt(sale.balance)}</span>
+                  </div>
+                )}
+                {sale.amount_paid === 0 && (
+                  <div className="flex justify-end">
+                    <span className="text-xs font-bold text-red-600">{t('payment.due')}: {fmt(sale.balance)}</span>
+                  </div>
+                )}
+                {sale.cashier_name && <p className="text-[11px] text-muted-foreground">{t('payments.sold_by')} : <strong>{sale.cashier_name}</strong></p>}
+                {sale.sale_items?.length > 0 && (
+                  <div className="pt-1 border-t space-y-0.5">
+                    {sale.sale_items.map((item: any, idx: number) => (
+                      <div key={idx} className="flex justify-between text-[11px] text-muted-foreground">
+                        <span>{item.product_name} × {item.quantity}</span>
+                        <span>{fmt(item.subtotal)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 export default function DettesPage() {
   const t = useTranslations()
-  const { shop, profile, effectiveShopIds } = useAuth()
+  const { shop, profile, effectiveShopIds, userShops } = useAuth()
+  const isMultiShop = effectiveShopIds.length > 1
   const { fmt } = useCurrency()
   const { toast } = useToast()
 
@@ -265,93 +348,36 @@ export default function DettesPage() {
           <p className="font-medium">{t('payments.no_debts')}</p>
           <p className="text-sm mt-1 opacity-70">{t('payments.no_debts_detail')}</p>
         </div>
+      ) : isMultiShop ? (
+        <div className="space-y-4">
+          {userShops.filter(s => effectiveShopIds.includes(s.id)).map(shopEntry => {
+            const shopDebtors = debtors.filter(d => d.customer.shop_id === shopEntry.id)
+            if (!shopDebtors.length) return null
+            const shopTotal = shopDebtors.reduce((s, d) => s + d.totalDebt, 0)
+            return (
+              <div key={shopEntry.id} className="space-y-3">
+                <div className="flex items-center gap-2 pt-1">
+                  <Store className="h-3.5 w-3.5 text-northcode-blue dark:text-blue-400 flex-shrink-0" />
+                  <span className="text-xs font-semibold text-northcode-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
+                  <span className="text-xs text-red-500 font-medium ml-1">{fmt(shopTotal)}</span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+                {shopDebtors.map(({ customer, unpaidSales, totalDebt }) => {
+                  const isExpanded = expandedId === customer.id
+                  return (
+                    <DebtorCard key={customer.id} customer={customer} unpaidSales={unpaidSales} totalDebt={totalDebt} isExpanded={isExpanded} setExpandedId={setExpandedId} openRepayDialog={openRepayDialog} openHistory={openHistory} fmt={fmt} t={t} />
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
       ) : (
         <div className="space-y-3">
           {debtors.map(({ customer, unpaidSales, totalDebt }) => {
             const isExpanded = expandedId === customer.id
             return (
-              <Card key={customer.id} className="border-0 shadow-sm overflow-hidden">
-                <CardContent className="p-0">
-                  <div className="p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div className="h-9 w-9 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                          <User className="h-4 w-4 text-red-600" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-sm truncate">{customer.name}</p>
-                          {customer.phone && <p className="text-xs text-muted-foreground">{customer.phone}</p>}
-                          {customer.city && <Badge variant="outline" className="text-[10px] px-1.5 mt-0.5">{customer.city}</Badge>}
-                        </div>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-lg font-bold text-red-600">{fmt(totalDebt)}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {t('payments.invoices_count', { count: unpaidSales.length })}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 mt-3">
-                      <Button size="sm" className="flex-1 h-9 text-xs bg-northcode-blue hover:bg-northcode-blue-light gap-1"
-                        onClick={() => openRepayDialog({ customer, unpaidSales, totalDebt })}>
-                        <Banknote className="h-3.5 w-3.5" /> {t('payments.repay')}
-                      </Button>
-                      <Button size="sm" variant="outline" className="flex-1 h-9 text-xs gap-1"
-                        onClick={() => openHistory({ customer, unpaidSales, totalDebt })}>
-                        <History className="h-3.5 w-3.5" /> {t('payments.history_btn')}
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-9 w-9 p-0 flex-shrink-0"
-                        onClick={() => setExpandedId(isExpanded ? null : customer.id)}>
-                        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-
-                  {isExpanded && (
-                    <div className="border-t bg-muted/40 px-4 py-3 space-y-2">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('payments.unpaid_invoices')}</p>
-                      {unpaidSales.map(sale => (
-                        <div key={sale.id} className="bg-card rounded-lg border p-3 space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="font-mono text-northcode-blue dark:text-blue-400 font-semibold text-sm">#{sale.sale_number}</span>
-                            <Badge variant={sale.payment_status === 'partial' ? 'warning' : 'destructive'} className="text-[10px]">
-                              {sale.payment_status === 'partial' ? t('payments.partial_label') : t('payments.unpaid_label')}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            <span>{format(new Date(sale.created_at), 'dd MMM yyyy', { locale: fr })}</span>
-                            <span>Total: {fmt(sale.total)}</span>
-                          </div>
-                          {sale.amount_paid > 0 && (
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-green-600">{t('payment.already_paid')}: {fmt(sale.amount_paid)}</span>
-                              <span className="font-bold text-red-600">{t('payment.remaining')}: {fmt(sale.balance)}</span>
-                            </div>
-                          )}
-                          {sale.amount_paid === 0 && (
-                            <div className="flex justify-end">
-                              <span className="text-xs font-bold text-red-600">{t('payment.due')}: {fmt(sale.balance)}</span>
-                            </div>
-                          )}
-                          {sale.cashier_name && (
-                            <p className="text-[11px] text-muted-foreground">{t('payments.sold_by')} : <strong>{sale.cashier_name}</strong></p>
-                          )}
-                          {sale.sale_items && sale.sale_items.length > 0 && (
-                            <div className="pt-1 border-t space-y-0.5">
-                              {sale.sale_items.map((item, idx) => (
-                                <div key={idx} className="flex justify-between text-[11px] text-muted-foreground">
-                                  <span>{item.product_name} × {item.quantity}</span>
-                                  <span>{fmt(item.subtotal)}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              <DebtorCard key={customer.id} customer={customer} unpaidSales={unpaidSales} totalDebt={totalDebt} isExpanded={isExpanded} setExpandedId={setExpandedId} openRepayDialog={openRepayDialog} openHistory={openHistory} fmt={fmt} t={t} />
             )
           })}
         </div>

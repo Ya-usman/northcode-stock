@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useTranslations } from 'next-intl'
-import { Plus, Trash2, Tag, Search, RotateCcw, ChevronDown, ChevronRight, Package } from 'lucide-react'
+import { Plus, Trash2, Tag, Search, RotateCcw, ChevronDown, ChevronRight, Package, Store } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -15,9 +15,104 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { cn } from '@/lib/utils/cn'
 import type { Category, Product } from '@/lib/types/database'
 
+function CategoryCard({ cat, products, expandedId, setExpandedId, canEdit, deleteCategory, t }: any) {
+  const catProducts = products.filter((p: any) => p.category_id === cat.id)
+  const isExpanded = expandedId === cat.id
+  return (
+    <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+      <button
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors text-left"
+        onClick={() => setExpandedId(isExpanded ? null : cat.id)}
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="h-8 w-8 rounded-md bg-blue-50 dark:bg-blue-950 flex items-center justify-center shrink-0">
+            <Tag className="h-4 w-4 text-northcode-blue dark:text-blue-400" />
+          </div>
+          <span className="font-medium text-sm truncate">{cat.name}</span>
+          <Badge variant="secondary" className="text-xs shrink-0">{catProducts.length}</Badge>
+        </div>
+        <div className="flex items-center gap-1 ml-2 shrink-0">
+          {canEdit && (
+            <span
+              role="button"
+              className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+              onClick={(e: any) => { e.stopPropagation(); deleteCategory(cat) }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </span>
+          )}
+          {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+        </div>
+      </button>
+      {isExpanded && (
+        <div className="border-t bg-muted/10">
+          {catProducts.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-4">{t('categories.no_products_in_cat')}</p>
+          ) : (
+            <div className="divide-y divide-border/50">
+              {catProducts.map((p: any) => (
+                <div key={p.id} className="flex items-center justify-between px-4 py-2.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Package className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-sm truncate">{p.name}</span>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0 ml-2">
+                    <span className="text-xs text-muted-foreground">{p.quantity} {p.unit}</span>
+                    <span className="text-sm font-semibold text-northcode-blue dark:text-blue-400">
+                      {Number(p.selling_price).toLocaleString('fr-FR')}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function UncategorizedCard({ products, shopId, expandedId, setExpandedId, t }: any) {
+  const key = `__none__${shopId}`
+  const isExpanded = expandedId === key
+  return (
+    <div className="rounded-lg border border-dashed bg-card shadow-sm overflow-hidden">
+      <button
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors text-left"
+        onClick={() => setExpandedId(isExpanded ? null : key)}
+      >
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-md bg-muted flex items-center justify-center shrink-0">
+            <Tag className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <span className="font-medium text-sm text-muted-foreground">{t('categories.uncategorized')}</span>
+          <Badge variant="outline" className="text-xs">{products.length}</Badge>
+        </div>
+        {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+      </button>
+      {isExpanded && (
+        <div className="border-t bg-muted/10 divide-y divide-border/50">
+          {products.map((p: any) => (
+            <div key={p.id} className="flex items-center justify-between px-4 py-2.5">
+              <div className="flex items-center gap-2 min-w-0">
+                <Package className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <span className="text-sm truncate">{p.name}</span>
+              </div>
+              <span className="text-sm font-semibold text-northcode-blue dark:text-blue-400 shrink-0 ml-2">
+                {Number(p.selling_price).toLocaleString('fr-FR')}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function CategoriesPage() {
   const t = useTranslations()
-  const { shop, profile, roleInActiveShop } = useAuthContext()
+  const { shop, profile, roleInActiveShop, effectiveShopIds, userShops } = useAuthContext()
+  const isMultiShop = effectiveShopIds.length > 1
   const supabase = createClient()
   const { toast } = useToast()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -33,21 +128,20 @@ export default function CategoriesPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const fetchData = async () => {
-    if (!shop?.id) return
+    if (!effectiveShopIds.length) return
     try {
-      const [catRes, prodData] = await Promise.all([
-        fetch(`/api/categories?shop_id=${shop.id}`),
-        supabase.from('products').select('id, name, selling_price, quantity, unit, category_id').eq('shop_id', shop.id).eq('is_active', true).order('name'),
+      const [catData, prodData] = await Promise.all([
+        supabase.from('categories').select('*').in('shop_id', effectiveShopIds).order('name'),
+        supabase.from('products').select('id, name, selling_price, quantity, unit, category_id, shop_id').in('shop_id', effectiveShopIds).eq('is_active', true).order('name'),
       ])
-      const catJson = await catRes.json()
-      setCategories((catJson.data || []) as Category[])
+      setCategories((catData.data || []) as Category[])
       setProducts((prodData.data || []) as unknown as Product[])
     } catch { /* keep */ } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => { fetchData() }, [shop?.id])
+  useEffect(() => { fetchData() }, [effectiveShopIds.join(',')])
 
   const openDialog = () => {
     setNewName('')
@@ -159,109 +253,29 @@ export default function CategoriesPage() {
             <p className="text-sm">{search ? t('categories.no_results') : t('categories.none')}</p>
             {canEdit && !search && <p className="text-xs mt-1">{t('categories.add_hint')}</p>}
           </div>
-        ) : (
-          filtered.map(cat => {
-            const catProducts = products.filter(p => p.category_id === cat.id)
-            const isExpanded = expandedId === cat.id
-
+        ) : isMultiShop ? (
+          userShops.filter(s => effectiveShopIds.includes(s.id)).map(shopEntry => {
+            const shopCats = filtered.filter(c => c.shop_id === shopEntry.id)
+            const shopUncategorized = !search ? products.filter(p => p.shop_id === shopEntry.id && !p.category_id) : []
+            if (shopCats.length === 0 && shopUncategorized.length === 0) return null
             return (
-              <div key={cat.id} className="rounded-lg border bg-card shadow-sm overflow-hidden">
-                {/* Category header row */}
-                <button
-                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors text-left"
-                  onClick={() => setExpandedId(isExpanded ? null : cat.id)}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-8 w-8 rounded-md bg-blue-50 dark:bg-blue-950 flex items-center justify-center shrink-0">
-                      <Tag className="h-4 w-4 text-northcode-blue dark:text-blue-400" />
-                    </div>
-                    <span className="font-medium text-sm truncate">{cat.name}</span>
-                    <Badge variant="secondary" className="text-xs shrink-0">
-                      {catProducts.length}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-1 ml-2 shrink-0">
-                    {canEdit && (
-                      <span
-                        role="button"
-                        className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-                        onClick={e => { e.stopPropagation(); deleteCategory(cat) }}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </span>
-                    )}
-                    {isExpanded
-                      ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                      : <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    }
-                  </div>
-                </button>
-
-                {/* Product list */}
-                {isExpanded && (
-                  <div className="border-t bg-muted/10">
-                    {catProducts.length === 0 ? (
-                      <p className="text-xs text-muted-foreground text-center py-4">{t('categories.no_products_in_cat')}</p>
-                    ) : (
-                      <div className="divide-y divide-border/50">
-                        {catProducts.map(p => (
-                          <div key={p.id} className="flex items-center justify-between px-4 py-2.5">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <Package className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                              <span className="text-sm truncate">{p.name}</span>
-                            </div>
-                            <div className="flex items-center gap-3 shrink-0 ml-2">
-                              <span className="text-xs text-muted-foreground">{p.quantity} {(p as any).unit}</span>
-                              <span className="text-sm font-semibold text-northcode-blue dark:text-blue-400">
-                                {Number(p.selling_price).toLocaleString('fr-FR')}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+              <div key={shopEntry.id} className="space-y-2">
+                {/* Shop section header */}
+                <div className="flex items-center gap-2 pt-2">
+                  <Store className="h-3.5 w-3.5 text-northcode-blue dark:text-blue-400 flex-shrink-0" />
+                  <span className="text-xs font-semibold text-northcode-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+                {shopCats.map(cat => <CategoryCard key={cat.id} cat={cat} products={products} expandedId={expandedId} setExpandedId={setExpandedId} canEdit={canEdit} deleteCategory={deleteCategory} t={t} />)}
+                {shopUncategorized.length > 0 && <UncategorizedCard products={shopUncategorized} shopId={shopEntry.id} expandedId={expandedId} setExpandedId={setExpandedId} t={t} />}
               </div>
             )
           })
-        )}
-
-        {/* Uncategorized products */}
-        {!search && uncategorized.length > 0 && (
-          <div className="rounded-lg border border-dashed bg-card shadow-sm overflow-hidden">
-            <button
-              className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors text-left"
-              onClick={() => setExpandedId(expandedId === '__none__' ? null : '__none__')}
-            >
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-md bg-muted flex items-center justify-center shrink-0">
-                  <Tag className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <span className="font-medium text-sm text-muted-foreground">{t('categories.uncategorized')}</span>
-                <Badge variant="outline" className="text-xs">{uncategorized.length}</Badge>
-              </div>
-              {expandedId === '__none__'
-                ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                : <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              }
-            </button>
-            {expandedId === '__none__' && (
-              <div className="border-t bg-muted/10 divide-y divide-border/50">
-                {uncategorized.map(p => (
-                  <div key={p.id} className="flex items-center justify-between px-4 py-2.5">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Package className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <span className="text-sm truncate">{p.name}</span>
-                    </div>
-                    <span className="text-sm font-semibold text-northcode-blue dark:text-blue-400 shrink-0 ml-2">
-                      {Number(p.selling_price).toLocaleString('fr-FR')}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+        ) : (
+          <>
+            {filtered.map(cat => <CategoryCard key={cat.id} cat={cat} products={products} expandedId={expandedId} setExpandedId={setExpandedId} canEdit={canEdit} deleteCategory={deleteCategory} t={t} />)}
+            {!search && uncategorized.length > 0 && <UncategorizedCard products={uncategorized} shopId={shop?.id || ''} expandedId={expandedId} setExpandedId={setExpandedId} t={t} />}
+          </>
         )}
       </div>
 

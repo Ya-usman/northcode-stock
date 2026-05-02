@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
-import { Search, Plus, Edit2, Trash2, Phone, MapPin, Package } from 'lucide-react'
+import { Search, Plus, Edit2, Trash2, Phone, MapPin, Package, Store } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -17,9 +17,51 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { supplierSchema, type SupplierFormData } from '@/lib/validations/customer'
 import type { Supplier } from '@/lib/types/database'
 
+function SupplierCard({ supplier, productCounts, setEditingSupplier, form, setShowModal, deleteSupplier, t }: any) {
+  return (
+    <div className="rounded-lg border bg-card shadow-sm p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-sm">{supplier.name}</p>
+          <div className="flex items-center gap-3 mt-1 flex-wrap">
+            {supplier.phone && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Phone className="h-3 w-3" />{supplier.phone}
+              </span>
+            )}
+            {supplier.city && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <MapPin className="h-3 w-3" />{supplier.city}
+              </span>
+            )}
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Package className="h-3 w-3" />{t('suppliers.products_count', { count: productCounts[supplier.id] || 0 })}
+            </span>
+          </div>
+        </div>
+        <div className="flex gap-1">
+          <button
+            className="h-8 w-8 flex items-center justify-center rounded hover:bg-accent transition-colors"
+            onClick={() => { setEditingSupplier(supplier); form.reset({ name: supplier.name, phone: supplier.phone || '', city: supplier.city || '' }); setShowModal(true) }}
+          >
+            <Edit2 className="h-3.5 w-3.5" />
+          </button>
+          <button
+            className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+            onClick={() => deleteSupplier(supplier)}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function SuppliersPage() {
   const t = useTranslations()
-  const { profile, shop } = useAuth()
+  const { profile, shop, effectiveShopIds, userShops } = useAuth()
+  const isMultiShop = effectiveShopIds.length > 1
   const supabase = createClient()
   const { toast } = useToast()
 
@@ -34,13 +76,13 @@ export default function SuppliersPage() {
   const form = useForm<SupplierFormData>({ resolver: zodResolver(supplierSchema) })
 
   const fetchSuppliers = async () => {
-    if (!shop?.id) return
-    const { data } = await supabase.from('suppliers').select('*').eq('shop_id', shop.id).order('name')
+    if (!effectiveShopIds.length) return
+    const { data } = await supabase.from('suppliers').select('*').in('shop_id', effectiveShopIds).order('name')
     setSuppliers((data || []) as Supplier[])
 
     if (data?.length) {
       const { data: products } = await supabase
-        .from('products').select('supplier_id').eq('shop_id', shop.id).eq('is_active', true)
+        .from('products').select('supplier_id').in('shop_id', effectiveShopIds).eq('is_active', true)
       const counts: Record<string, number> = {}
       products?.forEach(p => {
         if (p.supplier_id) counts[p.supplier_id] = (counts[p.supplier_id] || 0) + 1
@@ -50,7 +92,7 @@ export default function SuppliersPage() {
     setLoading(false)
   }
 
-  useEffect(() => { fetchSuppliers() }, [shop?.id])
+  useEffect(() => { fetchSuppliers() }, [effectiveShopIds.join(',')])
 
   const filtered = suppliers.filter(s => {
     if (!search) return true
@@ -110,51 +152,26 @@ export default function SuppliersPage() {
         <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
           {t('suppliers.no_suppliers')}
         </div>
+      ) : isMultiShop ? (
+        <div className="space-y-4">
+          {userShops.filter(s => effectiveShopIds.includes(s.id)).map(shopEntry => {
+            const shopSuppliers = filtered.filter(s => s.shop_id === shopEntry.id)
+            if (!shopSuppliers.length) return null
+            return (
+              <div key={shopEntry.id} className="space-y-2">
+                <div className="flex items-center gap-2 pt-1">
+                  <Store className="h-3.5 w-3.5 text-northcode-blue dark:text-blue-400 flex-shrink-0" />
+                  <span className="text-xs font-semibold text-northcode-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+                {shopSuppliers.map(supplier => <SupplierCard key={supplier.id} supplier={supplier} productCounts={productCounts} setEditingSupplier={setEditingSupplier} form={form} setShowModal={setShowModal} deleteSupplier={deleteSupplier} t={t} />)}
+              </div>
+            )
+          })}
+        </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map(supplier => (
-            <div key={supplier.id} className="rounded-lg border bg-card shadow-sm p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-sm">{supplier.name}</p>
-                  <div className="flex items-center gap-3 mt-1 flex-wrap">
-                    {supplier.phone && (
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Phone className="h-3 w-3" />{supplier.phone}
-                      </span>
-                    )}
-                    {supplier.city && (
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <MapPin className="h-3 w-3" />{supplier.city}
-                      </span>
-                    )}
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Package className="h-3 w-3" />{t('suppliers.products_count', { count: productCounts[supplier.id] || 0 })}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost" size="sm" className="h-8 w-8 p-0"
-                    onClick={() => {
-                      setEditingSupplier(supplier)
-                      form.reset({ name: supplier.name, phone: supplier.phone || '', city: supplier.city || '' })
-                      setShowModal(true)
-                    }}
-                  >
-                    <Edit2 className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost" size="sm"
-                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                    onClick={() => deleteSupplier(supplier)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ))}
+          {filtered.map(supplier => <SupplierCard key={supplier.id} supplier={supplier} productCounts={productCounts} setEditingSupplier={setEditingSupplier} form={form} setShowModal={setShowModal} deleteSupplier={deleteSupplier} t={t} />)}
         </div>
       )}
 

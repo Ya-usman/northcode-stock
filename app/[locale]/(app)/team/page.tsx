@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import {
   UserPlus, Shield, Clock, Mail, ShieldOff, ShieldCheck,
-  AlertTriangle, Trash2, Store, ChevronDown,
+  AlertTriangle, Trash2, Store,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -51,7 +51,8 @@ export default function TeamPage() {
   const t = useTranslations()
   const locale = useLocale()
   const dateFnsLocale = locale === 'fr' ? fr : enUS
-  const { profile: myProfile, shop, userShops } = useAuth()
+  const { profile: myProfile, shop, userShops, effectiveShopIds, dashboardShopFilter } = useAuth()
+  const isMultiShop = effectiveShopIds.length > 1
   const { toast } = useToast()
 
   // Which shop's team we're viewing
@@ -81,34 +82,35 @@ export default function TeamPage() {
 
   const isOwner = myProfile?.role === 'owner' || myProfile?.role === 'super_admin'
 
-  // Sync viewShopId when shop loads
+  // Sync viewShopId when shop loads or dashboardShopFilter changes
   useEffect(() => {
-    if (shop?.id && !viewShopId) setViewShopId(shop.id)
-    if (shop?.id && !inviteShopId) setInviteShopId(shop.id)
-  }, [shop?.id])
+    if (dashboardShopFilter) {
+      setViewShopId(dashboardShopFilter)
+      setInviteShopId(dashboardShopFilter)
+    } else if (shop?.id) {
+      if (!viewShopId) setViewShopId(shop.id)
+      if (!inviteShopId) setInviteShopId(shop.id)
+    }
+  }, [shop?.id, dashboardShopFilter])
 
   const fetchMembers = async () => {
-    if (!viewShopId) return
+    if (!effectiveShopIds.length) return
     setLoading(true)
     try {
-      // Step 1: get shop_members
-      const { data: membersData, error: membersError } = await supabase
-        .from('shop_members')
-        .select('id, user_id, shop_id, role, is_active, joined_at')
-        .eq('shop_id', viewShopId)
-        .order('role')
+      // Fetch members from all effective shops in parallel
+      const results = await Promise.all(
+        effectiveShopIds.map(sid =>
+          supabase.from('shop_members')
+            .select('id, user_id, shop_id, role, is_active, joined_at')
+            .eq('shop_id', sid)
+            .order('role')
+        )
+      )
 
-      if (membersError) {
-        toast({ title: membersError.message, variant: 'destructive' })
-        setLoading(false)
-        return
-      }
-
-      const rows = (membersData || []) as any[]
+      const rows = results.flatMap(r => (r.data || []) as any[])
       if (rows.length === 0) { setMembers([]); setLoading(false); return }
 
-      // Step 2: get profiles for those user_ids (admin-level read via service key not needed — just read all visible profiles)
-      const userIds = rows.map(r => r.user_id)
+      const userIds = [...new Set(rows.map(r => r.user_id))]
       const { data: profilesData } = await supabase
         .from('profiles')
         .select('id, full_name, last_seen, is_active')
@@ -117,7 +119,6 @@ export default function TeamPage() {
       const profilesMap: Record<string, any> = {}
       ;(profilesData || []).forEach((p: any) => { profilesMap[p.id] = p })
 
-      // Merge
       setMembers(rows.map(m => ({
         ...m,
         profiles: profilesMap[m.user_id] ?? { id: m.user_id, full_name: t('actions.invite'), last_seen: null, is_active: m.is_active },
@@ -127,7 +128,7 @@ export default function TeamPage() {
     }
   }
 
-  useEffect(() => { fetchMembers() }, [viewShopId])
+  useEffect(() => { fetchMembers() }, [effectiveShopIds.join(',')])
 
   const changeRole = async (member: Member, newRole: UserRole) => {
     if (member.user_id === myProfile?.id) {
@@ -236,6 +237,84 @@ export default function TeamPage() {
   const inactiveCount = members.filter(m => !m.is_active).length
   const viewShopName = userShops.find(s => s.id === viewShopId)?.name || shop?.name || ''
 
+  const renderMember = (member: Member) => {
+    const p = member.profiles
+    if (!p) return null
+    const initials = p.full_name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
+    const isMe = member.user_id === myProfile?.id
+    const isLoading = actionLoading === member.id || actionLoading === member.id + '_role' || actionLoading === member.id + '_del'
+    const lastSeenMs = p.last_seen ? Date.now() - new Date(p.last_seen).getTime() : Infinity
+    const isOnline = lastSeenMs < 5 * 60 * 1000
+    const isAway   = !isOnline && lastSeenMs < 2 * 60 * 60 * 1000
+
+    return (
+      <div key={member.id} className={`rounded-xl border bg-card shadow-sm p-4 transition-opacity ${!member.is_active ? 'opacity-60 border-red-100 bg-red-50/30' : ''}`}>
+        <div className="flex items-start gap-3">
+          <div className="relative flex-shrink-0">
+            <Avatar className="h-10 w-10">
+              <AvatarFallback className={`text-white text-sm font-bold ${member.is_active ? 'bg-blue-600 dark:bg-blue-500' : 'bg-gray-400'}`}>
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            {member.is_active && p.last_seen && (
+              <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${isOnline ? 'bg-green-500' : isAway ? 'bg-yellow-400' : 'bg-gray-300'}`} />
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-semibold text-sm truncate max-w-[160px]">{p.full_name}</p>
+              {isMe && <Badge variant="outline" className="text-[10px] px-1.5 flex-shrink-0">{t('team.me')}</Badge>}
+              {!member.is_active && <Badge className="text-[10px] bg-red-100 text-red-600 border-red-200 flex-shrink-0">{t('team.deactivated_badge')}</Badge>}
+            </div>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${ROLE_COLORS[member.role] || ROLE_COLORS.viewer}`}>
+                <Shield className="h-2.5 w-2.5" />
+                {t(`roles.${member.role}` as any) || member.role}
+              </span>
+              {member.is_active && (
+                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${isOnline ? 'bg-green-100 text-green-700' : isAway ? 'bg-yellow-100 text-yellow-700' : 'bg-muted text-gray-500'}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${isOnline ? 'bg-green-500' : isAway ? 'bg-yellow-400' : 'bg-gray-400'}`} />
+                  {isOnline ? t('team.online') : isAway ? t('team.away') : t('team.offline')}
+                </span>
+              )}
+              {p.last_seen && !isOnline && (
+                <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <Clock className="h-3 w-3" />
+                  {formatDistanceToNow(new Date(p.last_seen), { addSuffix: true, locale: dateFnsLocale })}
+                </span>
+              )}
+              {!p.last_seen && <span className="text-[10px] text-muted-foreground italic">{t('team.never_connected')}</span>}
+            </div>
+          </div>
+        </div>
+        {!isMe && member.role !== 'owner' && isOwner && (
+          <div className="mt-3 pt-3 border-t flex flex-wrap gap-2 items-center">
+            <Select value={member.role} onValueChange={v => changeRole(member, v as UserRole)} disabled={isLoading || !member.is_active}>
+              <SelectTrigger className="w-[120px] h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cashier">{t('roles.cashier')}</SelectItem>
+                <SelectItem value="stock_manager">{t('roles.stock_manager')}</SelectItem>
+                <SelectItem value="viewer">{t('roles.viewer')}</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button size="sm" variant="outline" disabled={isLoading} onClick={() => confirmToggleActive(member)}
+              className={`h-8 gap-1.5 text-xs ${member.is_active ? 'border-red-200 text-red-600 hover:bg-red-50' : 'border-green-200 text-green-600 hover:bg-green-50'}`}>
+              {isLoading && actionLoading === member.id
+                ? <span className="h-3 w-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                : member.is_active
+                  ? <><ShieldOff className="h-3 w-3" /> {t('team.deactivate')}</>
+                  : <><ShieldCheck className="h-3 w-3" /> {t('team.reactivate')}</>}
+            </Button>
+            <Button size="sm" variant="outline" disabled={isLoading} onClick={() => setDeleteDialog({ open: true, member })}
+              className="h-8 w-8 p-0 border-red-300 text-red-600 hover:bg-red-50" title={t('team.delete_title')}>
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -295,130 +374,31 @@ export default function TeamPage() {
       {/* Member list */}
       {loading ? (
         <div className="space-y-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
-      ) : (
-        <div className="space-y-3">
-          {members.map(member => {
-            const p = member.profiles
-            if (!p) return null
-            const initials = p.full_name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
-            const isMe = member.user_id === myProfile?.id
-            const isLoading = actionLoading === member.id || actionLoading === member.id + '_role' || actionLoading === member.id + '_del'
-            const lastSeenMs = p.last_seen ? Date.now() - new Date(p.last_seen).getTime() : Infinity
-            const isOnline  = lastSeenMs < 5 * 60 * 1000           // < 5 min
-            const isAway    = !isOnline && lastSeenMs < 2 * 60 * 60 * 1000  // 5 min – 2 h
-            // isOffline = > 2h or never connected
-
+      ) : isMultiShop ? (
+        <div className="space-y-4">
+          {userShops.filter(s => effectiveShopIds.includes(s.id)).map(shopEntry => {
+            const shopMembers = members.filter(m => m.shop_id === shopEntry.id)
+            if (!shopMembers.length) return null
             return (
-              <div
-                key={member.id}
-                className={`rounded-xl border bg-card shadow-sm p-4 transition-opacity ${
-                  !member.is_active ? 'opacity-60 border-red-100 bg-red-50/30' : ''
-                }`}
-              >
-                {/* Top row: avatar + info */}
-                <div className="flex items-start gap-3">
-                  <div className="relative flex-shrink-0">
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback className={`text-white text-sm font-bold ${member.is_active ? 'bg-blue-600 dark:bg-blue-500' : 'bg-gray-400'}`}>
-                        {initials}
-                      </AvatarFallback>
-                    </Avatar>
-                    {member.is_active && p.last_seen && (
-                      <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${
-                        isOnline ? 'bg-green-500' : isAway ? 'bg-yellow-400' : 'bg-gray-300'
-                      }`} />
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold text-sm truncate max-w-[160px]">{p.full_name}</p>
-                      {isMe && <Badge variant="outline" className="text-[10px] px-1.5 flex-shrink-0">{t('team.me')}</Badge>}
-                      {!member.is_active && <Badge className="text-[10px] bg-red-100 text-red-600 border-red-200 flex-shrink-0">{t('team.deactivated_badge')}</Badge>}
-                    </div>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${ROLE_COLORS[member.role] || ROLE_COLORS.viewer}`}>
-                        <Shield className="h-2.5 w-2.5" />
-                        {t(`roles.${member.role}` as any) || member.role}
-                      </span>
-                      {member.is_active && (
-                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                          isOnline ? 'bg-green-100 text-green-700'
-                          : isAway  ? 'bg-yellow-100 text-yellow-700'
-                          :           'bg-muted text-gray-500'
-                        }`}>
-                          <span className={`h-1.5 w-1.5 rounded-full ${
-                            isOnline ? 'bg-green-500' : isAway ? 'bg-yellow-400' : 'bg-gray-400'
-                          }`} />
-                          {isOnline ? t('team.online') : isAway ? t('team.away') : t('team.offline')}
-                        </span>
-                      )}
-                      {p.last_seen && !isOnline && (
-                        <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          {formatDistanceToNow(new Date(p.last_seen), { addSuffix: true, locale: dateFnsLocale })}
-                        </span>
-                      )}
-                      {!p.last_seen && (
-                        <span className="text-[10px] text-muted-foreground italic">{t('team.never_connected')}</span>
-                      )}
-                    </div>
-                  </div>
+              <div key={shopEntry.id} className="space-y-3">
+                <div className="flex items-center gap-2 pt-1">
+                  <Store className="h-3.5 w-3.5 text-northcode-blue dark:text-blue-400 flex-shrink-0" />
+                  <span className="text-xs font-semibold text-northcode-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
+                  <div className="flex-1 h-px bg-border" />
                 </div>
-
-                {/* Actions — below info, wraps on small screens */}
-                {!isMe && member.role !== 'owner' && isOwner && (
-                  <div className="mt-3 pt-3 border-t flex flex-wrap gap-2 items-center">
-                    {/* Role selector */}
-                    <Select
-                      value={member.role}
-                      onValueChange={v => changeRole(member, v as UserRole)}
-                      disabled={isLoading || !member.is_active}
-                    >
-                      <SelectTrigger className="w-[120px] h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="cashier">{t('roles.cashier')}</SelectItem>
-                        <SelectItem value="stock_manager">{t('roles.stock_manager')}</SelectItem>
-                        <SelectItem value="viewer">{t('roles.viewer')}</SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    {/* Activate / Deactivate */}
-                    <Button
-                      size="sm" variant="outline" disabled={isLoading}
-                      onClick={() => confirmToggleActive(member)}
-                      className={`h-8 gap-1.5 text-xs ${
-                        member.is_active
-                          ? 'border-red-200 text-red-600 hover:bg-red-50'
-                          : 'border-green-200 text-green-600 hover:bg-green-50'
-                      }`}
-                    >
-                      {isLoading && actionLoading === member.id ? (
-                        <span className="h-3 w-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                      ) : member.is_active ? (
-                        <><ShieldOff className="h-3 w-3" /> {t('team.deactivate')}</>
-                      ) : (
-                        <><ShieldCheck className="h-3 w-3" /> {t('team.reactivate')}</>
-                      )}
-                    </Button>
-
-                    {/* Delete permanently */}
-                    <Button
-                      size="sm" variant="outline" disabled={isLoading}
-                      onClick={() => setDeleteDialog({ open: true, member })}
-                      className="h-8 w-8 p-0 border-red-300 text-red-600 hover:bg-red-50"
-                      title={t('team.delete_title')}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-
-                  </div>
-                )}
+                {shopMembers.map(member => renderMember(member))}
               </div>
             )
           })}
+          {members.length === 0 && (
+            <div className="flex h-32 items-center justify-center text-muted-foreground text-sm rounded-xl border bg-card">
+              {t('team.no_members')}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {members.map(member => renderMember(member))}
 
           {members.length === 0 && !loading && (
             <div className="flex h-32 items-center justify-center text-muted-foreground text-sm rounded-xl border bg-card">
@@ -427,6 +407,7 @@ export default function TeamPage() {
           )}
         </div>
       )}
+
 
       {/* Confirm deactivation dialog */}
       <Dialog open={confirmDialog.open} onOpenChange={open => setConfirmDialog(d => ({ ...d, open }))}>
