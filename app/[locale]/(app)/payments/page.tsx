@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
-import { generateDebtReceiptPDF } from '@/lib/utils/pdf'
+import { generateDebtReceiptPDFBlob } from '@/lib/utils/pdf'
+import { sharePDFNative } from '@/lib/utils/native-share'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,6 +18,7 @@ import type { Customer } from '@/lib/types/database'
 import {
   ChevronDown, ChevronUp, Clock, CheckCircle2,
   History, User, RefreshCw, Banknote, Store,
+  FileDown, Share2,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -170,6 +172,7 @@ export default function DettesPage() {
   const [repayRef, setRepayRef] = useState('')
   const [repayNotes, setRepayNotes] = useState('')
   const [saving, setSaving] = useState(false)
+  const [receiptResult, setReceiptResult] = useState<{ blob: Blob; fileName: string; customerName: string; phone?: string } | null>(null)
 
   // ── History dialog ──────────────────────────────────────
   const [historyDebtor, setHistoryDebtor] = useState<CustomerDebt | null>(null)
@@ -247,10 +250,10 @@ export default function DettesPage() {
       if (!res.ok) throw new Error(data.error)
       toast({ title: t('toast.payment_recorded'), variant: 'success' })
 
-      // Generate receipt PDF
+      // Generate receipt PDF blob
       if (shop && data.applied?.length > 0) {
         const remaining = repayDebtor.totalDebt - amount
-        generateDebtReceiptPDF({
+        const result = await generateDebtReceiptPDFBlob({
           customerName: repayDebtor.customer.name,
           amount,
           method: repayMethod,
@@ -279,9 +282,15 @@ export default function DettesPage() {
             methodPaystack: t('receipt.method_paystack'),
           },
         })
+        setReceiptResult({
+          ...result,
+          customerName: repayDebtor.customer.name,
+          phone: repayDebtor.customer.phone || undefined,
+        })
+      } else {
+        setRepayDebtor(null)
       }
 
-      setRepayDebtor(null)
       setRepayAmount('')
       setTimeout(() => fetchDebtors(true), 300)
     } catch (e: any) {
@@ -384,11 +393,13 @@ export default function DettesPage() {
       )}
 
       {/* ── Repayment Dialog ── */}
-      <Dialog open={!!repayDebtor} onOpenChange={open => !open && setRepayDebtor(null)}>
+      <Dialog open={!!repayDebtor || !!receiptResult} onOpenChange={open => { if (!open) { setRepayDebtor(null); setReceiptResult(null) } }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('payments.record_repayment_title')}</DialogTitle>
-            {repayDebtor && (
+            <DialogTitle>
+              {receiptResult ? t('toast.payment_recorded') : t('payments.record_repayment_title')}
+            </DialogTitle>
+            {!receiptResult && repayDebtor && (
               <div className="flex items-center gap-2 mt-1">
                 <User className="h-4 w-4 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">{repayDebtor.customer.name}</p>
@@ -397,6 +408,58 @@ export default function DettesPage() {
             )}
           </DialogHeader>
 
+          {/* ── Success screen ── */}
+          {receiptResult ? (
+            <div className="space-y-4 py-2">
+              <div className="flex flex-col items-center gap-2 py-2">
+                <div className="h-14 w-14 rounded-full bg-green-100 flex items-center justify-center">
+                  <CheckCircle2 className="h-7 w-7 text-green-600" />
+                </div>
+                <p className="font-semibold text-base">{receiptResult.customerName}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  className="gap-2 h-11"
+                  onClick={() => {
+                    const url = URL.createObjectURL(receiptResult.blob)
+                    const a = document.createElement('a')
+                    a.href = url; a.download = receiptResult.fileName
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+                    setTimeout(() => URL.revokeObjectURL(url), 10000)
+                  }}
+                >
+                  <FileDown className="h-4 w-4" />
+                  {t('actions.download_pdf')}
+                </Button>
+                <Button
+                  className="gap-2 h-11 bg-green-600 hover:bg-green-700"
+                  onClick={() => sharePDFNative(receiptResult.blob, receiptResult.fileName, `Reçu — ${receiptResult.customerName}`)}
+                >
+                  <Share2 className="h-4 w-4" />
+                  WhatsApp
+                </Button>
+              </div>
+              {receiptResult.phone && (
+                <a
+                  href={`https://wa.me/${receiptResult.phone.replace(/[^\d]/g, '').replace(/^0/, '234')}?text=${encodeURIComponent(`Bonjour ${receiptResult.customerName}, votre paiement a bien été enregistré. Merci !`)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block"
+                >
+                  <Button variant="outline" className="w-full gap-2 border-green-300 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/30">
+                    💬 {t('payments.open_whatsapp_chat')}
+                  </Button>
+                </a>
+              )}
+              <DialogFooter>
+                <Button className="w-full" onClick={() => { setRepayDebtor(null); setReceiptResult(null) }}>
+                  {t('actions.close')}
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+          <>
           <div className="space-y-4">
             {repayDebtor && repayDebtor.unpaidSales.length === 0 ? (
               <div className="rounded-lg bg-orange-50 border border-orange-200 p-3">
@@ -464,7 +527,6 @@ export default function DettesPage() {
               <Input value={repayNotes} onChange={e => setRepayNotes(e.target.value)} placeholder={t('payment.notes_placeholder')} />
             </div>
           </div>
-
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setRepayDebtor(null)}>{t('actions.cancel')}</Button>
             <Button onClick={recordRepayment}
@@ -473,6 +535,8 @@ export default function DettesPage() {
               {saving ? t('payment.saving') : `✓ ${t('payment.confirm_repayment')}`}
             </Button>
           </DialogFooter>
+          </>
+          )}
         </DialogContent>
       </Dialog>
 

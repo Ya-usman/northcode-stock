@@ -311,7 +311,7 @@ interface DebtReceiptData {
   labels?: DebtReceiptLabels
 }
 
-export async function generateDebtReceiptPDF(data: DebtReceiptData): Promise<void> {
+async function buildDebtReceiptDoc(data: DebtReceiptData) {
   const { jsPDF } = await import('jspdf')
   const autoTable = (await import('jspdf-autotable')).default
 
@@ -475,7 +475,18 @@ export async function generateDebtReceiptPDF(data: DebtReceiptData): Promise<voi
   doc.setTextColor(120, 120, 120)
   doc.text('Manage smarter. Sell faster. Grow bigger.', pageWidth / 2, y, { align: 'center' })
 
-  doc.save(`Remboursement-${customerName.replace(/\s+/g, '-')}-${Date.now()}.pdf`)
+  const fileName = `Remboursement-${customerName.replace(/\s+/g, '-')}-${Date.now()}.pdf`
+  return { doc, fileName }
+}
+
+export async function generateDebtReceiptPDF(data: DebtReceiptData): Promise<void> {
+  const { doc, fileName } = await buildDebtReceiptDoc(data)
+  doc.save(fileName)
+}
+
+export async function generateDebtReceiptPDFBlob(data: DebtReceiptData): Promise<{ blob: Blob; fileName: string }> {
+  const { doc, fileName } = await buildDebtReceiptDoc(data)
+  return { blob: doc.output('blob') as Blob, fileName }
 }
 
 type ReportParams = {
