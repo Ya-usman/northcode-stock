@@ -174,10 +174,10 @@ export default function DashboardPage() {
           .lte('quantity', shop?.low_stock_threshold || 10)
           .order('quantity', { ascending: true }),
 
-        // Today's debt repayments (payments table)
+        // Today's debt repayments (payments on OLD sales only)
         supabase
           .from('payments')
-          .select('id, amount, paid_at, method, sales!inner(shop_id, customers(name))')
+          .select('id, amount, paid_at, method, sales!inner(shop_id, created_at, customers(name))')
           .gte('paid_at', todayStart)
           .lte('paid_at', todayEnd)
           .order('paid_at', { ascending: false }),
@@ -202,9 +202,14 @@ export default function DashboardPage() {
       // Revenue = face value of all sales created today
       const revenue = salesArr.reduce((s, sale: any) => s + Number(sale.total), 0)
 
-      // Build repayment feed items
+      // Build repayment feed items — only payments on sales created BEFORE today
+      // (payments on today's sales = normal payment validation, not a debt repayment)
       const repaymentItems: RepaymentFeedItem[] = (todayPaymentsRaw || [])
-        .filter((p: any) => shopIds.includes(p.sales?.shop_id))
+        .filter((p: any) => {
+          if (!shopIds.includes(p.sales?.shop_id)) return false
+          const saleDate = p.sales?.created_at ? new Date(p.sales.created_at) : null
+          return saleDate ? saleDate < new Date(todayStart) : false
+        })
         .map((p: any) => ({
           type: 'repayment' as const,
           id: p.id,
@@ -299,20 +304,22 @@ export default function DashboardPage() {
       try {
         const { data: sale } = await supabase
           .from('sales')
-          .select('shop_id, customers(name)')
+          .select('shop_id, created_at, customers(name)')
           .eq('id', payment.sale_id)
           .single()
-        if (sale && shopIds.includes(sale.shop_id)) {
-          const item: RepaymentFeedItem = {
-            type: 'repayment',
-            id: payment.id,
-            amount: Number(payment.amount),
-            paid_at: payment.paid_at || new Date().toISOString(),
-            method: payment.method,
-            customerName: (sale as any).customers?.name || '—',
-          }
-          setRepaymentFeed(prev => [item, ...prev])
+        if (!sale || !shopIds.includes(sale.shop_id)) return
+        // Only add as repayment if the sale was created before today
+        const saleDate = new Date((sale as any).created_at)
+        if (saleDate >= startOfDay(new Date())) return
+        const item: RepaymentFeedItem = {
+          type: 'repayment',
+          id: payment.id,
+          amount: Number(payment.amount),
+          paid_at: payment.paid_at || new Date().toISOString(),
+          method: payment.method,
+          customerName: (sale as any).customers?.name || '—',
         }
+        setRepaymentFeed(prev => [item, ...prev])
       } catch { /* ignore */ }
     },
     onProductUpdate: (product) => {
