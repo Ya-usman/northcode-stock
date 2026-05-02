@@ -140,7 +140,7 @@ export default function DashboardPage() {
         (() => {
           let q = supabase
             .from('sales')
-            .select('id, total, amount_paid, balance, payment_method, payment_status, sale_status, created_at, customers(name), cashier_id, shop_id')
+            .select('id, sale_number, total, amount_paid, balance, payment_method, payment_status, sale_status, created_at, customers(name), cashier_id, shop_id')
             .in('shop_id', shopIds)
             .eq('sale_status', 'active')
             .gte('created_at', todayStart)
