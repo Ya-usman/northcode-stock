@@ -350,15 +350,34 @@ async function buildDebtReceiptDoc(data: DebtReceiptData) {
   let y = 14
 
   // ─── HEADER ──────────────────────────────────
-  doc.setFillColor(10, 47, 110)
-  doc.roundedRect(margin, y, 20, 20, 3, 3, 'F')
-  doc.setTextColor(255, 255, 255)
-  doc.setFontSize(14)
-  doc.setFont('helvetica', 'bold')
-  doc.text('NC', margin + 10, y + 13, { align: 'center' })
+  let logoLoaded = false
+  if (shop.logo_url) {
+    try {
+      const response = await fetch(shop.logo_url)
+      const blob = await response.blob()
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve((reader.result as string).split(',')[1])
+        reader.onerror = reject
+        reader.readAsDataURL(blob)
+      })
+      const ext = blob.type.includes('png') ? 'PNG' : 'JPEG'
+      doc.addImage(base64, ext, margin, y, 20, 20)
+      logoLoaded = true
+    } catch { /* fall through to initials box */ }
+  }
+  if (!logoLoaded) {
+    doc.setFillColor(10, 47, 110)
+    doc.roundedRect(margin, y, 20, 20, 3, 3, 'F')
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'bold')
+    doc.text(shop.name.slice(0, 2).toUpperCase(), margin + 10, y + 13, { align: 'center' })
+  }
 
   doc.setTextColor(10, 47, 110)
   doc.setFontSize(14)
+  doc.setFont('helvetica', 'bold')
   doc.text(shop.name, margin + 24, y + 7)
   doc.setTextColor(80, 80, 80)
   doc.setFontSize(8)
