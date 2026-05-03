@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslations } from 'next-intl'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { generateDebtReceiptPDFBlob } from '@/lib/utils/pdf'
@@ -182,6 +182,8 @@ export default function DettesPage() {
   const [historyPayments, setHistoryPayments] = useState<PaymentRecord[]>([])
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null)
   const [loadingHistory, setLoadingHistory] = useState(false)
+  // Cache history results per customer to avoid re-fetching
+  const historyCache = useRef<Map<string, { sales: SaleRecord[]; payments: PaymentRecord[] }>>(new Map())
 
   // ── Fetch debtors ───────────────────────────────────────
   const fetchDebtors = async (quiet = false) => {
@@ -252,6 +254,9 @@ export default function DettesPage() {
       if (!res.ok) throw new Error(data.error)
       toast({ title: t('toast.payment_recorded'), variant: 'success' })
 
+      // Invalidate history cache for this customer so next open fetches fresh data
+      historyCache.current.delete(repayDebtor.customer.id)
+
       // Generate receipt PDF blob
       if (shop && data.applied?.length > 0) {
         const remaining = repayDebtor.totalDebt - amount
@@ -308,16 +313,29 @@ export default function DettesPage() {
   // ── Open history dialog ─────────────────────────────────
   const openHistory = async (debtor: CustomerDebt) => {
     setHistoryDebtor(debtor)
+    setExpandedSaleId(null)
+
+    // Serve from cache instantly if available
+    const cached = historyCache.current.get(debtor.customer.id)
+    if (cached) {
+      setHistorySales(cached.sales)
+      setHistoryPayments(cached.payments)
+      setLoadingHistory(false)
+      return
+    }
+
     setHistorySales([])
     setHistoryPayments([])
-    setExpandedSaleId(null)
     setLoadingHistory(true)
     try {
       const res = await fetch(`/api/payments/history?shop_id=${shop!.id}&customer_id=${debtor.customer.id}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      setHistorySales(data.sales || [])
-      setHistoryPayments(data.payments || [])
+      const sales = data.sales || []
+      const payments = data.payments || []
+      historyCache.current.set(debtor.customer.id, { sales, payments })
+      setHistorySales(sales)
+      setHistoryPayments(payments)
     } catch (e: any) {
       toast({ title: e.message, variant: 'destructive' })
     } finally {
