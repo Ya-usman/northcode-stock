@@ -21,6 +21,9 @@ export async function POST(request: Request) {
     if (!unpaid_sale_ids?.length || !amount || !method || !shop_id) {
       return NextResponse.json({ error: 'Champs manquants' }, { status: 400 })
     }
+    if (Number(amount) <= 0 || !isFinite(Number(amount))) {
+      return NextResponse.json({ error: 'Le montant doit être supérieur à 0' }, { status: 400 })
+    }
 
     // Verify caller has access to this shop
     const { data: memberRow } = await supabase
