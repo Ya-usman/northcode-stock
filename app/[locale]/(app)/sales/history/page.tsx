@@ -80,8 +80,6 @@ export default function SalesHistoryPage() {
   const [saleStatusFilter, setSaleStatusFilter] = useState<'all' | 'active' | 'cancelled'>('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
-  const shopId = effectiveShopIds[0]
-
   // Dialog state
   const [dialog, setDialog] = useState<{ type: DialogType; sale: Sale } | null>(null)
   const [cancelReason, setCancelReason] = useState('')
@@ -98,7 +96,7 @@ export default function SalesHistoryPage() {
     let start: Date
     switch (dateFilter) {
       case 'today': start = startOfDay(now); break
-      case 'week': start = startOfWeek(now); break
+      case 'week': start = startOfWeek(now, { weekStartsOn: 1 }); break
       case 'month': start = startOfMonth(now); break
       default: start = subDays(now, 30)
     }
