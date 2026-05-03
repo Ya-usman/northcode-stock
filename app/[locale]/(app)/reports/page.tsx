@@ -140,12 +140,10 @@ export default function ReportsPage() {
     })
 
     // Fetch ALL active shop members so we include those with 0 sales in the ranking
-    const memberResults = await Promise.all(
-      effectiveShopIds.map(sid =>
-        supabase.from('shop_members').select('user_id, shop_id').eq('shop_id', sid).eq('is_active', true)
-      )
-    )
-    const allMembers = memberResults.flatMap(r => (r.data || []) as { user_id: string; shop_id: string }[])
+    const { data: membersRaw } = await supabase
+      .from('shop_members').select('user_id, shop_id')
+      .in('shop_id', effectiveShopIds).eq('is_active', true)
+    const allMembers = (membersRaw || []) as { user_id: string; shop_id: string }[]
     const memberShopMap: Record<string, string> = {}
     allMembers.forEach(m => { memberShopMap[m.user_id] = m.shop_id })
 
