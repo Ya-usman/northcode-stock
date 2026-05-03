@@ -267,7 +267,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                   </div>
                   <div className="flex items-baseline gap-1">
                     <span className={cn('text-2xl font-extrabold', popular ? 'text-white' : 'text-northcode-blue dark:text-blue-400')}>
-                      {country.currencySymbol}{price.toLocaleString('fr-FR')}
+                      {country.currencySymbol}{price.toLocaleString(country.currencySymbol === 'FCFA' ? 'fr-FR' : 'en-NG')}
                     </span>
                     <span className={cn('text-xs', popular ? 'text-blue-100' : 'text-muted-foreground')}>
                       {periodLabel}
@@ -275,7 +275,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                   </div>
                   {period !== 'monthly' && (
                     <p className={cn('text-xs mt-0.5', popular ? 'text-blue-100' : 'text-muted-foreground')}>
-                      {t('per_month_equiv', { price: Math.floor(price / BILLING_PERIODS[period].months).toLocaleString('fr-FR') + country.currencySymbol })}
+                      {t('per_month_equiv', { price: Math.floor(price / BILLING_PERIODS[period].months).toLocaleString(country.currencySymbol === 'FCFA' ? 'fr-FR' : 'en-NG') + country.currencySymbol })}
                     </p>
                   )}
                 </div>

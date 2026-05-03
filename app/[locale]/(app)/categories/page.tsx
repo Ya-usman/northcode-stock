@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Plus, Trash2, Tag, Search, RotateCcw, ChevronDown, ChevronRight, Package, Store } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext } from '@/lib/contexts/auth-context'
+import { useCurrency } from '@/lib/hooks/use-currency'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { cn } from '@/lib/utils/cn'
 import type { Category, Product } from '@/lib/types/database'
 
-function CategoryCard({ cat, products, expandedId, setExpandedId, canEdit, deleteCategory, t }: any) {
+function CategoryCard({ cat, products, expandedId, setExpandedId, canEdit, deleteCategory, t, fmt }: any) {
   const catProducts = products.filter((p: any) => p.category_id === cat.id)
   const isExpanded = expandedId === cat.id
   return (
@@ -59,7 +60,7 @@ function CategoryCard({ cat, products, expandedId, setExpandedId, canEdit, delet
                   <div className="flex items-center gap-3 shrink-0 ml-2">
                     <span className="text-xs text-muted-foreground">{p.quantity} {p.unit}</span>
                     <span className="text-sm font-semibold text-northcode-blue dark:text-blue-400">
-                      {Number(p.selling_price).toLocaleString('fr-FR')}
+                      {fmt(p.selling_price)}
                     </span>
                   </div>
                 </div>
@@ -72,7 +73,7 @@ function CategoryCard({ cat, products, expandedId, setExpandedId, canEdit, delet
   )
 }
 
-function UncategorizedCard({ products, shopId, expandedId, setExpandedId, t }: any) {
+function UncategorizedCard({ products, shopId, expandedId, setExpandedId, t, fmt }: any) {
   const key = `__none__${shopId}`
   const isExpanded = expandedId === key
   return (
@@ -99,7 +100,7 @@ function UncategorizedCard({ products, shopId, expandedId, setExpandedId, t }: a
                 <span className="text-sm truncate">{p.name}</span>
               </div>
               <span className="text-sm font-semibold text-northcode-blue dark:text-blue-400 shrink-0 ml-2">
-                {Number(p.selling_price).toLocaleString('fr-FR')}
+                {fmt(p.selling_price)}
               </span>
             </div>
           ))}
@@ -112,6 +113,7 @@ function UncategorizedCard({ products, shopId, expandedId, setExpandedId, t }: a
 export default function CategoriesPage() {
   const t = useTranslations()
   const { shop, profile, roleInActiveShop, effectiveShopIds, userShops } = useAuthContext()
+  const { fmt } = useCurrency()
   const isMultiShop = effectiveShopIds.length > 1
   const supabase = createClient()
   const { toast } = useToast()
@@ -266,15 +268,15 @@ export default function CategoriesPage() {
                   <span className="text-xs font-semibold text-northcode-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
                   <div className="flex-1 h-px bg-border" />
                 </div>
-                {shopCats.map(cat => <CategoryCard key={cat.id} cat={cat} products={products} expandedId={expandedId} setExpandedId={setExpandedId} canEdit={canEdit} deleteCategory={deleteCategory} t={t} />)}
-                {shopUncategorized.length > 0 && <UncategorizedCard products={shopUncategorized} shopId={shopEntry.id} expandedId={expandedId} setExpandedId={setExpandedId} t={t} />}
+                {shopCats.map(cat => <CategoryCard key={cat.id} cat={cat} products={products} expandedId={expandedId} setExpandedId={setExpandedId} canEdit={canEdit} deleteCategory={deleteCategory} t={t} fmt={fmt} />)}
+                {shopUncategorized.length > 0 && <UncategorizedCard products={shopUncategorized} shopId={shopEntry.id} expandedId={expandedId} setExpandedId={setExpandedId} t={t} fmt={fmt} />}
               </div>
             )
           })
         ) : (
           <>
-            {filtered.map(cat => <CategoryCard key={cat.id} cat={cat} products={products} expandedId={expandedId} setExpandedId={setExpandedId} canEdit={canEdit} deleteCategory={deleteCategory} t={t} />)}
-            {!search && uncategorized.length > 0 && <UncategorizedCard products={uncategorized} shopId={shop?.id || ''} expandedId={expandedId} setExpandedId={setExpandedId} t={t} />}
+            {filtered.map(cat => <CategoryCard key={cat.id} cat={cat} products={products} expandedId={expandedId} setExpandedId={setExpandedId} canEdit={canEdit} deleteCategory={deleteCategory} t={t} fmt={fmt} />)}
+            {!search && uncategorized.length > 0 && <UncategorizedCard products={uncategorized} shopId={shop?.id || ''} expandedId={expandedId} setExpandedId={setExpandedId} t={t} fmt={fmt} />}
           </>
         )}
       </div>
