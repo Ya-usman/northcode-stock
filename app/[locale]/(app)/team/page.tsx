@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import {
   UserPlus, Shield, Clock, Mail, ShieldOff, ShieldCheck,
-  AlertTriangle, Trash2, Store,
+  AlertTriangle, Trash2, Store, ChevronDown,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'

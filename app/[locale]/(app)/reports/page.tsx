@@ -353,7 +353,18 @@ export default function ReportsPage() {
           {cashierPerf.length > 0 && (
             <Card className="border-0 shadow-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">{t('reports.cashier_performance')}</CardTitle>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <CardTitle className="text-sm">{t('reports.cashier_performance')}</CardTitle>
+                  {isMultiShop ? (
+                    <span className="text-[11px] font-medium text-northcode-blue dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-full px-2 py-0.5">
+                      {t('reports.all_shops_ranking')}
+                    </span>
+                  ) : shop?.name ? (
+                    <span className="text-[11px] text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+                      {shop.name}
+                    </span>
+                  ) : null}
+                </div>
               </CardHeader>
               <CardContent className="p-0">
                 <Table>
@@ -369,7 +380,9 @@ export default function ReportsPage() {
                   <TableBody>
                     {cashierPerf.map((c, idx) => (
                       <TableRow key={c.name}>
-                        <TableCell className="text-muted-foreground text-sm font-medium">{idx + 1}</TableCell>
+                        <TableCell className="text-muted-foreground text-sm font-medium">
+                          {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
+                        </TableCell>
                         <TableCell className="font-medium text-sm">{c.name}</TableCell>
                         {isMultiShop && <TableCell className="text-xs text-muted-foreground">{c.shopName}</TableCell>}
                         <TableCell className="text-right">{c.sales}</TableCell>
