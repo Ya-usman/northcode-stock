@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     const { reference, amount } = event.data
     const amountNaira = amount / 100
 
-    const supabase = await createClient()
+    const supabase = await createClient() as any
 
     // Find sale by Paystack reference
     const { data: sale } = await supabase

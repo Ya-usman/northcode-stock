@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     }
 
     // Verify the user_id exists in Supabase Auth using the admin client
-    const supabase = await createAdminClient()
+    const supabase = await createAdminClient() as any
     const { data: { user: authUser }, error: authError } = await supabase.auth.admin.getUserById(user_id)
     if (authError || !authUser) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })

@@ -7,7 +7,7 @@ const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || '').split(',').map
 export async function POST(request: Request) {
   try {
     // Auth check — email allowlist OR super_admin DB role required
-    const supabase = await createClient()
+    const supabase = await createClient() as any
     const { data: { user } } = await supabase.auth.getUser()
     
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })

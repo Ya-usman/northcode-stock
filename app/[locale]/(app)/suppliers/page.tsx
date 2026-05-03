@@ -62,7 +62,7 @@ export default function SuppliersPage() {
   const t = useTranslations()
   const { profile, shop, effectiveShopIds, userShops } = useAuth()
   const isMultiShop = effectiveShopIds.length > 1
-  const supabase = createClient()
+  const supabase = createClient() as any
   const { toast } = useToast()
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
@@ -84,7 +84,7 @@ export default function SuppliersPage() {
       const { data: products } = await supabase
         .from('products').select('supplier_id').in('shop_id', effectiveShopIds).eq('is_active', true)
       const counts: Record<string, number> = {}
-      products?.forEach(p => {
+      products?.forEach((p: any) => {
         if (p.supplier_id) counts[p.supplier_id] = (counts[p.supplier_id] || 0) + 1
       })
       setProductCounts(counts)

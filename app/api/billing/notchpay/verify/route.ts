@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL(`/${locale}/billing?error=invalid_meta`, baseUrl))
     }
 
-    const supabase = await createAdminClient()
+    const supabase = await createAdminClient() as any
 
     // Idempotency: skip if this reference was already processed
     const { data: existing } = await supabase

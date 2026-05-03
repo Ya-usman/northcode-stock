@@ -66,7 +66,7 @@ export default function CustomersPage() {
   const { profile, shop, effectiveShopIds, userShops } = useAuth()
   const isMultiShop = effectiveShopIds.length > 1
   const { fmt: formatNaira } = useCurrency()
-  const supabase = createClient()
+  const supabase = createClient() as any
   const { toast } = useToast()
 
   const [customers, setCustomers] = useState<Customer[]>([])

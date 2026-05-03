@@ -29,13 +29,13 @@ export async function POST(request: Request) {
     const { email, shop_id, role = 'owner' } = await request.json()
     if (!email || !shop_id) return NextResponse.json({ error: 'email et shop_id requis' }, { status: 400 })
 
-    const admin = await createAdminClient()
+    const admin = await createAdminClient() as any
 
     // Find user by email
     const { data: { users }, error: listError } = await admin.auth.admin.listUsers()
     if (listError) throw listError
 
-    const targetUser = users.find(u => u.email === email)
+    const targetUser = users.find((u: any) => u.email === email)
     if (!targetUser) return NextResponse.json({ error: `Aucun compte trouvé pour ${email}` }, { status: 404 })
 
     // Upsert into shop_members
