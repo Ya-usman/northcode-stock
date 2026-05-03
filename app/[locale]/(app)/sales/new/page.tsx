@@ -27,6 +27,7 @@ import type { Product, Customer, CartItem, Sale, SaleItem, Category } from '@/li
 import { cacheProducts, getCachedProducts, savePendingSale } from '@/lib/offline/db'
 import { useOffline } from '@/lib/offline/use-offline'
 import { getCountry, getMethodType } from '@/lib/saas/countries'
+import { formatInputValue } from '@/lib/utils/currency'
 
 interface Draft {
   id: string
@@ -851,7 +852,13 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 <Label className="text-sm w-24 flex-shrink-0">{t('sales.discount')}</Label>
                 <div className="flex flex-1 rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-0">
                   <span className="flex items-center px-2.5 bg-muted border-r text-sm text-muted-foreground font-medium whitespace-nowrap select-none">{selectedShop?.currency || '₦'}</span>
-                  <input type="number" min={0} max={subtotal} value={discount || ''} onChange={e => setDiscount(Math.min(Number(e.target.value), subtotal))} className="flex-1 h-9 px-3 text-sm bg-card outline-none" placeholder="0" />
+                  <input type="text" inputMode="numeric" pattern="[0-9]*"
+                    value={formatInputValue(discount, selectedShop?.currency || '₦')}
+                    onChange={e => {
+                      const digits = e.target.value.replace(/\D/g, '')
+                      setDiscount(Math.min(Number(digits) || 0, subtotal))
+                    }}
+                    className="flex-1 h-9 px-3 text-sm bg-card outline-none" placeholder="0" />
                 </div>
               </div>
               <Separator />
@@ -963,11 +970,12 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                       <div className="flex rounded-md border border-orange-200 overflow-hidden focus-within:ring-2 focus-within:ring-orange-300">
                         <span className="flex items-center px-2.5 bg-orange-50 border-r border-orange-200 text-sm text-muted-foreground font-medium whitespace-nowrap select-none">{selectedShop?.currency || '₦'}</span>
                         <input
-                          type="number"
-                          value={debtRepayAmount}
-                          onChange={e => setDebtRepayAmount(e.target.value)}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={formatInputValue(debtRepayAmount, selectedShop?.currency || '₦')}
+                          onChange={e => setDebtRepayAmount(e.target.value.replace(/\D/g, ''))}
                           className="flex-1 h-11 px-3 text-base font-bold bg-card outline-none"
-                          min={1}
                           placeholder="0"
                         />
                       </div>
@@ -1024,8 +1032,11 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 <Label>{t('payment.amount_paid')}</Label>
                 <div className="flex rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
                   <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">{selectedShop?.currency || '₦'}</span>
-                  <input type="number" min={0} value={amountPaid} onChange={e => setAmountPaid(e.target.value)}
-                    className="flex-1 h-12 px-3 text-lg font-bold bg-card outline-none" placeholder={totalToCollect.toString()} />
+                  <input type="text" inputMode="numeric" pattern="[0-9]*"
+                    value={formatInputValue(amountPaid, selectedShop?.currency || '₦')}
+                    onChange={e => setAmountPaid(e.target.value.replace(/\D/g, ''))}
+                    className="flex-1 h-12 px-3 text-lg font-bold bg-card outline-none"
+                    placeholder={formatInputValue(totalToCollect, selectedShop?.currency || '₦') || '0'} />
                 </div>
               </div>
               {Number(amountPaid) > 0 && Number(amountPaid) >= totalToCollect && (

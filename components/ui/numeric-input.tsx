@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils/cn'
 
 interface NumericInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'value' | 'onChange'> {
@@ -8,22 +8,33 @@ interface NumericInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElem
   onChange?: (value: number) => void
 }
 
-export function NumericInput({ value = 0, onChange, onBlur, className, ...props }: NumericInputProps) {
-  const [focused, setFocused] = useState(false)
+function fmt(n: number): string {
+  if (!n) return ''
+  return n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+}
 
+export function NumericInput({ value = 0, onChange, onBlur, className, ...props }: NumericInputProps) {
   const numValue =
     typeof value === 'string'
-      ? parseFloat(value.replace(/\s/g, '').replace(',', '.')) || 0
+      ? parseInt(value.replace(/\D/g, ''), 10) || 0
       : (value ?? 0)
 
-  const display = focused
-    ? numValue === 0 ? '' : String(numValue)
-    : numValue === 0 ? '' : numValue.toLocaleString('fr-FR')
+  const [display, setDisplay] = useState(fmt(numValue))
+  const prev = useRef(numValue)
+
+  // Sync when external value changes (e.g. form reset)
+  useEffect(() => {
+    if (numValue !== prev.current) {
+      prev.current = numValue
+      setDisplay(fmt(numValue))
+    }
+  }, [numValue])
 
   return (
     <input
       type="text"
-      inputMode="decimal"
+      inputMode="numeric"
+      pattern="[0-9]*"
       className={cn(
         'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors',
         'placeholder:text-muted-foreground',
@@ -34,12 +45,16 @@ export function NumericInput({ value = 0, onChange, onBlur, className, ...props 
       )}
       value={display}
       onChange={e => {
-        const raw = e.target.value.replace(/[^\d.,]/g, '').replace(',', '.')
-        onChange?.(parseFloat(raw) || 0)
+        const digits = e.target.value.replace(/\D/g, '')
+        const num = parseInt(digits, 10) || 0
+        prev.current = num
+        setDisplay(digits === '' ? '' : fmt(num))
+        onChange?.(num)
       }}
-      onFocus={() => setFocused(true)}
       onBlur={e => {
-        setFocused(false)
+        const num = parseInt(display.replace(/\D/g, ''), 10) || 0
+        prev.current = num
+        setDisplay(fmt(num))
         ;(onBlur as any)?.(e)
       }}
       {...props}

@@ -21,6 +21,7 @@ import {
   FileDown, Share2,
 } from 'lucide-react'
 import { getCountry, getMethodType } from '@/lib/saas/countries'
+import { formatInputValue } from '@/lib/utils/currency'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
@@ -489,8 +490,10 @@ export default function DettesPage() {
                 <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">
                   {shop?.currency || '₦'}
                 </span>
-                <input type="number" value={repayAmount} onChange={e => setRepayAmount(e.target.value)}
-                  className="flex-1 h-12 px-3 text-lg font-bold bg-card outline-none" min={1} placeholder="0" autoFocus />
+                <input type="text" inputMode="numeric" pattern="[0-9]*"
+                  value={formatInputValue(repayAmount, shop?.currency || '₦')}
+                  onChange={e => setRepayAmount(e.target.value.replace(/\D/g, ''))}
+                  className="flex-1 h-12 px-3 text-lg font-bold bg-card outline-none" placeholder="0" autoFocus />
               </div>
               {repayDebtor && Number(repayAmount) > 0 && (
                 <p className="text-xs text-muted-foreground">

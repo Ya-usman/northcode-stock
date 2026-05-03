@@ -42,6 +42,21 @@ export function parseNaira(value: string): number {
 }
 
 /**
+ * Format a raw digit string for display in a price input (with thousand separators, no symbol).
+ * Strips any non-digit characters first so it's safe to pass either raw or partially-formatted strings.
+ */
+export function formatInputValue(rawDigits: string | number, currency: string): string {
+  const digits = String(rawDigits ?? '').replace(/\D/g, '')
+  if (!digits) return ''
+  const num = parseInt(digits, 10)
+  if (isNaN(num)) return ''
+  return num.toLocaleString(currency === 'FCFA' ? 'fr-FR' : 'en-NG', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  })
+}
+
+/**
  * Calculate profit margin percentage
  */
 export function profitMargin(buyingPrice: number, sellingPrice: number): number {
