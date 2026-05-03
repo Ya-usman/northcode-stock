@@ -53,33 +53,14 @@ export async function POST(request: Request) {
       }
     }
 
-    // Restore stock for each sale item
-    for (const item of (sale.sale_items || [])) {
-      if (!item.product_id) continue
-      const { data: product } = await admin.from('products').select('quantity').eq('id', item.product_id).single()
-      if (product) {
-        await admin.from('products').update({ quantity: product.quantity + item.quantity }).eq('id', item.product_id)
-        await admin.from('stock_movements').insert({
-          shop_id: sale.shop_id,
-          product_id: item.product_id,
-          type: 'in',
-          quantity: item.quantity,
-          reason: `Annulation vente #${sale.sale_number}`,
-          notes: reason || null,
-          performed_by: user.id,
-        })
-      }
-    }
+    // Atomic: restore stock + mark cancelled in a single DB transaction
+    const { error: rpcErr } = await admin.rpc('cancel_sale', {
+      p_sale_id: sale_id,
+      p_cancelled_by: user.id,
+      p_reason: reason || null,
+    })
 
-    // Mark sale as cancelled
-    const { error: updateErr } = await admin.from('sales').update({
-      sale_status: 'cancelled',
-      cancelled_by: user.id,
-      cancelled_at: new Date().toISOString(),
-      cancel_reason: reason || null,
-    }).eq('id', sale_id)
-
-    if (updateErr) throw updateErr
+    if (rpcErr) throw rpcErr
 
     return NextResponse.json({ success: true, message: `Vente #${sale.sale_number} annulée` })
   } catch (err: any) {

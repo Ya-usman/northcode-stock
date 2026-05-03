@@ -40,23 +40,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
     }
 
-    // Restore stock only if sale was NOT already cancelled (cancelled already restored stock)
-    if (sale.sale_status === 'active') {
-      for (const item of (sale.sale_items || [])) {
-        if (!item.product_id) continue
-        const { data: product } = await admin.from('products').select('quantity').eq('id', item.product_id).single()
-        if (product) {
-          await admin.from('products').update({ quantity: product.quantity + item.quantity }).eq('id', item.product_id)
-        }
-      }
-    }
+    // Atomic: restore stock (if active) + delete items/payments/sale in one DB transaction
+    const { error: rpcErr } = await admin.rpc('delete_sale', {
+      p_sale_id: sale_id,
+      p_user_id: user.id,
+    })
 
-    // Delete sale_items then sale
-    await admin.from('sale_items').delete().eq('sale_id', sale_id)
-    await admin.from('payments').delete().eq('sale_id', sale_id)
-    const { error: delErr } = await admin.from('sales').delete().eq('id', sale_id)
-
-    if (delErr) throw delErr
+    if (rpcErr) throw rpcErr
 
     return NextResponse.json({ success: true, message: `Vente #${sale.sale_number} supprimée définitivement` })
   } catch (err: any) {
