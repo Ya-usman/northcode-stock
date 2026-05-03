@@ -108,7 +108,8 @@
     "complete_sale": "Finaliser la vente",
     "record_payment": "Enregistrer le paiement",
     "add_to_cart": "Ajouter au panier",
-    "share_whatsapp": "Partager sur WhatsApp"
+    "share_whatsapp": "Partager sur WhatsApp",
+    "load_more": "Charger plus"
   },
   "status": {
     "in_stock": "En stock",

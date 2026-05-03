@@ -68,11 +68,16 @@ export default function SalesHistoryPage() {
   const { fmt: formatNaira } = useCurrency()
   const { toast } = useToast()
 
+  const PAGE_SIZE = 100
+
   const [view, setView] = useState<'sales' | 'repayments'>('sales')
   const [sales, setSales] = useState<Sale[]>([])
   const [cashierMap, setCashierMap] = useState<Record<string, string>>({})
   const [repayments, setRepayments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [salesOffset, setSalesOffset] = useState(0)
+  const [hasMoreSales, setHasMoreSales] = useState(false)
   const [search, setSearch] = useState('')
   const [dateFilter, setDateFilter] = useState('today')
   const [methodFilter, setMethodFilter] = useState('all')
@@ -103,11 +108,7 @@ export default function SalesHistoryPage() {
     return { start, end }
   }
 
-  const fetchSales = async () => {
-    if (!effectiveShopIds.length) return
-    setLoading(true)
-    const { start, end } = getDateBounds()
-
+  const buildSalesQuery = (start: Date, end: Date, offset: number) => {
     let query = supabase
       .from('sales')
       .select('*, customers(name, phone), sale_items(product_name, quantity, unit_price, subtotal)')
@@ -115,26 +116,49 @@ export default function SalesHistoryPage() {
       .gte('created_at', start.toISOString())
       .lte('created_at', end.toISOString())
       .order('created_at', { ascending: false })
+      .range(offset, offset + PAGE_SIZE - 1)
 
     if (isCashier) query = query.eq('cashier_id', profile!.id)
     if (methodFilter !== 'all') query = query.eq('payment_method', methodFilter)
     if (statusFilter !== 'all') query = query.eq('payment_status', statusFilter)
     if (saleStatusFilter !== 'all') query = query.eq('sale_status', saleStatusFilter)
+    return query
+  }
 
-    const { data } = await query
+  const enrichCashiers = async (salesData: Sale[], existingMap: Record<string, string> = {}) => {
+    const ids = Array.from(new Set(salesData.map((s: any) => s.cashier_id).filter((id: string) => id && !existingMap[id]))) as string[]
+    if (!ids.length) return existingMap
+    const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', ids)
+    const map = { ...existingMap }
+    for (const p of (profiles || [])) map[p.id] = p.full_name
+    return map
+  }
+
+  const fetchSales = async () => {
+    if (!effectiveShopIds.length) return
+    setLoading(true)
+    setSalesOffset(0)
+    const { start, end } = getDateBounds()
+    const { data } = await buildSalesQuery(start, end, 0)
     const salesData = (data || []) as Sale[]
     setSales(salesData)
-
-    const ids = Array.from(new Set(salesData.map((s: any) => s.cashier_id).filter(Boolean))) as string[]
-    if (ids.length > 0) {
-      const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', ids)
-      const map: Record<string, string> = {}
-      for (const p of (profiles || [])) map[p.id] = p.full_name
-      setCashierMap(map)
-    } else {
-      setCashierMap({})
-    }
+    setHasMoreSales(salesData.length === PAGE_SIZE)
+    setCashierMap(await enrichCashiers(salesData))
     setLoading(false)
+  }
+
+  const loadMoreSales = async () => {
+    if (!effectiveShopIds.length || loadingMore) return
+    setLoadingMore(true)
+    const nextOffset = salesOffset + PAGE_SIZE
+    const { start, end } = getDateBounds()
+    const { data } = await buildSalesQuery(start, end, nextOffset)
+    const more = (data || []) as Sale[]
+    setSales(prev => [...prev, ...more])
+    setSalesOffset(nextOffset)
+    setHasMoreSales(more.length === PAGE_SIZE)
+    setCashierMap(await enrichCashiers(more, cashierMap))
+    setLoadingMore(false)
   }
 
   const fetchRepayments = async () => {
@@ -546,6 +570,15 @@ export default function SalesHistoryPage() {
             </Table>
           </div>
         )
+      )}
+
+      {/* Load more */}
+      {view === 'sales' && !loading && hasMoreSales && (
+        <div className="flex justify-center pt-1">
+          <Button variant="outline" size="sm" onClick={loadMoreSales} loading={loadingMore}>
+            {t('actions.load_more')}
+          </Button>
+        </div>
       )}
 
       {/* Action dialog */}
