@@ -176,7 +176,7 @@ export default function DashboardPage() {
         // Today's debt repayments (payments on OLD sales only)
         supabase
           .from('payments')
-          .select('id, amount, paid_at, method, sales!inner(shop_id, created_at, customers(name))')
+          .select('id, amount, paid_at, method, sales!inner(shop_id, created_at, total, balance, customers(name))')
           .gte('paid_at', todayStart)
           .lte('paid_at', todayEnd)
           .order('paid_at', { ascending: false }),
@@ -216,6 +216,8 @@ export default function DashboardPage() {
           paid_at: p.paid_at,
           method: p.method,
           customerName: p.sales?.customers?.name || '—',
+          totalDebt: p.sales?.total !== undefined ? Number(p.sales.total) : undefined,
+          remainingBalance: p.sales?.balance !== undefined ? Number(p.sales.balance) : undefined,
         }))
 
       const last7 = Array.from({ length: 7 }, (_, i) => subDays(today, 6 - i))
@@ -303,7 +305,7 @@ export default function DashboardPage() {
       try {
         const { data: sale } = await supabase
           .from('sales')
-          .select('shop_id, created_at, customers(name)')
+          .select('shop_id, created_at, total, balance, customers(name)')
           .eq('id', payment.sale_id)
           .single()
         if (!sale || !shopIds.includes(sale.shop_id)) return
@@ -317,6 +319,8 @@ export default function DashboardPage() {
           paid_at: payment.paid_at || new Date().toISOString(),
           method: payment.method,
           customerName: (sale as any).customers?.name || '—',
+          totalDebt: Number((sale as any).total),
+          remainingBalance: Number((sale as any).balance),
         }
         setRepaymentFeed(prev => [item, ...prev])
       } catch { /* ignore */ }

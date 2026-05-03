@@ -14,6 +14,8 @@ export interface RepaymentFeedItem {
   paid_at: string
   method: string
   customerName: string
+  totalDebt?: number
+  remainingBalance?: number
 }
 
 export type FeedItem = (Sale & { type: 'sale' }) | RepaymentFeedItem
@@ -53,6 +55,8 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
             <AnimatePresence initial={false}>
               {items.slice(0, 12).map((item, idx) => {
                 if (item.type === 'repayment') {
+                  const isPartial = item.remainingBalance !== undefined && item.remainingBalance > 0
+                  const isFullyPaid = item.totalDebt !== undefined && !isPartial
                   return (
                     <motion.div
                       key={`r-${item.id}`}
@@ -66,6 +70,16 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                           <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
                             ↩ {t('sales.repayment')}
                           </span>
+                          {isPartial && (
+                            <Badge variant="warning" className="text-[10px] px-1.5 py-0">
+                              {t('status.partial')}
+                            </Badge>
+                          )}
+                          {isFullyPaid && (
+                            <Badge variant="success" className="text-[10px] px-1.5 py-0">
+                              {t('status.paid')}
+                            </Badge>
+                          )}
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-300 text-emerald-600 dark:text-emerald-400">
                             {t(`payment.${item.method}` as any) || item.method}
                           </Badge>
@@ -76,8 +90,18 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                         </p>
                       </div>
                       {role !== 'viewer' && (
-                        <div className="text-right flex-shrink-0 ml-2">
-                          <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">+{formatNaira(item.amount)}</p>
+                        <div className="text-right flex-shrink-0 ml-2 space-y-0.5">
+                          {item.totalDebt !== undefined ? (
+                            <>
+                              <p className="text-sm font-semibold text-orange-500">{formatNaira(item.totalDebt)}</p>
+                              <p className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">↑ {formatNaira(item.amount)}</p>
+                              {isPartial && (
+                                <p className="text-[10px] font-medium text-red-500">↓ {formatNaira(item.remainingBalance!)}</p>
+                              )}
+                            </>
+                          ) : (
+                            <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">+{formatNaira(item.amount)}</p>
+                          )}
                         </div>
                       )}
                     </motion.div>
