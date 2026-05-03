@@ -93,7 +93,7 @@ export default function ReportsPage() {
       const safeItems = (items || []) as Array<{ product_name: string; quantity: number; unit_price: number; subtotal: number; product_id: string | null; sale_id: string }>
 
       // Product buying prices for profit
-      const productIds = [...new Set(safeItems.map(i => i.product_id).filter(Boolean) as string[])]
+      const productIds = Array.from(new Set(safeItems.map(i => i.product_id).filter(Boolean) as string[]))
       let priceMap: Record<string, number> = {}
       if (productIds.length > 0) {
         const { data: prodPrices } = await supabase
@@ -148,7 +148,7 @@ export default function ReportsPage() {
     allMembers.forEach(m => { memberShopMap[m.user_id] = m.shop_id })
 
     // Union: members who sold + all active members
-    const allUserIds = [...new Set([...Object.keys(cashierMap), ...allMembers.map(m => m.user_id)])]
+    const allUserIds = Array.from(new Set([...Object.keys(cashierMap), ...allMembers.map(m => m.user_id)]))
 
     if (allUserIds.length > 0) {
       const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', allUserIds)

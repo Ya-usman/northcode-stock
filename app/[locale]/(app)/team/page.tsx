@@ -110,7 +110,7 @@ export default function TeamPage() {
       const rows = results.flatMap(r => (r.data || []) as any[])
       if (rows.length === 0) { setMembers([]); setLoading(false); return }
 
-      const userIds = [...new Set(rows.map(r => r.user_id))]
+      const userIds = Array.from(new Set(rows.map(r => r.user_id)))
       const { data: profilesData } = await supabase
         .from('profiles')
         .select('id, full_name, last_seen, is_active')
