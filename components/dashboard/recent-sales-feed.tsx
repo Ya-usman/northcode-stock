@@ -111,13 +111,17 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                       </p>
                     </div>
                     {role !== 'viewer' && (
-                      <div className="text-right flex-shrink-0 ml-2">
-                        <p className="text-sm font-semibold">{formatNaira(item.total)}</p>
-                        {Number(item.balance) > 0 && (
+                      <div className="text-right flex-shrink-0 ml-2 space-y-0.5">
+                        {Number(item.balance) > 0 ? (
                           <>
-                            <p className="text-[10px] text-emerald-600 dark:text-emerald-400">+{formatNaira(item.amount_paid)}</p>
-                            <p className="text-[10px] text-red-500">{t('payment.due')}: {formatNaira(item.balance)}</p>
+                            <p className="text-sm font-semibold text-orange-500">{formatNaira(item.total)}</p>
+                            {Number(item.amount_paid) > 0 && (
+                              <p className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">↑ {formatNaira(item.amount_paid)}</p>
+                            )}
+                            <p className="text-[10px] font-medium text-red-500">↓ {formatNaira(item.balance)}</p>
                           </>
+                        ) : (
+                          <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{formatNaira(item.total)}</p>
                         )}
                       </div>
                     )}
