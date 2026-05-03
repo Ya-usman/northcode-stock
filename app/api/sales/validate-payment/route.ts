@@ -22,16 +22,16 @@ export async function POST(request: Request) {
 
     const admin = await createAdminClient() as any
 
+    // Verify caller has access to the sale's shop before the atomic RPC
     const { data: sale, error: saleErr } = await admin
       .from('sales')
-      .select('*')
+      .select('shop_id, sale_status')
       .eq('id', sale_id)
       .single()
 
     if (saleErr || !sale) return NextResponse.json({ error: 'Vente introuvable' }, { status: 404 })
     if (sale.sale_status === 'cancelled') return NextResponse.json({ error: 'Vente annulée' }, { status: 400 })
 
-    // Verify caller has access to the sale's shop
     const { data: memberRow } = await supabase
       .from('shop_members')
       .select('role')
@@ -44,24 +44,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
     }
 
-    const parsedAmount = Math.min(Number(amount), Number(sale.balance))
-    if (parsedAmount <= 0) return NextResponse.json({ error: 'Montant invalide' }, { status: 400 })
-
-    // Insert payment — DB trigger (after_payment_insert) updates amount_paid + payment_status automatically.
-    // Do NOT manually update amount_paid here or it gets doubled.
-    const { error: payErr } = await admin.from('payments').insert({
-      sale_id,
-      amount: parsedAmount,
-      method,
-      reference: reference || null,
-      received_by: user.id,
+    // Atomic: lock sale row, cap amount, insert payment, update payment_method
+    const { data: result, error: rpcErr } = await admin.rpc('validate_payment', {
+      p_sale_id:   sale_id,
+      p_amount:    Number(amount),
+      p_method:    method,
+      p_reference: reference || null,
+      p_user_id:   user.id,
     })
-    if (payErr) throw payErr
+    if (rpcErr) throw rpcErr
 
-    // Only update payment_method (trigger doesn't touch it)
-    await admin.from('sales').update({ payment_method: method }).eq('id', sale_id)
-
-    const newBalance = Math.max(0, Number(sale.balance) - parsedAmount)
+    const row = Array.isArray(result) ? result[0] : result
+    const newBalance = Number(row?.new_balance ?? 0)
     return NextResponse.json({ success: true, message: newBalance <= 0 ? 'Paiement complet' : `Solde restant: ${newBalance}` })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
