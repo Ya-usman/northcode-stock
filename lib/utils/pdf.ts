@@ -302,6 +302,7 @@ interface DebtReceiptData {
   customerName: string
   amount: number
   method: string
+  methodLabel?: string
   reference?: string | null
   notes?: string | null
   receivedBy: string
@@ -315,7 +316,7 @@ async function buildDebtReceiptDoc(data: DebtReceiptData) {
   const { jsPDF } = await import('jspdf')
   const autoTable = (await import('jspdf-autotable')).default
 
-  const { customerName, amount, method, reference, notes, receivedBy, shop, appliedSales, remainingBalance, labels } = data
+  const { customerName, amount, method, methodLabel, reference, notes, receivedBy, shop, appliedSales, remainingBalance, labels } = data
   const DL: DebtReceiptLabels = {
     title: labels?.title ?? 'DEBT REPAYMENT RECEIPT',
     client: labels?.client ?? 'Client',
@@ -419,7 +420,7 @@ async function buildDebtReceiptDoc(data: DebtReceiptData) {
   const methodLabels: Record<string, string> = {
     cash: DL.methodCash, transfer: DL.methodTransfer, mobile_money: DL.methodMobile, paystack: DL.methodPaystack,
   }
-  doc.text(`${DL.mode}: ${methodLabels[method] || method}`, margin, y)
+  doc.text(`${DL.mode}: ${methodLabels[method] || methodLabel || method}`, margin, y)
   if (reference) doc.text(`${DL.ref}: ${reference}`, pageWidth - margin, y, { align: 'right' })
   y += 8
 

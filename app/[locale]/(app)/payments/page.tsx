@@ -20,6 +20,7 @@ import {
   History, User, RefreshCw, Banknote, Store,
   FileDown, Share2,
 } from 'lucide-react'
+import { getCountry, getMethodType } from '@/lib/saas/countries'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
@@ -253,10 +254,13 @@ export default function DettesPage() {
       // Generate receipt PDF blob
       if (shop && data.applied?.length > 0) {
         const remaining = repayDebtor.totalDebt - amount
+        const shopCountry = getCountry(shop?.country)
+        const selectedMethod = shopCountry.paymentMethods.find(m => m.id === repayMethod)
         const result = await generateDebtReceiptPDFBlob({
           customerName: repayDebtor.customer.name,
           amount,
           method: repayMethod,
+          methodLabel: selectedMethod?.label,
           reference: repayRef || null,
           notes: repayNotes || null,
           receivedBy: profile?.full_name || t('receipt.cashier'),
@@ -500,22 +504,24 @@ export default function DettesPage() {
             </div>
 
             <div className="space-y-1">
-              <Label>Mode de paiement</Label>
+              <Label>{t('payment.method')}</Label>
               <div className="grid grid-cols-2 gap-2">
-                {(['cash', 'transfer', 'mobile_money', 'paystack'] as const).map(m => (
-                  <button key={m} onClick={() => setRepayMethod(m)}
-                    className={`rounded-lg border p-2.5 text-sm font-medium transition-colors ${
-                      repayMethod === m
-                        ? 'border-blue-500 bg-northcode-blue-muted dark:bg-blue-950/40 text-northcode-blue dark:text-blue-400'
-                        : 'border-input bg-card text-muted-foreground hover:bg-muted'
-                    }`}>
-                    {m === 'cash' ? `💵 ${t('payment.cash')}` : m === 'transfer' ? `🏦 ${t('payment.transfer')}` : m === 'mobile_money' ? `📱 ${t('payment.mobile_money')}` : `💳 ${t('payment.paystack')}`}
-                  </button>
-                ))}
+                {getCountry(shop?.country).paymentMethods
+                  .filter(m => m.type !== 'credit')
+                  .map(m => (
+                    <button key={m.id} onClick={() => setRepayMethod(m.id)}
+                      className={`rounded-lg border p-2.5 text-sm font-medium transition-colors ${
+                        repayMethod === m.id
+                          ? 'border-blue-500 bg-northcode-blue-muted dark:bg-blue-950/40 text-northcode-blue dark:text-blue-400'
+                          : 'border-input bg-card text-muted-foreground hover:bg-muted'
+                      }`}>
+                      {m.icon} {m.label}
+                    </button>
+                  ))}
               </div>
             </div>
 
-            {repayMethod !== 'cash' && (
+            {getMethodType(repayMethod, getCountry(shop?.country)) !== 'cash' && (
               <div className="space-y-1">
                 <Label>{t('payment.reference')}</Label>
                 <Input value={repayRef} onChange={e => setRepayRef(e.target.value)} placeholder={t('payment.reference_placeholder')} />
