@@ -92,6 +92,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const [debtRepayEnabled, setDebtRepayEnabled] = useState(false)
   const [debtRepayAmount, setDebtRepayAmount] = useState('')
 
+  // Raw quantity input values (allows clearing/retyping without snap-back)
+  const [qtyInputs, setQtyInputs] = useState<Record<string, string>>({})
+
   // Drafts (held invoices)
   const [drafts, setDrafts] = useState<Draft[]>([])
   const [showDrafts, setShowDrafts] = useState(false)
@@ -813,8 +816,14 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                           type="number"
                           min={1}
                           max={item.product.quantity}
-                          value={item.quantity}
-                          onChange={e => setQtyDirect(item.product.id, parseInt(e.target.value))}
+                          value={qtyInputs[item.product.id] ?? String(item.quantity)}
+                          onChange={e => {
+                            const raw = e.target.value
+                            setQtyInputs(prev => ({ ...prev, [item.product.id]: raw }))
+                            const qty = parseInt(raw)
+                            if (!isNaN(qty) && qty >= 1) setQtyDirect(item.product.id, qty)
+                          }}
+                          onBlur={() => setQtyInputs(prev => { const n = { ...prev }; delete n[item.product.id]; return n })}
                           className="w-14 h-8 text-center text-sm font-bold p-1"
                         />
                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQty(item.product.id, 1)}>
