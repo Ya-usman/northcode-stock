@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     }>
 
     let remaining = Number(amount)
-    const appliedTo: { sale_id: string; amount: number }[] = []
+    const appliedTo: { sale_id: string; sale_number: string; amount: number }[] = []
 
     for (const sale of sales) {
       if (remaining <= 0) break
