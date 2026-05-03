@@ -63,10 +63,11 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.3, delay: idx * 0.03 }}
-                      className="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors"
+                      className="px-4 py-3 hover:bg-muted/30 transition-colors"
                     >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
+                      {/* Header row */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
                           <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
                             ↩ {t('sales.repayment')}
                           </span>
@@ -84,23 +85,30 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                             {t(`payment.${item.method}` as any) || item.method}
                           </Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                          {item.customerName} ·{' '}
-                          {new Date(item.paid_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
-                        </p>
+                        {role !== 'viewer' && item.totalDebt !== undefined && (
+                          <p className="text-sm font-semibold text-orange-500 flex-shrink-0">{formatNaira(item.totalDebt)}</p>
+                        )}
+                        {role !== 'viewer' && item.totalDebt === undefined && (
+                          <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 flex-shrink-0">{formatNaira(item.amount)}</p>
+                        )}
                       </div>
-                      {role !== 'viewer' && (
-                        <div className="text-right flex-shrink-0 ml-2 space-y-0.5">
-                          {item.totalDebt !== undefined ? (
-                            <>
-                              <p className="text-sm font-semibold text-orange-500">{formatNaira(item.totalDebt)}</p>
-                              <p className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">↑ {formatNaira(item.amount)}</p>
-                              {isPartial && (
-                                <p className="text-[10px] font-medium text-red-500">↓ {formatNaira(item.remainingBalance!)}</p>
-                              )}
-                            </>
-                          ) : (
-                            <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">+{formatNaira(item.amount)}</p>
+                      {/* Customer + time */}
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                        {item.customerName} ·{' '}
+                        {new Date(item.paid_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                      {/* Labeled amounts */}
+                      {role !== 'viewer' && item.totalDebt !== undefined && (
+                        <div className="flex gap-4 mt-1.5 flex-wrap">
+                          <p className="text-[10px]">
+                            <span className="text-muted-foreground">{t('payment.amount_paid')} : </span>
+                            <span className="font-semibold text-emerald-600 dark:text-emerald-400">+{formatNaira(item.amount)}</span>
+                          </p>
+                          {isPartial && (
+                            <p className="text-[10px]">
+                              <span className="text-muted-foreground">{t('payments.remaining_due')} : </span>
+                              <span className="font-semibold text-red-500">{formatNaira(item.remainingBalance!)}</span>
+                            </p>
                           )}
                         </div>
                       )}
@@ -109,16 +117,18 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                 }
 
                 // Regular sale row
+                const hasDebt = Number(item.balance) > 0
                 return (
                   <motion.div
                     key={item.id}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.3, delay: idx * 0.03 }}
-                    className="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors"
+                    className="px-4 py-3 hover:bg-muted/30 transition-colors"
                   >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
+                    {/* Header row */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
                         <span className="text-xs font-mono font-medium text-northcode-blue dark:text-blue-400">
                           #{item.sale_number}
                         </span>
@@ -129,24 +139,30 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                           {t(`payment.${item.payment_method}` as any)}
                         </span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                        {item.customers?.name || t('sales.walk_in')} ·{' '}
-                        {new Date(item.created_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
-                      </p>
+                      {role !== 'viewer' && (
+                        <p className={`text-sm font-semibold flex-shrink-0 ${hasDebt ? 'text-orange-500' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                          {formatNaira(item.total)}
+                        </p>
+                      )}
                     </div>
-                    {role !== 'viewer' && (
-                      <div className="text-right flex-shrink-0 ml-2 space-y-0.5">
-                        {Number(item.balance) > 0 ? (
-                          <>
-                            <p className="text-sm font-semibold text-orange-500">{formatNaira(item.total)}</p>
-                            {Number(item.amount_paid) > 0 && (
-                              <p className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">↑ {formatNaira(item.amount_paid)}</p>
-                            )}
-                            <p className="text-[10px] font-medium text-red-500">↓ {formatNaira(item.balance)}</p>
-                          </>
-                        ) : (
-                          <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{formatNaira(item.total)}</p>
+                    {/* Customer + time */}
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                      {item.customers?.name || t('sales.walk_in')} ·{' '}
+                      {new Date(item.created_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                    {/* Labeled amounts for partial/pending */}
+                    {role !== 'viewer' && hasDebt && (
+                      <div className="flex gap-4 mt-1.5 flex-wrap">
+                        {Number(item.amount_paid) > 0 && (
+                          <p className="text-[10px]">
+                            <span className="text-muted-foreground">{t('payment.amount_paid')} : </span>
+                            <span className="font-semibold text-emerald-600 dark:text-emerald-400">+{formatNaira(item.amount_paid)}</span>
+                          </p>
                         )}
+                        <p className="text-[10px]">
+                          <span className="text-muted-foreground">{t('payments.remaining_due')} : </span>
+                          <span className="font-semibold text-red-500">{formatNaira(item.balance)}</span>
+                        </p>
                       </div>
                     )}
                   </motion.div>
