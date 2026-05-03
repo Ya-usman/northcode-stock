@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { generateDebtReceiptPDFBlob } from '@/lib/utils/pdf'
-import { sharePDFNative } from '@/lib/utils/native-share'
+import { sharePDFNative, printPDFNative } from '@/lib/utils/native-share'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,7 +18,7 @@ import type { Customer } from '@/lib/types/database'
 import {
   ChevronDown, ChevronUp, Clock, CheckCircle2,
   History, User, RefreshCw, Banknote, Store,
-  FileDown, Share2,
+  Printer, Share2,
 } from 'lucide-react'
 import { getCountry, getMethodType } from '@/lib/saas/countries'
 import { formatInputValue } from '@/lib/utils/currency'
@@ -426,16 +426,10 @@ export default function DettesPage() {
                 <Button
                   variant="outline"
                   className="gap-2 h-11"
-                  onClick={() => {
-                    const url = URL.createObjectURL(receiptResult.blob)
-                    const a = document.createElement('a')
-                    a.href = url; a.download = receiptResult.fileName
-                    document.body.appendChild(a); a.click(); document.body.removeChild(a)
-                    setTimeout(() => URL.revokeObjectURL(url), 10000)
-                  }}
+                  onClick={() => printPDFNative(receiptResult.blob, receiptResult.fileName)}
                 >
-                  <FileDown className="h-4 w-4" />
-                  {t('actions.download_pdf')}
+                  <Printer className="h-4 w-4" />
+                  {t('actions.print_receipt')}
                 </Button>
                 <Button
                   className="gap-2 h-11 bg-green-600 hover:bg-green-700"
