@@ -6,29 +6,31 @@ import { cn } from '@/lib/utils/cn'
 interface NumericInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'value' | 'onChange'> {
   value?: number | string
   onChange?: (value: number) => void
+  currency?: string
 }
 
-function fmt(n: number): string {
+function fmt(n: number, currency?: string): string {
   if (!n) return ''
-  return n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+  const locale = currency === 'FCFA' ? 'fr-FR' : 'en-NG'
+  return n.toLocaleString(locale, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 }
 
-export function NumericInput({ value = 0, onChange, onBlur, className, ...props }: NumericInputProps) {
+export function NumericInput({ value = 0, onChange, onBlur, className, currency, ...props }: NumericInputProps) {
   const numValue =
     typeof value === 'string'
       ? parseInt(value.replace(/\D/g, ''), 10) || 0
       : (value ?? 0)
 
-  const [display, setDisplay] = useState(fmt(numValue))
+  const [display, setDisplay] = useState(fmt(numValue, currency))
   const prev = useRef(numValue)
 
   // Sync when external value changes (e.g. form reset)
   useEffect(() => {
     if (numValue !== prev.current) {
       prev.current = numValue
-      setDisplay(fmt(numValue))
+      setDisplay(fmt(numValue, currency))
     }
-  }, [numValue])
+  }, [numValue, currency])
 
   return (
     <input
@@ -48,13 +50,13 @@ export function NumericInput({ value = 0, onChange, onBlur, className, ...props 
         const digits = e.target.value.replace(/\D/g, '')
         const num = parseInt(digits, 10) || 0
         prev.current = num
-        setDisplay(digits === '' ? '' : fmt(num))
+        setDisplay(digits === '' ? '' : fmt(num, currency))
         onChange?.(num)
       }}
       onBlur={e => {
         const num = parseInt(display.replace(/\D/g, ''), 10) || 0
         prev.current = num
-        setDisplay(fmt(num))
+        setDisplay(fmt(num, currency))
         ;(onBlur as any)?.(e)
       }}
       {...props}

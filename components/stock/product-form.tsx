@@ -118,7 +118,7 @@ export function ProductForm({
               <span className="text-muted-foreground text-xs">({currency})</span>
             </Label>
             <Controller control={form.control} name="buying_price" render={({ field }) => (
-              <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" />
+              <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" currency={currency} />
             )} />
             {form.formState.errors.buying_price && (
               <p className="text-xs text-destructive">{form.formState.errors.buying_price.message}</p>
@@ -132,7 +132,7 @@ export function ProductForm({
             <span className="text-muted-foreground text-xs">({currency})</span>
           </Label>
           <Controller control={form.control} name="selling_price" render={({ field }) => (
-            <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" />
+            <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" currency={currency} />
           )} />
           {form.formState.errors.selling_price && (
             <p className="text-xs text-destructive">{form.formState.errors.selling_price.message}</p>
@@ -143,7 +143,7 @@ export function ProductForm({
           <div className="space-y-1">
             <Label>{t('products.quantity')} *</Label>
             <Controller control={form.control} name="quantity" render={({ field }) => (
-              <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" />
+              <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" currency={currency} />
             )} />
             {form.formState.errors.quantity && (
               <p className="text-xs text-destructive">{form.formState.errors.quantity.message}</p>
