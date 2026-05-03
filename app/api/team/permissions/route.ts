@@ -12,8 +12,8 @@ export async function PUT(request: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
     )
-    const { data: { session } } = await supabase.auth.getSession()
-    const user = session?.user
+    const { data: { user } } = await supabase.auth.getUser()
+    
     if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
     const { shop_id, user_id, can_delete_sales } = await request.json()

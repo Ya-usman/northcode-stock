@@ -13,15 +13,15 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'shop_id et customer_id requis' }, { status: 400 })
     }
 
-    // Auth — getSession() is a local JWT decode, fast
+    
     const cookieStore = cookies()
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
     )
-    const { data: { session } } = await supabase.auth.getSession()
-    const user = session?.user ?? null
+    const { data: { user } } = await supabase.auth.getUser()
+    
     if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
     const admin = await createAdminClient() as any

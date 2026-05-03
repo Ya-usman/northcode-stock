@@ -8,8 +8,8 @@ export async function POST(request: Request) {
   try {
     // Auth check — email allowlist OR super_admin DB role required
     const supabase = await createClient()
-    const { data: { session: _sess } } = await supabase.auth.getSession()
-    const user = _sess?.user ?? null
+    const { data: { user } } = await supabase.auth.getUser()
+    
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
 
     const emailAllowed = SUPER_ADMIN_EMAILS.length > 0 && SUPER_ADMIN_EMAILS.includes(user.email || '')

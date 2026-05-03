@@ -16,8 +16,8 @@ export async function POST(request: Request) {
   try {
     // Verify caller is authenticated and is an owner of the target shop
     const supabase = await createServerClient()
-    const { data: { session: _sess } } = await supabase.auth.getSession()
-    const caller = _sess?.user ?? null
+    const { data: { user: caller } } = await supabase.auth.getUser()
+    
     if (!caller) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
     const { email, full_name, role, shop_id, invited_by } = await request.json()

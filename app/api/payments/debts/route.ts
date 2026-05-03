@@ -20,8 +20,8 @@ export async function GET(request: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
     )
-    const { data: { session: _sess } } = await supabase.auth.getSession()
-    const user = _sess?.user ?? null
+    const { data: { user } } = await supabase.auth.getUser()
+    
     if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
     // Verify caller has access to all requested shops

@@ -10,10 +10,8 @@ async function getAuthedUser() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   )
-  // Use getSession() — reads JWT from cookies locally, no network call.
-  // getUser() makes a round-trip to Supabase and can return null on timeout.
-  const { data: { session } } = await supabase.auth.getSession()
-  return { user: session?.user ?? null, supabase }
+  const { data: { user } } = await supabase.auth.getUser()
+  return { user, supabase }
 }
 
 async function checkShopRole(supabase: any, userId: string, shopId: string) {
