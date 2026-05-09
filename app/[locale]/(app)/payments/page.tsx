@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslations } from 'next-intl'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { generateDebtReceiptPDFBlob } from '@/lib/utils/pdf'
@@ -18,7 +18,7 @@ import type { Customer } from '@/lib/types/database'
 import {
   ChevronDown, ChevronUp, Clock, CheckCircle2,
   History, User, RefreshCw, Banknote, Store,
-  Printer, Share2,
+  Printer, Share2, Search,
 } from 'lucide-react'
 import { getCountry, getMethodType } from '@/lib/saas/countries'
 import { formatInputValue } from '@/lib/utils/currency'
@@ -67,20 +67,42 @@ interface SaleRecord {
   sale_items: { product_name: string; quantity: number; unit_price: number; subtotal: number }[]
 }
 
+interface FifoLine {
+  sale: UnpaidSale
+  applying: number
+  fullyCovered: boolean
+}
+
 const STATUS_VARIANTS: Record<string, 'destructive' | 'warning' | 'success'> = {
   pending: 'destructive',
   partial: 'warning',
   paid: 'success',
 }
 
+function calcFifo(amount: number, sales: UnpaidSale[]): FifoLine[] {
+  let remaining = amount
+  const lines: FifoLine[] = []
+  for (const sale of sales) {
+    if (remaining <= 0) break
+    const applying = Math.min(remaining, sale.balance)
+    remaining -= applying
+    lines.push({ sale, applying, fullyCovered: applying >= sale.balance - 0.01 })
+  }
+  return lines
+}
+
 function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedId, openRepayDialog, openHistory, fmt, t }: any) {
+  const paidTotal = unpaidSales.reduce((s: number, sale: UnpaidSale) => s + sale.amount_paid, 0)
+  const grandTotal = unpaidSales.reduce((s: number, sale: UnpaidSale) => s + sale.total, 0)
+  const progress = grandTotal > 0 ? Math.min(100, (paidTotal / grandTotal) * 100) : 0
+
   return (
     <Card className="border-0 shadow-sm overflow-hidden">
       <CardContent className="p-0">
         <div className="p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0 flex-1">
-              <div className="h-9 w-9 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+              <div className="h-9 w-9 rounded-full bg-red-100 dark:bg-red-950/40 flex items-center justify-center flex-shrink-0">
                 <User className="h-4 w-4 text-red-600" />
               </div>
               <div className="min-w-0">
@@ -94,6 +116,23 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
               <p className="text-xs text-muted-foreground">{t('payments.invoices_count', { count: unpaidSales.length })}</p>
             </div>
           </div>
+
+          {/* Progress bar */}
+          {grandTotal > 0 && (
+            <div className="mt-3">
+              <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                <span>{t('payment.already_paid')}: {fmt(paidTotal)}</span>
+                <span>{Math.round(progress)}%</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-orange-400 to-red-500 transition-all duration-500"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-2 mt-3">
             <Button size="sm" className="flex-1 h-9 text-xs bg-northcode-blue hover:bg-northcode-blue-light gap-1"
               onClick={() => openRepayDialog({ customer, unpaidSales, totalDebt })}>
@@ -109,10 +148,11 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
             </Button>
           </div>
         </div>
+
         {isExpanded && (
           <div className="border-t bg-muted/40 px-4 py-3 space-y-2">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('payments.unpaid_invoices')}</p>
-            {unpaidSales.map((sale: any) => (
+            {unpaidSales.map((sale: UnpaidSale) => (
               <div key={sale.id} className="bg-card rounded-lg border p-3 space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="font-mono text-northcode-blue dark:text-blue-400 font-semibold text-sm">#{sale.sale_number}</span>
@@ -136,7 +176,7 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
                   </div>
                 )}
                 {sale.cashier_name && <p className="text-[11px] text-muted-foreground">{t('payments.sold_by')} : <strong>{sale.cashier_name}</strong></p>}
-                {sale.sale_items?.length > 0 && (
+                {sale.sale_items && sale.sale_items.length > 0 && (
                   <div className="pt-1 border-t space-y-0.5">
                     {sale.sale_items.map((item: any, idx: number) => (
                       <div key={idx} className="flex justify-between text-[11px] text-muted-foreground">
@@ -166,8 +206,9 @@ export default function DettesPage() {
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [search, setSearch] = useState('')
 
-  // ── Repayment dialog ────────────────────────────────────
+  // ── Repayment dialog ─────────────────────────────────────
   const [repayDebtor, setRepayDebtor] = useState<CustomerDebt | null>(null)
   const [repayAmount, setRepayAmount] = useState('')
   const [repayMethod, setRepayMethod] = useState('cash')
@@ -176,16 +217,15 @@ export default function DettesPage() {
   const [saving, setSaving] = useState(false)
   const [receiptResult, setReceiptResult] = useState<{ blob: Blob; fileName: string; customerName: string; phone?: string } | null>(null)
 
-  // ── History dialog ──────────────────────────────────────
+  // ── History dialog ───────────────────────────────────────
   const [historyDebtor, setHistoryDebtor] = useState<CustomerDebt | null>(null)
   const [historySales, setHistorySales] = useState<SaleRecord[]>([])
   const [historyPayments, setHistoryPayments] = useState<PaymentRecord[]>([])
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null)
   const [loadingHistory, setLoadingHistory] = useState(false)
-  // Cache history results per customer to avoid re-fetching
   const historyCache = useRef<Map<string, { sales: SaleRecord[]; payments: PaymentRecord[] }>>(new Map())
 
-  // ── Fetch debtors ───────────────────────────────────────
+  // ── Fetch ────────────────────────────────────────────────
   const fetchDebtors = async (quiet = false) => {
     if (!effectiveShopIds.length) return
     if (!quiet) setLoading(true)
@@ -205,9 +245,7 @@ export default function DettesPage() {
   }
 
   const shopKey = effectiveShopIds.join(',')
-
   useEffect(() => { fetchDebtors() }, [shopKey])
-
   useEffect(() => {
     const onVisible = () => { if (document.visibilityState === 'visible') fetchDebtors(true) }
     document.addEventListener('visibilitychange', onVisible)
@@ -216,7 +254,25 @@ export default function DettesPage() {
 
   const totalOutstanding = debtors.reduce((s, d) => s + d.totalDebt, 0)
 
-  // ── Open repay dialog ───────────────────────────────────
+  const filteredDebtors = useMemo(() => {
+    if (!search.trim()) return debtors
+    const q = search.toLowerCase()
+    return debtors.filter(d =>
+      d.customer.name.toLowerCase().includes(q) ||
+      d.customer.phone?.includes(q) ||
+      d.customer.city?.toLowerCase().includes(q)
+    )
+  }, [debtors, search])
+
+  // ── FIFO preview ─────────────────────────────────────────
+  const amount = Number(repayAmount) || 0
+  const fifoLines = useMemo(
+    () => repayDebtor ? calcFifo(amount, repayDebtor.unpaidSales) : [],
+    [amount, repayDebtor]
+  )
+  const remaining = repayDebtor ? Math.max(0, repayDebtor.totalDebt - amount) : 0
+
+  // ── Open repay dialog ────────────────────────────────────
   const openRepayDialog = (debtor: CustomerDebt) => {
     setRepayDebtor(debtor)
     setRepayAmount(String(Math.round(debtor.totalDebt)))
@@ -225,13 +281,12 @@ export default function DettesPage() {
     setRepayNotes('')
   }
 
-  // ── Record repayment ────────────────────────────────────
+  // ── Record repayment ─────────────────────────────────────
   const recordRepayment = async () => {
-    if (!repayDebtor || !repayAmount || Number(repayAmount) <= 0) {
+    if (!repayDebtor || amount <= 0) {
       toast({ title: t('toast.payment_amount_required'), variant: 'destructive' })
       return
     }
-    const amount = Number(repayAmount)
     if (amount > repayDebtor.totalDebt + 0.01) {
       toast({ title: t('toast.payment_exceeds_debt', { amount: fmt(repayDebtor.totalDebt) }), variant: 'destructive' })
       return
@@ -253,13 +308,9 @@ export default function DettesPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       toast({ title: t('toast.payment_recorded'), variant: 'success' })
-
-      // Invalidate history cache for this customer so next open fetches fresh data
       historyCache.current.delete(repayDebtor.customer.id)
 
-      // Generate receipt PDF blob
       if (shop && data.applied?.length > 0) {
-        const remaining = repayDebtor.totalDebt - amount
         const shopCountry = getCountry(shop?.country)
         const selectedMethod = shopCountry.paymentMethods.find(m => m.id === repayMethod)
         const result = await generateDebtReceiptPDFBlob({
@@ -292,11 +343,7 @@ export default function DettesPage() {
             methodPaystack: t('receipt.method_paystack'),
           },
         })
-        setReceiptResult({
-          ...result,
-          customerName: repayDebtor.customer.name,
-          phone: repayDebtor.customer.phone || undefined,
-        })
+        setReceiptResult({ ...result, customerName: repayDebtor.customer.name, phone: repayDebtor.customer.phone || undefined })
       } else {
         setRepayDebtor(null)
       }
@@ -310,12 +357,10 @@ export default function DettesPage() {
     }
   }
 
-  // ── Open history dialog ─────────────────────────────────
+  // ── Open history dialog ──────────────────────────────────
   const openHistory = async (debtor: CustomerDebt) => {
     setHistoryDebtor(debtor)
     setExpandedSaleId(null)
-
-    // Serve from cache instantly if available
     const cached = historyCache.current.get(debtor.customer.id)
     if (cached) {
       setHistorySales(cached.sales)
@@ -323,7 +368,6 @@ export default function DettesPage() {
       setLoadingHistory(false)
       return
     }
-
     setHistorySales([])
     setHistoryPayments([])
     setLoadingHistory(true)
@@ -331,11 +375,9 @@ export default function DettesPage() {
       const res = await fetch(`/api/payments/history?shop_id=${shop!.id}&customer_id=${debtor.customer.id}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      const sales = data.sales || []
-      const payments = data.payments || []
-      historyCache.current.set(debtor.customer.id, { sales, payments })
-      setHistorySales(sales)
-      setHistoryPayments(payments)
+      historyCache.current.set(debtor.customer.id, { sales: data.sales || [], payments: data.payments || [] })
+      setHistorySales(data.sales || [])
+      setHistoryPayments(data.payments || [])
     } catch (e: any) {
       toast({ title: e.message, variant: 'destructive' })
     } finally {
@@ -343,7 +385,7 @@ export default function DettesPage() {
     }
   }
 
-  // ── Render ──────────────────────────────────────────────
+  // ── Render ───────────────────────────────────────────────
   return (
     <div className="space-y-4">
 
@@ -354,36 +396,40 @@ export default function DettesPage() {
             <div>
               <p className="text-sm opacity-80">{t('payments.total_outstanding_label')}</p>
               <p className="text-3xl font-bold mt-1">{fmt(totalOutstanding)}</p>
-              <p className="text-sm opacity-70 mt-1">
-                {t('payments.clients_with_debt', { count: debtors.length })}
-              </p>
+              <p className="text-sm opacity-70 mt-1">{t('payments.clients_with_debt', { count: debtors.length })}</p>
             </div>
-            <button
-              onClick={() => fetchDebtors(true)}
-              className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
-              disabled={refreshing}
-            >
+            <button onClick={() => fetchDebtors(true)} className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors" disabled={refreshing}>
               <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             </button>
           </div>
         </CardContent>
       </Card>
 
+      {/* Search */}
+      {!loading && debtors.length > 0 && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('actions.search')} className="pl-9 h-9" />
+        </div>
+      )}
+
       {/* Debtors list */}
       {loading ? (
-        <div className="space-y-3">
-          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28" />)}
-        </div>
+        <div className="space-y-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-32" />)}</div>
       ) : debtors.length === 0 ? (
         <div className="flex h-48 flex-col items-center justify-center text-muted-foreground">
           <CheckCircle2 className="h-12 w-12 mb-3 opacity-30" />
           <p className="font-medium">{t('payments.no_debts')}</p>
           <p className="text-sm mt-1 opacity-70">{t('payments.no_debts_detail')}</p>
         </div>
+      ) : filteredDebtors.length === 0 ? (
+        <div className="flex h-24 items-center justify-center text-muted-foreground text-sm">
+          {t('customers.no_customers')}
+        </div>
       ) : isMultiShop ? (
         <div className="space-y-4">
           {userShops.filter(s => effectiveShopIds.includes(s.id)).map(shopEntry => {
-            const shopDebtors = debtors.filter(d => d.customer.shop_id === shopEntry.id)
+            const shopDebtors = filteredDebtors.filter(d => d.customer.shop_id === shopEntry.id)
             if (!shopDebtors.length) return null
             const shopTotal = shopDebtors.reduce((s, d) => s + d.totalDebt, 0)
             return (
@@ -394,24 +440,22 @@ export default function DettesPage() {
                   <span className="text-xs text-red-500 font-medium ml-1">{fmt(shopTotal)}</span>
                   <div className="flex-1 h-px bg-border" />
                 </div>
-                {shopDebtors.map(({ customer, unpaidSales, totalDebt }) => {
-                  const isExpanded = expandedId === customer.id
-                  return (
-                    <DebtorCard key={customer.id} customer={customer} unpaidSales={unpaidSales} totalDebt={totalDebt} isExpanded={isExpanded} setExpandedId={setExpandedId} openRepayDialog={openRepayDialog} openHistory={openHistory} fmt={fmt} t={t} />
-                  )
-                })}
+                {shopDebtors.map(({ customer, unpaidSales, totalDebt }) => (
+                  <DebtorCard key={customer.id} customer={customer} unpaidSales={unpaidSales} totalDebt={totalDebt}
+                    isExpanded={expandedId === customer.id} setExpandedId={setExpandedId}
+                    openRepayDialog={openRepayDialog} openHistory={openHistory} fmt={fmt} t={t} />
+                ))}
               </div>
             )
           })}
         </div>
       ) : (
         <div className="space-y-3">
-          {debtors.map(({ customer, unpaidSales, totalDebt }) => {
-            const isExpanded = expandedId === customer.id
-            return (
-              <DebtorCard key={customer.id} customer={customer} unpaidSales={unpaidSales} totalDebt={totalDebt} isExpanded={isExpanded} setExpandedId={setExpandedId} openRepayDialog={openRepayDialog} openHistory={openHistory} fmt={fmt} t={t} />
-            )
-          })}
+          {filteredDebtors.map(({ customer, unpaidSales, totalDebt }) => (
+            <DebtorCard key={customer.id} customer={customer} unpaidSales={unpaidSales} totalDebt={totalDebt}
+              isExpanded={expandedId === customer.id} setExpandedId={setExpandedId}
+              openRepayDialog={openRepayDialog} openHistory={openHistory} fmt={fmt} t={t} />
+          ))}
         </div>
       )}
 
@@ -426,12 +470,12 @@ export default function DettesPage() {
               <div className="flex items-center gap-2 mt-1">
                 <User className="h-4 w-4 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">{repayDebtor.customer.name}</p>
-                <Badge variant="destructive" className="text-[10px]">{t('payments.debt_badge')}: {fmt(repayDebtor.totalDebt)}</Badge>
+                <Badge variant="destructive" className="text-[10px]">{fmt(repayDebtor.totalDebt)}</Badge>
               </div>
             )}
           </DialogHeader>
 
-          {/* ── Success screen ── */}
+          {/* ── Receipt screen ── */}
           {receiptResult ? (
             <div className="space-y-4 py-2">
               <div className="flex flex-col items-center gap-2 py-2">
@@ -441,122 +485,130 @@ export default function DettesPage() {
                 <p className="font-semibold text-base">{receiptResult.customerName}</p>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  className="gap-2 h-11"
-                  onClick={() => printPDFNative(receiptResult.blob, receiptResult.fileName)}
-                >
-                  <Printer className="h-4 w-4" />
-                  {t('actions.print_receipt')}
+                <Button variant="outline" className="gap-2 h-11" onClick={() => printPDFNative(receiptResult.blob, receiptResult.fileName)}>
+                  <Printer className="h-4 w-4" />{t('actions.print_receipt')}
                 </Button>
-                <Button
-                  className="gap-2 h-11 bg-green-600 hover:bg-green-700"
-                  onClick={() => sharePDFNative(receiptResult.blob, receiptResult.fileName, `Reçu — ${receiptResult.customerName}`)}
-                >
-                  <Share2 className="h-4 w-4" />
-                  WhatsApp
+                <Button className="gap-2 h-11 bg-green-600 hover:bg-green-700" onClick={() => sharePDFNative(receiptResult.blob, receiptResult.fileName, `Reçu — ${receiptResult.customerName}`)}>
+                  <Share2 className="h-4 w-4" />WhatsApp
                 </Button>
               </div>
               {receiptResult.phone && (
-                <a
-                  href={`https://wa.me/${receiptResult.phone.replace(/[^\d]/g, '').replace(/^0/, '234')}?text=${encodeURIComponent(`Bonjour ${receiptResult.customerName}, votre paiement a bien été enregistré. Merci !`)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block"
-                >
+                <a href={`https://wa.me/${receiptResult.phone.replace(/[^\d]/g, '').replace(/^0/, '234')}?text=${encodeURIComponent(`Bonjour ${receiptResult.customerName}, votre paiement a bien été enregistré. Merci !`)}`}
+                  target="_blank" rel="noreferrer" className="block">
                   <Button variant="outline" className="w-full gap-2 border-green-300 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/30">
                     💬 {t('payments.open_whatsapp_chat')}
                   </Button>
                 </a>
               )}
               <DialogFooter>
-                <Button className="w-full" onClick={() => { setRepayDebtor(null); setReceiptResult(null) }}>
-                  {t('actions.close')}
-                </Button>
+                <Button className="w-full" onClick={() => { setRepayDebtor(null); setReceiptResult(null) }}>{t('actions.close')}</Button>
               </DialogFooter>
             </div>
           ) : (
-          <>
-          <div className="space-y-4">
-            {repayDebtor && repayDebtor.unpaidSales.length === 0 ? (
-              <div className="rounded-lg bg-orange-50 border border-orange-200 p-3">
-                <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-1">{t('payments.data_to_fix')}</p>
-                <p className="text-sm text-orange-700">
-                  La dette de {fmt(repayDebtor.totalDebt)} est enregistrée mais aucune facture impayée n&apos;est trouvée.
-                  Contactez un administrateur pour corriger les données.
-                </p>
-              </div>
-            ) : repayDebtor ? (
-              <div className="rounded-lg bg-red-50 border border-red-200 p-3 space-y-1">
-                <p className="text-xs font-semibold text-red-700 uppercase tracking-wide">{t('payments.total_debt_label')}</p>
-                <p className="text-2xl font-bold text-red-600">{fmt(repayDebtor.totalDebt)}</p>
-                <p className="text-xs text-red-500">
-                  {repayDebtor.unpaidSales.length} facture{repayDebtor.unpaidSales.length !== 1 ? 's' : ''} impayée{repayDebtor.unpaidSales.length !== 1 ? 's' : ''} — du plus ancien au plus récent
-                </p>
-              </div>
-            ) : null}
+            <>
+              <div className="space-y-4">
+                {repayDebtor && repayDebtor.unpaidSales.length === 0 ? (
+                  <div className="rounded-lg bg-orange-50 border border-orange-200 p-3">
+                    <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-1">{t('payments.data_to_fix')}</p>
+                    <p className="text-sm text-orange-700">La dette de {fmt(repayDebtor.totalDebt)} est enregistrée mais aucune facture impayée n&apos;est trouvée.</p>
+                  </div>
+                ) : null}
 
-            <div className="space-y-1">
-              <Label>{t('payment.amount_given')}</Label>
-              <div className="flex rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
-                <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">
-                  {shop?.currency || '₦'}
-                </span>
-                <input type="text" inputMode="numeric" pattern="[0-9]*"
-                  value={formatInputValue(repayAmount, shop?.currency || '₦')}
-                  onChange={e => setRepayAmount(e.target.value.replace(/\D/g, ''))}
-                  className="flex-1 h-12 px-3 text-lg font-bold bg-card outline-none" placeholder="0" autoFocus />
-              </div>
-              {repayDebtor && Number(repayAmount) > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {t('payment.remaining')} :{' '}
-                  <strong className={Number(repayAmount) >= repayDebtor.totalDebt ? 'text-green-600' : 'text-orange-600'}>
-                    {fmt(Math.max(0, repayDebtor.totalDebt - Number(repayAmount)))}
-                  </strong>
-                  {Number(repayAmount) >= repayDebtor.totalDebt && ` ✓ ${t('payment.debt_settled')}`}
-                </p>
-              )}
-            </div>
+                {/* Amount input */}
+                <div className="space-y-1">
+                  <Label>{t('payment.amount_given')}</Label>
+                  <div className="flex rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
+                    <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">
+                      {shop?.currency || '₦'}
+                    </span>
+                    <input type="text" inputMode="numeric"
+                      value={formatInputValue(repayAmount, shop?.currency || '₦')}
+                      onChange={e => setRepayAmount(e.target.value.replace(/\D/g, ''))}
+                      className="flex-1 h-12 px-3 text-lg font-bold bg-card outline-none" placeholder="0" autoFocus />
+                  </div>
+                </div>
 
-            <div className="space-y-1">
-              <Label>{t('payment.method')}</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {getCountry(shop?.country).paymentMethods
-                  .filter(m => m.type !== 'credit')
-                  .map(m => (
-                    <button key={m.id} onClick={() => setRepayMethod(m.id)}
-                      className={`rounded-lg border p-2.5 text-sm font-medium transition-colors ${
-                        repayMethod === m.id
-                          ? 'border-blue-500 bg-northcode-blue-muted dark:bg-blue-950/40 text-northcode-blue dark:text-blue-400'
-                          : 'border-input bg-card text-muted-foreground hover:bg-muted'
-                      }`}>
-                      {m.icon} {m.label}
-                    </button>
-                  ))}
-              </div>
-            </div>
+                {/* FIFO breakdown preview */}
+                {repayDebtor && amount > 0 && fifoLines.length > 0 && (
+                  <div className="rounded-lg border bg-muted/30 overflow-hidden">
+                    <div className="px-3 py-2 border-b bg-muted/60">
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                        {t('payments.payment_breakdown')} — FIFO
+                      </p>
+                    </div>
+                    <div className="divide-y">
+                      {fifoLines.map(({ sale, applying, fullyCovered }) => (
+                        <div key={sale.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                          <div className="min-w-0">
+                            <span className="font-mono text-xs font-semibold text-northcode-blue dark:text-blue-400">#{sale.sale_number}</span>
+                            <span className="text-[10px] text-muted-foreground ml-2">
+                              {format(new Date(sale.created_at), 'dd/MM/yy')}
+                            </span>
+                            {fullyCovered && (
+                              <Badge variant="success" className="ml-2 text-[9px] px-1 py-0">✓ {t('payments.paid_off')}</Badge>
+                            )}
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className="text-xs font-bold text-green-600">+{fmt(applying)}</p>
+                            {!fullyCovered && (
+                              <p className="text-[10px] text-red-500">{t('payment.remaining')}: {fmt(sale.balance - applying)}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className={`flex items-center justify-between px-3 py-2 border-t ${remaining <= 0 ? 'bg-green-50 dark:bg-green-950/20' : 'bg-orange-50 dark:bg-orange-950/20'}`}>
+                      <span className="text-xs font-semibold">
+                        {remaining <= 0 ? `✓ ${t('payment.debt_settled')}` : t('payment.remaining')}
+                      </span>
+                      <span className={`text-sm font-bold ${remaining <= 0 ? 'text-green-600' : 'text-orange-600'}`}>
+                        {remaining <= 0 ? t('payments.fully_settled') : fmt(remaining)}
+                      </span>
+                    </div>
+                  </div>
+                )}
 
-            {getMethodType(repayMethod, getCountry(shop?.country)) !== 'cash' && (
-              <div className="space-y-1">
-                <Label>{t('payment.reference')}</Label>
-                <Input value={repayRef} onChange={e => setRepayRef(e.target.value)} placeholder={t('payment.reference_placeholder')} />
-              </div>
-            )}
+                {/* Payment method */}
+                <div className="space-y-1">
+                  <Label>{t('payment.method')}</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {getCountry(shop?.country).paymentMethods
+                      .filter(m => m.type !== 'credit')
+                      .map(m => (
+                        <button key={m.id} onClick={() => setRepayMethod(m.id)}
+                          className={`rounded-lg border p-2.5 text-sm font-medium transition-colors ${
+                            repayMethod === m.id
+                              ? 'border-blue-500 bg-northcode-blue-muted dark:bg-blue-950/40 text-northcode-blue dark:text-blue-400'
+                              : 'border-input bg-card text-muted-foreground hover:bg-muted'
+                          }`}>
+                          {m.icon} {m.label}
+                        </button>
+                      ))}
+                  </div>
+                </div>
 
-            <div className="space-y-1">
-              <Label>{t('sales.note_label')} <span className="text-muted-foreground font-normal">({t('form.optional')})</span></Label>
-              <Input value={repayNotes} onChange={e => setRepayNotes(e.target.value)} placeholder={t('payment.notes_placeholder')} />
-            </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setRepayDebtor(null)}>{t('actions.cancel')}</Button>
-            <Button onClick={recordRepayment}
-              disabled={saving || !repayDebtor || repayDebtor.unpaidSales.length === 0}
-              className="bg-northcode-blue hover:bg-northcode-blue-light flex-1">
-              {saving ? t('payment.saving') : `✓ ${t('payment.confirm_repayment')}`}
-            </Button>
-          </DialogFooter>
-          </>
+                {getMethodType(repayMethod, getCountry(shop?.country)) !== 'cash' && (
+                  <div className="space-y-1">
+                    <Label>{t('payment.reference')}</Label>
+                    <Input value={repayRef} onChange={e => setRepayRef(e.target.value)} placeholder={t('payment.reference_placeholder')} />
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <Label>{t('sales.note_label')} <span className="text-muted-foreground font-normal">({t('form.optional')})</span></Label>
+                  <Input value={repayNotes} onChange={e => setRepayNotes(e.target.value)} placeholder={t('payment.notes_placeholder')} />
+                </div>
+              </div>
+
+              <DialogFooter className="gap-2">
+                <Button variant="outline" onClick={() => setRepayDebtor(null)}>{t('actions.cancel')}</Button>
+                <Button onClick={recordRepayment}
+                  disabled={saving || !repayDebtor || repayDebtor.unpaidSales.length === 0 || amount <= 0}
+                  className="bg-northcode-blue hover:bg-northcode-blue-light flex-1">
+                  {saving ? t('payment.saving') : `✓ ${t('payment.confirm_repayment')}`}
+                </Button>
+              </DialogFooter>
+            </>
           )}
         </DialogContent>
       </Dialog>
@@ -570,9 +622,7 @@ export default function DettesPage() {
           </DialogHeader>
 
           {loadingHistory ? (
-            <div className="space-y-2">
-              {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20" />)}
-            </div>
+            <div className="space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
           ) : historySales.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
               <Clock className="h-8 w-8 mb-2 opacity-30" />
@@ -585,14 +635,14 @@ export default function DettesPage() {
                 const isOpen = expandedSaleId === sale.id
                 const statusVariant = STATUS_VARIANTS[sale.payment_status] || ('outline' as any)
                 const statusLabel = sale.payment_status === 'paid' ? t('status.paid') : sale.payment_status === 'partial' ? t('status.partial') : t('status.pending')
+                const paidPct = sale.total > 0 ? Math.min(100, (sale.amount_paid / sale.total) * 100) : 0
                 return (
                   <div key={sale.id} className="border rounded-xl overflow-hidden">
-                    {/* Sale header */}
                     <button
                       className="w-full flex items-start justify-between gap-2 p-3 bg-muted/40 hover:bg-accent transition-colors text-left"
                       onClick={() => setExpandedSaleId(isOpen ? null : sale.id)}
                     >
-                      <div className="space-y-0.5">
+                      <div className="space-y-0.5 flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-mono text-sm font-bold text-northcode-blue dark:text-blue-400">#{sale.sale_number}</span>
                           <Badge variant={statusVariant} className="text-[10px]">{statusLabel}</Badge>
@@ -602,22 +652,22 @@ export default function DettesPage() {
                           {format(new Date(sale.created_at), "dd MMM yyyy 'à' HH:mm", { locale: fr })}
                           {sale.cashier_name && <> · par <strong>{sale.cashier_name}</strong></>}
                         </p>
+                        {/* Mini progress bar inside history */}
+                        <div className="h-1 rounded-full bg-muted overflow-hidden mt-1 w-full">
+                          <div className="h-full rounded-full bg-gradient-to-r from-orange-400 to-red-500" style={{ width: `${paidPct}%` }} />
+                        </div>
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-sm font-bold">{fmt(sale.total)}</p>
-                        {sale.balance > 0 && (
-                          <p className="text-xs text-red-500">{t('payment.remaining')}: {fmt(sale.balance)}</p>
-                        )}
-                        {sale.balance <= 0 && (
-                          <p className="text-xs text-green-600">{t('payments.paid_off')} ✓</p>
-                        )}
+                        {sale.balance > 0
+                          ? <p className="text-xs text-red-500">{t('payment.remaining')}: {fmt(sale.balance)}</p>
+                          : <p className="text-xs text-green-600">{t('payments.paid_off')} ✓</p>
+                        }
                       </div>
                     </button>
 
-                    {/* Payments on this sale */}
                     {isOpen && (
                       <div className="divide-y">
-                        {/* Sale items */}
                         {sale.sale_items.length > 0 && (
                           <div className="px-3 py-2 bg-card space-y-0.5">
                             <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">{t('sales.items')}</p>
@@ -629,8 +679,6 @@ export default function DettesPage() {
                             ))}
                           </div>
                         )}
-
-                        {/* Payment breakdown */}
                         <div className="px-3 py-2 bg-card">
                           <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-2">
                             {t('payments.payments_received')} ({salePayments.length})
@@ -640,7 +688,7 @@ export default function DettesPage() {
                           ) : (
                             <div className="space-y-1.5">
                               {salePayments.map(p => (
-                                <div key={p.id} className="flex items-start justify-between gap-2 rounded-lg bg-green-50 border border-green-100 px-2.5 py-2">
+                                <div key={p.id} className="flex items-start justify-between gap-2 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900 px-2.5 py-2">
                                   <div className="space-y-0.5">
                                     <div className="flex items-center gap-1.5 flex-wrap">
                                       <Badge variant="outline" className="text-[10px] px-1.5 bg-card">
@@ -659,7 +707,6 @@ export default function DettesPage() {
                                   <span className="font-bold text-green-600 text-sm flex-shrink-0">+{fmt(p.amount)}</span>
                                 </div>
                               ))}
-                              {/* Running total */}
                               <div className="flex justify-between text-xs pt-1 border-t">
                                 <span className="text-muted-foreground">{t('payments.total_paid')}</span>
                                 <span className="font-semibold text-green-600">{fmt(sale.amount_paid)}</span>

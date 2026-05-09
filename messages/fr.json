@@ -302,7 +302,9 @@
     "open_whatsapp_chat": "Ouvrir la discussion WhatsApp",
     "partial_label": "Partiel",
     "unpaid_label": "Impayé",
-    "from_oldest": "du plus ancien au plus récent"
+    "from_oldest": "du plus ancien au plus récent",
+    "payment_breakdown": "Répartition du paiement",
+    "fully_settled": "Solde soldé"
   },
   "receipt": {
     "receipt": "Reçu",
