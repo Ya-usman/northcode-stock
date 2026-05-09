@@ -261,24 +261,9 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                     ))}
                   </ul>
 
-                  {isCurrent ? (
-                    <Button disabled className="w-full h-9 text-sm" variant="outline">
-                      {t('current_plan_btn')}
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={() => handleSubscribe(id)}
-                      loading={loading === id}
-                      className={cn(
-                        'w-full h-9 text-sm',
-                        popular
-                          ? 'bg-northcode-blue hover:bg-northcode-blue-light'
-                          : 'bg-gray-900 hover:bg-gray-700'
-                      )}
-                    >
-                      {isNigeria ? '💳' : '📱'} {isSubscribed ? `${t('upgrade_to')} ` : ''}{id.charAt(0).toUpperCase() + id.slice(1)}
-                    </Button>
-                  )}
+                  <Button disabled className="w-full h-9 text-sm" variant="outline">
+                    🔒 Bientôt disponible
+                  </Button>
                 </div>
               </div>
             )
