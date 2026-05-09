@@ -20,8 +20,9 @@ export async function GET(request: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
     )
-    const { data: { user } } = await supabase.auth.getUser()
-    
+    // Use getSession() to avoid network round-trip failures on expired tokens.
+    const { data: { session } } = await supabase.auth.getSession()
+    const user = session?.user
     if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
     const admin = await createAdminClient() as any

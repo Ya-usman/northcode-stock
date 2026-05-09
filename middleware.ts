@@ -31,7 +31,7 @@ const ROLE_ACCESS: Record<string, string[]> = {
   '/suppliers':         ['owner', 'stock_manager'],
   '/sales/new':         ['owner', 'cashier'],
   '/sales/history':     ['owner', 'cashier'],
-  '/payments':          ['owner'],
+  '/payments':          ['owner', 'cashier'],
   '/customers':         ['owner', 'cashier'],
 }
 
