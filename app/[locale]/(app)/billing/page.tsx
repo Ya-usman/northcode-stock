@@ -8,7 +8,7 @@ import { getCountry, getPeriodPrice, type BillingPeriod } from '@/lib/saas/count
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
-import { CheckCircle2, Zap, Crown, Building2, Clock, CreditCard, Smartphone } from 'lucide-react'
+import { CheckCircle2, Clock, CreditCard, Smartphone } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Script from 'next/script'
@@ -25,34 +25,18 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   const PLAN_DETAILS = [
     {
       id: 'starter' as const,
-      icon: Zap,
-      color: 'border-blue-200 hover:border-northcode-blue',
-      headerColor: 'bg-blue-50',
-      features: [
-        t('starter_f1'), t('starter_f2'), t('starter_f3'),
-        t('starter_f4'), t('starter_f5'), t('starter_f6'),
-      ],
+      popular: false,
+      features: [t('starter_f1'), t('starter_f2'), t('starter_f3'), t('starter_f4'), t('starter_f5'), t('starter_f6')],
     },
     {
       id: 'pro' as const,
-      icon: Crown,
-      color: 'border-northcode-blue ring-2 ring-northcode-blue',
-      headerColor: 'bg-northcode-blue text-white',
       popular: true,
-      features: [
-        t('pro_f1'), t('pro_f2'), t('pro_f3'),
-        t('pro_f4'), t('pro_f5'), t('pro_f6'),
-      ],
+      features: [t('pro_f1'), t('pro_f2'), t('pro_f3'), t('pro_f4'), t('pro_f5'), t('pro_f6')],
     },
     {
       id: 'business' as const,
-      icon: Building2,
-      color: 'border-border hover:border-gray-400',
-      headerColor: 'bg-gray-900 text-white',
-      features: [
-        t('business_f1'), t('business_f2'), t('business_f3'),
-        t('business_f4'), t('business_f5'), t('business_f6'),
-      ],
+      popular: false,
+      features: [t('business_f1'), t('business_f2'), t('business_f3'), t('business_f4'), t('business_f5'), t('business_f6')],
     },
   ]
 
@@ -212,74 +196,70 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
           {isSubscribed ? t('change_plan') : t('choose_plan')}
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {PLAN_DETAILS.map(({ id, icon: Icon, color, headerColor, popular, features }) => {
-            const monthlyPrice = country.prices[id]
-            const price = getPeriodPrice(monthlyPrice, period)
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {PLAN_DETAILS.map(({ id, popular, features }) => {
+            const price = getPeriodPrice(country.prices[id], period)
             const isCurrent = shop?.plan === id && isSubscribed
+            const planName = id.charAt(0).toUpperCase() + id.slice(1)
+            const formattedPrice = country.currency === 'NGN'
+              ? `₦${price.toLocaleString('en-NG')}`
+              : `${price.toLocaleString('fr-FR')} ${country.currencySymbol}`
 
             return (
               <div
                 key={id}
                 className={cn(
-                  'relative rounded-xl border-2 bg-card overflow-hidden transition-all',
-                  color
+                  'relative rounded-2xl border-2 bg-card p-6 shadow-sm transition-all',
+                  popular
+                    ? 'border-northcode-blue shadow-xl ring-2 ring-northcode-blue'
+                    : 'border-gray-200 hover:border-northcode-blue/40'
                 )}
               >
                 {popular && (
-                  <div className="absolute top-3 right-3">
-                    <Badge className="bg-northcode-blue text-white text-[10px] px-2 py-0.5">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <Badge className="bg-northcode-blue text-white px-3 py-1 text-xs font-semibold">
                       {t('popular_badge')}
                     </Badge>
                   </div>
                 )}
 
-                <div className={cn('px-5 py-4', headerColor)}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Icon className="h-4 w-4" />
-                    <p className="font-bold text-sm">{id.charAt(0).toUpperCase() + id.slice(1)}</p>
-                  </div>
+                <div className="mb-6">
+                  <p className="font-bold text-foreground text-lg mb-1">{planName}</p>
                   <div className="flex items-baseline gap-1">
-                    <span className={cn('text-2xl font-extrabold', popular ? 'text-white' : 'text-northcode-blue dark:text-blue-400')}>
-                      {country.currency === 'NGN'
-                        ? `₦${price.toLocaleString('en-NG')}`
-                        : `${price.toLocaleString('fr-FR')} ${country.currencySymbol}`}
+                    <span className="text-3xl font-extrabold text-northcode-blue dark:text-blue-400">
+                      {formattedPrice}
                     </span>
-                    <span className={cn('text-xs', popular ? 'text-blue-100' : 'text-muted-foreground')}>
-                      {periodLabel}
-                    </span>
+                    <span className="text-muted-foreground text-sm">{periodLabel}</span>
                   </div>
                 </div>
 
-                <div className="p-4">
-                  <ul className="space-y-2 mb-4">
-                    {features.map(f => (
-                      <li key={f} className="flex items-center gap-2 text-xs text-foreground/80">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
+                <ul className="space-y-2.5 mb-6">
+                  {features.map(f => (
+                    <li key={f} className="flex items-center gap-2 text-sm text-foreground/80">
+                      <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
 
-                  {isCurrent ? (
-                    <Button disabled className="w-full h-9 text-sm" variant="outline">
-                      {t('current_plan_btn')}
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={() => handleSubscribe(id)}
-                      loading={loading === id}
-                      className={cn(
-                        'w-full h-9 text-sm',
-                        popular
-                          ? 'bg-northcode-blue hover:bg-northcode-blue-light'
-                          : 'bg-gray-900 hover:bg-gray-700'
-                      )}
-                    >
-                      {isNigeria ? '💳' : '📱'} {isSubscribed ? `${t('upgrade_to')} ` : ''}{id.charAt(0).toUpperCase() + id.slice(1)}
-                    </Button>
-                  )}
-                </div>
+                {isCurrent ? (
+                  <Button disabled className="w-full" variant="outline">
+                    {t('current_plan_btn')}
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => handleSubscribe(id)}
+                    loading={loading === id}
+                    className={cn(
+                      'w-full',
+                      popular
+                        ? 'bg-northcode-blue hover:bg-northcode-blue-light text-white'
+                        : 'border border-blue-600 dark:border-blue-400 text-northcode-blue dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 bg-transparent'
+                    )}
+                  >
+                    {isNigeria ? '💳' : '📱'} {isSubscribed ? `${t('upgrade_to')} ` : ''}{planName}
+                  </Button>
+                )}
               </div>
             )
           })}
