@@ -4,6 +4,7 @@ export interface PlanLimits {
   products: number       // -1 = unlimited
   team_members: number   // -1 = unlimited
   history_days: number   // -1 = unlimited
+  shops: number          // -1 = unlimited
 }
 
 export interface Plan {
@@ -28,7 +29,7 @@ export const PLANS: Record<PlanId, Plan> = {
     id: 'trial',
     name: 'Free Trial',
     price_monthly: 0,
-    limits: { products: 50, team_members: 2, history_days: 30 },
+    limits: { products: 50, team_members: 2, history_days: 30, shops: 1 },
     features: {
       reports: true,
       export_csv: false,
@@ -43,7 +44,7 @@ export const PLANS: Record<PlanId, Plan> = {
     id: 'starter',
     name: 'Starter',
     price_monthly: 4999,
-    limits: { products: 200, team_members: 3, history_days: 90 },
+    limits: { products: 200, team_members: 3, history_days: 90, shops: 1 },
     features: {
       reports: true,
       export_csv: true,
@@ -59,7 +60,7 @@ export const PLANS: Record<PlanId, Plan> = {
     id: 'pro',
     name: 'Pro',
     price_monthly: 9999,
-    limits: { products: -1, team_members: 10, history_days: 365 },
+    limits: { products: -1, team_members: 10, history_days: 365, shops: 3 },
     features: {
       reports: true,
       export_csv: true,
@@ -75,7 +76,7 @@ export const PLANS: Record<PlanId, Plan> = {
     id: 'business',
     name: 'Business',
     price_monthly: 19999,
-    limits: { products: -1, team_members: -1, history_days: -1 },
+    limits: { products: -1, team_members: -1, history_days: -1, shops: -1 },
     features: {
       reports: true,
       export_csv: true,

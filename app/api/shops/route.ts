@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { getPlan, isBetaPeriod } from '@/lib/saas/plans'
 
 export async function POST(request: Request) {
   try {
@@ -34,6 +35,25 @@ export async function POST(request: Request) {
       }
     }
 
+    // Enforce shop limit based on plan (skip during beta)
+    if (!isBetaPeriod()) {
+      const { data: primaryShop } = await supabase
+        .from('shops').select('plan, plan_expires_at, trial_ends_at')
+        .eq('id', profile?.shop_id ?? '').single()
+      const plan = getPlan((primaryShop as any)?.plan)
+      if (plan.limits.shops !== -1) {
+        const { count } = await supabase
+          .from('shop_members').select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id).eq('role', 'owner').eq('is_active', true)
+        if ((count ?? 0) >= plan.limits.shops) {
+          return NextResponse.json(
+            { error: `Votre forfait ${plan.name} est limité à ${plan.limits.shops} boutique(s). Passez au forfait supérieur.` },
+            { status: 403 }
+          )
+        }
+      }
+    }
+
     // Use admin client to bypass RLS
     const admin = await createAdminClient()
 
@@ -43,7 +63,7 @@ export async function POST(request: Request) {
       state: '',
       owner_id: user.id,
       plan: 'trial',
-      trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      trial_ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       currency,
       country,
       low_stock_threshold: 10,
