@@ -43,18 +43,11 @@ export function DebtGauge({ pct, remaining, fmt, t }: {
   const full = pct >= 99.9
   return (
     <div className="mt-2">
-      <div className="h-1.5 rounded-full bg-muted overflow-hidden relative">
-        {full ? (
-          <div className="absolute inset-0 bg-green-500 rounded-full transition-all duration-500" />
-        ) : (
-          <>
-            <div className="absolute inset-0 bg-gradient-to-r from-red-500 via-orange-400 to-green-500" />
-            <div
-              className="absolute inset-y-0 right-0 bg-muted transition-all duration-500"
-              style={{ width: `${100 - pct}%` }}
-            />
-          </>
-        )}
+      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+        <div
+          className={cn('h-full rounded-full transition-all duration-500', full ? 'bg-green-500' : 'bg-orange-400')}
+          style={{ width: `${pct}%` }}
+        />
       </div>
       <div className="flex justify-between mt-0.5">
         <span className={cn('text-[9px]', full ? 'text-green-500 font-medium' : 'text-muted-foreground')}>
@@ -62,7 +55,7 @@ export function DebtGauge({ pct, remaining, fmt, t }: {
         </span>
         {full
           ? <span className="text-[9px] text-green-500 font-medium">✓ {t('payments.paid_off')}</span>
-          : remaining !== undefined && <span className="text-[9px] text-red-400">{fmt(remaining)} {t('payments.remaining_due')}</span>
+          : remaining !== undefined && <span className="text-[9px] text-orange-500">{fmt(remaining)} {t('payments.remaining_due')}</span>
         }
       </div>
     </div>
