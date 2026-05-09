@@ -176,7 +176,7 @@ export default function DashboardPage() {
         // Today's debt repayments (payments on OLD sales only)
         supabase
           .from('payments')
-          .select('id, sale_id, amount, paid_at, method, sales!inner(shop_id, created_at, total, balance, customers(name))')
+          .select('id, sale_id, amount, paid_at, method, sales!inner(shop_id, created_at, total, balance, payment_method, customers(name))')
           .gte('paid_at', todayStart)
           .lte('paid_at', todayEnd)
           .order('paid_at', { ascending: false }),
@@ -198,7 +198,7 @@ export default function DashboardPage() {
       const salesCount = salesArr.length
       const debt = (debtData || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0)
 
-      // Build repayment feed items — all payments today on credit/partial sales
+      // Build repayment feed items — all payments today (credit, repayments, partial)
       const repaymentItems: RepaymentFeedItem[] = (todayPaymentsRaw || [])
         .filter((p: any) => shopIds.includes(p.sales?.shop_id))
         .map((p: any) => ({

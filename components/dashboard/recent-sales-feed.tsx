@@ -75,13 +75,18 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
   const { fmt: formatNaira } = useCurrency()
   const [activeTab, setActiveTab] = useState<'sales' | 'repayments'>('sales')
 
-  const salesItems = items.filter(i => i.type === 'sale' && Number((i as Sale).balance) === 0) as (Sale & { type: 'sale' })[]
+  // Ventes tab: fully paid non-credit sales only
+  const salesItems = items.filter(i =>
+    i.type === 'sale' &&
+    Number((i as Sale).balance) === 0 &&
+    (i as Sale).payment_method !== 'credit'
+  ) as (Sale & { type: 'sale' })[]
 
-  // Debt tab: deduplicate so each sale appears only once.
-  // Sale items (balance > 0) take priority — their balance is already up-to-date.
-  // Repayment items only appear if no sale item covers that sale_id (old sales not in today's feed).
-  // Among repayments for the same old sale, keep only the most recent.
-  const debtSaleItems = items.filter(i => i.type === 'sale' && Number((i as Sale).balance) > 0) as (Sale & { type: 'sale' })[]
+  // Dettes tab: all credit sales (paid or not) + partial non-credit sales
+  const debtSaleItems = items.filter(i =>
+    i.type === 'sale' &&
+    ((i as Sale).payment_method === 'credit' || Number((i as Sale).balance) > 0)
+  ) as (Sale & { type: 'sale' })[]
   const debtSaleIds = new Set(debtSaleItems.map(s => s.id))
   const repaymentItems = items.filter(i => i.type === 'repayment') as RepaymentFeedItem[]
   const latestRepaymentBySale = new Map<string, RepaymentFeedItem>()
