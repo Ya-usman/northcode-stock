@@ -169,21 +169,21 @@ export default function StockMovementsPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      {m.previous_qty != null && (
-                        <div className="text-center">
-                          <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-medium">{t('stock_before')}</p>
-                          <p className="text-sm font-semibold tabular-nums">{m.previous_qty}</p>
-                        </div>
-                      )}
-                      {m.new_qty != null && (
-                        <div className="text-center">
-                          <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-medium">{t('stock_after')}</p>
-                          <p className={`text-sm font-semibold tabular-nums ${isIn ? 'text-green-600' : 'text-red-600'}`}>{m.new_qty}</p>
-                        </div>
-                      )}
-                      <div className="text-center border-l pl-3">
-                        <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-medium">{t('qty_change')}</p>
+                    <div className="flex items-center gap-4 flex-shrink-0 divide-x divide-border">
+                      <div className="text-center px-3">
+                        <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-medium mb-0.5">{t('stock_before')}</p>
+                        <p className="text-sm font-semibold tabular-nums">
+                          {m.previous_qty != null ? m.previous_qty : <span className="text-muted-foreground">—</span>}
+                        </p>
+                      </div>
+                      <div className="text-center px-3">
+                        <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-medium mb-0.5">{t('stock_after')}</p>
+                        <p className={`text-sm font-semibold tabular-nums ${m.new_qty != null ? (isIn ? 'text-green-600' : 'text-red-600') : ''}`}>
+                          {m.new_qty != null ? m.new_qty : <span className="text-muted-foreground">—</span>}
+                        </p>
+                      </div>
+                      <div className="text-center px-3">
+                        <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-medium mb-0.5">{t('qty_change')}</p>
                         <p className={`text-sm font-bold tabular-nums ${isIn ? 'text-green-600' : 'text-red-600'}`}>
                           {isIn ? '+' : '-'}{m.quantity}
                         </p>
