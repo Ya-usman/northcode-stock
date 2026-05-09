@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import {
   LayoutDashboard, ShoppingCart, Package, BarChart2, Settings,
   Users, Truck, CreditCard, History, LogOut, ChevronRight, Zap,
-  Store, ChevronDown, Tag, Check, Layers,
+  Store, ChevronDown, Tag, Check, Layers, ArrowLeftRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -50,6 +50,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
       section: t('section_inventory'),
       items: [
         { href: `/${locale}/stock`, icon: Package, label: t('stock'), roles: ['owner', 'stock_manager'] },
+        { href: `/${locale}/stock/movements`, icon: ArrowLeftRight, label: t('movements'), roles: ['owner', 'stock_manager'] },
         { href: `/${locale}/categories`, icon: Tag, label: t('categories'), roles: ['owner', 'stock_manager'] },
         { href: `/${locale}/suppliers`, icon: Truck, label: t('suppliers'), roles: ['owner', 'stock_manager'] },
       ],

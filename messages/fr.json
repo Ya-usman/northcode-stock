@@ -455,13 +455,18 @@
   },
   "movements": {
     "title": "Mouvements de stock",
-    "type_in": "Entrée de stock",
-    "type_out": "Sortie de stock",
+    "type_in": "Restockage",
+    "type_out": "Sortie",
     "type_adjustment": "Ajustement",
     "type_sale": "Vente",
     "performed_by": "Par",
     "reason": "Raison",
-    "no_movements": "Aucun mouvement de stock."
+    "no_movements": "Aucun mouvement de stock.",
+    "all_types": "Tous les types",
+    "search_placeholder": "Produit, employé…",
+    "entries": "entrées",
+    "total_restocked": "Total restocké",
+    "total_sold": "Total vendu"
   },
   "errors": {
     "generic": "Une erreur s'est produite. Veuillez réessayer.",

@@ -455,13 +455,18 @@
   },
   "movements": {
     "title": "Stock Movements",
-    "type_in": "Stock In",
+    "type_in": "Restock",
     "type_out": "Stock Out",
     "type_adjustment": "Adjustment",
     "type_sale": "Sale",
     "performed_by": "By",
     "reason": "Reason",
-    "no_movements": "No stock movements yet."
+    "no_movements": "No stock movements yet.",
+    "all_types": "All types",
+    "search_placeholder": "Product, employee…",
+    "entries": "entries",
+    "total_restocked": "Total restocked",
+    "total_sold": "Total sold"
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",

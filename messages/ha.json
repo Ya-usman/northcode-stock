@@ -455,13 +455,18 @@
   },
   "movements": {
     "title": "Motsi na Kaya",
-    "type_in": "Kaya ya Shigo",
+    "type_in": "Sabunta Kaya",
     "type_out": "Kaya ya Fita",
     "type_adjustment": "Gyara",
     "type_sale": "Sayarwa",
     "performed_by": "Da",
     "reason": "Dalili",
-    "no_movements": "Ba a sami motsin kaya ba tukuna."
+    "no_movements": "Ba a sami motsin kaya ba tukuna.",
+    "all_types": "Duk nau'ikan",
+    "search_placeholder": "Kaya, ma'aikaci…",
+    "entries": "shigarwa",
+    "total_restocked": "Jimlar sabuntawa",
+    "total_sold": "Jimlar sayarwa"
   },
   "errors": {
     "generic": "Wani abu ya faru. Don Allah a sake gwadawa.",
