@@ -145,11 +145,8 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                             {t(`payment.${item.method}` as any) || item.method}
                           </Badge>
                         </div>
-                        {role !== 'viewer' && item.totalDebt !== undefined && (
-                          <p className="text-sm font-semibold text-orange-500 flex-shrink-0">{formatNaira(item.totalDebt)}</p>
-                        )}
-                        {role !== 'viewer' && item.totalDebt === undefined && (
-                          <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 flex-shrink-0">{formatNaira(item.amount)}</p>
+                        {role !== 'viewer' && (
+                          <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 flex-shrink-0">+{formatNaira(item.amount)}</p>
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5 truncate">
@@ -159,8 +156,8 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                       {role !== 'viewer' && item.totalDebt !== undefined && (
                         <div className="flex gap-4 mt-1.5 flex-wrap">
                           <p className="text-[10px]">
-                            <span className="text-muted-foreground">{t('payment.amount_paid')} : </span>
-                            <span className="font-semibold text-emerald-600 dark:text-emerald-400">+{formatNaira(item.amount)}</span>
+                            <span className="text-muted-foreground">{t('payments.total_debt')} : </span>
+                            <span className="font-semibold text-orange-500">{formatNaira(item.totalDebt)}</span>
                           </p>
                           {isPartial && (
                             <p className="text-[10px]">
