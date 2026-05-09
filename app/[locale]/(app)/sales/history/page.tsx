@@ -166,17 +166,18 @@ export default function SalesHistoryPage() {
     setLoading(true)
     const { start, end } = getDateBounds()
 
-    const { data } = await supabase
+    let query = supabase
       .from('payments')
-      .select('id, amount, paid_at, method, sales!inner(shop_id, sale_number, customers(name))')
+      .select('id, amount, paid_at, method, sales!inner(shop_id, sale_number, created_at, customers(name))')
       .in('sales.shop_id', effectiveShopIds)
       .gte('paid_at', start.toISOString())
       .lte('paid_at', end.toISOString())
       .order('paid_at', { ascending: false })
 
-    setRepayments(
-      (data || []).filter((p: any) => effectiveShopIds.includes(p.sales?.shop_id))
-    )
+    if (methodFilter !== 'all') query = query.eq('method', methodFilter)
+
+    const { data } = await query
+    setRepayments((data || []).filter((p: any) => effectiveShopIds.includes(p.sales?.shop_id)))
     setLoading(false)
   }
 
@@ -186,6 +187,15 @@ export default function SalesHistoryPage() {
     if (view === 'sales') fetchSales()
     else fetchRepayments()
   }, [shopKey, dateFilter, methodFilter, statusFilter, saleStatusFilter, view])
+
+  const filteredRepayments = repayments.filter(p => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    return (
+      p.sales?.customers?.name?.toLowerCase().includes(q) ||
+      p.sales?.sale_number?.toLowerCase().includes(q)
+    )
+  })
 
   // Refresh when tab regains focus (e.g. after recording a payment on the debts page)
   useEffect(() => {
@@ -413,24 +423,28 @@ export default function SalesHistoryPage() {
           </SelectContent>
         </Select>
 
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[110px] h-9"><SelectValue placeholder="Statut" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t('sales.all_statuses')}</SelectItem>
-            <SelectItem value="paid">{t('status.paid')}</SelectItem>
-            <SelectItem value="partial">{t('status.partial')}</SelectItem>
-            <SelectItem value="pending">{t('status.pending')}</SelectItem>
-          </SelectContent>
-        </Select>
+        {view === 'sales' && (
+          <>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[110px] h-9"><SelectValue placeholder="Statut" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('sales.all_statuses')}</SelectItem>
+                <SelectItem value="paid">{t('status.paid')}</SelectItem>
+                <SelectItem value="partial">{t('status.partial')}</SelectItem>
+                <SelectItem value="pending">{t('status.pending')}</SelectItem>
+              </SelectContent>
+            </Select>
 
-        <Select value={saleStatusFilter} onValueChange={v => setSaleStatusFilter(v as any)}>
-          <SelectTrigger className="w-[110px] h-9"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t('sales.filter_all')}</SelectItem>
-            <SelectItem value="active">{t('sales.filter_active')}</SelectItem>
-            <SelectItem value="cancelled">{t('sales.filter_cancelled')}</SelectItem>
-          </SelectContent>
-        </Select>
+            <Select value={saleStatusFilter} onValueChange={v => setSaleStatusFilter(v as any)}>
+              <SelectTrigger className="w-[110px] h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('sales.filter_all')}</SelectItem>
+                <SelectItem value="active">{t('sales.filter_active')}</SelectItem>
+                <SelectItem value="cancelled">{t('sales.filter_cancelled')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </>
+        )}
 
         {isOwner && (
           <Button variant="outline" size="sm" onClick={exportCSV} className="h-9 gap-1">
@@ -479,34 +493,52 @@ export default function SalesHistoryPage() {
             <div className="p-4 space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
           </div>
         )
-        if (repayments.length === 0) return (
-          <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
-            <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">{t('sales.no_repayments')}</div>
-          </div>
-        )
-        if (isMultiShop) return (
-          <div className="space-y-4">
-            {userShops.filter(s => effectiveShopIds.includes(s.id)).map(shopEntry => {
-              const shopRepayments = repayments.filter((p: any) => p.sales?.shop_id === shopEntry.id)
-              if (!shopRepayments.length) return null
-              return (
-                <div key={shopEntry.id} className="space-y-2">
-                  <div className="flex items-center gap-2 pt-1">
-                    <Store className="h-3.5 w-3.5 text-northcode-blue dark:text-blue-400 flex-shrink-0" />
-                    <span className="text-xs font-semibold text-northcode-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
-                    <div className="flex-1 h-px bg-border" />
-                  </div>
-                  <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
-                    <Table>{repaymentTableHeader}<TableBody>{shopRepayments.map(renderRepaymentRow)}</TableBody></Table>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )
+
+        const repaymentTotal = filteredRepayments.reduce((s: number, p: any) => s + Number(p.amount), 0)
+
         return (
-          <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
-            <Table>{repaymentTableHeader}<TableBody>{repayments.map(renderRepaymentRow)}</TableBody></Table>
+          <div className="space-y-2">
+            {isOwner && filteredRepayments.length > 0 && (
+              <div className="flex gap-4 text-sm flex-wrap">
+                <span className="text-muted-foreground">
+                  {filteredRepayments.length} {t('sales.repayments_tab').toLowerCase()} ·{' '}
+                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                    +{formatNaira(repaymentTotal)}
+                  </span>
+                </span>
+              </div>
+            )}
+
+            {filteredRepayments.length === 0 ? (
+              <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+                <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">{t('sales.no_repayments')}</div>
+              </div>
+            ) : isMultiShop ? (
+              <div className="space-y-4">
+                {userShops.filter(s => effectiveShopIds.includes(s.id)).map(shopEntry => {
+                  const shopRepayments = filteredRepayments.filter((p: any) => p.sales?.shop_id === shopEntry.id)
+                  if (!shopRepayments.length) return null
+                  const shopTotal = shopRepayments.reduce((s: number, p: any) => s + Number(p.amount), 0)
+                  return (
+                    <div key={shopEntry.id} className="space-y-2">
+                      <div className="flex items-center gap-2 pt-1">
+                        <Store className="h-3.5 w-3.5 text-northcode-blue dark:text-blue-400 flex-shrink-0" />
+                        <span className="text-xs font-semibold text-northcode-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
+                        <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">+{formatNaira(shopTotal)}</span>
+                        <div className="flex-1 h-px bg-border" />
+                      </div>
+                      <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+                        <Table>{repaymentTableHeader}<TableBody>{shopRepayments.map(renderRepaymentRow)}</TableBody></Table>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+                <Table>{repaymentTableHeader}<TableBody>{filteredRepayments.map(renderRepaymentRow)}</TableBody></Table>
+              </div>
+            )}
           </div>
         )
       })()}
