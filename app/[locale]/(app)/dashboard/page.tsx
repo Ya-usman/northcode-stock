@@ -198,14 +198,9 @@ export default function DashboardPage() {
       const salesCount = salesArr.length
       const debt = (debtData || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0)
 
-      // Build repayment feed items — only payments on sales created BEFORE today
-      // (payments on today's sales = normal payment validation, not a debt repayment)
+      // Build repayment feed items — all payments today on credit/partial sales
       const repaymentItems: RepaymentFeedItem[] = (todayPaymentsRaw || [])
-        .filter((p: any) => {
-          if (!shopIds.includes(p.sales?.shop_id)) return false
-          const saleDate = p.sales?.created_at ? new Date(p.sales.created_at) : null
-          return saleDate ? saleDate < new Date(todayStart) : false
-        })
+        .filter((p: any) => shopIds.includes(p.sales?.shop_id))
         .map((p: any) => ({
           type: 'repayment' as const,
           id: p.id,
@@ -311,9 +306,6 @@ export default function DashboardPage() {
           .eq('id', payment.sale_id)
           .single()
         if (!sale || !shopIds.includes(sale.shop_id)) return
-        // Only add as repayment if the sale was created before today
-        const saleDate = new Date((sale as any).created_at)
-        if (saleDate >= startOfDay(new Date())) return
         const item: RepaymentFeedItem = {
           type: 'repayment',
           id: payment.id,
