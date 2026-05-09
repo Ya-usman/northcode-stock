@@ -53,14 +53,14 @@ export async function GET(request: Request) {
 
     const [productsRes, profilesRes] = await Promise.all([
       productIds.length
-        ? admin.from('products').select('id, name, unit').in('id', productIds)
+        ? admin.from('products').select('id, name, unit, quantity').in('id', productIds)
         : Promise.resolve({ data: [] }),
       performerIds.length
         ? admin.from('profiles').select('id, full_name').in('id', performerIds)
         : Promise.resolve({ data: [] }),
     ])
 
-    const productMap: Record<string, { name: string; unit: string }> = {}
+    const productMap: Record<string, { name: string; unit: string; quantity: number }> = {}
     for (const p of (productsRes.data || [])) productMap[p.id] = p
 
     const profileMap: Record<string, string> = {}
@@ -77,6 +77,7 @@ export async function GET(request: Request) {
       created_at: r.created_at,
       product_name: productMap[r.product_id]?.name || null,
       product_unit: productMap[r.product_id]?.unit || null,
+      product_current_qty: productMap[r.product_id]?.quantity ?? null,
       performed_by_name: r.performed_by ? (profileMap[r.performed_by] || null) : null,
     }))
 

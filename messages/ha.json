@@ -472,7 +472,13 @@
     "qty_change": "Bambanci",
     "operations": "ayyuka",
     "last": "Na ƙarshe",
-    "close": "Rufe"
+    "close": "Rufe",
+    "initial_stock": "Kayan farko",
+    "restocked": "Sabuntawa",
+    "current_stock": "Kaya yanzu",
+    "products_tracked": "Kayayyaki",
+    "products_count": "kayayyaki",
+    "restock_history": "Tarihin sabuntawa"
   },
   "errors": {
     "generic": "Wani abu ya faru. Don Allah a sake gwadawa.",

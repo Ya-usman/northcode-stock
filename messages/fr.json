@@ -472,7 +472,13 @@
     "qty_change": "Variation",
     "operations": "opérations",
     "last": "Dernier",
-    "close": "Fermer"
+    "close": "Fermer",
+    "initial_stock": "Stock de base",
+    "restocked": "Réappro.",
+    "current_stock": "Stock actuel",
+    "products_tracked": "Produits suivis",
+    "products_count": "produits",
+    "restock_history": "Historique réappro."
   },
   "errors": {
     "generic": "Une erreur s'est produite. Veuillez réessayer.",

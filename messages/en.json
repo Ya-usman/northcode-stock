@@ -472,7 +472,13 @@
     "qty_change": "Change",
     "operations": "operations",
     "last": "Last",
-    "close": "Close"
+    "close": "Close",
+    "initial_stock": "Base stock",
+    "restocked": "Restocked",
+    "current_stock": "Current stock",
+    "products_tracked": "Products tracked",
+    "products_count": "products",
+    "restock_history": "Restock history"
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",
