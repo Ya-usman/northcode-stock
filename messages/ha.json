@@ -466,7 +466,10 @@
     "search_placeholder": "Kaya, ma'aikaci…",
     "entries": "shigarwa",
     "total_restocked": "Jimlar sabuntawa",
-    "total_sold": "Jimlar sayarwa"
+    "total_sold": "Jimlar sayarwa",
+    "stock_before": "Kafin",
+    "stock_after": "Bayan",
+    "qty_change": "Bambanci"
   },
   "errors": {
     "generic": "Wani abu ya faru. Don Allah a sake gwadawa.",

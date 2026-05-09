@@ -169,15 +169,25 @@ export default function StockMovementsPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <span className={`text-lg font-bold ${isIn ? 'text-green-600' : 'text-red-600'}`}>
-                        {isIn ? '+' : '-'}{m.quantity}
-                      </span>
-                      {m.previous_qty != null && m.new_qty != null && (
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
-                          {m.previous_qty} → {m.new_qty}
-                        </p>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      {m.previous_qty != null && (
+                        <div className="text-center">
+                          <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-medium">{t('stock_before')}</p>
+                          <p className="text-sm font-semibold tabular-nums">{m.previous_qty}</p>
+                        </div>
                       )}
+                      {m.new_qty != null && (
+                        <div className="text-center">
+                          <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-medium">{t('stock_after')}</p>
+                          <p className={`text-sm font-semibold tabular-nums ${isIn ? 'text-green-600' : 'text-red-600'}`}>{m.new_qty}</p>
+                        </div>
+                      )}
+                      <div className="text-center border-l pl-3">
+                        <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-medium">{t('qty_change')}</p>
+                        <p className={`text-sm font-bold tabular-nums ${isIn ? 'text-green-600' : 'text-red-600'}`}>
+                          {isIn ? '+' : '-'}{m.quantity}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </CardContent>

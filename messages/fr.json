@@ -466,7 +466,10 @@
     "search_placeholder": "Produit, employé…",
     "entries": "entrées",
     "total_restocked": "Total restocké",
-    "total_sold": "Total vendu"
+    "total_sold": "Total vendu",
+    "stock_before": "Avant",
+    "stock_after": "Après",
+    "qty_change": "Variation"
   },
   "errors": {
     "generic": "Une erreur s'est produite. Veuillez réessayer.",
