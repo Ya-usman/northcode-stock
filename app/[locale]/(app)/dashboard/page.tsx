@@ -176,7 +176,7 @@ export default function DashboardPage() {
         // Today's debt repayments (payments on OLD sales only)
         supabase
           .from('payments')
-          .select('id, amount, paid_at, method, sales!inner(shop_id, created_at, total, balance, customers(name))')
+          .select('id, sale_id, amount, paid_at, method, sales!inner(shop_id, created_at, total, balance, customers(name))')
           .gte('paid_at', todayStart)
           .lte('paid_at', todayEnd)
           .order('paid_at', { ascending: false }),
@@ -320,6 +320,12 @@ export default function DashboardPage() {
         }
         setRepaymentFeed(prev => [item, ...prev])
         setTodayRevenue(prev => prev + Number(payment.amount))
+        // Update the matching sale in recentSales so its balance/gauge reflects the payment
+        setRecentSales(prev => prev.map((s: any) =>
+          s.id === payment.sale_id
+            ? { ...s, amount_paid: Number(s.amount_paid) + Number(payment.amount), balance: Math.max(0, Number(s.balance) - Number(payment.amount)), payment_status: Math.max(0, Number(s.balance) - Number(payment.amount)) === 0 ? 'paid' : 'partial' }
+            : s
+        ))
       } catch { /* ignore */ }
     },
     onProductUpdate: (product) => {
