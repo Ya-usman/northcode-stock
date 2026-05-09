@@ -193,8 +193,8 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                         </span>
                       </div>
                       {role !== 'viewer' && (
-                        <p className={`text-sm font-semibold flex-shrink-0 ${hasDebt ? 'text-orange-500' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                          {formatNaira(item.total)}
+                        <p className="text-sm font-semibold flex-shrink-0 text-emerald-600 dark:text-emerald-400">
+                          {hasDebt ? `+${formatNaira(item.amount_paid)}` : formatNaira(item.total)}
                         </p>
                       )}
                     </div>
@@ -204,12 +204,10 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                     </p>
                     {role !== 'viewer' && hasDebt && (
                       <div className="flex gap-4 mt-1.5 flex-wrap">
-                        {Number(item.amount_paid) > 0 && (
-                          <p className="text-[10px]">
-                            <span className="text-muted-foreground">{t('payment.amount_paid')} : </span>
-                            <span className="font-semibold text-emerald-600 dark:text-emerald-400">+{formatNaira(item.amount_paid)}</span>
-                          </p>
-                        )}
+                        <p className="text-[10px]">
+                          <span className="text-muted-foreground">{t('payments.total_debt')} : </span>
+                          <span className="font-semibold text-orange-500">{formatNaira(item.total)}</span>
+                        </p>
                         <p className="text-[10px]">
                           <span className="text-muted-foreground">{t('payments.remaining_due')} : </span>
                           <span className="font-semibold text-red-500">{formatNaira(item.balance)}</span>
