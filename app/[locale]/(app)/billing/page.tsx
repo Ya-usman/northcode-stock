@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { getPlan, getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
-import { getCountry, BILLING_PERIODS, getPeriodPrice, type BillingPeriod } from '@/lib/saas/countries'
+import { getCountry, getPeriodPrice, type BillingPeriod } from '@/lib/saas/countries'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
@@ -18,7 +18,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   const { shop, user, refreshShop } = useAuth()
   const { toast } = useToast()
   const [loading, setLoading] = useState<string | null>(null)
-  const [period, setPeriod] = useState<BillingPeriod>('monthly')
+  const period: BillingPeriod = 'monthly'
   const searchParams = useSearchParams()
   const router = useRouter()
 
@@ -132,7 +132,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
     }
   }, [shop, user, country, locale, toast, refreshShop, period, t])
 
-  const periodLabel = period === 'monthly' ? t('per_month') : period === 'quarterly' ? t('per_3months') : t('per_year')
+  const periodLabel = t('per_month')
 
   const faqItems = [
     { q: t('faq_1_q'), a: t('faq_1_a') },
@@ -206,37 +206,11 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
         </div>
       </div>
 
-      {/* Period selector */}
+      {/* Plans */}
       <div>
-        <h2 className="font-semibold text-foreground mb-3">
+        <h2 className="font-semibold text-foreground mb-4">
           {isSubscribed ? t('change_plan') : t('choose_plan')}
         </h2>
-
-        {/* Billing period tabs */}
-        <div className="flex gap-2 mb-4 bg-muted rounded-lg p-1 w-fit">
-          {(Object.entries(BILLING_PERIODS) as [BillingPeriod, typeof BILLING_PERIODS[BillingPeriod]][]).map(([key, cfg]) => (
-            <button
-              key={key}
-              onClick={() => setPeriod(key)}
-              className={cn(
-                'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all',
-                period === key
-                  ? 'bg-card text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground/80'
-              )}
-            >
-              {cfg.label}
-              {cfg.badge && (
-                <span className={cn(
-                  'text-[10px] font-bold rounded-full px-1.5 py-0.5',
-                  period === key ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400' : 'bg-muted text-muted-foreground'
-                )}>
-                  {cfg.badge}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {PLAN_DETAILS.map(({ id, icon: Icon, color, headerColor, popular, features }) => {
@@ -267,17 +241,14 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                   </div>
                   <div className="flex items-baseline gap-1">
                     <span className={cn('text-2xl font-extrabold', popular ? 'text-white' : 'text-northcode-blue dark:text-blue-400')}>
-                      {country.currencySymbol}{price.toLocaleString(country.currencySymbol === 'FCFA' ? 'fr-FR' : 'en-NG')}
+                      {country.currency === 'NGN'
+                        ? `₦${price.toLocaleString('en-NG')}`
+                        : `${price.toLocaleString('fr-FR')} ${country.currencySymbol}`}
                     </span>
                     <span className={cn('text-xs', popular ? 'text-blue-100' : 'text-muted-foreground')}>
                       {periodLabel}
                     </span>
                   </div>
-                  {period !== 'monthly' && (
-                    <p className={cn('text-xs mt-0.5', popular ? 'text-blue-100' : 'text-muted-foreground')}>
-                      {t('per_month_equiv', { price: Math.floor(price / BILLING_PERIODS[period].months).toLocaleString(country.currencySymbol === 'FCFA' ? 'fr-FR' : 'en-NG') + country.currencySymbol })}
-                    </p>
-                  )}
                 </div>
 
                 <div className="p-4">
