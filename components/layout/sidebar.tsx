@@ -42,7 +42,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
       items: [
         { href: `/${locale}/sales/new`, icon: ShoppingCart, label: t('new_sale'), roles: ['owner', 'cashier'] },
         { href: `/${locale}/sales/history`, icon: History, label: t('sales_history'), roles: ['owner', 'cashier'] },
-        { href: `/${locale}/payments`, icon: CreditCard, label: t('payments'), roles: ['owner'] },
+        { href: `/${locale}/payments`, icon: CreditCard, label: t('payments'), roles: ['owner', 'cashier'] },
         { href: `/${locale}/customers`, icon: Users, label: t('customers'), roles: ['owner', 'cashier'] },
       ],
     },

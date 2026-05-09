@@ -30,7 +30,7 @@ export function BottomNav({ locale, role, onSignOut }: BottomNavProps) {
     { href: `/${locale}/stock`,            icon: Package,         label: t('stock'),          roles: ['owner', 'stock_manager'],                      primary: true },
     { href: `/${locale}/reports`,          icon: BarChart2,       label: t('reports'),        roles: ['owner'],                                       primary: true },
     { href: `/${locale}/sales/history`,    icon: History,         label: t('sales_history'),  roles: ['owner', 'cashier'],                            primary: false },
-    { href: `/${locale}/payments`,         icon: CreditCard,      label: t('payments'),       roles: ['owner'],                                       primary: false },
+    { href: `/${locale}/payments`,         icon: CreditCard,      label: t('payments'),       roles: ['owner', 'cashier'],                            primary: false },
     { href: `/${locale}/customers`,        icon: Users,           label: t('customers'),      roles: ['owner', 'cashier'],                            primary: false },
     { href: `/${locale}/categories`,        icon: Tag,             label: t('categories'),     roles: ['owner', 'stock_manager'],                      primary: false },
     { href: `/${locale}/suppliers`,        icon: Truck,           label: t('suppliers'),      roles: ['owner', 'stock_manager'],                      primary: false },
