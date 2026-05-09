@@ -167,6 +167,24 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                           )}
                         </div>
                       )}
+                      {item.totalDebt !== undefined && item.totalDebt > 0 && (() => {
+                        const paid = item.totalDebt - (item.remainingBalance ?? 0)
+                        const pct = Math.min(100, (paid / item.totalDebt) * 100)
+                        return (
+                          <div className="mt-2">
+                            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${isFullyPaid ? 'bg-green-500' : 'bg-gradient-to-r from-orange-400 to-red-500'}`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                            <div className="flex justify-between mt-0.5">
+                              <span className="text-[9px] text-muted-foreground">{Math.round(pct)}% {t('payment.already_paid')}</span>
+                              {!isFullyPaid && <span className="text-[9px] text-red-400">{formatNaira(item.remainingBalance ?? 0)} {t('payments.remaining_due')}</span>}
+                            </div>
+                          </div>
+                        )
+                      })()}
                     </motion.div>
                   )
                 }
@@ -214,6 +232,20 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                         </p>
                       </div>
                     )}
+                    {hasDebt && (() => {
+                      const pct = item.total > 0 ? Math.min(100, (Number(item.amount_paid) / Number(item.total)) * 100) : 0
+                      return (
+                        <div className="mt-2">
+                          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full rounded-full bg-gradient-to-r from-orange-400 to-red-500 transition-all duration-500" style={{ width: `${pct}%` }} />
+                          </div>
+                          <div className="flex justify-between mt-0.5">
+                            <span className="text-[9px] text-muted-foreground">{Math.round(pct)}% {t('payment.already_paid')}</span>
+                            <span className="text-[9px] text-red-400">{formatNaira(item.balance)} {t('payments.remaining_due')}</span>
+                          </div>
+                        </div>
+                      )
+                    })()}
                   </motion.div>
                 )
               })}
