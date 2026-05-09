@@ -469,7 +469,10 @@
     "total_sold": "Total vendu",
     "stock_before": "Avant",
     "stock_after": "Après",
-    "qty_change": "Variation"
+    "qty_change": "Variation",
+    "operations": "opérations",
+    "last": "Dernier",
+    "close": "Fermer"
   },
   "errors": {
     "generic": "Une erreur s'est produite. Veuillez réessayer.",

@@ -469,7 +469,10 @@
     "total_sold": "Jimlar sayarwa",
     "stock_before": "Kafin",
     "stock_after": "Bayan",
-    "qty_change": "Bambanci"
+    "qty_change": "Bambanci",
+    "operations": "ayyuka",
+    "last": "Na ƙarshe",
+    "close": "Rufe"
   },
   "errors": {
     "generic": "Wani abu ya faru. Don Allah a sake gwadawa.",

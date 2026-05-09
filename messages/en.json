@@ -469,7 +469,10 @@
     "total_sold": "Total sold",
     "stock_before": "Before",
     "stock_after": "After",
-    "qty_change": "Change"
+    "qty_change": "Change",
+    "operations": "operations",
+    "last": "Last",
+    "close": "Close"
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",
