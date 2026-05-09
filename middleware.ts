@@ -127,11 +127,6 @@ export async function middleware(request: NextRequest) {
     return mergeAuthCookies(intlRes || response, response)
   }
 
-  // Pendant la période bêta, /billing est redirigé vers le dashboard
-  if (isBetaPeriod() && pathnameWithoutLocale === '/billing') {
-    return mergeAuthCookies(NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url)), response)
-  }
-
   // Page protégée sans session → login
   if (!userId) {
     const loginUrl = new URL(`/${locale}/login`, request.url)

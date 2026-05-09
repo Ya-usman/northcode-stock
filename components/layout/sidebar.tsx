@@ -61,7 +61,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
         { href: `/${locale}/team`, icon: Users, label: t('team'), roles: ['owner'] },
         { href: `/${locale}/shops`, icon: Store, label: t('shops'), roles: ['owner'] },
         { href: `/${locale}/settings`, icon: Settings, label: t('settings'), roles: ['owner'] },
-        ...(!isBetaPeriod() ? [{ href: `/${locale}/billing`, icon: Zap, label: t('billing'), roles: ['owner'] }] : []),
+        { href: `/${locale}/billing`, icon: Zap, label: t('billing'), roles: ['owner'] },
       ],
     },
   ]
