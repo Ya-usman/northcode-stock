@@ -249,19 +249,15 @@ export default function DashboardPage() {
       })
       const tops = Object.values(totals).sort((a, b) => b.revenue - a.revenue).slice(0, 5)
 
-      // Revenue = actual cash received today, using payments table as single source of truth.
-      // amount_paid on sales is updated by DB trigger (cumulative), so summing it + repayments double-counts.
-      // Owner/viewer: use the payments API total (sum of payments.amount for today).
-      // Cashier: sum payments on their own sales from the payments feed (already filtered to their sale_ids).
-      let revenue: number
-      if (paymentsApiOk && !isCashier) {
-        revenue = paymentsData.todayTotal
-      } else {
-        const cashierSaleIds = new Set(salesArr.map((s: any) => s.id))
-        revenue = repaymentItems
-          .filter(r => cashierSaleIds.has(r.sale_id))
-          .reduce((s, r) => s + r.amount, 0)
-      }
+      // Revenue = sum of payments received on TODAY's new sales only.
+      // Using todayPaymentsRaw (payments table) filtered to sale_ids created today avoids:
+      //  - double-counting from DB trigger updating amount_paid cumulatively
+      //  - inflating revenue with old-debt repayments that aren't part of today's sales
+      // This matches the "Ventes aujourd'hui" count the user sees in the sales history.
+      const todaySaleIds = new Set(salesArr.map((s: any) => s.id))
+      const revenue = (todayPaymentsRaw || [])
+        .filter((p: any) => todaySaleIds.has(p.sale_id) && shopIds.includes(p.sales?.shop_id))
+        .reduce((s: number, p: any) => s + Number(p.amount), 0)
 
       applyDashData(salesCount, revenue, debt, salesArr, repaymentItems, revData, tops, lowSt, outOf)
 
@@ -301,7 +297,8 @@ export default function DashboardPage() {
         if (isOwnSale) {
           setRecentSales(prev => [sale, ...prev])
           setTodaySalesCount(prev => prev + 1)
-          setTodayRevenue(prev => prev + Number(sale.amount_paid))
+          // Revenue is added by onPaymentUpdate when the payment record is inserted.
+          // sale.amount_paid = 0 at INSERT time (DB trigger hasn't fired yet), so nothing to add here.
         }
         if (!isCashierView) {
           toast({ title: `Nouvelle vente: ${formatNaira(sale.total)}`, description: `#${sale.sale_number}`, variant: 'success' })
@@ -328,7 +325,12 @@ export default function DashboardPage() {
           remainingBalance: Number((sale as any).balance),
         }
         setRepaymentFeed(prev => [item, ...prev])
-        setTodayRevenue(prev => prev + Number(payment.amount))
+        // Only count as revenue if this payment is on a sale created today
+        // (old-debt repayments on previous days' sales are excluded from "revenus du jour")
+        const saleCreatedToday = new Date((sale as any).created_at) >= startOfDay(new Date())
+        if (saleCreatedToday) {
+          setTodayRevenue(prev => prev + Number(payment.amount))
+        }
         // Update the matching sale in recentSales so its balance/gauge reflects the payment
         setRecentSales(prev => prev.map((s: any) =>
           s.id === payment.sale_id
