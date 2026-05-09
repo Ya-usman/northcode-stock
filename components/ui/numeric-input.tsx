@@ -36,7 +36,6 @@ export function NumericInput({ value = 0, onChange, onBlur, className, currency,
     <input
       type="text"
       inputMode="numeric"
-      pattern="[0-9]*"
       className={cn(
         'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors',
         'placeholder:text-muted-foreground',
