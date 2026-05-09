@@ -36,6 +36,8 @@ export default function ReportsPage() {
   const [stockValuation, setStockValuation] = useState({ buyingValue: 0, sellingValue: 0, potentialProfit: 0 })
   const [cashierPerf, setCashierPerf] = useState<{ id: string; name: string; shopName?: string; sales: number; revenue: number; shopId: string }[]>([])
   const [totals, setTotals] = useState({ revenue: 0, profit: 0, sales: 0 })
+  const [outstandingDebt, setOutstandingDebt] = useState(0)
+  const [allInventory, setAllInventory] = useState<{ name: string; quantity: number; buying_price: number; selling_price: number; soldQty: number; soldRevenue: number }[]>([])
 
   const getDateRange = () => {
     const now = new Date()
@@ -130,13 +132,32 @@ export default function ReportsPage() {
         .slice(0, 10)
     )
 
-    // Stock valuation
-    const { data: allProducts } = await supabase
-      .from('products').select('quantity, buying_price, selling_price')
-      .in('shop_id', effectiveShopIds).eq('is_active', true)
+    // Stock valuation + full inventory
+    const [{ data: allProducts }, { data: debtCustomers }] = await Promise.all([
+      supabase
+        .from('products').select('id, name, quantity, buying_price, selling_price')
+        .in('shop_id', effectiveShopIds).eq('is_active', true).order('name'),
+      supabase
+        .from('customers').select('total_debt')
+        .in('shop_id', effectiveShopIds),
+    ])
     const buyingValue = (allProducts || []).reduce((s: number, p: any) => s + Number(p.quantity) * Number(p.buying_price), 0)
     const sellingValue = (allProducts || []).reduce((s: number, p: any) => s + Number(p.quantity) * Number(p.selling_price), 0)
     setStockValuation({ buyingValue, sellingValue, potentialProfit: sellingValue - buyingValue })
+
+    const totalOutstandingDebt = (debtCustomers || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0)
+    setOutstandingDebt(totalOutstandingDebt)
+
+    // Full inventory: all active products, enriched with sold qty/revenue for the period
+    const inventoryList = (allProducts || []).map((p: any) => ({
+      name: p.name,
+      quantity: Number(p.quantity),
+      buying_price: Number(p.buying_price),
+      selling_price: Number(p.selling_price),
+      soldQty: prodTotals[p.name]?.qty || 0,
+      soldRevenue: prodTotals[p.name]?.revenue || 0,
+    })).sort((a: { soldRevenue: number; name: string }, b: { soldRevenue: number; name: string }) => (b.soldRevenue - a.soldRevenue) || a.name.localeCompare(b.name))
+    setAllInventory(inventoryList)
 
     // Cashier performance — build sales map from actual sales
     const cashierMap: Record<string, { sales: number; revenue: number; shopId: string }> = {}
@@ -197,6 +218,16 @@ export default function ReportsPage() {
         },
         sections: [
           {
+            title: t('reports.encaisse') + ' / ' + t('reports.cash_in_register'),
+            headers: [t('reports.col_metric'), t('reports.col_value')],
+            rows: [
+              [t('reports.encaisse'), formatNaira(totals.revenue)],
+              [t('reports.outstanding_debt'), formatNaira(outstandingDebt)],
+              [t('reports.est_profit'), formatNaira(totals.profit)],
+              [t('reports.transactions'), String(totals.sales)],
+            ],
+          },
+          {
             title: t('reports.revenue_by_method'),
             headers: [t('reports.col_method'), formatNaira(0).replace('0', '').trim() || shop?.currency || '', t('reports.col_share')],
             rows: revenueByMethod.map(m => [
@@ -206,9 +237,9 @@ export default function ReportsPage() {
             ]),
           },
           {
-            title: t('reports.top_products'),
-            headers: [t('reports.col_product'), t('reports.col_qty'), t('reports.col_revenue')],
-            rows: topProducts.map(p => [p.name, p.qty, formatNaira(p.revenue)]),
+            title: t('reports.full_inventory'),
+            headers: [t('reports.col_product'), t('reports.col_stock'), t('reports.col_sold_qty'), t('reports.col_buying_price'), t('reports.col_selling_price')],
+            rows: allInventory.map(p => [p.name, p.quantity, p.soldQty || '—', formatNaira(p.buying_price), formatNaira(p.selling_price)]),
           },
           {
             title: t('reports.stock_valuation'),
@@ -266,16 +297,18 @@ export default function ReportsPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: t('reports.total_revenue'), value: formatNaira(totals.revenue), color: 'text-northcode-blue dark:text-blue-400' },
-          { label: t('reports.est_profit'), value: formatNaira(totals.profit), color: 'text-green-600' },
-          { label: t('reports.transactions'), value: String(totals.sales), color: 'text-foreground' },
+          { label: t('reports.encaisse'), value: formatNaira(totals.revenue), color: 'text-northcode-blue dark:text-blue-400', sub: t('reports.cash_in_register') },
+          { label: t('reports.est_profit'), value: formatNaira(totals.profit), color: 'text-green-600', sub: null },
+          { label: t('reports.transactions'), value: String(totals.sales), color: 'text-foreground', sub: null },
+          { label: t('reports.outstanding_debt'), value: formatNaira(outstandingDebt), color: 'text-orange-500', sub: null },
         ].map(item => (
           <Card key={item.label} className="border-0 shadow-sm">
             <CardContent className="p-3 text-center">
               <p className="text-xs text-muted-foreground leading-tight">{item.label}</p>
-              <p className={`text-sm sm:text-lg font-bold mt-0.5 ${item.color}`}>{loading ? '…' : item.value}</p>
+              <p className={`text-sm sm:text-base font-bold mt-0.5 ${item.color}`}>{loading ? '…' : item.value}</p>
+              {item.sub && <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{item.sub}</p>}
             </CardContent>
           </Card>
         ))}
@@ -342,6 +375,43 @@ export default function ReportsPage() {
                         <TableCell className="text-sm font-medium">{p.name}</TableCell>
                         <TableCell className="text-right text-sm">{p.qty}</TableCell>
                         <TableCell className="text-right text-sm font-medium text-northcode-blue dark:text-blue-400">{formatNaira(p.revenue)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Full inventory — all active products */}
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">{t('reports.full_inventory')}</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {allInventory.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">{t('reports.no_data')}</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t('reports.col_product')}</TableHead>
+                      <TableHead className="text-right">{t('reports.col_stock')}</TableHead>
+                      <TableHead className="text-right">{t('reports.col_sold_qty')}</TableHead>
+                      <TableHead className="text-right">{t('reports.col_buying_price')}</TableHead>
+                      <TableHead className="text-right">{t('reports.col_selling_price')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {allInventory.map(p => (
+                      <TableRow key={p.name} className={p.quantity === 0 ? 'opacity-50' : ''}>
+                        <TableCell className="text-sm font-medium">{p.name}</TableCell>
+                        <TableCell className={`text-right text-sm font-medium ${p.quantity === 0 ? 'text-red-500' : p.quantity <= 5 ? 'text-orange-500' : 'text-foreground'}`}>
+                          {p.quantity}
+                        </TableCell>
+                        <TableCell className="text-right text-sm text-muted-foreground">{p.soldQty > 0 ? p.soldQty : '—'}</TableCell>
+                        <TableCell className="text-right text-sm text-muted-foreground">{formatNaira(p.buying_price)}</TableCell>
+                        <TableCell className="text-right text-sm text-northcode-blue dark:text-blue-400">{formatNaira(p.selling_price)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

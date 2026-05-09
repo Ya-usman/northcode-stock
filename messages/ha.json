@@ -373,7 +373,15 @@
     "pdf_business_report": "Rahoton Kasuwanci",
     "pdf_generated_by": "An Ƙirƙira ta StockShop",
     "pdf_page": "Shafi",
-    "pdf_of": "na"
+    "pdf_of": "na",
+    "outstanding_debt": "Bashin da ke ci gaba",
+    "cash_in_register": "Kuɗin da ke akwati",
+    "full_inventory": "Cikakken jerin kaya",
+    "col_stock": "Kaya",
+    "col_buying_price": "Farashin siye",
+    "col_selling_price": "Farashin sayarwa",
+    "col_sold_qty": "Yakai",
+    "encaisse": "An Karɓa"
   },
   "team": {
     "title": "Ma'aikata",

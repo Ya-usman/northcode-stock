@@ -249,10 +249,19 @@ export default function DashboardPage() {
       })
       const tops = Object.values(totals).sort((a, b) => b.revenue - a.revenue).slice(0, 5)
 
-      // Revenue = actual cash received today (amount paid on sales + debt repayments)
-      const salesCash = salesArr.reduce((s, sale: any) => s + Number(sale.amount_paid), 0)
-      const repaymentCash = isCashier ? 0 : repaymentItems.reduce((s, r) => s + r.amount, 0)
-      const revenue = salesCash + repaymentCash
+      // Revenue = actual cash received today, using payments table as single source of truth.
+      // amount_paid on sales is updated by DB trigger (cumulative), so summing it + repayments double-counts.
+      // Owner/viewer: use the payments API total (sum of payments.amount for today).
+      // Cashier: sum payments on their own sales from the payments feed (already filtered to their sale_ids).
+      let revenue: number
+      if (paymentsApiOk && !isCashier) {
+        revenue = paymentsData.todayTotal
+      } else {
+        const cashierSaleIds = new Set(salesArr.map((s: any) => s.id))
+        revenue = repaymentItems
+          .filter(r => cashierSaleIds.has(r.sale_id))
+          .reduce((s, r) => s + r.amount, 0)
+      }
 
       applyDashData(salesCount, revenue, debt, salesArr, repaymentItems, revData, tops, lowSt, outOf)
 
