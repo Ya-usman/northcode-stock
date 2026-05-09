@@ -20,6 +20,7 @@ import {
   History, User, RefreshCw, Banknote, Store,
   Printer, Share2, Search,
 } from 'lucide-react'
+import { DebtGauge } from '@/components/dashboard/recent-sales-feed'
 import { getCountry, getMethodType } from '@/lib/saas/countries'
 import { formatInputValue } from '@/lib/utils/currency'
 import { format } from 'date-fns'
@@ -122,14 +123,8 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
             <div className="mt-3">
               <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
                 <span>{t('payment.already_paid')}: {fmt(paidTotal)}</span>
-                <span>{Math.round(progress)}%</span>
               </div>
-              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-orange-400 to-red-500 transition-all duration-500"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
+              <DebtGauge pct={progress} remaining={totalDebt} fmt={fmt} t={t} />
             </div>
           )}
 
@@ -652,10 +647,7 @@ export default function DettesPage() {
                           {format(new Date(sale.created_at), "dd MMM yyyy 'à' HH:mm", { locale: fr })}
                           {sale.cashier_name && <> · par <strong>{sale.cashier_name}</strong></>}
                         </p>
-                        {/* Mini progress bar inside history */}
-                        <div className="h-1 rounded-full bg-muted overflow-hidden mt-1 w-full">
-                          <div className="h-full rounded-full bg-gradient-to-r from-orange-400 to-red-500" style={{ width: `${paidPct}%` }} />
-                        </div>
+                        <DebtGauge pct={paidPct} remaining={sale.balance > 0 ? sale.balance : undefined} fmt={fmt} t={t} />
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-sm font-bold">{fmt(sale.total)}</p>

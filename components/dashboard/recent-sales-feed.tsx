@@ -33,6 +33,41 @@ const statusVariant: Record<string, 'success' | 'warning' | 'danger'> = {
   pending: 'danger',
 }
 
+export function DebtGauge({ pct, remaining, fmt, t }: {
+  pct: number
+  remaining?: number
+  fmt: (n: number) => string
+  t: any
+}) {
+  const full = pct >= 99.9
+  return (
+    <div className="mt-2">
+      <div className="h-1.5 rounded-full bg-muted overflow-hidden relative">
+        {full ? (
+          <div className="absolute inset-0 bg-green-500 rounded-full transition-all duration-500" />
+        ) : (
+          <>
+            <div className="absolute inset-0 bg-gradient-to-r from-red-500 via-orange-400 to-green-500" />
+            <div
+              className="absolute inset-y-0 right-0 bg-muted transition-all duration-500"
+              style={{ width: `${100 - pct}%` }}
+            />
+          </>
+        )}
+      </div>
+      <div className="flex justify-between mt-0.5">
+        <span className={cn('text-[9px]', full ? 'text-green-500 font-medium' : 'text-muted-foreground')}>
+          {Math.round(pct)}% {t('payment.already_paid')}
+        </span>
+        {full
+          ? <span className="text-[9px] text-green-500 font-medium">✓ {t('payments.paid_off')}</span>
+          : remaining !== undefined && <span className="text-[9px] text-red-400">{fmt(remaining)} {t('payments.remaining_due')}</span>
+        }
+      </div>
+    </div>
+  )
+}
+
 export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
   const t = useTranslations()
   const locale = useLocale()
@@ -118,6 +153,9 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                 if (item.type === 'repayment') {
                   const isPartial = item.remainingBalance !== undefined && item.remainingBalance > 0
                   const isFullyPaid = item.totalDebt !== undefined && !isPartial
+                  const paid = (item.totalDebt ?? 0) - (item.remainingBalance ?? 0)
+                  const pct = item.totalDebt ? Math.min(100, (paid / item.totalDebt) * 100) : 100
+
                   return (
                     <motion.div
                       key={`r-${item.id}`}
@@ -167,29 +205,16 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                           )}
                         </div>
                       )}
-                      {item.totalDebt !== undefined && item.totalDebt > 0 && (() => {
-                        const paid = item.totalDebt - (item.remainingBalance ?? 0)
-                        const pct = Math.min(100, (paid / item.totalDebt) * 100)
-                        return (
-                          <div className="mt-2">
-                            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all duration-500 ${isFullyPaid ? 'bg-green-500' : 'bg-gradient-to-r from-orange-400 to-red-500'}`}
-                                style={{ width: `${pct}%` }}
-                              />
-                            </div>
-                            <div className="flex justify-between mt-0.5">
-                              <span className="text-[9px] text-muted-foreground">{Math.round(pct)}% {t('payment.already_paid')}</span>
-                              {!isFullyPaid && <span className="text-[9px] text-red-400">{formatNaira(item.remainingBalance ?? 0)} {t('payments.remaining_due')}</span>}
-                            </div>
-                          </div>
-                        )
-                      })()}
+                      {item.totalDebt !== undefined && item.totalDebt > 0 && (
+                        <DebtGauge pct={pct} remaining={item.remainingBalance} fmt={formatNaira} t={t} />
+                      )}
                     </motion.div>
                   )
                 }
 
                 const hasDebt = Number(item.balance) > 0
+                const pct = item.total > 0 ? Math.min(100, (Number(item.amount_paid) / Number(item.total)) * 100) : 0
+
                 return (
                   <motion.div
                     key={item.id}
@@ -232,20 +257,9 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                         </p>
                       </div>
                     )}
-                    {hasDebt && (() => {
-                      const pct = item.total > 0 ? Math.min(100, (Number(item.amount_paid) / Number(item.total)) * 100) : 0
-                      return (
-                        <div className="mt-2">
-                          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                            <div className="h-full rounded-full bg-gradient-to-r from-orange-400 to-red-500 transition-all duration-500" style={{ width: `${pct}%` }} />
-                          </div>
-                          <div className="flex justify-between mt-0.5">
-                            <span className="text-[9px] text-muted-foreground">{Math.round(pct)}% {t('payment.already_paid')}</span>
-                            <span className="text-[9px] text-red-400">{formatNaira(item.balance)} {t('payments.remaining_due')}</span>
-                          </div>
-                        </div>
-                      )
-                    })()}
+                    {hasDebt && (
+                      <DebtGauge pct={pct} remaining={Number(item.balance)} fmt={formatNaira} t={t} />
+                    )}
                   </motion.div>
                 )
               })}
