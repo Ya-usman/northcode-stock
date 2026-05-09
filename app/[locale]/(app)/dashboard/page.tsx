@@ -249,15 +249,15 @@ export default function DashboardPage() {
       })
       const tops = Object.values(totals).sort((a, b) => b.revenue - a.revenue).slice(0, 5)
 
-      // Revenue = sum of payments received on TODAY's new sales only.
-      // Using todayPaymentsRaw (payments table) filtered to sale_ids created today avoids:
-      //  - double-counting from DB trigger updating amount_paid cumulatively
-      //  - inflating revenue with old-debt repayments that aren't part of today's sales
-      // This matches the "Ventes aujourd'hui" count the user sees in the sales history.
-      const todaySaleIds = new Set(salesArr.map((s: any) => s.id))
-      const revenue = (todayPaymentsRaw || [])
-        .filter((p: any) => todaySaleIds.has(p.sale_id) && shopIds.includes(p.sales?.shop_id))
-        .reduce((s: number, p: any) => s + Number(p.amount), 0)
+      // Revenue = total cash received today from the payments table (single source of truth).
+      // Includes: new sales payments + old-debt repayments made today.
+      // Using paymentsData.todayTotal avoids double-counting caused by DB trigger
+      // updating sales.amount_paid cumulatively.
+      const revenue = paymentsApiOk
+        ? paymentsData.todayTotal
+        : (todayPaymentsRaw || [])
+            .filter((p: any) => shopIds.includes(p.sales?.shop_id))
+            .reduce((s: number, p: any) => s + Number(p.amount), 0)
 
       applyDashData(salesCount, revenue, debt, salesArr, repaymentItems, revData, tops, lowSt, outOf)
 
@@ -325,12 +325,8 @@ export default function DashboardPage() {
           remainingBalance: Number((sale as any).balance),
         }
         setRepaymentFeed(prev => [item, ...prev])
-        // Only count as revenue if this payment is on a sale created today
-        // (old-debt repayments on previous days' sales are excluded from "revenus du jour")
-        const saleCreatedToday = new Date((sale as any).created_at) >= startOfDay(new Date())
-        if (saleCreatedToday) {
-          setTodayRevenue(prev => prev + Number(payment.amount))
-        }
+        // All cash received today = revenue, including old-debt repayments
+        setTodayRevenue(prev => prev + Number(payment.amount))
         // Update the matching sale in recentSales so its balance/gauge reflects the payment
         setRecentSales(prev => prev.map((s: any) =>
           s.id === payment.sale_id
