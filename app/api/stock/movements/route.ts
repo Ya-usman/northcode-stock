@@ -31,7 +31,7 @@ export async function GET(request: Request) {
 
     let query = admin
       .from('stock_movements')
-      .select('id, type, quantity, reason, notes, created_at, product_id, performed_by, shop_id')
+      .select('id, type, quantity, previous_qty, new_qty, reason, notes, created_at, product_id, performed_by, shop_id')
       .in('shop_id', allowedIds)
       .order('created_at', { ascending: false })
       .limit(500)
@@ -70,6 +70,8 @@ export async function GET(request: Request) {
       id: r.id,
       type: r.type,
       quantity: r.quantity,
+      previous_qty: r.previous_qty ?? null,
+      new_qty: r.new_qty ?? null,
       reason: r.reason,
       notes: r.notes,
       created_at: r.created_at,

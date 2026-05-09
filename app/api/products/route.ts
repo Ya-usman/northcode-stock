@@ -25,6 +25,20 @@ export async function POST(request: Request) {
         : error.message
       return NextResponse.json({ error: msg }, { status: 400 })
     }
+    // Record initial stock movement if product created with quantity > 0
+    const initialQty = Number(body.quantity) || 0
+    if (initialQty > 0 && data?.id) {
+      await (admin as any).from('stock_movements').insert({
+        shop_id: body.shop_id,
+        product_id: data.id,
+        type: 'in',
+        quantity: initialQty,
+        reason: 'Stock initial',
+        performed_by: user.id,
+        previous_qty: 0,
+        new_qty: initialQty,
+      })
+    }
     return NextResponse.json({ data })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
@@ -74,6 +88,8 @@ export async function PUT(request: Request) {
       reason: supplier_name ? `Restock from ${supplier_name}` : 'Restock',
       notes: notes || null,
       performed_by,
+      previous_qty: current_quantity,
+      new_qty: current_quantity + quantity_to_add,
     })
     return NextResponse.json({ ok: true })
   } catch (e: any) {

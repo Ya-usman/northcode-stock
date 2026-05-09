@@ -17,6 +17,8 @@ interface Movement {
   id: string
   type: 'in' | 'out' | 'adjustment' | 'sale'
   quantity: number
+  previous_qty: number | null
+  new_qty: number | null
   reason: string | null
   notes: string | null
   created_at: string
@@ -171,6 +173,11 @@ export default function StockMovementsPage() {
                       <span className={`text-lg font-bold ${isIn ? 'text-green-600' : 'text-red-600'}`}>
                         {isIn ? '+' : '-'}{m.quantity}
                       </span>
+                      {m.previous_qty != null && m.new_qty != null && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          {m.previous_qty} → {m.new_qty}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </CardContent>

@@ -144,6 +144,8 @@ export interface StockMovement {
   product_id: string | null
   type: StockMovementType
   quantity: number
+  previous_qty: number | null
+  new_qty: number | null
   reason: string | null
   notes: string | null
   performed_by: string | null
