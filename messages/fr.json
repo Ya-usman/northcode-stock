@@ -243,7 +243,8 @@
     "invoices_pending": "{count} facture(s) en attente",
     "balance_due": "Solde dû",
     "new_sale_cta": "Nouvelle vente →",
-    "customer_label": "Client"
+    "customer_label": "Client",
+    "debts_tab": "Dettes"
   },
   "customers": {
     "title": "Clients",

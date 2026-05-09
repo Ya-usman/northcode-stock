@@ -198,9 +198,6 @@ export default function DashboardPage() {
       const salesCount = salesArr.length
       const debt = (debtData || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0)
 
-      // Revenue = face value of all sales created today
-      const revenue = salesArr.reduce((s, sale: any) => s + Number(sale.total), 0)
-
       // Build repayment feed items — only payments on sales created BEFORE today
       // (payments on today's sales = normal payment validation, not a debt repayment)
       const repaymentItems: RepaymentFeedItem[] = (todayPaymentsRaw || [])
@@ -256,6 +253,11 @@ export default function DashboardPage() {
       })
       const tops = Object.values(totals).sort((a, b) => b.revenue - a.revenue).slice(0, 5)
 
+      // Revenue = actual cash received today (amount paid on sales + debt repayments)
+      const salesCash = salesArr.reduce((s, sale: any) => s + Number(sale.amount_paid), 0)
+      const repaymentCash = isCashier ? 0 : repaymentItems.reduce((s, r) => s + r.amount, 0)
+      const revenue = salesCash + repaymentCash
+
       applyDashData(salesCount, revenue, debt, salesArr, repaymentItems, revData, tops, lowSt, outOf)
 
       writeDashCache({ shopKey, todaySalesCount: salesCount, todayRevenue: revenue,
@@ -294,7 +296,7 @@ export default function DashboardPage() {
         if (isOwnSale) {
           setRecentSales(prev => [sale, ...prev])
           setTodaySalesCount(prev => prev + 1)
-          setTodayRevenue(prev => prev + Number(sale.total))
+          setTodayRevenue(prev => prev + Number(sale.amount_paid))
         }
         if (!isCashierView) {
           toast({ title: `Nouvelle vente: ${formatNaira(sale.total)}`, description: `#${sale.sale_number}`, variant: 'success' })
@@ -323,6 +325,7 @@ export default function DashboardPage() {
           remainingBalance: Number((sale as any).balance),
         }
         setRepaymentFeed(prev => [item, ...prev])
+        setTodayRevenue(prev => prev + Number(payment.amount))
       } catch { /* ignore */ }
     },
     onProductUpdate: (product) => {

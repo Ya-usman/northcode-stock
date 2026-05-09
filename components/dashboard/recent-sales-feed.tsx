@@ -39,9 +39,9 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
   const { fmt: formatNaira } = useCurrency()
   const [activeTab, setActiveTab] = useState<'sales' | 'repayments'>('sales')
 
-  const salesItems = items.filter(i => i.type === 'sale') as (Sale & { type: 'sale' })[]
-  const repaymentItems = items.filter(i => i.type === 'repayment') as RepaymentFeedItem[]
-  const displayItems = activeTab === 'sales' ? salesItems : repaymentItems
+  const salesItems = items.filter(i => i.type === 'sale' && Number((i as Sale).balance) === 0) as (Sale & { type: 'sale' })[]
+  const debtItems = items.filter(i => i.type === 'repayment' || (i.type === 'sale' && Number((i as Sale).balance) > 0))
+  const displayItems = activeTab === 'sales' ? salesItems : debtItems
 
   return (
     <Card className="border-0 shadow-sm">
@@ -89,15 +89,15 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
               : 'text-muted-foreground hover:text-foreground'
           )}
         >
-          {t('sales.repayments_tab')}
-          {repaymentItems.length > 0 && (
+          {t('sales.debts_tab')}
+          {debtItems.length > 0 && (
             <span className={cn(
               'ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium',
               activeTab === 'repayments'
                 ? 'bg-northcode-blue/10 text-northcode-blue dark:bg-blue-500/20 dark:text-blue-400'
                 : 'bg-muted text-muted-foreground'
             )}>
-              {repaymentItems.length}
+              {debtItems.length}
             </span>
           )}
           {activeTab === 'repayments' && (

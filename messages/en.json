@@ -243,7 +243,8 @@
     "invoices_pending": "{count} invoice(s) on hold",
     "balance_due": "Balance Due",
     "new_sale_cta": "New Sale →",
-    "customer_label": "Customer"
+    "customer_label": "Customer",
+    "debts_tab": "Debts"
   },
   "customers": {
     "title": "Customers",

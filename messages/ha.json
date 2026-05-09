@@ -243,7 +243,8 @@
     "invoices_pending": "takardun {count} da ke jira",
     "balance_due": "Saura Da Ake Bashi",
     "new_sale_cta": "Sayarwa Sabuwa →",
-    "customer_label": "Abokin Ciniki"
+    "customer_label": "Abokin Ciniki",
+    "debts_tab": "Bashi"
   },
   "customers": {
     "title": "Abokan Ciniki",

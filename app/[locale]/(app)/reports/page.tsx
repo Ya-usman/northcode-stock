@@ -61,16 +61,24 @@ export default function ReportsPage() {
     // Sales in period
     const { data: salesRaw } = await supabase
       .from('sales')
-      .select('id, total, payment_method, created_at, cashier_id, shop_id')
+      .select('id, total, amount_paid, payment_method, created_at, cashier_id, shop_id')
       .in('shop_id', effectiveShopIds)
       .eq('sale_status', 'active')
       .gte('created_at', start)
       .lte('created_at', end)
-    const sales = (salesRaw || []) as Array<{ id: string; total: number; payment_method: string; created_at: string; cashier_id: string | null; shop_id: string }>
+    const sales = (salesRaw || []) as Array<{ id: string; total: number; amount_paid: number; payment_method: string; created_at: string; cashier_id: string | null; shop_id: string }>
 
-    // Revenue by method
+    // Actual payments received in period (new sales + debt repayments)
+    const { data: paymentsRaw } = await supabase
+      .from('payments')
+      .select('amount, method, sales!inner(shop_id)')
+      .gte('paid_at', start)
+      .lte('paid_at', end)
+    const paymentsInPeriod = (paymentsRaw || []).filter((p: any) => effectiveShopIds.includes(p.sales?.shop_id)) as Array<{ amount: number; method: string }>
+
+    // Revenue by payment method (from actual payments)
     const byMethod: Record<string, number> = {}
-    sales.forEach(s => { byMethod[s.payment_method] = (byMethod[s.payment_method] || 0) + Number(s.total) })
+    paymentsInPeriod.forEach(p => { byMethod[p.method] = (byMethod[p.method] || 0) + Number(p.amount) })
     setRevenueByMethod(
       Object.entries(byMethod).map(([name, value]) => ({
         name: name.charAt(0).toUpperCase() + name.slice(1),
@@ -78,7 +86,7 @@ export default function ReportsPage() {
       }))
     )
 
-    const totalRevenue = sales.reduce((s, sale) => s + Number(sale.total), 0)
+    const totalRevenue = paymentsInPeriod.reduce((s, p) => s + Number(p.amount), 0)
 
     // Sale items for profit calculation (only if there are sales)
     let totalProfit = 0
@@ -136,7 +144,7 @@ export default function ReportsPage() {
       if (!s.cashier_id) return
       if (!cashierMap[s.cashier_id]) cashierMap[s.cashier_id] = { sales: 0, revenue: 0, shopId: s.shop_id }
       cashierMap[s.cashier_id].sales += 1
-      cashierMap[s.cashier_id].revenue += Number(s.total)
+      cashierMap[s.cashier_id].revenue += Number(s.amount_paid)
     })
 
     // Fetch ALL active shop members so we include those with 0 sales in the ranking
