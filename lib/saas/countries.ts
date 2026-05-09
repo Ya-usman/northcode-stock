@@ -113,9 +113,10 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     phonePrefix: '+227', cityPlaceholder: 'Niamey, Zinder, Maradi…',
     paymentMethods: [
       { id: 'cash',         label: 'Espèces',      icon: '💵', type: 'cash' },
-      { id: 'orange_money', label: 'Orange Money', icon: '🟠', type: 'mobile_money' },
+      { id: 'amana',        label: 'Amana',        icon: '📱', type: 'mobile_money' },
+      { id: 'wave',         label: 'Wave',         icon: '🌊', type: 'mobile_money' },
+      { id: 'nita',         label: 'NITA',         icon: '📱', type: 'mobile_money' },
       { id: 'airtel_money', label: 'Airtel Money', icon: '📱', type: 'mobile_money' },
-      { id: 'moov_money',   label: 'Moov Money',   icon: '📱', type: 'mobile_money' },
       { id: 'transfer',     label: 'Virement',     icon: '🏦', type: 'transfer' },
       { id: 'credit',       label: 'Crédit',       icon: '📝', type: 'credit' },
     ],
