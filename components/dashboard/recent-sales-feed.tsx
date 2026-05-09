@@ -12,6 +12,7 @@ import type { Sale } from '@/lib/types/database'
 export interface RepaymentFeedItem {
   type: 'repayment'
   id: string
+  sale_id: string
   amount: number
   paid_at: string
   method: string
@@ -75,7 +76,29 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
   const [activeTab, setActiveTab] = useState<'sales' | 'repayments'>('sales')
 
   const salesItems = items.filter(i => i.type === 'sale' && Number((i as Sale).balance) === 0) as (Sale & { type: 'sale' })[]
-  const debtItems = items.filter(i => i.type === 'repayment' || (i.type === 'sale' && Number((i as Sale).balance) > 0))
+
+  // Debt tab: deduplicate so each sale appears only once.
+  // Sale items (balance > 0) take priority — their balance is already up-to-date.
+  // Repayment items only appear if no sale item covers that sale_id (old sales not in today's feed).
+  // Among repayments for the same old sale, keep only the most recent.
+  const debtSaleItems = items.filter(i => i.type === 'sale' && Number((i as Sale).balance) > 0) as (Sale & { type: 'sale' })[]
+  const debtSaleIds = new Set(debtSaleItems.map(s => s.id))
+  const repaymentItems = items.filter(i => i.type === 'repayment') as RepaymentFeedItem[]
+  const latestRepaymentBySale = new Map<string, RepaymentFeedItem>()
+  for (const r of repaymentItems) {
+    if (debtSaleIds.has(r.sale_id)) continue // sale already shown
+    const existing = latestRepaymentBySale.get(r.sale_id)
+    if (!existing || r.paid_at > existing.paid_at) latestRepaymentBySale.set(r.sale_id, r)
+  }
+  const debtItems = [
+    ...debtSaleItems,
+    ...Array.from(latestRepaymentBySale.values()),
+  ].sort((a, b) => {
+    const tA = a.type === 'repayment' ? a.paid_at : (a as Sale).created_at
+    const tB = b.type === 'repayment' ? b.paid_at : (b as Sale).created_at
+    return new Date(tB).getTime() - new Date(tA).getTime()
+  })
+
   const displayItems = activeTab === 'sales' ? salesItems : debtItems
 
   return (

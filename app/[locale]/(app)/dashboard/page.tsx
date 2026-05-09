@@ -204,6 +204,7 @@ export default function DashboardPage() {
         .map((p: any) => ({
           type: 'repayment' as const,
           id: p.id,
+          sale_id: p.sale_id,
           amount: Number(p.amount),
           paid_at: p.paid_at,
           method: p.method,
@@ -309,6 +310,7 @@ export default function DashboardPage() {
         const item: RepaymentFeedItem = {
           type: 'repayment',
           id: payment.id,
+          sale_id: payment.sale_id,
           amount: Number(payment.amount),
           paid_at: payment.paid_at || new Date().toISOString(),
           method: payment.method,
