@@ -194,7 +194,7 @@ export default function DettesPage() {
   const t = useTranslations()
   const { shop, profile, effectiveShopIds, userShops } = useAuth()
   const isMultiShop = effectiveShopIds.length > 1
-  const { fmt } = useCurrency()
+  const { fmt, symbol } = useCurrency()
   const { toast } = useToast()
 
   const [debtors, setDebtors] = useState<CustomerDebt[]>([])
@@ -514,10 +514,10 @@ export default function DettesPage() {
                   <Label>{t('payment.amount_given')}</Label>
                   <div className="flex rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
                     <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">
-                      {shop?.currency || '₦'}
+                      {symbol}
                     </span>
                     <input type="text" inputMode="numeric"
-                      value={formatInputValue(repayAmount, shop?.currency || '₦')}
+                      value={formatInputValue(repayAmount, symbol)}
                       onChange={e => setRepayAmount(e.target.value.replace(/\D/g, ''))}
                       className="flex-1 h-12 px-3 text-lg font-bold bg-card outline-none" placeholder="0" autoFocus />
                   </div>

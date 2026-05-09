@@ -24,7 +24,7 @@ export default function ReportsPage() {
   const t = useTranslations()
   const { shop, effectiveShopIds, userShops } = useAuth()
   const isMultiShop = effectiveShopIds.length > 1
-  const { fmt: formatNaira } = useCurrency()
+  const { fmt: formatNaira, symbol: currencySymbol } = useCurrency()
   const supabase = createClient() as any
 
   const [dateFilter, setDateFilter] = useState('month')
@@ -229,7 +229,7 @@ export default function ReportsPage() {
           },
           {
             title: t('reports.revenue_by_method'),
-            headers: [t('reports.col_method'), formatNaira(0).replace('0', '').trim() || shop?.currency || '', t('reports.col_share')],
+            headers: [t('reports.col_method'), currencySymbol, t('reports.col_share')],
             rows: revenueByMethod.map(m => [
               m.name,
               formatNaira(m.value),

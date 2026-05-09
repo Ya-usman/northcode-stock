@@ -34,7 +34,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const { profile, shop, roleInActiveShop, effectiveShopIds, userShops } = useAuth()
   const effectiveRole = roleInActiveShop ?? profile?.role
   const isMultiShop = effectiveShopIds.length > 1
-  const { fmt: formatNaira } = useCurrency()
+  const { fmt: formatNaira, symbol: currencySymbol } = useCurrency()
   const supabase = createClient()
   const { toast } = useToast()
 
@@ -280,7 +280,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const productFormProps = {
     categories: categories.filter((c: any) => !shop?.id || c.shop_id === shop.id),
     suppliers: suppliers.filter((s: any) => !shop?.id || s.shop_id === shop.id),
-    currency: shop?.currency || '₦',
+    currency: currencySymbol,
     isOwner: effectiveRole === 'owner' || effectiveRole === 'super_admin',
     saving,
   }

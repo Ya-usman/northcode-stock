@@ -1,6 +1,7 @@
 'use client'
 
 import type { Sale, SaleItem, Shop } from '@/lib/types/database'
+import { getCountry } from '@/lib/saas/countries'
 
 interface ReceiptLabels {
   receipt: string
@@ -52,11 +53,12 @@ async function buildReceiptDoc(data: ReceiptData) {
   }
 
   // Currency formatter — jsPDF Helvetica can't render ₦, use sanitizePDF
-  const isFCFA = shop.currency === 'FCFA'
+  const countryConfig = getCountry(shop.country)
+  const isNGN = countryConfig.currency === 'NGN'
   const fmtAmt = (n: number) => {
-    if (isFCFA) {
+    if (!isNGN) {
       const formatted = n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
-      return sanitizePDF(`${formatted} FCFA`)
+      return sanitizePDF(`${formatted} ${countryConfig.currencySymbol}`)
     }
     return `NGN ${n.toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
   }
@@ -336,11 +338,12 @@ async function buildDebtReceiptDoc(data: DebtReceiptData) {
     methodPaystack: labels?.methodPaystack ?? 'Paystack',
   }
 
-  const isFCFA = shop.currency === 'FCFA'
+  const countryConfig2 = getCountry(shop.country)
+  const isNGN2 = countryConfig2.currency === 'NGN'
   const fmtAmt = (n: number) => {
-    if (isFCFA) {
+    if (!isNGN2) {
       const formatted = n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
-      return sanitizePDF(`${formatted} FCFA`)
+      return sanitizePDF(`${formatted} ${countryConfig2.currencySymbol}`)
     }
     return `NGN ${n.toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
   }
