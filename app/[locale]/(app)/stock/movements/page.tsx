@@ -34,6 +34,7 @@ interface ProductSummary {
   current_qty: number | null
   initial_stock: number | null
   restocks: Movement[]
+  latest_at: string
 }
 
 function fmtDate(d: string) {
@@ -76,9 +77,11 @@ export default function StockMovementsPage() {
           current_qty: m.product_current_qty,
           initial_stock: null,
           restocks: [],
+          latest_at: m.created_at,
         })
       }
       const p = map.get(name)!
+      if (m.created_at > p.latest_at) p.latest_at = m.created_at
       if (m.product_current_qty != null) p.current_qty = m.product_current_qty
       if (m.type === 'in') {
         if (m.reason === 'Stock initial') p.initial_stock = m.new_qty
@@ -94,7 +97,7 @@ export default function StockMovementsPage() {
       const q = search.toLowerCase()
       list = list.filter(p => p.product_name.toLowerCase().includes(q))
     }
-    return list.sort((a, b) => a.product_name.localeCompare(b.product_name))
+    return list.sort((a, b) => b.latest_at.localeCompare(a.latest_at))
   }, [movements, search])
 
   const totalRestocks = movements
