@@ -42,8 +42,8 @@ export function DebtGauge({ pct, remaining, fmt, t }: {
 }) {
   const full = pct >= 99.9
   return (
-    <div className="mt-1.5">
-      <div className="h-1 rounded-full bg-muted overflow-hidden">
+    <div className="mt-1.5 flex items-center gap-2">
+      <div className="w-28 h-1 rounded-full bg-muted overflow-hidden flex-shrink-0">
         <div
           className="h-full rounded-full transition-all duration-500"
           style={{
@@ -56,15 +56,14 @@ export function DebtGauge({ pct, remaining, fmt, t }: {
           }}
         />
       </div>
-      <div className="flex justify-between mt-0.5">
-        <span className={cn('text-[9px]', full ? 'text-green-500 font-medium' : 'text-muted-foreground')}>
-          {Math.round(pct)}% {t('payment.already_paid')}
-        </span>
+      <span className={cn('text-[9px] tabular-nums', full ? 'text-green-500 font-medium' : 'text-muted-foreground')}>
         {full
-          ? <span className="text-[9px] text-green-500 font-medium">✓ {t('payments.paid_off')}</span>
-          : remaining !== undefined && <span className="text-[9px] text-orange-500">{fmt(remaining)} {t('payments.remaining_due')}</span>
+          ? `✓ ${t('payments.paid_off')}`
+          : remaining !== undefined
+            ? `${Math.round(pct)}% · ${fmt(remaining)} ${t('payments.remaining_due')}`
+            : `${Math.round(pct)}%`
         }
-      </div>
+      </span>
     </div>
   )
 }
@@ -83,6 +82,7 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
   const locale = useLocale()
   const { fmt: formatNaira } = useCurrency()
   const [activeTab, setActiveTab] = useState<'sales' | 'repayments'>('sales')
+  const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null)
 
   // Sales tab: fully paid non-credit sales
   const salesItems = items.filter(i =>
@@ -209,65 +209,84 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                   const repayments = entry.repayments
                   const pct = sale.total > 0 ? Math.min(100, (Number(sale.amount_paid) / Number(sale.total)) * 100) : 0
                   const hasDebt = Number(sale.balance) > 0
+                  const isExpanded = expandedSaleId === sale.id
+                  const totalRepaid = repayments.reduce((s, r) => s + r.amount, 0)
                   return (
                     <motion.div key={sale.id}
                       initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3, delay: idx * 0.03 }}
-                      className="px-4 py-3 hover:bg-muted/30 transition-colors">
+                      transition={{ duration: 0.3, delay: idx * 0.03 }}>
 
-                      {/* Header row */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
-                          <span className="text-xs font-mono font-semibold text-northcode-blue dark:text-blue-400">
-                            #{sale.sale_number}
-                          </span>
-                          <Badge variant={statusVariant[sale.payment_status] || 'secondary'} className="text-[10px] px-1.5 py-0">
-                            {t(`status.${sale.payment_status}`)}
-                          </Badge>
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                            {methodLabel(sale.payment_method, t)}
-                          </Badge>
-                        </div>
-                        {role !== 'viewer' && (
-                          <div className="text-right flex-shrink-0">
-                            <p className="text-sm font-bold">{formatNaira(sale.total)}</p>
-                            {hasDebt && (
-                              <p className="text-[10px] text-red-500">{t('payment.remaining')}: {formatNaira(sale.balance)}</p>
+                      {/* Clickable header */}
+                      <button
+                        className="w-full px-4 py-3 hover:bg-muted/30 transition-colors text-left"
+                        onClick={() => setExpandedSaleId(isExpanded ? null : sale.id)}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
+                            <span className="text-xs font-mono font-semibold text-northcode-blue dark:text-blue-400">
+                              #{sale.sale_number}
+                            </span>
+                            <Badge variant={statusVariant[sale.payment_status] || 'secondary'} className="text-[10px] px-1.5 py-0">
+                              {t(`status.${sale.payment_status}`)}
+                            </Badge>
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                              {methodLabel(sale.payment_method, t)}
+                            </Badge>
+                            {repayments.length > 0 && !isExpanded && (
+                              <span className="text-[9px] text-muted-foreground">{repayments.length} paiement{repayments.length > 1 ? 's' : ''} ▾</span>
                             )}
                           </div>
-                        )}
-                      </div>
-
-                      {/* Customer + date */}
-                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                        {sale.customers?.name || t('sales.walk_in')} ·{' '}
-                        {new Date(sale.created_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-
-                      {/* Progress bar */}
-                      <DebtGauge pct={pct} remaining={hasDebt ? Number(sale.balance) : undefined} fmt={formatNaira} t={t} />
-
-                      {/* Repayments nested */}
-                      {repayments.length > 0 && (
-                        <div className="mt-2 space-y-1 border-t pt-2">
-                          {repayments.map(r => (
-                            <div key={r.id} className="flex items-center justify-between gap-2 rounded-lg bg-green-50 dark:bg-green-950/20 px-2.5 py-1.5">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <span className="text-green-600 text-xs">✓</span>
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-card border-green-200">
-                                  {methodLabel(r.method, t)}
-                                </Badge>
-                                <span className="text-[10px] text-muted-foreground truncate">
-                                  {new Date(r.paid_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                              </div>
-                              {role !== 'viewer' && (
-                                <span className="text-xs font-bold text-green-600 flex-shrink-0">+{formatNaira(r.amount)}</span>
+                          {role !== 'viewer' && (
+                            <div className="text-right flex-shrink-0">
+                              <p className="text-sm font-bold">{formatNaira(sale.total)}</p>
+                              {hasDebt && (
+                                <p className="text-[10px] text-red-500">{t('payment.remaining')}: {formatNaira(sale.balance)}</p>
                               )}
                             </div>
-                          ))}
+                          )}
                         </div>
-                      )}
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                          {sale.customers?.name || t('sales.walk_in')} ·{' '}
+                          {new Date(sale.created_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                        <DebtGauge pct={pct} remaining={hasDebt ? Number(sale.balance) : undefined} fmt={formatNaira} t={t} />
+                      </button>
+
+                      {/* Repayments — visible on click */}
+                      <AnimatePresence>
+                        {isExpanded && repayments.length > 0 && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden border-t bg-muted/20">
+                            <div className="px-4 py-2 space-y-1.5">
+                              {repayments.map(r => (
+                                <div key={r.id} className="flex items-center justify-between gap-2 rounded-lg bg-green-50 dark:bg-green-950/20 px-2.5 py-1.5">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="text-green-600 text-xs">✓</span>
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-card border-green-200">
+                                      {methodLabel(r.method, t)}
+                                    </Badge>
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {new Date(r.paid_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  </div>
+                                  {role !== 'viewer' && (
+                                    <span className="text-xs font-bold text-green-600 flex-shrink-0">+{formatNaira(r.amount)}</span>
+                                  )}
+                                </div>
+                              ))}
+                              {role !== 'viewer' && repayments.length > 1 && (
+                                <div className="flex justify-between text-[10px] pt-1 border-t">
+                                  <span className="text-muted-foreground">Total remboursé</span>
+                                  <span className="font-semibold text-green-600">+{formatNaira(totalRepaid)}</span>
+                                </div>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </motion.div>
                   )
                 }
