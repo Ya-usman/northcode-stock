@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
-import { Search, Calendar, Package, ChevronDown, ArrowRight, X } from 'lucide-react'
+import { Search, Calendar, Package, ArrowRight, X, History } from 'lucide-react'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -216,10 +216,10 @@ export default function StockMovementsPage() {
                   {/* Réappro */}
                   <div className="w-28 flex justify-center">
                     {hasRestocks ? (
-                      <div className="flex items-center gap-1 text-sm font-semibold text-green-600 tabular-nums">
+                      <div className="flex items-center gap-1.5 text-sm font-semibold text-green-600 tabular-nums">
                         +{restockTotal}
                         <span className="text-[10px] font-normal text-muted-foreground">{p.restocks.length}×</span>
-                        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                        <History className="h-3 w-3 text-muted-foreground" />
                       </div>
                     ) : (
                       <span className="text-muted-foreground text-sm">—</span>
