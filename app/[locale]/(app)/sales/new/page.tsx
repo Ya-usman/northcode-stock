@@ -537,10 +537,23 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       }
 
       // Retry up to 5 times on duplicate sale_number (race condition / pre-existing number)
+      // 20 s client-side timeout per attempt: prevents infinite spinner when a DB trigger
+      // blocks on a lock (e.g. shop_sale_counters row held by a zombie transaction).
+      const withTimeout = (p: Promise<any>, ms: number) =>
+        Promise.race([
+          p,
+          new Promise<never>((_, rej) =>
+            setTimeout(() => rej(new Error('La base de données ne répond pas — vérifiez votre connexion et réessayez.')), ms)
+          ),
+        ])
+
       let sale: any = null
       let lastError: any = null
       for (let attempt = 0; attempt < 5; attempt++) {
-        const res = await db.from('sales').insert(salePayload).select().single()
+        const res = await withTimeout(
+          db.from('sales').insert(salePayload).select().single() as Promise<any>,
+          20_000
+        )
         lastError = res.error
         if (!res.error) { sale = res.data; lastError = null; break }
         if (res.error?.code !== '23505') break  // non-duplicate error → surface immediately

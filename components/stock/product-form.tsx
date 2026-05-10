@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DialogFooter } from '@/components/ui/dialog'
 import { productSchema, type ProductFormData } from '@/lib/validations/product'
-import type { Product, Category, Supplier } from '@/lib/types/database'
+import type { Category, Supplier } from '@/lib/types/database'
 
 interface ProductFormProps {
   categories: Category[]
@@ -52,7 +52,7 @@ export function ProductForm({
   const supplierId = form.watch('supplier_id') || NONE
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 overflow-y-auto max-h-[70vh] pr-1">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 overflow-y-auto max-h-[70vh] px-1">
       <div className="grid grid-cols-2 gap-3">
 
         <div className="col-span-2 space-y-1">
