@@ -214,17 +214,6 @@ export default function StockMovementsPage() {
                               isExpanded && 'rotate-180'
                             )} />
                           </div>
-                          {p.restocks[0].previous_qty != null && p.restocks[0].new_qty != null && (
-                            <div className="flex items-center gap-1">
-                              <span className="bg-muted text-muted-foreground text-[10px] font-medium px-1.5 py-0 rounded-full tabular-nums">
-                                {p.restocks[0].previous_qty}
-                              </span>
-                              <ArrowRight className="h-2.5 w-2.5 text-muted-foreground flex-shrink-0" />
-                              <span className="bg-muted text-foreground text-[10px] font-medium px-1.5 py-0 rounded-full tabular-nums border border-border">
-                                {p.restocks[0].new_qty}
-                              </span>
-                            </div>
-                          )}
                         </button>
                       ) : (
                         <span className="text-muted-foreground text-sm">—</span>
