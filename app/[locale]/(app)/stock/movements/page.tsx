@@ -155,9 +155,10 @@ export default function StockMovementsPage() {
             const hasRestocks = p.restocks.length > 0
             return (
               <Card key={p.product_name} className="border-0 shadow-sm">
-                <CardContent className="p-4">
+                <CardContent className="p-4 space-y-3">
+
                   {/* Product name */}
-                  <div className="flex items-center gap-2 mb-3">
+                  <div className="flex items-center gap-2">
                     <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     <span className="font-semibold text-sm">
                       {p.product_name}
@@ -167,54 +168,54 @@ export default function StockMovementsPage() {
                     </span>
                   </div>
 
-                  {/* Three columns */}
+                  {/* Three stat columns */}
                   <div className="grid grid-cols-3 divide-x divide-border">
-                    {/* Stock de base */}
                     <div className="text-center pr-3">
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-1">
-                        {t('initial_stock')}
-                      </p>
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-1">{t('initial_stock')}</p>
                       <p className="text-xl font-bold tabular-nums">
-                        {p.initial_stock != null
-                          ? p.initial_stock
+                        {p.initial_stock != null ? p.initial_stock : <span className="text-muted-foreground text-sm">—</span>}
+                      </p>
+                    </div>
+                    <div className="text-center px-3">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-1">{t('restocked')}</p>
+                      <p className={`text-xl font-bold tabular-nums ${hasRestocks ? 'text-green-600' : ''}`}>
+                        {hasRestocks
+                          ? `+${p.restocks.reduce((s, m) => s + m.quantity, 0)}`
                           : <span className="text-muted-foreground text-sm">—</span>}
                       </p>
                     </div>
-
-                    {/* Réapprovisionnement */}
-                    <div className="text-center px-3">
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-1">
-                        {t('restocked')}
-                      </p>
-                      {hasRestocks ? (
-                        <div className="space-y-0.5">
-                          {p.restocks.map(m => (
-                            <p key={m.id} className="text-xs tabular-nums text-green-600 leading-tight">
-                              +{m.quantity} <span className="text-muted-foreground font-normal">{format(new Date(m.created_at), 'dd/MM', { locale: fr })}</span>
-                            </p>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">—</span>
-                      )}
-                    </div>
-
-                    {/* Stock actuel */}
                     <div className="text-center pl-3">
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-1">
-                        {t('current_stock')}
-                      </p>
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-1">{t('current_stock')}</p>
                       <p className={`text-xl font-bold tabular-nums ${
                         p.current_qty != null
-                          ? p.current_qty === 0 ? 'text-red-600' : p.current_qty <= 5 ? 'text-amber-500' : 'text-foreground'
+                          ? p.current_qty === 0 ? 'text-red-600' : p.current_qty <= 5 ? 'text-amber-500' : ''
                           : ''
                       }`}>
-                        {p.current_qty != null
-                          ? p.current_qty
-                          : <span className="text-muted-foreground text-sm">—</span>}
+                        {p.current_qty != null ? p.current_qty : <span className="text-muted-foreground text-sm">—</span>}
                       </p>
                     </div>
                   </div>
+
+                  {/* Restock history */}
+                  {hasRestocks && (
+                    <div className="border-t pt-3 space-y-2">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">{t('restock_history')}</p>
+                      {p.restocks.map(m => (
+                        <div key={m.id} className="flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="text-[11px] text-muted-foreground leading-tight">
+                              🕐 {format(new Date(m.created_at), "dd MMM yyyy 'à' HH:mm", { locale: fr })}
+                            </p>
+                            {m.performed_by_name && (
+                              <p className="text-[11px] text-muted-foreground leading-tight">👤 {m.performed_by_name}</p>
+                            )}
+                          </div>
+                          <span className="text-sm font-bold text-green-600 tabular-nums flex-shrink-0">+{m.quantity}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                 </CardContent>
               </Card>
             )
