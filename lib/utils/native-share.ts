@@ -3,7 +3,7 @@
 /**
  * Detects if running inside a Capacitor native app (Android/iOS).
  */
-function isCapacitor(): boolean {
+export function isCapacitor(): boolean {
   return typeof window !== 'undefined' && !!(window as any).Capacitor?.isNativePlatform?.()
 }
 

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslations } from 'next-intl'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { generateDebtReceiptPDFBlob } from '@/lib/utils/pdf'
-import { sharePDFNative, printPDFNative } from '@/lib/utils/native-share'
+import { sharePDFNative, printPDFNative, isCapacitor } from '@/lib/utils/native-share'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -479,7 +479,8 @@ export default function DettesPage() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <Button variant="outline" className="gap-2 h-11" onClick={() => printPDFNative(receiptResult.blob, receiptResult.fileName)}>
-                  <Printer className="h-4 w-4" />{t('actions.print_receipt')}
+                  {isCapacitor() ? <Share2 className="h-4 w-4" /> : <Printer className="h-4 w-4" />}
+                  {isCapacitor() ? t('actions.share') : t('actions.print_receipt')}
                 </Button>
                 <Button className="gap-2 h-11 bg-green-600 hover:bg-green-700" onClick={() => sharePDFNative(receiptResult.blob, receiptResult.fileName, `Reçu — ${receiptResult.customerName}`)}>
                   <Share2 className="h-4 w-4" />WhatsApp

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Search, Plus, Minus, Trash2, CheckCircle, MessageCircle, Printer,
+  Search, Plus, Minus, Trash2, CheckCircle, MessageCircle, Printer, Share2,
   Scan, X, User, Store, ChevronDown, Clock, PauseCircle, PlayCircle,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -23,7 +23,7 @@ import { Separator } from '@/components/ui/separator'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { generateReceiptPDFBlob } from '@/lib/utils/pdf'
 import { shareReceiptWhatsApp, buildReceiptWhatsAppMessage } from '@/lib/utils/whatsapp'
-import { sharePDFNative, printPDFNative } from '@/lib/utils/native-share'
+import { sharePDFNative, printPDFNative, isCapacitor } from '@/lib/utils/native-share'
 import type { Product, Customer, CartItem, Sale, SaleItem, Category } from '@/lib/types/database'
 import { cacheProducts, getCachedProducts, savePendingSale } from '@/lib/offline/db'
 import { useOffline } from '@/lib/offline/use-offline'
@@ -1466,7 +1466,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   <MessageCircle className="h-4 w-4" /> WhatsApp
                 </Button>
                 <Button variant="outline" onClick={handlePrintReceipt} className="gap-2">
-                  <Printer className="h-4 w-4" /> {t('actions.print_receipt')}
+                  {isCapacitor() ? <Share2 className="h-4 w-4" /> : <Printer className="h-4 w-4" />}
+                  {isCapacitor() ? t('actions.share') : t('actions.print_receipt')}
                 </Button>
               </div>
               <Button className="w-full h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500 dark:hover:bg-blue-600"

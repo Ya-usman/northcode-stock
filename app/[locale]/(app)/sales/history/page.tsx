@@ -4,7 +4,7 @@ import { useState, useEffect, Fragment } from 'react'
 import { useTranslations } from 'next-intl'
 import {
   Search, FileDown, ChevronDown, ChevronUp,
-  XCircle, CheckCircle2, Printer, Store, CornerDownLeft,
+  XCircle, CheckCircle2, Printer, Share2, Store, CornerDownLeft,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -19,7 +19,7 @@ import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { generateReceiptPDFBlob } from '@/lib/utils/pdf'
-import { printPDFNative, downloadOrShareCSV } from '@/lib/utils/native-share'
+import { printPDFNative, downloadOrShareCSV, isCapacitor } from '@/lib/utils/native-share'
 import { format, startOfDay, endOfDay, subDays, startOfWeek, startOfMonth } from 'date-fns'
 import type { Sale } from '@/lib/types/database'
 
@@ -349,7 +349,8 @@ export default function SalesHistoryPage() {
                   )}
                   {!isCancelled && (
                     <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7" onClick={() => printSale(sale)}>
-                      <Printer className="h-3 w-3" /> {t('actions.print')}
+                      {isCapacitor() ? <Share2 className="h-3 w-3" /> : <Printer className="h-3 w-3" />}
+                      {isCapacitor() ? t('actions.share') : t('actions.print')}
                     </Button>
                   )}
                 </div>
