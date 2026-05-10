@@ -117,14 +117,16 @@ export default function StockMovementsPage() {
 
       {/* Summary */}
       <Card className="border-0 shadow-sm">
-        <CardContent className="p-4 flex justify-between items-center">
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">{t('total_restocked')}</p>
-            <p className="text-2xl font-bold text-green-600">+{totalRestocks}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground mb-1">{t('products_tracked')}</p>
-            <p className="text-2xl font-bold">{products.length}</p>
+        <CardContent className="p-0">
+          <div className="grid grid-cols-2 divide-x">
+            <div className="flex flex-col items-center justify-center py-4 px-6">
+              <p className="text-xs text-muted-foreground mb-1">{t('total_restocked')}</p>
+              <p className="text-2xl font-bold text-green-600">+{totalRestocks}</p>
+            </div>
+            <div className="flex flex-col items-center justify-center py-4 px-6">
+              <p className="text-xs text-muted-foreground mb-1">{t('products_tracked')}</p>
+              <p className="text-2xl font-bold">{products.length}</p>
+            </div>
           </div>
         </CardContent>
       </Card>
