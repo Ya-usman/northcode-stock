@@ -1267,19 +1267,21 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
       {/* Price edit modal */}
       <Dialog open={!!priceModalItem} onOpenChange={open => { if (!open) setPriceModalItem(null) }}>
-        <DialogContent className="max-w-[320px] p-4 gap-0">
-          <DialogHeader className="pb-3">
-            <DialogTitle className="text-base leading-tight">Modifier le prix de vente</DialogTitle>
+        <DialogContent className="max-w-[340px] max-h-[85svh] overflow-y-auto p-5 gap-0">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="text-base">Modifier le prix</DialogTitle>
           </DialogHeader>
           {priceModalItem && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium truncate max-w-[160px]">{priceModalItem.product.name}</span>
-                <span className="text-muted-foreground text-xs shrink-0 ml-2">
-                  Min : <span className="font-semibold text-foreground">{formatNaira(priceModalItem.product.selling_price)}</span>
+              {/* Product + min price */}
+              <div className="flex items-center justify-between gap-2 bg-muted rounded-lg px-3 py-2">
+                <span className="text-sm font-medium truncate">{priceModalItem.product.name}</span>
+                <span className="text-xs text-muted-foreground shrink-0">
+                  min <span className="font-semibold text-foreground">{formatNaira(priceModalItem.product.selling_price)}</span>
                 </span>
               </div>
-              <div className="flex rounded-md border-2 border-northcode-blue overflow-hidden focus-within:ring-2 focus-within:ring-ring">
+              {/* Input */}
+              <div className="flex rounded-lg border-2 border-northcode-blue overflow-hidden">
                 <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">
                   {selectedShop?.currency || '₦'}
                 </span>
@@ -1290,30 +1292,24 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   autoFocus
                   value={formatInputValue(priceModalInput, selectedShop?.currency || '₦')}
                   onChange={e => setPriceModalInput(e.target.value.replace(/\D/g, ''))}
-                  className="flex-1 h-12 px-3 text-xl font-bold bg-card outline-none"
+                  className="flex-1 h-11 px-3 text-xl font-bold bg-card outline-none"
                   placeholder={formatInputValue(priceModalItem.product.selling_price, selectedShop?.currency || '₦')}
                 />
               </div>
-              <p className={`text-xs min-h-[16px] ${
-                Number(priceModalInput) > 0 && Number(priceModalInput) < priceModalItem.product.selling_price
-                  ? 'text-red-500'
-                  : Number(priceModalInput) > priceModalItem.product.selling_price
-                    ? 'text-green-600'
-                    : 'text-transparent'
-              }`}>
-                {Number(priceModalInput) > 0 && Number(priceModalInput) < priceModalItem.product.selling_price
-                  ? `⚠ Minimum : ${formatNaira(priceModalItem.product.selling_price)}`
-                  : Number(priceModalInput) > priceModalItem.product.selling_price
-                    ? `+${formatNaira(Number(priceModalInput) - priceModalItem.product.selling_price)} au-dessus du catalogue`
-                    : '·'
-                }
-              </p>
-              <div className="flex gap-2 pt-1">
-                <Button variant="outline" className="flex-1 h-10" onClick={() => setPriceModalItem(null)}>
+              {/* Inline feedback — only when there's something to show */}
+              {Number(priceModalInput) > 0 && Number(priceModalInput) < priceModalItem.product.selling_price && (
+                <p className="text-xs text-red-500">⚠ Minimum : {formatNaira(priceModalItem.product.selling_price)}</p>
+              )}
+              {Number(priceModalInput) > priceModalItem.product.selling_price && (
+                <p className="text-xs text-green-600">+{formatNaira(Number(priceModalInput) - priceModalItem.product.selling_price)} au-dessus du catalogue</p>
+              )}
+              {/* Buttons */}
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1 h-11" onClick={() => setPriceModalItem(null)}>
                   Annuler
                 </Button>
                 <Button
-                  className="flex-1 h-10 bg-northcode-blue hover:bg-northcode-blue-light"
+                  className="flex-1 h-11 bg-northcode-blue hover:bg-northcode-blue-light"
                   disabled={!priceModalInput || Number(priceModalInput) < priceModalItem.product.selling_price}
                   onClick={() => {
                     updateItemPrice(priceModalItem.product.id, Number(priceModalInput))
