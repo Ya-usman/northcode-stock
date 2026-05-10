@@ -162,26 +162,19 @@ export default function StockMovementsPage() {
       ) : (
         <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
 
-          {/* Header — desktop only */}
-          <div className="hidden sm:grid grid-cols-[1fr_auto_auto_auto] gap-4 px-4 py-2.5 border-b bg-muted/40">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              {t('product')}
-            </span>
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground w-24 text-center">
-              {t('initial_stock')}
-            </span>
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground w-28 text-center">
-              {t('restocked')}
-            </span>
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground w-24 text-right">
-              {t('current_stock')}
-            </span>
+          {/* Header — desktop */}
+          <div className="hidden sm:grid grid-cols-[1fr_1fr_1fr_1fr] border-b bg-muted/40">
+            <div className="px-4 py-2.5"><span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('product')}</span></div>
+            <div className="px-4 py-2.5 text-center border-l"><span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('initial_stock')}</span></div>
+            <div className="px-4 py-2.5 text-center border-l"><span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('restocked')}</span></div>
+            <div className="px-4 py-2.5 text-center border-l"><span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('current_stock')}</span></div>
           </div>
-          {/* Header — mobile only */}
-          <div className="sm:hidden grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-2.5 border-b bg-muted/40">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('product')}</span>
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground text-center">{t('restocked')}</span>
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground text-right">{t('current_stock')}</span>
+
+          {/* Header — mobile */}
+          <div className="sm:hidden grid grid-cols-[1fr_1fr_1fr] border-b bg-muted/40">
+            <div className="px-3 py-2.5"><span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('product')}</span></div>
+            <div className="px-3 py-2.5 text-center border-l"><span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('restocked')}</span></div>
+            <div className="px-3 py-2.5 text-center border-l"><span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('current_stock')}</span></div>
           </div>
 
           {/* Rows */}
@@ -202,8 +195,8 @@ export default function StockMovementsPage() {
                   )}
                 >
                   {/* Desktop row */}
-                  <div className="hidden sm:grid grid-cols-[1fr_auto_auto_auto] gap-4 px-4 py-2.5 items-center">
-                    <div className="flex items-center gap-2 min-w-0">
+                  <div className="hidden sm:grid grid-cols-[1fr_1fr_1fr_1fr] items-center">
+                    <div className="px-4 py-2.5 flex items-center gap-2 min-w-0">
                       <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                       <span className="text-sm font-medium truncate">{p.product_name}</span>
                       {p.product_unit && (
@@ -212,12 +205,12 @@ export default function StockMovementsPage() {
                         </span>
                       )}
                     </div>
-                    <div className="w-24 text-center">
+                    <div className="px-4 py-2.5 text-center border-l">
                       <span className="text-sm tabular-nums font-medium">
                         {p.initial_stock != null ? p.initial_stock : <span className="text-muted-foreground">—</span>}
                       </span>
                     </div>
-                    <div className="w-28 flex justify-center">
+                    <div className="px-4 py-2.5 flex justify-center border-l">
                       {hasRestocks ? (
                         <div className="flex items-center gap-1.5 text-sm font-semibold text-green-600 tabular-nums">
                           +{restockTotal}
@@ -226,7 +219,7 @@ export default function StockMovementsPage() {
                         </div>
                       ) : <span className="text-muted-foreground text-sm">—</span>}
                     </div>
-                    <div className="w-24 text-right">
+                    <div className="px-4 py-2.5 text-center border-l">
                       <span className={cn('text-sm font-semibold tabular-nums', qtyColor)}>
                         {qty != null ? qty : <span className="text-muted-foreground font-normal">—</span>}
                       </span>
@@ -234,8 +227,8 @@ export default function StockMovementsPage() {
                   </div>
 
                   {/* Mobile row */}
-                  <div className="sm:hidden grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-3 items-center">
-                    <div className="flex items-center gap-1.5 min-w-0">
+                  <div className="sm:hidden grid grid-cols-[1fr_1fr_1fr] items-center">
+                    <div className="px-3 py-3 flex items-center gap-1.5 min-w-0">
                       <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">{p.product_name}</p>
@@ -244,7 +237,7 @@ export default function StockMovementsPage() {
                         )}
                       </div>
                     </div>
-                    <div className="flex justify-center">
+                    <div className="px-3 py-3 flex justify-center border-l">
                       {hasRestocks ? (
                         <div className="flex items-center gap-1 text-sm font-semibold text-green-600 tabular-nums">
                           +{restockTotal}
@@ -252,7 +245,7 @@ export default function StockMovementsPage() {
                         </div>
                       ) : <span className="text-muted-foreground text-sm">—</span>}
                     </div>
-                    <div className="text-right">
+                    <div className="px-3 py-3 text-center border-l">
                       <span className={cn('text-sm font-semibold tabular-nums', qtyColor)}>
                         {qty != null ? qty : <span className="text-muted-foreground font-normal">—</span>}
                       </span>
