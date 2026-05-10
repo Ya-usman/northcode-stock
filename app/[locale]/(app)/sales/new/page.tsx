@@ -686,7 +686,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     <div className="flex flex-col gap-4 max-w-2xl mx-auto w-full md:max-w-none md:flex-row md:gap-0 md:h-screen md:overflow-hidden">
 
       {/* ── LEFT column: search + products ── */}
-      <div className="flex flex-col gap-3 md:flex-1 md:overflow-y-auto md:p-5 md:border-r md:border-border md:min-h-0">
+      <div className="flex flex-col md:flex-1 md:overflow-hidden md:border-r md:border-border md:min-h-0">
 
       {/* Shop selector */}
       {isOwner && userShops.length > 1 && (
@@ -739,6 +739,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         </button>
       )}
 
+      {/* Sticky top area: search + categories */}
+      <div className="flex flex-col gap-3 px-0 md:px-5 md:pt-5 md:pb-2 md:sticky md:top-0 md:bg-background md:z-10 md:border-b md:border-border/50">
       {/* Active draft indicator */}
       {activeDraftId && (
         <div className="flex items-center gap-2 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-700">
@@ -801,6 +803,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         </div>
       )}
 
+      </div>{/* end sticky header */}
       {/* Product grid */}
       <AnimatePresence>
         {(products.length > 0 || searchQuery) && (
@@ -837,6 +840,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           </motion.div>
         )}
       </AnimatePresence>
+      </div>{/* end product grid scroll wrapper */}
 
       </div>{/* end LEFT column */}
 
@@ -1275,59 +1279,67 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
       </div>{/* end RIGHT column */}
 
-      {/* Price edit modal */}
+      {/* Price edit modal — premium design */}
       <Dialog open={!!priceModalItem} onOpenChange={open => { if (!open) setPriceModalItem(null) }}>
-        <DialogContent className="max-w-[340px] max-h-[85svh] overflow-y-auto p-5 gap-0">
-          <DialogHeader className="pb-2">
-            <DialogTitle className="text-base">Modifier le prix</DialogTitle>
-          </DialogHeader>
+        <DialogContent className="max-w-[360px] p-0 gap-0 overflow-hidden">
           {priceModalItem && (
-            <div className="space-y-3">
-              {/* Product + min price */}
-              <div className="flex items-center justify-between gap-2 bg-muted rounded-lg px-3 py-2">
-                <span className="text-sm font-medium truncate">{priceModalItem.product.name}</span>
-                <span className="text-xs text-muted-foreground shrink-0">
-                  min <span className="font-semibold text-foreground">{formatNaira(priceModalItem.product.selling_price)}</span>
-                </span>
+            <>
+              {/* Header gradient */}
+              <div className="bg-northcode-blue px-5 pt-5 pb-4">
+                <p className="text-xs font-medium text-blue-200 uppercase tracking-wider mb-1">Prix de vente</p>
+                <p className="text-white font-semibold text-base leading-tight truncate">{priceModalItem.product.name}</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-xs text-blue-200">Catalogue :</span>
+                  <span className="text-sm font-bold text-white">{formatNaira(priceModalItem.product.selling_price)}</span>
+                  <span className="text-[10px] bg-white/20 text-blue-100 px-1.5 py-0.5 rounded-full">minimum</span>
+                </div>
               </div>
-              {/* Input */}
-              <div className="flex rounded-lg border-2 border-northcode-blue overflow-hidden">
-                <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">
-                  {selectedShop?.currency || '₦'}
-                </span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  autoFocus
-                  value={formatInputValue(priceModalInput, selectedShop?.currency || '₦')}
-                  onChange={e => setPriceModalInput(e.target.value.replace(/\D/g, ''))}
-                  className="flex-1 h-11 px-3 text-xl font-bold bg-card outline-none"
-                  placeholder={formatInputValue(priceModalItem.product.selling_price, selectedShop?.currency || '₦')}
-                />
-              </div>
-              {/* Inline feedback — only when there's something to show */}
-              {Number(priceModalInput) > 0 && Number(priceModalInput) < priceModalItem.product.selling_price && (
-                <p className="text-xs text-red-500">⚠ Minimum : {formatNaira(priceModalItem.product.selling_price)}</p>
-              )}
-              {Number(priceModalInput) > priceModalItem.product.selling_price && (
-                <p className="text-xs text-green-600">+{formatNaira(Number(priceModalInput) - priceModalItem.product.selling_price)} au-dessus du catalogue</p>
-              )}
-              {/* Buttons */}
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1 h-11" onClick={() => setPriceModalItem(null)}>
-                  Annuler
-                </Button>
-                <Button
-                  className="flex-1 h-11 bg-northcode-blue hover:bg-northcode-blue-light"
-                  disabled={!priceModalInput || Number(priceModalInput) < priceModalItem.product.selling_price}
-                  onClick={() => {
-                    updateItemPrice(priceModalItem.product.id, Number(priceModalInput))
-                    setPriceModalItem(null)
-                  }}
-                >
-                  Confirmer
-                </Button>
+              {/* Body */}
+              <div className="p-5 space-y-4 bg-background">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2 font-medium">Nouveau prix de vente</p>
+                  <div className="flex rounded-xl border-2 border-northcode-blue overflow-hidden shadow-sm">
+                    <span className="flex items-center px-4 bg-northcode-blue/5 border-r border-northcode-blue/30 text-sm font-bold text-northcode-blue whitespace-nowrap select-none">
+                      {selectedShop?.currency || '₦'}
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      autoFocus
+                      value={formatInputValue(priceModalInput, selectedShop?.currency || '₦')}
+                      onChange={e => setPriceModalInput(e.target.value.replace(/\D/g, ''))}
+                      className="flex-1 h-14 px-4 text-2xl font-bold bg-card outline-none tracking-tight"
+                      placeholder={formatInputValue(priceModalItem.product.selling_price, selectedShop?.currency || '₦')}
+                    />
+                  </div>
+                  <div className="h-5 mt-1.5">
+                    {Number(priceModalInput) > 0 && Number(priceModalInput) < priceModalItem.product.selling_price && (
+                      <p className="text-xs text-red-500 flex items-center gap-1">
+                        <span>⚠</span> Prix minimum : {formatNaira(priceModalItem.product.selling_price)}
+                      </p>
+                    )}
+                    {Number(priceModalInput) > priceModalItem.product.selling_price && (
+                      <p className="text-xs text-emerald-600 flex items-center gap-1">
+                        <span>↑</span> +{formatNaira(Number(priceModalInput) - priceModalItem.product.selling_price)} par rapport au catalogue
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-2.5">
+                  <Button variant="outline" className="flex-1 h-11 rounded-xl" onClick={() => setPriceModalItem(null)}>
+                    Annuler
+                  </Button>
+                  <Button
+                    className="flex-1 h-11 rounded-xl bg-northcode-blue hover:bg-northcode-blue-light font-semibold"
+                    disabled={!priceModalInput || Number(priceModalInput) < priceModalItem.product.selling_price}
+                    onClick={() => {
+                      updateItemPrice(priceModalItem.product.id, Number(priceModalInput))
+                      setPriceModalItem(null)
+                    }}
+                  >
+                    Confirmer
+                  </Button>
               </div>
             </div>
           )}
