@@ -4,7 +4,7 @@ import { useState, useEffect, Fragment } from 'react'
 import { useTranslations } from 'next-intl'
 import {
   Search, FileDown, ChevronDown, ChevronUp,
-  XCircle, CheckCircle2, Printer, Store,
+  XCircle, CheckCircle2, Printer, Store, CornerDownLeft,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -389,9 +389,9 @@ export default function SalesHistoryPage() {
         </button>
         <button
           onClick={() => setView('repayments')}
-          className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${view === 'repayments' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${view === 'repayments' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
         >
-          ↩ {t('sales.repayments_tab')}
+          <CornerDownLeft className="h-3.5 w-3.5" /> {t('sales.repayments_tab')}
         </button>
       </div>
 
@@ -469,7 +469,7 @@ export default function SalesHistoryPage() {
         const renderRepaymentRow = (p: any) => (
           <TableRow key={p.id}>
             <TableCell className="font-medium text-sm">
-              <span className="text-emerald-600 dark:text-emerald-400 mr-1.5">↩</span>
+              <CornerDownLeft className="inline h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 mr-1.5" />
               {p.sales?.customers?.name || '—'}
             </TableCell>
             <TableCell className="hidden sm:table-cell font-mono text-xs text-northcode-blue dark:text-blue-400">
