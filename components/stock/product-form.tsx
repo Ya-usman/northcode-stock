@@ -63,15 +63,7 @@ export function ProductForm({
           )}
         </div>
 
-        <div className="col-span-2 space-y-1">
-          <Label>
-            {t('products.name_hausa')}{' '}
-            <span className="text-muted-foreground text-xs font-normal">({t('form.optional')})</span>
-          </Label>
-          <Input {...form.register('name_hausa')} placeholder={t('products.name_hausa')} />
-        </div>
-
-        <div className="space-y-1">
+<div className="space-y-1">
           <Label>{t('products.unit')}</Label>
           <Select value={unit} onValueChange={v => form.setValue('unit', v)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
