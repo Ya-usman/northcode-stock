@@ -1,14 +1,15 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
-import { Search, Calendar, Package, ChevronDown, ArrowRight } from 'lucide-react'
+import { Search, Calendar, Package, ChevronDown, ArrowRight, X } from 'lucide-react'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils/cn'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -50,7 +51,7 @@ export default function StockMovementsPage() {
   const [search, setSearch] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [expandedProduct, setExpandedProduct] = useState<string | null>(null)
+  const [openProduct, setOpenProduct] = useState<ProductSummary | null>(null)
 
   useEffect(() => {
     if (!effectiveShopIds.length) return
@@ -180,119 +181,150 @@ export default function StockMovementsPage() {
             {products.map(p => {
               const hasRestocks = p.restocks.length > 0
               const restockTotal = p.restocks.reduce((s, m) => s + m.quantity, 0)
-              const isExpanded = expandedProduct === p.product_name
               const qty = p.current_qty
               const qtyColor = qty === 0 ? 'text-red-600' : qty != null && qty <= 5 ? 'text-amber-500' : ''
 
               return (
-                <div key={p.product_name}>
-                  {/* Main row */}
-                  <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-4 py-2.5 items-center hover:bg-muted/20 transition-colors">
-
-                    {/* Product name */}
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                      <span className="text-sm font-medium truncate">{p.product_name}</span>
-                      {p.product_unit && (
-                        <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full flex-shrink-0">
-                          {p.product_unit}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Stock de base */}
-                    <div className="w-24 text-center">
-                      <span className="text-sm tabular-nums font-medium">
-                        {p.initial_stock != null
-                          ? p.initial_stock
-                          : <span className="text-muted-foreground">—</span>}
+                <button
+                  key={p.product_name}
+                  onClick={() => hasRestocks && setOpenProduct(p)}
+                  className={cn(
+                    'w-full grid grid-cols-[1fr_auto_auto_auto] gap-4 px-4 py-2.5 items-center transition-colors text-left',
+                    hasRestocks ? 'hover:bg-muted/20 cursor-pointer' : 'cursor-default'
+                  )}
+                >
+                  {/* Product name */}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                    <span className="text-sm font-medium truncate">{p.product_name}</span>
+                    {p.product_unit && (
+                      <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full flex-shrink-0">
+                        {p.product_unit}
                       </span>
-                    </div>
-
-                    {/* Réappro — cliquable */}
-                    <div className="w-28 flex justify-center">
-                      {hasRestocks ? (
-                        <button
-                          onClick={() => setExpandedProduct(isExpanded ? null : p.product_name)}
-                          className="flex flex-col items-center gap-0.5 hover:opacity-70 transition-opacity"
-                        >
-                          <div className="flex items-center gap-1 text-sm font-semibold text-green-600 tabular-nums">
-                            +{restockTotal}
-                            <span className="text-[10px] font-normal text-muted-foreground">{p.restocks.length}×</span>
-                            <ChevronDown className={cn(
-                              'h-3.5 w-3.5 text-muted-foreground transition-transform duration-200',
-                              isExpanded && 'rotate-180'
-                            )} />
-                          </div>
-                        </button>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">—</span>
-                      )}
-                    </div>
-
-                    {/* Stock actuel */}
-                    <div className="w-24 text-right">
-                      <span className={cn('text-sm font-semibold tabular-nums', qtyColor)}>
-                        {qty != null ? qty : <span className="text-muted-foreground font-normal">—</span>}
-                      </span>
-                    </div>
+                    )}
                   </div>
 
-                  {/* Inline restock history */}
-                  <AnimatePresence>
-                    {isExpanded && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="overflow-hidden border-t bg-muted/20"
-                      >
-                        <div className="px-4 py-3 space-y-2">
-                          {p.restocks.map(m => (
-                            <div key={m.id} className="flex items-start justify-between gap-4 rounded-lg bg-card border px-3.5 py-2.5">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                                  <span className="text-xs font-semibold truncate">
-                                    {m.reason || t('restock_history')}
-                                  </span>
-                                  <Badge variant="success" className="text-[10px] px-1.5 py-0">
-                                    {t('type_in')}
-                                  </Badge>
-                                </div>
-                                <p className="text-[11px] text-muted-foreground mb-1.5">
-                                  {fmtDate(m.created_at)}
-                                  {m.performed_by_name && (
-                                    <> · <span className="font-semibold text-foreground">{m.performed_by_name}</span></>
-                                  )}
-                                </p>
-                                {(m.previous_qty != null || m.new_qty != null) && (
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="bg-muted text-muted-foreground text-[11px] font-semibold px-2.5 py-0.5 rounded-full tabular-nums">
-                                      {m.previous_qty ?? '—'}
-                                    </span>
-                                    <ArrowRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                                    <span className="bg-muted text-foreground text-[11px] font-semibold px-2.5 py-0.5 rounded-full tabular-nums border border-border">
-                                      {m.new_qty ?? '—'}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                              <p className="text-base font-bold text-green-600 tabular-nums flex-shrink-0">
-                                +{m.quantity}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </motion.div>
+                  {/* Stock de base */}
+                  <div className="w-24 text-center">
+                    <span className="text-sm tabular-nums font-medium">
+                      {p.initial_stock != null
+                        ? p.initial_stock
+                        : <span className="text-muted-foreground">—</span>}
+                    </span>
+                  </div>
+
+                  {/* Réappro */}
+                  <div className="w-28 flex justify-center">
+                    {hasRestocks ? (
+                      <div className="flex items-center gap-1 text-sm font-semibold text-green-600 tabular-nums">
+                        +{restockTotal}
+                        <span className="text-[10px] font-normal text-muted-foreground">{p.restocks.length}×</span>
+                        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">—</span>
                     )}
-                  </AnimatePresence>
-                </div>
+                  </div>
+
+                  {/* Stock actuel */}
+                  <div className="w-24 text-right">
+                    <span className={cn('text-sm font-semibold tabular-nums', qtyColor)}>
+                      {qty != null ? qty : <span className="text-muted-foreground font-normal">—</span>}
+                    </span>
+                  </div>
+                </button>
               )
             })}
           </div>
         </div>
       )}
+
+      {/* Modal historique réappro */}
+      <AnimatePresence>
+        {openProduct && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end justify-center sm:items-center p-4 bg-black/50"
+            onClick={() => setOpenProduct(null)}
+          >
+            <motion.div
+              initial={{ y: 40, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 40, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="bg-background rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col shadow-xl"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="p-5 border-b flex items-start justify-between">
+                <div>
+                  <h2 className="font-bold text-lg">{t('restock_history')}</h2>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className="text-sm text-muted-foreground">{openProduct.product_name}</p>
+                    {openProduct.product_unit && (
+                      <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">
+                        {openProduct.product_unit}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button onClick={() => setOpenProduct(null)} className="text-muted-foreground hover:text-foreground p-1">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Entries */}
+              <div className="overflow-y-auto flex-1 p-4 space-y-3">
+                {openProduct.restocks.map(m => (
+                  <div key={m.id} className="rounded-xl border bg-card px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="text-sm font-semibold truncate">
+                            {m.reason || t('restock_history')}
+                          </span>
+                          <Badge variant="success" className="text-[10px] px-1.5 py-0">
+                            {t('type_in')}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-2">
+                          {fmtDate(m.created_at)}
+                          {m.performed_by_name && (
+                            <> · <span className="font-semibold text-foreground">{m.performed_by_name}</span></>
+                          )}
+                        </p>
+                        {(m.previous_qty != null || m.new_qty != null) && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="bg-muted text-muted-foreground text-[11px] font-semibold px-2.5 py-0.5 rounded-full tabular-nums">
+                              {m.previous_qty ?? '—'}
+                            </span>
+                            <ArrowRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                            <span className="bg-muted text-foreground text-[11px] font-semibold px-2.5 py-0.5 rounded-full tabular-nums border border-border">
+                              {m.new_qty ?? '—'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xl font-bold text-green-600 tabular-nums flex-shrink-0">
+                        +{m.quantity}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Footer */}
+              <div className="p-4 border-t">
+                <Button variant="outline" className="w-full h-11 text-base" onClick={() => setOpenProduct(null)}>
+                  {t('close')}
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
