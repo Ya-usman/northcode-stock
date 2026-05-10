@@ -7,6 +7,7 @@ import { useCurrency } from '@/lib/hooks/use-currency'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils/cn'
+import { ChevronDown } from 'lucide-react'
 import type { Sale } from '@/lib/types/database'
 
 export interface RepaymentFeedItem {
@@ -244,8 +245,11 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                             <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                               {methodLabel(sale.payment_method, t)}
                             </Badge>
-                            {repayments.length > 0 && !isExpanded && (
-                              <span className="text-[9px] text-muted-foreground">{repayments.length} paiement{repayments.length > 1 ? 's' : ''} ▾</span>
+                            {repayments.length > 0 && (
+                              <span className="flex items-center gap-0.5 text-[9px] text-muted-foreground">
+                                {repayments.length} paiement{repayments.length > 1 ? 's' : ''}
+                                <ChevronDown className={cn('h-3 w-3 transition-transform duration-200', isExpanded && 'rotate-180')} />
+                              </span>
                             )}
                           </div>
                           {role !== 'viewer' && (
@@ -334,8 +338,11 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                           <Badge variant={isPartial ? 'warning' : 'success'} className="text-[10px] px-1.5 py-0">
                             {isPartial ? t('status.partial') : t('status.paid')}
                           </Badge>
-                          {allR.length > 0 && !isExpanded && (
-                            <span className="text-[9px] text-muted-foreground">{allR.length} paiement{allR.length > 1 ? 's' : ''} ▾</span>
+                          {allR.length > 0 && (
+                            <span className="flex items-center gap-0.5 text-[9px] text-muted-foreground">
+                              {allR.length} paiement{allR.length > 1 ? 's' : ''}
+                              <ChevronDown className={cn('h-3 w-3 transition-transform duration-200', isExpanded && 'rotate-180')} />
+                            </span>
                           )}
                         </div>
                         {role !== 'viewer' && (
