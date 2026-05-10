@@ -176,7 +176,7 @@ export default function DashboardPage() {
         // Today's debt repayments (payments on OLD sales only)
         supabase
           .from('payments')
-          .select('id, sale_id, amount, paid_at, method, sales!inner(shop_id, created_at, total, balance, payment_method, customers(name))')
+          .select('id, sale_id, amount, paid_at, method, sales!inner(shop_id, sale_number, created_at, total, balance, payment_method, customers(name))')
           .gte('paid_at', todayStart)
           .lte('paid_at', todayEnd)
           .order('paid_at', { ascending: false }),
@@ -205,6 +205,7 @@ export default function DashboardPage() {
           type: 'repayment' as const,
           id: p.id,
           sale_id: p.sale_id,
+          sale_number: p.sales?.sale_number || undefined,
           amount: Number(p.amount),
           paid_at: p.paid_at,
           method: p.method,

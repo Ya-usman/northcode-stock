@@ -13,6 +13,7 @@ export interface RepaymentFeedItem {
   type: 'repayment'
   id: string
   sale_id: string
+  sale_number?: string
   amount: number
   paid_at: string
   method: string
@@ -113,16 +114,23 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
   const standaloneRepayments = repaymentItems.filter(r =>
     !debtSaleIds.has(r.sale_id) && !salesItemIds.has(r.sale_id)
   )
-  const latestByStandalone = new Map<string, RepaymentFeedItem>()
+  // Show ALL standalone repayments (not just the latest), grouped by sale
+  const standaloneGrouped = new Map<string, RepaymentFeedItem[]>()
   for (const r of standaloneRepayments) {
-    const ex = latestByStandalone.get(r.sale_id)
-    if (!ex || r.paid_at > ex.paid_at) latestByStandalone.set(r.sale_id, r)
+    if (!standaloneGrouped.has(r.sale_id)) standaloneGrouped.set(r.sale_id, [])
+    standaloneGrouped.get(r.sale_id)!.push(r)
+  }
+  // One representative entry per sale (latest), carrying all repayments
+  const latestByStandalone = new Map<string, RepaymentFeedItem & { allRepayments: RepaymentFeedItem[] }>()
+  for (const [saleId, repays] of standaloneGrouped) {
+    const sorted = repays.sort((a, b) => b.paid_at.localeCompare(a.paid_at))
+    latestByStandalone.set(saleId, { ...sorted[0], allRepayments: sorted })
   }
 
   // Unified sorted list for Debts tab
   type DebtEntry =
     | { kind: 'sale'; sale: Sale & { type: 'sale' }; repayments: RepaymentFeedItem[]; lastAt: string }
-    | { kind: 'repayment'; item: RepaymentFeedItem; lastAt: string }
+    | { kind: 'repayment'; item: RepaymentFeedItem; allRepayments: RepaymentFeedItem[]; lastAt: string }
 
   const debtEntries: DebtEntry[] = [
     ...debtSaleItems.map(sale => {
@@ -132,6 +140,7 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
     }),
     ...Array.from(latestByStandalone.values()).map(item => ({
       kind: 'repayment' as const, item, lastAt: item.paid_at,
+      allRepayments: (item as any).allRepayments as RepaymentFeedItem[],
     })),
   ].sort((a, b) => b.lastAt.localeCompare(a.lastAt))
 
@@ -295,11 +304,13 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                   )
                 }
 
-                /* Standalone repayment (fully-paid sale) */
+                /* Standalone repayment (fully-paid credit sale) */
                 const r = entry.item
+                const allR = entry.allRepayments
                 const isPartial = r.remainingBalance !== undefined && r.remainingBalance > 0
                 const paid = (r.totalDebt ?? 0) - (r.remainingBalance ?? 0)
                 const pct = r.totalDebt ? Math.min(100, (paid / r.totalDebt) * 100) : 100
+                const totalPaidToday = allR.reduce((s, x) => s + x.amount, 0)
                 return (
                   <motion.div key={`r-${r.id}`}
                     initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
@@ -307,16 +318,18 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                     className="px-4 py-3 hover:bg-muted/30 transition-colors">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
+                        {r.sale_number && (
+                          <span className="text-xs font-mono font-semibold text-northcode-blue dark:text-blue-400">
+                            #{r.sale_number}
+                          </span>
+                        )}
                         <Badge variant={isPartial ? 'warning' : 'success'} className="text-[10px] px-1.5 py-0">
                           {isPartial ? t('status.partial') : t('status.paid')}
-                        </Badge>
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                          {methodLabel(r.method, t)}
                         </Badge>
                       </div>
                       {role !== 'viewer' && (
                         <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 flex-shrink-0">
-                          +{formatNaira(r.amount)}
+                          +{formatNaira(totalPaidToday)}
                         </p>
                       )}
                     </div>
@@ -326,6 +339,34 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                     </p>
                     {r.totalDebt !== undefined && r.totalDebt > 0 && (
                       <DebtGauge pct={pct} remaining={r.remainingBalance} fmt={formatNaira} t={t} />
+                    )}
+                    {/* All individual repayments today */}
+                    {allR.length > 1 && (
+                      <div className="mt-1.5 space-y-1">
+                        {allR.map(x => (
+                          <div key={x.id} className="flex items-center justify-between gap-2 rounded-lg bg-green-50 dark:bg-green-950/20 px-2.5 py-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-green-600 text-xs">✓</span>
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-card border-green-200">
+                                {methodLabel(x.method, t)}
+                              </Badge>
+                              <span className="text-[10px] text-muted-foreground">
+                                {new Date(x.paid_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                            {role !== 'viewer' && (
+                              <span className="text-xs font-bold text-green-600">+{formatNaira(x.amount)}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {allR.length === 1 && (
+                      <div className="mt-1 flex items-center gap-1.5">
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                          {methodLabel(r.method, t)}
+                        </Badge>
+                      </div>
                     )}
                   </motion.div>
                 )
