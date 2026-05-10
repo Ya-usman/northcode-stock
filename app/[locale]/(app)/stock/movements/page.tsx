@@ -204,14 +204,27 @@ export default function StockMovementsPage() {
                       {hasRestocks ? (
                         <button
                           onClick={() => setExpandedProduct(isExpanded ? null : p.product_name)}
-                          className="flex items-center gap-1 text-sm font-semibold text-green-600 hover:text-green-700 transition-colors tabular-nums"
+                          className="flex flex-col items-center gap-0.5 hover:opacity-70 transition-opacity"
                         >
-                          +{restockTotal}
-                          <span className="text-[10px] font-normal text-muted-foreground">{p.restocks.length}×</span>
-                          <ChevronDown className={cn(
-                            'h-3.5 w-3.5 text-muted-foreground transition-transform duration-200',
-                            isExpanded && 'rotate-180'
-                          )} />
+                          <div className="flex items-center gap-1 text-sm font-semibold text-green-600 tabular-nums">
+                            +{restockTotal}
+                            <span className="text-[10px] font-normal text-muted-foreground">{p.restocks.length}×</span>
+                            <ChevronDown className={cn(
+                              'h-3.5 w-3.5 text-muted-foreground transition-transform duration-200',
+                              isExpanded && 'rotate-180'
+                            )} />
+                          </div>
+                          {p.restocks[0].previous_qty != null && p.restocks[0].new_qty != null && (
+                            <div className="flex items-center gap-1">
+                              <span className="bg-muted text-muted-foreground text-[10px] font-medium px-1.5 py-0 rounded-full tabular-nums">
+                                {p.restocks[0].previous_qty}
+                              </span>
+                              <ArrowRight className="h-2.5 w-2.5 text-muted-foreground flex-shrink-0" />
+                              <span className="bg-muted text-foreground text-[10px] font-medium px-1.5 py-0 rounded-full tabular-nums border border-border">
+                                {p.restocks[0].new_qty}
+                              </span>
+                            </div>
+                          )}
                         </button>
                       ) : (
                         <span className="text-muted-foreground text-sm">—</span>
