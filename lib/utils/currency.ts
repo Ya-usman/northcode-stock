@@ -11,25 +11,26 @@ export function formatNaira(amount: number | string | null | undefined): string 
  */
 export function formatCurrency(amount: number | string | null | undefined, symbol: string): string {
   const num = Number(amount ?? 0)
-  const isFCFA = symbol === 'FCFA'
-  const formatted = num.toLocaleString(isFCFA ? 'fr-FR' : 'en-NG', {
+  const isCFA = symbol.includes('CFA') || symbol === 'FCFA'
+  const formatted = num.toLocaleString(isCFA ? 'fr-FR' : 'en-NG', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   })
-  return isFCFA ? `${formatted} FCFA` : `₦${formatted}`
+  return isCFA ? `${formatted} ${symbol.includes('F CFA') ? 'F CFA' : 'FCFA'}` : `₦${formatted}`
 }
 
 /**
  * Format compact (e.g. ₦1.2M, ₦45K / 1,2M FCFA)
  */
 export function formatNairaCompact(amount: number, symbol = '₦'): string {
+  const isCFA = symbol.includes('CFA')
   if (amount >= 1_000_000) {
     const v = (amount / 1_000_000).toFixed(1)
-    return symbol === 'FCFA' ? `${v}M FCFA` : `₦${v}M`
+    return isCFA ? `${v}M ${symbol}` : `₦${v}M`
   }
   if (amount >= 1_000) {
     const v = (amount / 1_000).toFixed(1)
-    return symbol === 'FCFA' ? `${v}K FCFA` : `₦${v}K`
+    return isCFA ? `${v}K ${symbol}` : `₦${v}K`
   }
   return formatCurrency(amount, symbol)
 }
@@ -50,7 +51,7 @@ export function formatInputValue(rawDigits: string | number, currency: string): 
   if (!digits) return ''
   const num = parseInt(digits, 10)
   if (isNaN(num)) return ''
-  return num.toLocaleString(currency === 'FCFA' ? 'fr-FR' : 'en-NG', {
+  return num.toLocaleString(currency.includes('CFA') ? 'fr-FR' : 'en-NG', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   })
