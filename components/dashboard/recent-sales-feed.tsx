@@ -250,7 +250,11 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                           </div>
                           {role !== 'viewer' && (
                             <div className="text-right flex-shrink-0">
-                              <p className="text-sm font-bold">{formatNaira(sale.total)}</p>
+                              {repayments.length > 0 ? (
+                                <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">+{formatNaira(totalRepaid)}</p>
+                              ) : (
+                                <p className="text-sm font-bold">{formatNaira(sale.total)}</p>
+                              )}
                               {hasDebt && (
                                 <p className="text-[10px] text-red-500">{t('payment.remaining')}: {formatNaira(sale.balance)}</p>
                               )}
