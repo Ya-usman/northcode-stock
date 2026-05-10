@@ -109,7 +109,7 @@ export default function StockMovementsPage() {
     .reduce((s, m) => s + m.quantity, 0)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 max-w-lg mx-auto">
 
       {/* Summary */}
       <Card className="border-0 shadow-sm">
