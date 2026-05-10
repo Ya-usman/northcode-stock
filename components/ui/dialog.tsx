@@ -42,7 +42,7 @@ const DialogContent = React.forwardRef<
         'data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]',
         'rounded-lg',
         // Mobile: centré horizontalement, positionné à 12% du haut pour rester au-dessus du clavier virtuel
-        'max-sm:left-4 max-sm:right-4 max-sm:top-[12%] max-sm:bottom-auto max-sm:translate-x-0 max-sm:translate-y-0 max-sm:max-w-none max-sm:max-h-[80svh] max-sm:overflow-y-auto max-sm:rounded-xl',
+        'max-sm:left-4 max-sm:right-4 max-sm:w-auto max-sm:top-[12%] max-sm:bottom-auto max-sm:translate-x-0 max-sm:translate-y-0 max-sm:max-w-none max-sm:max-h-[80svh] max-sm:overflow-y-auto max-sm:rounded-xl',
         className
       )}
       {...props}
