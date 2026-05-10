@@ -1284,9 +1284,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
       {/* Price edit modal — premium design */}
       <Dialog open={!!priceModalItem} onOpenChange={open => { if (!open) setPriceModalItem(null) }}>
-        <DialogContent className="max-w-[360px] p-0 gap-0 overflow-hidden">
+        <DialogContent className="max-w-[360px] p-0 gap-0">
           {priceModalItem && (
-            <>
+            <div className="overflow-hidden rounded-lg">
               {/* Header gradient */}
               <div className="bg-northcode-blue px-5 pt-5 pb-4">
                 <p className="text-xs font-medium text-blue-200 uppercase tracking-wider mb-1">Prix de vente</p>
@@ -1345,7 +1345,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   </Button>
               </div>
             </div>
-            </>
+            </div>
           )}
         </DialogContent>
       </Dialog>
