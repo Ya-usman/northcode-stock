@@ -1345,6 +1345,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   </Button>
               </div>
             </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
