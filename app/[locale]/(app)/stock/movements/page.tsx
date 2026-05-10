@@ -171,10 +171,11 @@ export default function StockMovementsPage() {
           </div>
 
           {/* Header — mobile */}
-          <div className="sm:hidden grid grid-cols-[1fr_1fr_1fr] border-b bg-muted/40">
-            <div className="px-3 py-2.5"><span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('product')}</span></div>
-            <div className="px-3 py-2.5 text-center border-l"><span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('restocked')}</span></div>
-            <div className="px-3 py-2.5 text-center border-l"><span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('current_stock')}</span></div>
+          <div className="sm:hidden grid grid-cols-4 border-b bg-muted/40">
+            <div className="px-2 py-2.5"><span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t('product')}</span></div>
+            <div className="px-2 py-2.5 text-center border-l"><span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t('initial_stock')}</span></div>
+            <div className="px-2 py-2.5 text-center border-l"><span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t('restocked')}</span></div>
+            <div className="px-2 py-2.5 text-center border-l"><span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t('current_stock')}</span></div>
           </div>
 
           {/* Rows */}
@@ -227,26 +228,28 @@ export default function StockMovementsPage() {
                   </div>
 
                   {/* Mobile row */}
-                  <div className="sm:hidden grid grid-cols-[1fr_1fr_1fr] items-center">
-                    <div className="px-3 py-3 flex items-center gap-1.5 min-w-0">
-                      <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{p.product_name}</p>
-                        {p.product_unit && (
-                          <span className="text-[10px] text-muted-foreground">{p.product_unit}</span>
-                        )}
-                      </div>
+                  <div className="sm:hidden grid grid-cols-4 items-center">
+                    <div className="px-2 py-2.5 min-w-0">
+                      <p className="text-xs font-medium truncate">{p.product_name}</p>
+                      {p.product_unit && (
+                        <span className="text-[10px] text-muted-foreground">{p.product_unit}</span>
+                      )}
                     </div>
-                    <div className="px-3 py-3 flex justify-center border-l">
+                    <div className="px-2 py-2.5 text-center border-l">
+                      <span className="text-xs tabular-nums font-medium">
+                        {p.initial_stock != null ? p.initial_stock : <span className="text-muted-foreground">—</span>}
+                      </span>
+                    </div>
+                    <div className="px-2 py-2.5 flex justify-center border-l">
                       {hasRestocks ? (
-                        <div className="flex items-center gap-1 text-sm font-semibold text-green-600 tabular-nums">
+                        <div className="flex items-center gap-0.5 text-xs font-semibold text-green-600 tabular-nums">
                           +{restockTotal}
                           <span className="text-[10px] font-normal text-muted-foreground">{p.restocks.length}×</span>
                         </div>
-                      ) : <span className="text-muted-foreground text-sm">—</span>}
+                      ) : <span className="text-muted-foreground text-xs">—</span>}
                     </div>
-                    <div className="px-3 py-3 text-center border-l">
-                      <span className={cn('text-sm font-semibold tabular-nums', qtyColor)}>
+                    <div className="px-2 py-2.5 text-center border-l">
+                      <span className={cn('text-xs font-semibold tabular-nums', qtyColor)}>
                         {qty != null ? qty : <span className="text-muted-foreground font-normal">—</span>}
                       </span>
                     </div>
