@@ -37,7 +37,7 @@ export default async function AdminLayout({
           <img src="/logo.png" alt="StockShop" className="h-14 w-auto brightness-0 invert" />
           <div>
             <p className="font-bold text-white text-sm leading-none">StockShop</p>
-            <p className="text-[10px] text-northcode-gold font-semibold mt-0.5">OWNER PANEL</p>
+            <p className="text-[10px] text-stockshop-gold font-semibold mt-0.5">OWNER PANEL</p>
           </div>
         </div>
 
@@ -71,8 +71,8 @@ export default async function AdminLayout({
       {/* Mobile header */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-30 border-b border-gray-800 bg-gray-950 h-14 flex items-center justify-between px-4">
         <div className="flex items-center gap-2">
-          <div className="h-7 w-7 rounded-md bg-northcode-gold flex items-center justify-center text-gray-900 font-bold text-xs">NC</div>
-          <span className="font-bold text-sm text-northcode-gold">OWNER PANEL</span>
+          <div className="h-7 w-7 rounded-md bg-stockshop-gold flex items-center justify-center text-gray-900 font-bold text-xs">NC</div>
+          <span className="font-bold text-sm text-stockshop-gold">OWNER PANEL</span>
         </div>
         <div className="flex gap-3">
           {navItems.map(({ href, icon: Icon }) => (

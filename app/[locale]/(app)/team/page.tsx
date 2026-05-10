@@ -25,7 +25,7 @@ import { cn } from '@/lib/utils/cn'
 const supabase = createClient() as any
 
 const ROLE_COLORS: Record<string, string> = {
-  owner:         'bg-northcode-blue dark:bg-blue-500 text-white',
+  owner:         'bg-stockshop-blue dark:bg-blue-500 text-white',
   cashier:       'bg-green-100 text-green-700',
   stock_manager: 'bg-amber-100 text-amber-700',
   viewer:        'bg-muted text-muted-foreground',
@@ -335,7 +335,7 @@ export default function TeamPage() {
                 onClick={() => setShopPickerOpen(o => !o)}
                 className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm font-medium shadow-sm hover:bg-accent transition-colors"
               >
-                <Store className="h-4 w-4 text-northcode-blue dark:text-blue-400" />
+                <Store className="h-4 w-4 text-stockshop-blue dark:text-blue-400" />
                 <span className="max-w-[120px] truncate">{viewShopName}</span>
                 <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform', shopPickerOpen && 'rotate-180')} />
               </button>
@@ -349,7 +349,7 @@ export default function TeamPage() {
                         onClick={() => { setViewShopId(s.id); setShopPickerOpen(false) }}
                         className={cn(
                           'w-full text-left rounded-lg px-3 py-2 text-sm transition-colors',
-                          viewShopId === s.id ? 'bg-northcode-blue-muted dark:bg-blue-950/40 text-northcode-blue dark:text-blue-400 font-medium' : 'hover:bg-accent text-foreground/80'
+                          viewShopId === s.id ? 'bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400 font-medium' : 'hover:bg-accent text-foreground/80'
                         )}
                       >
                         {s.name}
@@ -362,7 +362,7 @@ export default function TeamPage() {
           )}
 
           <Button
-            className="gap-2 bg-northcode-blue hover:bg-northcode-blue-light dark:bg-blue-500"
+            className="gap-2 bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500"
             onClick={() => { setInviteShopId(viewShopId); setShowInviteModal(true) }}
           >
             <UserPlus className="h-4 w-4" />
@@ -382,8 +382,8 @@ export default function TeamPage() {
             return (
               <div key={shopEntry.id} className="space-y-3">
                 <div className="flex items-center gap-2 pt-1">
-                  <Store className="h-3.5 w-3.5 text-northcode-blue dark:text-blue-400 flex-shrink-0" />
-                  <span className="text-xs font-semibold text-northcode-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
+                  <Store className="h-3.5 w-3.5 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
+                  <span className="text-xs font-semibold text-stockshop-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
                   <div className="flex-1 h-px bg-border" />
                 </div>
                 {shopMembers.map(member => renderMember(member))}
@@ -536,7 +536,7 @@ export default function TeamPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowInviteModal(false)}>{t('actions.cancel')}</Button>
-            <Button onClick={inviteEmployee} loading={inviting} className="bg-northcode-blue">
+            <Button onClick={inviteEmployee} loading={inviting} className="bg-stockshop-blue">
               {t('team.send_invite')}
             </Button>
           </DialogFooter>

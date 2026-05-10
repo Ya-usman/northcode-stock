@@ -34,7 +34,7 @@ export function TrialBanner({ daysLeft, locale }: TrialBannerProps) {
           ? 'bg-red-500 text-white'
           : isExpiringSoon
           ? 'bg-amber-500 text-white'
-          : 'bg-northcode-blue text-white'
+          : 'bg-stockshop-blue text-white'
       )}
     >
       {isUrgent ? (

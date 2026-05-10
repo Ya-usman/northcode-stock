@@ -27,7 +27,7 @@ function CategoryCard({ cat, products, expandedId, setExpandedId, canEdit, delet
       >
         <div className="flex items-center gap-3 min-w-0">
           <div className="h-8 w-8 rounded-md bg-blue-50 dark:bg-blue-950 flex items-center justify-center shrink-0">
-            <Tag className="h-4 w-4 text-northcode-blue dark:text-blue-400" />
+            <Tag className="h-4 w-4 text-stockshop-blue dark:text-blue-400" />
           </div>
           <span className="font-medium text-sm truncate">{cat.name}</span>
           <Badge variant="secondary" className="text-xs shrink-0">{catProducts.length}</Badge>
@@ -59,7 +59,7 @@ function CategoryCard({ cat, products, expandedId, setExpandedId, canEdit, delet
                   </div>
                   <div className="flex items-center gap-3 shrink-0 ml-2">
                     <span className="text-xs text-muted-foreground">{p.quantity} {p.unit}</span>
-                    <span className="text-sm font-semibold text-northcode-blue dark:text-blue-400">
+                    <span className="text-sm font-semibold text-stockshop-blue dark:text-blue-400">
                       {fmt(p.selling_price)}
                     </span>
                   </div>
@@ -99,7 +99,7 @@ function UncategorizedCard({ products, shopId, expandedId, setExpandedId, t, fmt
                 <Package className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                 <span className="text-sm truncate">{p.name}</span>
               </div>
-              <span className="text-sm font-semibold text-northcode-blue dark:text-blue-400 shrink-0 ml-2">
+              <span className="text-sm font-semibold text-stockshop-blue dark:text-blue-400 shrink-0 ml-2">
                 {fmt(p.selling_price)}
               </span>
             </div>
@@ -237,7 +237,7 @@ export default function CategoriesPage() {
               <RotateCcw className="h-4 w-4" />
               <span className="hidden sm:inline">{t('categories.restore')}</span>
             </Button>
-            <Button onClick={openDialog} className="bg-northcode-blue gap-1.5 h-9 px-3 text-sm">
+            <Button onClick={openDialog} className="bg-stockshop-blue gap-1.5 h-9 px-3 text-sm">
               <Plus className="h-4 w-4" />
               {t('categories.add')}
             </Button>
@@ -264,8 +264,8 @@ export default function CategoriesPage() {
               <div key={shopEntry.id} className="space-y-2">
                 {/* Shop section header */}
                 <div className="flex items-center gap-2 pt-2">
-                  <Store className="h-3.5 w-3.5 text-northcode-blue dark:text-blue-400 flex-shrink-0" />
-                  <span className="text-xs font-semibold text-northcode-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
+                  <Store className="h-3.5 w-3.5 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
+                  <span className="text-xs font-semibold text-stockshop-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
                   <div className="flex-1 h-px bg-border" />
                 </div>
                 {shopCats.map(cat => <CategoryCard key={cat.id} cat={cat} products={products} expandedId={expandedId} setExpandedId={setExpandedId} canEdit={canEdit} deleteCategory={deleteCategory} t={t} fmt={fmt} />)}
@@ -292,7 +292,7 @@ export default function CategoriesPage() {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Tag className="h-4 w-4 text-northcode-blue dark:text-blue-400" />
+              <Tag className="h-4 w-4 text-stockshop-blue dark:text-blue-400" />
               {t('categories.add_dialog_title')}
             </DialogTitle>
           </DialogHeader>
@@ -319,7 +319,7 @@ export default function CategoriesPage() {
               loading={saving}
               disabled={!newName.trim()}
               onClick={addCategory}
-              className="bg-northcode-blue hover:bg-northcode-blue-light dark:bg-blue-500"
+              className="bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500"
             >
               <Plus className="h-4 w-4 mr-1" />
               {t('categories.add')}

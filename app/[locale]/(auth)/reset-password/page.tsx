@@ -81,11 +81,11 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-northcode-blue via-northcode-blue-light to-blue-800 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-stockshop-blue via-stockshop-blue-light to-blue-800 p-4">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-card text-northcode-blue dark:text-blue-400 font-bold text-2xl shadow-lg mb-4">
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-card text-stockshop-blue dark:text-blue-400 font-bold text-2xl shadow-lg mb-4">
             NC
           </div>
           <h1 className="text-2xl font-bold text-white">StockShop</h1>
@@ -104,7 +104,7 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
                 <p className="text-sm text-destructive">{error}</p>
               ) : (
                 <>
-                  <Loader2 className="h-8 w-8 text-northcode-blue dark:text-blue-400 animate-spin mx-auto mb-3" />
+                  <Loader2 className="h-8 w-8 text-stockshop-blue dark:text-blue-400 animate-spin mx-auto mb-3" />
                   <p className="text-sm text-muted-foreground">Vérification du lien…</p>
                 </>
               )}
@@ -165,7 +165,7 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
                 <Button
                   type="submit"
                   loading={loading}
-                  className="w-full h-11 bg-northcode-blue hover:bg-northcode-blue-light font-semibold"
+                  className="w-full h-11 bg-stockshop-blue hover:bg-stockshop-blue-light font-semibold"
                 >
                   {isInvite ? 'Activer mon compte' : 'Enregistrer le mot de passe'}
                 </Button>

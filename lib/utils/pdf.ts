@@ -692,7 +692,7 @@ async function buildReportDoc(params: ReportParams) {
     doc.text('Manage smarter. Sell faster. Grow bigger.', pageWidth / 2, 286, { align: 'center' })
     doc.setFontSize(7); doc.setFont('helvetica', 'normal')
     doc.setTextColor(140, 150, 170)
-    doc.text(`${lbl.generatedBy} — northcode-stock.vercel.app`, margin, 293)
+    doc.text(`${lbl.generatedBy} — stockshop-stock.vercel.app`, margin, 293)
     doc.text(`${lbl.page} ${i} ${lbl.of} ${pageCount}`, pageWidth - margin, 293, { align: 'right' })
   }
 

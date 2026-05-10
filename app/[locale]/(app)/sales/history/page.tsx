@@ -275,7 +275,7 @@ export default function SalesHistoryPage() {
           className={`cursor-pointer ${isCancelled ? 'opacity-50 bg-red-50/30 dark:bg-red-950/20' : 'hover:bg-muted/30'}`}
           onClick={() => setExpandedId(expandedId === sale.id ? null : sale.id)}
         >
-          <TableCell className="font-mono text-xs font-medium text-northcode-blue dark:text-blue-400">
+          <TableCell className="font-mono text-xs font-medium text-stockshop-blue dark:text-blue-400">
             #{sale.sale_number}
             {isCancelled && (
               <span className="ml-1.5 text-[10px] font-semibold text-red-500 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded px-1">{t('sales.cancelled_badge')}</span>
@@ -472,7 +472,7 @@ export default function SalesHistoryPage() {
               <CornerDownLeft className="inline h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 mr-1.5" />
               {p.sales?.customers?.name || '—'}
             </TableCell>
-            <TableCell className="hidden sm:table-cell font-mono text-xs text-northcode-blue dark:text-blue-400">
+            <TableCell className="hidden sm:table-cell font-mono text-xs text-stockshop-blue dark:text-blue-400">
               #{p.sales?.sale_number}
             </TableCell>
             <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
@@ -522,8 +522,8 @@ export default function SalesHistoryPage() {
                   return (
                     <div key={shopEntry.id} className="space-y-2">
                       <div className="flex items-center gap-2 pt-1">
-                        <Store className="h-3.5 w-3.5 text-northcode-blue dark:text-blue-400 flex-shrink-0" />
-                        <span className="text-xs font-semibold text-northcode-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
+                        <Store className="h-3.5 w-3.5 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
+                        <span className="text-xs font-semibold text-stockshop-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
                         <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">+{formatNaira(shopTotal)}</span>
                         <div className="flex-1 h-px bg-border" />
                       </div>
@@ -576,8 +576,8 @@ export default function SalesHistoryPage() {
               return (
                 <div key={shopEntry.id} className="space-y-2">
                   <div className="flex items-center gap-2 pt-1">
-                    <Store className="h-3.5 w-3.5 text-northcode-blue dark:text-blue-400 flex-shrink-0" />
-                    <span className="text-xs font-semibold text-northcode-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
+                    <Store className="h-3.5 w-3.5 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
+                    <span className="text-xs font-semibold text-stockshop-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
                     <span className="text-xs text-muted-foreground ml-1">
                       {shopSales.filter(s => (s.sale_status || 'active') === 'active').length} {t('sales.sales_count_label')} ·{' '}
                       {formatNaira(shopSales.filter(s => (s.sale_status || 'active') === 'active').reduce((acc, s) => acc + Number(s.total), 0))}

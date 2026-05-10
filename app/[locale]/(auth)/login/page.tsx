@@ -79,7 +79,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
 
   return (
     <ForceLight>
-    <div className="min-h-screen overflow-y-auto flex items-center justify-center bg-gradient-to-br from-northcode-blue via-northcode-blue-light to-blue-800 p-4 py-8">
+    <div className="min-h-screen overflow-y-auto flex items-center justify-center bg-gradient-to-br from-stockshop-blue via-stockshop-blue-light to-blue-800 p-4 py-8">
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
@@ -120,7 +120,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
                         id="email"
                         type="email"
                         autoComplete="email"
-                        placeholder="admin@northcode.ng"
+                        placeholder="admin@stockshop.ng"
                         className="pl-9"
                         {...loginForm.register('email')}
                       />
@@ -164,7 +164,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
                     <button
                       type="button"
                       onClick={() => { setMode('forgot'); setError('') }}
-                      className="text-northcode-blue dark:text-blue-400 hover:underline font-medium"
+                      className="text-stockshop-blue dark:text-blue-400 hover:underline font-medium"
                     >
                       {t('forgot_password')}
                     </button>
@@ -176,7 +176,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
 
                   <Button
                     type="submit"
-                    className="w-full bg-northcode-blue hover:bg-northcode-blue-light h-12 text-base"
+                    className="w-full bg-stockshop-blue hover:bg-stockshop-blue-light h-12 text-base"
                     loading={loginForm.formState.isSubmitting}
                   >
                     {loginForm.formState.isSubmitting ? t('logging_in') : t('login')}
@@ -202,7 +202,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
                     <p className="text-sm text-green-700 bg-green-50 rounded-md p-3">{success}</p>
                     <button
                       onClick={() => { setMode('login'); setSuccess(''); forgotForm.reset() }}
-                      className="mt-4 text-sm text-northcode-blue dark:text-blue-400 hover:underline"
+                      className="mt-4 text-sm text-stockshop-blue dark:text-blue-400 hover:underline"
                     >
                       {t('back_to_login')}
                     </button>
@@ -229,7 +229,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
 
                     <Button
                       type="submit"
-                      className="w-full bg-northcode-blue hover:bg-northcode-blue-light h-12"
+                      className="w-full bg-stockshop-blue hover:bg-stockshop-blue-light h-12"
                       loading={forgotForm.formState.isSubmitting}
                     >
                       {t('send_reset_link')}

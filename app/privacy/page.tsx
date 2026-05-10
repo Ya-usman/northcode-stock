@@ -8,7 +8,7 @@ export default function PrivacyPage() {
       <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Privacy Policy</h1>
       <p style={{ color: '#666', marginBottom: 32 }}>Last updated: April 23, 2026</p>
 
-      <p>StockShop ("the App") is developed and operated by NorthCode. This Privacy Policy explains how we collect, use, and protect your information when you use our mobile and web application.</p>
+      <p>StockShop ("the App") is developed and operated by StockShop. This Privacy Policy explains how we collect, use, and protect your information when you use our mobile and web application.</p>
 
       <h2 style={{ fontSize: 20, fontWeight: 600, marginTop: 32, marginBottom: 8 }}>1. Information We Collect</h2>
       <ul>
@@ -44,7 +44,7 @@ export default function PrivacyPage() {
         <a href="mailto:yahaya.dev@gmail.com" style={{ color: '#073e8a' }}>yahaya.dev@gmail.com</a>
       </p>
 
-      <p style={{ marginTop: 48, color: '#888', fontSize: 14 }}>© {new Date().getFullYear()} NorthCode · StockShop. All rights reserved.</p>
+      <p style={{ marginTop: 48, color: '#888', fontSize: 14 }}>© {new Date().getFullYear()} StockShop · StockShop. All rights reserved.</p>
     </div>
   )
 }

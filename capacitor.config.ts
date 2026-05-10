@@ -1,7 +1,7 @@
 import { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
-  appId: 'com.northcode.stockshop',
+  appId: 'com.stockshop.stockshop',
   appName: 'StockShop',
   webDir: 'out',
   server: {
@@ -9,7 +9,7 @@ const config: CapacitorConfig = {
     // Ex: url: 'https://stockshop.vercel.app'
     // Pour tester en local, commenter la ligne url et décommenter :
     // url: 'http://192.168.x.x:3000',  // IP locale de ta machine
-    url: 'https://northcode-stock.vercel.app/',
+    url: 'https://stockshop-stock.vercel.app/',
     cleartext: false,
     androidScheme: 'https',
   },

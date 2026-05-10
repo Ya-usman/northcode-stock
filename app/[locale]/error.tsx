@@ -30,7 +30,7 @@ export default function LocaleError({
           {error?.message || String(error)}
         </p>
         <div className="flex gap-3 justify-center">
-          <Button onClick={reset} className="gap-2 bg-northcode-blue">
+          <Button onClick={reset} className="gap-2 bg-stockshop-blue">
             <RefreshCw className="h-4 w-4" />
             {t('try_again')}
           </Button>

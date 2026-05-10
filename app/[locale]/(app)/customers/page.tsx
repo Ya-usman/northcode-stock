@@ -132,7 +132,7 @@ export default function CustomersPage() {
         </div>
         {(profile?.role === 'owner' || profile?.role === 'cashier') && (
           <Button
-            className="h-9 gap-1 bg-northcode-blue hover:bg-northcode-blue-light dark:bg-blue-500"
+            className="h-9 gap-1 bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500"
             size="sm"
             onClick={() => { form.reset(); setEditingCustomer(null); setShowModal(true) }}
           >
@@ -156,8 +156,8 @@ export default function CustomersPage() {
             return (
               <div key={shopEntry.id} className="space-y-2">
                 <div className="flex items-center gap-2 pt-1">
-                  <Store className="h-3.5 w-3.5 text-northcode-blue dark:text-blue-400 flex-shrink-0" />
-                  <span className="text-xs font-semibold text-northcode-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
+                  <Store className="h-3.5 w-3.5 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
+                  <span className="text-xs font-semibold text-stockshop-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
                   <div className="flex-1 h-px bg-border" />
                 </div>
                 {shopCustomers.map(customer => <CustomerCard key={customer.id} customer={customer} profile={profile} formatNaira={formatNaira} setEditingCustomer={setEditingCustomer} form={form} setShowModal={setShowModal} deleteCustomer={deleteCustomer} t={t} />)}

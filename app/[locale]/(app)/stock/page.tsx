@@ -246,7 +246,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           <StockBadge quantity={product.quantity} threshold={threshold} />
         </div>
         <div className="flex items-center justify-between text-sm">
-          <span className="font-bold text-northcode-blue dark:text-blue-400">{formatNaira(product.selling_price)}</span>
+          <span className="font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(product.selling_price)}</span>
           {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
             <span className="text-xs text-muted-foreground">{t('products.cost_label')}: {formatNaira(product.buying_price)}</span>
           )}
@@ -321,7 +321,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         </Button>
         {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'cashier' || effectiveRole === 'super_admin') && (
           <Button
-            className="h-9 gap-1 bg-northcode-blue hover:bg-northcode-blue-light dark:bg-blue-500"
+            className="h-9 gap-1 bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500"
             size="sm"
             onClick={() => setShowAddModal(true)}
           >
@@ -357,8 +357,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             return (
               <div key={shopEntry.id} className="space-y-2">
                 <div className="flex items-center gap-2 pt-1">
-                  <Store className="h-3.5 w-3.5 text-northcode-blue dark:text-blue-400 flex-shrink-0" />
-                  <span className="text-xs font-semibold text-northcode-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
+                  <Store className="h-3.5 w-3.5 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
+                  <span className="text-xs font-semibold text-stockshop-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
                   <div className="flex-1 h-px bg-border" />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -428,7 +428,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 placeholder={t('categories.add_placeholder')}
                 onKeyDown={e => e.key === 'Enter' && addCategory()}
               />
-              <Button onClick={addCategory} loading={savingCat} className="bg-northcode-blue dark:bg-blue-500 shrink-0">
+              <Button onClick={addCategory} loading={savingCat} className="bg-stockshop-blue dark:bg-blue-500 shrink-0">
                 <Plus className="h-4 w-4 mr-1" /> {t('categories.add')}
               </Button>
             </div>

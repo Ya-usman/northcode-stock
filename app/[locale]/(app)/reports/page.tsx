@@ -299,7 +299,7 @@ export default function ReportsPage() {
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: t('reports.encaisse'), value: formatNaira(totals.revenue), color: 'text-northcode-blue dark:text-blue-400', sub: t('reports.cash_in_register') },
+          { label: t('reports.encaisse'), value: formatNaira(totals.revenue), color: 'text-stockshop-blue dark:text-blue-400', sub: t('reports.cash_in_register') },
           { label: t('reports.est_profit'), value: formatNaira(totals.profit), color: 'text-green-600', sub: null },
           { label: t('reports.transactions'), value: String(totals.sales), color: 'text-foreground', sub: null },
           { label: t('reports.outstanding_debt'), value: formatNaira(outstandingDebt), color: 'text-orange-500', sub: null },
@@ -374,7 +374,7 @@ export default function ReportsPage() {
                         <TableCell className="text-muted-foreground text-sm">{idx + 1}</TableCell>
                         <TableCell className="text-sm font-medium">{p.name}</TableCell>
                         <TableCell className="text-right text-sm">{p.qty}</TableCell>
-                        <TableCell className="text-right text-sm font-medium text-northcode-blue dark:text-blue-400">{formatNaira(p.revenue)}</TableCell>
+                        <TableCell className="text-right text-sm font-medium text-stockshop-blue dark:text-blue-400">{formatNaira(p.revenue)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -411,7 +411,7 @@ export default function ReportsPage() {
                         </TableCell>
                         <TableCell className="text-right text-sm text-muted-foreground">{p.soldQty > 0 ? p.soldQty : '—'}</TableCell>
                         <TableCell className="text-right text-sm text-muted-foreground">{formatNaira(p.buying_price)}</TableCell>
-                        <TableCell className="text-right text-sm text-northcode-blue dark:text-blue-400">{formatNaira(p.selling_price)}</TableCell>
+                        <TableCell className="text-right text-sm text-stockshop-blue dark:text-blue-400">{formatNaira(p.selling_price)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -429,7 +429,7 @@ export default function ReportsPage() {
               <div className="grid grid-cols-3 gap-3 text-center">
                 {[
                   { label: t('reports.buying_value'), value: formatNaira(stockValuation.buyingValue), color: 'text-muted-foreground' },
-                  { label: t('reports.selling_value'), value: formatNaira(stockValuation.sellingValue), color: 'text-northcode-blue dark:text-blue-400' },
+                  { label: t('reports.selling_value'), value: formatNaira(stockValuation.sellingValue), color: 'text-stockshop-blue dark:text-blue-400' },
                   { label: t('reports.potential_profit'), value: formatNaira(stockValuation.potentialProfit), color: 'text-green-600' },
                 ].map(item => (
                   <div key={item.label} className="rounded-lg bg-muted/30 p-3">
@@ -448,7 +448,7 @@ export default function ReportsPage() {
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <CardTitle className="text-sm">{t('reports.cashier_performance')}</CardTitle>
                   {isMultiShop ? (
-                    <span className="text-[11px] font-medium text-northcode-blue dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-full px-2 py-0.5">
+                    <span className="text-[11px] font-medium text-stockshop-blue dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-full px-2 py-0.5">
                       {t('reports.all_shops_ranking')}
                     </span>
                   ) : shop?.name ? (
@@ -478,7 +478,7 @@ export default function ReportsPage() {
                         <TableCell className="font-medium text-sm">{c.name}</TableCell>
                         {isMultiShop && <TableCell className="text-xs text-muted-foreground">{c.shopName}</TableCell>}
                         <TableCell className="text-right">{c.sales}</TableCell>
-                        <TableCell className={`text-right font-medium ${c.sales > 0 ? 'text-northcode-blue dark:text-blue-400' : 'text-muted-foreground'}`}>
+                        <TableCell className={`text-right font-medium ${c.sales > 0 ? 'text-stockshop-blue dark:text-blue-400' : 'text-muted-foreground'}`}>
                           {c.sales > 0 ? formatNaira(c.revenue) : '—'}
                         </TableCell>
                       </TableRow>

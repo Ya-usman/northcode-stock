@@ -379,7 +379,7 @@ export default function DashboardPage() {
                 onClick={() => setShopPickerOpen(o => !o)}
                 className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm font-medium shadow-sm hover:bg-accent transition-colors"
               >
-                <Store className="h-4 w-4 text-northcode-blue dark:text-blue-400" />
+                <Store className="h-4 w-4 text-stockshop-blue dark:text-blue-400" />
                 <span className="max-w-[140px] truncate">{activeShopLabel}</span>
                 <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform', shopPickerOpen && 'rotate-180')} />
               </button>
@@ -392,7 +392,7 @@ export default function DashboardPage() {
                       onClick={() => { setDashboardShopFilter(null); setShopPickerOpen(false) }}
                       className={cn(
                         'w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors',
-                        !dashboardShopFilter ? 'bg-northcode-blue-muted dark:bg-blue-950/40 text-northcode-blue dark:text-blue-400 font-medium' : 'hover:bg-accent text-foreground/80'
+                        !dashboardShopFilter ? 'bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400 font-medium' : 'hover:bg-accent text-foreground/80'
                       )}
                     >
                       <span>{t('dashboard.all_shops')}</span>
@@ -404,7 +404,7 @@ export default function DashboardPage() {
                         onClick={() => { setDashboardShopFilter(s.id); setShopPickerOpen(false) }}
                         className={cn(
                           'w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors',
-                          dashboardShopFilter === s.id ? 'bg-northcode-blue-muted dark:bg-blue-950/40 text-northcode-blue dark:text-blue-400 font-medium' : 'hover:bg-accent text-foreground/80'
+                          dashboardShopFilter === s.id ? 'bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400 font-medium' : 'hover:bg-accent text-foreground/80'
                         )}
                       >
                         <span className="truncate">{s.name}</span>

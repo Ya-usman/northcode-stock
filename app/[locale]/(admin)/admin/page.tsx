@@ -193,7 +193,7 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
               const rate = totalTrialsEver > 0 ? Math.round((converted / totalTrialsEver) * 100) : 0
               return (
                 <div>
-                  <p className="text-2xl font-bold text-northcode-gold">{rate}%</p>
+                  <p className="text-2xl font-bold text-stockshop-gold">{rate}%</p>
                   <p className="text-xs text-gray-500 mt-0.5">{converted} converted out of {totalTrialsEver}</p>
                 </div>
               )

@@ -129,7 +129,7 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
           )}
 
           <div className="flex gap-2 mt-3">
-            <Button size="sm" className="flex-1 h-9 text-xs bg-northcode-blue hover:bg-northcode-blue-light gap-1"
+            <Button size="sm" className="flex-1 h-9 text-xs bg-stockshop-blue hover:bg-stockshop-blue-light gap-1"
               onClick={() => openRepayDialog({ customer, unpaidSales, totalDebt })}>
               <Banknote className="h-3.5 w-3.5" /> {t('payments.repay')}
             </Button>
@@ -150,7 +150,7 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
             {unpaidSales.map((sale: UnpaidSale) => (
               <div key={sale.id} className="bg-card rounded-lg border p-3 space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-northcode-blue dark:text-blue-400 font-semibold text-sm">#{sale.sale_number}</span>
+                  <span className="font-mono text-stockshop-blue dark:text-blue-400 font-semibold text-sm">#{sale.sale_number}</span>
                   <Badge variant={sale.payment_status === 'partial' ? 'warning' : 'destructive'} className="text-[10px]">
                     {sale.payment_status === 'partial' ? t('payments.partial_label') : t('payments.unpaid_label')}
                   </Badge>
@@ -385,7 +385,7 @@ export default function DettesPage() {
     <div className="space-y-4">
 
       {/* Summary */}
-      <Card className="border-0 shadow-sm bg-northcode-blue text-white">
+      <Card className="border-0 shadow-sm bg-stockshop-blue text-white">
         <CardContent className="p-4">
           <div className="flex items-start justify-between">
             <div>
@@ -430,8 +430,8 @@ export default function DettesPage() {
             return (
               <div key={shopEntry.id} className="space-y-3">
                 <div className="flex items-center gap-2 pt-1">
-                  <Store className="h-3.5 w-3.5 text-northcode-blue dark:text-blue-400 flex-shrink-0" />
-                  <span className="text-xs font-semibold text-northcode-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
+                  <Store className="h-3.5 w-3.5 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
+                  <span className="text-xs font-semibold text-stockshop-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
                   <span className="text-xs text-red-500 font-medium ml-1">{fmt(shopTotal)}</span>
                   <div className="flex-1 h-px bg-border" />
                 </div>
@@ -535,7 +535,7 @@ export default function DettesPage() {
                       {fifoLines.map(({ sale, applying, fullyCovered }) => (
                         <div key={sale.id} className="flex items-center justify-between gap-2 px-3 py-2">
                           <div className="min-w-0">
-                            <span className="font-mono text-xs font-semibold text-northcode-blue dark:text-blue-400">#{sale.sale_number}</span>
+                            <span className="font-mono text-xs font-semibold text-stockshop-blue dark:text-blue-400">#{sale.sale_number}</span>
                             <span className="text-[10px] text-muted-foreground ml-2">
                               {format(new Date(sale.created_at), 'dd/MM/yy')}
                             </span>
@@ -573,7 +573,7 @@ export default function DettesPage() {
                         <button key={m.id} onClick={() => setRepayMethod(m.id)}
                           className={`rounded-lg border p-2.5 text-sm font-medium transition-colors ${
                             repayMethod === m.id
-                              ? 'border-blue-500 bg-northcode-blue-muted dark:bg-blue-950/40 text-northcode-blue dark:text-blue-400'
+                              ? 'border-blue-500 bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400'
                               : 'border-input bg-card text-muted-foreground hover:bg-muted'
                           }`}>
                           {m.icon} {m.label}
@@ -599,7 +599,7 @@ export default function DettesPage() {
                 <Button variant="outline" onClick={() => setRepayDebtor(null)}>{t('actions.cancel')}</Button>
                 <Button onClick={recordRepayment}
                   disabled={saving || !repayDebtor || repayDebtor.unpaidSales.length === 0 || amount <= 0}
-                  className="bg-northcode-blue hover:bg-northcode-blue-light flex-1">
+                  className="bg-stockshop-blue hover:bg-stockshop-blue-light flex-1">
                   {saving ? t('payment.saving') : `✓ ${t('payment.confirm_repayment')}`}
                 </Button>
               </DialogFooter>
@@ -639,7 +639,7 @@ export default function DettesPage() {
                     >
                       <div className="space-y-0.5 flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-sm font-bold text-northcode-blue dark:text-blue-400">#{sale.sale_number}</span>
+                          <span className="font-mono text-sm font-bold text-stockshop-blue dark:text-blue-400">#{sale.sale_number}</span>
                           <Badge variant={statusVariant} className="text-[10px]">{statusLabel}</Badge>
                           <Badge variant="outline" className="text-[10px]">{t(`payment.${sale.payment_method}` as any) || sale.payment_method}</Badge>
                         </div>

@@ -141,7 +141,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
 
   return (
     <ForceLight>
-    <div className="min-h-screen overflow-y-auto flex items-center justify-center bg-gradient-to-br from-northcode-blue via-northcode-blue-light to-blue-800 p-4 py-8">
+    <div className="min-h-screen overflow-y-auto flex items-center justify-center bg-gradient-to-br from-stockshop-blue via-stockshop-blue-light to-blue-800 p-4 py-8">
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
@@ -159,9 +159,9 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
         <div className="rounded-2xl bg-card shadow-2xl p-6">
           {/* Step indicator */}
           <div className="flex items-center gap-2 mb-6">
-            <div className={`flex-1 h-1.5 rounded-full transition-colors ${step >= 1 ? 'bg-northcode-blue' : 'bg-muted'}`} />
-            <div className={`flex-1 h-1.5 rounded-full transition-colors ${step >= 2 ? 'bg-northcode-blue' : 'bg-muted'}`} />
-            <div className={`flex-1 h-1.5 rounded-full transition-colors ${step >= 3 ? 'bg-northcode-blue' : 'bg-muted'}`} />
+            <div className={`flex-1 h-1.5 rounded-full transition-colors ${step >= 1 ? 'bg-stockshop-blue' : 'bg-muted'}`} />
+            <div className={`flex-1 h-1.5 rounded-full transition-colors ${step >= 2 ? 'bg-stockshop-blue' : 'bg-muted'}`} />
+            <div className={`flex-1 h-1.5 rounded-full transition-colors ${step >= 3 ? 'bg-stockshop-blue' : 'bg-muted'}`} />
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -203,7 +203,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                   {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
                 </div>
 
-                <Button type="button" onClick={goStep2} className="w-full bg-northcode-blue h-11">
+                <Button type="button" onClick={goStep2} className="w-full bg-stockshop-blue h-11">
                   {t('next')}
                 </Button>
               </motion.div>
@@ -246,7 +246,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
 
                 <div className="flex gap-2 pt-1">
                   <Button type="button" variant="outline" onClick={() => setStep(1)} className="flex-1">{t('back')}</Button>
-                  <Button type="button" onClick={goStep3} disabled={!country} className="flex-1 bg-northcode-blue">
+                  <Button type="button" onClick={goStep3} disabled={!country} className="flex-1 bg-stockshop-blue">
                     {t('next')}
                   </Button>
                 </div>
@@ -301,7 +301,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                     type="submit"
                     loading={isSubmitting}
                     disabled={isSubmitting || countdown > 0}
-                    className="flex-1 bg-northcode-blue"
+                    className="flex-1 bg-stockshop-blue"
                   >
                     {t('create_shop')}
                   </Button>

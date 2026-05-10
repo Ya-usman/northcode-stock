@@ -696,7 +696,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             className="w-full flex items-center justify-between gap-2 rounded-xl border bg-card px-4 py-3 text-sm font-medium shadow-sm hover:bg-accent transition-colors"
           >
             <div className="flex items-center gap-2">
-              <Store className="h-4 w-4 text-northcode-blue dark:text-blue-400" />
+              <Store className="h-4 w-4 text-stockshop-blue dark:text-blue-400" />
               <span>Vendre dans : <strong>{selectedShop?.name || shop?.name}</strong></span>
             </div>
             <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', shopPickerOpen && 'rotate-180')} />
@@ -709,7 +709,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   <button key={s.id}
                     onClick={() => { setSelectedShopId(s.id); setCart([]); setShopPickerOpen(false) }}
                     className={cn('w-full flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-left transition-colors',
-                      (selectedShopId || shop?.id) === s.id ? 'bg-northcode-blue-muted dark:bg-blue-950/40 text-northcode-blue dark:text-blue-400 font-medium' : 'hover:bg-accent text-foreground/80'
+                      (selectedShopId || shop?.id) === s.id ? 'bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400 font-medium' : 'hover:bg-accent text-foreground/80'
                     )}
                   >
                     <Store className="h-3.5 w-3.5 flex-shrink-0" />
@@ -781,7 +781,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             onClick={() => setCategoryFilter('all')}
             className={`flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
               categoryFilter === 'all'
-                ? 'bg-northcode-blue dark:bg-blue-500 text-white'
+                ? 'bg-stockshop-blue dark:bg-blue-500 text-white'
                 : 'bg-muted text-muted-foreground hover:bg-muted'
             }`}
           >
@@ -793,7 +793,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               onClick={() => setCategoryFilter(cat.id)}
               className={`flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                 categoryFilter === cat.id
-                  ? 'bg-northcode-blue dark:bg-blue-500 text-white'
+                  ? 'bg-stockshop-blue dark:bg-blue-500 text-white'
                   : 'bg-muted text-muted-foreground hover:bg-muted'
               }`}
             >
@@ -820,7 +820,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   {product.name_hausa && <p className="text-xs text-muted-foreground truncate w-full">{product.name_hausa}</p>}
                   {product.sku && <p className="text-[10px] text-muted-foreground font-mono">{product.sku}</p>}
                   <div className="flex items-center justify-between w-full mt-1">
-                    <span className="text-sm font-bold text-northcode-blue dark:text-blue-400">{formatNaira(product.selling_price)}</span>
+                    <span className="text-sm font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(product.selling_price)}</span>
                     <Badge
                       variant={
                         product.quantity === 0
@@ -953,7 +953,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 )}
                 <div className="flex justify-between font-bold text-base pt-1 border-t">
                   <span>{t('sales.total')}</span>
-                  <span className="text-northcode-blue dark:text-blue-400">{formatNaira(total)}</span>
+                  <span className="text-stockshop-blue dark:text-blue-400">{formatNaira(total)}</span>
                 </div>
               </div>
             </CardContent>
@@ -1073,7 +1073,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                         </div>
                         <div className="flex justify-between font-bold border-t pt-1">
                           <span>Total à encaisser</span>
-                          <span className="text-northcode-blue dark:text-blue-400">{formatNaira(totalToCollect)}</span>
+                          <span className="text-stockshop-blue dark:text-blue-400">{formatNaira(totalToCollect)}</span>
                         </div>
                       </div>
                     )}
@@ -1098,7 +1098,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   }}
                   className={`rounded-lg border p-3 text-sm font-medium transition-colors tap-target text-left ${
                     paymentMethod === method.id
-                      ? 'border-blue-500 bg-northcode-blue-muted dark:bg-blue-950/40 text-northcode-blue dark:text-blue-400'
+                      ? 'border-blue-500 bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400'
                       : 'border-input bg-card text-muted-foreground hover:bg-muted'
                   }`}
                 >
@@ -1152,7 +1152,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               </div>
               <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-center">
                 <p className="text-sm text-muted-foreground">Montant à recevoir</p>
-                <p className="text-2xl font-bold text-northcode-blue dark:text-blue-400">{formatNaira(total)}</p>
+                <p className="text-2xl font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(total)}</p>
               </div>
             </div>
           )}
@@ -1217,7 +1217,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                       <button key={method.id} type="button" onClick={() => setSplitMethod2(method.id)}
                         className={`rounded-lg border p-2.5 text-sm font-medium transition-colors tap-target text-left ${
                           splitMethod2 === method.id
-                            ? 'border-blue-500 bg-northcode-blue-muted dark:bg-blue-950/40 text-northcode-blue dark:text-blue-400'
+                            ? 'border-blue-500 bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400'
                             : 'border-input bg-card text-muted-foreground hover:bg-muted'
                         }`}
                       >
@@ -1234,7 +1234,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   <span className="text-sm text-muted-foreground">
                     Montant {getCountry(selectedShop?.country).paymentMethods.find(m => m.id === splitMethod2)?.label || splitMethod2}
                   </span>
-                  <span className="font-bold text-lg text-northcode-blue dark:text-blue-400">
+                  <span className="font-bold text-lg text-stockshop-blue dark:text-blue-400">
                     {formatNaira(Math.max(0, totalToCollect - (Number(amountPaid) || 0)))}
                   </span>
                 </div>
@@ -1268,7 +1268,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               Mettre en attente
             </Button>
             <Button
-              className="flex-[2] h-12 text-base bg-northcode-blue hover:bg-northcode-blue-light dark:bg-blue-500 dark:hover:bg-blue-600"
+              className="flex-[2] h-12 text-base bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500 dark:hover:bg-blue-600"
               onClick={completeSale}
               loading={completing}
               disabled={cart.length === 0}
@@ -1288,7 +1288,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           {priceModalItem && (
             <div className="overflow-hidden rounded-lg">
               {/* Header gradient */}
-              <div className="bg-northcode-blue px-5 pt-5 pb-4">
+              <div className="bg-stockshop-blue px-5 pt-5 pb-4">
                 <p className="text-xs font-medium text-blue-200 uppercase tracking-wider mb-1">Prix de vente</p>
                 <p className="text-white font-semibold text-base leading-tight truncate">{priceModalItem.product.name}</p>
                 <div className="flex items-center gap-2 mt-2">
@@ -1301,8 +1301,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               <div className="p-5 space-y-4 bg-background">
                 <div>
                   <p className="text-xs text-muted-foreground mb-2 font-medium">Nouveau prix de vente</p>
-                  <div className="flex rounded-xl border-2 border-northcode-blue overflow-hidden shadow-sm">
-                    <span className="flex items-center px-4 bg-northcode-blue/5 border-r border-northcode-blue/30 text-sm font-bold text-northcode-blue whitespace-nowrap select-none">
+                  <div className="flex rounded-xl border-2 border-stockshop-blue overflow-hidden shadow-sm">
+                    <span className="flex items-center px-4 bg-stockshop-blue/5 border-r border-stockshop-blue/30 text-sm font-bold text-stockshop-blue whitespace-nowrap select-none">
                       {selectedShop?.currency || '₦'}
                     </span>
                     <input
@@ -1334,7 +1334,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                     Annuler
                   </Button>
                   <Button
-                    className="flex-1 h-11 rounded-xl bg-northcode-blue hover:bg-northcode-blue-light font-semibold"
+                    className="flex-1 h-11 rounded-xl bg-stockshop-blue hover:bg-stockshop-blue-light font-semibold"
                     disabled={!priceModalInput || Number(priceModalInput) < priceModalItem.product.selling_price}
                     onClick={() => {
                       updateItemPrice(priceModalItem.product.id, Number(priceModalInput))
@@ -1375,14 +1375,14 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                       </p>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <p className="font-bold text-northcode-blue dark:text-blue-400">{formatNaira(draftTotal)}</p>
+                      <p className="font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(draftTotal)}</p>
                     </div>
                   </div>
                   <div className="text-xs text-muted-foreground truncate">
                     {draft.cart.map(i => `${i.product.name} ×${i.quantity}`).join(', ')}
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" className="flex-1 h-8 bg-northcode-blue dark:bg-blue-500 gap-1" onClick={() => resumeDraft(draft)}>
+                    <Button size="sm" className="flex-1 h-8 bg-stockshop-blue dark:bg-blue-500 gap-1" onClick={() => resumeDraft(draft)}>
                       <PlayCircle className="h-3.5 w-3.5" /> Reprendre
                     </Button>
                     <Button size="sm" variant="outline" className="h-8 border-red-200 text-red-500 hover:bg-red-50"
@@ -1440,7 +1440,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 <Separator />
                 <div className="flex justify-between font-bold text-base">
                   <span>TOTAL</span>
-                  <span className="text-northcode-blue dark:text-blue-400">{formatNaira(completedSale.total)}</span>
+                  <span className="text-stockshop-blue dark:text-blue-400">{formatNaira(completedSale.total)}</span>
                 </div>
                 {Number(completedSale.balance) > 0 && (
                   <div className="flex justify-between text-red-500 text-xs">
@@ -1457,7 +1457,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   <Printer className="h-4 w-4" /> {t('actions.print_receipt')}
                 </Button>
               </div>
-              <Button className="w-full bg-northcode-blue hover:bg-northcode-blue-light dark:bg-blue-500 dark:hover:bg-blue-600"
+              <Button className="w-full bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500 dark:hover:bg-blue-600"
                 onClick={() => { setShowReceipt(false) }}>
                 {t('sales.new_sale_cta')}
               </Button>

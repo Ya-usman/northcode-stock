@@ -1,9 +1,9 @@
-# NorthCode Stock Manager
+# StockShop Stock Manager
 
 Smart inventory management system for Northern Nigeria boutiques.
 Bilingual (English + Hausa) · Nigerian Naira (₦) · Mobile-first PWA.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/YOUR_USERNAME/northcode-stock)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/YOUR_USERNAME/stockshop-stock)
 
 ---
 
@@ -49,8 +49,8 @@ Bilingual (English + Hausa) · Nigerian Naira (₦) · Mobile-first PWA.
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/northcode-stock.git
-cd northcode-stock
+git clone https://github.com/YOUR_USERNAME/stockshop-stock.git
+cd stockshop-stock
 npm install
 ```
 
@@ -66,9 +66,9 @@ cp .env.example .env.local
 1. Create a new project at [supabase.com](https://supabase.com)
 2. Go to **SQL Editor** and run `supabase/migrations/001_schema.sql`
 3. Create auth users in **Authentication → Users**:
-   - `admin@northcode.ng` (owner)
-   - `cashier@northcode.ng` (cashier)
-   - `stock@northcode.ng` (stock_manager)
+   - `admin@stockshop.ng` (owner)
+   - `cashier@stockshop.ng` (cashier)
+   - `stock@stockshop.ng` (stock_manager)
 4. Run `supabase/seed.sql` to populate demo data
 5. Copy your project URL and keys to `.env.local`
 
@@ -111,7 +111,7 @@ Set secrets for Edge Functions:
 ```bash
 supabase secrets set PAYSTACK_SECRET_KEY=sk_test_xxx
 supabase secrets set RESEND_API_KEY=re_xxx
-supabase secrets set RESEND_FROM_EMAIL=alerts@northcode-stock.ng
+supabase secrets set RESEND_FROM_EMAIL=alerts@stockshop-stock.ng
 ```
 
 ### Cron Jobs (pg_cron)
@@ -263,7 +263,7 @@ NEXT_PUBLIC_SITE_URL
 ## File Structure
 
 ```
-northcode-stock/
+stockshop-stock/
 ├── app/
 │   ├── [locale]/
 │   │   ├── (auth)/login/        ← Login page

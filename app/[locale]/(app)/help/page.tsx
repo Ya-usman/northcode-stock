@@ -94,10 +94,10 @@ function FAQItem({ q, a }: { q: string; a: string }) {
     <div className="border-b last:border-0">
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex w-full items-center justify-between py-3 text-left text-sm font-medium text-foreground hover:text-northcode-blue dark:hover:text-blue-400 transition-colors"
+        className="flex w-full items-center justify-between py-3 text-left text-sm font-medium text-foreground hover:text-stockshop-blue dark:hover:text-blue-400 transition-colors"
       >
         <span>{q}</span>
-        {open ? <ChevronUp className="h-4 w-4 flex-shrink-0 text-northcode-blue dark:text-blue-400" /> : <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />}
+        {open ? <ChevronUp className="h-4 w-4 flex-shrink-0 text-stockshop-blue dark:text-blue-400" /> : <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />}
       </button>
       {open && (
         <p className="pb-3 text-sm text-muted-foreground leading-relaxed">{a}</p>
@@ -116,7 +116,7 @@ export default function HelpPage() {
 
       {FAQ.map(({ category, items }) => (
         <div key={category} className="rounded-xl border bg-card p-5 shadow-sm">
-          <h2 className="font-semibold mb-3 text-sm uppercase tracking-wide text-northcode-blue dark:text-blue-400">{category}</h2>
+          <h2 className="font-semibold mb-3 text-sm uppercase tracking-wide text-stockshop-blue dark:text-blue-400">{category}</h2>
           <div>
             {items.map(item => <FAQItem key={item.q} {...item} />)}
           </div>
@@ -124,23 +124,23 @@ export default function HelpPage() {
       ))}
 
       {/* Contact */}
-      <div className="rounded-xl border bg-northcode-blue text-white p-5 shadow-sm">
+      <div className="rounded-xl border bg-stockshop-blue text-white p-5 shadow-sm">
         <h2 className="font-semibold mb-1">Vous n'avez pas trouvé votre réponse ?</h2>
         <p className="text-sm text-blue-100 mb-4">Notre équipe répond en moins de 24h.</p>
         <div className="flex flex-wrap gap-3">
           <a
-            href="https://wa.me/message/northcode"
-            className="flex items-center gap-2 rounded-lg bg-card text-northcode-blue dark:text-blue-400 px-4 py-2 text-sm font-medium hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
+            href="https://wa.me/message/stockshop"
+            className="flex items-center gap-2 rounded-lg bg-card text-stockshop-blue dark:text-blue-400 px-4 py-2 text-sm font-medium hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
           >
             <MessageCircle className="h-4 w-4" />
             WhatsApp
           </a>
           <a
-            href="mailto:support@northcode.africa"
+            href="mailto:support@stockshop.africa"
             className="flex items-center gap-2 rounded-lg bg-white/10 text-white px-4 py-2 text-sm font-medium hover:bg-white/20 transition-colors"
           >
             <Mail className="h-4 w-4" />
-            support@northcode.africa
+            support@stockshop.africa
           </a>
         </div>
       </div>

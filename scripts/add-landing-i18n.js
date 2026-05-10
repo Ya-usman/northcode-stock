@@ -23,7 +23,7 @@ const landingEN = {
   },
   testimonials:{
     title:'What shop owners say', rating:'4.9/5 from 200+ reviews',
-    t1_name:'Alhaji Musa Ibrahim', t1_shop:'Musa General Store, Kano', t1_text:'Before NorthCode, I never knew how much I was making daily. Now I check my phone and I know everything.',
+    t1_name:'Alhaji Musa Ibrahim', t1_shop:'Musa General Store, Kano', t1_text:'Before StockShop, I never knew how much I was making daily. Now I check my phone and I know everything.',
     t2_name:'Jean-Pierre Mbarga', t2_shop:'Mbarga Electronics, Douala', t2_text:'The credit tracking changed my management. Everything is recorded, no more disputes with customers.',
     t3_name:'Usman Garba', t3_shop:'Garba Electronics, Sokoto', t3_text:'My cashier uses it without any training. Very easy. The offline mode works perfectly.'
   },
@@ -36,8 +36,8 @@ const landingEN = {
     f5:'Unlimited products', f6:'10 staff accounts', f7:'WhatsApp receipts', f8:'1 year history',
     f9:'Unlimited everything', f10:'Unlimited staff', f11:'Dedicated support', f12:'Custom onboarding'
   },
-  cta:{ title:'Ready to know your business numbers?', subtitle:'Join hundreds of boutiques in Nigeria and Cameroon already using NorthCode Stock.', button:'Create Free Account', note:'No credit card • Setup in 2 minutes' },
-  footer:{ secure:'Secure • Private • Made in Africa', rights:'© {year} NorthCode. All rights reserved.' }
+  cta:{ title:'Ready to know your business numbers?', subtitle:'Join hundreds of boutiques in Nigeria and Cameroon already using StockShop Stock.', button:'Create Free Account', note:'No credit card • Setup in 2 minutes' },
+  footer:{ secure:'Secure • Private • Made in Africa', rights:'© {year} StockShop. All rights reserved.' }
 }
 
 const landingFR = {
@@ -63,7 +63,7 @@ const landingFR = {
   },
   testimonials:{
     title:'Ce que disent les propriétaires', rating:'4,9/5 selon 200+ avis',
-    t1_name:'Alhaji Musa Ibrahim', t1_shop:'Musa General Store, Kano', t1_text:'Avant NorthCode, je ne savais jamais combien je faisais par jour. Maintenant je vérifie mon téléphone et je sais tout.',
+    t1_name:'Alhaji Musa Ibrahim', t1_shop:'Musa General Store, Kano', t1_text:'Avant StockShop, je ne savais jamais combien je faisais par jour. Maintenant je vérifie mon téléphone et je sais tout.',
     t2_name:'Jean-Pierre Mbarga', t2_shop:'Mbarga Electronics, Douala', t2_text:'Le suivi des crédits a changé ma gestion. Tout est enregistré, plus de disputes avec les clients.',
     t3_name:'Usman Garba', t3_shop:'Garba Electronics, Sokoto', t3_text:"Mon caissier l'utilise sans formation. Très simple. Le mode hors ligne fonctionne parfaitement."
   },
@@ -76,8 +76,8 @@ const landingFR = {
     f5:'Produits illimités', f6:'10 comptes employés', f7:'Reçus WhatsApp', f8:"1 an d'historique",
     f9:'Tout illimité', f10:'Employés illimités', f11:'Support dédié', f12:'Onboarding personnalisé'
   },
-  cta:{ title:'Prêt à connaître vos chiffres ?', subtitle:'Rejoignez des centaines de boutiques au Nigeria et au Cameroun qui utilisent déjà NorthCode Stock.', button:'Créer un compte gratuit', note:'Sans carte bancaire • Configuration en 2 minutes' },
-  footer:{ secure:'Sécurisé • Privé • Made in Africa', rights:'© {year} NorthCode. Tous droits réservés.' }
+  cta:{ title:'Prêt à connaître vos chiffres ?', subtitle:'Rejoignez des centaines de boutiques au Nigeria et au Cameroun qui utilisent déjà StockShop Stock.', button:'Créer un compte gratuit', note:'Sans carte bancaire • Configuration en 2 minutes' },
+  footer:{ secure:'Sécurisé • Privé • Made in Africa', rights:'© {year} StockShop. Tous droits réservés.' }
 }
 
 const landingHA = {
@@ -103,7 +103,7 @@ const landingHA = {
   },
   testimonials:{
     title:'Abin da masu kantin suka ce', rating:'4.9/5 daga sakonnin 200+',
-    t1_name:'Alhaji Musa Ibrahim', t1_shop:'Musa General Store, Kano', t1_text:'Kafin NorthCode, ban taba sanin nawa nake samu kowace rana ba. Yanzu ina duba wayata kuma na san komai.',
+    t1_name:'Alhaji Musa Ibrahim', t1_shop:'Musa General Store, Kano', t1_text:'Kafin StockShop, ban taba sanin nawa nake samu kowace rana ba. Yanzu ina duba wayata kuma na san komai.',
     t2_name:'Jean-Pierre Mbarga', t2_shop:'Mbarga Electronics, Douala', t2_text:'Bin diddigin bashi ya canza yadda nake gudanarwa. Duk ya rubuta, ba gardama da abokan ciniki.',
     t3_name:'Usman Garba', t3_shop:'Garba Electronics, Sokoto', t3_text:"Ma'aikacina yana amfani da shi ba tare da horarwa ba. Sauqi sosai."
   },
@@ -116,8 +116,8 @@ const landingHA = {
     f5:'Kayayyaki marasa iyaka', f6:"Asusun ma'aikata 10", f7:'Rasidodin WhatsApp', f8:'Tarihin shekara 1',
     f9:'Komai maras iyaka', f10:"Ma'aikata marasa iyaka", f11:'Tallafi na musamman', f12:'Onboarding na musamman'
   },
-  cta:{ title:'Shirye don sanin lambobin kasuwancin ku?', subtitle:'Ku shiga daruruwan kantuna a Najeriya da Kamaru da ke amfani da NorthCode Stock.', button:'Kirji Asusun Kyauta', note:'Ba kati ba • Kafa cikin minti 2' },
-  footer:{ secure:'Amintacce • Mai zaman kansa • An yi a Afirka', rights:'© {year} NorthCode. Duk hakkokin an kiyaye.' }
+  cta:{ title:'Shirye don sanin lambobin kasuwancin ku?', subtitle:'Ku shiga daruruwan kantuna a Najeriya da Kamaru da ke amfani da StockShop Stock.', button:'Kirji Asusun Kyauta', note:'Ba kati ba • Kafa cikin minti 2' },
+  footer:{ secure:'Amintacce • Mai zaman kansa • An yi a Afirka', rights:'© {year} StockShop. Duk hakkokin an kiyaye.' }
 }
 
 ;[

@@ -79,7 +79,7 @@ export default function AdminManagersPage() {
           <h1 className="text-2xl font-bold text-white">Responsables de boutiques</h1>
           <p className="text-gray-400 text-sm mt-1">Assigner des responsables qui gèrent leurs boutiques</p>
         </div>
-        <Button onClick={() => setAdding('new')} className="gap-2 bg-northcode-blue hover:bg-northcode-blue-light">
+        <Button onClick={() => setAdding('new')} className="gap-2 bg-stockshop-blue hover:bg-stockshop-blue-light">
           <Plus className="h-4 w-4" /> Assigner un responsable
         </Button>
       </div>
@@ -88,13 +88,13 @@ export default function AdminManagersPage() {
       {adding && (
         <div className="bg-gray-900 rounded-xl border border-gray-700 p-5 space-y-4">
           <h2 className="font-semibold text-white flex items-center gap-2">
-            <Shield className="h-4 w-4 text-northcode-blue dark:text-blue-400" /> Assigner un responsable
+            <Shield className="h-4 w-4 text-stockshop-blue dark:text-blue-400" /> Assigner un responsable
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-xs text-gray-400 block mb-1">Email de l'utilisateur *</label>
               <input
-                className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-northcode-blue"
+                className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-stockshop-blue"
                 placeholder="email@example.com"
                 value={form.email}
                 onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
@@ -105,7 +105,7 @@ export default function AdminManagersPage() {
             <div>
               <label className="text-xs text-gray-400 block mb-1">Boutique *</label>
               <select
-                className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-northcode-blue"
+                className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-stockshop-blue"
                 value={form.shop_id}
                 onChange={e => setForm(f => ({ ...f, shop_id: e.target.value }))}
               >
@@ -133,7 +133,7 @@ export default function AdminManagersPage() {
         return (
           <div key={shop.id} className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-800 flex items-center gap-3">
-              <Store className="h-4 w-4 text-northcode-blue dark:text-blue-400 flex-shrink-0" />
+              <Store className="h-4 w-4 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-white">{shop.name}</p>
                 {shop.city && <p className="text-xs text-gray-500">{shop.city} · {shop.country === 'CM' ? '🇨🇲 Cameroun' : '🇳🇬 Nigeria'}</p>}

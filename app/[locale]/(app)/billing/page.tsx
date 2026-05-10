@@ -211,13 +211,13 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                 className={cn(
                   'relative rounded-2xl border-2 bg-card p-6 shadow-sm transition-all',
                   popular
-                    ? 'border-northcode-blue shadow-xl ring-2 ring-northcode-blue'
-                    : 'border-gray-200 hover:border-northcode-blue/40'
+                    ? 'border-stockshop-blue shadow-xl ring-2 ring-stockshop-blue'
+                    : 'border-gray-200 hover:border-stockshop-blue/40'
                 )}
               >
                 {popular && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <Badge className="bg-northcode-blue text-white px-3 py-1 text-xs font-semibold">
+                    <Badge className="bg-stockshop-blue text-white px-3 py-1 text-xs font-semibold">
                       {t('popular_badge')}
                     </Badge>
                   </div>
@@ -226,7 +226,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                 <div className="mb-6">
                   <p className="font-bold text-foreground text-lg mb-1">{planName}</p>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-extrabold text-northcode-blue dark:text-blue-400">
+                    <span className="text-3xl font-extrabold text-stockshop-blue dark:text-blue-400">
                       {formattedPrice}
                     </span>
                     <span className="text-muted-foreground text-sm">{periodLabel}</span>
@@ -253,8 +253,8 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                     className={cn(
                       'w-full',
                       popular
-                        ? 'bg-northcode-blue hover:bg-northcode-blue-light text-white'
-                        : 'border border-blue-600 dark:border-blue-400 text-northcode-blue dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 bg-transparent'
+                        ? 'bg-stockshop-blue hover:bg-stockshop-blue-light text-white'
+                        : 'border border-blue-600 dark:border-blue-400 text-stockshop-blue dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 bg-transparent'
                     )}
                   >
                     {isNigeria ? '💳' : '📱'} {isSubscribed ? `${t('upgrade_to')} ` : ''}{planName}

@@ -50,8 +50,8 @@ const config: Config = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
-        // NorthCode brand colors
-        northcode: {
+        // StockShop brand colors
+        stockshop: {
           blue: '#073e8a',
           'blue-light': '#0d52b8',
           'blue-muted': '#e8eef8',

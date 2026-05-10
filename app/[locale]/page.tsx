@@ -74,7 +74,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
       name: 'Pro',
       price: country.prices.pro,
       popular: true,
-      color: 'border-northcode-blue',
+      color: 'border-stockshop-blue',
       features: [t('pricing.f5'), t('pricing.f6'), t('pricing.f7'), t('pricing.f8')],
     },
     {
@@ -119,7 +119,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
                   <DropdownMenuItem
                     key={lang.code}
                     onClick={() => switchLanguage(lang.code)}
-                    className={locale === lang.code ? 'font-semibold text-northcode-blue' : ''}
+                    className={locale === lang.code ? 'font-semibold text-stockshop-blue' : ''}
                   >
                     <span className="mr-2">{lang.flag}</span>
                     {lang.label}
@@ -132,7 +132,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
               <Button variant="ghost" size="sm" className="text-gray-700 hover:text-gray-900 hover:bg-gray-100">{t('nav.login')}</Button>
             </Link>
             <Link href={`/${locale}/register`}>
-              <Button size="sm" className="bg-northcode-blue hover:bg-northcode-blue-light text-white">
+              <Button size="sm" className="bg-stockshop-blue hover:bg-stockshop-blue-light text-white">
                 {t('nav.start_trial')}
               </Button>
             </Link>
@@ -141,17 +141,17 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
       </header>
 
       {/* ── HERO ── */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-northcode-blue via-[#0d3a84] to-[#1a4f9e] py-20 md:py-28">
+      <section className="relative overflow-hidden bg-gradient-to-br from-stockshop-blue via-[#0d3a84] to-[#1a4f9e] py-20 md:py-28">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-20 left-10 h-64 w-64 rounded-full bg-white blur-3xl" />
-          <div className="absolute bottom-10 right-10 h-96 w-96 rounded-full bg-northcode-gold blur-3xl" />
+          <div className="absolute bottom-10 right-10 h-96 w-96 rounded-full bg-stockshop-gold blur-3xl" />
         </div>
 
         <div className="relative mx-auto max-w-6xl px-4 text-center">
           <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
             <h1 className="text-4xl md:text-6xl font-extrabold text-white leading-tight mb-6">
               {t('hero.title')}<br />
-              <span className="text-northcode-gold">{t('hero.title_highlight')}</span>
+              <span className="text-stockshop-gold">{t('hero.title_highlight')}</span>
             </h1>
 
             <p className="text-lg md:text-xl text-blue-100 max-w-2xl mx-auto mb-8">
@@ -160,7 +160,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center mb-6">
               <Link href={`/${locale}/register`}>
-                <Button size="lg" className="bg-northcode-gold hover:bg-northcode-gold-light text-gray-900 font-bold h-12 px-8 text-base gap-2">
+                <Button size="lg" className="bg-stockshop-gold hover:bg-stockshop-gold-light text-gray-900 font-bold h-12 px-8 text-base gap-2">
                   {t('hero.cta_primary')}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
@@ -251,7 +251,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
                 className="bg-white rounded-xl border p-6 shadow-sm"
               >
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="h-10 w-10 rounded-full bg-northcode-blue flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                  <div className="h-10 w-10 rounded-full bg-stockshop-blue flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                     {item.initials}
                   </div>
                   <div>
@@ -312,12 +312,12 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
                 className={cn(
                   'relative rounded-2xl border-2 bg-white p-6 shadow-sm',
                   plan.color,
-                  plan.popular && 'shadow-xl ring-2 ring-northcode-blue'
+                  plan.popular && 'shadow-xl ring-2 ring-stockshop-blue'
                 )}
               >
                 {plan.popular && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <Badge className="bg-northcode-blue text-white px-3 py-1 text-xs font-semibold">
+                    <Badge className="bg-stockshop-blue text-white px-3 py-1 text-xs font-semibold">
                       {t('pricing.popular')}
                     </Badge>
                   </div>
@@ -326,7 +326,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
                 <div className="mb-6">
                   <p className="font-bold text-gray-900 text-lg mb-1">{plan.name}</p>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-extrabold text-northcode-blue dark:text-blue-400">
+                    <span className="text-3xl font-extrabold text-stockshop-blue dark:text-blue-400">
                       {formatPrice(plan.price)}
                     </span>
                     <span className="text-muted-foreground text-sm">{t('pricing.per_month')}</span>
@@ -346,8 +346,8 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
                   <Button className={cn(
                     'w-full',
                     plan.popular
-                      ? 'bg-northcode-blue hover:bg-northcode-blue-light text-white'
-                      : 'border border-blue-600 dark:border-blue-400 text-northcode-blue dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 bg-transparent'
+                      ? 'bg-stockshop-blue hover:bg-stockshop-blue-light text-white'
+                      : 'border border-blue-600 dark:border-blue-400 text-stockshop-blue dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 bg-transparent'
                   )}>
                     {t('pricing.cta')}
                   </Button>
@@ -361,13 +361,13 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
       </section>
 
       {/* ── FINAL CTA ── */}
-      <section className="bg-northcode-blue py-16 px-4">
+      <section className="bg-stockshop-blue py-16 px-4">
         <div className="mx-auto max-w-2xl text-center">
-          <Zap className="h-10 w-10 text-northcode-gold mx-auto mb-4" />
+          <Zap className="h-10 w-10 text-stockshop-gold mx-auto mb-4" />
           <h2 className="text-3xl font-bold text-white mb-4">{t('cta.title')}</h2>
           <p className="text-blue-200 mb-8">{t('cta.subtitle')}</p>
           <Link href={`/${locale}/register`}>
-            <Button size="lg" className="bg-northcode-gold hover:bg-northcode-gold-light text-gray-900 font-bold h-12 px-10 text-base gap-2">
+            <Button size="lg" className="bg-stockshop-gold hover:bg-stockshop-gold-light text-gray-900 font-bold h-12 px-10 text-base gap-2">
               {t('cta.button')}
               <ArrowRight className="h-4 w-4" />
             </Button>

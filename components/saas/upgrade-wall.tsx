@@ -29,7 +29,7 @@ export function UpgradeWall({ locale, shopName }: UpgradeWallProps) {
         className="w-full max-w-md bg-card rounded-2xl shadow-2xl overflow-hidden"
       >
         {/* Header */}
-        <div className="bg-gradient-to-br from-northcode-blue to-[#1a4f9e] p-8 text-center">
+        <div className="bg-gradient-to-br from-stockshop-blue to-[#1a4f9e] p-8 text-center">
           <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-white/20 mb-4">
             <Lock className="h-7 w-7 text-white" />
           </div>
@@ -57,7 +57,7 @@ export function UpgradeWall({ locale, shopName }: UpgradeWallProps) {
           </ul>
 
           <Link href={`/${locale}/billing`} className="block">
-            <Button className="w-full h-11 bg-northcode-blue hover:bg-northcode-blue-light dark:bg-blue-500 font-semibold gap-2">
+            <Button className="w-full h-11 bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500 font-semibold gap-2">
               {t('choose_plan')}
               <ArrowRight className="h-4 w-4" />
             </Button>

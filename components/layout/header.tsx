@@ -49,19 +49,19 @@ export function Header({ title, locale, onSignOut }: HeaderProps) {
           <DropdownMenuContent align="end">
             <DropdownMenuItem
               onClick={() => switchLanguage('en')}
-              className={locale === 'en' ? 'font-semibold text-northcode-blue dark:text-blue-400' : ''}
+              className={locale === 'en' ? 'font-semibold text-stockshop-blue dark:text-blue-400' : ''}
             >
               🇬🇧 English
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => switchLanguage('fr')}
-              className={locale === 'fr' ? 'font-semibold text-northcode-blue dark:text-blue-400' : ''}
+              className={locale === 'fr' ? 'font-semibold text-stockshop-blue dark:text-blue-400' : ''}
             >
               🇫🇷 Français
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => switchLanguage('ha')}
-              className={locale === 'ha' ? 'font-semibold text-northcode-blue dark:text-blue-400' : ''}
+              className={locale === 'ha' ? 'font-semibold text-stockshop-blue dark:text-blue-400' : ''}
             >
               🇳🇬 Hausa
             </DropdownMenuItem>

@@ -165,15 +165,15 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
           return (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={cn('relative pb-2 px-1 mr-4 text-xs font-medium transition-colors',
-                active ? 'text-northcode-blue dark:text-blue-400' : 'text-muted-foreground hover:text-foreground'
+                active ? 'text-stockshop-blue dark:text-blue-400' : 'text-muted-foreground hover:text-foreground'
               )}>
               {tab === 'sales' ? t('sales.sales_tab') : t('sales.debts_tab')}
               {count > 0 && (
                 <span className={cn('ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium',
-                  active ? 'bg-northcode-blue/10 text-northcode-blue dark:bg-blue-500/20 dark:text-blue-400' : 'bg-muted text-muted-foreground'
+                  active ? 'bg-stockshop-blue/10 text-stockshop-blue dark:bg-blue-500/20 dark:text-blue-400' : 'bg-muted text-muted-foreground'
                 )}>{count}</span>
               )}
-              {active && <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-northcode-blue dark:bg-blue-400" />}
+              {active && <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-stockshop-blue dark:bg-blue-400" />}
             </button>
           )
         })}
@@ -195,7 +195,7 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                   className="px-4 py-3 hover:bg-muted/30 transition-colors">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
-                      <span className="text-xs font-mono font-semibold text-northcode-blue dark:text-blue-400">#{item.sale_number}</span>
+                      <span className="text-xs font-mono font-semibold text-stockshop-blue dark:text-blue-400">#{item.sale_number}</span>
                       <Badge variant="success" className="text-[10px] px-1.5 py-0">{t('status.paid')}</Badge>
                       <Badge variant="outline" className="text-[10px] px-1.5 py-0">{methodLabel(item.payment_method, t)}</Badge>
                     </div>
@@ -236,7 +236,7 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                         onClick={() => setExpandedSaleId(isExpanded ? null : sale.id)}>
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
-                            <span className="text-xs font-mono font-semibold text-northcode-blue dark:text-blue-400">
+                            <span className="text-xs font-mono font-semibold text-stockshop-blue dark:text-blue-400">
                               #{sale.sale_number}
                             </span>
                             <Badge variant={statusVariant[sale.payment_status] || 'secondary'} className="text-[10px] px-1.5 py-0">
@@ -331,7 +331,7 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
                           {r.sale_number && (
-                            <span className="text-xs font-mono font-semibold text-northcode-blue dark:text-blue-400">
+                            <span className="text-xs font-mono font-semibold text-stockshop-blue dark:text-blue-400">
                               #{r.sale_number}
                             </span>
                           )}

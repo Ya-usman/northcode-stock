@@ -107,7 +107,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search shop, owner…"
-                className="bg-gray-800 border border-gray-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-northcode-blue w-48"
+                className="bg-gray-800 border border-gray-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-stockshop-blue w-48"
               />
             </div>
             {/* Filter tabs */}
@@ -117,7 +117,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
                 onClick={() => setFilter(f)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize ${
                   filter === f
-                    ? 'bg-northcode-blue text-white'
+                    ? 'bg-stockshop-blue text-white'
                     : 'bg-gray-800 text-gray-400 hover:text-white'
                 }`}
               >
@@ -357,7 +357,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
                 max={365}
                 value={extendDays}
                 onChange={e => setExtendDays(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-northcode-blue"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-stockshop-blue"
               />
             </div>
           )}
@@ -368,7 +368,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
               <select
                 value={grantPlan}
                 onChange={e => setGrantPlan(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-northcode-blue"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-stockshop-blue"
               >
                 <option value="starter">Starter — ₦4,500/mo</option>
                 <option value="pro">Pro — ₦9,500/mo</option>
@@ -390,7 +390,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
                   ? 'bg-red-600 hover:bg-red-700'
                   : confirmDialog.action === 'reactivate'
                   ? 'bg-green-600 hover:bg-green-700'
-                  : 'bg-northcode-blue hover:bg-northcode-blue-light'
+                  : 'bg-stockshop-blue hover:bg-stockshop-blue-light'
               }
             >
               Confirm
