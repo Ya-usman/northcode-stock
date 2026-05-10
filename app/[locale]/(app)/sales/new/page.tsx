@@ -504,18 +504,21 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         paystack_reference: methodType === 'card' ? `PAY-${Date.now()}` : null,
       }
 
-      // Retry up to 3 times on duplicate sale_number (race condition under concurrent inserts)
+      // Retry up to 5 times on duplicate sale_number (race condition / pre-existing number)
       let sale: any = null
-      let saleError: any = null
-      for (let attempt = 0; attempt < 3; attempt++) {
+      let lastError: any = null
+      for (let attempt = 0; attempt < 5; attempt++) {
         const res = await db.from('sales').insert(salePayload).select().single()
-        if (!res.error || res.error?.code !== '23505') {
-          sale = res.data; saleError = res.error; break
-        }
-        await new Promise(r => setTimeout(r, 50 + attempt * 100))
+        lastError = res.error
+        if (!res.error) { sale = res.data; lastError = null; break }
+        if (res.error?.code !== '23505') break  // non-duplicate error → surface immediately
+        await new Promise(r => setTimeout(r, 80 + attempt * 120))
       }
 
-      if (saleError || !sale) throw saleError || new Error('Erreur création vente')
+      if (lastError || !sale) {
+        const msg = lastError?.message || lastError?.details || 'Erreur création vente'
+        throw new Error(msg)
+      }
 
       const { error: itemsError } = await db.from('sale_items').insert(
         cart.map((item: any) => ({
