@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
-import { Search, Plus, Edit2, Trash2, Phone, MapPin, Store } from 'lucide-react'
+import { Search, Plus, Edit2, Trash2, Phone, MapPin, Store, User } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { useForm } from 'react-hook-form'
@@ -171,33 +171,40 @@ export default function CustomersPage() {
         </div>
       )}
 
-      <Dialog open={showModal} onOpenChange={open => { if (!open) { setShowModal(false); setEditingCustomer(null) } }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingCustomer ? t('actions.edit') : t('customers.add_customer')}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-1">
+      <PremiumDialog
+        open={showModal}
+        onOpenChange={open => { if (!open) { setShowModal(false); setEditingCustomer(null) } }}
+        category={t('nav.customers')}
+        title={editingCustomer ? t('actions.edit') : t('customers.add_customer')}
+        icon={<User className="h-4 w-4" />}
+      >
+        <form onSubmit={form.handleSubmit(onSubmit)}>
+          <PremiumDialogBody>
+            <div className="space-y-1.5">
               <Label>{t('customers.name')} *</Label>
               <Input {...form.register('name')} placeholder={t('customers.name_placeholder')} />
               {form.formState.errors.name && <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>}
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <Label>{t('customers.phone')}</Label>
               <Input {...form.register('phone')} placeholder="08012345678" type="tel" />
               {form.formState.errors.phone && <p className="text-xs text-destructive">{form.formState.errors.phone.message}</p>}
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <Label>{t('customers.city')}</Label>
               <Input {...form.register('city')} placeholder={t('customers.city_placeholder')} />
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setShowModal(false)}>{t('actions.cancel')}</Button>
-              <Button type="submit" loading={saving} className="bg-blue-600 dark:bg-blue-500">{t('actions.save')}</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+          </PremiumDialogBody>
+          <PremiumDialogFooter
+            onCancel={() => setShowModal(false)}
+            cancelLabel={t('actions.cancel')}
+          >
+            <Button type="submit" loading={saving} className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500">
+              {t('actions.save')}
+            </Button>
+          </PremiumDialogFooter>
+        </form>
+      </PremiumDialog>
     </div>
   )
 }

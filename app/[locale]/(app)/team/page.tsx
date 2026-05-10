@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatDistanceToNow } from 'date-fns'
@@ -411,57 +411,51 @@ export default function TeamPage() {
 
 
       {/* Confirm deactivation dialog */}
-      <Dialog open={confirmDialog.open} onOpenChange={open => setConfirmDialog(d => ({ ...d, open }))}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {confirmDialog.action === 'deactivate'
-                ? <><ShieldOff className="h-5 w-5 text-red-500" /> {t('team.deactivate_title')}</>
-                : <><ShieldCheck className="h-5 w-5 text-green-500" /> {t('team.reactivate_title')}</>}
-            </DialogTitle>
-          </DialogHeader>
-          <div>
-            {confirmDialog.action === 'deactivate' ? (
-              <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-100 p-3">
-                <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-red-700">
-                  <p className="font-semibold mb-1">{t('team.deactivate_confirm', { name: confirmDialog.member?.profiles?.full_name })}</p>
-                  <ul className="text-xs space-y-1 text-red-600">
-                    <li>• {t('team.deactivate_effect_session')}</li>
-                    <li>• {t('team.deactivate_effect_login')}</li>
-                    <li>• {t('team.deactivate_effect_sales')}</li>
-                  </ul>
-                </div>
+      <PremiumDialog
+        open={confirmDialog.open}
+        onOpenChange={open => setConfirmDialog(d => ({ ...d, open }))}
+        category={t('nav.team')}
+        title={confirmDialog.action === 'deactivate' ? t('team.deactivate_title') : t('team.reactivate_title')}
+        icon={confirmDialog.action === 'deactivate' ? <ShieldOff className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
+      >
+        <PremiumDialogBody>
+          {confirmDialog.action === 'deactivate' ? (
+            <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-100 p-3">
+              <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-red-700">
+                <p className="font-semibold mb-1">{t('team.deactivate_confirm', { name: confirmDialog.member?.profiles?.full_name })}</p>
+                <ul className="text-xs space-y-1 text-red-600">
+                  <li>• {t('team.deactivate_effect_session')}</li>
+                  <li>• {t('team.deactivate_effect_login')}</li>
+                  <li>• {t('team.deactivate_effect_sales')}</li>
+                </ul>
               </div>
-            ) : (
-              <div className="flex items-start gap-2 rounded-lg bg-green-50 border border-green-100 p-3">
-                <ShieldCheck className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-green-700">
-                  {t('team.reactivate_confirm', { name: confirmDialog.member?.profiles?.full_name })}
-                </p>
-              </div>
-            )}
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" onClick={() => setConfirmDialog(d => ({ ...d, open: false }))}>{t('actions.cancel')}</Button>
-            <Button
-              size="sm" onClick={doToggleActive}
-              className={confirmDialog.action === 'deactivate' ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'}
-            >
-              {confirmDialog.action === 'deactivate' ? t('team.yes_deactivate') : t('team.yes_reactivate')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </div>
+          ) : (
+            <div className="flex items-start gap-2 rounded-lg bg-green-50 border border-green-100 p-3">
+              <ShieldCheck className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-green-700">{t('team.reactivate_confirm', { name: confirmDialog.member?.profiles?.full_name })}</p>
+            </div>
+          )}
+        </PremiumDialogBody>
+        <PremiumDialogFooter
+          onCancel={() => setConfirmDialog(d => ({ ...d, open: false }))}
+          cancelLabel={t('actions.cancel')}
+          onConfirm={doToggleActive}
+          confirmLabel={confirmDialog.action === 'deactivate' ? t('team.yes_deactivate') : t('team.yes_reactivate')}
+          confirmDestructive={confirmDialog.action === 'deactivate'}
+        />
+      </PremiumDialog>
 
       {/* Delete permanently dialog */}
-      <Dialog open={deleteDialog.open} onOpenChange={open => !open && setDeleteDialog({ open: false, member: null })}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-600">
-              <Trash2 className="h-5 w-5" /> {t('team.delete_title')}
-            </DialogTitle>
-          </DialogHeader>
+      <PremiumDialog
+        open={deleteDialog.open}
+        onOpenChange={open => !open && setDeleteDialog({ open: false, member: null })}
+        category={t('nav.team')}
+        title={t('team.delete_title')}
+        icon={<Trash2 className="h-4 w-4" />}
+      >
+        <PremiumDialogBody>
           <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-100 p-3">
             <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-red-700">
@@ -474,75 +468,62 @@ export default function TeamPage() {
               </ul>
             </div>
           </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" onClick={() => setDeleteDialog({ open: false, member: null })}>{t('actions.cancel')}</Button>
-            <Button
-              size="sm" onClick={doDeleteMember} disabled={deleting}
-              className="bg-red-600 hover:bg-red-700 gap-1.5"
-            >
-              {deleting ? <span className="h-3 w-3 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <Trash2 className="h-3 w-3" />}
-              {t('actions.delete')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </PremiumDialogBody>
+        <PremiumDialogFooter
+          onCancel={() => setDeleteDialog({ open: false, member: null })}
+          cancelLabel={t('actions.cancel')}
+          onConfirm={doDeleteMember}
+          confirmLabel={t('actions.delete')}
+          confirmDisabled={deleting}
+          confirmLoading={deleting}
+          confirmDestructive
+        />
+      </PremiumDialog>
 
       {/* Invite Modal */}
-      <Dialog open={showInviteModal} onOpenChange={setShowInviteModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('team.invite_title')}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {/* Shop selector in invite */}
-            {isOwner && userShops.length > 1 && (
-              <div className="space-y-1">
-                <Label className="text-xs">{t('team.shop_label')}</Label>
-                <Select value={inviteShopId} onValueChange={setInviteShopId}>
-                  <SelectTrigger>
-                    <Store className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {userShops.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            <div className="space-y-1">
-              <Label>{t('team.full_name_label')}</Label>
-              <Input value={inviteFullName} onChange={e => setInviteFullName(e.target.value)} placeholder={t('team.name_placeholder')} />
-            </div>
-            <div className="space-y-1">
-              <Label>{t('team.invite_email')} *</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="pl-9" placeholder="employe@email.com" />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label>{t('team.role_label')}</Label>
-              <Select value={inviteRole} onValueChange={v => setInviteRole(v as UserRole)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cashier">{t('roles.cashier')}</SelectItem>
-                  <SelectItem value="stock_manager">{t('roles.stock_manager')}</SelectItem>
-                  <SelectItem value="viewer">{t('roles.viewer')}</SelectItem>
-                </SelectContent>
+      <PremiumDialog open={showInviteModal} onOpenChange={setShowInviteModal} category={t('nav.team')} title={t('team.invite_title')} icon={<UserPlus className="h-4 w-4" />}>
+        <PremiumDialogBody>
+          {isOwner && userShops.length > 1 && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">{t('team.shop_label')}</Label>
+              <Select value={inviteShopId} onValueChange={setInviteShopId}>
+                <SelectTrigger><Store className="h-4 w-4 mr-2 text-muted-foreground" /><SelectValue /></SelectTrigger>
+                <SelectContent>{userShops.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-sm text-blue-700">
-              {t('team.invite_info')}
+          )}
+          <div className="space-y-1.5">
+            <Label>{t('team.full_name_label')}</Label>
+            <Input value={inviteFullName} onChange={e => setInviteFullName(e.target.value)} placeholder={t('team.name_placeholder')} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>{t('team.invite_email')} *</Label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="pl-9" placeholder="employe@email.com" />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowInviteModal(false)}>{t('actions.cancel')}</Button>
-            <Button onClick={inviteEmployee} loading={inviting} className="bg-stockshop-blue">
-              {t('team.send_invite')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <div className="space-y-1.5">
+            <Label>{t('team.role_label')}</Label>
+            <Select value={inviteRole} onValueChange={v => setInviteRole(v as UserRole)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cashier">{t('roles.cashier')}</SelectItem>
+                <SelectItem value="stock_manager">{t('roles.stock_manager')}</SelectItem>
+                <SelectItem value="viewer">{t('roles.viewer')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-sm text-blue-700">{t('team.invite_info')}</div>
+        </PremiumDialogBody>
+        <PremiumDialogFooter
+          onCancel={() => setShowInviteModal(false)}
+          cancelLabel={t('actions.cancel')}
+          onConfirm={inviteEmployee}
+          confirmLabel={t('team.send_invite')}
+          confirmLoading={inviting}
+        />
+      </PremiumDialog>
     </div>
   )
 }

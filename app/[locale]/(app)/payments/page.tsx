@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import type { Customer } from '@/lib/types/database'
@@ -460,24 +460,17 @@ export default function DettesPage() {
       )}
 
       {/* ── Repayment Dialog ── */}
-      <Dialog open={!!repayDebtor || !!receiptResult} onOpenChange={open => { if (!open) { setRepayDebtor(null); setReceiptResult(null) } }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {receiptResult ? t('toast.payment_recorded') : t('payments.record_repayment_title')}
-            </DialogTitle>
-            {!receiptResult && repayDebtor && (
-              <div className="flex items-center gap-2 mt-1">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">{repayDebtor.customer.name}</p>
-                <Badge variant="destructive" className="text-[10px]">{fmt(repayDebtor.totalDebt)}</Badge>
-              </div>
-            )}
-          </DialogHeader>
-
-          {/* ── Receipt screen ── */}
-          {receiptResult ? (
-            <div className="space-y-4 py-2">
+      <PremiumDialog
+        open={!!repayDebtor || !!receiptResult}
+        onOpenChange={open => { if (!open) { setRepayDebtor(null); setReceiptResult(null) } }}
+        category={t('nav.payments')}
+        title={receiptResult ? t('toast.payment_recorded') : t('payments.record_repayment_title')}
+        icon={receiptResult ? <CheckCircle2 className="h-4 w-4" /> : <Banknote className="h-4 w-4" />}
+      >
+        {/* ── Receipt screen ── */}
+        {receiptResult ? (
+          <PremiumDialogBody>
+            <div className="space-y-4">
               <div className="flex flex-col items-center gap-2 py-2">
                 <div className="h-14 w-14 rounded-full bg-green-100 flex items-center justify-center">
                   <CheckCircle2 className="h-7 w-7 text-green-600" />
@@ -500,136 +493,151 @@ export default function DettesPage() {
                   </Button>
                 </a>
               )}
-              <DialogFooter>
-                <Button className="w-full" onClick={() => { setRepayDebtor(null); setReceiptResult(null) }}>{t('actions.close')}</Button>
-              </DialogFooter>
+              <Button className="w-full h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500"
+                onClick={() => { setRepayDebtor(null); setReceiptResult(null) }}>
+                {t('actions.close')}
+              </Button>
             </div>
-          ) : (
-            <>
-              <div className="space-y-4">
-                {repayDebtor && repayDebtor.unpaidSales.length === 0 ? (
-                  <div className="rounded-lg bg-orange-50 border border-orange-200 p-3">
-                    <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-1">{t('payments.data_to_fix')}</p>
-                    <p className="text-sm text-orange-700">La dette de {fmt(repayDebtor.totalDebt)} est enregistrée mais aucune facture impayée n&apos;est trouvée.</p>
-                  </div>
-                ) : null}
-
-                {/* Amount input */}
-                <div className="space-y-1">
-                  <Label>{t('payment.amount_given')}</Label>
-                  <div className="flex rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
-                    <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">
-                      {symbol}
-                    </span>
-                    <input type="text" inputMode="numeric"
-                      value={formatInputValue(repayAmount, symbol)}
-                      onChange={e => setRepayAmount(e.target.value.replace(/\D/g, ''))}
-                      className="flex-1 h-12 px-3 text-lg font-bold bg-card outline-none" placeholder="0" autoFocus />
-                  </div>
+          </PremiumDialogBody>
+        ) : (
+          <>
+            <PremiumDialogBody>
+              {repayDebtor && (
+                <div className="flex items-center gap-2 -mt-1 mb-1">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">{repayDebtor.customer.name}</p>
+                  <Badge variant="destructive" className="text-[10px]">{fmt(repayDebtor.totalDebt)}</Badge>
                 </div>
+              )}
 
-                {/* FIFO breakdown preview */}
-                {repayDebtor && amount > 0 && fifoLines.length > 0 && (
-                  <div className="rounded-lg border bg-muted/30 overflow-hidden">
-                    <div className="px-3 py-2 border-b bg-muted/60">
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                        {t('payments.payment_breakdown')} — FIFO
-                      </p>
-                    </div>
-                    <div className="divide-y">
-                      {fifoLines.map(({ sale, applying, fullyCovered }) => (
-                        <div key={sale.id} className="flex items-center justify-between gap-2 px-3 py-2">
-                          <div className="min-w-0">
-                            <span className="font-mono text-xs font-semibold text-stockshop-blue dark:text-blue-400">#{sale.sale_number}</span>
-                            <span className="text-[10px] text-muted-foreground ml-2">
-                              {format(new Date(sale.created_at), 'dd/MM/yy')}
-                            </span>
-                            {fullyCovered && (
-                              <Badge variant="success" className="ml-2 text-[9px] px-1 py-0">✓ {t('payments.paid_off')}</Badge>
-                            )}
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <p className="text-xs font-bold text-green-600">+{fmt(applying)}</p>
-                            {!fullyCovered && (
-                              <p className="text-[10px] text-red-500">{t('payment.remaining')}: {fmt(sale.balance - applying)}</p>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className={`flex items-center justify-between px-3 py-2 border-t ${remaining <= 0 ? 'bg-green-50 dark:bg-green-950/20' : 'bg-orange-50 dark:bg-orange-950/20'}`}>
-                      <span className="text-xs font-semibold">
-                        {remaining <= 0 ? `✓ ${t('payment.debt_settled')}` : t('payment.remaining')}
-                      </span>
-                      <span className={`text-sm font-bold ${remaining <= 0 ? 'text-green-600' : 'text-orange-600'}`}>
-                        {remaining <= 0 ? t('payments.fully_settled') : fmt(remaining)}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Payment method */}
-                <div className="space-y-1">
-                  <Label>{t('payment.method')}</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {getCountry(shop?.country).paymentMethods
-                      .filter(m => m.type !== 'credit')
-                      .map(m => (
-                        <button key={m.id} onClick={() => setRepayMethod(m.id)}
-                          className={`rounded-lg border p-2.5 text-sm font-medium transition-colors ${
-                            repayMethod === m.id
-                              ? 'border-blue-500 bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400'
-                              : 'border-input bg-card text-muted-foreground hover:bg-muted'
-                          }`}>
-                          {m.icon} {m.label}
-                        </button>
-                      ))}
-                  </div>
+              {repayDebtor && repayDebtor.unpaidSales.length === 0 ? (
+                <div className="rounded-lg bg-orange-50 border border-orange-200 p-3">
+                  <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-1">{t('payments.data_to_fix')}</p>
+                  <p className="text-sm text-orange-700">La dette de {fmt(repayDebtor.totalDebt)} est enregistrée mais aucune facture impayée n&apos;est trouvée.</p>
                 </div>
+              ) : null}
 
-                {getMethodType(repayMethod, getCountry(shop?.country)) !== 'cash' && (
-                  <div className="space-y-1">
-                    <Label>{t('payment.reference')}</Label>
-                    <Input value={repayRef} onChange={e => setRepayRef(e.target.value)} placeholder={t('payment.reference_placeholder')} />
-                  </div>
-                )}
-
-                <div className="space-y-1">
-                  <Label>{t('sales.note_label')} <span className="text-muted-foreground font-normal">({t('form.optional')})</span></Label>
-                  <Input value={repayNotes} onChange={e => setRepayNotes(e.target.value)} placeholder={t('payment.notes_placeholder')} />
+              {/* Amount input */}
+              <div className="space-y-1">
+                <Label>{t('payment.amount_given')}</Label>
+                <div className="flex rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
+                  <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">
+                    {symbol}
+                  </span>
+                  <input type="text" inputMode="numeric"
+                    value={formatInputValue(repayAmount, symbol)}
+                    onChange={e => setRepayAmount(e.target.value.replace(/\D/g, ''))}
+                    className="flex-1 h-12 px-3 text-lg font-bold bg-card outline-none" placeholder="0" autoFocus />
                 </div>
               </div>
 
-              <DialogFooter className="gap-2">
-                <Button variant="outline" onClick={() => setRepayDebtor(null)}>{t('actions.cancel')}</Button>
-                <Button onClick={recordRepayment}
-                  disabled={saving || !repayDebtor || repayDebtor.unpaidSales.length === 0 || amount <= 0}
-                  className="bg-stockshop-blue hover:bg-stockshop-blue-light flex-1">
-                  {saving ? t('payment.saving') : `✓ ${t('payment.confirm_repayment')}`}
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+              {/* FIFO breakdown preview */}
+              {repayDebtor && amount > 0 && fifoLines.length > 0 && (
+                <div className="rounded-lg border bg-muted/30 overflow-hidden">
+                  <div className="px-3 py-2 border-b bg-muted/60">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      {t('payments.payment_breakdown')} — FIFO
+                    </p>
+                  </div>
+                  <div className="divide-y">
+                    {fifoLines.map(({ sale, applying, fullyCovered }) => (
+                      <div key={sale.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                        <div className="min-w-0">
+                          <span className="font-mono text-xs font-semibold text-stockshop-blue dark:text-blue-400">#{sale.sale_number}</span>
+                          <span className="text-[10px] text-muted-foreground ml-2">
+                            {format(new Date(sale.created_at), 'dd/MM/yy')}
+                          </span>
+                          {fullyCovered && (
+                            <Badge variant="success" className="ml-2 text-[9px] px-1 py-0">✓ {t('payments.paid_off')}</Badge>
+                          )}
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-xs font-bold text-green-600">+{fmt(applying)}</p>
+                          {!fullyCovered && (
+                            <p className="text-[10px] text-red-500">{t('payment.remaining')}: {fmt(sale.balance - applying)}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className={`flex items-center justify-between px-3 py-2 border-t ${remaining <= 0 ? 'bg-green-50 dark:bg-green-950/20' : 'bg-orange-50 dark:bg-orange-950/20'}`}>
+                    <span className="text-xs font-semibold">
+                      {remaining <= 0 ? `✓ ${t('payment.debt_settled')}` : t('payment.remaining')}
+                    </span>
+                    <span className={`text-sm font-bold ${remaining <= 0 ? 'text-green-600' : 'text-orange-600'}`}>
+                      {remaining <= 0 ? t('payments.fully_settled') : fmt(remaining)}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Payment method */}
+              <div className="space-y-1">
+                <Label>{t('payment.method')}</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {getCountry(shop?.country).paymentMethods
+                    .filter(m => m.type !== 'credit')
+                    .map(m => (
+                      <button key={m.id} onClick={() => setRepayMethod(m.id)}
+                        className={`rounded-lg border p-2.5 text-sm font-medium transition-colors ${
+                          repayMethod === m.id
+                            ? 'border-blue-500 bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400'
+                            : 'border-input bg-card text-muted-foreground hover:bg-muted'
+                        }`}>
+                        {m.icon} {m.label}
+                      </button>
+                    ))}
+                </div>
+              </div>
+
+              {getMethodType(repayMethod, getCountry(shop?.country)) !== 'cash' && (
+                <div className="space-y-1">
+                  <Label>{t('payment.reference')}</Label>
+                  <Input value={repayRef} onChange={e => setRepayRef(e.target.value)} placeholder={t('payment.reference_placeholder')} />
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <Label>{t('sales.note_label')} <span className="text-muted-foreground font-normal">({t('form.optional')})</span></Label>
+                <Input value={repayNotes} onChange={e => setRepayNotes(e.target.value)} placeholder={t('payment.notes_placeholder')} />
+              </div>
+            </PremiumDialogBody>
+            <PremiumDialogFooter
+              onCancel={() => setRepayDebtor(null)}
+              cancelLabel={t('actions.cancel')}
+              onConfirm={recordRepayment}
+              confirmLabel={saving ? t('payment.saving') : `✓ ${t('payment.confirm_repayment')}`}
+              confirmDisabled={saving || !repayDebtor || repayDebtor.unpaidSales.length === 0 || amount <= 0}
+              confirmLoading={saving}
+            />
+          </>
+        )}
+      </PremiumDialog>
 
       {/* ── History Dialog ── */}
-      <Dialog open={!!historyDebtor} onOpenChange={open => { if (!open) { setHistoryDebtor(null); setHistorySales([]); setHistoryPayments([]) } }}>
-        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>{t('customers.payment_history')}</DialogTitle>
-            {historyDebtor && <p className="text-sm text-muted-foreground">{historyDebtor.customer.name}</p>}
-          </DialogHeader>
-
-          {loadingHistory ? (
-            <div className="space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
-          ) : historySales.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-              <Clock className="h-8 w-8 mb-2 opacity-30" />
-              <p className="text-sm">{t('payments.no_sales_for_customer')}</p>
-            </div>
-          ) : (
-            <div className="space-y-3 overflow-y-auto flex-1 pr-1">
+      <PremiumDialog
+        open={!!historyDebtor}
+        onOpenChange={open => { if (!open) { setHistoryDebtor(null); setHistorySales([]); setHistoryPayments([]) } }}
+        category={t('nav.payments')}
+        title={t('customers.payment_history')}
+        icon={<History className="h-4 w-4" />}
+        maxWidth="max-w-lg"
+      >
+        <div className="flex flex-col max-h-[65vh]">
+          <div className="flex-1 overflow-y-auto">
+            <PremiumDialogBody>
+              {historyDebtor && (
+                <p className="text-sm text-muted-foreground -mt-1 mb-1">{historyDebtor.customer.name}</p>
+              )}
+              {loadingHistory ? (
+                <div className="space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
+              ) : historySales.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                  <Clock className="h-8 w-8 mb-2 opacity-30" />
+                  <p className="text-sm">{t('payments.no_sales_for_customer')}</p>
+                </div>
+              ) : (
+                <div className="space-y-3 pr-1">
               {historySales.map(sale => {
                 const salePayments = historyPayments.filter(p => p.sale_id === sale.id)
                 const isOpen = expandedSaleId === sale.id
@@ -722,16 +730,16 @@ export default function DettesPage() {
                   </div>
                 )
               })}
-            </div>
-          )}
-
-          <DialogFooter className="pt-2">
-            <Button variant="outline" className="w-full" onClick={() => { setHistoryDebtor(null); setHistorySales([]); setHistoryPayments([]) }}>
-              {t('actions.close')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                </div>
+              )}
+            </PremiumDialogBody>
+          </div>
+          <PremiumDialogFooter
+            onCancel={() => { setHistoryDebtor(null); setHistorySales([]); setHistoryPayments([]) }}
+            cancelLabel={t('actions.close')}
+          />
+        </div>
+      </PremiumDialog>
     </div>
   )
 }

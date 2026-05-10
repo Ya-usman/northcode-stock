@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import { cn } from '@/lib/utils/cn'
 import type { Category, Product } from '@/lib/types/database'
 
@@ -288,16 +288,15 @@ export default function CategoriesPage() {
       )}
 
       {/* Add category dialog */}
-      <Dialog open={dialogOpen} onOpenChange={open => { setDialogOpen(open); if (!open) setNewName('') }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Tag className="h-4 w-4 text-stockshop-blue dark:text-blue-400" />
-              {t('categories.add_dialog_title')}
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-2">
+      <PremiumDialog
+        open={dialogOpen}
+        onOpenChange={open => { setDialogOpen(open); if (!open) setNewName('') }}
+        category={t('nav.categories')}
+        title={t('categories.add_dialog_title')}
+        icon={<Tag className="h-4 w-4" />}
+      >
+        <PremiumDialogBody>
+          <div className="space-y-1.5">
             <Label htmlFor="cat-name">{t('categories.add_dialog_label')}</Label>
             <Input
               id="cat-name"
@@ -309,24 +308,16 @@ export default function CategoriesPage() {
               autoFocus
             />
           </div>
-
-          <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" onClick={() => setDialogOpen(false)}>
-              {t('actions.cancel')}
-            </Button>
-            <Button
-              size="sm"
-              loading={saving}
-              disabled={!newName.trim()}
-              onClick={addCategory}
-              className="bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              {t('categories.add')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </PremiumDialogBody>
+        <PremiumDialogFooter
+          onCancel={() => setDialogOpen(false)}
+          cancelLabel={t('actions.cancel')}
+          onConfirm={addCategory}
+          confirmLabel={t('categories.add')}
+          confirmDisabled={!newName.trim()}
+          confirmLoading={saving}
+        />
+      </PremiumDialog>
     </div>
   )
 }

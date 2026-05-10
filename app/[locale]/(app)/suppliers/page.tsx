@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -175,32 +175,39 @@ export default function SuppliersPage() {
         </div>
       )}
 
-      <Dialog open={showModal} onOpenChange={open => { if (!open) { setShowModal(false); setEditingSupplier(null) } }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingSupplier ? t('suppliers.edit_title') : t('suppliers.add_supplier')}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-1">
+      <PremiumDialog
+        open={showModal}
+        onOpenChange={open => { if (!open) { setShowModal(false); setEditingSupplier(null) } }}
+        category={t('nav.suppliers')}
+        title={editingSupplier ? t('suppliers.edit_title') : t('suppliers.add_supplier')}
+        icon={<Package className="h-4 w-4" />}
+      >
+        <form onSubmit={form.handleSubmit(onSubmit)}>
+          <PremiumDialogBody>
+            <div className="space-y-1.5">
               <Label>{t('suppliers.name')} *</Label>
               <Input {...form.register('name')} placeholder={t('suppliers.name_placeholder')} />
               {form.formState.errors.name && <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>}
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <Label>{t('suppliers.phone')}</Label>
               <Input {...form.register('phone')} placeholder="08012345678" type="tel" />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <Label>{t('suppliers.city')}</Label>
               <Input {...form.register('city')} placeholder={t('suppliers.city_placeholder')} />
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setShowModal(false)}>{t('actions.cancel')}</Button>
-              <Button type="submit" loading={saving} className="bg-blue-600 dark:bg-blue-500">{t('actions.save')}</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+          </PremiumDialogBody>
+          <PremiumDialogFooter
+            onCancel={() => setShowModal(false)}
+            cancelLabel={t('actions.cancel')}
+          >
+            <Button type="submit" loading={saving} className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500">
+              {t('actions.save')}
+            </Button>
+          </PremiumDialogFooter>
+        </form>
+      </PremiumDialog>
     </div>
   )
 }

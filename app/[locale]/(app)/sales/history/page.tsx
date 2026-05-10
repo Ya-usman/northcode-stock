@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { useCurrency } from '@/lib/hooks/use-currency'
@@ -614,79 +614,72 @@ export default function SalesHistoryPage() {
       )}
 
       {/* Action dialog */}
-      <Dialog open={!!dialog} onOpenChange={open => !open && setDialog(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>
-              {dialog?.type === 'cancel' && `⚠️ ${t('sales.cancel_sale_dialog_title')}`}
-              {dialog?.type === 'validate' && `✅ ${t('sales.validate_payment_dialog_title')}`}
-            </DialogTitle>
-          </DialogHeader>
+      <PremiumDialog
+        open={!!dialog}
+        onOpenChange={open => !open && setDialog(null)}
+        category="Ventes"
+        title={dialog?.type === 'cancel' ? t('sales.cancel_sale_dialog_title') : t('sales.validate_payment_dialog_title')}
+        icon={dialog?.type === 'cancel' ? <XCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+      >
+        <PremiumDialogBody className="space-y-3">
+          {dialog?.type === 'cancel' && (
+            <>
+              <p className="text-sm text-muted-foreground">
+                {t('confirm.cancel_sale')} <strong>#{dialog.sale.sale_number}</strong>
+              </p>
+              <div className="space-y-1">
+                <Label className="text-xs">{t('sales.cancel_reason_label')} ({t('form.optional')})</Label>
+                <Input
+                  value={cancelReason}
+                  onChange={e => setCancelReason(e.target.value)}
+                  placeholder={t('sales.cancel_reason_placeholder')}
+                  autoFocus
+                />
+              </div>
+            </>
+          )}
 
-          <div className="space-y-3">
-            {dialog?.type === 'cancel' && (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  {t('confirm.cancel_sale')} <strong>#{dialog.sale.sale_number}</strong>
-                </p>
-                <div className="space-y-1">
-                  <Label className="text-xs">{t('sales.cancel_reason_label')} ({t('form.optional')})</Label>
-                  <Input
-                    value={cancelReason}
-                    onChange={e => setCancelReason(e.target.value)}
-                    placeholder={t('sales.cancel_reason_placeholder')}
-                    autoFocus
-                  />
-                </div>
-              </>
-            )}
-
-            {dialog?.type === 'validate' && dialog.sale && (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  {t('sales.remaining_balance_label')}: <strong>{formatNaira(dialog.sale.balance)}</strong>
-                </p>
-                <div className="space-y-1">
-                  <Label className="text-xs">{t('payment.amount_paid')}</Label>
-                  <Input
-                    type="number"
-                    value={validateAmount}
-                    onChange={e => setValidateAmount(e.target.value)}
-                    autoFocus
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">{t('payment.method')}</Label>
-                  <Select value={validateMethod} onValueChange={setValidateMethod}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cash">{t('payment.cash')}</SelectItem>
-                      <SelectItem value="transfer">{t('payment.transfer')}</SelectItem>
-                      <SelectItem value="paystack">{t('payment.paystack')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
-            )}
-          </div>
-
-          <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" onClick={() => setDialog(null)}>{t('actions.cancel')}</Button>
-            <Button
-              size="sm"
-              loading={actionLoading}
-              onClick={doAction}
-              className={
-                dialog?.type === 'cancel' ? 'bg-amber-600 hover:bg-amber-700' :
-                'bg-green-600 hover:bg-green-700'
-              }
-            >
-              {dialog?.type === 'cancel' && t('actions.confirm')}
-              {dialog?.type === 'validate' && t('sales.validate_payment_action')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          {dialog?.type === 'validate' && dialog.sale && (
+            <>
+              <p className="text-sm text-muted-foreground">
+                {t('sales.remaining_balance_label')}: <strong>{formatNaira(dialog.sale.balance)}</strong>
+              </p>
+              <div className="space-y-1">
+                <Label className="text-xs">{t('payment.amount_paid')}</Label>
+                <Input
+                  type="number"
+                  value={validateAmount}
+                  onChange={e => setValidateAmount(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{t('payment.method')}</Label>
+                <Select value={validateMethod} onValueChange={setValidateMethod}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">{t('payment.cash')}</SelectItem>
+                    <SelectItem value="transfer">{t('payment.transfer')}</SelectItem>
+                    <SelectItem value="paystack">{t('payment.paystack')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
+        </PremiumDialogBody>
+        <PremiumDialogFooter
+          onCancel={() => setDialog(null)}
+          cancelLabel={t('actions.cancel')}
+        >
+          <Button
+            className={`flex-1 h-11 rounded-xl font-semibold text-white border-0 ${dialog?.type === 'cancel' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-green-600 hover:bg-green-700'}`}
+            loading={actionLoading}
+            onClick={doAction}
+          >
+            {dialog?.type === 'cancel' ? t('actions.confirm') : t('sales.validate_payment_action')}
+          </Button>
+        </PremiumDialogFooter>
+      </PremiumDialog>
     </div>
   )
 }

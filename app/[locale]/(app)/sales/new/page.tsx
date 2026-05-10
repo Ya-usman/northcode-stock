@@ -16,7 +16,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { PremiumDialog, PremiumDialogBody } from '@/components/ui/premium-dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { useCurrency } from '@/lib/hooks/use-currency'
@@ -61,7 +62,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null)
   const [shopPickerOpen, setShopPickerOpen] = useState(false)
   const selectedShop = userShops.find(s => s.id === (selectedShopId || shop?.id)) || shop
-  const { fmt: formatNaira } = useCurrency()
+  const { fmt: formatNaira, symbol } = useCurrency()
   const supabase = createClient()
   const { toast } = useToast()
   const searchRef = useRef<HTMLInputElement>(null)
@@ -1352,71 +1353,68 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       </Dialog>
 
       {/* Drafts modal */}
-      <Dialog open={showDrafts} onOpenChange={setShowDrafts}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-amber-500" />
-              Factures en attente
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {shopDrafts.map(draft => {
-              const draftTotal = draft.cart.reduce((s, i) => s + i.subtotal, 0) - draft.discount
-              const itemCount = draft.cart.reduce((s, i) => s + i.quantity, 0)
-              return (
-                <div key={draft.id} className="rounded-xl border bg-card p-3 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-semibold">{draft.customerName || 'Client anonyme'}</p>
-                      {draft.customerPhone && <p className="text-xs text-muted-foreground">{draft.customerPhone}</p>}
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {itemCount} article{itemCount > 1 ? 's' : ''} ·{' '}
-                        {new Date(draft.createdAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(draftTotal)}</p>
-                    </div>
+      <PremiumDialog
+        open={showDrafts}
+        onOpenChange={setShowDrafts}
+        category="Ventes"
+        title="Factures en attente"
+        icon={<Clock className="h-4 w-4" />}
+      >
+        <PremiumDialogBody className="space-y-2 max-h-80 overflow-y-auto">
+          {shopDrafts.map(draft => {
+            const draftTotal = draft.cart.reduce((s, i) => s + i.subtotal, 0) - draft.discount
+            const itemCount = draft.cart.reduce((s, i) => s + i.quantity, 0)
+            return (
+              <div key={draft.id} className="rounded-xl border bg-card p-3 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-semibold">{draft.customerName || 'Client anonyme'}</p>
+                    {draft.customerPhone && <p className="text-xs text-muted-foreground">{draft.customerPhone}</p>}
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {itemCount} article{itemCount > 1 ? 's' : ''} ·{' '}
+                      {new Date(draft.createdAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
+                    </p>
                   </div>
-                  <div className="text-xs text-muted-foreground truncate">
-                    {draft.cart.map(i => `${i.product.name} ×${i.quantity}`).join(', ')}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" className="flex-1 h-8 bg-stockshop-blue dark:bg-blue-500 gap-1" onClick={() => resumeDraft(draft)}>
-                      <PlayCircle className="h-3.5 w-3.5" /> Reprendre
-                    </Button>
-                    <Button size="sm" variant="outline" className="h-8 border-red-200 text-red-500 hover:bg-red-50"
-                      onClick={() => deleteDraft(draft.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                  <div className="text-right flex-shrink-0">
+                    <p className="font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(draftTotal)}</p>
                   </div>
                 </div>
-              )
-            })}
-          </div>
-        </DialogContent>
-      </Dialog>
+                <div className="text-xs text-muted-foreground truncate">
+                  {draft.cart.map(i => `${i.product.name} ×${i.quantity}`).join(', ')}
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" className="flex-1 h-8 bg-stockshop-blue dark:bg-blue-500 gap-1" onClick={() => resumeDraft(draft)}>
+                    <PlayCircle className="h-3.5 w-3.5" /> Reprendre
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-8 border-red-200 text-red-500 hover:bg-red-50"
+                    onClick={() => deleteDraft(draft.id)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            )
+          })}
+        </PremiumDialogBody>
+      </PremiumDialog>
 
       {/* Receipt Modal */}
-      <Dialog open={showReceipt} onOpenChange={setShowReceipt}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-500" />
-              {t('sales.receipt_ready')}
-            </DialogTitle>
-          </DialogHeader>
+      <PremiumDialog
+        open={showReceipt}
+        onOpenChange={setShowReceipt}
+        category="Ventes"
+        title={t('sales.receipt_ready')}
+        icon={<CheckCircle className="h-4 w-4" />}
+      >
+        <PremiumDialogBody>
           {completedSale && (
             <div className="space-y-4">
               <div className="rounded-lg bg-muted/40 border p-4 text-sm space-y-2">
-                {/* Shop header */}
                 <div className="flex items-center gap-2 pb-2 border-b">
                   {selectedShop?.logo_url ? (
                     <img src={selectedShop.logo_url} alt={selectedShop.name} className="h-8 w-8 object-contain rounded" />
                   ) : (
                     <div className="h-8 w-8 rounded bg-blue-600 dark:bg-blue-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                      {selectedShop?.name?.slice(0, 2).toUpperCase() || 'NC'}
+                      {selectedShop?.name?.slice(0, 2).toUpperCase() || 'SS'}
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
@@ -1458,14 +1456,14 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   <Printer className="h-4 w-4" /> {t('actions.print_receipt')}
                 </Button>
               </div>
-              <Button className="w-full bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500 dark:hover:bg-blue-600"
+              <Button className="w-full h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500 dark:hover:bg-blue-600"
                 onClick={() => { setShowReceipt(false) }}>
                 {t('sales.new_sale_cta')}
               </Button>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </PremiumDialogBody>
+      </PremiumDialog>
     </div>
   )
 }

@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { useForm } from 'react-hook-form'
@@ -377,121 +377,80 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       )}
 
       {/* Add Product Modal */}
-      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{t('actions.add_product')}</DialogTitle></DialogHeader>
-          {showAddModal && (
-            <ProductForm
-              key="add"
-              {...productFormProps}
-              onSubmit={onAddProduct}
-              onCancel={() => setShowAddModal(false)}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      <PremiumDialog open={showAddModal} onOpenChange={setShowAddModal} category={t('nav.stock')} title={t('actions.add_product')} icon={<Package className="h-4 w-4" />} maxWidth="max-w-lg">
+        <div className="p-5">
+          {showAddModal && <ProductForm key="add" {...productFormProps} onSubmit={onAddProduct} onCancel={() => setShowAddModal(false)} />}
+        </div>
+      </PremiumDialog>
 
       {/* Edit Product Modal */}
-      <Dialog open={!!editingProduct} onOpenChange={open => !open && setEditingProduct(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{t('products.edit_title')}</DialogTitle></DialogHeader>
+      <PremiumDialog open={!!editingProduct} onOpenChange={open => !open && setEditingProduct(null)} category={t('nav.stock')} title={t('products.edit_title')} icon={<Edit2 className="h-4 w-4" />} maxWidth="max-w-lg">
+        <div className="p-5">
           {editingProduct && (
-          <ProductForm
-            key={editingProduct.id}
-            {...productFormProps}
-            isEdit
-            defaultValues={editingProduct ? {
-              name: editingProduct.name,
-              name_hausa: editingProduct.name_hausa || '',
-              category_id: editingProduct.category_id || '',
-              supplier_id: editingProduct.supplier_id || '',
-              buying_price: editingProduct.buying_price,
-              selling_price: editingProduct.selling_price,
-              quantity: editingProduct.quantity,
-              unit: editingProduct.unit,
-              low_stock_threshold: editingProduct.low_stock_threshold || undefined,
-            } : undefined}
-            onSubmit={onEditProduct}
-            onCancel={() => setEditingProduct(null)}
-          />
+            <ProductForm key={editingProduct.id} {...productFormProps} isEdit
+              defaultValues={{ name: editingProduct.name, name_hausa: editingProduct.name_hausa || '', category_id: editingProduct.category_id || '', supplier_id: editingProduct.supplier_id || '', buying_price: editingProduct.buying_price, selling_price: editingProduct.selling_price, quantity: editingProduct.quantity, unit: editingProduct.unit, low_stock_threshold: editingProduct.low_stock_threshold || undefined }}
+              onSubmit={onEditProduct} onCancel={() => setEditingProduct(null)}
+            />
           )}
-        </DialogContent>
-      </Dialog>
+        </div>
+      </PremiumDialog>
 
       {/* Categories Modal */}
-      <Dialog open={showCatModal} onOpenChange={setShowCatModal}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{t('products.manage_categories')}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div className="flex gap-2">
-              <Input
-                value={newCatName}
-                onChange={e => setNewCatName(e.target.value)}
-                placeholder={t('categories.add_placeholder')}
-                onKeyDown={e => e.key === 'Enter' && addCategory()}
-              />
-              <Button onClick={addCategory} loading={savingCat} className="bg-stockshop-blue dark:bg-blue-500 shrink-0">
-                <Plus className="h-4 w-4 mr-1" /> {t('categories.add')}
-              </Button>
-            </div>
-            <div className="space-y-1 max-h-60 overflow-y-auto">
-              {categories.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">{t('categories.none')}</p>
-              )}
-              {categories.map(c => (
-                <div key={c.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-                  <span>{c.name}</span>
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => deleteCategory(c.id)}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ))}
-            </div>
+      <PremiumDialog open={showCatModal} onOpenChange={setShowCatModal} category={t('nav.stock')} title={t('products.manage_categories')} icon={<Settings2 className="h-4 w-4" />}>
+        <PremiumDialogBody>
+          <div className="flex gap-2">
+            <Input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder={t('categories.add_placeholder')} onKeyDown={e => e.key === 'Enter' && addCategory()} />
+            <Button onClick={addCategory} loading={savingCat} className="bg-stockshop-blue dark:bg-blue-500 shrink-0 rounded-xl">
+              <Plus className="h-4 w-4" />
+            </Button>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCatModal(false)}>{t('actions.close')}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <div className="space-y-1 max-h-52 overflow-y-auto">
+            {categories.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">{t('categories.none')}</p>}
+            {categories.map(c => (
+              <div key={c.id} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm bg-muted/30">
+                <span>{c.name}</span>
+                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => deleteCategory(c.id)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </PremiumDialogBody>
+        <PremiumDialogFooter onCancel={() => setShowCatModal(false)} cancelLabel={t('actions.close')} />
+      </PremiumDialog>
 
       {/* Restock Modal */}
-      <Dialog open={showRestockModal} onOpenChange={setShowRestockModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('products.restock_title')}: {restockProduct?.name}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={restockForm.handleSubmit(onRestock)} className="space-y-4">
+      <PremiumDialog open={showRestockModal} onOpenChange={setShowRestockModal} category={t('products.restock_title')} title={restockProduct?.name || ''} icon={<ArrowDown className="h-4 w-4" />}>
+        <form onSubmit={restockForm.handleSubmit(onRestock)}>
+          <PremiumDialogBody>
             <input type="hidden" {...restockForm.register('product_id')} />
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <Label>{t('products.quantity_to_add')} *</Label>
               <Input type="number" min={1} {...restockForm.register('quantity')} />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <Label>{t('products.supplier')}</Label>
               <Select onValueChange={v => restockForm.setValue('supplier_id', v)}>
                 <SelectTrigger><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
-                <SelectContent>
-                  {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                </SelectContent>
+                <SelectContent>{suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <Label>{t('products.restock_buying_price')}</Label>
                 <Input type="number" {...restockForm.register('buying_price')} placeholder={String(restockProduct?.buying_price)} />
               </div>
             )}
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <Label>{t('products.notes_label')}</Label>
               <Input {...restockForm.register('notes')} placeholder={t('products.notes_placeholder')} />
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setShowRestockModal(false)}>{t('actions.cancel')}</Button>
-              <Button type="submit" loading={saving} className="bg-blue-600 dark:bg-blue-500">{t('actions.restock')}</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+          </PremiumDialogBody>
+          <PremiumDialogFooter onCancel={() => setShowRestockModal(false)} cancelLabel={t('actions.cancel')}>
+            <Button type="submit" loading={saving} className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500">{t('actions.restock')}</Button>
+          </PremiumDialogFooter>
+        </form>
+      </PremiumDialog>
     </div>
   )
 }
