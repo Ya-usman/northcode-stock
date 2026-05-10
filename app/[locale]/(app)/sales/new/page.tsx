@@ -486,29 +486,34 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         }
       }
 
-      const { data: sale, error: saleError } = await db
-        .from('sales')
-        .insert({
-          shop_id: selectedShop!.id,
-          customer_id: customerId,
-          cashier_id: profile!.id,
-          subtotal,
-          discount: discountAmt,
-          tax,
-          total,
-          payment_method: paymentMethod,
-          payment_status: methodType === 'credit'
-            ? 'pending'
-            : balance > 0 ? (paid > 0 ? 'partial' : 'pending') : 'paid',
-          // Start at 0 — the DB trigger (after_payment_insert) will add the payment amount.
-          // Setting paid here would cause the trigger to double it.
-          amount_paid: 0,
-          sale_status: 'active',
-          notes: notes || null,
-          paystack_reference: methodType === 'card' ? `PAY-${Date.now()}` : null,
-        })
-        .select()
-        .single()
+      const salePayload = {
+        shop_id: selectedShop!.id,
+        customer_id: customerId,
+        cashier_id: profile!.id,
+        subtotal,
+        discount: discountAmt,
+        tax,
+        total,
+        payment_method: paymentMethod,
+        payment_status: methodType === 'credit'
+          ? 'pending'
+          : balance > 0 ? (paid > 0 ? 'partial' : 'pending') : 'paid',
+        amount_paid: 0,
+        sale_status: 'active',
+        notes: notes || null,
+        paystack_reference: methodType === 'card' ? `PAY-${Date.now()}` : null,
+      }
+
+      // Retry up to 3 times on duplicate sale_number (race condition under concurrent inserts)
+      let sale: any = null
+      let saleError: any = null
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const res = await db.from('sales').insert(salePayload).select().single()
+        if (!res.error || res.error?.code !== '23505') {
+          sale = res.data; saleError = res.error; break
+        }
+        await new Promise(r => setTimeout(r, 50 + attempt * 100))
+      }
 
       if (saleError || !sale) throw saleError || new Error('Erreur création vente')
 
