@@ -94,14 +94,17 @@ async function buildReceiptDoc(data: ReceiptData) {
     doc.setTextColor(255, 255, 255)
     doc.setFontSize(14)
     doc.setFont('helvetica', 'bold')
-    doc.text(shop.name.slice(0, 2).toUpperCase(), margin + 10, y + 13, { align: 'center' })
+    doc.text(shopInitials(shop.name), margin + 10, y + 13, { align: 'center' })
   }
 
-  // Shop name + info
+  // For Arabic/RTL shop names, Helvetica can't render them — show city instead
+  const shopNameDisplay = containsRTL(shop.name)
+    ? `${shop.city}${shop.state ? ', ' + shop.state : ''}`
+    : sanitizePDF(shop.name)
   doc.setTextColor(10, 47, 110)
   doc.setFontSize(14)
   doc.setFont('helvetica', 'bold')
-  doc.text(shop.name, margin + 24, y + 7)
+  doc.text(shopNameDisplay, margin + 24, y + 7)
   doc.setTextColor(80, 80, 80)
   doc.setFontSize(8)
   doc.setFont('helvetica', 'normal')
@@ -274,11 +277,24 @@ export async function generateReceiptPDFBlob(data: ReceiptData): Promise<Blob> {
 function sanitizePDF(value: string | number): string {
   return String(value)
     .replace(/₦/g, 'NGN ')
-    .replace(/\u20a6/g, 'NGN ')
-    // Fix fr-FR thin non-breaking space (U+202F) used by toLocaleString → plain space
-    .replace(/\u202f/g, ' ')
-    // Fix regular non-breaking space (U+00A0) → plain space
-    .replace(/\u00a0/g, ' ')
+    .replace(/₦/g, 'NGN ')
+    .replace(/ /g, ' ')
+    .replace(/ /g, ' ')
+    // Strip chars Helvetica cannot encode (Arabic, CJK, etc.) — prevents mojibake
+    .replace(/[^ -ÿ]/g, '')
+}
+
+/** True when text contains Arabic/RTL characters */
+function containsRTL(text: string): boolean {
+  return /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷏ﹰ-﻿]/.test(text)
+}
+
+/** Safe 2-letter initials from any shop name, including Arabic */
+function shopInitials(name: string): string {
+  const latin = name.replace(/[^ -ÿ]/g, '').replace(/s+/g, '').trim()
+  if (latin.length >= 2) return latin.slice(0, 2).toUpperCase()
+  if (latin.length === 1) return latin.toUpperCase()
+  return 'SH'
 }
 
 interface DebtReceiptLabels {

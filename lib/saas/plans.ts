@@ -60,7 +60,7 @@ export const PLANS: Record<PlanId, Plan> = {
     id: 'pro',
     name: 'Pro',
     price_monthly: 9999,
-    limits: { products: -1, team_members: 5, history_days: 365, shops: 3 },
+    limits: { products: -1, team_members: 5, history_days: 365, shops: 2 },
     features: {
       reports: true,
       export_csv: true,
