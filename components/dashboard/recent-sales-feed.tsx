@@ -108,7 +108,11 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
   const debtSaleIds = new Set(debtSaleItems.map(s => s.id))
 
   // Repayments for already-paid sales (not in debtSaleItems) — show standalone
-  const standaloneRepayments = repaymentItems.filter(r => !debtSaleIds.has(r.sale_id))
+  // Exclude repayments whose sale now appears in salesItems (fully paid, shown in Ventes tab already)
+  const salesItemIds = new Set(salesItems.map(s => s.id))
+  const standaloneRepayments = repaymentItems.filter(r =>
+    !debtSaleIds.has(r.sale_id) && !salesItemIds.has(r.sale_id)
+  )
   const latestByStandalone = new Map<string, RepaymentFeedItem>()
   for (const r of standaloneRepayments) {
     const ex = latestByStandalone.get(r.sale_id)
