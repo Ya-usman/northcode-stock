@@ -311,63 +311,79 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                 const paid = (r.totalDebt ?? 0) - (r.remainingBalance ?? 0)
                 const pct = r.totalDebt ? Math.min(100, (paid / r.totalDebt) * 100) : 100
                 const totalPaidToday = allR.reduce((s, x) => s + x.amount, 0)
+                const isExpanded = expandedSaleId === r.sale_id
                 return (
                   <motion.div key={`r-${r.id}`}
                     initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.3, delay: idx * 0.03 }}
-                    className="px-4 py-3 hover:bg-muted/30 transition-colors">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
-                        {r.sale_number && (
-                          <span className="text-xs font-mono font-semibold text-northcode-blue dark:text-blue-400">
-                            #{r.sale_number}
-                          </span>
+                    transition={{ duration: 0.3, delay: idx * 0.03 }}>
+
+                    <button
+                      className="w-full px-4 py-3 hover:bg-muted/30 transition-colors text-left"
+                      onClick={() => setExpandedSaleId(isExpanded ? null : r.sale_id)}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
+                          {r.sale_number && (
+                            <span className="text-xs font-mono font-semibold text-northcode-blue dark:text-blue-400">
+                              #{r.sale_number}
+                            </span>
+                          )}
+                          <Badge variant={isPartial ? 'warning' : 'success'} className="text-[10px] px-1.5 py-0">
+                            {isPartial ? t('status.partial') : t('status.paid')}
+                          </Badge>
+                          {allR.length > 0 && !isExpanded && (
+                            <span className="text-[9px] text-muted-foreground">{allR.length} paiement{allR.length > 1 ? 's' : ''} ▾</span>
+                          )}
+                        </div>
+                        {role !== 'viewer' && (
+                          <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 flex-shrink-0">
+                            +{formatNaira(totalPaidToday)}
+                          </p>
                         )}
-                        <Badge variant={isPartial ? 'warning' : 'success'} className="text-[10px] px-1.5 py-0">
-                          {isPartial ? t('status.partial') : t('status.paid')}
-                        </Badge>
                       </div>
-                      {role !== 'viewer' && (
-                        <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 flex-shrink-0">
-                          +{formatNaira(totalPaidToday)}
-                        </p>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                        {r.customerName} ·{' '}
+                        {new Date(r.paid_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                      {r.totalDebt !== undefined && r.totalDebt > 0 && (
+                        <DebtGauge pct={pct} remaining={r.remainingBalance} fmt={formatNaira} t={t} />
                       )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      {r.customerName} ·{' '}
-                      {new Date(r.paid_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                    {r.totalDebt !== undefined && r.totalDebt > 0 && (
-                      <DebtGauge pct={pct} remaining={r.remainingBalance} fmt={formatNaira} t={t} />
-                    )}
-                    {/* All individual repayments today */}
-                    {allR.length > 1 && (
-                      <div className="mt-1.5 space-y-1">
-                        {allR.map(x => (
-                          <div key={x.id} className="flex items-center justify-between gap-2 rounded-lg bg-green-50 dark:bg-green-950/20 px-2.5 py-1">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-green-600 text-xs">✓</span>
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-card border-green-200">
-                                {methodLabel(x.method, t)}
-                              </Badge>
-                              <span className="text-[10px] text-muted-foreground">
-                                {new Date(x.paid_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                            </div>
-                            {role !== 'viewer' && (
-                              <span className="text-xs font-bold text-green-600">+{formatNaira(x.amount)}</span>
+                    </button>
+
+                    <AnimatePresence>
+                      {isExpanded && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden border-t bg-muted/20">
+                          <div className="px-4 py-2 space-y-1.5">
+                            {allR.map(x => (
+                              <div key={x.id} className="flex items-center justify-between gap-2 rounded-lg bg-green-50 dark:bg-green-950/20 px-2.5 py-1.5">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="text-green-600 text-xs">✓</span>
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-card border-green-200">
+                                    {methodLabel(x.method, t)}
+                                  </Badge>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {new Date(x.paid_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                </div>
+                                {role !== 'viewer' && (
+                                  <span className="text-xs font-bold text-green-600 flex-shrink-0">+{formatNaira(x.amount)}</span>
+                                )}
+                              </div>
+                            ))}
+                            {role !== 'viewer' && allR.length > 1 && (
+                              <div className="flex justify-between text-[10px] pt-1 border-t">
+                                <span className="text-muted-foreground">Total remboursé</span>
+                                <span className="font-semibold text-green-600">+{formatNaira(totalPaidToday)}</span>
+                              </div>
                             )}
                           </div>
-                        ))}
-                      </div>
-                    )}
-                    {allR.length === 1 && (
-                      <div className="mt-1 flex items-center gap-1.5">
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                          {methodLabel(r.method, t)}
-                        </Badge>
-                      </div>
-                    )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </motion.div>
                 )
               })}
