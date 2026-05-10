@@ -683,7 +683,10 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
   // ── RENDER ──────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-full gap-4 max-w-2xl mx-auto">
+    <div className="flex flex-col gap-4 max-w-2xl mx-auto w-full md:max-w-none md:flex-row md:gap-0 md:h-screen md:overflow-hidden">
+
+      {/* ── LEFT column: search + products ── */}
+      <div className="flex flex-col gap-3 md:flex-1 md:overflow-y-auto md:p-5 md:border-r md:border-border md:min-h-0">
 
       {/* Shop selector */}
       {isOwner && userShops.length > 1 && (
@@ -802,7 +805,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       <AnimatePresence>
         {(products.length > 0 || searchQuery) && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-            <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+            <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto md:max-h-none md:grid-cols-3">
               {filteredProducts.slice(0, 50).map(product => (
                 <button key={product.id} onClick={() => addToCart(product)}
                   className="flex flex-col items-start text-left rounded-lg border bg-card p-3 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors tap-target"
@@ -835,9 +838,14 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         )}
       </AnimatePresence>
 
+      </div>{/* end LEFT column */}
+
+      {/* ── RIGHT column: cart + payment ── */}
+      <div className="flex flex-col gap-3 md:w-[400px] md:overflow-y-auto md:p-5 md:shrink-0 md:min-h-0">
+
       {/* Cart */}
       {cart.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-center py-12 text-muted-foreground">
+        <div className="flex-1 flex flex-col items-center justify-center text-center py-12 text-muted-foreground md:py-20">
           <div className="text-4xl mb-3">🛒</div>
           <p className="font-medium">{t('sales.cart_empty')}</p>
           <p className="text-sm mt-1">Cherche ou scanne un produit pour commencer</p>
@@ -1264,6 +1272,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           </div>
         </div>
       )}
+
+      </div>{/* end RIGHT column */}
 
       {/* Price edit modal */}
       <Dialog open={!!priceModalItem} onOpenChange={open => { if (!open) setPriceModalItem(null) }}>
