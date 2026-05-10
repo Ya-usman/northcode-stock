@@ -98,21 +98,23 @@ async function buildReceiptDoc(data: ReceiptData) {
   }
 
   const latinName = sanitizePDF(shop.name).trim()
+  const hasArabic = containsRTL(shop.name)
   const cityText = `${shop.city}, ${shop.state || 'Nigeria'}`
-  const shopNameDisplay = latinName || cityText
   doc.setTextColor(10, 47, 110)
   doc.setFontSize(14)
   doc.setFont('helvetica', 'bold')
-  doc.text(shopNameDisplay, margin + 24, y + 7)
+  if (hasArabic) {
+    const arabicImg = await renderArabicNameImage(shop.name, '#0a2f6e')
+    if (arabicImg) doc.addImage(arabicImg, 'PNG', margin + 24, y + 1.5, 80, 6)
+    else doc.text(latinName || cityText, margin + 24, y + 7)
+  } else {
+    doc.text(latinName || cityText, margin + 24, y + 7)
+  }
   doc.setTextColor(80, 80, 80)
   doc.setFontSize(8)
   doc.setFont('helvetica', 'normal')
-  if (latinName) {
-    doc.text(cityText, margin + 24, y + 12)
-    if (shop.whatsapp) doc.text(`WhatsApp: ${shop.whatsapp}`, margin + 24, y + 17)
-  } else {
-    if (shop.whatsapp) doc.text(`WhatsApp: ${shop.whatsapp}`, margin + 24, y + 12)
-  }
+  doc.text(cityText, margin + 24, y + 12)
+  if (shop.whatsapp) doc.text(`WhatsApp: ${shop.whatsapp}`, margin + 24, y + 17)
 
   y += 26
 
@@ -293,6 +295,31 @@ function shopInitials(name: string): string {
   return 'SH'
 }
 
+/** True when text contains Arabic/RTL characters */
+function containsRTL(text: string): boolean {
+  return /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/.test(text)
+}
+
+/** Render Arabic (or any RTL) text to a PNG via canvas — browser handles shaping/RTL natively */
+async function renderArabicNameImage(text: string, color: string): Promise<string | null> {
+  try {
+    const canvas = document.createElement('canvas')
+    canvas.width = 800
+    canvas.height = 60
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+    ctx.font = 'bold 36px "Segoe UI", "Noto Sans Arabic", Arial, sans-serif'
+    ctx.fillStyle = color
+    ctx.textBaseline = 'middle'
+    ctx.direction = 'rtl'
+    ctx.textAlign = 'right'
+    ctx.fillText(text, 790, 30)
+    return canvas.toDataURL('image/png').split(',')[1]
+  } catch {
+    return null
+  }
+}
+
 /** Strip non-Latin1 prefix from sale numbers (e.g. Arabic prefix) for PDF display */
 function sanitizeSaleNumber(saleNumber: string): string {
   const s = sanitizePDF(saleNumber).replace(/^[-\s]+/, '')
@@ -398,21 +425,23 @@ async function buildDebtReceiptDoc(data: DebtReceiptData) {
   }
 
   const latinNameD = sanitizePDF(shop.name).trim()
+  const hasArabicD = containsRTL(shop.name)
   const cityTextD = `${shop.city}, ${shop.state || 'Nigeria'}`
-  const shopNameDisplayD = latinNameD || cityTextD
   doc.setTextColor(10, 47, 110)
   doc.setFontSize(14)
   doc.setFont('helvetica', 'bold')
-  doc.text(shopNameDisplayD, margin + 24, y + 7)
+  if (hasArabicD) {
+    const arabicImgD = await renderArabicNameImage(shop.name, '#0a2f6e')
+    if (arabicImgD) doc.addImage(arabicImgD, 'PNG', margin + 24, y + 1.5, 80, 6)
+    else doc.text(latinNameD || cityTextD, margin + 24, y + 7)
+  } else {
+    doc.text(latinNameD || cityTextD, margin + 24, y + 7)
+  }
   doc.setTextColor(80, 80, 80)
   doc.setFontSize(8)
   doc.setFont('helvetica', 'normal')
-  if (latinNameD) {
-    doc.text(cityTextD, margin + 24, y + 12)
-    if (shop.whatsapp) doc.text(`WhatsApp: ${shop.whatsapp}`, margin + 24, y + 17)
-  } else {
-    if (shop.whatsapp) doc.text(`WhatsApp: ${shop.whatsapp}`, margin + 24, y + 12)
-  }
+  doc.text(cityTextD, margin + 24, y + 12)
+  if (shop.whatsapp) doc.text(`WhatsApp: ${shop.whatsapp}`, margin + 24, y + 17)
 
   y += 26
 
