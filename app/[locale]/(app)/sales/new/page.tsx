@@ -804,6 +804,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       )}
 
       </div>{/* end sticky header */}
+
+      {/* Product grid scroll wrapper */}
+      <div className="flex-1 md:overflow-y-auto md:px-5 md:pb-5">
       {/* Product grid */}
       <AnimatePresence>
         {(products.length > 0 || searchQuery) && (
