@@ -81,6 +81,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const [paymentMethod, setPaymentMethod] = useState<string>('cash')
   const [amountPaid, setAmountPaid] = useState('')
   const [transferRef, setTransferRef] = useState('')
+  const [splitPayment, setSplitPayment] = useState(false)
+  const [splitMethod2, setSplitMethod2] = useState<string>('')
   const [notes, setNotes] = useState('')
   const { isOnline, refreshPendingCount } = useOffline()
   const [completing, setCompleting] = useState(false)
@@ -275,6 +277,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     setCustomerPhone('')
     setNotes('')
     setTransferRef('')
+    setSplitPayment(false)
+    setSplitMethod2('')
     setActiveDraftId(null)
     setDebtRepayEnabled(false)
     setDebtRepayAmount('')
@@ -381,8 +385,20 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     if (methodType === 'credit' && !selectedCustomer && !customerName.trim()) {
       toast({ title: t('toast.customer_required_credit'), variant: 'destructive' }); return
     }
-    if (methodType === 'cash' && Number(amountPaid) < totalToCollect) {
+    if (!splitPayment && methodType === 'cash' && Number(amountPaid) < totalToCollect) {
       toast({ title: t('toast.insufficient_amount', { amount: formatNaira(totalToCollect) }), variant: 'destructive' }); return
+    }
+    if (splitPayment) {
+      const amt1 = Number(amountPaid) || 0
+      if (amt1 <= 0) {
+        toast({ title: 'Entrez le montant du 1er paiement', variant: 'destructive' }); return
+      }
+      if (amt1 >= totalToCollect) {
+        toast({ title: 'Ce montant couvre déjà tout le total — désactivez le paiement mixte', variant: 'destructive' }); return
+      }
+      if (!splitMethod2) {
+        toast({ title: 'Choisissez le 2ème moyen de paiement', variant: 'destructive' }); return
+      }
     }
 
     setCompleting(true)
@@ -494,10 +510,12 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         discount: discountAmt,
         tax,
         total,
-        payment_method: paymentMethod,
-        payment_status: methodType === 'credit'
-          ? 'pending'
-          : balance > 0 ? (paid > 0 ? 'partial' : 'pending') : 'paid',
+        payment_method: splitPayment ? 'mixed' : paymentMethod,
+        payment_status: splitPayment
+          ? 'paid'
+          : methodType === 'credit'
+            ? 'pending'
+            : balance > 0 ? (paid > 0 ? 'partial' : 'pending') : 'paid',
         amount_paid: 0,
         sale_status: 'active',
         notes: notes || null,
@@ -531,7 +549,14 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       )
       if (itemsError) throw itemsError
 
-      if (methodType !== 'credit' && paid > 0) {
+      if (splitPayment) {
+        const amt1 = Math.min(Number(amountPaid) || 0, totalToCollect)
+        const amt2 = totalToCollect - amt1
+        const recs: any[] = []
+        if (amt1 > 0) recs.push({ sale_id: sale.id, amount: amt1, method: paymentMethod, reference: null, received_by: profile!.id })
+        if (amt2 > 0) recs.push({ sale_id: sale.id, amount: amt2, method: splitMethod2, reference: null, received_by: profile!.id })
+        if (recs.length > 0) await db.from('payments').insert(recs)
+      } else if (methodType !== 'credit' && paid > 0) {
         await db.from('payments').insert({
           sale_id: sale.id,
           amount: paid,
@@ -1018,10 +1043,17 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
           {/* Payment method */}
           <div className="space-y-1.5">
-            <Label>{t('payment.method')}</Label>
+            <Label>
+              {t('payment.method')}
+              {splitPayment && <span className="text-xs text-muted-foreground ml-1">(1er paiement)</span>}
+            </Label>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {getCountry(selectedShop?.country).paymentMethods.map(method => (
-                <button key={method.id} onClick={() => setPaymentMethod(method.id)}
+                <button key={method.id}
+                  onClick={() => {
+                    setPaymentMethod(method.id)
+                    if (splitMethod2 === method.id) setSplitMethod2('')
+                  }}
                   className={`rounded-lg border p-3 text-sm font-medium transition-colors tap-target text-left ${
                     paymentMethod === method.id
                       ? 'border-blue-500 bg-northcode-blue-muted dark:bg-blue-950/40 text-northcode-blue dark:text-blue-400'
@@ -1034,7 +1066,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             </div>
           </div>
 
-          {methodType === 'cash' && (
+          {/* Normal (non-split) payment sections */}
+          {!splitPayment && methodType === 'cash' && (
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label>{t('payment.amount_paid')}</Label>
@@ -1061,7 +1094,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             </div>
           )}
 
-          {(methodType === 'transfer' || methodType === 'mobile_money' || methodType === 'card') && (
+          {!splitPayment && (methodType === 'transfer' || methodType === 'mobile_money' || methodType === 'card') && (
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label>{t('payment.reference')}</Label>
@@ -1082,7 +1115,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             </div>
           )}
 
-          {methodType === 'credit' && (
+          {!splitPayment && methodType === 'credit' && (
             <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
               <p className="text-sm font-medium text-amber-700">
                 📝 Ajoute {formatNaira(total)} à la dette de{' '}
@@ -1090,6 +1123,86 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               </p>
               {!selectedCustomer && !customerName && (
                 <p className="text-xs text-amber-600 mt-1">Entre un nom client ci-dessus pour le crédit</p>
+              )}
+            </div>
+          )}
+
+          {/* Split payment toggle */}
+          {methodType !== 'credit' && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!splitPayment) {
+                  const other = getCountry(selectedShop?.country).paymentMethods
+                    .find(m => m.id !== paymentMethod && m.id !== 'credit')
+                  setSplitMethod2(other?.id || '')
+                }
+                setSplitPayment(!splitPayment)
+                setAmountPaid('')
+              }}
+              className="flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              {splitPayment ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+              {splitPayment ? 'Annuler le paiement mixte' : 'Paiement mixte (2 moyens)'}
+            </button>
+          )}
+
+          {/* Split payment UI */}
+          {splitPayment && (
+            <div className="rounded-lg border border-dashed border-blue-300 dark:border-blue-700 p-3 space-y-3">
+              {/* Amount for method 1 */}
+              <div className="space-y-1.5">
+                <Label className="text-sm">
+                  Montant payé en {getCountry(selectedShop?.country).paymentMethods.find(m => m.id === paymentMethod)?.label || paymentMethod}
+                </Label>
+                <div className="flex rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
+                  <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">{selectedShop?.currency || '₦'}</span>
+                  <input type="text" inputMode="numeric" pattern="[0-9]*"
+                    value={formatInputValue(amountPaid, selectedShop?.currency || '₦')}
+                    onChange={e => setAmountPaid(e.target.value.replace(/\D/g, ''))}
+                    className="flex-1 h-11 px-3 text-lg font-bold bg-card outline-none"
+                    placeholder="0" />
+                </div>
+              </div>
+
+              {/* Method 2 selector */}
+              <div className="space-y-1.5">
+                <Label className="text-sm">2ème moyen de paiement</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {getCountry(selectedShop?.country).paymentMethods
+                    .filter(m => m.id !== paymentMethod && m.id !== 'credit')
+                    .map(method => (
+                      <button key={method.id} type="button" onClick={() => setSplitMethod2(method.id)}
+                        className={`rounded-lg border p-2.5 text-sm font-medium transition-colors tap-target text-left ${
+                          splitMethod2 === method.id
+                            ? 'border-blue-500 bg-northcode-blue-muted dark:bg-blue-950/40 text-northcode-blue dark:text-blue-400'
+                            : 'border-input bg-card text-muted-foreground hover:bg-muted'
+                        }`}
+                      >
+                        {method.icon} {method.label}
+                      </button>
+                    ))
+                  }
+                </div>
+              </div>
+
+              {/* Computed amount for method 2 */}
+              {splitMethod2 && (
+                <div className="rounded-lg bg-muted p-3 flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Montant {getCountry(selectedShop?.country).paymentMethods.find(m => m.id === splitMethod2)?.label || splitMethod2}
+                  </span>
+                  <span className="font-bold text-lg text-northcode-blue dark:text-blue-400">
+                    {formatNaira(Math.max(0, totalToCollect - (Number(amountPaid) || 0)))}
+                  </span>
+                </div>
+              )}
+
+              {/* Warning if method 1 already covers everything */}
+              {(Number(amountPaid) || 0) >= totalToCollect && Number(amountPaid) > 0 && (
+                <p className="text-xs text-orange-500 text-center">
+                  Ce montant couvre déjà tout le total — pas besoin d'un 2ème paiement
+                </p>
               )}
             </div>
           )}
