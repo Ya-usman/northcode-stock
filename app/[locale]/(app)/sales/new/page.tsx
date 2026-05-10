@@ -97,6 +97,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
   // Raw quantity input values (allows clearing/retyping without snap-back)
   const [qtyInputs, setQtyInputs] = useState<Record<string, string>>({})
+  // Raw price input values per cart item (allows overriding unit price at sale time)
+  const [priceInputs, setPriceInputs] = useState<Record<string, string>>({})
 
   // Drafts (held invoices)
   const [drafts, setDrafts] = useState<Draft[]>([])
@@ -268,6 +270,14 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     setCart(prev => prev.filter(i => i.product.id !== productId))
   }
 
+  const updateItemPrice = (productId: string, newPrice: number) => {
+    setCart(prev => prev.map(item => {
+      if (item.product.id !== productId) return item
+      const price = Math.max(0, newPrice)
+      return { ...item, unit_price: price, subtotal: Math.round(item.quantity * price) }
+    }))
+  }
+
   const resetForm = () => {
     setCart([])
     setDiscount(0)
@@ -279,6 +289,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     setTransferRef('')
     setSplitPayment(false)
     setSplitMethod2('')
+    setPriceInputs({})
     setActiveDraftId(null)
     setDebtRepayEnabled(false)
     setDebtRepayAmount('')
@@ -839,7 +850,26 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                     <div className="flex items-center gap-3">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{item.product.name}</p>
-                        <p className="text-xs text-muted-foreground">{formatNaira(item.unit_price)} / unité</p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            title="Cliquer pour modifier le prix de vente"
+                            value={priceInputs[item.product.id] ?? formatInputValue(item.unit_price, selectedShop?.currency || '₦')}
+                            onChange={e => {
+                              const raw = e.target.value.replace(/\D/g, '')
+                              setPriceInputs(prev => ({ ...prev, [item.product.id]: raw }))
+                              if (raw) updateItemPrice(item.product.id, Number(raw))
+                            }}
+                            onBlur={() => setPriceInputs(prev => { const n = { ...prev }; delete n[item.product.id]; return n })}
+                            className="text-xs text-muted-foreground bg-transparent border-b border-dashed border-muted-foreground/40 focus:border-blue-500 focus:text-blue-600 dark:focus:text-blue-400 outline-none w-24 tabular-nums"
+                          />
+                          <span className="text-xs text-muted-foreground">/ unité</span>
+                          {item.unit_price !== item.product.selling_price && (
+                            <span className="text-[10px] text-amber-500 font-medium ml-0.5" title="Prix modifié">✎</span>
+                          )}
+                        </div>
                       </div>
                       {/* Quantity controls */}
                       <div className="flex items-center gap-1">
