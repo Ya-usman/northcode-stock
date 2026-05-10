@@ -216,7 +216,6 @@ export default function StockMovementsPage() {
                         <div className="flex items-center gap-1.5 text-sm font-semibold text-green-600 tabular-nums">
                           +{restockTotal}
                           <span className="text-[10px] font-normal text-muted-foreground">{p.restocks.length}×</span>
-                          <History className="h-3 w-3 text-muted-foreground" />
                         </div>
                       ) : <span className="text-muted-foreground text-sm">—</span>}
                     </div>
