@@ -42,11 +42,18 @@ export function DebtGauge({ pct, remaining, fmt, t }: {
 }) {
   const full = pct >= 99.9
   return (
-    <div className="mt-2">
-      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+    <div className="mt-1.5">
+      <div className="h-1 rounded-full bg-muted overflow-hidden">
         <div
-          className={cn('h-full rounded-full transition-all duration-500', full ? 'bg-green-500' : 'bg-orange-400')}
-          style={{ width: `${pct}%` }}
+          className="h-full rounded-full transition-all duration-500"
+          style={{
+            width: `${pct}%`,
+            background: full
+              ? '#22c55e'
+              : `linear-gradient(to right, #ef4444, #f97316 50%, #22c55e)`,
+            backgroundSize: '200% 100%',
+            backgroundPositionX: `${100 - pct}%`,
+          }}
         />
       </div>
       <div className="flex justify-between mt-0.5">
