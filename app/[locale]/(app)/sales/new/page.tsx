@@ -97,8 +97,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
   // Raw quantity input values (allows clearing/retyping without snap-back)
   const [qtyInputs, setQtyInputs] = useState<Record<string, string>>({})
-  // Raw price input values per cart item (allows overriding unit price at sale time)
-  const [priceInputs, setPriceInputs] = useState<Record<string, string>>({})
+  // Price edit modal
+  const [priceModalItem, setPriceModalItem] = useState<typeof cart[0] | null>(null)
+  const [priceModalInput, setPriceModalInput] = useState<string>('')
 
   // Drafts (held invoices)
   const [drafts, setDrafts] = useState<Draft[]>([])
@@ -273,7 +274,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const updateItemPrice = (productId: string, newPrice: number) => {
     setCart(prev => prev.map(item => {
       if (item.product.id !== productId) return item
-      const price = Math.max(0, newPrice)
+      const minPrice = Number(item.product.selling_price) || 0
+      const price = Math.max(minPrice, newPrice)
       return { ...item, unit_price: price, subtotal: Math.round(item.quantity * price) }
     }))
   }
@@ -289,7 +291,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     setTransferRef('')
     setSplitPayment(false)
     setSplitMethod2('')
-    setPriceInputs({})
+    setPriceModalItem(null)
     setActiveDraftId(null)
     setDebtRepayEnabled(false)
     setDebtRepayAmount('')
@@ -850,26 +852,20 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                     <div className="flex items-center gap-3">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{item.product.name}</p>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            title="Cliquer pour modifier le prix de vente"
-                            value={priceInputs[item.product.id] ?? formatInputValue(item.unit_price, selectedShop?.currency || '₦')}
-                            onChange={e => {
-                              const raw = e.target.value.replace(/\D/g, '')
-                              setPriceInputs(prev => ({ ...prev, [item.product.id]: raw }))
-                              if (raw) updateItemPrice(item.product.id, Number(raw))
-                            }}
-                            onBlur={() => setPriceInputs(prev => { const n = { ...prev }; delete n[item.product.id]; return n })}
-                            className="text-xs text-muted-foreground bg-transparent border-b border-dashed border-muted-foreground/40 focus:border-blue-500 focus:text-blue-600 dark:focus:text-blue-400 outline-none w-24 tabular-nums"
-                          />
-                          <span className="text-xs text-muted-foreground">/ unité</span>
-                          {item.unit_price !== item.product.selling_price && (
-                            <span className="text-[10px] text-amber-500 font-medium ml-0.5" title="Prix modifié">✎</span>
+                        <button
+                          type="button"
+                          onClick={() => { setPriceModalItem(item); setPriceModalInput(String(item.unit_price)) }}
+                          className="flex items-center gap-1.5 mt-0.5 text-left group"
+                        >
+                          <span className="text-xs text-muted-foreground group-hover:text-blue-600 transition-colors">
+                            {formatNaira(item.unit_price)} / unité
+                          </span>
+                          {item.unit_price !== item.product.selling_price ? (
+                            <span className="text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 px-1 rounded font-medium">modifié</span>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground/50 group-hover:text-blue-500 transition-colors">✎</span>
                           )}
-                        </div>
+                        </button>
                       </div>
                       {/* Quantity controls */}
                       <div className="flex items-center gap-1">
@@ -1267,6 +1263,67 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           </div>
         </div>
       )}
+
+      {/* Price edit modal */}
+      <Dialog open={!!priceModalItem} onOpenChange={open => { if (!open) setPriceModalItem(null) }}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Modifier le prix de vente</DialogTitle>
+          </DialogHeader>
+          {priceModalItem && (
+            <div className="space-y-4">
+              <p className="text-sm font-medium truncate">{priceModalItem.product.name}</p>
+              <div className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
+                Prix catalogue : <span className="font-semibold text-foreground">{formatNaira(priceModalItem.product.selling_price)}</span>
+                <span className="ml-1 text-xs">(minimum)</span>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Prix de vente réel</Label>
+                <div className="flex rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
+                  <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">
+                    {selectedShop?.currency || '₦'}
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    autoFocus
+                    value={formatInputValue(priceModalInput, selectedShop?.currency || '₦')}
+                    onChange={e => setPriceModalInput(e.target.value.replace(/\D/g, ''))}
+                    className="flex-1 h-14 px-3 text-2xl font-bold bg-card outline-none"
+                    placeholder={formatInputValue(priceModalItem.product.selling_price, selectedShop?.currency || '₦')}
+                  />
+                </div>
+                {Number(priceModalInput) > 0 && Number(priceModalInput) < priceModalItem.product.selling_price && (
+                  <p className="text-xs text-red-500 flex items-center gap-1">
+                    ⚠ Prix minimum : {formatNaira(priceModalItem.product.selling_price)}
+                  </p>
+                )}
+                {Number(priceModalInput) > priceModalItem.product.selling_price && (
+                  <p className="text-xs text-green-600">
+                    +{formatNaira(Number(priceModalInput) - priceModalItem.product.selling_price)} au-dessus du catalogue
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => setPriceModalItem(null)}>
+                  Annuler
+                </Button>
+                <Button
+                  className="flex-1 bg-northcode-blue hover:bg-northcode-blue-light"
+                  disabled={!priceModalInput || Number(priceModalInput) < priceModalItem.product.selling_price}
+                  onClick={() => {
+                    updateItemPrice(priceModalItem.product.id, Number(priceModalInput))
+                    setPriceModalItem(null)
+                  }}
+                >
+                  Confirmer
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Drafts modal */}
       <Dialog open={showDrafts} onOpenChange={setShowDrafts}>
