@@ -478,7 +478,8 @@
     "current_stock": "Current stock",
     "products_tracked": "Products tracked",
     "products_count": "products",
-    "restock_history": "Restock history"
+    "restock_history": "Restock history",
+    "product": "Product"
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",

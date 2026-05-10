@@ -478,7 +478,8 @@
     "current_stock": "Kaya yanzu",
     "products_tracked": "Kayayyaki",
     "products_count": "kayayyaki",
-    "restock_history": "Tarihin sabuntawa"
+    "restock_history": "Tarihin sabuntawa",
+    "product": "Kaya"
   },
   "errors": {
     "generic": "Wani abu ya faru. Don Allah a sake gwadawa.",

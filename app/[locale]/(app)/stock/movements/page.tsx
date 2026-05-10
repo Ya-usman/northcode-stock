@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTranslations } from 'next-intl'
-import { Search, Calendar, Package, TrendingUp, ChevronDown, ArrowRight } from 'lucide-react'
+import { Search, Calendar, Package, ChevronDown, ArrowRight } from 'lucide-react'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -38,13 +38,6 @@ interface ProductSummary {
 
 function fmtDate(d: string) {
   return format(new Date(d), "dd MMM yyyy 'à' HH:mm", { locale: fr })
-}
-
-function stockTextColor(qty: number | null) {
-  if (qty === null) return ''
-  if (qty === 0) return 'text-red-600'
-  if (qty <= 5) return 'text-amber-500'
-  return ''
 }
 
 export default function StockMovementsPage() {
@@ -144,103 +137,108 @@ export default function StockMovementsPage() {
 
       <p className="text-xs text-muted-foreground">{products.length} {t('products_count')}</p>
 
-      {/* Product list */}
-      <div className="space-y-2">
-        {loading ? (
-          [...Array(5)].map((_, i) => <Skeleton key={i} className="h-16" />)
-        ) : products.length === 0 ? (
-          <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-            {t('no_movements')}
+      {/* Table */}
+      {loading ? (
+        <div className="space-y-1">
+          {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-11" />)}
+        </div>
+      ) : products.length === 0 ? (
+        <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+          {t('no_movements')}
+        </div>
+      ) : (
+        <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+
+          {/* Header */}
+          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-4 py-2.5 border-b bg-muted/40">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {t('product')}
+            </span>
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground w-24 text-center">
+              {t('initial_stock')}
+            </span>
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground w-28 text-center">
+              {t('restocked')}
+            </span>
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground w-24 text-right">
+              {t('current_stock')}
+            </span>
           </div>
-        ) : (
-          products.map(p => {
-            const hasRestocks = p.restocks.length > 0
-            const restockTotal = p.restocks.reduce((s, m) => s + m.quantity, 0)
-            const isExpanded = expandedProduct === p.product_name
 
-            return (
-              <Card key={p.product_name} className="border-0 shadow-sm overflow-hidden">
+          {/* Rows */}
+          <div className="divide-y">
+            {products.map(p => {
+              const hasRestocks = p.restocks.length > 0
+              const restockTotal = p.restocks.reduce((s, m) => s + m.quantity, 0)
+              const isExpanded = expandedProduct === p.product_name
+              const qty = p.current_qty
+              const qtyColor = qty === 0 ? 'text-red-600' : qty != null && qty <= 5 ? 'text-amber-500' : ''
 
-                {/* Product header */}
-                <div className="flex items-center gap-2 px-4 pt-3 pb-0">
-                  <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                  <span className="font-semibold text-sm">{p.product_name}</span>
-                  {p.product_unit && (
-                    <span className="text-[10px] font-medium bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
-                      {p.product_unit}
-                    </span>
-                  )}
-                </div>
+              return (
+                <div key={p.product_name}>
+                  {/* Main row */}
+                  <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-4 py-2.5 items-center hover:bg-muted/20 transition-colors">
 
-                {/* Three stat columns */}
-                <div className="grid grid-cols-3 divide-x divide-border mt-2">
+                    {/* Product name */}
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                      <span className="text-sm font-medium truncate">{p.product_name}</span>
+                      {p.product_unit && (
+                        <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full flex-shrink-0">
+                          {p.product_unit}
+                        </span>
+                      )}
+                    </div>
 
-                  {/* Stock de base */}
-                  <div className="text-center px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-1">
-                      {t('initial_stock')}
-                    </p>
-                    <p className="text-lg font-bold tabular-nums">
-                      {p.initial_stock != null
-                        ? p.initial_stock
-                        : <span className="text-muted-foreground text-sm">—</span>}
-                    </p>
-                  </div>
+                    {/* Stock de base */}
+                    <div className="w-24 text-center">
+                      <span className="text-sm tabular-nums font-medium">
+                        {p.initial_stock != null
+                          ? p.initial_stock
+                          : <span className="text-muted-foreground">—</span>}
+                      </span>
+                    </div>
 
-                  {/* Réappro — cliquable */}
-                  <button
-                    disabled={!hasRestocks}
-                    onClick={() => hasRestocks && setExpandedProduct(isExpanded ? null : p.product_name)}
-                    className={cn(
-                      'text-center px-3 py-2 transition-colors',
-                      hasRestocks ? 'cursor-pointer hover:bg-muted/40' : 'cursor-default'
-                    )}
-                  >
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-1">
-                      {t('restocked')}
-                    </p>
-                    {hasRestocks ? (
-                      <div className="flex flex-col items-center gap-0.5">
-                        <span className="text-lg font-bold tabular-nums text-green-600">+{restockTotal}</span>
-                        <div className="flex items-center gap-0.5">
-                          <span className="text-[10px] text-muted-foreground">{p.restocks.length}×</span>
+                    {/* Réappro — cliquable */}
+                    <div className="w-28 flex justify-center">
+                      {hasRestocks ? (
+                        <button
+                          onClick={() => setExpandedProduct(isExpanded ? null : p.product_name)}
+                          className="flex items-center gap-1 text-sm font-semibold text-green-600 hover:text-green-700 transition-colors tabular-nums"
+                        >
+                          +{restockTotal}
+                          <span className="text-[10px] font-normal text-muted-foreground">{p.restocks.length}×</span>
                           <ChevronDown className={cn(
-                            'h-3 w-3 text-muted-foreground transition-transform duration-200',
+                            'h-3.5 w-3.5 text-muted-foreground transition-transform duration-200',
                             isExpanded && 'rotate-180'
                           )} />
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">—</span>
-                    )}
-                  </button>
+                        </button>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      )}
+                    </div>
 
-                  {/* Stock actuel */}
-                  <div className="text-center px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-1">
-                      {t('current_stock')}
-                    </p>
-                    <p className={cn('text-lg font-bold tabular-nums', stockTextColor(p.current_qty))}>
-                      {p.current_qty != null
-                        ? p.current_qty
-                        : <span className="text-muted-foreground text-sm">—</span>}
-                    </p>
+                    {/* Stock actuel */}
+                    <div className="w-24 text-right">
+                      <span className={cn('text-sm font-semibold tabular-nums', qtyColor)}>
+                        {qty != null ? qty : <span className="text-muted-foreground font-normal">—</span>}
+                      </span>
+                    </div>
                   </div>
-                </div>
 
-                {/* Inline restock history */}
-                <AnimatePresence>
-                  {isExpanded && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="overflow-hidden border-t bg-muted/20">
-                      <div className="p-3 space-y-2">
-                        {p.restocks.map(m => (
-                          <div key={m.id} className="rounded-xl bg-card border px-3.5 py-2.5">
-                            <div className="flex items-start justify-between gap-3">
+                  {/* Inline restock history */}
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden border-t bg-muted/20"
+                      >
+                        <div className="px-4 py-3 space-y-2">
+                          {p.restocks.map(m => (
+                            <div key={m.id} className="flex items-start justify-between gap-4 rounded-lg bg-card border px-3.5 py-2.5">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap mb-0.5">
                                   <span className="text-xs font-semibold truncate">
@@ -272,18 +270,17 @@ export default function StockMovementsPage() {
                                 +{m.quantity}
                               </p>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-              </Card>
-            )
-          })
-        )}
-      </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
