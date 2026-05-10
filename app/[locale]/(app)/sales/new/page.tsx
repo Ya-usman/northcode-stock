@@ -1263,7 +1263,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               variant="outline"
               className="flex-1 h-12 gap-2 border-amber-300 text-amber-700 hover:bg-amber-50"
               onClick={holdInvoice}
-              disabled={cart.length === 0}
+              disabled={cart.length === 0 || completing}
             >
               <PauseCircle className="h-4 w-4" />
               Mettre en attente
@@ -1272,7 +1272,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               className="flex-[2] h-12 text-base bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500 dark:hover:bg-blue-600"
               onClick={completeSale}
               loading={completing}
-              disabled={cart.length === 0}
+              disabled={cart.length === 0 || completing}
             >
               <CheckCircle className="mr-2 h-5 w-5" />
               {`Valider · ${formatNaira(totalToCollect)}`}

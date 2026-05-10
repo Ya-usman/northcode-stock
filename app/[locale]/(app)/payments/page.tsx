@@ -92,7 +92,7 @@ function calcFifo(amount: number, sales: UnpaidSale[]): FifoLine[] {
   return lines
 }
 
-function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedId, openRepayDialog, openHistory, fmt, t }: any) {
+function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedId, openRepayDialog, openHistory, fmt, t, saving }: any) {
   const paidTotal = unpaidSales.reduce((s: number, sale: UnpaidSale) => s + sale.amount_paid, 0)
   const grandTotal = unpaidSales.reduce((s: number, sale: UnpaidSale) => s + sale.total, 0)
   const progress = grandTotal > 0 ? Math.min(100, (paidTotal / grandTotal) * 100) : 0
@@ -130,10 +130,12 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
 
           <div className="flex gap-2 mt-3">
             <Button size="sm" className="flex-1 h-9 text-xs bg-stockshop-blue hover:bg-stockshop-blue-light gap-1"
+              disabled={saving}
               onClick={() => openRepayDialog({ customer, unpaidSales, totalDebt })}>
               <Banknote className="h-3.5 w-3.5" /> {t('payments.repay')}
             </Button>
             <Button size="sm" variant="outline" className="flex-1 h-9 text-xs gap-1"
+              disabled={saving}
               onClick={() => openHistory({ customer, unpaidSales, totalDebt })}>
               <History className="h-3.5 w-3.5" /> {t('payments.history_btn')}
             </Button>
@@ -269,6 +271,7 @@ export default function DettesPage() {
 
   // ── Open repay dialog ────────────────────────────────────
   const openRepayDialog = (debtor: CustomerDebt) => {
+    setHistoryDebtor(null)
     setRepayDebtor(debtor)
     setRepayAmount(String(Math.round(debtor.totalDebt)))
     setRepayMethod('cash')
@@ -354,6 +357,8 @@ export default function DettesPage() {
 
   // ── Open history dialog ──────────────────────────────────
   const openHistory = async (debtor: CustomerDebt) => {
+    setRepayDebtor(null)
+    setReceiptResult(null)
     setHistoryDebtor(debtor)
     setExpandedSaleId(null)
     const cached = historyCache.current.get(debtor.customer.id)
@@ -438,7 +443,7 @@ export default function DettesPage() {
                 {shopDebtors.map(({ customer, unpaidSales, totalDebt }) => (
                   <DebtorCard key={customer.id} customer={customer} unpaidSales={unpaidSales} totalDebt={totalDebt}
                     isExpanded={expandedId === customer.id} setExpandedId={setExpandedId}
-                    openRepayDialog={openRepayDialog} openHistory={openHistory} fmt={fmt} t={t} />
+                    openRepayDialog={openRepayDialog} openHistory={openHistory} fmt={fmt} t={t} saving={saving} />
                 ))}
               </div>
             )

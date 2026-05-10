@@ -261,13 +261,14 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           <div className="flex gap-1">
             <Button
               variant="outline" size="sm" className="h-7 px-2 text-xs"
-              onClick={() => { setRestockProduct(product); restockForm.reset({ product_id: product.id, quantity: 1 }); setShowRestockModal(true) }}
+              disabled={saving}
+              onClick={() => { setEditingProduct(null); setShowAddModal(false); setRestockProduct(product); restockForm.reset({ product_id: product.id, quantity: 1 }); setShowRestockModal(true) }}
             >
               <ArrowDown className="h-3 w-3 mr-1" />
               {t('actions.restock')}
             </Button>
             {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin') && (
-              <Button variant="outline" size="sm" className="h-7 px-2" onClick={() => setEditingProduct(product)}>
+              <Button variant="outline" size="sm" className="h-7 px-2" disabled={saving} onClick={() => { setShowAddModal(false); setShowRestockModal(false); setEditingProduct(product) }}>
                 <Edit2 className="h-3 w-3" />
               </Button>
             )}
@@ -323,7 +324,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           <Button
             className="h-9 gap-1 bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500"
             size="sm"
-            onClick={() => setShowAddModal(true)}
+            disabled={saving}
+            onClick={() => { setEditingProduct(null); setShowRestockModal(false); setShowAddModal(true) }}
           >
             <Plus className="h-4 w-4" />
             {t('actions.add_product')}

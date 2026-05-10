@@ -363,7 +363,8 @@ export default function TeamPage() {
 
           <Button
             className="gap-2 bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500"
-            onClick={() => { setInviteShopId(viewShopId); setShowInviteModal(true) }}
+            disabled={inviting}
+            onClick={() => { setConfirmDialog(d => ({ ...d, open: false })); setDeleteDialog({ open: false, member: null }); setInviteShopId(viewShopId); setShowInviteModal(true) }}
           >
             <UserPlus className="h-4 w-4" />
             {t('team.invite_btn')}
