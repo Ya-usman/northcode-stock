@@ -97,10 +97,9 @@ async function buildReceiptDoc(data: ReceiptData) {
     doc.text(shopInitials(shop.name), margin + 10, y + 13, { align: 'center' })
   }
 
-  // For Arabic/RTL shop names, Helvetica can't render them — show city instead
-  const shopNameDisplay = containsRTL(shop.name)
-    ? `${shop.city}${shop.state ? ', ' + shop.state : ''}`
-    : sanitizePDF(shop.name)
+  const latinName = sanitizePDF(shop.name).trim()
+  const cityText = `${shop.city}, ${shop.state || 'Nigeria'}`
+  const shopNameDisplay = latinName || cityText
   doc.setTextColor(10, 47, 110)
   doc.setFontSize(14)
   doc.setFont('helvetica', 'bold')
@@ -108,9 +107,11 @@ async function buildReceiptDoc(data: ReceiptData) {
   doc.setTextColor(80, 80, 80)
   doc.setFontSize(8)
   doc.setFont('helvetica', 'normal')
-  doc.text(`${shop.city}, ${shop.state || 'Nigeria'}`, margin + 24, y + 12)
-  if (shop.whatsapp) {
-    doc.text(`WhatsApp: ${shop.whatsapp}`, margin + 24, y + 17)
+  if (latinName) {
+    doc.text(cityText, margin + 24, y + 12)
+    if (shop.whatsapp) doc.text(`WhatsApp: ${shop.whatsapp}`, margin + 24, y + 17)
+  } else {
+    if (shop.whatsapp) doc.text(`WhatsApp: ${shop.whatsapp}`, margin + 24, y + 12)
   }
 
   y += 26
@@ -125,7 +126,7 @@ async function buildReceiptDoc(data: ReceiptData) {
   doc.setFontSize(9)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(0, 0, 0)
-  doc.text(`${L.receipt} #${sale.sale_number}`, margin, y)
+  doc.text(`${L.receipt} #${sanitizeSaleNumber(sale.sale_number)}`, margin, y)
   doc.setFont('helvetica', 'normal')
   doc.text(
     new Date(sale.created_at).toLocaleString('en-GB', {
@@ -284,17 +285,18 @@ function sanitizePDF(value: string | number): string {
     .replace(/[^ -ÿ]/g, '')
 }
 
-/** True when text contains Arabic/RTL characters */
-function containsRTL(text: string): boolean {
-  return /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷏ﹰ-﻿]/.test(text)
-}
-
 /** Safe 2-letter initials from any shop name, including Arabic */
 function shopInitials(name: string): string {
-  const latin = name.replace(/[^ -ÿ]/g, '').replace(/s+/g, '').trim()
+  const latin = name.replace(/[^ -ÿ]/g, '').replace(/\s+/g, '').trim()
   if (latin.length >= 2) return latin.slice(0, 2).toUpperCase()
   if (latin.length === 1) return latin.toUpperCase()
   return 'SH'
+}
+
+/** Strip non-Latin1 prefix from sale numbers (e.g. Arabic prefix) for PDF display */
+function sanitizeSaleNumber(saleNumber: string): string {
+  const s = sanitizePDF(saleNumber).replace(/^[-\s]+/, '')
+  return s || saleNumber.replace(/^.*-(\d+)$/, '$1')
 }
 
 interface DebtReceiptLabels {
@@ -392,18 +394,25 @@ async function buildDebtReceiptDoc(data: DebtReceiptData) {
     doc.setTextColor(255, 255, 255)
     doc.setFontSize(14)
     doc.setFont('helvetica', 'bold')
-    doc.text(shop.name.slice(0, 2).toUpperCase(), margin + 10, y + 13, { align: 'center' })
+    doc.text(shopInitials(shop.name), margin + 10, y + 13, { align: 'center' })
   }
 
+  const latinNameD = sanitizePDF(shop.name).trim()
+  const cityTextD = `${shop.city}, ${shop.state || 'Nigeria'}`
+  const shopNameDisplayD = latinNameD || cityTextD
   doc.setTextColor(10, 47, 110)
   doc.setFontSize(14)
   doc.setFont('helvetica', 'bold')
-  doc.text(shop.name, margin + 24, y + 7)
+  doc.text(shopNameDisplayD, margin + 24, y + 7)
   doc.setTextColor(80, 80, 80)
   doc.setFontSize(8)
   doc.setFont('helvetica', 'normal')
-  doc.text(`${shop.city}, ${shop.state || 'Nigeria'}`, margin + 24, y + 12)
-  if (shop.whatsapp) doc.text(`WhatsApp: ${shop.whatsapp}`, margin + 24, y + 17)
+  if (latinNameD) {
+    doc.text(cityTextD, margin + 24, y + 12)
+    if (shop.whatsapp) doc.text(`WhatsApp: ${shop.whatsapp}`, margin + 24, y + 17)
+  } else {
+    if (shop.whatsapp) doc.text(`WhatsApp: ${shop.whatsapp}`, margin + 24, y + 12)
+  }
 
   y += 26
 
