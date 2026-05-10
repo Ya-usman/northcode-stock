@@ -848,28 +848,35 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             {cart.map(item => (
               <motion.div key={item.product.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
                 <Card className="border-0 shadow-sm">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{item.product.name}</p>
-                        <button
-                          type="button"
-                          onClick={() => { setPriceModalItem(item); setPriceModalInput(String(item.unit_price)) }}
-                          className="flex items-center gap-1.5 mt-0.5 text-left group"
-                        >
-                          <span className="text-xs text-muted-foreground group-hover:text-blue-600 transition-colors">
-                            {formatNaira(item.unit_price)} / unité
-                          </span>
-                          {item.unit_price !== item.product.selling_price ? (
-                            <span className="text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 px-1 rounded font-medium">modifié</span>
-                          ) : (
-                            <span className="text-[10px] text-muted-foreground/50 group-hover:text-blue-500 transition-colors">✎</span>
-                          )}
-                        </button>
-                      </div>
+                  <CardContent className="p-3 space-y-2">
+                    {/* Row 1 : nom + corbeille */}
+                    <div className="flex items-center gap-2">
+                      <p className="flex-1 text-sm font-medium truncate">{item.product.name}</p>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                        onClick={() => removeFromCart(item.product.id)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                    {/* Row 2 : prix modifiable + quantité + sous-total */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { setPriceModalItem(item); setPriceModalInput(String(item.unit_price)) }}
+                        className="flex items-center gap-1 text-left group shrink-0"
+                      >
+                        <span className="text-xs text-muted-foreground group-hover:text-blue-600 transition-colors whitespace-nowrap">
+                          {formatNaira(item.unit_price)}
+                        </span>
+                        {item.unit_price !== item.product.selling_price ? (
+                          <span className="text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 px-1 rounded font-medium">✎</span>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground/40 group-hover:text-blue-500 transition-colors">✎</span>
+                        )}
+                      </button>
+                      <div className="flex-1" />
                       {/* Quantity controls */}
                       <div className="flex items-center gap-1">
-                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQty(item.product.id, -1)}>
+                        <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateQty(item.product.id, -1)}>
                           <Minus className="h-3 w-3" />
                         </Button>
                         <Input
@@ -884,19 +891,13 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                             if (!isNaN(qty) && qty >= 1) setQtyDirect(item.product.id, qty)
                           }}
                           onBlur={() => setQtyInputs(prev => { const n = { ...prev }; delete n[item.product.id]; return n })}
-                          className="w-14 h-8 text-center text-sm font-bold p-1"
+                          className="w-12 h-7 text-center text-sm font-bold p-1"
                         />
-                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQty(item.product.id, 1)}>
+                        <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateQty(item.product.id, 1)}>
                           <Plus className="h-3 w-3" />
                         </Button>
                       </div>
-                      <div className="text-right min-w-[70px]">
-                        <p className="text-sm font-bold">{formatNaira(item.subtotal)}</p>
-                      </div>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={() => removeFromCart(item.product.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      <p className="text-sm font-bold min-w-[58px] text-right">{formatNaira(item.subtotal)}</p>
                     </div>
                   </CardContent>
                 </Card>
