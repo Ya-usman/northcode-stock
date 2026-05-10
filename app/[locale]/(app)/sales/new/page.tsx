@@ -677,6 +677,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       balance: completedSale.balance,
       method: completedSale.payment_method,
       customerName: (completedSale as any).customers?.name,
+      currencySymbol: selectedShop?.currency || symbol,
     })
     shareReceiptWhatsApp(message)
   }

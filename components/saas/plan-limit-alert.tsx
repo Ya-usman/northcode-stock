@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { getPlan, PLANS } from '@/lib/saas/plans'
 import type { PlanId } from '@/lib/saas/plans'
+import { useCurrency } from '@/lib/hooks/use-currency'
 
 interface PlanLimitAlertProps {
   currentPlan: string | null
@@ -17,6 +18,7 @@ interface PlanLimitAlertProps {
 
 export function PlanLimitAlert({ currentPlan, productCount, teamMemberCount, locale }: PlanLimitAlertProps) {
   const t = useTranslations('saas')
+  const { symbol } = useCurrency()
   const [dismissed, setDismissed] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [isWarning, setIsWarning] = useState(false) // warning = near limit, error = at limit
@@ -95,7 +97,7 @@ export function PlanLimitAlert({ currentPlan, productCount, teamMemberCount, loc
                     : 'bg-red-500 hover:bg-red-600 text-white'
                 }`}
               >
-                {t('upgrade_to_plan', { plan: nextPlanData.name, price: `₦${nextPlanData.price_monthly.toLocaleString()}` })}
+                {t('upgrade_to_plan', { plan: nextPlanData.name, price: symbol.length > 2 ? `${nextPlanData.price_monthly.toLocaleString()} ${symbol}` : `${symbol}${nextPlanData.price_monthly.toLocaleString()}` })}
                 <ArrowUpRight className="h-3.5 w-3.5" />
               </Link>
               <span className="text-xs text-gray-500">

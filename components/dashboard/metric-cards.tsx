@@ -28,8 +28,11 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
   const t = useTranslations('dashboard')
   const { fmt, symbol } = useCurrency()
   const compact = (n: number) => {
-    if (n >= 1_000_000) return `${symbol === 'FCFA' ? (n/1_000_000).toFixed(1)+'M FCFA' : '₦'+(n/1_000_000).toFixed(1)+'M'}`
-    if (n >= 1_000) return `${symbol === 'FCFA' ? (n/1_000).toFixed(1)+'K FCFA' : '₦'+(n/1_000).toFixed(1)+'K'}`
+    const isPrefix = symbol.length <= 2  // ₦, $, € → prefix; F CFA → suffix
+    const sfx = isPrefix ? '' : ` ${symbol}`
+    const pfx = isPrefix ? symbol : ''
+    if (n >= 1_000_000) return `${pfx}${(n / 1_000_000).toFixed(1)}M${sfx}`
+    if (n >= 1_000) return `${pfx}${(n / 1_000).toFixed(1)}K${sfx}`
     return fmt(n)
   }
 

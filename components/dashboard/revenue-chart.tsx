@@ -28,10 +28,10 @@ export function RevenueChart({ data }: RevenueChartProps) {
     )
   }
 
-  const tickFormatter = (v: number) =>
-    symbol === 'FCFA'
-      ? `${(v / 1000).toFixed(0)}K`
-      : `₦${(v / 1000).toFixed(0)}k`
+  const tickFormatter = (v: number) => {
+    const k = `${(v / 1000).toFixed(0)}K`
+    return symbol.length > 2 ? `${k} ${symbol}` : `${symbol}${k}`
+  }
 
   return (
     <Card className="border-0 shadow-sm">

@@ -19,10 +19,13 @@ export function buildReceiptWhatsAppMessage(params: {
   balance: number
   method: string
   customerName?: string
+  currencySymbol?: string
 }): string {
-  const { shopName, saleNumber, date, items, total, paid, balance, method, customerName } = params
+  const { shopName, saleNumber, date, items, total, paid, balance, method, customerName, currencySymbol = '₦' } = params
 
-  const fmt = (n: number) => `₦${n.toLocaleString('en-NG')}`
+  const fmt = (n: number) => currencySymbol.length > 2
+    ? `${n.toLocaleString()} ${currencySymbol}`
+    : `${currencySymbol}${n.toLocaleString()}`
 
   const lines = [
     `🧾 *${shopName}*`,

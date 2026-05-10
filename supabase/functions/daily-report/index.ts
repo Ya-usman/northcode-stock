@@ -28,7 +28,7 @@ serve(async (req) => {
 
     const { data: shops } = await supabase
       .from('shops')
-      .select('id, name, whatsapp, owner_id, notify_whatsapp_daily, notify_email_daily')
+      .select('id, name, whatsapp, owner_id, notify_whatsapp_daily, notify_email_daily, currency')
 
     for (const shop of shops ?? []) {
       // Today's sales stats
@@ -85,7 +85,8 @@ serve(async (req) => {
         .lte('quantity', 10)
 
       // Build message
-      const formatNaira = (n: number) => `₦${n.toLocaleString('en-NG')}`
+      const sym = shop.currency || '₦'
+      const formatNaira = (n: number) => sym.length > 2 ? `${n.toLocaleString()} ${sym}` : `${sym}${n.toLocaleString()}`
       const methodLines = Object.entries(byMethod)
         .map(([m, v]) => `  • ${m.charAt(0).toUpperCase() + m.slice(1)}: ${formatNaira(v)}`)
         .join('\n')
@@ -137,7 +138,7 @@ serve(async (req) => {
                 html: buildDailyEmailHtml(shop.name, dateStr, {
                   salesCount, totalRevenue, totalCollected, outstandingToday,
                   byMethod, topProduct: topProduct ? { name: topProduct[0], ...topProduct[1] } : null,
-                  lowStockCount: lowStockCount ?? 0, totalDebt,
+                  lowStockCount: lowStockCount ?? 0, totalDebt, currency: shop.currency,
                 }),
               }),
             })
@@ -159,7 +160,8 @@ serve(async (req) => {
 })
 
 function buildDailyEmailHtml(shopName: string, date: string, data: any): string {
-  const fmt = (n: number) => `₦${n.toLocaleString('en-NG')}`
+  const sym = data.currency || '₦'
+  const fmt = (n: number) => sym.length > 2 ? `${n.toLocaleString()} ${sym}` : `${sym}${n.toLocaleString()}`
   return `
 <!DOCTYPE html><html><head><meta charset="utf-8"><style>
   body{font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px}
