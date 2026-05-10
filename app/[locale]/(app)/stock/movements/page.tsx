@@ -162,8 +162,8 @@ export default function StockMovementsPage() {
       ) : (
         <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
 
-          {/* Header */}
-          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-4 py-2.5 border-b bg-muted/40">
+          {/* Header — desktop only */}
+          <div className="hidden sm:grid grid-cols-[1fr_auto_auto_auto] gap-4 px-4 py-2.5 border-b bg-muted/40">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               {t('product')}
             </span>
@@ -176,6 +176,12 @@ export default function StockMovementsPage() {
             <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground w-24 text-right">
               {t('current_stock')}
             </span>
+          </div>
+          {/* Header — mobile only */}
+          <div className="sm:hidden grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-2.5 border-b bg-muted/40">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('product')}</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground text-center">{t('restocked')}</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground text-right">{t('current_stock')}</span>
           </div>
 
           {/* Rows */}
@@ -191,48 +197,66 @@ export default function StockMovementsPage() {
                   key={p.product_name}
                   onClick={() => hasRestocks && setOpenProduct(p)}
                   className={cn(
-                    'w-full grid grid-cols-[1fr_auto_auto_auto] gap-4 px-4 py-2.5 items-center transition-colors text-left',
+                    'w-full transition-colors text-left',
                     hasRestocks ? 'hover:bg-muted/20 cursor-pointer' : 'cursor-default'
                   )}
                 >
-                  {/* Product name */}
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                    <span className="text-sm font-medium truncate">{p.product_name}</span>
-                    {p.product_unit && (
-                      <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full flex-shrink-0">
-                        {p.product_unit}
+                  {/* Desktop row */}
+                  <div className="hidden sm:grid grid-cols-[1fr_auto_auto_auto] gap-4 px-4 py-2.5 items-center">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                      <span className="text-sm font-medium truncate">{p.product_name}</span>
+                      {p.product_unit && (
+                        <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full flex-shrink-0">
+                          {p.product_unit}
+                        </span>
+                      )}
+                    </div>
+                    <div className="w-24 text-center">
+                      <span className="text-sm tabular-nums font-medium">
+                        {p.initial_stock != null ? p.initial_stock : <span className="text-muted-foreground">—</span>}
                       </span>
-                    )}
+                    </div>
+                    <div className="w-28 flex justify-center">
+                      {hasRestocks ? (
+                        <div className="flex items-center gap-1.5 text-sm font-semibold text-green-600 tabular-nums">
+                          +{restockTotal}
+                          <span className="text-[10px] font-normal text-muted-foreground">{p.restocks.length}×</span>
+                          <History className="h-3 w-3 text-muted-foreground" />
+                        </div>
+                      ) : <span className="text-muted-foreground text-sm">—</span>}
+                    </div>
+                    <div className="w-24 text-right">
+                      <span className={cn('text-sm font-semibold tabular-nums', qtyColor)}>
+                        {qty != null ? qty : <span className="text-muted-foreground font-normal">—</span>}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Stock de base */}
-                  <div className="w-24 text-center">
-                    <span className="text-sm tabular-nums font-medium">
-                      {p.initial_stock != null
-                        ? p.initial_stock
-                        : <span className="text-muted-foreground">—</span>}
-                    </span>
-                  </div>
-
-                  {/* Réappro */}
-                  <div className="w-28 flex justify-center">
-                    {hasRestocks ? (
-                      <div className="flex items-center gap-1.5 text-sm font-semibold text-green-600 tabular-nums">
-                        +{restockTotal}
-                        <span className="text-[10px] font-normal text-muted-foreground">{p.restocks.length}×</span>
-                        <History className="h-3 w-3 text-muted-foreground" />
+                  {/* Mobile row */}
+                  <div className="sm:hidden grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-3 items-center">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{p.product_name}</p>
+                        {p.product_unit && (
+                          <span className="text-[10px] text-muted-foreground">{p.product_unit}</span>
+                        )}
                       </div>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">—</span>
-                    )}
-                  </div>
-
-                  {/* Stock actuel */}
-                  <div className="w-24 text-right">
-                    <span className={cn('text-sm font-semibold tabular-nums', qtyColor)}>
-                      {qty != null ? qty : <span className="text-muted-foreground font-normal">—</span>}
-                    </span>
+                    </div>
+                    <div className="flex justify-center">
+                      {hasRestocks ? (
+                        <div className="flex items-center gap-1 text-sm font-semibold text-green-600 tabular-nums">
+                          +{restockTotal}
+                          <span className="text-[10px] font-normal text-muted-foreground">{p.restocks.length}×</span>
+                        </div>
+                      ) : <span className="text-muted-foreground text-sm">—</span>}
+                    </div>
+                    <div className="text-right">
+                      <span className={cn('text-sm font-semibold tabular-nums', qtyColor)}>
+                        {qty != null ? qty : <span className="text-muted-foreground font-normal">—</span>}
+                      </span>
+                    </div>
                   </div>
                 </button>
               )
