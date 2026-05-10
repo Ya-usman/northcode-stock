@@ -517,7 +517,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           sale_id: sale.id,
           product_id: item.product.id,
           product_name: item.product.name,
-          quantity: item.quantity,
+          quantity: Math.round(item.quantity),
           unit_price: item.unit_price,
         }))
       )
