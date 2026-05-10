@@ -97,7 +97,14 @@ export default function StockMovementsPage() {
       const q = search.toLowerCase()
       list = list.filter(p => p.product_name.toLowerCase().includes(q))
     }
-    return list.sort((a, b) => b.latest_at.localeCompare(a.latest_at))
+    return list.sort((a, b) => {
+      const aDate = a.restocks[0]?.created_at ?? ''
+      const bDate = b.restocks[0]?.created_at ?? ''
+      if (!aDate && !bDate) return a.product_name.localeCompare(b.product_name)
+      if (!aDate) return 1
+      if (!bDate) return -1
+      return bDate.localeCompare(aDate)
+    })
   }, [movements, search])
 
   const totalRestocks = movements
