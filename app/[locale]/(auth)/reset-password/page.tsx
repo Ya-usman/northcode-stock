@@ -86,7 +86,7 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-card text-stockshop-blue dark:text-blue-400 font-bold text-2xl shadow-lg mb-4">
-            NC
+            SS
           </div>
           <h1 className="text-2xl font-bold text-white">StockShop</h1>
         </div>

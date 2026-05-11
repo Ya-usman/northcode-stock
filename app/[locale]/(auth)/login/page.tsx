@@ -71,8 +71,9 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
 
   const onForgot = async (data: ForgotData) => {
     setError('')
+    const locale = window.location.pathname.split('/')[1] || 'fr'
     const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/en/reset-password`,
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?next=/${locale}/reset-password`,
     })
     if (error) {
       setError(error.message)
