@@ -75,7 +75,7 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
       show: role !== 'viewer',
     },
     {
-      title: 'Dépenses aujourd\'hui',
+      title: t('today_expenses'),
       value: compact(todayExpenses),
       subValue: fmt(todayExpenses),
       icon: Receipt,

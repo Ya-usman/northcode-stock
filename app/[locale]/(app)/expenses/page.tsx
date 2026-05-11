@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useTranslations, useLocale } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -23,6 +23,7 @@ export default function ExpensesPage() {
   const { shop, effectiveShopIds } = useAuth()
   const { toast } = useToast()
   const { fmt } = useCurrency()
+  const t = useTranslations('expenses')
 
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
@@ -89,22 +90,24 @@ export default function ExpensesPage() {
     }
     setSaving(false)
     if (error) { toast({ title: error.message, variant: 'destructive' }); return }
-    toast({ title: editing ? 'Dépense modifiée' : 'Dépense ajoutée', variant: 'success' })
+    toast({ title: editing ? t('updated') : t('added'), variant: 'success' })
     setModalOpen(false)
     fetchExpenses()
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer cette dépense ?')) return
+    if (!confirm(t('delete_confirm'))) return
     setDeleting(id)
     const { error } = await supabase.from('expenses').delete().eq('id', id)
     setDeleting(null)
     if (error) { toast({ title: error.message, variant: 'destructive' }); return }
-    toast({ title: 'Dépense supprimée', variant: 'success' })
+    toast({ title: t('deleted'), variant: 'success' })
     fetchExpenses()
   }
 
   const total = expenses.reduce((s, e) => s + Number(e.amount), 0)
+
+  const monthLabel = new Date(monthFilter + '-01').toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
 
   return (
     <div className="space-y-4 max-w-2xl">
@@ -121,7 +124,7 @@ export default function ExpensesPage() {
         </div>
         <Button onClick={openAdd} className="bg-stockshop-blue hover:bg-stockshop-blue-light text-white gap-2">
           <Plus className="h-4 w-4" />
-          Ajouter une dépense
+          {t('add')}
         </Button>
       </div>
 
@@ -130,7 +133,7 @@ export default function ExpensesPage() {
         <CardContent className="p-4 flex items-center justify-between">
           <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
             <Receipt className="h-5 w-5" />
-            <span className="text-sm font-medium">Total dépenses — {new Date(monthFilter + '-01').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}</span>
+            <span className="text-sm font-medium">{t('total')} — {monthLabel}</span>
           </div>
           <span className="text-xl font-bold text-red-600 dark:text-red-400">{fmt(total)}</span>
         </CardContent>
@@ -142,7 +145,7 @@ export default function ExpensesPage() {
       ) : expenses.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <Receipt className="h-10 w-10 mx-auto mb-3 opacity-30" />
-          <p className="text-sm">Aucune dépense ce mois</p>
+          <p className="text-sm">{t('none')}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -152,7 +155,7 @@ export default function ExpensesPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{exp.description}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {new Date(exp.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
+                    {new Date(exp.date).toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}
                   </p>
                 </div>
                 <span className="text-base font-bold text-red-600 dark:text-red-400 flex-shrink-0">
@@ -181,13 +184,13 @@ export default function ExpensesPage() {
       <PremiumDialog
         open={modalOpen}
         onOpenChange={open => { if (!open) setModalOpen(false) }}
-        category="Dépense"
-        title={editing ? 'Modifier la dépense' : 'Nouvelle dépense'}
+        category={t('category')}
+        title={editing ? t('edit_title') : t('new_title')}
         icon={<Receipt className="h-5 w-5" />}
       >
         <PremiumDialogBody>
           <div className="space-y-1">
-            <Label>Montant</Label>
+            <Label>{t('amount')}</Label>
             <NumericInput
               value={amount}
               onChange={setAmount}
@@ -197,26 +200,26 @@ export default function ExpensesPage() {
             />
           </div>
           <div className="space-y-1">
-            <Label>Description</Label>
+            <Label>{t('description')}</Label>
             <Input
               value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder="Ex: Loyer boutique, Électricité, Salaire Ali…"
+              placeholder={t('description_placeholder')}
             />
           </div>
           <div className="space-y-1">
-            <Label>Date</Label>
+            <Label>{t('date')}</Label>
             <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
           </div>
         </PremiumDialogBody>
-        <PremiumDialogFooter onCancel={() => setModalOpen(false)} cancelLabel="Annuler">
+        <PremiumDialogFooter onCancel={() => setModalOpen(false)}>
           <Button
             onClick={handleSave}
             loading={saving}
             disabled={!amount || !description.trim() || saving}
             className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light text-white"
           >
-            {editing ? 'Enregistrer' : 'Ajouter'}
+            {editing ? t('save') : t('add')}
           </Button>
         </PremiumDialogFooter>
       </PremiumDialog>

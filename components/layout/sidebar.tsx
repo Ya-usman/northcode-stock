@@ -63,7 +63,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
       section: t('section_management'),
       items: [
         { href: `/${locale}/reports`, icon: BarChart2, label: t('reports'), roles: ALL_NON_OWNER, feature: 'reports' as PermFeature },
-        { href: `/${locale}/expenses`, icon: Receipt, label: 'Dépenses', roles: ['owner'] },
+        { href: `/${locale}/expenses`, icon: Receipt, label: t('expenses'), roles: ['owner'] },
         { href: `/${locale}/team`, icon: Users, label: t('team'), roles: ['owner'] },
         { href: `/${locale}/shops`, icon: Store, label: t('shops'), roles: ['owner'] },
         { href: `/${locale}/settings`, icon: Settings, label: t('settings'), roles: ['owner'] },

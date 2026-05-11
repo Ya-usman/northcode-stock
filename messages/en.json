@@ -22,7 +22,9 @@
     "logout": "Log Out",
     "section_sales": "Sales",
     "section_inventory": "Inventory",
-    "section_management": "Management"
+    "section_management": "Management",
+    "expenses": "Expenses",
+    "more": "More"
   },
   "auth": {
     "login": "Log In",
@@ -63,7 +65,8 @@
     "all_stocked": "All stocked",
     "items_low": "{count} item(s) low",
     "more_items": "+{count} more",
-    "qty_left": "{qty} left"
+    "qty_left": "{qty} left",
+    "today_expenses": "Today's Expenses"
   },
   "metrics": {
     "revenue": "Revenue",
@@ -796,5 +799,25 @@
     "business_f4": "Full history",
     "business_f5": "Dedicated support",
     "business_f6": "SLA guarantee"
+  },
+  "expenses": {
+    "title": "Expenses",
+    "add": "Add Expense",
+    "edit_title": "Edit Expense",
+    "new_title": "New Expense",
+    "total": "Total Expenses",
+    "none": "No expenses this month",
+    "amount": "Amount",
+    "description": "Description",
+    "description_placeholder": "e.g. Shop rent, Electricity, Salary…",
+    "date": "Date",
+    "save": "Save",
+    "delete_confirm": "Delete this expense?",
+    "added": "Expense added",
+    "updated": "Expense updated",
+    "deleted": "Expense deleted",
+    "today": "Today's Expenses",
+    "net_profit": "Net Profit",
+    "category": "EXPENSE"
   }
 }

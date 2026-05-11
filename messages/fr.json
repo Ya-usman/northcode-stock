@@ -22,7 +22,9 @@
     "logout": "Se déconnecter",
     "section_sales": "Ventes",
     "section_inventory": "Inventaire",
-    "section_management": "Gestion"
+    "section_management": "Gestion",
+    "expenses": "Dépenses",
+    "more": "Plus"
   },
   "auth": {
     "login": "Se connecter",
@@ -63,7 +65,8 @@
     "all_stocked": "Tout en stock",
     "items_low": "{count} article(s) en alerte",
     "more_items": "+{count} de plus",
-    "qty_left": "{qty} restant(s)"
+    "qty_left": "{qty} restant(s)",
+    "today_expenses": "Dépenses aujourd'hui"
   },
   "metrics": {
     "revenue": "Revenus",
@@ -796,5 +799,25 @@
     "business_f4": "Historique complet",
     "business_f5": "Support dédié",
     "business_f6": "Garantie SLA"
+  },
+  "expenses": {
+    "title": "Dépenses",
+    "add": "Ajouter une dépense",
+    "edit_title": "Modifier la dépense",
+    "new_title": "Nouvelle dépense",
+    "total": "Total dépenses",
+    "none": "Aucune dépense ce mois",
+    "amount": "Montant",
+    "description": "Description",
+    "description_placeholder": "Ex: Loyer boutique, Électricité, Salaire Ali…",
+    "date": "Date",
+    "save": "Enregistrer",
+    "delete_confirm": "Supprimer cette dépense ?",
+    "added": "Dépense ajoutée",
+    "updated": "Dépense modifiée",
+    "deleted": "Dépense supprimée",
+    "today": "Dépenses aujourd'hui",
+    "net_profit": "Bénéfice net",
+    "category": "DÉPENSE"
   }
 }

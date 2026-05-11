@@ -39,7 +39,7 @@ export function BottomNav({ locale, role, onSignOut }: BottomNavProps) {
     { href: `/${locale}/stock/movements`, icon: ArrowLeftRight,  label: t('movements'),     roles: ALL_NON_OWNER, feature: 'movements' as PermFeature,       primary: false },
     { href: `/${locale}/categories`,      icon: Tag,             label: t('categories'),    roles: ALL_NON_OWNER, feature: 'categories' as PermFeature,      primary: false },
     { href: `/${locale}/suppliers`,       icon: Truck,           label: t('suppliers'),     roles: ALL_NON_OWNER, feature: 'suppliers' as PermFeature,       primary: false },
-    { href: `/${locale}/expenses`,         icon: Receipt,         label: 'Dépenses',         roles: ['owner'],                                                primary: false },
+    { href: `/${locale}/expenses`,         icon: Receipt,         label: t('expenses'),      roles: ['owner'],                                                primary: false },
     { href: `/${locale}/team`,            icon: Users,           label: t('team'),          roles: ['owner'],                                                primary: false },
     { href: `/${locale}/shops`,           icon: Store,           label: t('shops'),         roles: ['owner'],                                                primary: false },
     { href: `/${locale}/billing`,         icon: Zap,             label: t('billing'),       roles: ['owner'],                                                primary: false },
@@ -84,7 +84,7 @@ export function BottomNav({ locale, role, onSignOut }: BottomNavProps) {
               )}
             >
               {moreOpen ? <X className="h-5 w-5" /> : <MoreHorizontal className="h-5 w-5" />}
-              <span className="text-[10px] font-medium leading-none">Plus</span>
+              <span className="text-[10px] font-medium leading-none">{t('more')}</span>
             </button>
           )}
         </div>
@@ -133,7 +133,7 @@ export function BottomNav({ locale, role, onSignOut }: BottomNavProps) {
                     className="flex flex-col items-center gap-1.5 rounded-xl p-3 text-red-500 hover:bg-red-50 transition-colors"
                   >
                     <LogOut className="h-5 w-5" />
-                    <span className="text-[10px] font-medium leading-none">Déconnexion</span>
+                    <span className="text-[10px] font-medium leading-none">{t('logout')}</span>
                   </button>
                 )}
               </div>

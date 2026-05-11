@@ -22,7 +22,9 @@
     "section_management": "Gudanarwa",
     "categories": "Nau'ikan",
     "shops": "Kantuna",
-    "billing": "Biyan Kuɗi"
+    "billing": "Biyan Kuɗi",
+    "expenses": "Kashe Kuɗi",
+    "more": "Ƙari"
   },
   "auth": {
     "login": "Shiga",
@@ -63,7 +65,8 @@
     "all_stocked": "Kaya sun cika",
     "items_low": "kaya {count} suna ƙarewa",
     "more_items": "+{count} ƙari",
-    "qty_left": "{qty} ya rage"
+    "qty_left": "{qty} ya rage",
+    "today_expenses": "Kashe Kuɗin Yau"
   },
   "metrics": {
     "revenue": "Kudin Shiga",
@@ -796,5 +799,25 @@
     "business_f4": "Cikakken tarihi",
     "business_f5": "Tallafi na musamman",
     "business_f6": "Tabbacin SLA"
+  },
+  "expenses": {
+    "title": "Kashe Kuɗi",
+    "add": "Ƙara Kashe Kuɗi",
+    "edit_title": "Gyara Kashe Kuɗi",
+    "new_title": "Sabon Kashe Kuɗi",
+    "total": "Jimillar Kashe Kuɗi",
+    "none": "Babu kashe kuɗi a wannan wata",
+    "amount": "Adadin Kuɗi",
+    "description": "Bayanin Kashe Kuɗin",
+    "description_placeholder": "Misali: Hayan shago, Lantarki, Albashi Ali…",
+    "date": "Ranar",
+    "save": "Ajiye",
+    "delete_confirm": "Share wannan kashe kuɗin?",
+    "added": "An ƙara kashe kuɗin",
+    "updated": "An gyara kashe kuɗin",
+    "deleted": "An share kashe kuɗin",
+    "today": "Kashe Kuɗin Yau",
+    "net_profit": "Riba ta Gaske",
+    "category": "KASHE KUƊI"
   }
 }

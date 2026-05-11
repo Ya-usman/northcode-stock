@@ -263,7 +263,7 @@ export default function ReportsPage() {
             ],
           },
           ...(expenses.length > 0 ? [{
-            title: 'Dépenses',
+            title: t('expenses.title'),
             headers: ['Date', 'Description', 'Montant'],
             rows: [
               ...expenses.map(e => [format(new Date(e.date), 'dd MMM yyyy'), e.description, formatNaira(e.amount)]),
@@ -320,8 +320,8 @@ export default function ReportsPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: t('reports.encaisse'), value: formatNaira(totals.revenue), color: 'text-stockshop-blue dark:text-blue-400', sub: t('reports.cash_in_register') },
-          { label: 'Dépenses', value: formatNaira(totalExpenses), color: 'text-red-500', sub: null },
-          { label: 'Bénéfice net', value: formatNaira(totals.revenue - totalExpenses), color: totals.revenue - totalExpenses >= 0 ? 'text-green-600' : 'text-red-600', sub: null },
+          { label: t('expenses.title'), value: formatNaira(totalExpenses), color: 'text-red-500', sub: null },
+          { label: t('expenses.net_profit'), value: formatNaira(totals.revenue - totalExpenses), color: totals.revenue - totalExpenses >= 0 ? 'text-green-600' : 'text-red-600', sub: null },
           { label: t('reports.transactions'), value: String(totals.sales), color: 'text-foreground', sub: null },
           { label: t('reports.outstanding_debt'), value: formatNaira(outstandingDebt), color: 'text-orange-500', sub: null },
         ].map(item => (
@@ -469,7 +469,7 @@ export default function ReportsPage() {
                 <div className="flex items-center justify-between gap-2">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <Receipt className="h-4 w-4 text-red-500" />
-                    Dépenses
+                    {t('expenses.title')}
                   </CardTitle>
                   <span className="text-sm font-bold text-red-500">{formatNaira(totalExpenses)}</span>
                 </div>
