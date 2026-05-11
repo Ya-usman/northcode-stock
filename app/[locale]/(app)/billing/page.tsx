@@ -78,6 +78,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
 
   const country = getCountry(shop?.country)
   const isNigeria = country.code === 'NG'
+  const gatewayLabel = country.gateway === 'paystack' ? 'Paystack' : country.gateway === 'notchpay' ? 'NotchPay' : 'Flutterwave'
 
   // Payment methods available for subscription (no cash, no credit)
   const subscriptionMethods = country.paymentMethods.filter(
@@ -354,7 +355,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
               {/* Security badge */}
               <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
                 <ShieldCheck className="h-3.5 w-3.5 text-green-500" />
-                <span>Paiement sécurisé · {isNigeria ? 'Paystack' : 'Flutterwave'}</span>
+                <span>Paiement sécurisé · {gatewayLabel}</span>
               </div>
             </PremiumDialogBody>
 

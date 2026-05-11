@@ -33,7 +33,7 @@ export interface CountryConfig {
   flagColor: string
   currency: string
   currencySymbol: string
-  gateway: 'paystack' | 'flutterwave'
+  gateway: 'paystack' | 'flutterwave' | 'notchpay'
   prices: {
     starter: number
     pro: number
@@ -66,7 +66,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
   },
   CM: {
     code: 'CM', name: 'Cameroun', flag: '🇨🇲', flagColor: '#CE1126',
-    currency: 'XAF', currencySymbol: 'F CFA', gateway: 'flutterwave',
+    currency: 'XAF', currencySymbol: 'F CFA', gateway: 'notchpay',
     prices: { starter: 5000, pro: 8000, business: 15000 },
     phonePrefix: '+237', cityPlaceholder: 'Douala, Yaoundé, Bafoussam…',
     paymentMethods: [

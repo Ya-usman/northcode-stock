@@ -95,7 +95,34 @@ export async function POST(request: Request) {
       })
     }
 
-    // ── Flutterwave (tous les autres pays) ─────────────────────────────────
+    // ── NotchPay (Cameroun — Orange Money & MTN MoMo XAF natif) ───────────
+    if (country.gateway === 'notchpay') {
+      const publicKey = process.env.NOTCHPAY_PUBLIC_KEY
+      if (!publicKey) return NextResponse.json({ error: 'NotchPay not configured' }, { status: 500 })
+
+      const res = await fetch('https://api.notchpay.co/payments/initialize', {
+        method: 'POST',
+        headers: {
+          Authorization: publicKey,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          amount,
+          currency: country.currency,
+          callback: `${baseUrl}/api/billing/notchpay/verify?locale=${locale}`,
+          description: `Abonnement StockShop Plan ${plan_id}`,
+          meta: { shop_id, plan_id, locale, billing_period: period },
+        }),
+      })
+      const data = await res.json()
+      const url = data.authorization_url
+      if (!url) return NextResponse.json({ error: data.message || 'NotchPay error' }, { status: 500 })
+      return NextResponse.json({ authorization_url: url, reference: data.transaction?.reference || '' })
+    }
+
+    // ── Flutterwave (tous les autres pays FCFA) ────────────────────────────
     if (country.gateway === 'flutterwave') {
       const secretKey = process.env.FLUTTERWAVE_SECRET_KEY
       if (!secretKey) return NextResponse.json({ error: 'Flutterwave not configured' }, { status: 500 })
