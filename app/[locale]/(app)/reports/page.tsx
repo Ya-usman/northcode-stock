@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
-import { Download } from 'lucide-react'
+import { Download, Receipt, TrendingDown, Banknote } from 'lucide-react'
 import {
   PieChart, Pie, Cell,
   Tooltip, ResponsiveContainer,
@@ -38,6 +38,8 @@ export default function ReportsPage() {
   const [totals, setTotals] = useState({ revenue: 0, profit: 0, sales: 0 })
   const [outstandingDebt, setOutstandingDebt] = useState(0)
   const [allInventory, setAllInventory] = useState<{ name: string; quantity: number; buying_price: number; selling_price: number; soldQty: number; soldRevenue: number }[]>([])
+  const [expenses, setExpenses] = useState<{ id: string; amount: number; description: string; date: string }[]>([])
+  const [totalExpenses, setTotalExpenses] = useState(0)
 
   const getDateRange = () => {
     const now = new Date()
@@ -133,14 +135,24 @@ export default function ReportsPage() {
     )
 
     // Stock valuation + full inventory
-    const [{ data: allProducts }, { data: debtCustomers }] = await Promise.all([
+    const [{ data: allProducts }, { data: debtCustomers }, { data: expensesRaw }] = await Promise.all([
       supabase
         .from('products').select('id, name, quantity, buying_price, selling_price')
         .in('shop_id', effectiveShopIds).eq('is_active', true).order('name'),
       supabase
         .from('customers').select('total_debt')
         .in('shop_id', effectiveShopIds),
+      supabase
+        .from('expenses').select('id, amount, description, date')
+        .in('shop_id', effectiveShopIds)
+        .gte('date', start.slice(0, 10))
+        .lte('date', end.slice(0, 10))
+        .order('date', { ascending: false }),
     ])
+    const expensesList = (expensesRaw || []) as { id: string; amount: number; description: string; date: string }[]
+    const expTotal = expensesList.reduce((s, e) => s + Number(e.amount), 0)
+    setExpenses(expensesList)
+    setTotalExpenses(expTotal)
     const buyingValue = (allProducts || []).reduce((s: number, p: any) => s + Number(p.quantity) * Number(p.buying_price), 0)
     const sellingValue = (allProducts || []).reduce((s: number, p: any) => s + Number(p.quantity) * Number(p.selling_price), 0)
     setStockValuation({ buyingValue, sellingValue, potentialProfit: sellingValue - buyingValue })
@@ -250,6 +262,14 @@ export default function ReportsPage() {
               [t('reports.potential_profit'), formatNaira(stockValuation.potentialProfit)],
             ],
           },
+          ...(expenses.length > 0 ? [{
+            title: 'Dépenses',
+            headers: ['Date', 'Description', 'Montant'],
+            rows: [
+              ...expenses.map(e => [format(new Date(e.date), 'dd MMM yyyy'), e.description, formatNaira(e.amount)]),
+              ['', 'Total', formatNaira(totalExpenses)],
+            ],
+          }] : []),
           {
             title: t('reports.cashier_performance'),
             headers: isMultiShop
@@ -300,7 +320,8 @@ export default function ReportsPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: t('reports.encaisse'), value: formatNaira(totals.revenue), color: 'text-stockshop-blue dark:text-blue-400', sub: t('reports.cash_in_register') },
-          { label: t('reports.est_profit'), value: formatNaira(totals.profit), color: 'text-green-600', sub: null },
+          { label: 'Dépenses', value: formatNaira(totalExpenses), color: 'text-red-500', sub: null },
+          { label: 'Bénéfice net', value: formatNaira(totals.revenue - totalExpenses), color: totals.revenue - totalExpenses >= 0 ? 'text-green-600' : 'text-red-600', sub: null },
           { label: t('reports.transactions'), value: String(totals.sales), color: 'text-foreground', sub: null },
           { label: t('reports.outstanding_debt'), value: formatNaira(outstandingDebt), color: 'text-orange-500', sub: null },
         ].map(item => (
@@ -440,6 +461,45 @@ export default function ReportsPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Expenses list */}
+          {expenses.length > 0 && (
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between gap-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Receipt className="h-4 w-4 text-red-500" />
+                    Dépenses
+                  </CardTitle>
+                  <span className="text-sm font-bold text-red-500">{formatNaira(totalExpenses)}</span>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="text-right">Montant</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {expenses.map(e => (
+                      <TableRow key={e.id}>
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                          {format(new Date(e.date), 'dd MMM yyyy')}
+                        </TableCell>
+                        <TableCell className="text-sm">{e.description}</TableCell>
+                        <TableCell className="text-right text-sm font-medium text-red-500">
+                          {formatNaira(e.amount)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Cashier performance */}
           {cashierPerf.length > 0 && ( // always show since we include 0-sales members

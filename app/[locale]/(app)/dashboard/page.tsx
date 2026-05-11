@@ -68,6 +68,7 @@ export default function DashboardPage() {
   const [topProducts, setTopProducts] = useState<TopProduct[]>([])
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([])
   const [outOfStockProducts, setOutOfStockProducts] = useState<Product[]>([])
+  const [todayExpenses, setTodayExpenses] = useState(0)
 
   // Determine which shop IDs to query
   const shopIds = dashboardShopFilter
@@ -84,7 +85,7 @@ export default function DashboardPage() {
   const applyDashData = useCallback((
     salesCount: number, revenue: number, debt: number,
     sales: Sale[], repayments: RepaymentFeedItem[], revData: RevenueDataPoint[], tops: TopProduct[],
-    low: Product[], out: Product[]
+    low: Product[], out: Product[], expenses = 0
   ) => {
     setTodaySalesCount(salesCount)
     setTodayRevenue(revenue)
@@ -95,6 +96,7 @@ export default function DashboardPage() {
     setTopProducts(tops)
     setLowStockProducts(low)
     setOutOfStockProducts(out)
+    setTodayExpenses(expenses)
   }, [])
 
   const loadDashboard = useCallback(async (quiet = false) => {
@@ -134,6 +136,7 @@ export default function DashboardPage() {
         { data: stockData },
         { data: todayPaymentsRaw },
         paymentsRes,
+        { data: expensesRaw },
       ] = await Promise.all([
         // Today's sales — cashier sees only their own; owner/viewer sees all
         (() => {
@@ -187,6 +190,13 @@ export default function DashboardPage() {
 
         // Actual cash received via admin route (for weekly chart)
         fetch(`/api/dashboard/payments-today?shop_ids=${shopIds.join(',')}&start=${encodeURIComponent(todayStart)}&end=${encodeURIComponent(todayEnd)}&week_start=${encodeURIComponent(weekStartISO)}`),
+
+        // Today's expenses (owner only)
+        !isCashier ? supabase
+          .from('expenses')
+          .select('amount')
+          .in('shop_id', shopIds)
+          .eq('date', todayStart.slice(0, 10)) : Promise.resolve({ data: [] }),
       ])
 
       const paymentsApiOk = paymentsRes.ok
@@ -201,6 +211,7 @@ export default function DashboardPage() {
       const salesArr = (todaySales || []) as unknown as Sale[]
       const salesCount = salesArr.length
       const debt = (debtData || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0)
+      const expensesTotal = (expensesRaw || []).reduce((s: number, e: any) => s + Number(e.amount), 0)
 
       // Build repayment feed items — all payments today (credit, repayments, partial)
       const repaymentItems: RepaymentFeedItem[] = (todayPaymentsRaw || [])
@@ -264,7 +275,7 @@ export default function DashboardPage() {
             .filter((p: any) => shopIds.includes(p.sales?.shop_id))
             .reduce((s: number, p: any) => s + Number(p.amount), 0)
 
-      applyDashData(salesCount, revenue, debt, salesArr, repaymentItems, revData, tops, lowSt, outOf)
+      applyDashData(salesCount, revenue, debt, salesArr, repaymentItems, revData, tops, lowSt, outOf, expensesTotal)
 
       writeDashCache({ shopKey, todaySalesCount: salesCount, todayRevenue: revenue,
         outstandingDebt: debt, recentSales: salesArr, repaymentItems,
@@ -437,6 +448,7 @@ export default function DashboardPage() {
         todaySalesCount={todaySalesCount}
         lowStockCount={lowStockProducts.length + outOfStockProducts.length}
         outstandingDebt={outstandingDebt}
+        todayExpenses={todayExpenses}
         role={profile?.role || 'viewer'}
         isCashier={isCashierView}
       />

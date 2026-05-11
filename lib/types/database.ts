@@ -40,6 +40,17 @@ export interface Profile {
   created_at: string
 }
 
+export interface Expense {
+  id: string
+  shop_id: string
+  amount: number
+  description: string
+  date: string
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface Category {
   id: string
   shop_id: string

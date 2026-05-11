@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { TrendingUp, ShoppingCart, AlertTriangle, CreditCard } from 'lucide-react'
+import { TrendingUp, ShoppingCart, AlertTriangle, CreditCard, Receipt } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { useTranslations } from 'next-intl'
 import { useCurrency } from '@/lib/hooks/use-currency'
@@ -11,6 +11,7 @@ interface MetricCardsProps {
   todaySalesCount: number
   lowStockCount: number
   outstandingDebt: number
+  todayExpenses?: number
   role: string
   isCashier?: boolean
 }
@@ -24,7 +25,7 @@ const item = {
   show: { opacity: 1, y: 0 },
 }
 
-export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outstandingDebt, role, isCashier }: MetricCardsProps) {
+export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outstandingDebt, todayExpenses = 0, role, isCashier }: MetricCardsProps) {
   const t = useTranslations('dashboard')
   const { fmt, symbol } = useCurrency()
   const compact = (n: number) => {
@@ -72,6 +73,15 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
       color: outstandingDebt > 0 ? 'text-red-600' : 'text-green-600',
       bg: outstandingDebt > 0 ? 'bg-red-50' : 'bg-green-50',
       show: role !== 'viewer',
+    },
+    {
+      title: 'Dépenses aujourd\'hui',
+      value: compact(todayExpenses),
+      subValue: fmt(todayExpenses),
+      icon: Receipt,
+      color: todayExpenses > 0 ? 'text-red-500' : 'text-muted-foreground',
+      bg: todayExpenses > 0 ? 'bg-red-50' : 'bg-muted',
+      show: role === 'owner',
     },
   ].filter(c => c.show)
 
