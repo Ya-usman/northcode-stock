@@ -1,11 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { Crown, Clock, Zap, X, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { Clock, X, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { cn } from '@/lib/utils/cn'
-import { isBetaPeriod, betaDaysLeft, getTrialDaysLeft, hasActiveSubscription, getPlan } from '@/lib/saas/plans'
+import { getTrialDaysLeft, hasActiveSubscription, getPlan } from '@/lib/saas/plans'
 
 interface PlanStatusBannerProps {
   plan: string | null
@@ -19,24 +19,9 @@ export function PlanStatusBanner({ plan, trialEndsAt, planExpiresAt }: PlanStatu
   const [dismissed, setDismissed] = useState(false)
   if (dismissed) return null
 
-  const beta = isBetaPeriod()
-  const betaLeft = betaDaysLeft()
   const subscribed = hasActiveSubscription(plan, planExpiresAt)
   const trialDays = getTrialDaysLeft(trialEndsAt)
   const planInfo = getPlan(plan)
-
-  // ── Beta period ─────────────────────────────────────────────────
-  if (beta) {
-    return (
-      <Banner
-        color="blue"
-        icon={<Zap className="h-3.5 w-3.5 flex-shrink-0" />}
-        text={t('beta_active', { days: betaLeft })}
-        locale={locale}
-        onDismiss={() => setDismissed(true)}
-      />
-    )
-  }
 
   // ── Active subscription ──────────────────────────────────────────
   if (subscribed && planExpiresAt) {
