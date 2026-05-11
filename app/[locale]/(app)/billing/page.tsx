@@ -8,33 +8,46 @@ import { getCountry, getPeriodPrice, type BillingPeriod } from '@/lib/saas/count
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
-import { CheckCircle2, Clock, CreditCard, Smartphone } from 'lucide-react'
+import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
+import { CheckCircle2, Clock, Crown, Sparkles, Building2, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Script from 'next/script'
+
+type PlanId = 'starter' | 'pro' | 'business'
+
+const PLAN_ICONS: Record<PlanId, React.ReactNode> = {
+  starter:  <Sparkles className="h-5 w-5" />,
+  pro:      <Crown className="h-5 w-5" />,
+  business: <Building2 className="h-5 w-5" />,
+}
 
 export default function BillingPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('billing_page')
   const { shop, user, refreshShop } = useAuth()
   const { toast } = useToast()
-  const [loading, setLoading] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
   const period: BillingPeriod = 'monthly'
   const searchParams = useSearchParams()
   const router = useRouter()
 
+  // Custom checkout modal state
+  const [checkoutPlan, setCheckoutPlan] = useState<PlanId | null>(null)
+  const [selectedMethod, setSelectedMethod] = useState<string>('')
+
   const PLAN_DETAILS = [
     {
-      id: 'starter' as const,
+      id: 'starter' as PlanId,
       popular: false,
       features: [t('starter_f1'), t('starter_f2'), t('starter_f3'), t('starter_f4'), t('starter_f5'), t('starter_f6')],
     },
     {
-      id: 'pro' as const,
+      id: 'pro' as PlanId,
       popular: true,
       features: [t('pro_f1'), t('pro_f2'), t('pro_f3'), t('pro_f4'), t('pro_f5'), t('pro_f6')],
     },
     {
-      id: 'business' as const,
+      id: 'business' as PlanId,
       popular: false,
       features: [t('business_f1'), t('business_f2'), t('business_f3'), t('business_f4'), t('business_f5'), t('business_f6')],
     },
@@ -43,7 +56,6 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   useEffect(() => {
     const success = searchParams.get('success')
     const error = searchParams.get('error')
-
     if (success === '1') {
       toast({ title: t('payment_success'), description: t('payment_success_desc'), variant: 'success' })
       router.replace(`/${locale}/billing`)
@@ -66,44 +78,63 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
 
   const country = getCountry(shop?.country)
   const isNigeria = country.code === 'NG'
-  const isFlutterwave = country.gateway === 'flutterwave'
 
-  const handleSubscribe = useCallback(async (planId: 'starter' | 'pro' | 'business') => {
-    if (!shop || !user) return
-    setLoading(planId)
+  // Payment methods available for subscription (no cash, no credit)
+  const subscriptionMethods = country.paymentMethods.filter(
+    m => m.type !== 'cash' && m.type !== 'credit'
+  )
+
+  const openCheckout = (planId: PlanId) => {
+    setCheckoutPlan(planId)
+    setSelectedMethod(subscriptionMethods[0]?.id || '')
+  }
+
+  const closeCheckout = () => {
+    setCheckoutPlan(null)
+    setSelectedMethod('')
+  }
+
+  const handlePay = useCallback(async () => {
+    if (!shop || !user || !checkoutPlan) return
+    setLoading(true)
     try {
       const res = await fetch('/api/billing/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan_id: planId, shop_id: shop.id, email: user.email, locale, billing_period: period }),
+        body: JSON.stringify({
+          plan_id: checkoutPlan,
+          shop_id: shop.id,
+          email: user.email,
+          locale,
+          billing_period: period,
+          payment_method: selectedMethod,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || t('err_failed'))
 
-      if (country.code === 'NG') {
+      closeCheckout()
+
+      if (isNigeria) {
         const PaystackPop = (window as any).PaystackPop
-        if (!PaystackPop) {
-          window.location.href = data.authorization_url
-          return
-        }
+        if (!PaystackPop) { window.location.href = data.authorization_url; return }
         const handler = PaystackPop.setup({
           key: data.public_key,
           email: user.email,
           amount: data.amount_kobo,
           ref: data.reference,
-          metadata: { shop_id: shop.id, plan_id: planId, billing_period: period },
+          channels: data.channels,
+          metadata: { shop_id: shop.id, plan_id: checkoutPlan, billing_period: period },
           onClose: () => {
-            setLoading(null)
+            setLoading(false)
             toast({ title: t('payment_cancelled'), variant: 'destructive' })
           },
           callback: (response: { reference: string }) => {
             fetch(`/api/billing/verify?reference=${response.reference}&locale=${locale}`)
               .then(() => refreshShop())
-              .then(() => {
-                toast({ title: t('payment_success'), description: t('payment_active'), variant: 'success' })
-              })
+              .then(() => toast({ title: t('payment_success'), description: t('payment_active'), variant: 'success' }))
               .catch(() => toast({ title: t('verify_error'), variant: 'destructive' }))
-              .finally(() => setLoading(null))
+              .finally(() => setLoading(false))
           },
         })
         handler.openIframe()
@@ -112,179 +143,234 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
       }
     } catch (err: any) {
       toast({ title: err.message, variant: 'destructive' })
-      setLoading(null)
+      setLoading(false)
     }
-  }, [shop, user, country, locale, toast, refreshShop, period, t])
-
-  const periodLabel = t('per_month')
+  }, [shop, user, checkoutPlan, selectedMethod, country, locale, toast, refreshShop, period, t, isNigeria])
 
   const faqItems = [
     { q: t('faq_1_q'), a: t('faq_1_a') },
     { q: t('faq_2_q'), a: t('faq_2_a') },
-    {
-      q: t('faq_3_q'),
-      a: isNigeria ? t('faq_3_paystack') : t('faq_3_flutterwave', { country: country.name }),
-    },
+    { q: t('faq_3_q'), a: isNigeria ? t('faq_3_paystack') : t('faq_3_flutterwave', { country: country.name }) },
     { q: t('faq_4_q'), a: t('faq_4_a') },
   ]
 
+  const formatPrice = (planId: PlanId) => {
+    const price = getPeriodPrice(country.prices[planId], period)
+    return country.currency === 'NGN'
+      ? `₦${price.toLocaleString('en-NG')}`
+      : `${price.toLocaleString('fr-FR')} ${country.currencySymbol}`
+  }
+
+  const checkoutPlanDetails = checkoutPlan ? PLAN_DETAILS.find(p => p.id === checkoutPlan) : null
+
   return (
     <>
-    <Script src="https://js.paystack.co/v1/inline.js" strategy="afterInteractive" />
-    <div className="max-w-4xl mx-auto space-y-6">
+      <Script src="https://js.paystack.co/v1/inline.js" strategy="afterInteractive" />
+      <div className="max-w-4xl mx-auto space-y-6">
 
-      {/* Current plan status */}
-      <div className="rounded-xl border bg-card p-5 shadow-sm">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <h1 className="font-bold text-lg">{t('title')}</h1>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="text-xl">{country.flag}</span>
-            <span>{country.name} · {country.currencySymbol}</span>
-            {isNigeria && (
-              <span className="flex items-center gap-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded-full px-2 py-0.5">
-                <CreditCard className="h-3 w-3" /> Paystack
-              </span>
-            )}
-            {isFlutterwave && (
-              <span className="flex items-center gap-1 text-xs bg-orange-50 text-orange-700 border border-orange-200 rounded-full px-2 py-0.5">
-                <Smartphone className="h-3 w-3" /> Flutterwave
-              </span>
-            )}
+        {/* Current plan status */}
+        <div className="rounded-xl border bg-card p-5 shadow-sm">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <h1 className="font-bold text-lg">{t('title')}</h1>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="text-xl">{country.flag}</span>
+              <span>{country.name} · {country.currencySymbol}</span>
+            </div>
           </div>
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-center gap-4">
-          <div className="flex-1 min-w-0">
+          <div className="mt-4">
             <div className="flex items-center gap-2 mb-1">
-              <p className="font-semibold text-foreground">{t('current_plan_label')}</p>
+              <p className="font-semibold">{t('current_plan_label')}</p>
               <Badge variant={isSubscribed ? 'success' : isTrialActive ? 'warning' : 'danger'}>
                 {isSubscribed ? currentPlan.name : isTrialActive ? t('trial_active') : t('expired')}
               </Badge>
             </div>
-
             {isTrialActive && (
               <div className="flex items-center gap-1.5 text-sm text-amber-600">
                 <Clock className="h-4 w-4" />
-                <span>
-                  {trialDaysLeft === 0
-                    ? t('trial_expires_today')
-                    : t('trial_days_left', { days: trialDaysLeft })}
-                </span>
+                <span>{trialDaysLeft === 0 ? t('trial_expires_today') : t('trial_days_left', { days: trialDaysLeft })}</span>
               </div>
             )}
-
             {isSubscribed && shop?.plan_expires_at && (
               <p className="text-sm text-muted-foreground">
-                {t('renewal_date', {
-                  date: new Date(shop.plan_expires_at).toLocaleDateString(locale, {
-                    day: 'numeric', month: 'long', year: 'numeric',
-                  }),
-                })}
+                {t('renewal_date', { date: new Date(shop.plan_expires_at).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' }) })}
               </p>
             )}
-
             {!isSubscribed && !isTrialActive && (
               <p className="text-sm text-red-600 font-medium">{t('plan_expired_msg')}</p>
             )}
           </div>
         </div>
-      </div>
 
-      {/* Plans */}
-      <div>
-        <h2 className="font-semibold text-foreground mb-4">
-          {isSubscribed ? t('change_plan') : t('choose_plan')}
-        </h2>
+        {/* Plans */}
+        <div>
+          <h2 className="font-semibold mb-4">{isSubscribed ? t('change_plan') : t('choose_plan')}</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {PLAN_DETAILS.map(({ id, popular, features }) => {
+              const isCurrent = shop?.plan === id && isSubscribed
+              const planName = id.charAt(0).toUpperCase() + id.slice(1)
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {PLAN_DETAILS.map(({ id, popular, features }) => {
-            const price = getPeriodPrice(country.prices[id], period)
-            const isCurrent = shop?.plan === id && isSubscribed
-            const planName = id.charAt(0).toUpperCase() + id.slice(1)
-            const formattedPrice = country.currency === 'NGN'
-              ? `₦${price.toLocaleString('en-NG')}`
-              : `${price.toLocaleString('fr-FR')} ${country.currencySymbol}`
+              return (
+                <div
+                  key={id}
+                  className={cn(
+                    'relative rounded-2xl border-2 bg-card p-6 shadow-sm transition-all',
+                    popular
+                      ? 'border-stockshop-blue shadow-xl ring-2 ring-stockshop-blue'
+                      : 'border-gray-200 dark:border-gray-700 hover:border-stockshop-blue/40'
+                  )}
+                >
+                  {popular && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                      <Badge className="bg-stockshop-blue text-white px-3 py-1 text-xs font-semibold">
+                        {t('popular_badge')}
+                      </Badge>
+                    </div>
+                  )}
 
-            return (
-              <div
-                key={id}
-                className={cn(
-                  'relative rounded-2xl border-2 bg-card p-6 shadow-sm transition-all',
-                  popular
-                    ? 'border-stockshop-blue shadow-xl ring-2 ring-stockshop-blue'
-                    : 'border-gray-200 hover:border-stockshop-blue/40'
-                )}
-              >
-                {popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <Badge className="bg-stockshop-blue text-white px-3 py-1 text-xs font-semibold">
-                      {t('popular_badge')}
-                    </Badge>
+                  <div className="mb-6">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={cn('p-1.5 rounded-lg', popular ? 'bg-stockshop-blue/10 text-stockshop-blue' : 'bg-muted text-muted-foreground')}>
+                        {PLAN_ICONS[id]}
+                      </span>
+                      <p className="font-bold text-lg">{planName}</p>
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-3xl font-extrabold text-stockshop-blue dark:text-blue-400">
+                        {formatPrice(id)}
+                      </span>
+                      <span className="text-muted-foreground text-sm">{t('per_month')}</span>
+                    </div>
                   </div>
-                )}
 
-                <div className="mb-6">
-                  <p className="font-bold text-foreground text-lg mb-1">{planName}</p>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-extrabold text-stockshop-blue dark:text-blue-400">
-                      {formattedPrice}
-                    </span>
-                    <span className="text-muted-foreground text-sm">{periodLabel}</span>
-                  </div>
+                  <ul className="space-y-2.5 mb-6">
+                    {features.map(f => (
+                      <li key={f} className="flex items-center gap-2 text-sm text-foreground/80">
+                        <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+
+                  {isCurrent ? (
+                    <Button disabled className="w-full" variant="outline">
+                      {t('current_plan_btn')}
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => openCheckout(id)}
+                      loading={loading && checkoutPlan === null}
+                      className={cn(
+                        'w-full font-semibold',
+                        popular
+                          ? 'bg-stockshop-blue hover:bg-stockshop-blue-light text-white'
+                          : 'border border-blue-600 dark:border-blue-400 text-stockshop-blue dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 bg-transparent'
+                      )}
+                    >
+                      {isSubscribed ? `${t('upgrade_to')} ${planName}` : `Choisir ${planName}`}
+                    </Button>
+                  )}
                 </div>
+              )
+            })}
+          </div>
+        </div>
 
-                <ul className="space-y-2.5 mb-6">
-                  {features.map(f => (
-                    <li key={f} className="flex items-center gap-2 text-sm text-foreground/80">
-                      <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-
-                {isCurrent ? (
-                  <Button disabled className="w-full" variant="outline">
-                    {t('current_plan_btn')}
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={() => handleSubscribe(id)}
-                    loading={loading === id}
-                    className={cn(
-                      'w-full',
-                      popular
-                        ? 'bg-stockshop-blue hover:bg-stockshop-blue-light text-white'
-                        : 'border border-blue-600 dark:border-blue-400 text-stockshop-blue dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 bg-transparent'
-                    )}
-                  >
-                    {isNigeria ? '💳' : '📱'} {isSubscribed ? `${t('upgrade_to')} ` : ''}{planName}
-                  </Button>
-                )}
+        {/* FAQ */}
+        <div className="rounded-xl border bg-card p-5 shadow-sm">
+          <h2 className="font-semibold mb-4">{t('faq_title')}</h2>
+          <div className="space-y-4 text-sm">
+            {faqItems.map(({ q, a }) => (
+              <div key={q}>
+                <p className="font-medium mb-1">{q}</p>
+                <p className="text-muted-foreground">{a}</p>
               </div>
-            )
-          })}
-        </div>
-
-        <p className="text-center text-xs text-muted-foreground mt-4">
-          {isNigeria
-            ? t('payment_paystack')
-            : t('payment_flutterwave', { country: country.name })}
-        </p>
-      </div>
-
-      {/* FAQ */}
-      <div className="rounded-xl border bg-card p-5 shadow-sm">
-        <h2 className="font-semibold text-foreground mb-4">{t('faq_title')}</h2>
-        <div className="space-y-4 text-sm">
-          {faqItems.map(({ q, a }) => (
-            <div key={q}>
-              <p className="font-medium text-foreground mb-1">{q}</p>
-              <p className="text-muted-foreground">{a}</p>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* ── Custom Checkout Modal ── */}
+      <PremiumDialog
+        open={!!checkoutPlan}
+        onOpenChange={open => { if (!open) closeCheckout() }}
+        category="Abonnement"
+        title={checkoutPlan ? `Plan ${checkoutPlan.charAt(0).toUpperCase() + checkoutPlan.slice(1)}` : ''}
+        icon={checkoutPlan ? PLAN_ICONS[checkoutPlan] : undefined}
+      >
+        {checkoutPlan && checkoutPlanDetails && (
+          <>
+            <PremiumDialogBody>
+              {/* Price banner */}
+              <div className="flex items-center justify-between rounded-xl bg-stockshop-blue/8 dark:bg-blue-950/30 border border-stockshop-blue/20 px-4 py-3">
+                <span className="text-sm font-medium text-muted-foreground">Total mensuel</span>
+                <span className="text-2xl font-extrabold text-stockshop-blue dark:text-blue-400">
+                  {formatPrice(checkoutPlan)}
+                </span>
+              </div>
+
+              {/* Key features (top 3) */}
+              <div className="grid grid-cols-1 gap-1.5">
+                {checkoutPlanDetails.features.slice(0, 3).map(f => (
+                  <div key={f} className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+                    <span className="text-muted-foreground">{f}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Divider */}
+              <div className="border-t" />
+
+              {/* Payment method selection */}
+              <div>
+                <p className="text-sm font-semibold mb-3">Mode de paiement</p>
+                <div className="space-y-2">
+                  {subscriptionMethods.map(method => (
+                    <button
+                      key={method.id}
+                      onClick={() => setSelectedMethod(method.id)}
+                      className={cn(
+                        'w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all text-left',
+                        selectedMethod === method.id
+                          ? 'border-stockshop-blue bg-stockshop-blue/5 dark:bg-blue-950/30'
+                          : 'border-border hover:border-stockshop-blue/30 bg-card'
+                      )}
+                    >
+                      <span className="text-xl leading-none">{method.icon}</span>
+                      <span className={cn(
+                        'flex-1 font-medium text-sm',
+                        selectedMethod === method.id ? 'text-stockshop-blue dark:text-blue-400' : 'text-foreground'
+                      )}>
+                        {method.label}
+                      </span>
+                      {selectedMethod === method.id && (
+                        <CheckCircle2 className="h-4 w-4 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Security badge */}
+              <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+                <ShieldCheck className="h-3.5 w-3.5 text-green-500" />
+                <span>Paiement sécurisé · {isNigeria ? 'Paystack' : 'Flutterwave'}</span>
+              </div>
+            </PremiumDialogBody>
+
+            <PremiumDialogFooter onCancel={closeCheckout} cancelLabel="Annuler">
+              <Button
+                onClick={handlePay}
+                loading={loading}
+                disabled={!selectedMethod || loading}
+                className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500 dark:hover:bg-blue-600 text-white"
+              >
+                Payer {formatPrice(checkoutPlan)}
+              </Button>
+            </PremiumDialogFooter>
+          </>
+        )}
+      </PremiumDialog>
     </>
   )
 }
