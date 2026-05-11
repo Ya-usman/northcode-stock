@@ -1,8 +1,8 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { AdminShopsTable } from '@/components/admin/shops-table'
 
 export default async function AdminShopsPage({ params: { locale } }: { params: { locale: string } }) {
-  const supabase = await createClient()
+  const supabase = await createAdminClient()
 
   const [{ data: shops }, { data: subs }, { data: owners }] = await Promise.all([
     supabase.from('shops').select('id, name, city, plan, trial_ends_at, plan_expires_at, created_at, whatsapp').order('created_at', { ascending: false }),

@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
 import { formatNaira } from '@/lib/utils/currency'
 import { GrowthChart } from '@/components/admin/growth-chart'
@@ -55,7 +55,7 @@ function computeHealthScore(shop: any, owner: any) {
 }
 
 export default async function AnalyticsPage({ params: { locale } }: { params: { locale: string } }) {
-  const supabase = await createClient()
+  const supabase = await createAdminClient()
   const { shops, subs, owners } = await getData(supabase)
 
   const ownersByShop = owners.reduce((acc: any, o: any) => { acc[o.shop_id] = o; return acc }, {})

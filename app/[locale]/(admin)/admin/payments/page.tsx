@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { PLANS } from '@/lib/saas/plans'
 import { formatNaira } from '@/lib/utils/currency'
 
@@ -9,7 +9,7 @@ const PLAN_COLORS: Record<string, string> = {
 }
 
 export default async function AdminPaymentsPage() {
-  const supabase = await createClient()
+  const supabase = await createAdminClient()
 
   const [{ data: subs }, { data: shops }] = await Promise.all([
     supabase.from('subscriptions').select('*').order('created_at', { ascending: false }),

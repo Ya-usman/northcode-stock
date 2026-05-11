@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { getTrialDaysLeft, hasActiveSubscription, PLANS } from '@/lib/saas/plans'
 import { formatNaira } from '@/lib/utils/currency'
 import {
@@ -78,7 +78,7 @@ function buildRevenueChart(subs: any[]) {
 }
 
 export default async function AdminDashboard({ params: { locale } }: { params: { locale: string } }) {
-  const supabase = await createClient()
+  const supabase = await createAdminClient()
   const { shops, allSubs, owners, thisMonthRevenue, lastMonthRevenue, totalProducts, totalCustomers, salesToday, sales7d, cutoff14d, cutoff3d } = await getData(supabase)
 
   const ownersByShop = owners.reduce((acc: any, o: any) => { acc[o.shop_id] = o; return acc }, {})
