@@ -36,6 +36,17 @@ export function formatNairaCompact(amount: number, symbol = '₦'): string {
 }
 
 /**
+ * Format revenue split across currencies for the admin panel.
+ * Shows "₦X | YCFA" when both present, or just the one that has a value.
+ */
+export function formatAdminRevenue(ngn: number, cfa: number): string {
+  const parts: string[] = []
+  if (ngn > 0) parts.push(formatNaira(ngn))
+  if (cfa > 0) parts.push(formatCurrency(cfa, 'FCFA'))
+  return parts.length > 0 ? parts.join(' | ') : '₦0'
+}
+
+/**
  * Parse Naira string back to number
  */
 export function parseNaira(value: string): number {

@@ -1,13 +1,13 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
-import { formatNaira } from '@/lib/utils/currency'
+import { formatAdminRevenue } from '@/lib/utils/currency'
 import { GrowthChart } from '@/components/admin/growth-chart'
 import Link from 'next/link'
 import { TrendingUp, Users, ShoppingBag, Activity } from 'lucide-react'
 
 async function getData(supabase: any) {
   const [{ data: shops }, { data: subs }, { data: owners }] = await Promise.all([
-    supabase.from('shops').select('id, name, plan, trial_ends_at, plan_expires_at, created_at, is_active').order('created_at', { ascending: true }),
+    supabase.from('shops').select('id, name, plan, trial_ends_at, plan_expires_at, created_at, is_active, currency, country').order('created_at', { ascending: true }),
     supabase.from('subscriptions').select('id, shop_id, plan, amount, status, created_at').order('created_at', { ascending: false }),
     supabase.from('profiles').select('id, shop_id, last_seen').eq('role', 'owner'),
   ])
@@ -59,9 +59,16 @@ export default async function AnalyticsPage({ params: { locale } }: { params: { 
   const { shops, subs, owners } = await getData(supabase)
 
   const ownersByShop = owners.reduce((acc: any, o: any) => { acc[o.shop_id] = o; return acc }, {})
+  const shopCurrencyMap: Record<string, string> = shops.reduce((acc: any, s: any) => { acc[s.id] = s.currency || '₦'; return acc }, {})
   const monthlyData = buildMonthlyGrowth(shops, subs)
 
-  const totalRevenue = subs.filter(s => s.status === 'active').reduce((acc: number, s: any) => acc + Number(s.amount), 0)
+  const activeSubs = subs.filter(s => s.status === 'active')
+  let totalNGN = 0, totalCFA = 0
+  for (const s of activeSubs) {
+    const cur = shopCurrencyMap[s.shop_id] || '₦'
+    if (cur.includes('CFA') || cur === 'FCFA') totalCFA += Number(s.amount)
+    else totalNGN += Number(s.amount)
+  }
   const activeSubscriptions = shops.filter((s: any) => hasActiveSubscription(s.plan, s.plan_expires_at)).length
   const activeTrials = shops.filter((s: any) => !hasActiveSubscription(s.plan, s.plan_expires_at) && getTrialDaysLeft(s.trial_ends_at) >= 0).length
   const expired = shops.filter((s: any) => !hasActiveSubscription(s.plan, s.plan_expires_at) && getTrialDaysLeft(s.trial_ends_at) < 0).length
@@ -101,13 +108,19 @@ export default async function AnalyticsPage({ params: { locale } }: { params: { 
     <div className="space-y-6 max-w-6xl">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Analytics & Croissance</h1>
-        <p className="text-muted-foreground text-sm mt-1">Vue sur 12 mois · {shops.length} boutiques total</p>
+        <p className="text-muted-foreground text-sm mt-1">Vue sur 12 mois · {shops.length} boutiques · tous pays</p>
       </div>
 
       {/* Résumé global */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-card rounded-xl border border-border p-4">
+          <div className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-green-400/10 mb-2">
+            <TrendingUp className="h-4 w-4 text-green-400" />
+          </div>
+          <p className="text-lg font-bold text-foreground leading-tight">{formatAdminRevenue(totalNGN, totalCFA)}</p>
+          <p className="text-muted-foreground text-xs mt-0.5">Revenue total</p>
+        </div>
         {[
-          { label: 'Revenue total', value: formatNaira(totalRevenue), icon: TrendingUp, color: 'text-green-400', bg: 'bg-green-400/10' },
           { label: 'Payants', value: activeSubscriptions, icon: Users, color: 'text-blue-400', bg: 'bg-blue-400/10' },
           { label: 'En trial', value: activeTrials, icon: ShoppingBag, color: 'text-amber-400', bg: 'bg-amber-400/10' },
           { label: 'Expirés', value: expired, icon: Activity, color: 'text-red-400', bg: 'bg-red-400/10' },

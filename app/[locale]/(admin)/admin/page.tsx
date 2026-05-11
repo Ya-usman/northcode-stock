@@ -1,6 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { getTrialDaysLeft, hasActiveSubscription, PLANS } from '@/lib/saas/plans'
-import { formatNaira } from '@/lib/utils/currency'
+import { formatAdminRevenue, formatCurrency } from '@/lib/utils/currency'
 import {
   TrendingUp, ShoppingBag, Users, AlertTriangle, DollarSign,
   ArrowUpRight, Package, Activity, Clock, UserCheck,
@@ -17,7 +17,6 @@ async function getData(supabase: any) {
   const start7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
   const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
   const cutoff14d = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
-  const cutoff3d = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
 
   const [
     { data: shops },
@@ -30,10 +29,10 @@ async function getData(supabase: any) {
     { count: salesToday },
     { count: sales7d },
   ] = await Promise.all([
-    supabase.from('shops').select('id, name, plan, trial_ends_at, plan_expires_at, created_at, is_active').order('created_at', { ascending: false }),
+    supabase.from('shops').select('id, name, plan, trial_ends_at, plan_expires_at, created_at, is_active, currency, country').order('created_at', { ascending: false }),
     supabase.from('subscriptions').select('id, shop_id, plan, amount, status, paystack_reference, starts_at, created_at').order('created_at', { ascending: false }),
-    supabase.from('subscriptions').select('amount').eq('status', 'active').gte('created_at', startOfMonth),
-    supabase.from('subscriptions').select('amount').eq('status', 'active').gte('created_at', startOfLastMonth).lte('created_at', endOfLastMonth),
+    supabase.from('subscriptions').select('shop_id, amount').eq('status', 'active').gte('created_at', startOfMonth),
+    supabase.from('subscriptions').select('shop_id, amount').eq('status', 'active').gte('created_at', startOfLastMonth).lte('created_at', endOfLastMonth),
     supabase.from('profiles').select('id, full_name, shop_id, last_seen').eq('role', 'owner'),
     supabase.from('products').select('id', { count: 'exact', head: true }).eq('is_active', true),
     supabase.from('customers').select('id', { count: 'exact', head: true }).is('deleted_at', null),
@@ -45,15 +44,28 @@ async function getData(supabase: any) {
     shops: shops || [],
     allSubs: allSubs || [],
     owners: owners || [],
-    thisMonthRevenue: (thisMonthSubs || []).reduce((s: number, x: any) => s + Number(x.amount), 0),
-    lastMonthRevenue: (lastMonthSubs || []).reduce((s: number, x: any) => s + Number(x.amount), 0),
+    thisMonthSubs: thisMonthSubs || [],
+    lastMonthSubs: lastMonthSubs || [],
     totalProducts: totalProducts ?? 0,
     totalCustomers: totalCustomers ?? 0,
     salesToday: salesToday ?? 0,
     sales7d: sales7d ?? 0,
     cutoff14d,
-    cutoff3d,
   }
+}
+
+function splitRevenueByCurrency(subs: any[], shopCurrencyMap: Record<string, string>) {
+  let ngn = 0
+  let cfa = 0
+  for (const s of subs) {
+    const currency = shopCurrencyMap[s.shop_id] || '₦'
+    if (currency.includes('CFA') || currency === 'FCFA') {
+      cfa += Number(s.amount)
+    } else {
+      ngn += Number(s.amount)
+    }
+  }
+  return { ngn, cfa }
 }
 
 function buildRevenueChart(subs: any[]) {
@@ -79,11 +91,21 @@ function buildRevenueChart(subs: any[]) {
 
 export default async function AdminDashboard({ params: { locale } }: { params: { locale: string } }) {
   const supabase = await createAdminClient()
-  const { shops, allSubs, owners, thisMonthRevenue, lastMonthRevenue, totalProducts, totalCustomers, salesToday, sales7d, cutoff14d, cutoff3d } = await getData(supabase)
+  const { shops, allSubs, owners, thisMonthSubs, lastMonthSubs, totalProducts, totalCustomers, salesToday, sales7d, cutoff14d } = await getData(supabase)
 
   const ownersByShop = owners.reduce((acc: any, o: any) => { acc[o.shop_id] = o; return acc }, {})
+  const shopCurrencyMap: Record<string, string> = shops.reduce((acc: any, s: any) => { acc[s.id] = s.currency || '₦'; return acc }, {})
 
-  const totalRevenue = allSubs.reduce((s: number, x: any) => s + Number(x.amount), 0)
+  const { ngn: totalNGN, cfa: totalCFA } = splitRevenueByCurrency(allSubs, shopCurrencyMap)
+  const { ngn: thisMonthNGN, cfa: thisMonthCFA } = splitRevenueByCurrency(thisMonthSubs, shopCurrencyMap)
+  const { ngn: lastMonthNGN, cfa: lastMonthCFA } = splitRevenueByCurrency(lastMonthSubs, shopCurrencyMap)
+
+  const lastMonthTotal = lastMonthNGN + lastMonthCFA
+  const thisMonthTotal = thisMonthNGN + thisMonthCFA
+  const revenueGrowth = lastMonthTotal > 0
+    ? Math.round(((thisMonthTotal - lastMonthTotal) / lastMonthTotal) * 100)
+    : thisMonthTotal > 0 ? 100 : 0
+
   const activeSubscriptions = shops.filter((s: any) => hasActiveSubscription(s.plan, s.plan_expires_at)).length
   const activeTrials = shops.filter((s: any) => {
     const days = getTrialDaysLeft(s.trial_ends_at)
@@ -98,33 +120,28 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
     return new Date(s.created_at) >= new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   }).length
 
-  // Boutiques inactives (owner last_seen > 14 jours)
   const inactiveShops = shops.filter((s: any) => {
     const owner = ownersByShop[s.id]
     if (!owner?.last_seen) return true
     return new Date(owner.last_seen) < new Date(cutoff14d)
   })
 
-  // Boutiques avec trial expirant dans 3 jours
   const expiringTrials = shops.filter((s: any) => {
     const days = getTrialDaysLeft(s.trial_ends_at)
     return !hasActiveSubscription(s.plan, s.plan_expires_at) && days >= 0 && days <= 3
   })
 
-  const revenueGrowth = lastMonthRevenue > 0
-    ? Math.round(((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100)
-    : thisMonthRevenue > 0 ? 100 : 0
-
   const chartData = buildRevenueChart(allSubs)
   const recentPayments = allSubs.slice(0, 10)
 
-  const mrr = (['starter', 'pro', 'business'] as const).reduce((acc, planId) => {
-    const count = shops.filter((s: any) => s.plan === planId && hasActiveSubscription(s.plan, s.plan_expires_at)).length
-    return acc + count * PLANS[planId].price_monthly
-  }, 0)
-  const arr = mrr * 12
-
   const conversionRate = shops.length > 0 ? Math.round((activeSubscriptions / shops.length) * 100) : 0
+
+  // Count shops by country
+  const countryCounts: Record<string, number> = {}
+  for (const s of shops) {
+    const c = s.country || 'NG'
+    countryCounts[c] = (countryCounts[c] || 0) + 1
+  }
 
   return (
     <div className="space-y-6 max-w-6xl">
@@ -138,7 +155,13 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
         </div>
         <div className="text-right">
           <p className="text-xs text-muted-foreground">StockShop Admin</p>
-          <p className="text-xs text-stockshop-gold font-semibold">OWNER PANEL</p>
+          <div className="flex gap-1.5 mt-1 justify-end flex-wrap">
+            {Object.entries(countryCounts).map(([country, count]) => (
+              <span key={country} className="text-[10px] bg-muted text-muted-foreground rounded-full px-2 py-0.5">
+                {country === 'CM' ? '🇨🇲' : country === 'NG' ? '🇳🇬' : country} {count}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -182,30 +205,49 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
 
       {/* KPI cards — finances */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: 'Revenue total', value: formatNaira(totalRevenue), sub: 'All time', icon: DollarSign, color: 'text-green-400', bg: 'bg-green-400/10' },
-          { label: 'MRR', value: formatNaira(mrr), sub: `ARR : ${formatNaira(arr)}`, icon: TrendingUp, color: 'text-blue-400', bg: 'bg-blue-400/10' },
-          { label: 'Ce mois-ci', value: formatNaira(thisMonthRevenue), sub: revenueGrowth >= 0 ? `+${revenueGrowth}% vs mois dernier` : `${revenueGrowth}% vs mois dernier`, icon: ArrowUpRight, color: revenueGrowth >= 0 ? 'text-green-400' : 'text-red-400', bg: revenueGrowth >= 0 ? 'bg-green-400/10' : 'bg-red-400/10' },
-          { label: 'Total boutiques', value: shops.length, sub: `+${newShopsThisMonth} ce mois`, icon: ShoppingBag, color: 'text-purple-400', bg: 'bg-purple-400/10' },
-        ].map(({ label, value, sub, icon: Icon, color, bg }) => (
-          <div key={label} className="bg-card rounded-xl border border-border p-4">
-            <div className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${bg} mb-3`}>
-              <Icon className={`h-4 w-4 ${color}`} />
-            </div>
-            <p className="text-xl font-bold text-foreground">{value}</p>
-            <p className="text-muted-foreground text-xs mt-0.5">{label}</p>
-            <p className={`text-xs mt-1 ${color}`}>{sub}</p>
+        <div className="bg-card rounded-xl border border-border p-4">
+          <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-green-400/10 mb-3">
+            <DollarSign className="h-4 w-4 text-green-400" />
           </div>
-        ))}
+          <p className="text-lg font-bold text-foreground leading-tight">{formatAdminRevenue(totalNGN, totalCFA)}</p>
+          <p className="text-muted-foreground text-xs mt-0.5">Revenue total</p>
+          <p className="text-xs mt-1 text-green-400">All time</p>
+        </div>
+        <div className="bg-card rounded-xl border border-border p-4">
+          <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-blue-400/10 mb-3">
+            <TrendingUp className="h-4 w-4 text-blue-400" />
+          </div>
+          <p className="text-lg font-bold text-foreground leading-tight">{formatAdminRevenue(thisMonthNGN, thisMonthCFA)}</p>
+          <p className="text-muted-foreground text-xs mt-0.5">Ce mois-ci</p>
+          <p className={`text-xs mt-1 ${revenueGrowth >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            {revenueGrowth >= 0 ? '+' : ''}{revenueGrowth}% vs mois dernier
+          </p>
+        </div>
+        <div className="bg-card rounded-xl border border-border p-4">
+          <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-purple-400/10 mb-3">
+            <ShoppingBag className="h-4 w-4 text-purple-400" />
+          </div>
+          <p className="text-xl font-bold text-foreground">{shops.length}</p>
+          <p className="text-muted-foreground text-xs mt-0.5">Total boutiques</p>
+          <p className="text-xs mt-1 text-purple-400">+{newShopsThisMonth} ce mois</p>
+        </div>
+        <div className="bg-card rounded-xl border border-border p-4">
+          <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-yellow-400/10 mb-3">
+            <UserCheck className="h-4 w-4 text-stockshop-gold" />
+          </div>
+          <p className="text-xl font-bold text-foreground">{conversionRate}%</p>
+          <p className="text-muted-foreground text-xs mt-0.5">Taux de conversion</p>
+          <p className="text-xs mt-1 text-stockshop-gold">{activeSubscriptions} payants / {shops.length}</p>
+        </div>
       </div>
 
       {/* KPI cards — activité produit */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'Produits gérés', value: totalProducts.toLocaleString(), sub: 'Toutes boutiques', icon: Package, color: 'text-cyan-400', bg: 'bg-cyan-400/10' },
-          { label: 'Clients enregistrés', value: totalCustomers.toLocaleString(), sub: 'Toutes boutiques', icon: Users, color: 'text-violet-400', bg: 'bg-violet-400/10' },
-          { label: 'Ventes aujourd\'hui', value: salesToday.toLocaleString(), sub: `${sales7d} sur 7 jours`, icon: Activity, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
-          { label: 'Taux de conversion', value: `${conversionRate}%`, sub: `${activeSubscriptions} payants / ${shops.length} total`, icon: UserCheck, color: 'text-stockshop-gold', bg: 'bg-yellow-400/10' },
+          { label: 'Produits gérés', value: totalProducts.toLocaleString(), sub: 'Toutes boutiques · tous pays', icon: Package, color: 'text-cyan-400', bg: 'bg-cyan-400/10' },
+          { label: 'Clients enregistrés', value: totalCustomers.toLocaleString(), sub: 'Toutes boutiques · tous pays', icon: Users, color: 'text-violet-400', bg: 'bg-violet-400/10' },
+          { label: "Ventes aujourd'hui", value: salesToday.toLocaleString(), sub: `${sales7d} sur 7 jours`, icon: Activity, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
+          { label: 'Abonnés actifs', value: activeSubscriptions, sub: `${activeTrials} trials · ${expired} expirés`, icon: ArrowUpRight, color: 'text-blue-400', bg: 'bg-blue-400/10' },
         ].map(({ label, value, sub, icon: Icon, color, bg }) => (
           <div key={label} className="bg-card rounded-xl border border-border p-4">
             <div className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${bg} mb-3`}>
@@ -244,17 +286,14 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
           <h2 className="font-semibold text-foreground text-sm mb-4">Répartition des plans</h2>
           <div className="space-y-3">
             {(['starter', 'pro', 'business'] as const).map(planId => {
-              const count = shops.filter((s: any) => s.plan === planId && hasActiveSubscription(s.plan, s.plan_expires_at)).length
-              const revenue = count * PLANS[planId].price_monthly
+              const planShops = shops.filter((s: any) => s.plan === planId && hasActiveSubscription(s.plan, s.plan_expires_at))
+              const count = planShops.length
               const pct = activeSubscriptions > 0 ? Math.round((count / activeSubscriptions) * 100) : 0
               return (
                 <div key={planId}>
                   <div className="flex justify-between items-center mb-1">
                     <span className="text-foreground text-xs capitalize">{PLANS[planId].name}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">{count} boutiques</span>
-                      <span className="text-xs font-bold text-foreground">{formatNaira(revenue)}</span>
-                    </div>
+                    <span className="text-xs text-muted-foreground">{count} boutiques</span>
                   </div>
                   <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                     <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct}%` }} />
@@ -270,7 +309,8 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
           </div>
         </div>
         <div className="md:col-span-2 bg-card rounded-xl border border-border p-5">
-          <h2 className="font-semibold text-foreground text-sm mb-4">Revenue — 6 derniers mois</h2>
+          <h2 className="font-semibold text-foreground text-sm mb-1">Revenue — 6 derniers mois</h2>
+          <p className="text-xs text-muted-foreground mb-3">Montants en devises locales (₦ + FCFA agrégés)</p>
           <RevenueChart data={chartData} />
         </div>
       </div>

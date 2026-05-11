@@ -1,7 +1,6 @@
 'use client'
 
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { formatNaira } from '@/lib/utils/currency'
 
 interface DataPoint {
   month: string
@@ -11,11 +10,17 @@ interface DataPoint {
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
+  const revenue = payload[0]?.value || 0
+  const formatted = revenue >= 1_000_000
+    ? `${(revenue / 1_000_000).toFixed(1)}M`
+    : revenue >= 1_000
+    ? `${(revenue / 1_000).toFixed(1)}K`
+    : revenue.toLocaleString()
   return (
     <div className="rounded-lg border border-border bg-card p-3 shadow-xl text-xs">
       <p className="font-semibold text-foreground mb-1">{label}</p>
-      <p className="text-green-400">{formatNaira(payload[0]?.value || 0)}</p>
-      <p className="text-muted-foreground">{payload[1]?.value || 0} payments</p>
+      <p className="text-green-400">{formatted} (devises locales)</p>
+      <p className="text-muted-foreground">{payload[1]?.value || 0} paiements</p>
     </div>
   )
 }
@@ -30,13 +35,13 @@ export function RevenueChart({ data }: { data: DataPoint[] }) {
             <stop offset="95%" stopColor="#16a34a" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-        <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+        <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} />
         <YAxis
-          tick={{ fontSize: 10, fill: '#6b7280' }}
+          tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
           tickLine={false}
           axisLine={false}
-          tickFormatter={v => v === 0 ? '₦0' : `₦${(v / 1000).toFixed(0)}k`}
+          tickFormatter={v => v === 0 ? '0' : v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : `${(v / 1_000).toFixed(0)}K`}
           width={40}
         />
         <Tooltip content={<CustomTooltip />} />
