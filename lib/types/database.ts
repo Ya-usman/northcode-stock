@@ -99,6 +99,7 @@ export interface Customer {
   city: string | null
   total_debt: number
   created_at: string
+  deleted_at: string | null
 }
 
 export interface Sale {

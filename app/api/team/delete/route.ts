@@ -51,19 +51,22 @@ export async function POST(request: Request) {
 
     const admin = getAdminClient()
 
-    // 1. Remove from this shop's shop_members
-    await admin.from('shop_members').delete().eq('user_id', employee_id).eq('shop_id', shop_id)
+    // 1. Deactivate membership for this shop (soft delete — preserves sales attribution)
+    await admin.from('shop_members')
+      .update({ is_active: false })
+      .eq('user_id', employee_id)
+      .eq('shop_id', shop_id)
 
-    // 2. Check if the user belongs to other shops
-    const { data: otherMemberships } = await admin
+    // 2. Check if the user has active memberships in other shops
+    const { data: otherActiveMemberships } = await admin
       .from('shop_members')
       .select('id')
       .eq('user_id', employee_id)
+      .eq('is_active', true)
 
-    // 3. If no other shop memberships, delete profile + auth user entirely
-    if (!otherMemberships || otherMemberships.length === 0) {
-      await admin.from('profiles').delete().eq('id', employee_id)
-      await admin.auth.admin.deleteUser(employee_id)
+    // 3. If no other active shop, deactivate the profile (no auth deletion — history preserved)
+    if (!otherActiveMemberships || otherActiveMemberships.length === 0) {
+      await admin.from('profiles').update({ is_active: false }).eq('id', employee_id)
     }
 
     return NextResponse.json({ success: true })

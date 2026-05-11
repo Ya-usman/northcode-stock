@@ -118,7 +118,8 @@ export default function CustomersPage() {
       return
     }
     if (!confirm(t('confirm.delete_customer'))) return
-    await supabase.from('customers').delete().eq('id', c.id)
+    // Soft delete — preserves all sales and payment history
+    await supabase.from('customers').update({ deleted_at: new Date().toISOString() } as any).eq('id', c.id)
     toast({ title: t('toast.customer_deleted') })
     fetchCustomers()
   }

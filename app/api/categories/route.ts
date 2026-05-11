@@ -156,6 +156,20 @@ export async function DELETE(request: Request) {
     if (!role || !['owner', 'stock_manager', 'super_admin'].includes(role))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     const admin = await createAdminClient()
+
+    // Guard: refuse deletion if active products are still in this category
+    const { count } = await (admin as any)
+      .from('products')
+      .select('id', { count: 'exact', head: true })
+      .eq('category_id', id)
+      .eq('is_active', true)
+    if (count && count > 0) {
+      return NextResponse.json(
+        { error: `Cette catégorie contient ${count} produit(s) actif(s). Réassignez-les avant de la supprimer.` },
+        { status: 400 }
+      )
+    }
+
     const { error } = await (admin as any).from('categories').delete().eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
     return NextResponse.json({ ok: true })
