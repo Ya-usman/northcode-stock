@@ -444,16 +444,16 @@ export default function DashboardPage() {
       {/* Stock alerts */}
       <StockAlerts lowStockProducts={lowStockProducts} outOfStockProducts={outOfStockProducts} />
 
-      {/* Charts — only for owner */}
-      {profile?.role === 'owner' && (
+      {/* Charts */}
+      {(profile?.role === 'owner' || isCashierView) && (
         <div className="grid gap-4 md:grid-cols-2">
           <RevenueChart data={revenueData} />
           <TopProductsChart data={topProducts} />
         </div>
       )}
 
-      {/* Recent sales */}
-      {(profile?.role === 'owner' || profile?.role === 'viewer') && (
+      {/* Recent sales — visible for all roles */}
+      {(
         <RecentSalesFeed
           items={[
             ...recentSales.map(s => ({ ...s, type: 'sale' as const })),
