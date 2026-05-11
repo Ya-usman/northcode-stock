@@ -19,20 +19,16 @@ function isBetaPeriod() {
 // Pages accessibles sans connexion
 const PUBLIC_PATHS = ['/', '/login', '/register', '/forgot-password', '/reset-password', '/update-password']
 
-// Restrictions par rôle
+// Pages strictement réservées aux owners/super_admin.
+// Les autres pages (stock, sales, customers…) sont accessibles à tous les membres
+// authentifiés — les permissions granulaires sont gérées par le système de
+// permissions par rôle (nav + RLS Supabase).
 const ROLE_ACCESS: Record<string, string[]> = {
-  '/team':              ['owner'],
-  '/reports':           ['owner'],
-  '/settings':          ['owner'],
-  '/billing':           ['owner'],
-  '/admin':             ['owner'],
-  '/shops':             ['owner'],
-  '/stock':             ['owner', 'stock_manager'],
-  '/suppliers':         ['owner', 'stock_manager'],
-  '/sales/new':         ['owner', 'cashier'],
-  '/sales/history':     ['owner', 'cashier'],
-  '/payments':          ['owner', 'cashier'],
-  '/customers':         ['owner', 'cashier'],
+  '/team':     ['owner', 'super_admin'],
+  '/settings': ['owner', 'super_admin'],
+  '/billing':  ['owner', 'super_admin'],
+  '/shops':    ['owner', 'super_admin'],
+  '/admin':    ['super_admin'],
 }
 
 function isPublic(path: string): boolean {
