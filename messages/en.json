@@ -68,6 +68,18 @@
     "qty_left": "{qty} left",
     "today_expenses": "Today's Expenses"
   },
+  "dashboard_banner": {
+    "beta_active": "Free beta access — enjoy full access for {days} more days.",
+    "plan_active": "{plan} plan active — renews on {date}.",
+    "plan_expiring_soon": "Your {plan} plan expires in {days} day(s).",
+    "trial_days_left": "Free trial — {days} day(s) remaining (expires {date}).",
+    "trial_expires_today": "Your free trial expires today!",
+    "trial_last_day": "Last day of your free trial!",
+    "expired": "Your trial has expired. Subscribe to continue.",
+    "upgrade": "Upgrade now",
+    "renew": "Renew",
+    "subscribe": "Subscribe"
+  },
   "metrics": {
     "revenue": "Revenue",
     "sales_count": "Sales Count",

@@ -18,6 +18,7 @@ import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns'
 import type { Sale, Product, RevenueDataPoint, TopProduct } from '@/lib/types/database'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { cn } from '@/lib/utils/cn'
+import { PlanStatusBanner } from '@/components/dashboard/plan-status-banner'
 
 const supabase = createClient() as any
 
@@ -441,6 +442,15 @@ export default function DashboardPage() {
           </Button>
         </div>
       </div>
+
+      {/* Plan status banner — owner only */}
+      {profile?.role === 'owner' && shop && (
+        <PlanStatusBanner
+          plan={shop.plan ?? null}
+          trialEndsAt={shop.trial_ends_at ?? null}
+          planExpiresAt={shop.plan_expires_at ?? null}
+        />
+      )}
 
       {/* Metric cards */}
       <MetricCards

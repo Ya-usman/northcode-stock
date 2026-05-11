@@ -68,6 +68,18 @@
     "qty_left": "{qty} ya rage",
     "today_expenses": "Kashe Kuɗin Yau"
   },
+  "dashboard_banner": {
+    "beta_active": "Gwaji kyauta — cikakken damar amfani ya rage kwanaki {days}.",
+    "plan_active": "Shirin {plan} yana aiki — sabuntawa a ranar {date}.",
+    "plan_expiring_soon": "Shirin {plan} ya ƙare a cikin kwanaki {days}.",
+    "trial_days_left": "Gwaji kyauta — kwanaki {days} sun rage (ƙarewa {date}).",
+    "trial_expires_today": "Gwajin ku ya ƙare yau!",
+    "trial_last_day": "Ranar ƙarshe ta gwajin ku!",
+    "expired": "Gwajin ku ya ƙare. Biyan kuɗi don ci gaba.",
+    "upgrade": "Canza zuwa shiri mai biya",
+    "renew": "Sabunta",
+    "subscribe": "Biyan kuɗi"
+  },
   "metrics": {
     "revenue": "Kudin Shiga",
     "sales_count": "Adadin Sayarwa",

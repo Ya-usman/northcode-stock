@@ -68,6 +68,18 @@
     "qty_left": "{qty} restant(s)",
     "today_expenses": "Dépenses aujourd'hui"
   },
+  "dashboard_banner": {
+    "beta_active": "Accès bêta gratuit — profitez de l'accès complet pendant encore {days} jours.",
+    "plan_active": "Plan {plan} actif — renouvellement le {date}.",
+    "plan_expiring_soon": "Votre plan {plan} expire dans {days} jour(s).",
+    "trial_days_left": "Essai gratuit — {days} jour(s) restant(s) (expire le {date}).",
+    "trial_expires_today": "Votre essai gratuit expire aujourd'hui !",
+    "trial_last_day": "Dernier jour de votre essai gratuit !",
+    "expired": "Votre essai a expiré. Abonnez-vous pour continuer.",
+    "upgrade": "Passer au plan payant",
+    "renew": "Renouveler",
+    "subscribe": "S'abonner"
+  },
   "metrics": {
     "revenue": "Revenus",
     "sales_count": "Nombre de ventes",
