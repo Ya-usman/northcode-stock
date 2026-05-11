@@ -12,6 +12,7 @@ import {
 import { cn } from '@/lib/utils/cn'
 import type { UserRole } from '@/lib/types/database'
 import { isBetaPeriod } from '@/lib/saas/plans'
+import { useRolePermissions, type PermFeature } from '@/lib/hooks/use-role-permissions'
 
 interface BottomNavProps {
   locale: string
@@ -19,27 +20,30 @@ interface BottomNavProps {
   onSignOut?: () => void
 }
 
+const ALL_NON_OWNER = ['super_admin', 'owner', 'cashier', 'viewer', 'stock_manager']
+
 export function BottomNav({ locale, role, onSignOut }: BottomNavProps) {
   const t = useTranslations('nav')
   const pathname = usePathname()
   const [moreOpen, setMoreOpen] = useState(false)
+  const { canAccess } = useRolePermissions()
 
   const allItems = [
-    { href: `/${locale}/dashboard`,        icon: LayoutDashboard, label: t('dashboard'),     roles: ['super_admin', 'owner', 'viewer', 'cashier', 'stock_manager'], primary: true },
-    { href: `/${locale}/sales/new`,        icon: ShoppingCart,    label: t('new_sale'),       roles: ['owner', 'cashier'],                            primary: true },
-    { href: `/${locale}/stock`,            icon: Package,         label: t('stock'),          roles: ['owner', 'stock_manager'],                      primary: true },
-    { href: `/${locale}/stock/movements`, icon: ArrowLeftRight,  label: t('movements'),      roles: ['owner', 'stock_manager'],                      primary: false },
-    { href: `/${locale}/reports`,          icon: BarChart2,       label: t('reports'),        roles: ['owner'],                                       primary: true },
-    { href: `/${locale}/sales/history`,    icon: History,         label: t('sales_history'),  roles: ['owner', 'cashier'],                            primary: false },
-    { href: `/${locale}/payments`,         icon: CreditCard,      label: t('payments'),       roles: ['owner', 'cashier'],                            primary: false },
-    { href: `/${locale}/customers`,        icon: Users,           label: t('customers'),      roles: ['owner', 'cashier'],                            primary: false },
-    { href: `/${locale}/categories`,        icon: Tag,             label: t('categories'),     roles: ['owner', 'stock_manager'],                      primary: false },
-    { href: `/${locale}/suppliers`,        icon: Truck,           label: t('suppliers'),      roles: ['owner', 'stock_manager'],                      primary: false },
-    { href: `/${locale}/team`,              icon: Users,           label: t('team'),           roles: ['owner'],                                       primary: false },
-    { href: `/${locale}/shops`,            icon: Store,           label: t('shops'),          roles: ['owner'],                                       primary: false },
-    { href: `/${locale}/billing`, icon: Zap, label: t('billing'), roles: ['owner'], primary: false },
-    { href: `/${locale}/settings`,         icon: Settings,        label: t('settings'),       roles: ['owner'],                                       primary: false },
-  ].filter(item => item.roles.includes(role))
+    { href: `/${locale}/dashboard`,       icon: LayoutDashboard, label: t('dashboard'),    roles: ['super_admin', 'owner', 'viewer', 'cashier', 'stock_manager'], primary: true },
+    { href: `/${locale}/sales/new`,       icon: ShoppingCart,    label: t('new_sale'),      roles: ALL_NON_OWNER, feature: 'new_sale' as PermFeature,       primary: true },
+    { href: `/${locale}/stock`,           icon: Package,         label: t('stock'),         roles: ALL_NON_OWNER, feature: 'stock' as PermFeature,           primary: true },
+    { href: `/${locale}/reports`,         icon: BarChart2,       label: t('reports'),       roles: ALL_NON_OWNER, feature: 'reports' as PermFeature,         primary: true },
+    { href: `/${locale}/sales/history`,   icon: History,         label: t('sales_history'), roles: ALL_NON_OWNER, feature: 'sales_history' as PermFeature,   primary: false },
+    { href: `/${locale}/payments`,        icon: CreditCard,      label: t('payments'),      roles: ALL_NON_OWNER, feature: 'payments' as PermFeature,        primary: false },
+    { href: `/${locale}/customers`,       icon: Users,           label: t('customers'),     roles: ALL_NON_OWNER, feature: 'customers' as PermFeature,       primary: false },
+    { href: `/${locale}/stock/movements`, icon: ArrowLeftRight,  label: t('movements'),     roles: ALL_NON_OWNER, feature: 'movements' as PermFeature,       primary: false },
+    { href: `/${locale}/categories`,      icon: Tag,             label: t('categories'),    roles: ALL_NON_OWNER, feature: 'categories' as PermFeature,      primary: false },
+    { href: `/${locale}/suppliers`,       icon: Truck,           label: t('suppliers'),     roles: ALL_NON_OWNER, feature: 'suppliers' as PermFeature,       primary: false },
+    { href: `/${locale}/team`,            icon: Users,           label: t('team'),          roles: ['owner'],                                                primary: false },
+    { href: `/${locale}/shops`,           icon: Store,           label: t('shops'),         roles: ['owner'],                                                primary: false },
+    { href: `/${locale}/billing`,         icon: Zap,             label: t('billing'),       roles: ['owner'],                                                primary: false },
+    { href: `/${locale}/settings`,        icon: Settings,        label: t('settings'),      roles: ['owner'],                                                primary: false },
+  ].filter(item => item.roles.includes(role) && (!item.feature || canAccess(item.feature)))
 
   const primaryItems = allItems.filter(i => i.primary)
   const moreItems = allItems.filter(i => !i.primary)

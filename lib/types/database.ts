@@ -26,6 +26,7 @@ export interface Shop {
   trial_ends_at: string | null
   plan_expires_at: string | null
   country: string | null
+  role_permissions: Record<string, Record<string, boolean>> | null
 }
 
 export interface Profile {

@@ -15,6 +15,7 @@ import { useAuthContext } from '@/lib/contexts/auth-context'
 import { useState } from 'react'
 import type { UserRole, Profile, Shop } from '@/lib/types/database'
 import { isBetaPeriod } from '@/lib/saas/plans'
+import { useRolePermissions, type PermFeature } from '@/lib/hooks/use-role-permissions'
 
 interface SidebarProps {
   locale: string
@@ -24,11 +25,14 @@ interface SidebarProps {
   onSignOut: () => void
 }
 
+const ALL_NON_OWNER = ['owner', 'super_admin', 'cashier', 'viewer', 'stock_manager']
+
 export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps) {
   const t = useTranslations('nav')
   const pathname = usePathname()
   const { userShops, switchShop, dashboardShopFilter, setDashboardShopFilter } = useAuthContext()
   const [shopPickerOpen, setShopPickerOpen] = useState(false)
+  const { canAccess } = useRolePermissions()
 
   const navItems = [
     {
@@ -40,25 +44,25 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
     {
       section: t('section_sales'),
       items: [
-        { href: `/${locale}/sales/new`, icon: ShoppingCart, label: t('new_sale'), roles: ['owner', 'cashier'] },
-        { href: `/${locale}/sales/history`, icon: History, label: t('sales_history'), roles: ['owner', 'cashier'] },
-        { href: `/${locale}/payments`, icon: CreditCard, label: t('payments'), roles: ['owner', 'cashier'] },
-        { href: `/${locale}/customers`, icon: Users, label: t('customers'), roles: ['owner', 'cashier'] },
+        { href: `/${locale}/sales/new`, icon: ShoppingCart, label: t('new_sale'), roles: ALL_NON_OWNER, feature: 'new_sale' as PermFeature },
+        { href: `/${locale}/sales/history`, icon: History, label: t('sales_history'), roles: ALL_NON_OWNER, feature: 'sales_history' as PermFeature },
+        { href: `/${locale}/payments`, icon: CreditCard, label: t('payments'), roles: ALL_NON_OWNER, feature: 'payments' as PermFeature },
+        { href: `/${locale}/customers`, icon: Users, label: t('customers'), roles: ALL_NON_OWNER, feature: 'customers' as PermFeature },
       ],
     },
     {
       section: t('section_inventory'),
       items: [
-        { href: `/${locale}/stock`, icon: Package, label: t('stock'), roles: ['owner', 'stock_manager'] },
-        { href: `/${locale}/stock/movements`, icon: ArrowLeftRight, label: t('movements'), roles: ['owner', 'stock_manager'] },
-        { href: `/${locale}/categories`, icon: Tag, label: t('categories'), roles: ['owner', 'stock_manager'] },
-        { href: `/${locale}/suppliers`, icon: Truck, label: t('suppliers'), roles: ['owner', 'stock_manager'] },
+        { href: `/${locale}/stock`, icon: Package, label: t('stock'), roles: ALL_NON_OWNER, feature: 'stock' as PermFeature },
+        { href: `/${locale}/stock/movements`, icon: ArrowLeftRight, label: t('movements'), roles: ALL_NON_OWNER, feature: 'movements' as PermFeature },
+        { href: `/${locale}/categories`, icon: Tag, label: t('categories'), roles: ALL_NON_OWNER, feature: 'categories' as PermFeature },
+        { href: `/${locale}/suppliers`, icon: Truck, label: t('suppliers'), roles: ALL_NON_OWNER, feature: 'suppliers' as PermFeature },
       ],
     },
     {
       section: t('section_management'),
       items: [
-        { href: `/${locale}/reports`, icon: BarChart2, label: t('reports'), roles: ['owner'] },
+        { href: `/${locale}/reports`, icon: BarChart2, label: t('reports'), roles: ALL_NON_OWNER, feature: 'reports' as PermFeature },
         { href: `/${locale}/team`, icon: Users, label: t('team'), roles: ['owner'] },
         { href: `/${locale}/shops`, icon: Store, label: t('shops'), roles: ['owner'] },
         { href: `/${locale}/settings`, icon: Settings, label: t('settings'), roles: ['owner'] },
@@ -162,7 +166,9 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
         {navItems.map((section) => {
-          const visibleItems = section.items.filter(item => item.roles.includes(role))
+          const visibleItems = section.items.filter(item =>
+            item.roles.includes(role) && (!item.feature || canAccess(item.feature))
+          )
           if (visibleItems.length === 0) return null
 
           return (

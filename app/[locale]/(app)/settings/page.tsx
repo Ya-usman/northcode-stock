@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
-import { Save, Upload, Globe, Moon, Sun } from 'lucide-react'
+import { Save, Upload, Globe, Moon, Sun, ShoppingCart, History, CreditCard, Users, Package, ArrowLeftRight, Tag, Truck, BarChart2, ShieldCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -16,6 +16,8 @@ import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useRouter, usePathname } from 'next/navigation'
 import type { Shop } from '@/lib/types/database'
+import { DEFAULT_PERMISSIONS, type AllPerms, type ConfigurableRole, type PermFeature } from '@/lib/hooks/use-role-permissions'
+import { cn } from '@/lib/utils/cn'
 
 export default function SettingsPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations()
@@ -43,6 +45,29 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const [notifyEmailDaily, setNotifyEmailDaily] = useState(true)
   const [uploadingLogo, setUploadingLogo] = useState(false)
 
+  // ── Role permissions ────────────────────────────────────────────────────────
+  const [activePermRole, setActivePermRole] = useState<ConfigurableRole>('cashier')
+  const [permissions, setPermissions] = useState<AllPerms>(DEFAULT_PERMISSIONS)
+  const [savingPerms, setSavingPerms] = useState(false)
+
+  const PERM_FEATURES: { key: PermFeature; label: string; icon: React.ReactNode }[] = [
+    { key: 'new_sale',      label: 'Nouvelle vente',           icon: <ShoppingCart className="h-4 w-4" /> },
+    { key: 'sales_history', label: 'Historique des ventes',    icon: <History className="h-4 w-4" /> },
+    { key: 'payments',      label: 'Paiements / Dettes',       icon: <CreditCard className="h-4 w-4" /> },
+    { key: 'customers',     label: 'Clients',                  icon: <Users className="h-4 w-4" /> },
+    { key: 'stock',         label: 'Produits / Stock',         icon: <Package className="h-4 w-4" /> },
+    { key: 'movements',     label: 'Mouvements de stock',      icon: <ArrowLeftRight className="h-4 w-4" /> },
+    { key: 'categories',    label: 'Catégories',               icon: <Tag className="h-4 w-4" /> },
+    { key: 'suppliers',     label: 'Fournisseurs',             icon: <Truck className="h-4 w-4" /> },
+    { key: 'reports',       label: 'Rapports',                 icon: <BarChart2 className="h-4 w-4" /> },
+  ]
+
+  const ROLE_LABELS: Record<ConfigurableRole, string> = {
+    cashier:       'Caissier',
+    viewer:        'Viewer',
+    stock_manager: 'Gestionnaire stock',
+  }
+
   // Initialise the form only once when shopData first loads (not on every re-render)
   // so that navigating away and back doesn't reset unsaved or just-saved values.
   const initialised = useState(false)
@@ -62,6 +87,13 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       setNotifyEmailLowStock(shopData.notify_email_low_stock)
       setNotifyEmailDaily(shopData.notify_email_daily)
       setLoading(false)
+      // Load stored permissions if any
+      if ((shopData as any).role_permissions) {
+        setPermissions({
+          ...DEFAULT_PERMISSIONS,
+          ...(shopData as any).role_permissions,
+        })
+      }
     }
   }, [shopData])
 
@@ -140,6 +172,19 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       // Reset input so the same file can be re-selected
       e.target.value = ''
     }
+  }
+
+  const togglePermission = async (role: ConfigurableRole, feature: PermFeature, value: boolean) => {
+    if (!shop?.id) return
+    const updated: AllPerms = {
+      ...permissions,
+      [role]: { ...permissions[role], [feature]: value },
+    }
+    setPermissions(updated)
+    setSavingPerms(true)
+    await supabase.from('shops').update({ role_permissions: updated }).eq('id', shop.id)
+    await refreshShop()
+    setSavingPerms(false)
   }
 
   const switchLanguage = (newLocale: string) => {
@@ -304,6 +349,55 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
               >
                 {lang.label}
               </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Role Permissions */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-stockshop-blue" />
+            Accès par rôle
+          </CardTitle>
+          <p className="text-xs text-muted-foreground mt-1">
+            Choisissez les fonctionnalités auxquelles chaque rôle peut accéder.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Role tabs */}
+          <div className="flex gap-2 flex-wrap">
+            {(['cashier', 'viewer', 'stock_manager'] as ConfigurableRole[]).map(r => (
+              <button
+                key={r}
+                onClick={() => setActivePermRole(r)}
+                className={cn(
+                  'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors border',
+                  activePermRole === r
+                    ? 'bg-stockshop-blue text-white border-stockshop-blue'
+                    : 'border-border text-muted-foreground hover:bg-muted'
+                )}
+              >
+                {ROLE_LABELS[r]}
+              </button>
+            ))}
+            {savingPerms && <span className="text-xs text-muted-foreground self-center ml-1">Enregistrement…</span>}
+          </div>
+
+          {/* Feature toggles */}
+          <div className="space-y-1">
+            {PERM_FEATURES.map(({ key, label, icon }) => (
+              <div key={key} className="flex items-center justify-between rounded-lg px-3 py-2.5 hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-2.5 text-sm">
+                  <span className="text-muted-foreground">{icon}</span>
+                  <span>{label}</span>
+                </div>
+                <Switch
+                  checked={permissions[activePermRole][key]}
+                  onCheckedChange={val => togglePermission(activePermRole, key, val)}
+                />
+              </div>
             ))}
           </div>
         </CardContent>
