@@ -46,8 +46,9 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
 }
 
 export function useRolePermissions() {
-  const { shop, profile } = useAuthContext()
-  const role = profile?.role
+  const { shop, profile, roleInActiveShop } = useAuthContext()
+  // roleInActiveShop (from shop_members) is authoritative; fall back to profiles.role
+  const role = roleInActiveShop ?? profile?.role
   const stored = (shop as any)?.role_permissions as Partial<AllPerms> | null | undefined
 
   function canAccess(feature: PermFeature): boolean {

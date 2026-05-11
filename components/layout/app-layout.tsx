@@ -57,7 +57,7 @@ function LoadingSkeleton() {
 
 export function AppLayout({ children, locale }: { children: React.ReactNode; locale: string }) {
   const pathname = usePathname()
-  const { user, profile, shop, loading, signOut } = useAuthContext()
+  const { user, profile, shop, roleInActiveShop, loading, signOut } = useAuthContext()
   const title = usePageTitle(pathname, locale)
   const [productCount, setProductCount] = useState(0)
   const [teamCount, setTeamCount] = useState(0)
@@ -134,7 +134,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         <UpgradeWall locale={locale} shopName={shop?.name} />
       )}
 
-      <Sidebar locale={locale} role={profile.role} profile={profile} shop={shop} onSignOut={handleSignOut} />
+      <Sidebar locale={locale} role={roleInActiveShop ?? profile.role} profile={profile} shop={shop} onSignOut={handleSignOut} />
 
       <div className="sm:pl-64 flex flex-col min-h-screen">
         {showTrialBanner && <TrialBanner daysLeft={trialDaysLeft} locale={locale} />}
@@ -156,7 +156,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         </main>
       </div>
 
-      <BottomNav locale={locale} role={profile.role} onSignOut={handleSignOut} />
+      <BottomNav locale={locale} role={roleInActiveShop ?? profile.role} onSignOut={handleSignOut} />
     </div>
   )
 }

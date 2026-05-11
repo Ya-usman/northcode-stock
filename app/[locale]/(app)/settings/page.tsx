@@ -182,8 +182,13 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
     }
     setPermissions(updated)
     setSavingPerms(true)
-    await supabase.from('shops').update({ role_permissions: updated }).eq('id', shop.id)
-    await refreshShop()
+    const { error } = await supabase.from('shops').update({ role_permissions: updated }).eq('id', shop.id)
+    if (error) {
+      toast({ title: 'Erreur : migration 031 non appliquée dans Supabase', description: error.message, variant: 'destructive' })
+      setPermissions(permissions) // revert
+    } else {
+      await refreshShop()
+    }
     setSavingPerms(false)
   }
 
