@@ -1,5 +1,5 @@
 -- ============================================================
--- NorthCode Stock Manager — Full Database Schema + RLS
+-- StockShop — Full Database Schema + RLS
 -- Run this in Supabase SQL editor (Dashboard → SQL Editor)
 -- ============================================================
 

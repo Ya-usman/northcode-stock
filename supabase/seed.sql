@@ -1,5 +1,5 @@
 -- ============================================================
--- NorthCode Stock Manager — Seed Data
+-- StockShop — Seed Data
 -- Run AFTER migrations. Creates demo shop, users, products.
 -- ============================================================
 

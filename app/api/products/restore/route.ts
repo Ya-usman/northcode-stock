@@ -11,9 +11,10 @@ export async function POST(request: Request) {
     const { log_id, shop_id } = await request.json()
     if (!log_id || !shop_id) return NextResponse.json({ error: 'log_id et shop_id requis' }, { status: 400 })
 
-    const role = await checkShopRole(supabase, user.id, shop_id)
-    if (role !== 'owner' && role !== 'super_admin')
-      return NextResponse.json({ error: 'Seul le propriétaire peut restaurer' }, { status: 403 })
+    // Réservé exclusivement au support StockShop (super_admin)
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+    if ((profile as any)?.role !== 'super_admin')
+      return NextResponse.json({ error: 'Réservé au support StockShop' }, { status: 403 })
 
     const admin = await createAdminClient() as any
 

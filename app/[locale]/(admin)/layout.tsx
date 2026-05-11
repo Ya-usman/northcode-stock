@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { LayoutDashboard, ShoppingBag, CreditCard, LogOut, Package, Users } from 'lucide-react'
+import { LayoutDashboard, ShoppingBag, CreditCard, LogOut, Package, Users, TrendingUp } from 'lucide-react'
 
 const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim())
 
@@ -20,10 +20,10 @@ export default async function AdminLayout({
   }
 
   const navItems = [
-    { href: `/${locale}/admin`, label: 'Dashboard', icon: LayoutDashboard },
+    { href: `/${locale}/admin`, label: 'Command Center', icon: LayoutDashboard },
+    { href: `/${locale}/admin/analytics`, label: 'Analytics', icon: TrendingUp },
     { href: `/${locale}/admin/shops`, label: 'Boutiques', icon: ShoppingBag },
     { href: `/${locale}/admin/stock`, label: 'Stock', icon: Package },
-
     { href: `/${locale}/admin/managers`, label: 'Responsables', icon: Users },
     { href: `/${locale}/admin/payments`, label: 'Paiements', icon: CreditCard },
   ]
@@ -71,7 +71,7 @@ export default async function AdminLayout({
       {/* Mobile header */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-30 border-b border-gray-800 bg-gray-950 h-14 flex items-center justify-between px-4">
         <div className="flex items-center gap-2">
-          <div className="h-7 w-7 rounded-md bg-stockshop-gold flex items-center justify-center text-gray-900 font-bold text-xs">NC</div>
+          <div className="h-7 w-7 rounded-md bg-stockshop-gold flex items-center justify-center text-gray-900 font-bold text-xs">SS</div>
           <span className="font-bold text-sm text-stockshop-gold">OWNER PANEL</span>
         </div>
         <div className="flex gap-3">

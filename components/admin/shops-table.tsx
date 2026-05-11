@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { getPlan, getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
 import { formatNaira } from '@/lib/utils/currency'
 import { Button } from '@/components/ui/button'
@@ -10,8 +11,22 @@ import {
 } from '@/components/ui/dialog'
 import {
   ShieldOff, ShieldCheck, Clock, CreditCard, Search,
-  ChevronDown, ChevronUp, ExternalLink,
+  ChevronDown, ChevronUp, ExternalLink, Activity,
 } from 'lucide-react'
+import { ShopRestorePanel } from '@/components/admin/shop-restore-panel'
+
+function healthScore(owner: { last_seen: string | null } | null, subscribed: boolean) {
+  const lastSeen = owner?.last_seen ? new Date(owner.last_seen) : null
+  const days = lastSeen ? Math.floor((Date.now() - lastSeen.getTime()) / 86400000) : 999
+  let score = 0
+  if (days <= 7) score += 30
+  else if (days <= 14) score += 15
+  if (subscribed) score += 40
+  else score += 10
+  if (days <= 30) score += 20
+  else if (days <= 60) score += 10
+  return Math.min(100, score)
+}
 
 interface Shop {
   id: string
@@ -30,6 +45,8 @@ interface Props {
   shops: Shop[]
   locale: string
 }
+
+
 
 type ActionType = 'suspend' | 'reactivate' | 'extend' | 'grant_plan'
 
@@ -153,6 +170,8 @@ export function AdminShopsTable({ shops, locale }: Props) {
                 const isSuspended = shop.owner && !shop.owner.is_active
                 const totalRevenue = shop.subscriptions.reduce((s, sub) => s + Number(sub.amount), 0)
                 const isExpanded = expandedShop === shop.id
+                const health = healthScore(shop.owner, subscribed)
+                const healthColor = health >= 70 ? 'bg-green-400' : health >= 40 ? 'bg-amber-400' : 'bg-red-400'
 
                 // Days remaining for active plan
                 let daysRemaining: number | null = null
@@ -181,6 +200,12 @@ export function AdminShopsTable({ shops, locale }: Props) {
                           <div>
                             <p className="font-medium text-white">{shop.name}</p>
                             <p className="text-xs text-gray-400">{shop.owner?.full_name || '—'}</p>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <div className="h-1 w-10 bg-gray-700 rounded-full overflow-hidden">
+                                <div className={`h-full ${healthColor} rounded-full`} style={{ width: `${health}%` }} />
+                              </div>
+                              <span className="text-[10px] text-gray-500">{health}</span>
+                            </div>
                           </div>
                           {isSuspended && (
                             <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded font-medium">SUSPENDED</span>
@@ -270,6 +295,13 @@ export function AdminShopsTable({ shops, locale }: Props) {
                           >
                             <CreditCard className="h-3 w-3" /> Plan
                           </button>
+                          <Link
+                            href={`/${locale}/admin/shops/${shop.id}`}
+                            className="flex items-center gap-1 text-xs bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 px-2 py-1 rounded-md transition-colors"
+                            title="Inspecter la boutique"
+                          >
+                            <Activity className="h-3 w-3" /> Inspecter
+                          </Link>
                         </div>
                       </td>
                     </tr>
@@ -309,6 +341,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
                                 <ExternalLink className="h-3 w-3" /> WhatsApp owner
                               </a>
                             )}
+                            <ShopRestorePanel shopId={shop.id} shopName={shop.name} />
                           </div>
                         </td>
                       </tr>
