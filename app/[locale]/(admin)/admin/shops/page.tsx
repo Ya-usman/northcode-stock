@@ -26,8 +26,8 @@ export default async function AdminShopsPage({ params: { locale } }: { params: {
   return (
     <div className="space-y-4 max-w-7xl">
       <div>
-        <h1 className="text-2xl font-bold text-white">Shops</h1>
-        <p className="text-gray-400 text-sm mt-1">Manage all registered shops</p>
+        <h1 className="text-2xl font-bold text-foreground">Boutiques</h1>
+        <p className="text-muted-foreground text-sm mt-1">Toutes les boutiques enregistrées · tous pays</p>
       </div>
       <AdminShopsTable shops={enrichedShops} locale={locale} />
     </div>
