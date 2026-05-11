@@ -135,15 +135,19 @@ export default function DashboardPage() {
         { data: todayPaymentsRaw },
         paymentsRes,
       ] = await Promise.all([
-        // Today's sales — all members see all shop sales
-        supabase
-          .from('sales')
-          .select('id, sale_number, total, amount_paid, balance, payment_method, payment_status, sale_status, created_at, customers(name), cashier_id, shop_id')
-          .in('shop_id', shopIds)
-          .eq('sale_status', 'active')
-          .gte('created_at', todayStart)
-          .lte('created_at', todayEnd)
-          .order('created_at', { ascending: false }),
+        // Today's sales — cashier sees only their own; owner/viewer sees all
+        (() => {
+          let q = supabase
+            .from('sales')
+            .select('id, sale_number, total, amount_paid, balance, payment_method, payment_status, sale_status, created_at, customers(name), cashier_id, shop_id')
+            .in('shop_id', shopIds)
+            .eq('sale_status', 'active')
+            .gte('created_at', todayStart)
+            .lte('created_at', todayEnd)
+            .order('created_at', { ascending: false })
+          if (isCashier && cashierId) q = q.eq('cashier_id', cashierId)
+          return q
+        })(),
 
         // Outstanding debt
         supabase
@@ -151,14 +155,18 @@ export default function DashboardPage() {
           .select('total_debt')
           .in('shop_id', shopIds),
 
-        // Last 7 days sales (for top products + chart fallback)
-        supabase
-          .from('sales')
-          .select('id, total, amount_paid, created_at, sale_items(product_name, quantity, subtotal)')
-          .in('shop_id', shopIds)
-          .eq('sale_status', 'active')
-          .gte('created_at', weekStartISO)
-          .lte('created_at', todayEnd),
+        // Last 7 days sales (for top products + chart) — cashier sees own only
+        (() => {
+          let q = supabase
+            .from('sales')
+            .select('id, total, amount_paid, created_at, sale_items(product_name, quantity, subtotal)')
+            .in('shop_id', shopIds)
+            .eq('sale_status', 'active')
+            .gte('created_at', weekStartISO)
+            .lte('created_at', todayEnd)
+          if (isCashier && cashierId) q = q.eq('cashier_id', cashierId)
+          return q
+        })(),
 
         // Stock alerts
         supabase
@@ -290,10 +298,13 @@ export default function DashboardPage() {
     onNewSale: (sale) => {
       if (shopIds.includes(sale.shop_id || '')) {
         // Cashier only counts their own sales; owner/viewer counts all
-        setRecentSales(prev => [sale, ...prev])
-        setTodaySalesCount(prev => prev + 1)
-        // Revenue is added by onPaymentUpdate when the payment record is inserted.
-        // sale.amount_paid = 0 at INSERT time (DB trigger hasn't fired yet), so nothing to add here.
+        // Cashier only counts their own sales; owner/viewer counts all
+        const isOwnSale = !isCashierView || sale.cashier_id === profile?.id
+        if (isOwnSale) {
+          setRecentSales(prev => [sale, ...prev])
+          setTodaySalesCount(prev => prev + 1)
+          // Revenue is added by onPaymentUpdate when the payment record is inserted.
+        }
         toast({ title: `Nouvelle vente: ${formatNaira(sale.total)}`, description: `#${sale.sale_number}`, variant: 'success' })
       }
     },

@@ -118,6 +118,7 @@ export default function SalesHistoryPage() {
       .order('created_at', { ascending: false })
       .range(offset, offset + PAGE_SIZE - 1)
 
+    if (isCashier) query = query.eq('cashier_id', profile!.id)
     if (methodFilter !== 'all') query = query.eq('payment_method', methodFilter)
     if (statusFilter !== 'all') query = query.eq('payment_status', statusFilter)
     if (saleStatusFilter !== 'all') query = query.eq('sale_status', saleStatusFilter)

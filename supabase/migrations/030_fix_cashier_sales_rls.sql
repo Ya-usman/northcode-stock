@@ -8,12 +8,13 @@
 -- Fix: use is_shop_member() and get_role_in_shop() which read from
 -- shop_members — the authoritative source since migration 005.
 
--- Cashier SELECT: sees ALL sales of shops they belong to (same as owner view)
+-- Cashier SELECT: sees only their own sales in shops they belong to
 DROP POLICY IF EXISTS "sales_cashier_own" ON sales;
 CREATE POLICY "sales_cashier_own" ON sales
   FOR SELECT USING (
     is_shop_member(shop_id)
     AND get_role_in_shop(shop_id) = 'cashier'
+    AND cashier_id = auth.uid()
   );
 
 -- Cashier INSERT: can create sales in any shop they belong to as cashier
