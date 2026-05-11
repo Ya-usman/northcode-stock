@@ -135,19 +135,15 @@ export default function DashboardPage() {
         { data: todayPaymentsRaw },
         paymentsRes,
       ] = await Promise.all([
-        // Today's sales — cashier sees only their own, owner sees all
-        (() => {
-          let q = supabase
-            .from('sales')
-            .select('id, sale_number, total, amount_paid, balance, payment_method, payment_status, sale_status, created_at, customers(name), cashier_id, shop_id')
-            .in('shop_id', shopIds)
-            .eq('sale_status', 'active')
-            .gte('created_at', todayStart)
-            .lte('created_at', todayEnd)
-            .order('created_at', { ascending: false })
-          if (isCashier && cashierId) q = (q as any).eq('cashier_id', cashierId)
-          return q
-        })(),
+        // Today's sales — all members see all shop sales
+        supabase
+          .from('sales')
+          .select('id, sale_number, total, amount_paid, balance, payment_method, payment_status, sale_status, created_at, customers(name), cashier_id, shop_id')
+          .in('shop_id', shopIds)
+          .eq('sale_status', 'active')
+          .gte('created_at', todayStart)
+          .lte('created_at', todayEnd)
+          .order('created_at', { ascending: false }),
 
         // Outstanding debt
         supabase
@@ -294,16 +290,11 @@ export default function DashboardPage() {
     onNewSale: (sale) => {
       if (shopIds.includes(sale.shop_id || '')) {
         // Cashier only counts their own sales; owner/viewer counts all
-        const isOwnSale = !isCashierView || sale.cashier_id === profile?.id
-        if (isOwnSale) {
-          setRecentSales(prev => [sale, ...prev])
-          setTodaySalesCount(prev => prev + 1)
-          // Revenue is added by onPaymentUpdate when the payment record is inserted.
-          // sale.amount_paid = 0 at INSERT time (DB trigger hasn't fired yet), so nothing to add here.
-        }
-        if (!isCashierView) {
-          toast({ title: `Nouvelle vente: ${formatNaira(sale.total)}`, description: `#${sale.sale_number}`, variant: 'success' })
-        }
+        setRecentSales(prev => [sale, ...prev])
+        setTodaySalesCount(prev => prev + 1)
+        // Revenue is added by onPaymentUpdate when the payment record is inserted.
+        // sale.amount_paid = 0 at INSERT time (DB trigger hasn't fired yet), so nothing to add here.
+        toast({ title: `Nouvelle vente: ${formatNaira(sale.total)}`, description: `#${sale.sale_number}`, variant: 'success' })
       }
     },
     onPaymentUpdate: async (payment: any) => {
