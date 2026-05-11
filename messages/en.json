@@ -213,7 +213,10 @@
     "delete_permanent": "Delete permanently",
     "delete_warning_title": "⚠️ Irreversible deletion",
     "delete_warning_body": "This action is permanent. The product will be erased from the database. Past sales will keep the product name but the reference will be lost.",
-    "delete_confirm_label": "To confirm, type the exact product name: {name}"
+    "delete_confirm_label": "To confirm, type the exact product name: {name}",
+    "trash_section": "Trash — {count} permanently deleted product(s)",
+    "trash_hint": "These products were permanently deleted but can still be recovered.",
+    "trash_deleted_at": "Deleted on {date}"
   },
   "sales": {
     "title": "Sales",

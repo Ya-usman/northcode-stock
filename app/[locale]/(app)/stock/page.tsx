@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { motion } from 'framer-motion'
-import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, ChevronDown, ChevronUp, History } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -58,8 +58,42 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [deleteConfirmProduct, setDeleteConfirmProduct] = useState<Product | null>(null)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [deletedLog, setDeletedLog] = useState<any[]>([])
+  const [showTrash, setShowTrash] = useState(false)
+  const [restoring, setRestoring] = useState<string | null>(null)
 
   const restockForm = useForm<RestockFormData>({ resolver: zodResolver(restockSchema) })
+
+  const fetchDeletedLog = async () => {
+    if (!shop?.id) return
+    const { data } = await supabase
+      .from('deleted_records_log')
+      .select('id, deleted_at, record_data')
+      .eq('shop_id', shop.id)
+      .eq('table_name', 'products')
+      .order('deleted_at', { ascending: false })
+      .limit(50)
+    setDeletedLog(data || [])
+  }
+
+  const restoreFromLog = async (logId: string) => {
+    if (!shop?.id) return
+    setRestoring(logId)
+    const res = await fetch('/api/products/restore', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ log_id: logId, shop_id: shop.id }),
+    })
+    setRestoring(null)
+    if (!res.ok) {
+      const json = await res.json()
+      toast({ title: json.error || t('toast.error'), variant: 'destructive' })
+    } else {
+      toast({ title: t('toast.product_restored'), variant: 'success' })
+      fetchProducts()
+      fetchDeletedLog()
+    }
+  }
 
   const fetchProducts = async () => {
     if (!effectiveShopIds.length) return
@@ -85,6 +119,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   }
 
   useEffect(() => { fetchProducts() }, [effectiveShopIds.join(',')])
+  useEffect(() => { if (shop?.id) fetchDeletedLog() }, [shop?.id])
 
   const filtered = products
     .filter(p => {
@@ -455,6 +490,46 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                       {t('products.delete_permanent')}
                     </Button>
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Corbeille — produits supprimés définitivement, récupérables */}
+      {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && deletedLog.length > 0 && (
+        <div className="border border-dashed border-red-200 dark:border-red-900 rounded-xl p-3 space-y-2">
+          <button
+            onClick={() => setShowTrash(v => !v)}
+            className="flex items-center gap-2 text-sm font-medium text-red-500 hover:text-red-600 transition-colors w-full"
+          >
+            <History className="h-4 w-4" />
+            {t('products.trash_section', { count: deletedLog.length })}
+            {showTrash ? <ChevronUp className="h-3.5 w-3.5 ml-auto" /> : <ChevronDown className="h-3.5 w-3.5 ml-auto" />}
+          </button>
+          {showTrash && (
+            <div className="space-y-1.5 pt-1">
+              <p className="text-xs text-muted-foreground px-1">{t('products.trash_hint')}</p>
+              {deletedLog.map(entry => (
+                <div key={entry.id} className="flex items-center justify-between gap-2 rounded-lg bg-red-50/50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/50 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{entry.record_data?.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t('products.trash_deleted_at', {
+                        date: new Date(entry.deleted_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                      })}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline" size="sm"
+                    className="h-7 gap-1 text-xs text-green-700 border-green-200 hover:bg-green-50 dark:text-green-400 dark:border-green-800 shrink-0"
+                    disabled={restoring === entry.id}
+                    onClick={() => restoreFromLog(entry.id)}
+                  >
+                    <RotateCcw className={`h-3 w-3 ${restoring === entry.id ? 'animate-spin' : ''}`} />
+                    {t('products.restore')}
+                  </Button>
                 </div>
               ))}
             </div>

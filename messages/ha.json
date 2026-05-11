@@ -213,7 +213,10 @@
     "delete_permanent": "Goge gaba ɗaya",
     "delete_warning_title": "⚠️ Ana gogewa har abada",
     "delete_warning_body": "Wannan aikin ba za a iya jurewa ba. Kayan za a goge shi daga bayanan. Sayarwar da ta gabata za su ajiye sunan kayan amma za a rasa alama.",
-    "delete_confirm_label": "Don tabbatarwa, rubuta sunan kaya daidai: {name}"
+    "delete_confirm_label": "Don tabbatarwa, rubuta sunan kaya daidai: {name}",
+    "trash_section": "Sharan kaya — kaya {count} da aka goge",
+    "trash_hint": "An goge waɗannan kayan amma ana iya dawo da su.",
+    "trash_deleted_at": "An goge a ranar {date}"
   },
   "sales": {
     "title": "Sayarwa",

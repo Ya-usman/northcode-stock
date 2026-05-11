@@ -213,7 +213,10 @@
     "delete_permanent": "Supprimer définitivement",
     "delete_warning_title": "⚠️ Suppression irréversible",
     "delete_warning_body": "Cette action est permanente. Le produit sera effacé de la base de données. Les ventes passées conserveront le nom du produit mais la référence sera perdue.",
-    "delete_confirm_label": "Pour confirmer, tapez exactement le nom du produit : {name}"
+    "delete_confirm_label": "Pour confirmer, tapez exactement le nom du produit : {name}",
+    "trash_section": "Corbeille — {count} produit(s) supprimé(s) définitivement",
+    "trash_hint": "Ces produits ont été supprimés définitivement mais peuvent encore être récupérés.",
+    "trash_deleted_at": "Supprimé le {date}"
   },
   "sales": {
     "title": "Ventes",
