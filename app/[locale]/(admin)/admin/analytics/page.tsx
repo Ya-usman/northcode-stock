@@ -183,7 +183,7 @@ export default async function AnalyticsPage({ params: { locale } }: { params: { 
                 </div>
                 <div className="flex items-center gap-3">
                   <div>
-                    <div className="h-1.5 bg-gray-700 rounded-full w-16 overflow-hidden">
+                    <div className="h-1.5 bg-muted rounded-full w-16 overflow-hidden">
                       <div className="h-full bg-red-500 rounded-full" style={{ width: `${s.health}%` }} />
                     </div>
                     <p className="text-xs text-red-400 text-right mt-0.5">{s.health}/100</p>
@@ -201,7 +201,7 @@ export default async function AnalyticsPage({ params: { locale } }: { params: { 
         <div className="px-5 py-4 border-b border-border">
           <h2 className="font-semibold text-foreground text-sm">Classement santé des boutiques</h2>
         </div>
-        <div className="divide-y divide-gray-800/50">
+        <div className="divide-y divide-border/50">
           {shopsWithHealth.slice(0, 20).map((s: any) => {
             const hColor = s.health >= 70 ? 'bg-green-400' : s.health >= 40 ? 'bg-amber-400' : 'bg-red-400'
             const hText = s.health >= 70 ? 'text-green-400' : s.health >= 40 ? 'text-amber-400' : 'text-red-400'

@@ -11,10 +11,10 @@ const supabase = createClient()
 export default function AdminManagersPage() {
   const { toast } = useToast()
   const [shops, setShops] = useState<any[]>([])
-  const [managers, setManagers] = useState<any[]>([]) // shop_members with role=owner
+  const [managers, setManagers] = useState<any[]>([])
   const [allUsers, setAllUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [adding, setAdding] = useState<string | null>(null) // shop_id being assigned
+  const [adding, setAdding] = useState<string | null>(null)
   const [form, setForm] = useState({ email: '', shop_id: '' })
   const [submitting, setSubmitting] = useState(false)
 
@@ -65,7 +65,6 @@ export default function AdminManagersPage() {
     load()
   }
 
-  // Group managers by shop
   const managersByShop: Record<string, any[]> = {}
   for (const m of managers) {
     if (!managersByShop[m.shop_id]) managersByShop[m.shop_id] = []
@@ -76,8 +75,8 @@ export default function AdminManagersPage() {
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Responsables de boutiques</h1>
-          <p className="text-gray-400 text-sm mt-1">Assigner des responsables qui gèrent leurs boutiques</p>
+          <h1 className="text-2xl font-bold text-foreground">Responsables de boutiques</h1>
+          <p className="text-muted-foreground text-sm mt-1">Assigner des responsables qui gèrent leurs boutiques</p>
         </div>
         <Button onClick={() => setAdding('new')} className="gap-2 bg-stockshop-blue hover:bg-stockshop-blue-light">
           <Plus className="h-4 w-4" /> Assigner un responsable
@@ -86,26 +85,26 @@ export default function AdminManagersPage() {
 
       {/* Assign form */}
       {adding && (
-        <div className="bg-gray-900 rounded-xl border border-gray-700 p-5 space-y-4">
-          <h2 className="font-semibold text-white flex items-center gap-2">
-            <Shield className="h-4 w-4 text-stockshop-blue dark:text-blue-400" /> Assigner un responsable
+        <div className="bg-card rounded-xl border border-border p-5 space-y-4">
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <Shield className="h-4 w-4 text-primary" /> Assigner un responsable
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs text-gray-400 block mb-1">Email de l'utilisateur *</label>
+              <label className="text-xs text-muted-foreground block mb-1">Email de l'utilisateur *</label>
               <input
-                className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-stockshop-blue"
+                className="w-full rounded-lg bg-input border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 placeholder="email@example.com"
                 value={form.email}
                 onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                 autoFocus
               />
-              <p className="text-xs text-gray-500 mt-1">L'utilisateur doit déjà avoir un compte.</p>
+              <p className="text-xs text-muted-foreground mt-1">L'utilisateur doit déjà avoir un compte.</p>
             </div>
             <div>
-              <label className="text-xs text-gray-400 block mb-1">Boutique *</label>
+              <label className="text-xs text-muted-foreground block mb-1">Boutique *</label>
               <select
-                className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-stockshop-blue"
+                className="w-full rounded-lg bg-input border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 value={form.shop_id}
                 onChange={e => setForm(f => ({ ...f, shop_id: e.target.value }))}
               >
@@ -117,44 +116,44 @@ export default function AdminManagersPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button onClick={handleAssign} loading={submitting} disabled={!form.email || !form.shop_id} className="bg-blue-600 dark:bg-blue-500">
+            <Button onClick={handleAssign} loading={submitting} disabled={!form.email || !form.shop_id} className="bg-primary hover:bg-primary/90">
               Assigner
             </Button>
-            <Button variant="outline" onClick={() => setAdding(null)} className="border-gray-700 text-gray-300">Annuler</Button>
+            <Button variant="outline" onClick={() => setAdding(null)}>Annuler</Button>
           </div>
         </div>
       )}
 
       {/* Shops list */}
       {loading ? (
-        <p className="text-gray-500 text-sm">Chargement…</p>
+        <p className="text-muted-foreground text-sm">Chargement…</p>
       ) : shops.map(shop => {
         const shopManagers = managersByShop[shop.id] ?? []
         return (
-          <div key={shop.id} className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-800 flex items-center gap-3">
-              <Store className="h-4 w-4 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
+          <div key={shop.id} className="bg-card rounded-xl border border-border overflow-hidden">
+            <div className="px-5 py-4 border-b border-border flex items-center gap-3">
+              <Store className="h-4 w-4 text-primary flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-white">{shop.name}</p>
-                {shop.city && <p className="text-xs text-gray-500">{shop.city} · {shop.country === 'CM' ? '🇨🇲 Cameroun' : '🇳🇬 Nigeria'}</p>}
+                <p className="font-semibold text-foreground">{shop.name}</p>
+                {shop.city && <p className="text-xs text-muted-foreground">{shop.city} · {shop.country === 'CM' ? '🇨🇲 Cameroun' : '🇳🇬 Nigeria'}</p>}
               </div>
-              <span className="text-xs text-gray-500">{shopManagers.length} responsable{shopManagers.length !== 1 ? 's' : ''}</span>
+              <span className="text-xs text-muted-foreground">{shopManagers.length} responsable{shopManagers.length !== 1 ? 's' : ''}</span>
             </div>
-            <div className="divide-y divide-gray-800/50">
+            <div className="divide-y divide-border/50">
               {shopManagers.length === 0 ? (
-                <p className="px-5 py-3 text-xs text-gray-600 italic">Aucun responsable assigné</p>
+                <p className="px-5 py-3 text-xs text-muted-foreground italic">Aucun responsable assigné</p>
               ) : shopManagers.map((m: any) => (
                 <div key={m.id} className="px-5 py-3 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <UserCheck className="h-4 w-4 text-green-400 flex-shrink-0" />
                     <div>
-                      <p className="text-sm text-white font-medium">{m.profiles?.full_name ?? '—'}</p>
-                      <p className="text-xs text-gray-500 capitalize">{m.role}</p>
+                      <p className="text-sm text-foreground font-medium">{m.profiles?.full_name ?? '—'}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{m.role}</p>
                     </div>
                   </div>
                   <button
                     onClick={() => handleRevoke(m.id)}
-                    className="p-1.5 rounded-lg hover:bg-red-900/30 text-gray-600 hover:text-red-400 transition-colors"
+                    className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-red-400 transition-colors"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
