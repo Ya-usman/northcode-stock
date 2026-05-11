@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { PLANS } from '@/lib/saas/plans'
 import { formatCurrency, formatAdminRevenue } from '@/lib/utils/currency'
+import { CountryFilter } from '@/components/admin/country-filter'
 
 const PLAN_COLORS: Record<string, string> = {
   starter: 'text-blue-400 bg-blue-400/10',
@@ -8,16 +9,25 @@ const PLAN_COLORS: Record<string, string> = {
   business: 'text-amber-400 bg-amber-400/10',
 }
 
-export default async function AdminPaymentsPage() {
+export default async function AdminPaymentsPage({
+  searchParams,
+}: {
+  searchParams: { country?: string }
+}) {
   const supabase = await createAdminClient()
 
-  const [{ data: subs }, { data: shops }] = await Promise.all([
+  const [{ data: subs }, { data: allShops }] = await Promise.all([
     supabase.from('subscriptions').select('*').order('created_at', { ascending: false }),
     supabase.from('shops').select('id, name, city, country, currency'),
   ])
 
-  const payments = subs || []
-  const shopMap = (shops || []).reduce((acc: any, s: any) => { acc[s.id] = s; return acc }, {})
+  const countryFilter = searchParams.country || 'all'
+  const shops = allShops || []
+  const shopMap = shops.reduce((acc: any, s: any) => { acc[s.id] = s; return acc }, {})
+  const filteredShopIds = countryFilter === 'all'
+    ? null
+    : new Set(shops.filter((s: any) => (s.country || 'NG') === countryFilter).map((s: any) => s.id))
+  const payments = (subs || []).filter((p: any) => !filteredShopIds || filteredShopIds.has(p.shop_id))
 
   let totalNGN = 0, totalCFA = 0
   for (const p of payments) {
@@ -29,9 +39,12 @@ export default async function AdminPaymentsPage() {
 
   return (
     <div className="space-y-5 max-w-5xl">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Paiements</h1>
-        <p className="text-muted-foreground text-sm mt-1">Tous les abonnements · toutes boutiques · tous pays</p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Paiements</h1>
+          <p className="text-muted-foreground text-sm mt-1">{payments.length} paiement(s) · {countryFilter === 'all' ? 'tous pays' : countryFilter === 'NG' ? '🇳🇬 Nigeria' : '🇨🇲 Cameroun'}</p>
+        </div>
+        <CountryFilter current={countryFilter} />
       </div>
 
       {/* Summary */}

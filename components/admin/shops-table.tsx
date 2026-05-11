@@ -32,6 +32,8 @@ interface Shop {
   id: string
   name: string
   city: string
+  country?: string
+  currency?: string
   plan: string | null
   trial_ends_at: string | null
   plan_expires_at: string | null
@@ -54,6 +56,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
   const { toast } = useToast()
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'subscribed' | 'trial' | 'expired'>('all')
+  const [country, setCountry] = useState<'all' | 'NG' | 'CM'>('all')
   const [loading, setLoading] = useState<string | null>(null)
   const [expandedShop, setExpandedShop] = useState<string | null>(null)
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -75,6 +78,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
     if (filter === 'subscribed' && !subscribed) return false
     if (filter === 'trial' && (subscribed || trialDays < 0)) return false
     if (filter === 'expired' && !isExpired) return false
+    if (country !== 'all' && (shop.country || 'NG') !== country) return false
     return true
   })
 
@@ -115,7 +119,10 @@ export function AdminShopsTable({ shops, locale }: Props) {
       <div className="bg-card rounded-xl border border-border overflow-hidden">
         {/* Table header + filters */}
         <div className="px-5 py-4 border-b border-border flex flex-wrap gap-3 items-center justify-between">
-          <h2 className="font-semibold text-foreground">All Shops</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="font-semibold text-foreground">Boutiques</h2>
+            <span className="text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5">{filtered.length}</span>
+          </div>
           <div className="flex flex-wrap gap-2 items-center">
             {/* Search */}
             <div className="relative">
@@ -123,22 +130,41 @@ export function AdminShopsTable({ shops, locale }: Props) {
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Search shop, owner…"
-                className="bg-muted border border-border rounded-lg pl-8 pr-3 py-1.5 text-xs text-foreground placeholder-gray-500 focus:outline-none focus:border-stockshop-blue w-48"
+                placeholder="Nom, ville, propriétaire…"
+                className="bg-muted border border-border rounded-lg pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary w-48"
               />
             </div>
-            {/* Filter tabs */}
+            {/* Country filter */}
+            {([
+              { value: 'all', label: '🌍 Tous' },
+              { value: 'NG', label: '🇳🇬 Nigeria' },
+              { value: 'CM', label: '🇨🇲 Cameroun' },
+            ] as const).map(c => (
+              <button
+                key={c.value}
+                onClick={() => setCountry(c.value)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  country === c.value
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {c.label}
+              </button>
+            ))}
+            {/* Plan status filter */}
+            <div className="w-px h-5 bg-border" />
             {(['all', 'subscribed', 'trial', 'expired'] as const).map(f => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize ${
                   filter === f
-                    ? 'bg-stockshop-blue text-foreground'
+                    ? 'bg-accent text-accent-foreground border border-border'
                     : 'bg-muted text-muted-foreground hover:text-foreground'
                 }`}
               >
-                {f}
+                {f === 'all' ? 'Tous plans' : f === 'subscribed' ? 'Payants' : f === 'trial' ? 'Trials' : 'Expirés'}
               </button>
             ))}
           </div>

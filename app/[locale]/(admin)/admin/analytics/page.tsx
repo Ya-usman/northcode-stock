@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
 import { formatAdminRevenue } from '@/lib/utils/currency'
 import { GrowthChart } from '@/components/admin/growth-chart'
+import { CountryFilter } from '@/components/admin/country-filter'
 import Link from 'next/link'
 import { TrendingUp, Users, ShoppingBag, Activity } from 'lucide-react'
 
@@ -54,9 +55,20 @@ function computeHealthScore(shop: any, owner: any) {
   return Math.min(100, score)
 }
 
-export default async function AnalyticsPage({ params: { locale } }: { params: { locale: string } }) {
+export default async function AnalyticsPage({
+  params: { locale },
+  searchParams,
+}: {
+  params: { locale: string }
+  searchParams: { country?: string }
+}) {
   const supabase = await createAdminClient()
-  const { shops, subs, owners } = await getData(supabase)
+  const { shops: allShops, subs: allSubs, owners } = await getData(supabase)
+
+  const countryFilter = searchParams.country || 'all'
+  const shops = countryFilter === 'all' ? allShops : allShops.filter((s: any) => (s.country || 'NG') === countryFilter)
+  const shopIds = new Set(shops.map((s: any) => s.id))
+  const subs = countryFilter === 'all' ? allSubs : allSubs.filter((s: any) => shopIds.has(s.shop_id))
 
   const ownersByShop = owners.reduce((acc: any, o: any) => { acc[o.shop_id] = o; return acc }, {})
   const shopCurrencyMap: Record<string, string> = shops.reduce((acc: any, s: any) => { acc[s.id] = s.currency || '₦'; return acc }, {})
@@ -106,9 +118,12 @@ export default async function AnalyticsPage({ params: { locale } }: { params: { 
 
   return (
     <div className="space-y-6 max-w-6xl">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Analytics & Croissance</h1>
-        <p className="text-muted-foreground text-sm mt-1">Vue sur 12 mois · {shops.length} boutiques · tous pays</p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Analytics & Croissance</h1>
+          <p className="text-muted-foreground text-sm mt-1">Vue sur 12 mois · {shops.length} boutiques</p>
+        </div>
+        <CountryFilter current={countryFilter} />
       </div>
 
       {/* Résumé global */}

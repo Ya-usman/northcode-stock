@@ -1,10 +1,16 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { Package, AlertTriangle, TrendingDown, Store } from 'lucide-react'
+import { CountryFilter } from '@/components/admin/country-filter'
 
-export default async function AdminStockPage() {
+export default async function AdminStockPage({
+  searchParams,
+}: {
+  searchParams: { country?: string }
+}) {
   const supabase = createAdminClient()
+  const countryFilter = searchParams.country || 'all'
 
-  const [{ data: shops }, { data: products }] = await Promise.all([
+  const [{ data: allShops }, { data: products }] = await Promise.all([
     supabase.from('shops').select('id, name, city, country, currency').order('name'),
     supabase.from('products')
       .select('id, name, sku, quantity, unit, selling_price, buying_price, low_stock_threshold, is_active, shop_id')
@@ -12,10 +18,16 @@ export default async function AdminStockPage() {
       .order('name'),
   ])
 
-  const shopMap = Object.fromEntries((shops ?? []).map((s: any) => [s.id, s]))
+  const shops = countryFilter === 'all'
+    ? (allShops ?? [])
+    : (allShops ?? []).filter((s: any) => (s.country || 'NG') === countryFilter)
+
+  const shopIds = new Set(shops.map((s: any) => s.id))
+  const shopMap = Object.fromEntries(shops.map((s: any) => [s.id, s]))
 
   const byShop: Record<string, any[]> = {}
   for (const p of (products ?? []) as any[]) {
+    if (!shopIds.has(p.shop_id)) continue
     if (!byShop[p.shop_id]) byShop[p.shop_id] = []
     byShop[p.shop_id].push(p)
   }
@@ -27,9 +39,12 @@ export default async function AdminStockPage() {
 
   return (
     <div className="space-y-6 max-w-7xl">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Stock — Toutes les boutiques</h1>
-        <p className="text-muted-foreground text-sm mt-1">Vue cumulée et détaillée par boutique · tous pays</p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Stock</h1>
+          <p className="text-muted-foreground text-sm mt-1">{shops.length} boutique(s) · {countryFilter === 'all' ? 'tous pays' : countryFilter === 'NG' ? '🇳🇬 Nigeria' : '🇨🇲 Cameroun'}</p>
+        </div>
+        <CountryFilter current={countryFilter} />
       </div>
 
       {/* KPIs cumulés */}
