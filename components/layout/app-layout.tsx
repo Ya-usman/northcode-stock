@@ -134,7 +134,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         <UpgradeWall locale={locale} shopName={shop?.name} />
       )}
 
-      <Sidebar locale={locale} role={roleInActiveShop ?? profile.role} profile={profile} shop={shop} onSignOut={handleSignOut} />
+      <Sidebar locale={locale} role={roleInActiveShop ?? profile.role} profile={profile} shop={shop} onSignOut={handleSignOut} userEmail={user.email ?? ''} />
 
       <div className="sm:pl-64 flex flex-col min-h-screen">
         {showTrialBanner && <TrialBanner daysLeft={trialDaysLeft} locale={locale} />}
@@ -156,7 +156,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         </main>
       </div>
 
-      <BottomNav locale={locale} role={roleInActiveShop ?? profile.role} onSignOut={handleSignOut} />
+      <BottomNav locale={locale} role={roleInActiveShop ?? profile.role} onSignOut={handleSignOut} userEmail={user.email ?? ''} />
     </div>
   )
 }

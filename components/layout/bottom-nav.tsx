@@ -14,15 +14,18 @@ import type { UserRole } from '@/lib/types/database'
 import { isBetaPeriod } from '@/lib/saas/plans'
 import { useRolePermissions, type PermFeature } from '@/lib/hooks/use-role-permissions'
 
+const SUPER_ADMIN_EMAILS = (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim())
+
 interface BottomNavProps {
   locale: string
   role: UserRole
   onSignOut?: () => void
+  userEmail?: string
 }
 
 const ALL_NON_OWNER = ['super_admin', 'owner', 'cashier', 'viewer', 'stock_manager']
 
-export function BottomNav({ locale, role, onSignOut }: BottomNavProps) {
+export function BottomNav({ locale, role, onSignOut, userEmail = '' }: BottomNavProps) {
   const t = useTranslations('nav')
   const pathname = usePathname()
   const [moreOpen, setMoreOpen] = useState(false)
@@ -127,7 +130,7 @@ export function BottomNav({ locale, role, onSignOut }: BottomNavProps) {
                 })}
 
                 {/* Admin Panel — super_admin uniquement */}
-                {role === 'super_admin' && (
+                {SUPER_ADMIN_EMAILS.includes(userEmail) && (
                   <Link
                     href={`/${locale}/admin`}
                     onClick={() => setMoreOpen(false)}

@@ -17,17 +17,20 @@ import type { UserRole, Profile, Shop } from '@/lib/types/database'
 import { isBetaPeriod } from '@/lib/saas/plans'
 import { useRolePermissions, type PermFeature } from '@/lib/hooks/use-role-permissions'
 
+const SUPER_ADMIN_EMAILS = (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim())
+
 interface SidebarProps {
   locale: string
   role: UserRole
   profile: Profile
   shop: Shop | null
   onSignOut: () => void
+  userEmail?: string
 }
 
 const ALL_NON_OWNER = ['owner', 'super_admin', 'cashier', 'viewer', 'stock_manager']
 
-export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps) {
+export function Sidebar({ locale, role, profile, shop, onSignOut, userEmail = '' }: SidebarProps) {
   const t = useTranslations('nav')
   const pathname = usePathname()
   const { userShops, switchShop, dashboardShopFilter, setDashboardShopFilter } = useAuthContext()
@@ -205,7 +208,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
       </nav>
 
       {/* Admin Panel — super_admin uniquement */}
-      {role === 'super_admin' && (
+      {SUPER_ADMIN_EMAILS.includes(userEmail) && (
         <div className="px-3 pb-2">
           <div className="h-px bg-border mb-2" />
           <Link
