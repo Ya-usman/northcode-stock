@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl'
 import {
   LayoutDashboard, ShoppingCart, Package, BarChart2, Settings,
   MoreHorizontal, History, CreditCard, Users, Truck, Zap,
-  X, LogOut, Store, Tag, ArrowLeftRight, Receipt,
+  X, LogOut, Store, Tag, ArrowLeftRight, Receipt, ShieldCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import type { UserRole } from '@/lib/types/database'
@@ -125,6 +125,18 @@ export function BottomNav({ locale, role, onSignOut }: BottomNavProps) {
                     </Link>
                   )
                 })}
+
+                {/* Admin Panel — super_admin uniquement */}
+                {role === 'super_admin' && (
+                  <Link
+                    href={`/${locale}/admin`}
+                    onClick={() => setMoreOpen(false)}
+                    className="flex flex-col items-center gap-1.5 rounded-xl p-3 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
+                  >
+                    <ShieldCheck className="h-5 w-5" />
+                    <span className="text-[10px] font-medium leading-none text-center">Admin</span>
+                  </Link>
+                )}
 
                 {/* Logout */}
                 {onSignOut && (

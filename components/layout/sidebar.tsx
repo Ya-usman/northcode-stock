@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import {
   LayoutDashboard, ShoppingCart, Package, BarChart2, Settings,
   Users, Truck, CreditCard, History, LogOut, ChevronRight, Zap,
-  Store, ChevronDown, Tag, Check, Layers, ArrowLeftRight, Receipt,
+  Store, ChevronDown, Tag, Check, Layers, ArrowLeftRight, Receipt, ShieldCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -203,6 +203,20 @@ export function Sidebar({ locale, role, profile, shop, onSignOut }: SidebarProps
           )
         })}
       </nav>
+
+      {/* Admin Panel — super_admin uniquement */}
+      {role === 'super_admin' && (
+        <div className="px-3 pb-2">
+          <div className="h-px bg-border mb-2" />
+          <Link
+            href={`/${locale}/admin`}
+            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20"
+          >
+            <ShieldCheck className="h-4 w-4 flex-shrink-0" />
+            Admin Panel
+          </Link>
+        </div>
+      )}
 
       {/* User footer */}
       <div className="border-t p-3">
