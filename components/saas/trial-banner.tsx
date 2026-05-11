@@ -16,8 +16,8 @@ export function TrialBanner({ daysLeft, locale }: TrialBannerProps) {
   const [dismissed, setDismissed] = useState(false)
   if (dismissed) return null
 
-  const isUrgent = daysLeft <= 3
-  const isExpiringSoon = daysLeft <= 7
+  const isUrgent = daysLeft <= 7
+  const isExpiringSoon = daysLeft <= 30
 
   const message =
     daysLeft === 0

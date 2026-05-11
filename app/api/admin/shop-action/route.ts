@@ -42,9 +42,9 @@ export async function POST(request: Request) {
       case 'reactivate': {
         // Reactivate all profiles for this shop
         await admin.from('profiles').update({ is_active: true }).eq('shop_id', shop_id)
-        // Extend trial by 7 days
+        // Extend trial by 30 days
         await admin.from('shops').update({
-          trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          trial_ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
           plan: 'trial',
           plan_expires_at: null,
         } as any).eq('id', shop_id)
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       }
 
       case 'extend': {
-        const daysToAdd = Number(days) || 7
+        const daysToAdd = Number(days) || 30
         // Extend plan_expires_at or trial_ends_at
         const { data: shop } = await admin.from('shops').select('plan, plan_expires_at, trial_ends_at').eq('id', shop_id).single()
         const hasActivePlan = shop?.plan && shop.plan !== 'trial' && shop?.plan_expires_at && new Date(shop.plan_expires_at) > new Date()

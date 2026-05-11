@@ -125,7 +125,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   const subscribed = hasActiveSubscription(shop?.plan ?? null, shop?.plan_expires_at ?? null)
   // Don't show upgrade wall if shop hasn't loaded yet
   const accessAllowed = !shop || isAccessAllowed(shop.plan ?? null, shop.trial_ends_at ?? null, shop.plan_expires_at ?? null)
-  const showTrialBanner = !beta && !subscribed && accessAllowed && trialDaysLeft <= 7 && profile.role === 'owner'
+  const showTrialBanner = !beta && !subscribed && accessAllowed && trialDaysLeft <= 30 && profile.role === 'owner'
   const isBillingPage = pathname.includes('/billing')
 
   return (

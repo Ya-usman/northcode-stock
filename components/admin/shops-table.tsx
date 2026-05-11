@@ -42,7 +42,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean; action: ActionType; shop: Shop | null; extra?: string
   }>({ open: false, action: 'suspend', shop: null })
-  const [extendDays, setExtendDays] = useState('7')
+  const [extendDays, setExtendDays] = useState('30')
   const [grantPlan, setGrantPlan] = useState('starter')
 
   const filtered = shops.filter(shop => {
@@ -338,7 +338,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
               <>Suspend <strong className="text-white">{confirmDialog.shop?.name}</strong>? Their account will be locked immediately.</>
             )}
             {confirmDialog.action === 'reactivate' && (
-              <>Reactivate <strong className="text-white">{confirmDialog.shop?.name}</strong>? They will get 7 days of trial access.</>
+              <>Reactivate <strong className="text-white">{confirmDialog.shop?.name}</strong>? They will get 30 days of trial access.</>
             )}
             {confirmDialog.action === 'extend' && (
               <>Extend access for <strong className="text-white">{confirmDialog.shop?.name}</strong>.</>
