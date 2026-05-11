@@ -59,8 +59,12 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
     }
     // Set HttpOnly role cookie via server endpoint
     await fetch('/api/auth/set-role', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
-    // Redirect to the user's preferred locale (saved in cookie), fallback to current
-    const preferredLocale = document.cookie.match(/NEXT_LOCALE=([^;]+)/)?.[1] || locale
+    // Read locale from user's profile in DB (source of truth — survives iOS cookie clearing)
+    const { data: profileData } = await supabase.from('profiles').select('locale').eq('id', authData.user.id).single()
+    const preferredLocale = profileData?.locale || document.cookie.match(/NEXT_LOCALE=([^;]+)/)?.[1] || localStorage.getItem('NEXT_LOCALE') || locale
+    // Sync to browser for this session
+    localStorage.setItem('NEXT_LOCALE', preferredLocale)
+    document.cookie = `NEXT_LOCALE=${preferredLocale}; path=/; max-age=31536000; SameSite=lax`
     router.push(`/${preferredLocale}/dashboard`)
     router.refresh()
   }

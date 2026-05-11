@@ -192,10 +192,14 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
     setSavingPerms(false)
   }
 
-  const switchLanguage = (newLocale: string) => {
+  const switchLanguage = async (newLocale: string) => {
     const newPath = pathname.replace(`/${locale}`, `/${newLocale}`)
     localStorage.setItem('NEXT_LOCALE', newLocale)
     document.cookie = `NEXT_LOCALE=${newLocale}; path=/; max-age=31536000; SameSite=lax`
+    // Save in DB so the preference persists on all devices (survives iOS cookie clearing)
+    if (profile?.id) {
+      await supabase.from('profiles').update({ locale: newLocale }).eq('id', profile.id)
+    }
     router.push(newPath)
   }
 

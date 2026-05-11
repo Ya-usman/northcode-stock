@@ -38,6 +38,7 @@ export interface Profile {
   is_active: boolean
   last_seen: string | null
   created_at: string
+  locale: string | null
 }
 
 export interface Expense {

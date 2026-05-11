@@ -97,10 +97,11 @@ async function fetchUserData(userId: string): Promise<{
   const profile = profileData as Profile | null
 
   if (profile && !profile.is_active) {
+    const savedLocale = (typeof localStorage !== 'undefined' && localStorage.getItem('NEXT_LOCALE')) || profile.locale || 'en'
     fetch('/api/auth/set-role', { method: 'DELETE' }).catch(() => {})
     clearCache()
     await supabase.auth.signOut()
-    window.location.href = '/en/login?error=inactive'
+    window.location.href = `/${savedLocale}/login?error=inactive`
     return { profile: null, userShops: [], memberships: [] }
   }
 
@@ -162,6 +163,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Persist to cache so next reload is instant
     if (profile && !skipCache) writeCache(user.id, profile, userShops, rows)
+
+    // Sync locale preference from DB → browser (survives cookie clearing on iOS Safari)
+    if (profile?.locale) {
+      localStorage.setItem('NEXT_LOCALE', profile.locale)
+      document.cookie = `NEXT_LOCALE=${profile.locale}; path=/; max-age=31536000; SameSite=lax`
+    }
 
     setState({ user, profile, userShops, activeShop, roleInActiveShop, loading: false })
   }, [])
