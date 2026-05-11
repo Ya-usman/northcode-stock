@@ -98,27 +98,27 @@ export function ShopRestorePanel({ shopId, shopName }: Props) {
   const hasData = total > 0
 
   return (
-    <div className="mt-3 border border-gray-700 rounded-lg overflow-hidden">
+    <div className="mt-3 border border-border rounded-lg overflow-hidden">
       <button
         onClick={toggle}
-        className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-800/60 hover:bg-gray-800 transition-colors text-sm"
+        className="w-full flex items-center justify-between px-4 py-2.5 bg-muted/60 hover:bg-accent transition-colors text-sm"
       >
-        <span className="flex items-center gap-2 text-gray-300 font-medium">
+        <span className="flex items-center gap-2 text-foreground font-medium">
           <RotateCcw className="h-3.5 w-3.5 text-amber-400" />
           Restauration des données
           {hasData && !loading && (
             <span className="bg-amber-500/20 text-amber-400 text-xs px-1.5 py-0.5 rounded">{total}</span>
           )}
         </span>
-        {open ? <ChevronUp className="h-3.5 w-3.5 text-gray-500" /> : <ChevronDown className="h-3.5 w-3.5 text-gray-500" />}
+        {open ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
       </button>
 
       {open && (
-        <div className="p-4 space-y-4 bg-gray-900/40">
-          {loading && <p className="text-xs text-gray-500 text-center py-2">Chargement…</p>}
+        <div className="p-4 space-y-4 bg-muted/40">
+          {loading && <p className="text-xs text-muted-foreground text-center py-2">Chargement…</p>}
 
           {!loading && !hasData && (
-            <p className="text-xs text-gray-500 text-center py-2">
+            <p className="text-xs text-muted-foreground text-center py-2">
               ✅ Aucune donnée supprimée pour cette boutique.
             </p>
           )}
@@ -131,10 +131,10 @@ export function ShopRestorePanel({ shopId, shopName }: Props) {
                 Produits supprimés définitivement ({deletedProducts.length})
               </p>
               {deletedProducts.map(entry => (
-                <div key={entry.id} className="flex items-center justify-between gap-3 bg-gray-800 rounded-lg px-3 py-2">
+                <div key={entry.id} className="flex items-center justify-between gap-3 bg-muted rounded-lg px-3 py-2">
                   <div className="min-w-0">
-                    <p className="text-sm text-white font-medium truncate">{entry.record_data?.name}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-sm text-foreground font-medium truncate">{entry.record_data?.name}</p>
+                    <p className="text-xs text-muted-foreground">
                       Supprimé le {new Date(entry.deleted_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       {' · '}{entry.record_data?.selling_price ? `${formatNaira(entry.record_data.selling_price)}` : ''}
                       {' · '}{entry.record_data?.quantity ?? 0} {entry.record_data?.unit || ''}
@@ -162,10 +162,10 @@ export function ShopRestorePanel({ shopId, shopName }: Props) {
                 Produits archivés ({archivedProducts.length})
               </p>
               {archivedProducts.map(p => (
-                <div key={p.id} className="flex items-center justify-between gap-3 bg-gray-800 rounded-lg px-3 py-2">
+                <div key={p.id} className="flex items-center justify-between gap-3 bg-muted rounded-lg px-3 py-2">
                   <div className="min-w-0">
-                    <p className="text-sm text-white font-medium truncate">{p.name}</p>
-                    <p className="text-xs text-gray-500">{p.quantity} {p.unit} · {formatNaira(p.selling_price)}</p>
+                    <p className="text-sm text-foreground font-medium truncate">{p.name}</p>
+                    <p className="text-xs text-muted-foreground">{p.quantity} {p.unit} · {formatNaira(p.selling_price)}</p>
                   </div>
                   <Button
                     size="sm" variant="outline"
@@ -189,10 +189,10 @@ export function ShopRestorePanel({ shopId, shopName }: Props) {
                 Clients supprimés ({deletedCustomers.length})
               </p>
               {deletedCustomers.map(c => (
-                <div key={c.id} className="flex items-center justify-between gap-3 bg-gray-800 rounded-lg px-3 py-2">
+                <div key={c.id} className="flex items-center justify-between gap-3 bg-muted rounded-lg px-3 py-2">
                   <div className="min-w-0">
-                    <p className="text-sm text-white font-medium truncate">{c.name}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-sm text-foreground font-medium truncate">{c.name}</p>
+                    <p className="text-xs text-muted-foreground">
                       {c.phone || 'Pas de téléphone'}
                       {c.total_debt > 0 && ` · Dette : ${formatNaira(c.total_debt)}`}
                       {' · Supprimé le '}{new Date(c.deleted_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}

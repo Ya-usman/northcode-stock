@@ -47,24 +47,24 @@ export function RecentPayments({ payments, shops }: Props) {
       {payments.map(payment => {
         const shop = shopMap[payment.shop_id]
         const planLabel = PLANS[payment.plan as keyof typeof PLANS]?.name || payment.plan
-        const colorClass = PLAN_COLORS[payment.plan] || 'text-gray-400 bg-gray-400/10'
+        const colorClass = PLAN_COLORS[payment.plan] || 'text-muted-foreground bg-gray-400/10'
 
         return (
-          <div key={payment.id} className="flex items-center justify-between px-5 py-3.5 hover:bg-gray-800/20 transition-colors">
+          <div key={payment.id} className="flex items-center justify-between px-5 py-3.5 hover:bg-muted/20 transition-colors">
             <div className="flex items-center gap-3 min-w-0">
               {/* Avatar */}
               <div className="h-8 w-8 rounded-full bg-blue-600/20 flex items-center justify-center text-blue-400 font-bold text-xs flex-shrink-0">
                 {shop?.name?.[0]?.toUpperCase() || '?'}
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-medium text-white truncate">
+                <p className="text-sm font-medium text-foreground truncate">
                   {shop?.name || 'Unknown shop'}
                 </p>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${colorClass}`}>
                     {planLabel}
                   </span>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-muted-foreground">
                     {shop?.city}
                   </span>
                   {payment.paystack_reference && (
@@ -78,7 +78,7 @@ export function RecentPayments({ payments, shops }: Props) {
 
             <div className="text-right flex-shrink-0 ml-4">
               <p className="text-sm font-bold text-green-400">+{formatNaira(payment.amount)}</p>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {new Date(payment.created_at).toLocaleDateString('en-NG', {
                   day: 'numeric', month: 'short', year: 'numeric',
                 })}

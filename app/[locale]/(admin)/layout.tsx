@@ -29,15 +29,15 @@ export default async function AdminLayout({
   ]
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex">
+    <div className="min-h-screen bg-background text-foreground flex">
       {/* Sidebar */}
-      <aside className="hidden md:flex w-56 flex-col fixed inset-y-0 border-r border-gray-800 bg-gray-950 z-30">
+      <aside className="hidden md:flex w-56 flex-col fixed inset-y-0 border-r border-border bg-card z-30">
         {/* Logo */}
-        <div className="flex items-center gap-2.5 px-5 h-16 border-b border-gray-800">
-          <img src="/logo.png" alt="StockShop" className="h-14 w-auto brightness-0 invert" />
+        <div className="flex items-center gap-2.5 px-5 h-16 border-b border-border">
+          <img src="/logo.png" alt="StockShop" className="h-14 w-auto dark:brightness-0 dark:invert" />
           <div>
-            <p className="font-bold text-white text-sm leading-none">StockShop</p>
-            <p className="text-[10px] text-stockshop-gold font-semibold mt-0.5">OWNER PANEL</p>
+            <p className="font-bold text-foreground text-sm leading-none">StockShop</p>
+            <p className="text-[10px] text-stockshop-gold font-semibold mt-0.5">ADMIN PANEL</p>
           </div>
         </div>
 
@@ -47,7 +47,7 @@ export default async function AdminLayout({
             <Link
               key={href}
               href={href}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
             >
               <Icon className="h-4 w-4" />
               {label}
@@ -56,11 +56,11 @@ export default async function AdminLayout({
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-gray-800 p-4">
-          <p className="text-xs text-gray-600 mb-3">{user.email}</p>
+        <div className="border-t border-border p-4">
+          <p className="text-xs text-muted-foreground mb-3">{user.email}</p>
           <a
             href={`/${locale}/dashboard`}
-            className="flex items-center gap-2 text-xs text-gray-400 hover:text-white transition-colors"
+            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             <LogOut className="h-3.5 w-3.5" />
             Back to App
@@ -69,14 +69,14 @@ export default async function AdminLayout({
       </aside>
 
       {/* Mobile header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-30 border-b border-gray-800 bg-gray-950 h-14 flex items-center justify-between px-4">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-30 border-b border-border bg-card h-14 flex items-center justify-between px-4">
         <div className="flex items-center gap-2">
           <div className="h-7 w-7 rounded-md bg-stockshop-gold flex items-center justify-center text-gray-900 font-bold text-xs">SS</div>
-          <span className="font-bold text-sm text-stockshop-gold">OWNER PANEL</span>
+          <span className="font-bold text-sm text-stockshop-gold">ADMIN PANEL</span>
         </div>
         <div className="flex gap-3">
           {navItems.map(({ href, icon: Icon }) => (
-            <Link key={href} href={href} className="text-gray-400 hover:text-white">
+            <Link key={href} href={href} className="text-muted-foreground hover:text-foreground">
               <Icon className="h-5 w-5" />
             </Link>
           ))}

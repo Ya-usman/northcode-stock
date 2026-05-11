@@ -106,7 +106,7 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <RefreshCw className="h-6 w-6 animate-spin text-gray-500" />
+        <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     )
   }
@@ -114,7 +114,7 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
   if (!data?.shop) {
     return (
       <div className="text-center py-24">
-        <p className="text-gray-400">Boutique introuvable.</p>
+        <p className="text-muted-foreground">Boutique introuvable.</p>
         <Link href={`/${locale}/admin/shops`} className="text-blue-400 hover:underline text-sm mt-2 inline-block">← Retour</Link>
       </div>
     )
@@ -147,13 +147,13 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
   return (
     <div className="max-w-5xl space-y-5">
       {/* Back */}
-      <Link href={`/${locale}/admin/shops`} className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors">
+      <Link href={`/${locale}/admin/shops`} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
         <ArrowLeft className="h-4 w-4" />
         Toutes les boutiques
       </Link>
 
       {/* Header identité */}
-      <div className="bg-gray-900 rounded-xl border border-gray-800 p-5">
+      <div className="bg-card rounded-xl border border-border p-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-start gap-4">
             <div className="h-12 w-12 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center shrink-0">
@@ -161,11 +161,11 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-xl font-bold text-white">{shop.name}</h1>
+                <h1 className="text-xl font-bold text-foreground">{shop.name}</h1>
                 {statusBadge}
               </div>
-              <p className="text-gray-400 text-sm mt-0.5">{shop.city || '—'}</p>
-              <p className="text-gray-500 text-xs mt-1">
+              <p className="text-muted-foreground text-sm mt-0.5">{shop.city || '—'}</p>
+              <p className="text-muted-foreground text-xs mt-1">
                 Inscrit le {new Date(shop.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
               </p>
             </div>
@@ -173,8 +173,8 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
 
           {/* Owner info */}
           <div className="text-right">
-            <p className="text-white text-sm font-medium">{owner?.full_name || 'Inconnu'}</p>
-            <p className="text-gray-400 text-xs">{owner?.email || '—'}</p>
+            <p className="text-foreground text-sm font-medium">{owner?.full_name || 'Inconnu'}</p>
+            <p className="text-muted-foreground text-xs">{owner?.email || '—'}</p>
             {shop.whatsapp && (
               <a
                 href={`https://wa.me/${shop.whatsapp.replace(/\D/g, '')}?text=Bonjour depuis StockShop Support`}
@@ -189,15 +189,15 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
         </div>
 
         {/* Score de santé */}
-        <div className="mt-4 pt-4 border-t border-gray-800">
+        <div className="mt-4 pt-4 border-t border-border">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-gray-400">Score de santé</span>
+            <span className="text-xs text-muted-foreground">Score de santé</span>
             <span className={`text-sm font-bold ${healthColor}`}>{health}/100</span>
           </div>
-          <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
             <div className={`h-full ${healthBg} rounded-full transition-all`} style={{ width: `${health}%` }} />
           </div>
-          <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
             <span className={daysSinceLastSeen !== null && daysSinceLastSeen <= 7 ? 'text-green-400' : ''}>
               {daysSinceLastSeen === null ? '• Jamais connecté' : daysSinceLastSeen === 0 ? '• Connecté aujourd\'hui' : `• Dernière connexion il y a ${daysSinceLastSeen}j`}
             </span>
@@ -207,15 +207,15 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-gray-800">
+      <div className="flex gap-1 border-b border-border">
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => setActiveTab(id as any)}
             className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
               activeTab === id
-                ? 'border-blue-500 text-white'
-                : 'border-transparent text-gray-400 hover:text-white'
+                ? 'border-blue-500 text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             <Icon className="h-3.5 w-3.5" />
@@ -235,71 +235,71 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
               { label: 'Total ventes', value: stats.totalSales, icon: TrendingUp, color: 'text-green-400', bg: 'bg-green-400/10' },
               { label: 'CA total', value: formatNaira(stats.totalSalesAmount), icon: CreditCard, color: 'text-amber-400', bg: 'bg-amber-400/10' },
             ].map(({ label, value, icon: Icon, color, bg }) => (
-              <div key={label} className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+              <div key={label} className="bg-card rounded-xl border border-border p-4">
                 <div className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${bg} mb-2`}>
                   <Icon className={`h-4 w-4 ${color}`} />
                 </div>
-                <p className="text-lg font-bold text-white">{value}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{label}</p>
+                <p className="text-lg font-bold text-foreground">{value}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
               </div>
             ))}
           </div>
 
           {/* Secondaire stats */}
           <div className="grid grid-cols-3 gap-3">
-            <div className="bg-gray-900 rounded-xl border border-gray-800 p-4 text-center">
-              <p className="text-2xl font-extrabold text-white">{stats.salesToday}</p>
-              <p className="text-xs text-gray-400 mt-1">Ventes aujourd'hui</p>
+            <div className="bg-card rounded-xl border border-border p-4 text-center">
+              <p className="text-2xl font-extrabold text-foreground">{stats.salesToday}</p>
+              <p className="text-xs text-muted-foreground mt-1">Ventes aujourd'hui</p>
               <p className="text-xs text-green-400 mt-0.5">{formatNaira(stats.salesTodayAmount)}</p>
             </div>
-            <div className="bg-gray-900 rounded-xl border border-gray-800 p-4 text-center">
+            <div className="bg-card rounded-xl border border-border p-4 text-center">
               <p className="text-2xl font-extrabold text-amber-400">{stats.productsArchived}</p>
-              <p className="text-xs text-gray-400 mt-1">Produits archivés</p>
+              <p className="text-xs text-muted-foreground mt-1">Produits archivés</p>
             </div>
-            <div className="bg-gray-900 rounded-xl border border-gray-800 p-4 text-center">
+            <div className="bg-card rounded-xl border border-border p-4 text-center">
               <p className="text-2xl font-extrabold text-red-400">{stats.deletedLogCount}</p>
-              <p className="text-xs text-gray-400 mt-1">Dans la corbeille</p>
+              <p className="text-xs text-muted-foreground mt-1">Dans la corbeille</p>
             </div>
           </div>
 
           {/* Plan */}
-          <div className="bg-gray-900 rounded-xl border border-gray-800 p-5">
-            <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-              <CreditCard className="h-4 w-4 text-gray-400" />
+          <div className="bg-card rounded-xl border border-border p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+              <CreditCard className="h-4 w-4 text-muted-foreground" />
               Abonnement
             </h3>
             <div className="flex items-center gap-3 flex-wrap">
               <div>
-                <p className="text-xs text-gray-500">Plan actuel</p>
-                <p className="text-white font-medium capitalize">{shop.plan || 'Aucun'}</p>
+                <p className="text-xs text-muted-foreground">Plan actuel</p>
+                <p className="text-foreground font-medium capitalize">{shop.plan || 'Aucun'}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-500">Trial expire</p>
-                <p className="text-white font-medium">
+                <p className="text-xs text-muted-foreground">Trial expire</p>
+                <p className="text-foreground font-medium">
                   {shop.trial_ends_at ? new Date(shop.trial_ends_at).toLocaleDateString('fr-FR') : '—'}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-gray-500">Plan expire</p>
-                <p className="text-white font-medium">
+                <p className="text-xs text-muted-foreground">Plan expire</p>
+                <p className="text-foreground font-medium">
                   {shop.plan_expires_at ? new Date(shop.plan_expires_at).toLocaleDateString('fr-FR') : '—'}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-gray-500">Paiements</p>
-                <p className="text-white font-medium">{subscriptions.length}</p>
+                <p className="text-xs text-muted-foreground">Paiements</p>
+                <p className="text-foreground font-medium">{subscriptions.length}</p>
               </div>
             </div>
 
             {subscriptions.length > 0 && (
               <div className="mt-4 space-y-2">
                 {subscriptions.slice(0, 5).map((sub: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2">
+                  <div key={i} className="flex items-center justify-between bg-muted rounded-lg px-3 py-2">
                     <div className="flex items-center gap-2">
                       <span className={`h-2 w-2 rounded-full ${sub.status === 'active' ? 'bg-green-400' : 'bg-gray-500'}`} />
-                      <span className="text-xs text-gray-300 capitalize">{sub.plan}</span>
-                      <span className="text-xs text-gray-500">{new Date(sub.created_at).toLocaleDateString('fr-FR')}</span>
-                      {sub.paystack_reference && <span className="text-xs font-mono text-gray-500">{sub.paystack_reference}</span>}
+                      <span className="text-xs text-foreground capitalize">{sub.plan}</span>
+                      <span className="text-xs text-muted-foreground">{new Date(sub.created_at).toLocaleDateString('fr-FR')}</span>
+                      {sub.paystack_reference && <span className="text-xs font-mono text-muted-foreground">{sub.paystack_reference}</span>}
                     </div>
                     <span className="text-xs font-bold text-green-400">{formatNaira(sub.amount)}</span>
                   </div>
@@ -310,21 +310,21 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
 
           {/* Membres de l'équipe */}
           {members.length > 0 && (
-            <div className="bg-gray-900 rounded-xl border border-gray-800 p-5">
-              <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                <Users className="h-4 w-4 text-gray-400" />
+            <div className="bg-card rounded-xl border border-border p-5">
+              <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                <Users className="h-4 w-4 text-muted-foreground" />
                 Équipe ({members.filter((m: any) => m.is_active).length} actif(s))
               </h3>
               <div className="space-y-2">
                 {members.map((m: any) => (
-                  <div key={m.user_id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2">
+                  <div key={m.user_id} className="flex items-center justify-between bg-muted rounded-lg px-3 py-2">
                     <div className="flex items-center gap-2">
                       <span className={`h-2 w-2 rounded-full ${m.is_active ? 'bg-green-400' : 'bg-gray-600'}`} />
-                      <span className="text-sm text-white">{m.profiles?.full_name || 'Inconnu'}</span>
-                      <span className="text-xs text-gray-500 capitalize">{m.role}</span>
+                      <span className="text-sm text-foreground">{m.profiles?.full_name || 'Inconnu'}</span>
+                      <span className="text-xs text-muted-foreground capitalize">{m.role}</span>
                     </div>
                     {m.profiles?.last_seen && (
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-muted-foreground">
                         Vu {new Date(m.profiles.last_seen).toLocaleDateString('fr-FR')}
                       </span>
                     )}
@@ -335,9 +335,9 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
           )}
 
           {/* Actions rapides */}
-          <div className="bg-gray-900 rounded-xl border border-gray-800 p-5">
-            <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-              <Shield className="h-4 w-4 text-gray-400" />
+          <div className="bg-card rounded-xl border border-border p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Shield className="h-4 w-4 text-muted-foreground" />
               Actions Support
             </h3>
             <div className="flex flex-wrap gap-2">
@@ -409,8 +409,8 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
       {/* Tab: Notes internes */}
       {activeTab === 'notes' && (
         <div className="space-y-4">
-          <div className="bg-gray-900 rounded-xl border border-gray-800 p-5">
-            <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+          <div className="bg-card rounded-xl border border-border p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
               <StickyNote className="h-4 w-4 text-amber-400" />
               Ajouter une note interne
             </h3>
@@ -418,11 +418,11 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
               value={noteText}
               onChange={e => setNoteText(e.target.value)}
               placeholder="Ex : Client a appelé le 10 mai pour perte de données. Restauré via admin. À surveiller."
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none"
+              className="w-full bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none"
               rows={4}
             />
             <div className="flex justify-between items-center mt-2">
-              <span className="text-xs text-gray-500">{adminEmail}</span>
+              <span className="text-xs text-muted-foreground">{adminEmail}</span>
               <Button size="sm" disabled={savingNote || !noteText.trim()} onClick={saveNote}>
                 <Send className="h-3.5 w-3.5 mr-1.5" />
                 {savingNote ? 'Enregistrement…' : 'Enregistrer'}
@@ -432,18 +432,18 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
 
           <div className="space-y-3">
             {notes.length === 0 && (
-              <p className="text-xs text-gray-500 text-center py-6">Aucune note pour cette boutique.</p>
+              <p className="text-xs text-muted-foreground text-center py-6">Aucune note pour cette boutique.</p>
             )}
             {notes.map((note: any) => (
-              <div key={note.id} className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+              <div key={note.id} className="bg-card rounded-xl border border-border p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs text-gray-500 mb-1">
+                    <p className="text-xs text-muted-foreground mb-1">
                       {note.author_email} · {new Date(note.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </p>
-                    <p className="text-sm text-gray-200 whitespace-pre-wrap">{note.content}</p>
+                    <p className="text-sm text-foreground whitespace-pre-wrap">{note.content}</p>
                   </div>
-                  <button onClick={() => deleteNote(note.id)} className="text-gray-600 hover:text-red-400 transition-colors shrink-0">
+                  <button onClick={() => deleteNote(note.id)} className="text-muted-foreground hover:text-red-400 transition-colors shrink-0">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -456,8 +456,8 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
       {/* Tab: Notifications in-app */}
       {activeTab === 'notifications' && (
         <div className="space-y-4">
-          <div className="bg-gray-900 rounded-xl border border-gray-800 p-5">
-            <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+          <div className="bg-card rounded-xl border border-border p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
               <Bell className="h-4 w-4 text-blue-400" />
               Envoyer un message au owner
             </h3>
@@ -472,7 +472,7 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
                         ? t === 'urgent' ? 'bg-red-500/20 border-red-500 text-red-400'
                           : t === 'warning' ? 'bg-amber-500/20 border-amber-500 text-amber-400'
                           : 'bg-blue-500/20 border-blue-500 text-blue-400'
-                        : 'border-gray-700 text-gray-400 hover:border-gray-500'
+                        : 'border-border text-muted-foreground hover:border-gray-500'
                     }`}
                   >
                     {t === 'info' ? 'Info' : t === 'warning' ? 'Avertissement' : 'Urgent'}
@@ -483,13 +483,13 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
                 value={notifTitle}
                 onChange={e => setNotifTitle(e.target.value)}
                 placeholder="Titre du message"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder-gray-500 focus:outline-none focus:border-blue-500"
               />
               <textarea
                 value={notifMsg}
                 onChange={e => setNotifMsg(e.target.value)}
                 placeholder="Contenu du message visible par le owner dans son dashboard…"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none"
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none"
                 rows={3}
               />
               <div className="flex justify-end">
@@ -502,13 +502,13 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
           </div>
 
           <div className="space-y-3">
-            <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Historique des notifications</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Historique des notifications</p>
             {notifications.length === 0 && (
-              <p className="text-xs text-gray-500 text-center py-6">Aucune notification envoyée.</p>
+              <p className="text-xs text-muted-foreground text-center py-6">Aucune notification envoyée.</p>
             )}
             {notifications.map((n: any) => (
-              <div key={n.id} className={`bg-gray-900 rounded-xl border p-4 flex items-start justify-between gap-3 ${
-                n.type === 'urgent' ? 'border-red-800/50' : n.type === 'warning' ? 'border-amber-800/50' : 'border-gray-800'
+              <div key={n.id} className={`bg-card rounded-xl border p-4 flex items-start justify-between gap-3 ${
+                n.type === 'urgent' ? 'border-red-800/50' : n.type === 'warning' ? 'border-amber-800/50' : 'border-border'
               }`}>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 mb-1">
@@ -517,15 +517,15 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
                     }`}>
                       {n.type === 'urgent' ? '🔴 URGENT' : n.type === 'warning' ? '🟡 AVERTISSEMENT' : '🔵 INFO'}
                     </span>
-                    <span className="text-xs text-gray-500">{new Date(n.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                    <span className="text-xs text-muted-foreground">{new Date(n.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
                     {n.read_at
                       ? <span className="text-xs text-green-500">Lu ✓</span>
-                      : <span className="text-xs text-gray-500">Non lu</span>}
+                      : <span className="text-xs text-muted-foreground">Non lu</span>}
                   </div>
-                  <p className="text-sm font-medium text-white">{n.title}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{n.message}</p>
+                  <p className="text-sm font-medium text-foreground">{n.title}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{n.message}</p>
                 </div>
-                <button onClick={() => deleteNotif(n.id)} className="text-gray-600 hover:text-red-400 transition-colors shrink-0">
+                <button onClick={() => deleteNotif(n.id)} className="text-muted-foreground hover:text-red-400 transition-colors shrink-0">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -536,12 +536,12 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
 
       {/* Tab: Restauration */}
       {activeTab === 'restore' && (
-        <div className="bg-gray-900 rounded-xl border border-gray-800 p-5">
-          <h3 className="text-sm font-semibold text-white mb-1 flex items-center gap-2">
+        <div className="bg-card rounded-xl border border-border p-5">
+          <h3 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
             <RefreshCw className="h-4 w-4 text-amber-400" />
             Restauration des données
           </h3>
-          <p className="text-xs text-gray-500 mb-4">Restaurez les produits supprimés, archivés, et les clients supprimés pour cette boutique.</p>
+          <p className="text-xs text-muted-foreground mb-4">Restaurez les produits supprimés, archivés, et les clients supprimés pour cette boutique.</p>
           <ShopRestorePanel shopId={shopId} shopName={shop.name} />
         </div>
       )}

@@ -131,13 +131,13 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Command Center</h1>
-          <p className="text-gray-400 text-sm mt-1">
+          <h1 className="text-2xl font-bold text-foreground">Command Center</h1>
+          <p className="text-muted-foreground text-sm mt-1">
             {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-xs text-gray-500">StockShop Admin</p>
+          <p className="text-xs text-muted-foreground">StockShop Admin</p>
           <p className="text-xs text-stockshop-gold font-semibold">OWNER PANEL</p>
         </div>
       </div>
@@ -154,7 +154,7 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
               <div className="space-y-1">
                 {expiringTrials.slice(0, 3).map((s: any) => (
                   <Link key={s.id} href={`/${locale}/admin/shops/${s.id}`} className="flex items-center justify-between hover:bg-amber-500/10 rounded px-2 py-1 transition-colors">
-                    <span className="text-xs text-gray-300">{s.name}</span>
+                    <span className="text-xs text-foreground">{s.name}</span>
                     <span className="text-xs text-amber-400">{getTrialDaysLeft(s.trial_ends_at)}j restants →</span>
                   </Link>
                 ))}
@@ -170,7 +170,7 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
               <div className="space-y-1">
                 {inactiveShops.slice(0, 3).map((s: any) => (
                   <Link key={s.id} href={`/${locale}/admin/shops/${s.id}`} className="flex items-center justify-between hover:bg-red-500/10 rounded px-2 py-1 transition-colors">
-                    <span className="text-xs text-gray-300">{s.name}</span>
+                    <span className="text-xs text-foreground">{s.name}</span>
                     <span className="text-xs text-red-400">Inactive →</span>
                   </Link>
                 ))}
@@ -188,12 +188,12 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
           { label: 'Ce mois-ci', value: formatNaira(thisMonthRevenue), sub: revenueGrowth >= 0 ? `+${revenueGrowth}% vs mois dernier` : `${revenueGrowth}% vs mois dernier`, icon: ArrowUpRight, color: revenueGrowth >= 0 ? 'text-green-400' : 'text-red-400', bg: revenueGrowth >= 0 ? 'bg-green-400/10' : 'bg-red-400/10' },
           { label: 'Total boutiques', value: shops.length, sub: `+${newShopsThisMonth} ce mois`, icon: ShoppingBag, color: 'text-purple-400', bg: 'bg-purple-400/10' },
         ].map(({ label, value, sub, icon: Icon, color, bg }) => (
-          <div key={label} className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+          <div key={label} className="bg-card rounded-xl border border-border p-4">
             <div className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${bg} mb-3`}>
               <Icon className={`h-4 w-4 ${color}`} />
             </div>
-            <p className="text-xl font-bold text-white">{value}</p>
-            <p className="text-gray-400 text-xs mt-0.5">{label}</p>
+            <p className="text-xl font-bold text-foreground">{value}</p>
+            <p className="text-muted-foreground text-xs mt-0.5">{label}</p>
             <p className={`text-xs mt-1 ${color}`}>{sub}</p>
           </div>
         ))}
@@ -207,12 +207,12 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
           { label: 'Ventes aujourd\'hui', value: salesToday.toLocaleString(), sub: `${sales7d} sur 7 jours`, icon: Activity, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
           { label: 'Taux de conversion', value: `${conversionRate}%`, sub: `${activeSubscriptions} payants / ${shops.length} total`, icon: UserCheck, color: 'text-stockshop-gold', bg: 'bg-yellow-400/10' },
         ].map(({ label, value, sub, icon: Icon, color, bg }) => (
-          <div key={label} className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+          <div key={label} className="bg-card rounded-xl border border-border p-4">
             <div className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${bg} mb-3`}>
               <Icon className={`h-4 w-4 ${color}`} />
             </div>
-            <p className="text-xl font-bold text-white">{value}</p>
-            <p className="text-gray-400 text-xs mt-0.5">{label}</p>
+            <p className="text-xl font-bold text-foreground">{value}</p>
+            <p className="text-muted-foreground text-xs mt-0.5">{label}</p>
             <p className={`text-xs mt-1 ${color}`}>{sub}</p>
           </div>
         ))}
@@ -220,28 +220,28 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
 
       {/* Statut boutiques */}
       <div className="grid grid-cols-4 gap-3">
-        <div className="bg-gray-900 rounded-xl border border-gray-800 p-4 text-center">
+        <div className="bg-card rounded-xl border border-border p-4 text-center">
           <p className="text-3xl font-extrabold text-green-400">{activeSubscriptions}</p>
-          <p className="text-xs text-gray-400 mt-1">Abonnés payants</p>
+          <p className="text-xs text-muted-foreground mt-1">Abonnés payants</p>
         </div>
-        <div className="bg-gray-900 rounded-xl border border-gray-800 p-4 text-center">
+        <div className="bg-card rounded-xl border border-border p-4 text-center">
           <p className="text-3xl font-extrabold text-amber-400">{activeTrials}</p>
-          <p className="text-xs text-gray-400 mt-1">Trials actifs</p>
+          <p className="text-xs text-muted-foreground mt-1">Trials actifs</p>
         </div>
-        <div className="bg-gray-900 rounded-xl border border-gray-800 p-4 text-center">
+        <div className="bg-card rounded-xl border border-border p-4 text-center">
           <p className="text-3xl font-extrabold text-red-400">{expired}</p>
-          <p className="text-xs text-gray-400 mt-1">Expirés / à convertir</p>
+          <p className="text-xs text-muted-foreground mt-1">Expirés / à convertir</p>
         </div>
-        <div className="bg-gray-900 rounded-xl border border-gray-800 p-4 text-center">
-          <p className="text-3xl font-extrabold text-gray-500">{suspended}</p>
-          <p className="text-xs text-gray-400 mt-1">Suspendus</p>
+        <div className="bg-card rounded-xl border border-border p-4 text-center">
+          <p className="text-3xl font-extrabold text-muted-foreground">{suspended}</p>
+          <p className="text-xs text-muted-foreground mt-1">Suspendus</p>
         </div>
       </div>
 
       {/* Plan breakdown + Graphique */}
       <div className="grid md:grid-cols-3 gap-4">
-        <div className="bg-gray-900 rounded-xl border border-gray-800 p-5">
-          <h2 className="font-semibold text-white text-sm mb-4">Répartition des plans</h2>
+        <div className="bg-card rounded-xl border border-border p-5">
+          <h2 className="font-semibold text-foreground text-sm mb-4">Répartition des plans</h2>
           <div className="space-y-3">
             {(['starter', 'pro', 'business'] as const).map(planId => {
               const count = shops.filter((s: any) => s.plan === planId && hasActiveSubscription(s.plan, s.plan_expires_at)).length
@@ -250,35 +250,35 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
               return (
                 <div key={planId}>
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-gray-300 text-xs capitalize">{PLANS[planId].name}</span>
+                    <span className="text-foreground text-xs capitalize">{PLANS[planId].name}</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">{count} boutiques</span>
-                      <span className="text-xs font-bold text-white">{formatNaira(revenue)}</span>
+                      <span className="text-xs text-muted-foreground">{count} boutiques</span>
+                      <span className="text-xs font-bold text-foreground">{formatNaira(revenue)}</span>
                     </div>
                   </div>
-                  <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                     <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct}%` }} />
                   </div>
                 </div>
               )
             })}
           </div>
-          <div className="mt-5 pt-4 border-t border-gray-800">
-            <p className="text-xs text-gray-400 mb-2">Conversion trial → payant</p>
+          <div className="mt-5 pt-4 border-t border-border">
+            <p className="text-xs text-muted-foreground mb-2">Conversion trial → payant</p>
             <p className="text-2xl font-bold text-stockshop-gold">{conversionRate}%</p>
-            <p className="text-xs text-gray-500 mt-0.5">{activeSubscriptions} convertis sur {shops.length}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{activeSubscriptions} convertis sur {shops.length}</p>
           </div>
         </div>
-        <div className="md:col-span-2 bg-gray-900 rounded-xl border border-gray-800 p-5">
-          <h2 className="font-semibold text-white text-sm mb-4">Revenue — 6 derniers mois</h2>
+        <div className="md:col-span-2 bg-card rounded-xl border border-border p-5">
+          <h2 className="font-semibold text-foreground text-sm mb-4">Revenue — 6 derniers mois</h2>
           <RevenueChart data={chartData} />
         </div>
       </div>
 
       {/* Paiements récents */}
-      <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
-          <h2 className="font-semibold text-white text-sm">Paiements récents</h2>
+      <div className="bg-card rounded-xl border border-border overflow-hidden">
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+          <h2 className="font-semibold text-foreground text-sm">Paiements récents</h2>
           <Link href={`/${locale}/admin/payments`} className="text-xs text-blue-400 hover:underline">Voir tout →</Link>
         </div>
         <RecentPayments payments={recentPayments} shops={shops} />

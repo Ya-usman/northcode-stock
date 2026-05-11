@@ -13,8 +13,8 @@ interface DataPoint {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-lg border border-gray-700 bg-gray-900 p-3 shadow-xl text-xs space-y-1">
-      <p className="font-semibold text-white capitalize">{label}</p>
+    <div className="rounded-lg border border-border bg-card p-3 shadow-xl text-xs space-y-1">
+      <p className="font-semibold text-foreground capitalize">{label}</p>
       <p className="text-purple-400">+{payload[0]?.value || 0} nouvelle(s) boutique(s)</p>
       <p className="text-blue-400">{payload[1]?.value || 0} paiement(s)</p>
       <p className="text-green-400">{formatNaira(payload[2]?.value || 0)}</p>

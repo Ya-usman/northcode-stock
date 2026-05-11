@@ -100,8 +100,8 @@ export default async function AnalyticsPage({ params: { locale } }: { params: { 
   return (
     <div className="space-y-6 max-w-6xl">
       <div>
-        <h1 className="text-2xl font-bold text-white">Analytics & Croissance</h1>
-        <p className="text-gray-400 text-sm mt-1">Vue sur 12 mois · {shops.length} boutiques total</p>
+        <h1 className="text-2xl font-bold text-foreground">Analytics & Croissance</h1>
+        <p className="text-muted-foreground text-sm mt-1">Vue sur 12 mois · {shops.length} boutiques total</p>
       </div>
 
       {/* Résumé global */}
@@ -112,47 +112,47 @@ export default async function AnalyticsPage({ params: { locale } }: { params: { 
           { label: 'En trial', value: activeTrials, icon: ShoppingBag, color: 'text-amber-400', bg: 'bg-amber-400/10' },
           { label: 'Expirés', value: expired, icon: Activity, color: 'text-red-400', bg: 'bg-red-400/10' },
         ].map(({ label, value, icon: Icon, color, bg }) => (
-          <div key={label} className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+          <div key={label} className="bg-card rounded-xl border border-border p-4">
             <div className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${bg} mb-2`}>
               <Icon className={`h-4 w-4 ${color}`} />
             </div>
-            <p className="text-xl font-bold text-white">{value}</p>
-            <p className="text-gray-400 text-xs mt-0.5">{label}</p>
+            <p className="text-xl font-bold text-foreground">{value}</p>
+            <p className="text-muted-foreground text-xs mt-0.5">{label}</p>
           </div>
         ))}
       </div>
 
       {/* Graphique de croissance 12 mois */}
-      <div className="bg-gray-900 rounded-xl border border-gray-800 p-5">
-        <h2 className="font-semibold text-white text-sm mb-4">Croissance — 12 derniers mois</h2>
+      <div className="bg-card rounded-xl border border-border p-5">
+        <h2 className="font-semibold text-foreground text-sm mb-4">Croissance — 12 derniers mois</h2>
         <GrowthChart data={monthlyData} />
       </div>
 
       {/* Cohortes de conversion */}
-      <div className="bg-gray-900 rounded-xl border border-gray-800 p-5">
-        <h2 className="font-semibold text-white text-sm mb-4">Taux de conversion par cohorte (mois d'inscription)</h2>
+      <div className="bg-card rounded-xl border border-border p-5">
+        <h2 className="font-semibold text-foreground text-sm mb-4">Taux de conversion par cohorte (mois d'inscription)</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-gray-800">
-                <th className="text-left py-2 px-3 text-gray-400 font-medium">Mois</th>
-                <th className="text-right py-2 px-3 text-gray-400 font-medium">Inscriptions</th>
-                <th className="text-right py-2 px-3 text-gray-400 font-medium">Convertis</th>
-                <th className="text-right py-2 px-3 text-gray-400 font-medium">Taux</th>
-                <th className="py-2 px-3 text-gray-400 font-medium">Progression</th>
+              <tr className="border-b border-border">
+                <th className="text-left py-2 px-3 text-muted-foreground font-medium">Mois</th>
+                <th className="text-right py-2 px-3 text-muted-foreground font-medium">Inscriptions</th>
+                <th className="text-right py-2 px-3 text-muted-foreground font-medium">Convertis</th>
+                <th className="text-right py-2 px-3 text-muted-foreground font-medium">Taux</th>
+                <th className="py-2 px-3 text-muted-foreground font-medium">Progression</th>
               </tr>
             </thead>
             <tbody>
               {cohorts.map(c => (
-                <tr key={c.month} className="border-b border-gray-800/50 hover:bg-gray-800/30">
-                  <td className="py-2 px-3 text-gray-300 font-medium capitalize">{c.month}</td>
-                  <td className="py-2 px-3 text-right text-gray-300">{c.total}</td>
+                <tr key={c.month} className="border-b border-border/50 hover:bg-muted/30">
+                  <td className="py-2 px-3 text-foreground font-medium capitalize">{c.month}</td>
+                  <td className="py-2 px-3 text-right text-foreground">{c.total}</td>
                   <td className="py-2 px-3 text-right text-green-400">{c.converted}</td>
                   <td className={`py-2 px-3 text-right font-bold ${c.rate >= 30 ? 'text-green-400' : c.rate >= 10 ? 'text-amber-400' : 'text-red-400'}`}>
                     {c.rate}%
                   </td>
                   <td className="py-2 px-3">
-                    <div className="h-1.5 bg-gray-800 rounded-full w-24 overflow-hidden">
+                    <div className="h-1.5 bg-muted rounded-full w-24 overflow-hidden">
                       <div className={`h-full rounded-full ${c.rate >= 30 ? 'bg-green-500' : c.rate >= 10 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${c.rate}%` }} />
                     </div>
                   </td>
@@ -165,19 +165,19 @@ export default async function AnalyticsPage({ params: { locale } }: { params: { 
 
       {/* Boutiques à risque */}
       {atRisk.length > 0 && (
-        <div className="bg-gray-900 rounded-xl border border-red-800/40 p-5">
-          <h2 className="font-semibold text-white text-sm mb-1">🔴 Boutiques à risque de churn ({atRisk.length})</h2>
-          <p className="text-xs text-gray-500 mb-4">Score santé {"<"} 40 · pas d'abonnement actif</p>
+        <div className="bg-card rounded-xl border border-red-800/40 p-5">
+          <h2 className="font-semibold text-foreground text-sm mb-1">🔴 Boutiques à risque de churn ({atRisk.length})</h2>
+          <p className="text-xs text-muted-foreground mb-4">Score santé {"<"} 40 · pas d'abonnement actif</p>
           <div className="space-y-2">
             {atRisk.slice(0, 10).map((s: any) => (
               <Link
                 key={s.id}
                 href={`/${locale}/admin/shops/${s.id}`}
-                className="flex items-center justify-between bg-gray-800 hover:bg-gray-750 rounded-lg px-3 py-2.5 transition-colors group"
+                className="flex items-center justify-between bg-muted hover:bg-muted rounded-lg px-3 py-2.5 transition-colors group"
               >
                 <div>
-                  <p className="text-sm text-white font-medium group-hover:text-blue-400 transition-colors">{s.name}</p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-sm text-foreground font-medium group-hover:text-blue-400 transition-colors">{s.name}</p>
+                  <p className="text-xs text-muted-foreground">
                     {s.isPaid ? 'Payant' : s.trialDays >= 0 ? `Trial : ${s.trialDays}j restants` : `Expiré depuis ${Math.abs(s.trialDays)}j`}
                   </p>
                 </div>
@@ -188,7 +188,7 @@ export default async function AnalyticsPage({ params: { locale } }: { params: { 
                     </div>
                     <p className="text-xs text-red-400 text-right mt-0.5">{s.health}/100</p>
                   </div>
-                  <span className="text-xs text-gray-500 group-hover:text-blue-400">Inspecter →</span>
+                  <span className="text-xs text-muted-foreground group-hover:text-blue-400">Inspecter →</span>
                 </div>
               </Link>
             ))}
@@ -197,9 +197,9 @@ export default async function AnalyticsPage({ params: { locale } }: { params: { 
       )}
 
       {/* Toutes les boutiques — classement santé */}
-      <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-800">
-          <h2 className="font-semibold text-white text-sm">Classement santé des boutiques</h2>
+      <div className="bg-card rounded-xl border border-border overflow-hidden">
+        <div className="px-5 py-4 border-b border-border">
+          <h2 className="font-semibold text-foreground text-sm">Classement santé des boutiques</h2>
         </div>
         <div className="divide-y divide-gray-800/50">
           {shopsWithHealth.slice(0, 20).map((s: any) => {
@@ -209,16 +209,16 @@ export default async function AnalyticsPage({ params: { locale } }: { params: { 
               <Link
                 key={s.id}
                 href={`/${locale}/admin/shops/${s.id}`}
-                className="flex items-center justify-between px-5 py-3 hover:bg-gray-800/40 transition-colors group"
+                className="flex items-center justify-between px-5 py-3 hover:bg-muted/40 transition-colors group"
               >
                 <div>
-                  <p className="text-sm text-white group-hover:text-blue-400 transition-colors">{s.name}</p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-sm text-foreground group-hover:text-blue-400 transition-colors">{s.name}</p>
+                  <p className="text-xs text-muted-foreground">
                     {s.isPaid ? '✅ Payant' : s.trialDays >= 0 ? `🟡 Trial ${s.trialDays}j` : '🔴 Expiré'}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="h-1.5 bg-gray-800 rounded-full w-20 overflow-hidden">
+                  <div className="h-1.5 bg-muted rounded-full w-20 overflow-hidden">
                     <div className={`h-full ${hColor} rounded-full`} style={{ width: `${s.health}%` }} />
                   </div>
                   <span className={`text-xs font-bold w-10 text-right ${hText}`}>{s.health}/100</span>
