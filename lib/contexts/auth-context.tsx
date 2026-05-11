@@ -341,11 +341,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signOut = useCallback(async () => {
+    const savedLocale = localStorage.getItem('NEXT_LOCALE') || 'en'
     localStorage.removeItem('active_shop_id')
     clearCache()
     await fetch('/api/auth/set-role', { method: 'DELETE' }).catch(() => {})
     await supabase.auth.signOut()
-    window.location.href = '/en/login'
+    window.location.href = `/${savedLocale}/login`
   }, [])
 
   const effectiveShopIds = useMemo<string[]>(() => {
