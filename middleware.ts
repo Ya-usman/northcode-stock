@@ -28,8 +28,9 @@ const ROLE_ACCESS: Record<string, string[]> = {
   '/settings': ['owner', 'super_admin'],
   '/billing':  ['owner', 'super_admin'],
   '/shops':    ['owner', 'super_admin'],
-  '/admin':    ['super_admin'],
 }
+
+const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim())
 
 function isPublic(path: string): boolean {
   return PUBLIC_PATHS.some(p => path === p || path.startsWith(p + '?'))
@@ -133,6 +134,14 @@ export async function middleware(request: NextRequest) {
   // Role from cookie (set at login and on switchShop) — no DB call needed here.
   // Auth-context + API routes handle deeper permission checks.
   const role = request.cookies.get('user_role')?.value
+
+  // Accès /admin — vérifié sur l'email Supabase (pas le cookie rôle)
+  if (pathnameWithoutLocale === '/admin' || pathnameWithoutLocale.startsWith('/admin/')) {
+    const userEmail = session?.user?.email || ''
+    if (!SUPER_ADMIN_EMAILS.includes(userEmail)) {
+      return mergeAuthCookies(NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url)), response)
+    }
+  }
 
   // Role-based access control (cookie fast-path)
   const requiredRoles = getRequiredRoles(pathnameWithoutLocale)
