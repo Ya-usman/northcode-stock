@@ -3,6 +3,7 @@ import { getMessages } from 'next-intl/server'
 import { notFound } from 'next/navigation'
 import { locales, type Locale } from '@/i18n'
 import { Toaster } from '@/components/ui/toaster'
+import { LocaleSync } from '@/components/locale-sync'
 
 interface LocaleLayoutProps {
   children: React.ReactNode
@@ -20,6 +21,7 @@ export default async function LocaleLayout({ children, params: { locale } }: Loc
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
+      <LocaleSync currentLocale={locale} />
       {children}
       <Toaster />
     </NextIntlClientProvider>
