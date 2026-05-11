@@ -205,7 +205,15 @@
     "stats_count": "{count} product(s)",
     "stats_low": "{count} low",
     "stats_out": "{count} out of stock",
-    "cost_label": "Cost"
+    "cost_label": "Cost",
+    "archive_label": "Archive product",
+    "archive_confirm": "Archive this product? It will be hidden from the list but all data is kept. You can restore it at any time.",
+    "archived_section": "Archived products ({count})",
+    "restore": "Restore",
+    "delete_permanent": "Delete permanently",
+    "delete_warning_title": "⚠️ Irreversible deletion",
+    "delete_warning_body": "This action is permanent. The product will be erased from the database. Past sales will keep the product name but the reference will be lost.",
+    "delete_confirm_label": "To confirm, type the exact product name: {name}"
   },
   "sales": {
     "title": "Sales",
@@ -562,7 +570,9 @@
     "error": "Error",
     "product_added": "Product added!",
     "product_updated": "Product updated!",
-    "product_deleted": "Product deleted",
+    "product_deleted": "Product permanently deleted",
+    "product_archived": "Product archived — can be restored at any time",
+    "product_restored": "Product restored to active stock",
     "restock_done": "{qty} units added to {name}",
     "category_added": "Category added",
     "category_deleted": "Category deleted",

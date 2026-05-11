@@ -65,6 +65,29 @@ export async function PATCH(request: Request) {
   }
 }
 
+// DELETE /api/products?id=xxx&shop_id=xxx — permanent deletion (owner only, typed confirmation required)
+export async function DELETE(request: Request) {
+  try {
+    const { user, supabase } = await getAuthedUser()
+    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+    const shop_id = searchParams.get('shop_id')
+    if (!id || !shop_id) return NextResponse.json({ error: 'id et shop_id requis' }, { status: 400 })
+    const role = await checkShopRole(supabase, user.id, shop_id)
+    if (role !== 'owner' && role !== 'super_admin')
+      return NextResponse.json({ error: 'Seul le propriétaire peut supprimer définitivement' }, { status: 403 })
+    const admin = await createAdminClient()
+    // Archive first to trigger any soft-delete hooks, then hard delete
+    await (admin as any).from('products').update({ is_active: false }).eq('id', id)
+    const { error } = await (admin as any).from('products').delete().eq('id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    return NextResponse.json({ ok: true })
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
+}
+
 // PUT /api/products — restock (update quantity + insert stock_movement)
 export async function PUT(request: Request) {
   try {

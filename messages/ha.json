@@ -205,7 +205,15 @@
     "stats_count": "kaya {count}",
     "stats_low": "{count} suna ƙarewa",
     "stats_out": "{count} sun ƙare",
-    "cost_label": "Farashi"
+    "cost_label": "Farashi",
+    "archive_label": "Ajiye kaya",
+    "archive_confirm": "Ajiye wannan kaya? Za a ɓoye shi daga jerin amma an adana bayanan. Zaku iya mayar da shi kowane lokaci.",
+    "archived_section": "Kayan da aka ajiye ({count})",
+    "restore": "Mayar",
+    "delete_permanent": "Goge gaba ɗaya",
+    "delete_warning_title": "⚠️ Ana gogewa har abada",
+    "delete_warning_body": "Wannan aikin ba za a iya jurewa ba. Kayan za a goge shi daga bayanan. Sayarwar da ta gabata za su ajiye sunan kayan amma za a rasa alama.",
+    "delete_confirm_label": "Don tabbatarwa, rubuta sunan kaya daidai: {name}"
   },
   "sales": {
     "title": "Sayarwa",
@@ -585,7 +593,9 @@
     "error": "Kuskure",
     "product_added": "An ƙara kaya!",
     "product_updated": "An sabunta kaya!",
-    "product_deleted": "An goge kaya",
+    "product_deleted": "An goge kaya har abada",
+    "product_archived": "An ajiye kaya — za a iya mayarwa kowane lokaci",
+    "product_restored": "An mayar da kaya cikin jerin aiki",
     "restock_done": "An ƙara {qty} zuwa {name}",
     "category_added": "An ƙara nau'i",
     "category_deleted": "An goge nau'i",

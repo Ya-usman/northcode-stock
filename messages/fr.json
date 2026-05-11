@@ -205,7 +205,15 @@
     "stats_count": "{count} produit(s)",
     "stats_low": "{count} en alerte",
     "stats_out": "{count} en rupture",
-    "cost_label": "Coût"
+    "cost_label": "Coût",
+    "archive_label": "Archiver le produit",
+    "archive_confirm": "Archiver ce produit ? Il sera masqué de la liste mais ses données restent conservées. Vous pourrez le restaurer à tout moment.",
+    "archived_section": "Produits archivés ({count})",
+    "restore": "Restaurer",
+    "delete_permanent": "Supprimer définitivement",
+    "delete_warning_title": "⚠️ Suppression irréversible",
+    "delete_warning_body": "Cette action est permanente. Le produit sera effacé de la base de données. Les ventes passées conserveront le nom du produit mais la référence sera perdue.",
+    "delete_confirm_label": "Pour confirmer, tapez exactement le nom du produit : {name}"
   },
   "sales": {
     "title": "Ventes",
@@ -562,7 +570,9 @@
     "error": "Erreur",
     "product_added": "Produit ajouté !",
     "product_updated": "Produit mis à jour !",
-    "product_deleted": "Produit supprimé",
+    "product_deleted": "Produit supprimé définitivement",
+    "product_archived": "Produit archivé — restaurable à tout moment",
+    "product_restored": "Produit restauré dans le stock actif",
     "restock_done": "{qty} unités ajoutées à {name}",
     "category_added": "Catégorie ajoutée",
     "category_deleted": "Catégorie supprimée",

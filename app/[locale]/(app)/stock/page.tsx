@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { motion } from 'framer-motion'
-import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store } from 'lucide-react'
+import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, ChevronDown, ChevronUp } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -53,20 +53,32 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [showCatModal, setShowCatModal] = useState(false)
   const [newCatName, setNewCatName] = useState('')
   const [savingCat, setSavingCat] = useState(false)
+  const [archivedProducts, setArchivedProducts] = useState<Product[]>([])
+  const [showArchived, setShowArchived] = useState(false)
+  const [deleteConfirmProduct, setDeleteConfirmProduct] = useState<Product | null>(null)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   const restockForm = useForm<RestockFormData>({ resolver: zodResolver(restockSchema) })
 
   const fetchProducts = async () => {
     if (!effectiveShopIds.length) return
-    const [{ data: prods }, { data: cats }, { data: sups }] = await Promise.all([
+    const [{ data: prods }, { data: archived }, { data: cats }, { data: sups }] = await Promise.all([
       supabase.from('products')
         .select('*, categories(name), suppliers(name)')
         .in('shop_id', effectiveShopIds)
+        .eq('is_active', true)
+        .order('name'),
+      supabase.from('products')
+        .select('*, categories(name), suppliers(name)')
+        .in('shop_id', effectiveShopIds)
+        .eq('is_active', false)
         .order('name'),
       supabase.from('categories').select('*').in('shop_id', effectiveShopIds).order('name'),
       supabase.from('suppliers').select('*').in('shop_id', effectiveShopIds).order('name'),
     ])
     setProducts((prods || []) as unknown as Product[])
+    setArchivedProducts((archived || []) as unknown as Product[])
     setCategories((cats || []) as Category[])
     setSuppliers((sups || []) as Supplier[])
     setLoading(false)
@@ -176,15 +188,42 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     fetchProducts()
   }
 
-  const softDelete = async (product: Product) => {
-    if (!confirm(t('products.delete_confirm'))) return
+  const archiveProduct = async (product: Product) => {
+    if (!confirm(t('products.archive_confirm'))) return
     await fetch('/api/products', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: product.id, shop_id: product.shop_id, is_active: false }),
     })
-    toast({ title: t('toast.product_deleted') })
+    toast({ title: t('toast.product_archived') })
     fetchProducts()
+  }
+
+  const restoreProduct = async (product: Product) => {
+    await fetch('/api/products', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: product.id, shop_id: product.shop_id, is_active: true }),
+    })
+    toast({ title: t('toast.product_restored'), variant: 'success' })
+    fetchProducts()
+  }
+
+  const permanentlyDelete = async () => {
+    if (!deleteConfirmProduct) return
+    if (deleteConfirmText.trim().toLowerCase() !== deleteConfirmProduct.name.trim().toLowerCase()) return
+    setDeleting(true)
+    const res = await fetch(`/api/products?id=${deleteConfirmProduct.id}&shop_id=${deleteConfirmProduct.shop_id}`, { method: 'DELETE' })
+    setDeleting(false)
+    if (!res.ok) {
+      const json = await res.json()
+      toast({ title: json.error || t('toast.error'), variant: 'destructive' })
+    } else {
+      toast({ title: t('toast.product_deleted'), variant: 'success' })
+      setDeleteConfirmProduct(null)
+      setDeleteConfirmText('')
+      fetchProducts()
+    }
   }
 
   const exportCSV = () => {
@@ -270,6 +309,11 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin') && (
               <Button variant="outline" size="sm" className="h-7 px-2" disabled={saving} onClick={() => { setShowAddModal(false); setShowRestockModal(false); setEditingProduct(product) }}>
                 <Edit2 className="h-3 w-3" />
+              </Button>
+            )}
+            {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-amber-600" disabled={saving} title={t('products.archive_label')} onClick={() => archiveProduct(product)}>
+                <Archive className="h-3 w-3" />
               </Button>
             )}
           </div>
@@ -376,6 +420,48 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         </div>
       )}
 
+      {/* Archived products section — owner only */}
+      {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && archivedProducts.length > 0 && (
+        <div className="border border-dashed rounded-xl p-3 space-y-2">
+          <button
+            onClick={() => setShowArchived(v => !v)}
+            className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-full"
+          >
+            <Archive className="h-4 w-4" />
+            {t('products.archived_section', { count: archivedProducts.length })}
+            {showArchived ? <ChevronUp className="h-3.5 w-3.5 ml-auto" /> : <ChevronDown className="h-3.5 w-3.5 ml-auto" />}
+          </button>
+          {showArchived && (
+            <div className="space-y-1.5 pt-1">
+              {archivedProducts.map(product => (
+                <div key={product.id} className="flex items-center justify-between gap-2 rounded-lg bg-muted/40 border px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-muted-foreground truncate">{product.name}</p>
+                    {product.name_hausa && <p className="text-xs text-muted-foreground/60 truncate">{product.name_hausa}</p>}
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Button
+                      variant="outline" size="sm" className="h-7 gap-1 text-xs text-green-700 border-green-200 hover:bg-green-50 dark:text-green-400 dark:border-green-800"
+                      onClick={() => restoreProduct(product)}
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      {t('products.restore')}
+                    </Button>
+                    <Button
+                      variant="ghost" size="sm" className="h-7 gap-1 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => { setDeleteConfirmProduct(product); setDeleteConfirmText('') }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      {t('products.delete_permanent')}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Add Product Modal */}
       <PremiumDialog open={showAddModal} onOpenChange={setShowAddModal} category={t('nav.stock')} title={t('actions.add_product')} icon={<Package className="h-4 w-4" />} maxWidth="max-w-lg">
         <div className="p-5">
@@ -417,6 +503,42 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           </div>
         </PremiumDialogBody>
         <PremiumDialogFooter onCancel={() => setShowCatModal(false)} cancelLabel={t('actions.close')} />
+      </PremiumDialog>
+
+      {/* Permanent delete confirmation dialog */}
+      <PremiumDialog
+        open={!!deleteConfirmProduct}
+        onOpenChange={open => { if (!open) { setDeleteConfirmProduct(null); setDeleteConfirmText('') } }}
+        category={t('products.delete_permanent')}
+        title={deleteConfirmProduct?.name || ''}
+        icon={<Trash2 className="h-4 w-4 text-destructive" />}
+      >
+        <PremiumDialogBody>
+          <div className="rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 p-3 text-sm text-red-700 dark:text-red-400 space-y-1">
+            <p className="font-semibold">{t('products.delete_warning_title')}</p>
+            <p>{t('products.delete_warning_body')}</p>
+          </div>
+          <div className="space-y-1.5 mt-3">
+            <Label>{t('products.delete_confirm_label', { name: deleteConfirmProduct?.name || '' })}</Label>
+            <Input
+              value={deleteConfirmText}
+              onChange={e => setDeleteConfirmText(e.target.value)}
+              placeholder={deleteConfirmProduct?.name || ''}
+              className="border-destructive/40 focus:border-destructive"
+            />
+          </div>
+        </PremiumDialogBody>
+        <PremiumDialogFooter onCancel={() => { setDeleteConfirmProduct(null); setDeleteConfirmText('') }} cancelLabel={t('actions.cancel')}>
+          <Button
+            onClick={permanentlyDelete}
+            loading={deleting}
+            disabled={deleting || deleteConfirmText.trim().toLowerCase() !== (deleteConfirmProduct?.name || '').trim().toLowerCase()}
+            className="flex-1 h-11 rounded-xl font-semibold bg-destructive hover:bg-destructive/90"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            {t('products.delete_permanent')}
+          </Button>
+        </PremiumDialogFooter>
       </PremiumDialog>
 
       {/* Restock Modal */}
