@@ -88,6 +88,106 @@ function countryLabel(code: string) {
   return c ? `${c.flag} ${c.name}` : `🌐 ${code}`
 }
 
+const COLUMNS = [
+  { key: 'shop',    label: 'Boutique / Propriétaire' },
+  { key: 'city',    label: 'Ville' },
+  { key: 'country', label: 'Pays' },
+  { key: 'plan',    label: 'Plan' },
+  { key: 'status',  label: 'Statut' },
+  { key: 'expiry',  label: 'Expiration' },
+  { key: 'revenue', label: 'Revenus' },
+  { key: 'actions', label: 'Actions' },
+]
+
+function StatusBadge({ isSuspended, subscribed, trialDays }: { isSuspended: boolean; subscribed: boolean; trialDays: number }) {
+  if (isSuspended)
+    return <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400 bg-red-400/10 px-2 py-0.5 rounded-full whitespace-nowrap">● Suspendu</span>
+  if (subscribed)
+    return <span className="inline-flex items-center gap-1 text-xs font-medium text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full whitespace-nowrap">● Abonné</span>
+  if (trialDays >= 0)
+    return <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full whitespace-nowrap">● Essai</span>
+  return <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400 bg-red-400/10 px-2 py-0.5 rounded-full whitespace-nowrap">● Expiré</span>
+}
+
+function ExpiryCell({ daysRemaining, isExpired }: { daysRemaining: number | null; isExpired: boolean }) {
+  if (daysRemaining !== null)
+    return (
+      <span className={`text-xs font-medium ${daysRemaining <= 3 ? 'text-red-400' : daysRemaining <= 7 ? 'text-amber-400' : 'text-foreground'}`}>
+        {daysRemaining === 0 ? "Expire auj." : `${daysRemaining}j restants`}
+      </span>
+    )
+  if (isExpired) return <span className="text-xs text-red-400">Expiré</span>
+  return <span className="text-xs text-muted-foreground">—</span>
+}
+
+function ActionButtons({ shop, isSuspended, loading, locale, onConfirm }: {
+  shop: Shop; isSuspended: boolean; loading: string | null; locale: string
+  onConfirm: (action: ActionType, shop: Shop) => void
+}) {
+  return (
+    <>
+      {isSuspended ? (
+        <button onClick={() => onConfirm('reactivate', shop)} disabled={!!loading}
+          className="flex items-center gap-1 text-xs bg-green-500/20 hover:bg-green-500/30 text-green-400 px-2 py-1 rounded-md transition-colors">
+          <ShieldCheck className="h-3 w-3" /> Réactiver
+        </button>
+      ) : (
+        <button onClick={() => onConfirm('suspend', shop)} disabled={!!loading}
+          className="flex items-center gap-1 text-xs bg-red-500/20 hover:bg-red-500/30 text-red-400 px-2 py-1 rounded-md transition-colors">
+          <ShieldOff className="h-3 w-3" /> Suspendre
+        </button>
+      )}
+      <button onClick={() => onConfirm('extend', shop)} disabled={!!loading}
+        className="flex items-center gap-1 text-xs bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 px-2 py-1 rounded-md transition-colors">
+        <Clock className="h-3 w-3" /> Prolonger
+      </button>
+      <button onClick={() => onConfirm('grant_plan', shop)} disabled={!!loading}
+        className="flex items-center gap-1 text-xs bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 px-2 py-1 rounded-md transition-colors">
+        <CreditCard className="h-3 w-3" /> Plan
+      </button>
+      <Link href={`/${locale}/admin/shops/${shop.id}`}
+        className="flex items-center gap-1 text-xs bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 px-2 py-1 rounded-md transition-colors">
+        <Activity className="h-3 w-3" /> Inspecter
+      </Link>
+    </>
+  )
+}
+
+function PaymentHistory({ shop }: { shop: Shop }) {
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Historique des paiements</p>
+      {shop.subscriptions.length === 0 ? (
+        <p className="text-xs text-muted-foreground">Aucun paiement enregistré.</p>
+      ) : (
+        shop.subscriptions.map((sub, i) => (
+          <div key={i} className="flex items-center justify-between bg-card rounded-lg px-3 py-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className={`h-2 w-2 rounded-full flex-shrink-0 ${sub.status === 'active' ? 'bg-green-400' : 'bg-gray-500'}`} />
+              <span className="text-xs text-foreground capitalize">{sub.plan} plan</span>
+              <span className="text-xs text-muted-foreground">
+                {new Date(sub.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </span>
+              {sub.paystack_reference && (
+                <span className="text-xs font-mono text-muted-foreground hidden sm:inline">{sub.paystack_reference}</span>
+              )}
+            </div>
+            <span className="text-xs font-bold text-green-400 flex-shrink-0">{formatNaira(sub.amount)}</span>
+          </div>
+        ))
+      )}
+      {shop.whatsapp && (
+        <a href={`https://wa.me/${shop.whatsapp.replace(/\D/g, '')}?text=Hello from StockShop`}
+          target="_blank" rel="noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-green-400 hover:underline mt-2">
+          <ExternalLink className="h-3 w-3" /> WhatsApp owner
+        </a>
+      )}
+      <ShopRestorePanel shopId={shop.id} shopName={shop.name} />
+    </div>
+  )
+}
+
 export function AdminShopsTable({ shops, locale }: Props) {
   const { toast } = useToast()
   const [search, setSearch] = useState('')
@@ -202,23 +302,22 @@ export function AdminShopsTable({ shops, locale }: Props) {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Desktop table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left px-5 py-3 text-foreground/70 font-semibold text-xs uppercase tracking-wide">Shop / Owner</th>
-                <th className="text-left px-5 py-3 text-foreground/70 font-semibold text-xs uppercase tracking-wide">City</th>
-                <th className="text-left px-5 py-3 text-foreground/70 font-semibold text-xs uppercase tracking-wide">Plan</th>
-                <th className="text-left px-5 py-3 text-foreground/70 font-semibold text-xs uppercase tracking-wide">Status</th>
-                <th className="text-left px-5 py-3 text-foreground/70 font-semibold text-xs uppercase tracking-wide">Expiry</th>
-                <th className="text-left px-5 py-3 text-foreground/70 font-semibold text-xs uppercase tracking-wide">Revenue</th>
-                <th className="text-left px-5 py-3 text-foreground/70 font-semibold text-xs uppercase tracking-wide">Actions</th>
+                {COLUMNS.map(col => (
+                  <th key={col.key} className="text-left px-5 py-3 text-foreground/70 font-semibold text-xs uppercase tracking-wide whitespace-nowrap">
+                    {col.label}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-5 py-10 text-center text-muted-foreground text-sm">No shops found</td>
+                  <td colSpan={COLUMNS.length} className="px-5 py-10 text-center text-muted-foreground text-sm">Aucune boutique trouvée</td>
                 </tr>
               )}
               {filtered.map(shop => {
@@ -231,7 +330,6 @@ export function AdminShopsTable({ shops, locale }: Props) {
                 const health = healthScore(shop.owner, subscribed)
                 const healthColor = health >= 70 ? 'bg-green-400' : health >= 40 ? 'bg-amber-400' : 'bg-red-400'
 
-                // Days remaining for active plan
                 let daysRemaining: number | null = null
                 if (subscribed && shop.plan_expires_at) {
                   daysRemaining = Math.ceil((new Date(shop.plan_expires_at).getTime() - Date.now()) / 86400000)
@@ -243,9 +341,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
                   <>
                     <tr
                       key={shop.id}
-                      className={`border-b border-border/50 transition-colors ${
-                        isSuspended ? 'opacity-50' : 'hover:bg-muted/30'
-                      }`}
+                      className={`border-b border-border/50 transition-colors ${isSuspended ? 'opacity-50' : 'hover:bg-muted/30'}`}
                     >
                       {/* Shop + owner */}
                       <td className="px-5 py-3">
@@ -266,48 +362,32 @@ export function AdminShopsTable({ shops, locale }: Props) {
                             </div>
                           </div>
                           {isSuspended && (
-                            <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded font-medium">SUSPENDED</span>
+                            <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded font-medium">SUSPENDU</span>
                           )}
                         </div>
                       </td>
 
-                      {/* City */}
+                      {/* Ville */}
                       <td className="px-5 py-3 text-muted-foreground text-xs">{shop.city}</td>
+
+                      {/* Pays */}
+                      <td className="px-5 py-3 text-xs text-foreground whitespace-nowrap">
+                        {shop.country ? countryLabel(shop.country) : <span className="text-muted-foreground">—</span>}
+                      </td>
 
                       {/* Plan */}
                       <td className="px-5 py-3">
-                        <span className="text-foreground text-xs font-medium capitalize">
-                          {getPlan(shop.plan).name}
-                        </span>
+                        <span className="text-foreground text-xs font-medium capitalize">{getPlan(shop.plan).name}</span>
                       </td>
 
                       {/* Status */}
                       <td className="px-5 py-3">
-                        {isSuspended ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400 bg-red-400/10 px-2 py-0.5 rounded-full">● Suspended</span>
-                        ) : subscribed ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">● Subscribed</span>
-                        ) : trialDays >= 0 ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">● Trial</span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400 bg-red-400/10 px-2 py-0.5 rounded-full">● Expired</span>
-                        )}
+                        <StatusBadge isSuspended={!!isSuspended} subscribed={subscribed} trialDays={trialDays} />
                       </td>
 
-                      {/* Expiry / Days remaining */}
+                      {/* Expiry */}
                       <td className="px-5 py-3">
-                        {daysRemaining !== null ? (
-                          <span className={`text-xs font-medium ${
-                            daysRemaining <= 3 ? 'text-red-400' :
-                            daysRemaining <= 7 ? 'text-amber-400' : 'text-foreground'
-                          }`}>
-                            {daysRemaining === 0 ? 'Expires today' : `${daysRemaining}d left`}
-                          </span>
-                        ) : isExpired ? (
-                          <span className="text-xs text-red-400">Expired</span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
+                        <ExpiryCell daysRemaining={daysRemaining} isExpired={isExpired} />
                       </td>
 
                       {/* Revenue */}
@@ -317,90 +397,15 @@ export function AdminShopsTable({ shops, locale }: Props) {
 
                       {/* Actions */}
                       <td className="px-5 py-3">
-                        <div className="flex items-center gap-1.5">
-                          {isSuspended ? (
-                            <button
-                              onClick={() => openConfirm('reactivate', shop)}
-                              disabled={!!loading}
-                              className="flex items-center gap-1 text-xs bg-green-500/20 hover:bg-green-500/30 text-green-400 px-2 py-1 rounded-md transition-colors"
-                              title="Reactivate shop"
-                            >
-                              <ShieldCheck className="h-3 w-3" /> Reactivate
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => openConfirm('suspend', shop)}
-                              disabled={!!loading}
-                              className="flex items-center gap-1 text-xs bg-red-500/20 hover:bg-red-500/30 text-red-400 px-2 py-1 rounded-md transition-colors"
-                              title="Suspend shop"
-                            >
-                              <ShieldOff className="h-3 w-3" /> Suspend
-                            </button>
-                          )}
-                          <button
-                            onClick={() => openConfirm('extend', shop)}
-                            disabled={!!loading}
-                            className="flex items-center gap-1 text-xs bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 px-2 py-1 rounded-md transition-colors"
-                            title="Extend trial/plan"
-                          >
-                            <Clock className="h-3 w-3" /> Extend
-                          </button>
-                          <button
-                            onClick={() => openConfirm('grant_plan', shop)}
-                            disabled={!!loading}
-                            className="flex items-center gap-1 text-xs bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 px-2 py-1 rounded-md transition-colors"
-                            title="Grant plan"
-                          >
-                            <CreditCard className="h-3 w-3" /> Plan
-                          </button>
-                          <Link
-                            href={`/${locale}/admin/shops/${shop.id}`}
-                            className="flex items-center gap-1 text-xs bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 px-2 py-1 rounded-md transition-colors"
-                            title="Inspecter la boutique"
-                          >
-                            <Activity className="h-3 w-3" /> Inspecter
-                          </Link>
-                        </div>
+                        <ActionButtons shop={shop} isSuspended={!!isSuspended} loading={loading} locale={locale} onConfirm={openConfirm} />
                       </td>
                     </tr>
 
-                    {/* Expanded row — payment history */}
+                    {/* Expanded row */}
                     {isExpanded && (
                       <tr key={`${shop.id}-expanded`} className="border-b border-border/50 bg-muted/20">
-                        <td colSpan={7} className="px-8 py-4">
-                          <div className="space-y-2">
-                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Payment History</p>
-                            {shop.subscriptions.length === 0 ? (
-                              <p className="text-xs text-muted-foreground">No payments recorded yet.</p>
-                            ) : (
-                              shop.subscriptions.map((sub, i) => (
-                                <div key={i} className="flex items-center justify-between bg-card rounded-lg px-3 py-2">
-                                  <div className="flex items-center gap-3">
-                                    <span className={`h-2 w-2 rounded-full ${sub.status === 'active' ? 'bg-green-400' : 'bg-gray-500'}`} />
-                                    <span className="text-xs text-foreground capitalize">{sub.plan} plan</span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {new Date(sub.created_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                    </span>
-                                    {sub.paystack_reference && (
-                                      <span className="text-xs font-mono text-muted-foreground">{sub.paystack_reference}</span>
-                                    )}
-                                  </div>
-                                  <span className="text-xs font-bold text-green-400">{formatNaira(sub.amount)}</span>
-                                </div>
-                              ))
-                            )}
-                            {shop.whatsapp && (
-                              <a
-                                href={`https://wa.me/${shop.whatsapp.replace(/\D/g, '')}?text=Hello from StockShop`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1 text-xs text-green-400 hover:underline mt-2"
-                              >
-                                <ExternalLink className="h-3 w-3" /> WhatsApp owner
-                              </a>
-                            )}
-                            <ShopRestorePanel shopId={shop.id} shopName={shop.name} />
-                          </div>
+                        <td colSpan={COLUMNS.length} className="px-8 py-4">
+                          <PaymentHistory shop={shop} />
                         </td>
                       </tr>
                     )}
@@ -409,6 +414,88 @@ export function AdminShopsTable({ shops, locale }: Props) {
               })}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile cards */}
+        <div className="md:hidden divide-y divide-border/50">
+          {filtered.length === 0 && (
+            <p className="px-5 py-10 text-center text-muted-foreground text-sm">Aucune boutique trouvée</p>
+          )}
+          {filtered.map(shop => {
+            const subscribed = hasActiveSubscription(shop.plan, shop.plan_expires_at)
+            const trialDays = getTrialDaysLeft(shop.trial_ends_at)
+            const isExpired = !subscribed && trialDays < 0
+            const isSuspended = shop.owner && !shop.owner.is_active
+            const totalRevenue = shop.subscriptions.reduce((s, sub) => s + Number(sub.amount), 0)
+            const isExpanded = expandedShop === shop.id
+            const health = healthScore(shop.owner, subscribed)
+            const healthColor = health >= 70 ? 'bg-green-400' : health >= 40 ? 'bg-amber-400' : 'bg-red-400'
+
+            let daysRemaining: number | null = null
+            if (subscribed && shop.plan_expires_at) {
+              daysRemaining = Math.ceil((new Date(shop.plan_expires_at).getTime() - Date.now()) / 86400000)
+            } else if (!subscribed && trialDays >= 0) {
+              daysRemaining = trialDays
+            }
+
+            return (
+              <div key={shop.id} className={isSuspended ? 'opacity-50' : ''}>
+                <div className="px-4 py-3.5 space-y-2">
+                  {/* Top row: name + status */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-foreground text-sm">{shop.name}</p>
+                        {isSuspended && (
+                          <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded font-medium">SUSPENDU</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">{shop.owner?.full_name || '—'}</p>
+                    </div>
+                    <StatusBadge isSuspended={!!isSuspended} subscribed={subscribed} trialDays={trialDays} />
+                  </div>
+
+                  {/* Middle row: city, country, plan, expiry */}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    {shop.city && <span>{shop.city}</span>}
+                    {shop.country && <span>{countryLabel(shop.country)}</span>}
+                    <span className="text-foreground font-medium capitalize">{getPlan(shop.plan).name}</span>
+                    <ExpiryCell daysRemaining={daysRemaining} isExpired={isExpired} />
+                    {totalRevenue > 0 && <span className="text-green-400 font-medium">{formatNaira(totalRevenue)}</span>}
+                  </div>
+
+                  {/* Health bar */}
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-1 w-16 bg-gray-700 rounded-full overflow-hidden">
+                      <div className={`h-full ${healthColor} rounded-full`} style={{ width: `${health}%` }} />
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">Score {health}</span>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    <ActionButtons shop={shop} isSuspended={!!isSuspended} loading={loading} locale={locale} onConfirm={openConfirm} />
+                  </div>
+
+                  {/* Expand toggle */}
+                  <button
+                    onClick={() => setExpandedShop(isExpanded ? null : shop.id)}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                    {isExpanded ? 'Masquer' : 'Historique paiements'}
+                  </button>
+                </div>
+
+                {/* Expanded payment history */}
+                {isExpanded && (
+                  <div className="px-4 pb-4 bg-muted/20 space-y-2">
+                    <PaymentHistory shop={shop} />
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       </div>
 

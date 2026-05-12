@@ -53,7 +53,7 @@ export function RecentPayments({ payments, shops }: Props) {
         const colorClass = PLAN_COLORS[payment.plan] || 'text-muted-foreground bg-muted'
         const currency = shop?.currency || '₦'
         const countryConfig = shop?.country ? COUNTRIES[shop.country as keyof typeof COUNTRIES] : null
-        const flag = countryConfig?.flag ?? null
+        const countryLabel = countryConfig ? `${countryConfig.flag} ${countryConfig.name}` : (shop?.country ? `🌐 ${shop.country}` : null)
 
         return (
           <div key={payment.id} className="flex items-center justify-between px-5 py-3.5 hover:bg-accent/30 transition-colors">
@@ -65,12 +65,12 @@ export function RecentPayments({ payments, shops }: Props) {
                 <p className="text-sm font-medium text-foreground truncate">
                   {shop?.name || 'Boutique supprimée'}
                 </p>
-                <div className="flex items-center gap-2 mt-0.5">
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${colorClass}`}>
                     {planLabel}
                   </span>
-                  {(flag || shop?.city) && (
-                    <span className="text-xs text-muted-foreground">{flag}{flag && shop?.city ? ' ' : ''}{shop?.city}</span>
+                  {countryLabel && (
+                    <span className="text-xs text-muted-foreground">{countryLabel}</span>
                   )}
                   {payment.paystack_reference && (
                     <span className="text-[10px] font-mono text-muted-foreground truncate max-w-[100px]">
