@@ -85,7 +85,7 @@ export default function AdminManagersPage() {
 
       {/* Assign form */}
       {adding && (
-        <div className="bg-card rounded-xl border border-border p-5 space-y-4">
+        <div className="bg-card rounded-xl border border-border shadow-sm p-5 space-y-4">
           <h2 className="font-semibold text-foreground flex items-center gap-2">
             <Shield className="h-4 w-4 text-primary" /> Assigner un responsable
           </h2>
@@ -130,7 +130,7 @@ export default function AdminManagersPage() {
       ) : shops.map(shop => {
         const shopManagers = managersByShop[shop.id] ?? []
         return (
-          <div key={shop.id} className="bg-card rounded-xl border border-border overflow-hidden">
+          <div key={shop.id} className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-border flex items-center gap-3">
               <Store className="h-4 w-4 text-primary flex-shrink-0" />
               <div className="flex-1 min-w-0">

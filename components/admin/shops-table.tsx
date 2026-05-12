@@ -116,7 +116,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
 
   return (
     <>
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
+      <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
         {/* Table header + filters */}
         <div className="px-5 py-4 border-b border-border flex flex-wrap gap-3 items-center justify-between">
           <div className="flex items-center gap-2">

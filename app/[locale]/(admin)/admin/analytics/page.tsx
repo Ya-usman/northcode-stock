@@ -128,7 +128,7 @@ export default async function AnalyticsPage({
 
       {/* Résumé global */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-card rounded-xl border border-border p-4">
+        <div className="bg-card rounded-xl border border-border shadow-sm p-4">
           <div className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-green-400/10 mb-2">
             <TrendingUp className="h-4 w-4 text-green-400" />
           </div>
@@ -140,7 +140,7 @@ export default async function AnalyticsPage({
           { label: 'En trial', value: activeTrials, icon: ShoppingBag, color: 'text-amber-400', bg: 'bg-amber-400/10' },
           { label: 'Expirés', value: expired, icon: Activity, color: 'text-red-400', bg: 'bg-red-400/10' },
         ].map(({ label, value, icon: Icon, color, bg }) => (
-          <div key={label} className="bg-card rounded-xl border border-border p-4">
+          <div key={label} className="bg-card rounded-xl border border-border shadow-sm p-4">
             <div className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${bg} mb-2`}>
               <Icon className={`h-4 w-4 ${color}`} />
             </div>
@@ -151,13 +151,13 @@ export default async function AnalyticsPage({
       </div>
 
       {/* Graphique de croissance 12 mois */}
-      <div className="bg-card rounded-xl border border-border p-5">
+      <div className="bg-card rounded-xl border border-border shadow-sm p-5">
         <h2 className="font-semibold text-foreground text-sm mb-4">Croissance — 12 derniers mois</h2>
         <GrowthChart data={monthlyData} />
       </div>
 
       {/* Cohortes de conversion */}
-      <div className="bg-card rounded-xl border border-border p-5">
+      <div className="bg-card rounded-xl border border-border shadow-sm p-5">
         <h2 className="font-semibold text-foreground text-sm mb-4">Taux de conversion par cohorte (mois d'inscription)</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
@@ -193,7 +193,7 @@ export default async function AnalyticsPage({
 
       {/* Boutiques à risque */}
       {atRisk.length > 0 && (
-        <div className="bg-card rounded-xl border border-red-800/40 p-5">
+        <div className="bg-card rounded-xl border border-red-800/40 shadow-sm p-5">
           <h2 className="font-semibold text-foreground text-sm mb-1">🔴 Boutiques à risque de churn ({atRisk.length})</h2>
           <p className="text-xs text-muted-foreground mb-4">Score santé {"<"} 40 · pas d'abonnement actif</p>
           <div className="space-y-2">
@@ -225,7 +225,7 @@ export default async function AnalyticsPage({
       )}
 
       {/* Toutes les boutiques — classement santé */}
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
+      <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-border">
           <h2 className="font-semibold text-foreground text-sm">Classement santé des boutiques</h2>
         </div>

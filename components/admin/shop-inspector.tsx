@@ -153,7 +153,7 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
       </Link>
 
       {/* Header identité */}
-      <div className="bg-card rounded-xl border border-border p-5">
+      <div className="bg-card rounded-xl border border-border shadow-sm p-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-start gap-4">
             <div className="h-12 w-12 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center shrink-0">
@@ -235,7 +235,7 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
               { label: 'Total ventes', value: stats.totalSales, icon: TrendingUp, color: 'text-green-400', bg: 'bg-green-400/10' },
               { label: 'CA total', value: formatNaira(stats.totalSalesAmount), icon: CreditCard, color: 'text-amber-400', bg: 'bg-amber-400/10' },
             ].map(({ label, value, icon: Icon, color, bg }) => (
-              <div key={label} className="bg-card rounded-xl border border-border p-4">
+              <div key={label} className="bg-card rounded-xl border border-border shadow-sm p-4">
                 <div className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${bg} mb-2`}>
                   <Icon className={`h-4 w-4 ${color}`} />
                 </div>
@@ -247,23 +247,23 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
 
           {/* Secondaire stats */}
           <div className="grid grid-cols-3 gap-3">
-            <div className="bg-card rounded-xl border border-border p-4 text-center">
+            <div className="bg-card rounded-xl border border-border shadow-sm p-4 text-center">
               <p className="text-2xl font-extrabold text-foreground">{stats.salesToday}</p>
               <p className="text-xs text-muted-foreground mt-1">Ventes aujourd'hui</p>
               <p className="text-xs text-green-400 mt-0.5">{formatNaira(stats.salesTodayAmount)}</p>
             </div>
-            <div className="bg-card rounded-xl border border-border p-4 text-center">
+            <div className="bg-card rounded-xl border border-border shadow-sm p-4 text-center">
               <p className="text-2xl font-extrabold text-amber-400">{stats.productsArchived}</p>
               <p className="text-xs text-muted-foreground mt-1">Produits archivés</p>
             </div>
-            <div className="bg-card rounded-xl border border-border p-4 text-center">
+            <div className="bg-card rounded-xl border border-border shadow-sm p-4 text-center">
               <p className="text-2xl font-extrabold text-red-400">{stats.deletedLogCount}</p>
               <p className="text-xs text-muted-foreground mt-1">Dans la corbeille</p>
             </div>
           </div>
 
           {/* Plan */}
-          <div className="bg-card rounded-xl border border-border p-5">
+          <div className="bg-card rounded-xl border border-border shadow-sm p-5">
             <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-muted-foreground" />
               Abonnement
@@ -310,7 +310,7 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
 
           {/* Membres de l'équipe */}
           {members.length > 0 && (
-            <div className="bg-card rounded-xl border border-border p-5">
+            <div className="bg-card rounded-xl border border-border shadow-sm p-5">
               <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
                 <Users className="h-4 w-4 text-muted-foreground" />
                 Équipe ({members.filter((m: any) => m.is_active).length} actif(s))
@@ -335,7 +335,7 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
           )}
 
           {/* Actions rapides */}
-          <div className="bg-card rounded-xl border border-border p-5">
+          <div className="bg-card rounded-xl border border-border shadow-sm p-5">
             <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
               <Shield className="h-4 w-4 text-muted-foreground" />
               Actions Support
@@ -409,7 +409,7 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
       {/* Tab: Notes internes */}
       {activeTab === 'notes' && (
         <div className="space-y-4">
-          <div className="bg-card rounded-xl border border-border p-5">
+          <div className="bg-card rounded-xl border border-border shadow-sm p-5">
             <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
               <StickyNote className="h-4 w-4 text-amber-400" />
               Ajouter une note interne
@@ -435,7 +435,7 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
               <p className="text-xs text-muted-foreground text-center py-6">Aucune note pour cette boutique.</p>
             )}
             {notes.map((note: any) => (
-              <div key={note.id} className="bg-card rounded-xl border border-border p-4">
+              <div key={note.id} className="bg-card rounded-xl border border-border shadow-sm p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">
@@ -456,7 +456,7 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
       {/* Tab: Notifications in-app */}
       {activeTab === 'notifications' && (
         <div className="space-y-4">
-          <div className="bg-card rounded-xl border border-border p-5">
+          <div className="bg-card rounded-xl border border-border shadow-sm p-5">
             <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
               <Bell className="h-4 w-4 text-blue-400" />
               Envoyer un message au owner
@@ -536,7 +536,7 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
 
       {/* Tab: Restauration */}
       {activeTab === 'restore' && (
-        <div className="bg-card rounded-xl border border-border p-5">
+        <div className="bg-card rounded-xl border border-border shadow-sm p-5">
           <h3 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
             <RefreshCw className="h-4 w-4 text-amber-400" />
             Restauration des données

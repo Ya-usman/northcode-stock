@@ -90,7 +90,7 @@ export function OwnerShopsView({ owners: initialOwners, locale }: Props) {
   }
 
   return (
-    <div className="bg-card rounded-xl border border-border overflow-hidden">
+    <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
       {/* Header */}
       <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">

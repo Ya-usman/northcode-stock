@@ -56,7 +56,7 @@ export default async function AdminStockPage({
           { label: 'Stock faible', value: lowStock, color: 'text-amber-400', bg: 'bg-amber-400/10' },
           { label: 'Rupture', value: outOfStock, color: 'text-red-400', bg: 'bg-red-400/10' },
         ].map(({ label, value, color, bg }) => (
-          <div key={label} className="bg-card rounded-xl border border-border p-4">
+          <div key={label} className="bg-card rounded-xl border border-border shadow-sm p-4">
             <p className={`text-2xl font-extrabold ${color}`}>{value}</p>
             <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
           </div>
@@ -69,7 +69,7 @@ export default async function AdminStockPage({
         const flag = shop.country === 'CM' ? '🇨🇲' : '🇳🇬'
 
         if (prods.length === 0) return (
-          <div key={shop.id} className="bg-card rounded-xl border border-border p-5">
+          <div key={shop.id} className="bg-card rounded-xl border border-border shadow-sm p-5">
             <div className="flex items-center gap-2 mb-2">
               <Store className="h-4 w-4 text-muted-foreground" />
               <h2 className="font-semibold text-foreground">{shop.name}</h2>
@@ -83,7 +83,7 @@ export default async function AdminStockPage({
         const shopOut = prods.filter((p: any) => p.quantity === 0).length
 
         return (
-          <div key={shop.id} className="bg-card rounded-xl border border-border overflow-hidden">
+          <div key={shop.id} className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-border flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Store className="h-4 w-4 text-primary" />

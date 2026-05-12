@@ -69,7 +69,7 @@ export function DeletedShopsPanel({ shops: initialShops }: Props) {
   }
 
   return (
-    <div className="bg-card rounded-xl border border-red-500/20 overflow-hidden">
+    <div className="bg-card rounded-xl border border-red-500/20 shadow-sm overflow-hidden">
       <button
         onClick={() => setOpen(v => !v)}
         className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-accent/30 transition-colors"

@@ -169,7 +169,7 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
       {(inactiveShops.length > 0 || expiringTrials.length > 0) && (
         <div className="grid md:grid-cols-2 gap-3">
           {expiringTrials.length > 0 && (
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl shadow-sm p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Clock className="h-4 w-4 text-amber-400" />
                 <span className="text-sm font-semibold text-amber-400">{expiringTrials.length} trial(s) expirant dans 3 jours</span>
@@ -185,7 +185,7 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
             </div>
           )}
           {inactiveShops.length > 0 && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+            <div className="bg-red-500/10 border border-red-500/30 rounded-xl shadow-sm p-4">
               <div className="flex items-center gap-2 mb-2">
                 <AlertTriangle className="h-4 w-4 text-red-400" />
                 <span className="text-sm font-semibold text-red-400">{inactiveShops.length} boutique(s) inactives 14j+</span>
@@ -205,7 +205,7 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
 
       {/* KPI cards — finances */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-card rounded-xl border border-border p-4">
+        <div className="bg-card rounded-xl border border-border shadow-sm p-4">
           <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-green-400/10 mb-3">
             <DollarSign className="h-4 w-4 text-green-400" />
           </div>
@@ -213,7 +213,7 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
           <p className="text-muted-foreground text-xs mt-0.5">Revenue total</p>
           <p className="text-xs mt-1 text-green-400">All time</p>
         </div>
-        <div className="bg-card rounded-xl border border-border p-4">
+        <div className="bg-card rounded-xl border border-border shadow-sm p-4">
           <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-blue-400/10 mb-3">
             <TrendingUp className="h-4 w-4 text-blue-400" />
           </div>
@@ -223,7 +223,7 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
             {revenueGrowth >= 0 ? '+' : ''}{revenueGrowth}% vs mois dernier
           </p>
         </div>
-        <div className="bg-card rounded-xl border border-border p-4">
+        <div className="bg-card rounded-xl border border-border shadow-sm p-4">
           <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-purple-400/10 mb-3">
             <ShoppingBag className="h-4 w-4 text-purple-400" />
           </div>
@@ -231,7 +231,7 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
           <p className="text-muted-foreground text-xs mt-0.5">Total boutiques</p>
           <p className="text-xs mt-1 text-purple-400">+{newShopsThisMonth} ce mois</p>
         </div>
-        <div className="bg-card rounded-xl border border-border p-4">
+        <div className="bg-card rounded-xl border border-border shadow-sm p-4">
           <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-yellow-400/10 mb-3">
             <UserCheck className="h-4 w-4 text-stockshop-gold" />
           </div>
@@ -249,7 +249,7 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
           { label: "Ventes aujourd'hui", value: salesToday.toLocaleString(), sub: `${sales7d} sur 7 jours`, icon: Activity, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
           { label: 'Abonnés actifs', value: activeSubscriptions, sub: `${activeTrials} trials · ${expired} expirés`, icon: ArrowUpRight, color: 'text-blue-400', bg: 'bg-blue-400/10' },
         ].map(({ label, value, sub, icon: Icon, color, bg }) => (
-          <div key={label} className="bg-card rounded-xl border border-border p-4">
+          <div key={label} className="bg-card rounded-xl border border-border shadow-sm p-4">
             <div className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${bg} mb-3`}>
               <Icon className={`h-4 w-4 ${color}`} />
             </div>
@@ -262,19 +262,19 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
 
       {/* Statut boutiques */}
       <div className="grid grid-cols-4 gap-3">
-        <div className="bg-card rounded-xl border border-border p-4 text-center">
+        <div className="bg-card rounded-xl border border-border shadow-sm p-4 text-center">
           <p className="text-3xl font-extrabold text-green-400">{activeSubscriptions}</p>
           <p className="text-xs text-muted-foreground mt-1">Abonnés payants</p>
         </div>
-        <div className="bg-card rounded-xl border border-border p-4 text-center">
+        <div className="bg-card rounded-xl border border-border shadow-sm p-4 text-center">
           <p className="text-3xl font-extrabold text-amber-400">{activeTrials}</p>
           <p className="text-xs text-muted-foreground mt-1">Trials actifs</p>
         </div>
-        <div className="bg-card rounded-xl border border-border p-4 text-center">
+        <div className="bg-card rounded-xl border border-border shadow-sm p-4 text-center">
           <p className="text-3xl font-extrabold text-red-400">{expired}</p>
           <p className="text-xs text-muted-foreground mt-1">Expirés / à convertir</p>
         </div>
-        <div className="bg-card rounded-xl border border-border p-4 text-center">
+        <div className="bg-card rounded-xl border border-border shadow-sm p-4 text-center">
           <p className="text-3xl font-extrabold text-muted-foreground">{suspended}</p>
           <p className="text-xs text-muted-foreground mt-1">Suspendus</p>
         </div>
@@ -282,7 +282,7 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
 
       {/* Plan breakdown + Graphique */}
       <div className="grid md:grid-cols-3 gap-4">
-        <div className="bg-card rounded-xl border border-border p-5">
+        <div className="bg-card rounded-xl border border-border shadow-sm p-5">
           <h2 className="font-semibold text-foreground text-sm mb-4">Répartition des plans</h2>
           <div className="space-y-3">
             {(['starter', 'pro', 'business'] as const).map(planId => {
@@ -308,7 +308,7 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
             <p className="text-xs text-muted-foreground mt-0.5">{activeSubscriptions} convertis sur {shops.length}</p>
           </div>
         </div>
-        <div className="md:col-span-2 bg-card rounded-xl border border-border p-5">
+        <div className="md:col-span-2 bg-card rounded-xl border border-border shadow-sm p-5">
           <h2 className="font-semibold text-foreground text-sm mb-1">Revenue — 6 derniers mois</h2>
           <p className="text-xs text-muted-foreground mb-3">Montants en devises locales (₦ + FCFA agrégés)</p>
           <RevenueChart data={chartData} />
@@ -316,7 +316,7 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
       </div>
 
       {/* Paiements récents */}
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
+      <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">
           <h2 className="font-semibold text-foreground text-sm">Paiements récents</h2>
           <Link href={`/${locale}/admin/payments`} className="text-xs text-blue-400 hover:underline">Voir tout →</Link>

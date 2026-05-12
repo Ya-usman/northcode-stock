@@ -69,7 +69,7 @@ export default async function AdminPaymentsPage({
       </div>
 
       {/* Payments table */}
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
+      <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
