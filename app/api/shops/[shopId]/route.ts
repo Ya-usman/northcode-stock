@@ -61,6 +61,55 @@ export async function DELETE(
   }
 }
 
+// POST /api/shops/[shopId] — hard-delete permanente (super_admin only)
+// La boutique doit être préalablement soft-deleted (deleted_at non null).
+export async function POST(
+  _request: Request,
+  { params }: { params: { shopId: string } }
+) {
+  try {
+    const { shopId } = params
+
+    const cookieStore = cookies()
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
+    )
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+    if ((profile as any)?.role !== 'super_admin') {
+      return NextResponse.json({ error: 'Réservé au support StockShop' }, { status: 403 })
+    }
+
+    const admin = createAdminClient()
+
+    // Vérifier que la boutique est bien soft-deleted avant suppression définitive
+    const { data: shop } = await admin
+      .from('shops')
+      .select('id, name, deleted_at')
+      .eq('id', shopId)
+      .single()
+
+    if (!shop) return NextResponse.json({ error: 'Boutique introuvable' }, { status: 404 })
+    if (!shop.deleted_at) {
+      return NextResponse.json(
+        { error: 'La boutique doit d\'abord être désactivée avant suppression définitive.' },
+        { status: 400 }
+      )
+    }
+
+    const { error } = await admin.from('shops').delete().eq('id', shopId)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    return NextResponse.json({ success: true })
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
 // PATCH /api/shops/[shopId] — restore a soft-deleted shop (super_admin only)
 export async function PATCH(
   _request: Request,
