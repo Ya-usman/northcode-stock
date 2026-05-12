@@ -529,22 +529,30 @@ const fetchProducts = async () => {
         category={t('products.archive_label')}
         title={archiveConfirmProduct?.name || ''}
         icon={<Archive className="h-4 w-4 text-amber-500" />}
+        maxWidth="max-w-md"
       >
         <PremiumDialogBody>
           <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 p-3 text-sm text-amber-700 dark:text-amber-400">
             <p>{t('products.archive_confirm')}</p>
           </div>
         </PremiumDialogBody>
-        <PremiumDialogFooter onCancel={() => setArchiveConfirmProduct(null)} cancelLabel={t('actions.cancel')}>
+        <div className="px-5 pb-5 flex gap-2.5">
+          <Button
+            variant="outline"
+            className="h-11 rounded-xl px-6"
+            onClick={() => setArchiveConfirmProduct(null)}
+          >
+            {t('actions.cancel')}
+          </Button>
           <Button
             onClick={archiveProduct}
             loading={archiving}
-            className="flex-1 h-11 rounded-xl font-semibold bg-amber-500 hover:bg-amber-600 text-white"
+            className="h-11 rounded-xl px-6 font-semibold bg-amber-500 hover:bg-amber-600 text-white min-w-[140px]"
           >
-            <Archive className="h-4 w-4 mr-2" />
+            {!archiving && <Archive className="h-4 w-4 mr-2" />}
             {t('products.archive_label') || 'Archiver'}
           </Button>
-        </PremiumDialogFooter>
+        </div>
       </PremiumDialog>
 
       {/* Permanent delete confirmation dialog */}
