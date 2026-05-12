@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { headers } from 'next/headers'
 import { LayoutDashboard, ShoppingBag, CreditCard, LogOut, Package, Users, TrendingUp } from 'lucide-react'
+import { AdminBottomNav } from '@/components/admin/admin-bottom-nav'
 
 const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean)
 
@@ -80,22 +81,16 @@ export default async function AdminLayout({
       </aside>
 
       {/* Mobile header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-30 border-b border-border bg-card h-14 flex items-center justify-between px-4">
-        <div className="flex items-center gap-2">
-          <div className="h-7 w-7 rounded-md bg-stockshop-gold flex items-center justify-center text-gray-900 font-bold text-xs">SS</div>
-          <span className="font-bold text-sm text-stockshop-gold">ADMIN PANEL</span>
-        </div>
-        <div className="flex gap-3">
-          {navItems.map(({ href, icon: Icon }) => (
-            <Link key={href} href={href} className="text-foreground/60 hover:text-foreground">
-              <Icon className="h-5 w-5" />
-            </Link>
-          ))}
-        </div>
+      <div className="md:hidden fixed top-0 left-0 right-0 z-30 border-b border-border bg-card h-14 flex items-center px-4 gap-2">
+        <div className="h-7 w-7 rounded-md bg-stockshop-gold flex items-center justify-center text-gray-900 font-bold text-xs flex-shrink-0">SS</div>
+        <span className="font-bold text-sm text-stockshop-gold">ADMIN PANEL</span>
       </div>
 
+      {/* Mobile bottom nav */}
+      <AdminBottomNav locale={locale} />
+
       {/* Main */}
-      <main className="flex-1 md:pl-56 pt-14 md:pt-0">
+      <main className="flex-1 md:pl-56 pt-14 md:pt-0 pb-16 md:pb-0">
         <div className="p-5 md:p-8">{children}</div>
       </main>
     </div>
