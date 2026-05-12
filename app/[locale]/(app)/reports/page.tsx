@@ -381,11 +381,11 @@ export default function ReportsPage() {
               {revenueByMethod.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">{t('reports.no_data')}</p>
               ) : (
-                <div className="flex flex-col sm:flex-row items-center gap-3">
-                  <div className="w-full sm:w-auto flex-shrink-0">
-                    <ResponsiveContainer width="100%" height={160}>
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  <div className="w-full sm:w-[200px] flex-shrink-0">
+                    <ResponsiveContainer width="100%" height={180}>
                       <PieChart>
-                        <Pie data={revenueByMethod} cx="50%" cy="50%" innerRadius={40} outerRadius={65} dataKey="value">
+                        <Pie data={revenueByMethod} cx="50%" cy="50%" innerRadius={45} outerRadius={70} dataKey="value">
                           {revenueByMethod.map((_, idx) => <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />)}
                         </Pie>
                         <Tooltip formatter={(v: any) => formatNaira(v)} />
