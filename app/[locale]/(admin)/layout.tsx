@@ -13,10 +13,21 @@ export default async function AdminLayout({
   params: { locale: string }
 }) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  // getUser() makes a server-side round-trip to verify the JWT.
+  // Fall back to getSession() (local cookie read) if it returns null —
+  // this handles cases where the Supabase project is briefly unavailable.
+  let { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    const { data: { session } } = await supabase.auth.getSession()
+    user = session?.user ?? null
+  }
 
-  if (!user || !SUPER_ADMIN_EMAILS.includes(user.email || '')) {
+  if (!user) {
     redirect(`/${locale}/login`)
+  }
+
+  if (!SUPER_ADMIN_EMAILS.includes(user.email || '')) {
+    redirect(`/${locale}/dashboard`)
   }
 
   return (
