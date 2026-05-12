@@ -114,7 +114,7 @@ export default function SuppliersPage() {
     setSaving(false)
     setShowModal(false)
     setEditingSupplier(null)
-    form.reset()
+    form.reset({ name: '', phone: '', city: '' })
     fetchSuppliers()
   }
 
@@ -139,7 +139,7 @@ export default function SuppliersPage() {
         <Button
           className="h-9 gap-1 bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500"
           size="sm"
-          onClick={() => { form.reset(); setEditingSupplier(null); setShowModal(true) }}
+          onClick={() => { form.reset({ name: '', phone: '', city: '' }); setEditingSupplier(null); setShowModal(true) }}
         >
           <Plus className="h-4 w-4" />
           {t('suppliers.add_supplier')}
@@ -177,7 +177,7 @@ export default function SuppliersPage() {
 
       <PremiumDialog
         open={showModal}
-        onOpenChange={open => { if (!open) { setShowModal(false); setEditingSupplier(null) } }}
+        onOpenChange={open => { if (!open) { setShowModal(false); setEditingSupplier(null); form.reset({ name: '', phone: '', city: '' }) } }}
         category={t('nav.suppliers')}
         title={editingSupplier ? t('suppliers.edit_title') : t('suppliers.add_supplier')}
         icon={<Package className="h-4 w-4" />}

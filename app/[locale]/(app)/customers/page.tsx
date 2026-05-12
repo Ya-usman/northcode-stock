@@ -108,7 +108,7 @@ export default function CustomersPage() {
     setSaving(false)
     setShowModal(false)
     setEditingCustomer(null)
-    form.reset()
+    form.reset({ name: '', phone: '', city: '' })
     fetchCustomers()
   }
 
@@ -135,7 +135,7 @@ export default function CustomersPage() {
           <Button
             className="h-9 gap-1 bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500"
             size="sm"
-            onClick={() => { form.reset(); setEditingCustomer(null); setShowModal(true) }}
+            onClick={() => { form.reset({ name: '', phone: '', city: '' }); setEditingCustomer(null); setShowModal(true) }}
           >
             <Plus className="h-4 w-4" />
             {t('customers.add_customer')}
@@ -174,7 +174,7 @@ export default function CustomersPage() {
 
       <PremiumDialog
         open={showModal}
-        onOpenChange={open => { if (!open) { setShowModal(false); setEditingCustomer(null) } }}
+        onOpenChange={open => { if (!open) { setShowModal(false); setEditingCustomer(null); form.reset({ name: '', phone: '', city: '' }) } }}
         category={t('nav.customers')}
         title={editingCustomer ? t('actions.edit') : t('customers.add_customer')}
         icon={<User className="h-4 w-4" />}
