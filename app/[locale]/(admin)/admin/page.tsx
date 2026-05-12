@@ -7,6 +7,7 @@ import {
   TrendingUp, ShoppingBag, Users, AlertTriangle, DollarSign,
   ArrowUpRight, Package, Activity, Clock, UserCheck,
 } from 'lucide-react'
+import { COUNTRIES } from '@/lib/saas/countries'
 import { RevenueChart } from '@/components/admin/revenue-chart'
 import { RecentPayments } from '@/components/admin/recent-payments'
 import Link from 'next/link'
@@ -148,7 +149,7 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
   return (
     <div className="space-y-6 max-w-6xl">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Command Center</h1>
           <p className="text-muted-foreground text-sm mt-1">
@@ -158,11 +159,14 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
         <div className="text-right">
           <p className="text-xs text-muted-foreground">StockShop Admin</p>
           <div className="flex gap-1.5 mt-1 justify-end flex-wrap">
-            {Object.entries(countryCounts).map(([country, count]) => (
-              <span key={country} className="text-[10px] bg-muted text-muted-foreground rounded-full px-2 py-0.5">
-                {country === 'CM' ? '🇨🇲' : country === 'NG' ? '🇳🇬' : country} {count}
-              </span>
-            ))}
+            {Object.entries(countryCounts).map(([country, count]) => {
+              const cfg = COUNTRIES[country as keyof typeof COUNTRIES]
+              return (
+                <span key={country} className="text-[10px] bg-muted text-muted-foreground rounded-full px-2 py-0.5">
+                  {cfg?.flag || '🌐'} {count}
+                </span>
+              )
+            })}
           </div>
         </div>
       </div>
@@ -263,7 +267,7 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
       </div>
 
       {/* Statut boutiques */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="bg-card rounded-xl border border-border shadow-sm p-4 text-center">
           <p className="text-3xl font-extrabold text-green-400">{activeSubscriptions}</p>
           <p className="text-xs text-muted-foreground mt-1">Abonnés payants</p>

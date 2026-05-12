@@ -157,25 +157,27 @@ export function AdminShopsTable({ shops, locale }: Props) {
     <>
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
         {/* Table header + filters */}
-        <div className="px-5 py-4 border-b border-border flex flex-wrap gap-3 items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h2 className="font-semibold text-foreground">Boutiques</h2>
-            <span className="text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5">{filtered.length}</span>
+        <div className="px-5 py-4 border-b border-border space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <h2 className="font-semibold text-foreground">Boutiques</h2>
+              <span className="text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5">{filtered.length}</span>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2 items-center">
             {/* Search */}
-            <div className="relative">
+            <div className="relative flex-1 min-w-[180px]">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Nom, ville, propriétaire…"
-                className="bg-muted border border-border rounded-lg pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary w-48"
+                className="w-full bg-muted border border-border rounded-lg pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
               />
             </div>
             {/* Country filter */}
             <Select value={country} onValueChange={setCountry}>
-              <SelectTrigger className="h-8 text-xs w-40 bg-muted border-border">
+              <SelectTrigger className="h-8 text-xs w-36 sm:w-40 bg-muted border-border flex-shrink-0">
                 <SelectValue placeholder="Pays" />
               </SelectTrigger>
               <SelectContent>
@@ -187,7 +189,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
             </Select>
             {/* Plan status filter */}
             <Select value={filter} onValueChange={v => setFilter(v as typeof filter)}>
-              <SelectTrigger className="h-8 text-xs w-44 bg-muted border-border">
+              <SelectTrigger className="h-8 text-xs w-36 sm:w-44 bg-muted border-border flex-shrink-0">
                 <SelectValue placeholder="Plan" />
               </SelectTrigger>
               <SelectContent>
