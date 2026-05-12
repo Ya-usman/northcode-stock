@@ -234,8 +234,10 @@ export default function ReportsPage() {
             headers: [t('reports.col_metric'), t('reports.col_value')],
             rows: [
               [t('reports.encaisse'), formatNaira(totals.revenue)],
+              ['Marge brute sur ventes', formatNaira(totals.profit)],
+              [t('expenses.title'), formatNaira(totalExpenses)],
+              [t('expenses.net_profit'), formatNaira(totals.profit - totalExpenses)],
               [t('reports.outstanding_debt'), formatNaira(outstandingDebt)],
-              [t('reports.est_profit'), formatNaira(totals.profit)],
               [t('reports.transactions'), String(totals.sales)],
             ],
           },
@@ -317,13 +319,12 @@ export default function ReportsPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* Bénéfice net = Marge brute (ventes − coût achat) − Dépenses */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {[
           { label: t('reports.encaisse'), value: formatNaira(totals.revenue), color: 'text-stockshop-blue dark:text-blue-400', sub: t('reports.cash_in_register') },
           { label: t('expenses.title'), value: formatNaira(totalExpenses), color: 'text-red-500', sub: null },
-          { label: t('expenses.net_profit'), value: formatNaira(totals.revenue - totalExpenses), color: totals.revenue - totalExpenses >= 0 ? 'text-green-600' : 'text-red-600', sub: null },
           { label: t('reports.transactions'), value: String(totals.sales), color: 'text-foreground', sub: null },
-          { label: t('reports.outstanding_debt'), value: formatNaira(outstandingDebt), color: 'text-orange-500', sub: null },
         ].map(item => (
           <Card key={item.label} className="border-0 shadow-sm">
             <CardContent className="p-3 text-center">
@@ -333,6 +334,35 @@ export default function ReportsPage() {
             </CardContent>
           </Card>
         ))}
+      </div>
+      {/* Ligne de calcul du bénéfice */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-3 text-center">
+            <p className="text-xs text-muted-foreground leading-tight">Marge brute sur ventes</p>
+            <p className={`text-sm sm:text-base font-bold mt-0.5 ${totals.profit >= 0 ? 'text-blue-500' : 'text-red-500'}`}>
+              {loading ? '…' : formatNaira(totals.profit)}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Encaissé − coût d'achat</p>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-sm border-l-2 border-l-green-500">
+          <CardContent className="p-3 text-center">
+            <p className="text-xs text-muted-foreground leading-tight font-semibold">{t('expenses.net_profit')}</p>
+            <p className={`text-sm sm:text-base font-bold mt-0.5 ${totals.profit - totalExpenses >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {loading ? '…' : formatNaira(totals.profit - totalExpenses)}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Marge brute − dépenses</p>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-3 text-center">
+            <p className="text-xs text-muted-foreground leading-tight">{t('reports.outstanding_debt')}</p>
+            <p className="text-sm sm:text-base font-bold mt-0.5 text-orange-500">
+              {loading ? '…' : formatNaira(outstandingDebt)}
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {loading ? (
