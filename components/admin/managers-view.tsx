@@ -139,8 +139,8 @@ export function ManagersView({ shops: initialShops, managers: initialManagers }:
         </div>
       )}
 
-      {/* Shops list */}
-      {initialShops.map(shop => {
+      {/* Shops list — only shops that have at least one owner or manager */}
+      {initialShops.filter(shop => (managersByShop[shop.id] ?? []).length > 0).map(shop => {
         const shopManagers = managersByShop[shop.id] ?? []
         return (
           <div key={shop.id} className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
