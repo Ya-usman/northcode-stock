@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrency } from '@/lib/hooks/use-currency'
+import { formatNairaCompact } from '@/lib/utils/currency'
 import { generateReportPDFBlob } from '@/lib/utils/pdf'
 import { format, startOfDay, endOfDay, startOfMonth, startOfWeek, startOfQuarter, startOfYear } from 'date-fns'
 
@@ -298,11 +299,11 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 pb-6">
       {/* Controls */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex items-center justify-between gap-2">
         <Select value={dateFilter} onValueChange={setDateFilter}>
-          <SelectTrigger className="w-[170px]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-[140px] sm:w-[170px] text-xs sm:text-sm h-9"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="today">{t('reports.today')}</SelectItem>
             <SelectItem value="week">{t('reports.this_week')}</SelectItem>
@@ -312,87 +313,95 @@ export default function ReportsPage() {
             <SelectItem value="year">{t('reports.this_year')}</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" onClick={exportPDF} loading={exporting} className="gap-2">
-          <Download className="h-4 w-4" />
-          {t('actions.download_pdf')}
+        <Button variant="outline" onClick={exportPDF} loading={exporting} className="gap-1.5 h-9 px-3 text-xs sm:text-sm">
+          <Download className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">{t('actions.download_pdf')}</span>
+          <span className="sm:hidden">PDF</span>
         </Button>
       </div>
 
-      {/* Summary cards */}
-      {/* Bénéfice net = Marge brute (ventes − coût achat) − Dépenses */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      {/* KPI — ligne 1 : Encaissé · Dépenses · Transactions */}
+      <div className="grid grid-cols-3 gap-2">
         {[
-          { label: t('reports.encaisse'), value: formatNaira(totals.revenue), color: 'text-stockshop-blue dark:text-blue-400', sub: t('reports.cash_in_register') },
-          { label: t('expenses.title'), value: formatNaira(totalExpenses), color: 'text-red-500', sub: null },
-          { label: t('reports.transactions'), value: String(totals.sales), color: 'text-foreground', sub: null },
+          { label: t('reports.encaisse'), amount: totals.revenue, color: 'text-blue-500', isNum: false, sub: t('reports.cash_in_register') },
+          { label: t('expenses.title'), amount: totalExpenses, color: 'text-red-500', isNum: false, sub: null },
+          { label: t('reports.transactions'), amount: totals.sales, color: 'text-foreground', isNum: true, sub: null },
         ].map(item => (
           <Card key={item.label} className="border-0 shadow-sm">
-            <CardContent className="p-3 text-center">
-              <p className="text-xs text-muted-foreground leading-tight">{item.label}</p>
-              <p className={`text-sm sm:text-base font-bold mt-0.5 ${item.color}`}>{loading ? '…' : item.value}</p>
-              {item.sub && <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{item.sub}</p>}
+            <CardContent className="p-2 sm:p-3 text-center">
+              <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight truncate">{item.label}</p>
+              <p className={`text-sm sm:text-base font-bold mt-0.5 truncate ${item.color}`}>
+                {loading ? '…' : item.isNum ? item.amount : formatNairaCompact(item.amount as number, symbol)}
+              </p>
+              {item.sub && <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5 leading-tight hidden sm:block">{item.sub}</p>}
             </CardContent>
           </Card>
         ))}
       </div>
-      {/* Ligne de calcul du bénéfice */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+
+      {/* KPI — ligne 2 : Marge brute · Bénéfice net · Dettes */}
+      <div className="grid grid-cols-3 gap-2">
         <Card className="border-0 shadow-sm">
-          <CardContent className="p-3 text-center">
-            <p className="text-xs text-muted-foreground leading-tight">Marge brute sur ventes</p>
-            <p className={`text-sm sm:text-base font-bold mt-0.5 ${totals.profit >= 0 ? 'text-blue-500' : 'text-red-500'}`}>
-              {loading ? '…' : formatNaira(totals.profit)}
+          <CardContent className="p-2 sm:p-3 text-center">
+            <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">Marge brute</p>
+            <p className={`text-sm sm:text-base font-bold mt-0.5 truncate ${totals.profit >= 0 ? 'text-blue-400' : 'text-red-500'}`}>
+              {loading ? '…' : formatNairaCompact(totals.profit, symbol)}
             </p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Encaissé − coût d'achat</p>
+            <p className="text-[9px] text-muted-foreground mt-0.5 hidden sm:block">Ventes − coût achat</p>
           </CardContent>
         </Card>
-        <Card className="border-0 shadow-sm border-l-2 border-l-green-500">
-          <CardContent className="p-3 text-center">
-            <p className="text-xs text-muted-foreground leading-tight font-semibold">{t('expenses.net_profit')}</p>
-            <p className={`text-sm sm:text-base font-bold mt-0.5 ${totals.profit - totalExpenses >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {loading ? '…' : formatNaira(totals.profit - totalExpenses)}
+        <Card className="border-0 shadow-sm ring-1 ring-green-500/40">
+          <CardContent className="p-2 sm:p-3 text-center">
+            <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight font-semibold">{t('expenses.net_profit')}</p>
+            <p className={`text-sm sm:text-base font-bold mt-0.5 truncate ${totals.profit - totalExpenses >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              {loading ? '…' : formatNairaCompact(totals.profit - totalExpenses, symbol)}
             </p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Marge brute − dépenses</p>
+            <p className="text-[9px] text-muted-foreground mt-0.5 hidden sm:block">Marge − dépenses</p>
           </CardContent>
         </Card>
         <Card className="border-0 shadow-sm">
-          <CardContent className="p-3 text-center">
-            <p className="text-xs text-muted-foreground leading-tight">{t('reports.outstanding_debt')}</p>
-            <p className="text-sm sm:text-base font-bold mt-0.5 text-orange-500">
-              {loading ? '…' : formatNaira(outstandingDebt)}
+          <CardContent className="p-2 sm:p-3 text-center">
+            <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">{t('reports.outstanding_debt')}</p>
+            <p className="text-sm sm:text-base font-bold mt-0.5 truncate text-orange-500">
+              {loading ? '…' : formatNairaCompact(outstandingDebt, symbol)}
             </p>
           </CardContent>
         </Card>
       </div>
 
       {loading ? (
-        <div className="space-y-4">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-48" />)}</div>
+        <div className="space-y-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-32" />)}</div>
       ) : (
         <>
           {/* Revenue by payment method */}
           <Card className="border-0 shadow-sm">
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-2 px-3 sm:px-6">
               <CardTitle className="text-sm">{t('reports.revenue_by_method')}</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-3 sm:px-6">
               {revenueByMethod.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">{t('reports.no_data')}</p>
+                <p className="text-sm text-muted-foreground text-center py-4">{t('reports.no_data')}</p>
               ) : (
-                <div className="flex flex-col sm:flex-row items-center gap-4">
-                  <ResponsiveContainer width="100%" height={200}>
-                    <PieChart>
-                      <Pie data={revenueByMethod} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value">
-                        {revenueByMethod.map((_, idx) => <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />)}
-                      </Pie>
-                      <Tooltip formatter={(v: any) => formatNaira(v)} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="space-y-2 min-w-[140px]">
+                <div className="flex flex-col sm:flex-row items-center gap-3">
+                  <div className="w-full sm:w-auto flex-shrink-0">
+                    <ResponsiveContainer width="100%" height={160}>
+                      <PieChart>
+                        <Pie data={revenueByMethod} cx="50%" cy="50%" innerRadius={40} outerRadius={65} dataKey="value">
+                          {revenueByMethod.map((_, idx) => <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />)}
+                        </Pie>
+                        <Tooltip formatter={(v: any) => formatNaira(v)} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="w-full space-y-1.5">
                     {revenueByMethod.map((m, idx) => (
                       <div key={m.name} className="flex items-center gap-2 text-sm">
-                        <span className="h-3 w-3 rounded-full flex-shrink-0" style={{ background: PIE_COLORS[idx % PIE_COLORS.length] }} />
-                        <span className="text-muted-foreground">{m.name}</span>
-                        <span className="font-medium ml-auto">{formatNaira(m.value)}</span>
+                        <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ background: PIE_COLORS[idx % PIE_COLORS.length] }} />
+                        <span className="text-muted-foreground text-xs flex-1">{m.name}</span>
+                        <span className="font-medium text-xs">{formatNaira(m.value)}</span>
+                        <span className="text-muted-foreground text-[10px] w-9 text-right">
+                          {totals.revenue > 0 ? `${((m.value / totals.revenue) * 100).toFixed(0)}%` : ''}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -403,89 +412,93 @@ export default function ReportsPage() {
 
           {/* Top selling products */}
           <Card className="border-0 shadow-sm">
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-2 px-3 sm:px-6">
               <CardTitle className="text-sm">{t('reports.top_products')}</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               {topProducts.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">{t('reports.no_data')}</p>
+                <p className="text-sm text-muted-foreground text-center py-4">{t('reports.no_data')}</p>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-8">{t('reports.col_rank')}</TableHead>
-                      <TableHead>{t('reports.col_product')}</TableHead>
-                      <TableHead className="text-right">{t('reports.col_qty')}</TableHead>
-                      <TableHead className="text-right">{t('reports.col_revenue')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {topProducts.map((p, idx) => (
-                      <TableRow key={p.name}>
-                        <TableCell className="text-muted-foreground text-sm">{idx + 1}</TableCell>
-                        <TableCell className="text-sm font-medium">{p.name}</TableCell>
-                        <TableCell className="text-right text-sm">{p.qty}</TableCell>
-                        <TableCell className="text-right text-sm font-medium text-stockshop-blue dark:text-blue-400">{formatNaira(p.revenue)}</TableCell>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-7 px-2 sm:px-4">#</TableHead>
+                        <TableHead className="px-2 sm:px-4">{t('reports.col_product')}</TableHead>
+                        <TableHead className="text-right px-2 sm:px-4">{t('reports.col_qty')}</TableHead>
+                        <TableHead className="text-right px-2 sm:px-4">{t('reports.col_revenue')}</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {topProducts.map((p, idx) => (
+                        <TableRow key={p.name}>
+                          <TableCell className="text-muted-foreground text-xs px-2 sm:px-4">{idx + 1}</TableCell>
+                          <TableCell className="text-xs sm:text-sm font-medium px-2 sm:px-4 max-w-[140px] truncate">{p.name}</TableCell>
+                          <TableCell className="text-right text-xs sm:text-sm px-2 sm:px-4">{p.qty}</TableCell>
+                          <TableCell className="text-right text-xs sm:text-sm font-medium text-blue-500 px-2 sm:px-4 whitespace-nowrap">{formatNaira(p.revenue)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Full inventory — all active products */}
+          {/* Full inventory */}
           <Card className="border-0 shadow-sm">
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-2 px-3 sm:px-6">
               <CardTitle className="text-sm">{t('reports.full_inventory')}</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               {allInventory.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">{t('reports.no_data')}</p>
+                <p className="text-sm text-muted-foreground text-center py-4">{t('reports.no_data')}</p>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('reports.col_product')}</TableHead>
-                      <TableHead className="text-right">{t('reports.col_stock')}</TableHead>
-                      <TableHead className="text-right">{t('reports.col_sold_qty')}</TableHead>
-                      <TableHead className="text-right">{t('reports.col_buying_price')}</TableHead>
-                      <TableHead className="text-right">{t('reports.col_selling_price')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {allInventory.map(p => (
-                      <TableRow key={p.name} className={p.quantity === 0 ? 'opacity-50' : ''}>
-                        <TableCell className="text-sm font-medium">{p.name}</TableCell>
-                        <TableCell className={`text-right text-sm font-medium ${p.quantity === 0 ? 'text-red-500' : p.quantity <= 5 ? 'text-orange-500' : 'text-foreground'}`}>
-                          {p.quantity}
-                        </TableCell>
-                        <TableCell className="text-right text-sm text-muted-foreground">{p.soldQty > 0 ? p.soldQty : '—'}</TableCell>
-                        <TableCell className="text-right text-sm text-muted-foreground">{formatNaira(p.buying_price)}</TableCell>
-                        <TableCell className="text-right text-sm text-stockshop-blue dark:text-blue-400">{formatNaira(p.selling_price)}</TableCell>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="px-2 sm:px-4">{t('reports.col_product')}</TableHead>
+                        <TableHead className="text-right px-2 sm:px-4">{t('reports.col_stock')}</TableHead>
+                        <TableHead className="text-right px-2 sm:px-4 hidden sm:table-cell">{t('reports.col_sold_qty')}</TableHead>
+                        <TableHead className="text-right px-2 sm:px-4 hidden sm:table-cell">{t('reports.col_buying_price')}</TableHead>
+                        <TableHead className="text-right px-2 sm:px-4">{t('reports.col_selling_price')}</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {allInventory.map(p => (
+                        <TableRow key={p.name} className={p.quantity === 0 ? 'opacity-50' : ''}>
+                          <TableCell className="text-xs sm:text-sm font-medium px-2 sm:px-4 max-w-[120px] truncate">{p.name}</TableCell>
+                          <TableCell className={`text-right text-xs sm:text-sm font-medium px-2 sm:px-4 ${p.quantity === 0 ? 'text-red-500' : p.quantity <= 5 ? 'text-orange-500' : 'text-foreground'}`}>
+                            {p.quantity}
+                          </TableCell>
+                          <TableCell className="text-right text-xs text-muted-foreground px-2 sm:px-4 hidden sm:table-cell">{p.soldQty > 0 ? p.soldQty : '—'}</TableCell>
+                          <TableCell className="text-right text-xs text-muted-foreground px-2 sm:px-4 hidden sm:table-cell">{formatNaira(p.buying_price)}</TableCell>
+                          <TableCell className="text-right text-xs sm:text-sm text-blue-500 px-2 sm:px-4 whitespace-nowrap">{formatNaira(p.selling_price)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>
 
           {/* Stock valuation */}
           <Card className="border-0 shadow-sm">
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-2 px-3 sm:px-6">
               <CardTitle className="text-sm">{t('reports.stock_valuation')}</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 gap-3 text-center">
+            <CardContent className="px-3 sm:px-6">
+              <div className="grid grid-cols-3 gap-2 text-center">
                 {[
                   { label: t('reports.buying_value'), value: formatNaira(stockValuation.buyingValue), color: 'text-muted-foreground' },
-                  { label: t('reports.selling_value'), value: formatNaira(stockValuation.sellingValue), color: 'text-stockshop-blue dark:text-blue-400' },
+                  { label: t('reports.selling_value'), value: formatNaira(stockValuation.sellingValue), color: 'text-blue-500' },
                   { label: t('reports.potential_profit'), value: formatNaira(stockValuation.potentialProfit), color: 'text-green-600' },
                 ].map(item => (
-                  <div key={item.label} className="rounded-lg bg-muted/30 p-3">
-                    <p className="text-xs text-muted-foreground leading-tight">{item.label}</p>
-                    <p className={`text-xs sm:text-sm font-bold mt-1 ${item.color}`}>{item.value}</p>
+                  <div key={item.label} className="rounded-lg bg-muted/30 p-2 sm:p-3">
+                    <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">{item.label}</p>
+                    <p className={`text-[11px] sm:text-sm font-bold mt-1 truncate ${item.color}`}>{item.value}</p>
                   </div>
                 ))}
               </div>
@@ -495,7 +508,7 @@ export default function ReportsPage() {
           {/* Expenses list */}
           {expenses.length > 0 && (
             <Card className="border-0 shadow-sm">
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-2 px-3 sm:px-6">
                 <div className="flex items-center justify-between gap-2">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <Receipt className="h-4 w-4 text-red-500" />
@@ -505,76 +518,80 @@ export default function ReportsPage() {
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="text-right">Montant</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {expenses.map(e => (
-                      <TableRow key={e.id}>
-                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                          {format(new Date(e.date), 'dd MMM yyyy')}
-                        </TableCell>
-                        <TableCell className="text-sm">{e.description}</TableCell>
-                        <TableCell className="text-right text-sm font-medium text-red-500">
-                          {formatNaira(e.amount)}
-                        </TableCell>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="px-2 sm:px-4 whitespace-nowrap">Date</TableHead>
+                        <TableHead className="px-2 sm:px-4">Description</TableHead>
+                        <TableHead className="text-right px-2 sm:px-4">Montant</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {expenses.map(e => (
+                        <TableRow key={e.id}>
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap px-2 sm:px-4">
+                            {format(new Date(e.date), 'dd MMM yy')}
+                          </TableCell>
+                          <TableCell className="text-xs sm:text-sm px-2 sm:px-4 max-w-[150px] truncate">{e.description}</TableCell>
+                          <TableCell className="text-right text-xs sm:text-sm font-medium text-red-500 px-2 sm:px-4 whitespace-nowrap">
+                            {formatNaira(e.amount)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           )}
 
           {/* Cashier performance */}
-          {cashierPerf.length > 0 && ( // always show since we include 0-sales members
+          {cashierPerf.length > 0 && (
             <Card className="border-0 shadow-sm">
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-2 px-3 sm:px-6">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <CardTitle className="text-sm">{t('reports.cashier_performance')}</CardTitle>
                   {isMultiShop ? (
-                    <span className="text-[11px] font-medium text-stockshop-blue dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-full px-2 py-0.5">
+                    <span className="text-[11px] font-medium text-blue-500 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-full px-2 py-0.5">
                       {t('reports.all_shops_ranking')}
                     </span>
                   ) : shop?.name ? (
-                    <span className="text-[11px] text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+                    <span className="text-[11px] text-muted-foreground bg-muted rounded-full px-2 py-0.5 truncate max-w-[120px]">
                       {shop.name}
                     </span>
                   ) : null}
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-8">{t('reports.col_rank')}</TableHead>
-                      <TableHead>{t('reports.col_cashier')}</TableHead>
-                      {isMultiShop && <TableHead className="text-muted-foreground">{t('nav.shops')}</TableHead>}
-                      <TableHead className="text-right">{t('reports.col_sales')}</TableHead>
-                      <TableHead className="text-right">{t('reports.col_revenue')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {cashierPerf.map((c, idx) => (
-                      <TableRow key={c.id} className={c.sales === 0 ? 'opacity-50' : ''}>
-                        <TableCell className="text-muted-foreground text-sm font-medium">
-                          {c.sales > 0 ? (idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1) : '—'}
-                        </TableCell>
-                        <TableCell className="font-medium text-sm">{c.name}</TableCell>
-                        {isMultiShop && <TableCell className="text-xs text-muted-foreground">{c.shopName}</TableCell>}
-                        <TableCell className="text-right">{c.sales}</TableCell>
-                        <TableCell className={`text-right font-medium ${c.sales > 0 ? 'text-stockshop-blue dark:text-blue-400' : 'text-muted-foreground'}`}>
-                          {c.sales > 0 ? formatNaira(c.revenue) : '—'}
-                        </TableCell>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-7 px-2 sm:px-4">#</TableHead>
+                        <TableHead className="px-2 sm:px-4">{t('reports.col_cashier')}</TableHead>
+                        {isMultiShop && <TableHead className="text-muted-foreground px-2 sm:px-4 hidden sm:table-cell">{t('nav.shops')}</TableHead>}
+                        <TableHead className="text-right px-2 sm:px-4">{t('reports.col_sales')}</TableHead>
+                        <TableHead className="text-right px-2 sm:px-4">{t('reports.col_revenue')}</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {cashierPerf.map((c, idx) => (
+                        <TableRow key={c.id} className={c.sales === 0 ? 'opacity-50' : ''}>
+                          <TableCell className="text-muted-foreground text-xs font-medium px-2 sm:px-4">
+                            {c.sales > 0 ? (idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1) : '—'}
+                          </TableCell>
+                          <TableCell className="font-medium text-xs sm:text-sm px-2 sm:px-4 max-w-[100px] truncate">{c.name}</TableCell>
+                          {isMultiShop && <TableCell className="text-xs text-muted-foreground px-2 sm:px-4 hidden sm:table-cell">{c.shopName}</TableCell>}
+                          <TableCell className="text-right text-xs sm:text-sm px-2 sm:px-4">{c.sales}</TableCell>
+                          <TableCell className={`text-right text-xs sm:text-sm font-medium px-2 sm:px-4 whitespace-nowrap ${c.sales > 0 ? 'text-blue-500' : 'text-muted-foreground'}`}>
+                            {c.sales > 0 ? formatNaira(c.revenue) : '—'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           )}
