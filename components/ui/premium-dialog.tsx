@@ -27,7 +27,11 @@ export function PremiumDialog({
 }: PremiumDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn('p-0 gap-0', maxWidth)}>
+      <DialogContent className={cn(
+        'p-0 gap-0',
+        '[&>button]:text-white [&>button]:bg-white/20 [&>button]:hover:bg-white/35',
+        maxWidth
+      )}>
         <div className="rounded-lg">
           {/* Blue header */}
           <div className="bg-stockshop-blue rounded-t-lg px-5 pt-5 pb-4 pr-12">
@@ -84,11 +88,11 @@ export function PremiumDialogFooter({
   children,
 }: PremiumDialogFooterProps) {
   return (
-    <div className="px-5 pb-5 flex gap-2.5">
+    <div className="px-5 pb-5 flex justify-center gap-3">
       <Button
         type="button"
-        variant="outline"
-        className="flex-1 h-11 rounded-xl"
+        variant="ghost"
+        className="flex-1 h-11 rounded-xl text-foreground/70 hover:text-foreground hover:bg-foreground/8 border border-border"
         onClick={onCancel}
       >
         {cancelLabel}

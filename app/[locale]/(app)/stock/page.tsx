@@ -532,14 +532,14 @@ const fetchProducts = async () => {
         maxWidth="max-w-md"
       >
         <PremiumDialogBody>
-          <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 p-3 text-sm text-amber-700 dark:text-amber-400">
+          <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 shadow-inner p-3 text-sm text-amber-700 dark:text-amber-400">
             <p>{t('products.archive_confirm')}</p>
           </div>
         </PremiumDialogBody>
-        <div className="px-5 pb-5 flex gap-2.5">
+        <div className="px-5 pb-5 flex justify-center gap-3">
           <Button
-            variant="outline"
-            className="h-11 rounded-xl px-6"
+            variant="ghost"
+            className="flex-1 h-11 rounded-xl text-foreground/70 hover:text-foreground hover:bg-foreground/8 border border-border"
             onClick={() => setArchiveConfirmProduct(null)}
           >
             {t('actions.cancel')}
@@ -547,7 +547,7 @@ const fetchProducts = async () => {
           <Button
             onClick={archiveProduct}
             loading={archiving}
-            className="h-11 rounded-xl px-6 font-semibold bg-amber-500 hover:bg-amber-600 text-white min-w-[140px]"
+            className="flex-1 h-11 rounded-xl px-6 font-semibold bg-amber-500 hover:bg-amber-600 text-white min-w-[140px]"
           >
             {!archiving && <Archive className="h-4 w-4 mr-2" />}
             {t('products.archive_label') || 'Archiver'}
