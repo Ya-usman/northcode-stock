@@ -58,6 +58,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [deleteConfirmProduct, setDeleteConfirmProduct] = useState<Product | null>(null)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [archiveConfirmProduct, setArchiveConfirmProduct] = useState<Product | null>(null)
+  const [archiving, setArchiving] = useState(false)
+  const [deleteCatConfirmId, setDeleteCatConfirmId] = useState<string | null>(null)
 
   const restockForm = useForm<RestockFormData>({ resolver: zodResolver(restockSchema) })
 
@@ -188,13 +191,16 @@ const fetchProducts = async () => {
     fetchProducts()
   }
 
-  const archiveProduct = async (product: Product) => {
-    if (!confirm(t('products.archive_confirm'))) return
+  const archiveProduct = async () => {
+    if (!archiveConfirmProduct) return
+    setArchiving(true)
     await fetch('/api/products', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: product.id, shop_id: product.shop_id, is_active: false }),
+      body: JSON.stringify({ id: archiveConfirmProduct.id, shop_id: archiveConfirmProduct.shop_id, is_active: false }),
     })
+    setArchiving(false)
+    setArchiveConfirmProduct(null)
     toast({ title: t('toast.product_archived') })
     fetchProducts()
   }
@@ -259,9 +265,9 @@ const fetchProducts = async () => {
   }
 
   const deleteCategory = async (catId: string) => {
-    if (!confirm(t('confirm.delete_category', { name: '' }))) return
     await fetch(`/api/categories?id=${catId}&shop_id=${shop?.id}`, { method: 'DELETE' })
     if (categoryFilter === catId) setCategoryFilter('all')
+    setDeleteCatConfirmId(null)
     fetchProducts()
   }
 
@@ -312,7 +318,7 @@ const fetchProducts = async () => {
               </Button>
             )}
             {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
-              <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-amber-600" disabled={saving} title={t('products.archive_label')} onClick={() => archiveProduct(product)}>
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-amber-600" disabled={saving} title={t('products.archive_label')} onClick={() => setArchiveConfirmProduct(product)}>
                 <Archive className="h-3 w-3" />
               </Button>
             )}
@@ -493,16 +499,53 @@ const fetchProducts = async () => {
           <div className="space-y-1 max-h-52 overflow-y-auto">
             {categories.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">{t('categories.none')}</p>}
             {categories.map(c => (
-              <div key={c.id} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm bg-muted/30">
-                <span>{c.name}</span>
-                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => deleteCategory(c.id)}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+              <div key={c.id} className="rounded-lg border bg-muted/30 text-sm overflow-hidden">
+                <div className="flex items-center justify-between px-3 py-2">
+                  <span>{c.name}</span>
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => setDeleteCatConfirmId(deleteCatConfirmId === c.id ? null : c.id)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                {deleteCatConfirmId === c.id && (
+                  <div className="px-3 pb-2 flex items-center justify-between gap-2 border-t border-border/50 pt-2">
+                    <p className="text-xs text-muted-foreground">Supprimer « {c.name} » ?</p>
+                    <div className="flex gap-1.5">
+                      <Button size="sm" variant="destructive" className="h-6 text-xs px-2" onClick={() => deleteCategory(c.id)}>Oui</Button>
+                      <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={() => setDeleteCatConfirmId(null)}>Non</Button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
         </PremiumDialogBody>
         <PremiumDialogFooter onCancel={() => setShowCatModal(false)} cancelLabel={t('actions.close')} />
+      </PremiumDialog>
+
+      {/* Archive confirmation dialog */}
+      <PremiumDialog
+        open={!!archiveConfirmProduct}
+        onOpenChange={open => { if (!open) setArchiveConfirmProduct(null) }}
+        category={t('products.archive_label')}
+        title={archiveConfirmProduct?.name || ''}
+        icon={<Archive className="h-4 w-4 text-amber-500" />}
+      >
+        <PremiumDialogBody>
+          <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 p-3 text-sm text-amber-700 dark:text-amber-400 space-y-1">
+            <p className="font-semibold">{t('products.archive_confirm_title') || 'Archiver ce produit ?'}</p>
+            <p>{t('products.archive_confirm_body') || 'Il sera masqué de la liste active. Vous pourrez le restaurer à tout moment depuis la section Archivés.'}</p>
+          </div>
+        </PremiumDialogBody>
+        <PremiumDialogFooter onCancel={() => setArchiveConfirmProduct(null)} cancelLabel={t('actions.cancel')}>
+          <Button
+            onClick={archiveProduct}
+            loading={archiving}
+            className="flex-1 h-11 rounded-xl font-semibold bg-amber-500 hover:bg-amber-600 text-white"
+          >
+            <Archive className="h-4 w-4 mr-2" />
+            {t('products.archive_label') || 'Archiver'}
+          </Button>
+        </PremiumDialogFooter>
       </PremiumDialog>
 
       {/* Permanent delete confirmation dialog */}
