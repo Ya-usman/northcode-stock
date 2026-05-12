@@ -23,7 +23,7 @@ export function ShopsViewToggle({ shops, owners, locale }: Props) {
           className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             view === 'shops'
               ? 'bg-card text-foreground shadow-sm border border-border'
-              : 'text-muted-foreground hover:text-foreground'
+              : 'text-foreground/60 hover:text-foreground'
           }`}
         >
           <Store className="h-4 w-4" />
@@ -34,7 +34,7 @@ export function ShopsViewToggle({ shops, owners, locale }: Props) {
           className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             view === 'owners'
               ? 'bg-card text-foreground shadow-sm border border-border'
-              : 'text-muted-foreground hover:text-foreground'
+              : 'text-foreground/60 hover:text-foreground'
           }`}
         >
           <Users className="h-4 w-4" />

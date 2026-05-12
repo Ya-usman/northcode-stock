@@ -22,7 +22,7 @@ export function CountryFilter({ current }: { current: string }) {
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-muted-foreground">Pays :</span>
+      <span className="text-xs text-foreground/70 font-medium">Pays :</span>
       {COUNTRIES.map(c => (
         <button
           key={c.value}
@@ -30,7 +30,7 @@ export function CountryFilter({ current }: { current: string }) {
           className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
             current === c.value || (c.value === 'all' && current === 'all')
               ? 'bg-primary text-primary-foreground'
-              : 'bg-muted text-muted-foreground hover:text-foreground'
+              : 'bg-muted text-foreground/60 border border-border hover:text-foreground hover:border-foreground/30'
           }`}
         >
           {c.label}

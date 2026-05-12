@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import { headers } from 'next/headers'
 import { LayoutDashboard, ShoppingBag, CreditCard, LogOut, Package, Users, TrendingUp } from 'lucide-react'
 
 const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim())
@@ -18,6 +19,9 @@ export default async function AdminLayout({
   if (!user || !SUPER_ADMIN_EMAILS.includes(user.email || '')) {
     redirect(`/${locale}/login`)
   }
+
+  const headersList = headers()
+  const pathname = headersList.get('x-pathname') || ''
 
   const navItems = [
     { href: `/${locale}/admin`, label: 'Command Center', icon: LayoutDashboard },
@@ -42,25 +46,32 @@ export default async function AdminLayout({
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-1">
-          {navItems.map(({ href, label, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </Link>
-          ))}
+        <nav className="flex-1 px-3 py-4 space-y-0.5">
+          {navItems.map(({ href, label, icon: Icon }) => {
+            const isActive = pathname === href || (href !== `/${locale}/admin` && pathname.startsWith(href))
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-primary/15 text-primary border border-primary/20'
+                    : 'text-foreground/70 hover:text-foreground hover:bg-accent'
+                }`}
+              >
+                <Icon className={`h-4 w-4 flex-shrink-0 ${isActive ? 'text-primary' : 'text-foreground/50'}`} />
+                {label}
+              </Link>
+            )
+          })}
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-border p-4">
-          <p className="text-xs text-muted-foreground mb-3">{user.email}</p>
+        <div className="border-t border-border p-4 space-y-2.5">
+          <p className="text-xs text-foreground/60 font-medium truncate">{user.email}</p>
           <a
             href={`/${locale}/dashboard`}
-            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center gap-2 text-xs text-foreground/60 hover:text-foreground transition-colors font-medium"
           >
             <LogOut className="h-3.5 w-3.5" />
             Back to App
@@ -76,7 +87,7 @@ export default async function AdminLayout({
         </div>
         <div className="flex gap-3">
           {navItems.map(({ href, icon: Icon }) => (
-            <Link key={href} href={href} className="text-muted-foreground hover:text-foreground">
+            <Link key={href} href={href} className="text-foreground/60 hover:text-foreground">
               <Icon className="h-5 w-5" />
             </Link>
           ))}

@@ -146,7 +146,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                   country === c.value
                     ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-muted-foreground hover:text-foreground'
+                    : 'bg-muted text-foreground/60 border border-border hover:text-foreground hover:border-foreground/30'
                 }`}
               >
                 {c.label}
@@ -161,7 +161,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize ${
                   filter === f
                     ? 'bg-accent text-accent-foreground border border-border'
-                    : 'bg-muted text-muted-foreground hover:text-foreground'
+                    : 'bg-muted text-foreground/60 border border-border hover:text-foreground hover:border-foreground/30'
                 }`}
               >
                 {f === 'all' ? 'Tous plans' : f === 'subscribed' ? 'Payants' : f === 'trial' ? 'Trials' : 'Expirés'}
@@ -174,13 +174,13 @@ export function AdminShopsTable({ shops, locale }: Props) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left px-5 py-3 text-muted-foreground font-medium text-xs uppercase">Shop / Owner</th>
-                <th className="text-left px-5 py-3 text-muted-foreground font-medium text-xs uppercase">City</th>
-                <th className="text-left px-5 py-3 text-muted-foreground font-medium text-xs uppercase">Plan</th>
-                <th className="text-left px-5 py-3 text-muted-foreground font-medium text-xs uppercase">Status</th>
-                <th className="text-left px-5 py-3 text-muted-foreground font-medium text-xs uppercase">Expiry</th>
-                <th className="text-left px-5 py-3 text-muted-foreground font-medium text-xs uppercase">Revenue</th>
-                <th className="text-left px-5 py-3 text-muted-foreground font-medium text-xs uppercase">Actions</th>
+                <th className="text-left px-5 py-3 text-foreground/70 font-semibold text-xs uppercase tracking-wide">Shop / Owner</th>
+                <th className="text-left px-5 py-3 text-foreground/70 font-semibold text-xs uppercase tracking-wide">City</th>
+                <th className="text-left px-5 py-3 text-foreground/70 font-semibold text-xs uppercase tracking-wide">Plan</th>
+                <th className="text-left px-5 py-3 text-foreground/70 font-semibold text-xs uppercase tracking-wide">Status</th>
+                <th className="text-left px-5 py-3 text-foreground/70 font-semibold text-xs uppercase tracking-wide">Expiry</th>
+                <th className="text-left px-5 py-3 text-foreground/70 font-semibold text-xs uppercase tracking-wide">Revenue</th>
+                <th className="text-left px-5 py-3 text-foreground/70 font-semibold text-xs uppercase tracking-wide">Actions</th>
               </tr>
             </thead>
             <tbody>
