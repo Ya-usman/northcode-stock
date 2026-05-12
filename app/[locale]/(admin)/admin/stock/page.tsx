@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { createAdminClient } from '@/lib/supabase/server'
 import { Package, AlertTriangle, TrendingDown, Store } from 'lucide-react'
 import { CountryFilter } from '@/components/admin/country-filter'

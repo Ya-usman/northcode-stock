@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { createAdminClient } from '@/lib/supabase/server'
 import { PLANS } from '@/lib/saas/plans'
 import { formatCurrency, formatAdminRevenue } from '@/lib/utils/currency'

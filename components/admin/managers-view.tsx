@@ -173,7 +173,7 @@ export function ManagersView({ shops: initialShops, managers: initialManagers }:
                     }
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm text-foreground font-medium">{m.profiles?.full_name ?? '—'}</p>
+                        <p className="text-sm text-foreground font-medium">{m.profiles?.full_name || m.email?.split('@')[0] || '—'}</p>
                         <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0 ${
                           m.role === 'owner'
                             ? 'bg-amber-400/10 text-amber-400'

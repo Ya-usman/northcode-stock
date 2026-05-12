@@ -2,6 +2,8 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { ShopsViewToggle } from '@/components/admin/shops-view-toggle'
 import { DeletedShopsPanel } from '@/components/admin/deleted-shops-panel'
 
+export const dynamic = 'force-dynamic'
+
 export default async function AdminShopsPage({ params: { locale } }: { params: { locale: string } }) {
   const supabase = createAdminClient()
 

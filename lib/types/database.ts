@@ -27,6 +27,7 @@ export interface Shop {
   plan_expires_at: string | null
   country: string | null
   role_permissions: Record<string, Record<string, boolean>> | null
+  deleted_at: string | null
 }
 
 export interface Profile {

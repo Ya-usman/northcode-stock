@@ -1,11 +1,13 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { ManagersView } from '@/components/admin/managers-view'
 
+export const dynamic = 'force-dynamic'
+
 export default async function AdminManagersPage() {
   const supabase = createAdminClient()
 
   const [{ data: shops }, { data: rawMembers }] = await Promise.all([
-    supabase.from('shops').select('id, name, city, country').order('name'),
+    (supabase as any).from('shops').select('id, name, city, country').is('deleted_at', null).order('name'),
     (supabase as any)
       .from('shop_members')
       .select('id, shop_id, user_id, role, is_active')
