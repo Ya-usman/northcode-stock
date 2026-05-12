@@ -1,14 +1,15 @@
 'use client'
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { COUNTRIES } from '@/lib/saas/countries'
 
-const COUNTRIES = [
+const COUNTRY_OPTIONS = [
   { value: 'all', label: '🌍 Tous les pays' },
-  { value: 'NG', label: '🇳🇬 Nigeria' },
-  { value: 'CM', label: '🇨🇲 Cameroun' },
-] as const
+  ...Object.entries(COUNTRIES).map(([code, c]) => ({ value: code, label: `${c.flag} ${c.name}` })),
+]
 
-export function CountryFilter({ current }: { current: string }) {
+export function CountryFilter({ current, availableCountries }: { current: string; availableCountries?: string[] }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -20,22 +21,23 @@ export function CountryFilter({ current }: { current: string }) {
     router.push(`${pathname}?${params.toString()}`)
   }
 
+  const options = availableCountries
+    ? [{ value: 'all', label: '🌍 Tous les pays' }, ...availableCountries.map(code => {
+        const c = COUNTRIES[code as keyof typeof COUNTRIES]
+        return { value: code, label: c ? `${c.flag} ${c.name}` : `🌐 ${code}` }
+      })]
+    : COUNTRY_OPTIONS
+
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs text-foreground/70 font-medium">Pays :</span>
-      {COUNTRIES.map(c => (
-        <button
-          key={c.value}
-          onClick={() => set(c.value)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-            current === c.value || (c.value === 'all' && current === 'all')
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-muted text-foreground/60 border border-border hover:text-foreground hover:border-foreground/30'
-          }`}
-        >
-          {c.label}
-        </button>
-      ))}
-    </div>
+    <Select value={current} onValueChange={set}>
+      <SelectTrigger className="h-8 text-xs w-44 bg-muted border-border">
+        <SelectValue placeholder="Pays" />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map(opt => (
+          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }

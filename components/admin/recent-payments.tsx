@@ -2,6 +2,7 @@
 
 import { formatCurrency } from '@/lib/utils/currency'
 import { PLANS } from '@/lib/saas/plans'
+import { COUNTRIES } from '@/lib/saas/countries'
 
 interface Payment {
   id: string
@@ -51,7 +52,8 @@ export function RecentPayments({ payments, shops }: Props) {
         const planLabel = PLANS[payment.plan as keyof typeof PLANS]?.name || payment.plan
         const colorClass = PLAN_COLORS[payment.plan] || 'text-muted-foreground bg-muted'
         const currency = shop?.currency || '₦'
-        const flag = shop?.country === 'CM' ? '🇨🇲' : '🇳🇬'
+        const countryConfig = shop?.country ? COUNTRIES[shop.country as keyof typeof COUNTRIES] : null
+        const flag = countryConfig?.flag || '🌐'
 
         return (
           <div key={payment.id} className="flex items-center justify-between px-5 py-3.5 hover:bg-accent/30 transition-colors">
@@ -61,7 +63,7 @@ export function RecentPayments({ payments, shops }: Props) {
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">
-                  {shop?.name || 'Unknown shop'}
+                  {shop?.name || 'Boutique supprimée'}
                 </p>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${colorClass}`}>

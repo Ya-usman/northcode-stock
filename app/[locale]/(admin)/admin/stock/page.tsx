@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { createAdminClient } from '@/lib/supabase/server'
 import { Package, AlertTriangle, TrendingDown, Store } from 'lucide-react'
 import { CountryFilter } from '@/components/admin/country-filter'
+import { COUNTRIES } from '@/lib/saas/countries'
 
 export default async function AdminStockPage({
   searchParams,
@@ -20,6 +21,7 @@ export default async function AdminStockPage({
       .order('name'),
   ])
 
+  const availableCountries = Array.from(new Set((allShops ?? []).map((s: any) => s.country || 'NG').filter(Boolean))).sort() as string[]
   const shops = countryFilter === 'all'
     ? (allShops ?? [])
     : (allShops ?? []).filter((s: any) => (s.country || 'NG') === countryFilter)
@@ -44,9 +46,9 @@ export default async function AdminStockPage({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Stock</h1>
-          <p className="text-muted-foreground text-sm mt-1">{shops.length} boutique(s) · {countryFilter === 'all' ? 'tous pays' : countryFilter === 'NG' ? '🇳🇬 Nigeria' : '🇨🇲 Cameroun'}</p>
+          <p className="text-muted-foreground text-sm mt-1">{shops.length} boutique(s) · {countryFilter === 'all' ? 'tous pays' : (COUNTRIES[countryFilter as keyof typeof COUNTRIES]?.name || countryFilter)}</p>
         </div>
-        <CountryFilter current={countryFilter} />
+        <CountryFilter current={countryFilter} availableCountries={availableCountries} />
       </div>
 
       {/* KPIs cumulés */}
@@ -68,7 +70,8 @@ export default async function AdminStockPage({
       {/* Par boutique */}
       {(shops ?? []).map((shop: any) => {
         const prods = byShop[shop.id] ?? []
-        const flag = shop.country === 'CM' ? '🇨🇲' : '🇳🇬'
+        const countryConfig = shop.country ? COUNTRIES[shop.country as keyof typeof COUNTRIES] : null
+        const flag = countryConfig?.flag || '🌐'
 
         if (prods.length === 0) return (
           <div key={shop.id} className="bg-card rounded-xl border border-border shadow-sm p-5">

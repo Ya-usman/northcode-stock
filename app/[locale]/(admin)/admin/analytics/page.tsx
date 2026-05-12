@@ -5,6 +5,7 @@ import { getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
 import { formatAdminRevenue } from '@/lib/utils/currency'
 import { GrowthChart } from '@/components/admin/growth-chart'
 import { CountryFilter } from '@/components/admin/country-filter'
+import { COUNTRIES } from '@/lib/saas/countries'
 import Link from 'next/link'
 import { TrendingUp, Users, ShoppingBag, Activity } from 'lucide-react'
 
@@ -68,6 +69,7 @@ export default async function AnalyticsPage({
   const { shops: allShops, subs: allSubs, owners } = await getData(supabase)
 
   const countryFilter = searchParams.country || 'all'
+  const availableCountries = Array.from(new Set(allShops.map((s: any) => s.country || 'NG').filter(Boolean))).sort() as string[]
   const shops = countryFilter === 'all' ? allShops : allShops.filter((s: any) => (s.country || 'NG') === countryFilter)
   const shopIds = new Set(shops.map((s: any) => s.id))
   const subs = countryFilter === 'all' ? allSubs : allSubs.filter((s: any) => shopIds.has(s.shop_id))
@@ -125,7 +127,7 @@ export default async function AnalyticsPage({
           <h1 className="text-2xl font-bold text-foreground">Analytics & Croissance</h1>
           <p className="text-muted-foreground text-sm mt-1">Vue sur 12 mois · {shops.length} boutiques</p>
         </div>
-        <CountryFilter current={countryFilter} />
+        <CountryFilter current={countryFilter} availableCountries={availableCountries} />
       </div>
 
       {/* Résumé global */}
