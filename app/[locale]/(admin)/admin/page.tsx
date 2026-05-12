@@ -163,7 +163,7 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
               const cfg = COUNTRIES[country as keyof typeof COUNTRIES]
               return (
                 <span key={country} className="text-[10px] bg-muted text-muted-foreground rounded-full px-2 py-0.5">
-                  {cfg?.flag || '🌐'} {count}
+                  {cfg?.flag || '🌐'} {cfg?.name || country} · {count}
                 </span>
               )
             })}
