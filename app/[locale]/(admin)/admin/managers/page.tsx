@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
-import { Plus, Store, UserCheck, Trash2, Shield } from 'lucide-react'
+import { Plus, Store, UserCheck, Trash2, Shield, Crown } from 'lucide-react'
 
 const supabase = createClient()
 
@@ -24,7 +24,7 @@ export default function AdminManagersPage() {
       supabase.from('shops').select('id, name, city, country').order('name'),
       (supabase as any).from('shop_members')
         .select('id, shop_id, user_id, role, is_active, profiles(full_name, id), shops(name)')
-        .in('role', ['owner'])
+        .in('role', ['owner', 'manager'])
         .eq('is_active', true),
       supabase.from('profiles').select('id, full_name, role').order('full_name'),
     ])
@@ -137,7 +137,10 @@ export default function AdminManagersPage() {
                 <p className="font-semibold text-foreground">{shop.name}</p>
                 {shop.city && <p className="text-xs text-muted-foreground">{shop.city} · {shop.country === 'CM' ? '🇨🇲 Cameroun' : '🇳🇬 Nigeria'}</p>}
               </div>
-              <span className="text-xs text-muted-foreground">{shopManagers.length} responsable{shopManagers.length !== 1 ? 's' : ''}</span>
+              <span className="text-xs text-muted-foreground">
+                {shopManagers.filter((m: any) => m.role === 'manager').length} responsable{shopManagers.filter((m: any) => m.role === 'manager').length !== 1 ? 's' : ''}
+                {shopManagers.some((m: any) => m.role === 'owner') && <span className="ml-1 text-stockshop-gold">· propriétaire assigné</span>}
+              </span>
             </div>
             <div className="divide-y divide-border/50">
               {shopManagers.length === 0 ? (
@@ -145,15 +148,25 @@ export default function AdminManagersPage() {
               ) : shopManagers.map((m: any) => (
                 <div key={m.id} className="px-5 py-3 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <UserCheck className="h-4 w-4 text-green-400 flex-shrink-0" />
+                    {m.role === 'owner'
+                      ? <Crown className="h-4 w-4 text-stockshop-gold flex-shrink-0" />
+                      : <UserCheck className="h-4 w-4 text-violet-400 flex-shrink-0" />
+                    }
                     <div>
                       <p className="text-sm text-foreground font-medium">{m.profiles?.full_name ?? '—'}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{m.role}</p>
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                        m.role === 'owner'
+                          ? 'bg-amber-400/10 text-amber-400'
+                          : 'bg-violet-400/10 text-violet-400'
+                      }`}>
+                        {m.role === 'owner' ? 'Propriétaire' : 'Responsable'}
+                      </span>
                     </div>
                   </div>
                   <button
                     onClick={() => handleRevoke(m.id)}
                     className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-red-400 transition-colors"
+                    title="Retirer ce responsable"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>

@@ -164,6 +164,7 @@
   },
   "roles": {
     "owner": "Propriétaire",
+    "manager": "Responsable",
     "cashier": "Caissier",
     "stock_manager": "Gestionnaire de stock",
     "viewer": "Observateur"

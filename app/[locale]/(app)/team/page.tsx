@@ -26,8 +26,9 @@ const supabase = createClient() as any
 
 const ROLE_COLORS: Record<string, string> = {
   owner:         'bg-stockshop-blue dark:bg-blue-500 text-white',
-  cashier:       'bg-green-100 text-green-700',
-  stock_manager: 'bg-amber-100 text-amber-700',
+  manager:       'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300',
+  cashier:       'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
+  stock_manager: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
   viewer:        'bg-muted text-muted-foreground',
   super_admin:   'bg-purple-100 text-purple-700',
 }
@@ -233,8 +234,11 @@ export default function TeamPage() {
     }
   }
 
-  const activeCount = members.filter(m => m.is_active && m.user_id !== myProfile?.id).length
-  const inactiveCount = members.filter(m => !m.is_active).length
+  const displayedMembers = viewShopId
+    ? members.filter(m => m.shop_id === viewShopId)
+    : members
+  const activeCount = displayedMembers.filter(m => m.is_active && m.user_id !== myProfile?.id).length
+  const inactiveCount = displayedMembers.filter(m => !m.is_active).length
   const viewShopName = userShops.find(s => s.id === viewShopId)?.name || shop?.name || ''
 
   const renderMember = (member: Member) => {
@@ -290,8 +294,9 @@ export default function TeamPage() {
         {!isMe && member.role !== 'owner' && isOwner && (
           <div className="mt-3 pt-3 border-t flex flex-wrap gap-2 items-center">
             <Select value={member.role} onValueChange={v => changeRole(member, v as UserRole)} disabled={isLoading || !member.is_active}>
-              <SelectTrigger className="w-[120px] h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
+                <SelectItem value="manager">{t('roles.manager')}</SelectItem>
                 <SelectItem value="cashier">{t('roles.cashier')}</SelectItem>
                 <SelectItem value="stock_manager">{t('roles.stock_manager')}</SelectItem>
                 <SelectItem value="viewer">{t('roles.viewer')}</SelectItem>
@@ -375,33 +380,10 @@ export default function TeamPage() {
       {/* Member list */}
       {loading ? (
         <div className="space-y-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
-      ) : isMultiShop ? (
-        <div className="space-y-4">
-          {userShops.filter(s => effectiveShopIds.includes(s.id)).map(shopEntry => {
-            const shopMembers = members.filter(m => m.shop_id === shopEntry.id)
-            if (!shopMembers.length) return null
-            return (
-              <div key={shopEntry.id} className="space-y-3">
-                <div className="flex items-center gap-2 pt-1">
-                  <Store className="h-3.5 w-3.5 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
-                  <span className="text-xs font-semibold text-stockshop-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
-                  <div className="flex-1 h-px bg-border" />
-                </div>
-                {shopMembers.map(member => renderMember(member))}
-              </div>
-            )
-          })}
-          {members.length === 0 && (
-            <div className="flex h-32 items-center justify-center text-muted-foreground text-sm rounded-xl border bg-card">
-              {t('team.no_members')}
-            </div>
-          )}
-        </div>
       ) : (
         <div className="space-y-3">
-          {members.map(member => renderMember(member))}
-
-          {members.length === 0 && !loading && (
+          {displayedMembers.map(member => renderMember(member))}
+          {displayedMembers.length === 0 && (
             <div className="flex h-32 items-center justify-center text-muted-foreground text-sm rounded-xl border bg-card">
               {t('team.no_members')}
             </div>
@@ -508,6 +490,7 @@ export default function TeamPage() {
             <Select value={inviteRole} onValueChange={v => setInviteRole(v as UserRole)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
+                <SelectItem value="manager">{t('roles.manager')}</SelectItem>
                 <SelectItem value="cashier">{t('roles.cashier')}</SelectItem>
                 <SelectItem value="stock_manager">{t('roles.stock_manager')}</SelectItem>
                 <SelectItem value="viewer">{t('roles.viewer')}</SelectItem>

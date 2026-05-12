@@ -1,4 +1,4 @@
-export type UserRole = 'super_admin' | 'owner' | 'cashier' | 'stock_manager' | 'viewer'
+export type UserRole = 'super_admin' | 'owner' | 'manager' | 'cashier' | 'stock_manager' | 'viewer'
 export type PaymentMethod = 'cash' | 'transfer' | 'credit' | 'paystack'
 export type PaymentStatus = 'paid' | 'pending' | 'partial'
 export type SaleStatus = 'active' | 'cancelled'
