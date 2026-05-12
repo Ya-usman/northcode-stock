@@ -1,11 +1,17 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { ShopsViewToggle } from '@/components/admin/shops-view-toggle'
+import { DeletedShopsPanel } from '@/components/admin/deleted-shops-panel'
 
 export default async function AdminShopsPage({ params: { locale } }: { params: { locale: string } }) {
   const supabase = createAdminClient()
 
-  const [{ data: shops }, { data: subs }, { data: profiles }] = await Promise.all([
-    supabase.from('shops').select('id, name, city, country, currency, plan, trial_ends_at, plan_expires_at, created_at, whatsapp, owner_id').order('created_at', { ascending: false }),
+  const [{ data: shops }, { data: deletedShops }, { data: subs }, { data: profiles }] = await Promise.all([
+    supabase.from('shops').select('id, name, city, country, currency, plan, trial_ends_at, plan_expires_at, created_at, whatsapp, owner_id')
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false }),
+    supabase.from('shops').select('id, name, city, country, owner_id, deleted_at, created_at')
+      .not('deleted_at', 'is', null)
+      .order('deleted_at', { ascending: false }),
     supabase.from('subscriptions').select('id, shop_id, plan, amount, status, paystack_reference, starts_at, expires_at, created_at').order('created_at', { ascending: false }),
     supabase.from('profiles').select('id, full_name, shop_id, role, is_active, last_seen').eq('role', 'owner'),
   ])
@@ -24,7 +30,7 @@ export default async function AdminShopsPage({ params: { locale } }: { params: {
     subsByShop[s.shop_id].push(s)
   }
 
-  // Enrich shops for the flat table view
+  // Enrich active shops for the flat table view
   const enrichedShops = (shops || []).map((shop: any) => ({
     ...shop,
     owner: ownersByShop[shop.id] || profileById[shop.owner_id] || null,
@@ -32,7 +38,6 @@ export default async function AdminShopsPage({ params: { locale } }: { params: {
   }))
 
   // Build owners list for the grouped view
-  // Group shops by owner_id
   const shopsByOwner: Record<string, any[]> = {}
   for (const shop of shops || []) {
     const key = shop.owner_id || '__no_owner__'
@@ -40,28 +45,48 @@ export default async function AdminShopsPage({ params: { locale } }: { params: {
     shopsByOwner[key].push(shop)
   }
 
-  // For each owner, fetch their email via auth admin API
   const ownersList = Object.entries(shopsByOwner).map(([ownerId, ownerShops]) => {
     const profile = profileById[ownerId] || null
     return {
       id: ownerId,
       full_name: profile?.full_name || null,
-      email: null as string | null, // fetched below
+      email: null as string | null,
       last_seen: profile?.last_seen || null,
       shops: ownerShops,
     }
   }).sort((a, b) => b.shops.length - a.shops.length)
 
-  // Fetch emails for each owner from auth.users via admin API
-  await Promise.all(
-    ownersList.map(async (owner) => {
+  // Fetch emails for all owners + deleted shop owners
+  const deletedOwnerIds = (deletedShops || [])
+    .map((s: any) => s.owner_id)
+    .filter((id: any) => id && !profileById[id])
+
+  await Promise.all([
+    ...ownersList.map(async (owner) => {
       if (owner.id === '__no_owner__') return
       try {
         const { data } = await supabase.auth.admin.getUserById(owner.id)
         owner.email = data.user?.email || null
       } catch {}
+    }),
+  ])
+
+  // Enrich deleted shops with owner info
+  const emailByOwner: Record<string, string | null> = {}
+  await Promise.all(
+    Array.from(new Set(deletedOwnerIds)).map(async (ownerId: any) => {
+      try {
+        const { data } = await supabase.auth.admin.getUserById(ownerId)
+        emailByOwner[ownerId] = data.user?.email || null
+      } catch {}
     })
   )
+
+  const enrichedDeletedShops = (deletedShops || []).map((shop: any) => ({
+    ...shop,
+    ownerName: profileById[shop.owner_id]?.full_name || null,
+    ownerEmail: ownersList.find(o => o.id === shop.owner_id)?.email || emailByOwner[shop.owner_id] || null,
+  }))
 
   return (
     <div className="space-y-4 max-w-7xl">
@@ -69,8 +94,16 @@ export default async function AdminShopsPage({ params: { locale } }: { params: {
         <h1 className="text-2xl font-bold text-foreground">Boutiques</h1>
         <p className="text-muted-foreground text-sm mt-1">
           {(shops || []).length} boutiques · {ownersList.filter(o => o.id !== '__no_owner__').length} propriétaires · tous pays
+          {enrichedDeletedShops.length > 0 && (
+            <span className="ml-2 text-red-400">· {enrichedDeletedShops.length} supprimée{enrichedDeletedShops.length > 1 ? 's' : ''}</span>
+          )}
         </p>
       </div>
+
+      {enrichedDeletedShops.length > 0 && (
+        <DeletedShopsPanel shops={enrichedDeletedShops} />
+      )}
+
       <ShopsViewToggle shops={enrichedShops} owners={ownersList} locale={locale} />
     </div>
   )
