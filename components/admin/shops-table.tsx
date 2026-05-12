@@ -14,6 +14,9 @@ import {
   ChevronDown, ChevronUp, ExternalLink, Activity,
 } from 'lucide-react'
 import { ShopRestorePanel } from '@/components/admin/shop-restore-panel'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 
 function healthScore(owner: { last_seen: string | null } | null, subscribed: boolean) {
   const lastSeen = owner?.last_seen ? new Date(owner.last_seen) : null
@@ -52,11 +55,19 @@ interface Props {
 
 type ActionType = 'suspend' | 'reactivate' | 'extend' | 'grant_plan'
 
+const COUNTRY_LABELS: Record<string, string> = {
+  NG: '🇳🇬 Nigeria',
+  CM: '🇨🇲 Cameroun',
+}
+
 export function AdminShopsTable({ shops, locale }: Props) {
   const { toast } = useToast()
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'subscribed' | 'trial' | 'expired'>('all')
-  const [country, setCountry] = useState<'all' | 'NG' | 'CM'>('all')
+  const [country, setCountry] = useState<string>('all')
+
+  // Derive unique countries from shops data
+  const availableCountries = Array.from(new Set(shops.map(s => s.country || 'NG').filter(Boolean))).sort()
   const [loading, setLoading] = useState<string | null>(null)
   const [expandedShop, setExpandedShop] = useState<string | null>(null)
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -135,26 +146,31 @@ export function AdminShopsTable({ shops, locale }: Props) {
               />
             </div>
             {/* Country filter */}
-            <select
-              value={country}
-              onChange={e => setCountry(e.target.value as typeof country)}
-              className="bg-muted border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary cursor-pointer"
-            >
-              <option value="all">🌍 Tous les pays</option>
-              <option value="NG">🇳🇬 Nigeria</option>
-              <option value="CM">🇨🇲 Cameroun</option>
-            </select>
+            <Select value={country} onValueChange={setCountry}>
+              <SelectTrigger className="h-8 text-xs w-40 bg-muted border-border">
+                <SelectValue placeholder="Pays" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">🌍 Tous les pays</SelectItem>
+                {availableCountries.map(c => (
+                  <SelectItem key={c} value={c}>
+                    {COUNTRY_LABELS[c] ?? `🌐 ${c}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {/* Plan status filter */}
-            <select
-              value={filter}
-              onChange={e => setFilter(e.target.value as typeof filter)}
-              className="bg-muted border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary cursor-pointer"
-            >
-              <option value="all">Tous les plans</option>
-              <option value="subscribed">Payants</option>
-              <option value="trial">En période d'essai</option>
-              <option value="expired">Expirés</option>
-            </select>
+            <Select value={filter} onValueChange={v => setFilter(v as typeof filter)}>
+              <SelectTrigger className="h-8 text-xs w-44 bg-muted border-border">
+                <SelectValue placeholder="Plan" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les plans</SelectItem>
+                <SelectItem value="subscribed">Payants</SelectItem>
+                <SelectItem value="trial">En période d'essai</SelectItem>
+                <SelectItem value="expired">Expirés</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
