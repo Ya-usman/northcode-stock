@@ -40,6 +40,7 @@ export interface Profile {
   last_seen: string | null
   created_at: string
   locale: string | null
+  country: string | null
 }
 
 export interface Expense {

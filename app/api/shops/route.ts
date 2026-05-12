@@ -23,16 +23,20 @@ export async function POST(request: Request) {
     
     if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
-    // Get user's current shop for defaults
-    const { data: profile } = await supabase.from('profiles').select('shop_id').eq('id', user.id).single()
+    // Get owner's country directly from their profile (set at registration)
+    // Fallback: look at their primary shop if profile.country is not yet set (pre-migration accounts)
+    const { data: profile } = await supabase.from('profiles').select('shop_id, country').eq('id', user.id).single()
 
-    let currency = 'NGN', country = 'NG'
-    if (profile?.shop_id) {
-      const { data: currentShop } = await supabase.from('shops').select('currency, country').eq('id', profile.shop_id).single()
-      if (currentShop) {
-        currency = (currentShop as any).currency ?? 'NGN'
-        country = (currentShop as any).country ?? 'NG'
-      }
+    let country = (profile as any)?.country ?? null
+    let currency = 'NGN'
+
+    if (!country && profile?.shop_id) {
+      const { data: primaryShop } = await supabase.from('shops').select('currency, country').eq('id', profile.shop_id).single()
+      country = (primaryShop as any)?.country ?? 'NG'
+      currency = (primaryShop as any)?.currency ?? 'NGN'
+    } else {
+      const { getCountry } = await import('@/lib/saas/countries')
+      currency = getCountry(country).currencySymbol
     }
 
     // Enforce shop limit based on plan (skip during beta)

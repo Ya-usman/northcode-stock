@@ -46,7 +46,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: shopError?.message || 'Erreur création boutique' }, { status: 500 })
     }
 
-    // Create owner profile
+    // Create owner profile — store country directly so multi-shop creation always uses the right country
     const { error: profileError } = await supabase
       .from('profiles')
       .upsert({
@@ -55,6 +55,7 @@ export async function POST(request: Request) {
         full_name,
         role: 'owner',
         is_active: true,
+        country: countryConfig.code,
       } as any)
 
     if (profileError) {
