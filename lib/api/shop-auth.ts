@@ -1,6 +1,15 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
+const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean)
+
+/** Vérifie si l'utilisateur est super_admin — via email allowlist OU rôle DB */
+export function isSuperAdminUser(email: string | undefined | null, dbRole?: string | null): boolean {
+  if (email && SUPER_ADMIN_EMAILS.includes(email)) return true
+  if (dbRole === 'super_admin') return true
+  return false
+}
+
 export async function getAuthedUser() {
   const cookieStore = cookies()
   const supabase = createServerClient(

@@ -185,39 +185,47 @@ export function OwnerShopsView({ owners: initialOwners, locale }: Props) {
 
               {/* Confirmation suppression définitive */}
               {isConfirming && (
-                <div className="mx-5 mb-3 p-3 rounded-lg bg-red-950/30 border border-red-800/40 space-y-2">
-                  <p className="text-xs text-red-300 font-medium flex items-center gap-1.5">
-                    <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
-                    Suppression définitive — le compte, toutes les boutiques et toutes leurs données seront effacés.
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Tapez <span className="font-mono font-semibold text-foreground">{confirmLabel}</span> pour confirmer :
-                  </p>
-                  <input
-                    autoFocus
-                    value={confirmText}
-                    onChange={e => setConfirmText(e.target.value)}
-                    placeholder={confirmLabel}
-                    className="w-full rounded-md bg-muted border border-border px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-red-500"
-                  />
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className="h-7 text-xs px-3"
-                      disabled={!confirmValid || deleting === owner.id}
-                      onClick={() => handleDelete(owner)}
-                    >
-                      {deleting === owner.id ? 'Suppression…' : 'Supprimer définitivement'}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-xs px-3"
-                      onClick={() => { setConfirmDeleteId(null); setConfirmText('') }}
-                    >
-                      Annuler
-                    </Button>
+                <div className="mx-4 mb-3 rounded-xl border border-red-500/30 bg-card overflow-hidden">
+                  <div className="bg-red-500/10 px-4 py-3 flex items-start gap-2.5">
+                    <AlertTriangle className="h-4 w-4 text-red-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-red-400">Suppression définitive</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Le compte, toutes les boutiques et l'intégralité des données seront effacés. Cette action est irréversible.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="px-4 py-3 space-y-3">
+                    <p className="text-xs text-muted-foreground">
+                      Tapez <span className="font-mono font-semibold text-foreground">{confirmLabel}</span> pour confirmer :
+                    </p>
+                    <input
+                      autoFocus
+                      value={confirmText}
+                      onChange={e => setConfirmText(e.target.value)}
+                      placeholder={confirmLabel}
+                      className="w-full rounded-lg bg-muted border border-border px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500/30"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="h-9 px-4 text-sm font-semibold rounded-lg"
+                        disabled={!confirmValid || deleting === owner.id}
+                        loading={deleting === owner.id}
+                        onClick={() => handleDelete(owner)}
+                      >
+                        Supprimer définitivement
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-9 px-4 text-sm rounded-lg"
+                        onClick={() => { setConfirmDeleteId(null); setConfirmText('') }}
+                      >
+                        Annuler
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}
