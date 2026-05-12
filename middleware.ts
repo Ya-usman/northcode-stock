@@ -136,11 +136,12 @@ export async function middleware(request: NextRequest) {
   // Auth-context + API routes handle deeper permission checks.
   const role = request.cookies.get('user_role')?.value
 
-  // Accès /admin — vérifié sur l'email Supabase (pas le cookie rôle)
+  // Accès /admin — l'utilisateur doit être connecté (vérif email faite dans le layout via getUser())
+  // On ne fait PAS le check email ici : getSession() lit le JWT localement et l'email
+  // peut être absent après un refresh de session, causant une fausse redirection.
   if (pathnameWithoutLocale === '/admin' || pathnameWithoutLocale.startsWith('/admin/')) {
-    const userEmail = session?.user?.email || ''
-    if (!SUPER_ADMIN_EMAILS.includes(userEmail)) {
-      return mergeAuthCookies(NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url)), response)
+    if (!userId) {
+      return mergeAuthCookies(NextResponse.redirect(new URL(`/${locale}/login`, request.url)), response)
     }
   }
 
