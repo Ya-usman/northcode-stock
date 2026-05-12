@@ -135,38 +135,26 @@ export function AdminShopsTable({ shops, locale }: Props) {
               />
             </div>
             {/* Country filter */}
-            {([
-              { value: 'all', label: '🌍 Tous' },
-              { value: 'NG', label: '🇳🇬 Nigeria' },
-              { value: 'CM', label: '🇨🇲 Cameroun' },
-            ] as const).map(c => (
-              <button
-                key={c.value}
-                onClick={() => setCountry(c.value)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  country === c.value
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-foreground/60 border border-border hover:text-foreground hover:border-foreground/30'
-                }`}
-              >
-                {c.label}
-              </button>
-            ))}
+            <select
+              value={country}
+              onChange={e => setCountry(e.target.value as typeof country)}
+              className="bg-muted border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary cursor-pointer"
+            >
+              <option value="all">🌍 Tous les pays</option>
+              <option value="NG">🇳🇬 Nigeria</option>
+              <option value="CM">🇨🇲 Cameroun</option>
+            </select>
             {/* Plan status filter */}
-            <div className="w-px h-5 bg-border" />
-            {(['all', 'subscribed', 'trial', 'expired'] as const).map(f => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize ${
-                  filter === f
-                    ? 'bg-accent text-accent-foreground border border-border'
-                    : 'bg-muted text-foreground/60 border border-border hover:text-foreground hover:border-foreground/30'
-                }`}
-              >
-                {f === 'all' ? 'Tous plans' : f === 'subscribed' ? 'Payants' : f === 'trial' ? 'Trials' : 'Expirés'}
-              </button>
-            ))}
+            <select
+              value={filter}
+              onChange={e => setFilter(e.target.value as typeof filter)}
+              className="bg-muted border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary cursor-pointer"
+            >
+              <option value="all">Tous les plans</option>
+              <option value="subscribed">Payants</option>
+              <option value="trial">En période d'essai</option>
+              <option value="expired">Expirés</option>
+            </select>
           </div>
         </div>
 
