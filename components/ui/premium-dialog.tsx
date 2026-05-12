@@ -28,9 +28,9 @@ export function PremiumDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={cn('p-0 gap-0', maxWidth)}>
-        <div className="overflow-hidden rounded-lg">
+        <div className="rounded-lg">
           {/* Blue header */}
-          <div className="bg-stockshop-blue px-5 pt-5 pb-4 pr-12">
+          <div className="bg-stockshop-blue rounded-t-lg px-5 pt-5 pb-4 pr-12">
             {category && (
               <p className="text-xs font-medium text-blue-200 uppercase tracking-wider mb-1">{category}</p>
             )}
@@ -40,7 +40,7 @@ export function PremiumDialog({
             </div>
           </div>
           {/* Body — rendered directly, no extra wrapper */}
-          <div className="bg-background">
+          <div className="bg-background rounded-b-lg">
             {children}
           </div>
         </div>
