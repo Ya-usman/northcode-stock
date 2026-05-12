@@ -15,7 +15,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrency } from '@/lib/hooks/use-currency'
-import { formatNairaCompact } from '@/lib/utils/currency'
 import { generateReportPDFBlob } from '@/lib/utils/pdf'
 import { format, startOfDay, endOfDay, startOfMonth, startOfWeek, startOfQuarter, startOfYear } from 'date-fns'
 
@@ -331,7 +330,7 @@ export default function ReportsPage() {
             <CardContent className="p-2 sm:p-3 text-center">
               <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight truncate">{item.label}</p>
               <p className={`text-sm sm:text-base font-bold mt-0.5 truncate ${item.color}`}>
-                {loading ? '…' : item.isNum ? item.amount : formatNairaCompact(item.amount as number, currencySymbol)}
+                {loading ? '…' : item.isNum ? item.amount : formatNaira(item.amount as number)}
               </p>
               {item.sub && <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5 leading-tight hidden sm:block">{item.sub}</p>}
             </CardContent>
@@ -345,7 +344,7 @@ export default function ReportsPage() {
           <CardContent className="p-2 sm:p-3 text-center">
             <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">Marge brute</p>
             <p className={`text-sm sm:text-base font-bold mt-0.5 truncate ${totals.profit >= 0 ? 'text-blue-400' : 'text-red-500'}`}>
-              {loading ? '…' : formatNairaCompact(totals.profit, currencySymbol)}
+              {loading ? '…' : formatNaira(totals.profit)}
             </p>
             <p className="text-[9px] text-muted-foreground mt-0.5 hidden sm:block">Ventes − coût achat</p>
           </CardContent>
@@ -354,7 +353,7 @@ export default function ReportsPage() {
           <CardContent className="p-2 sm:p-3 text-center">
             <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight font-semibold">{t('expenses.net_profit')}</p>
             <p className={`text-sm sm:text-base font-bold mt-0.5 truncate ${totals.profit - totalExpenses >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-              {loading ? '…' : formatNairaCompact(totals.profit - totalExpenses, currencySymbol)}
+              {loading ? '…' : formatNaira(totals.profit - totalExpenses)}
             </p>
             <p className="text-[9px] text-muted-foreground mt-0.5 hidden sm:block">Marge − dépenses</p>
           </CardContent>
@@ -363,7 +362,7 @@ export default function ReportsPage() {
           <CardContent className="p-2 sm:p-3 text-center">
             <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">{t('reports.outstanding_debt')}</p>
             <p className="text-sm sm:text-base font-bold mt-0.5 truncate text-orange-500">
-              {loading ? '…' : formatNairaCompact(outstandingDebt, currencySymbol)}
+              {loading ? '…' : formatNaira(outstandingDebt)}
             </p>
           </CardContent>
         </Card>
