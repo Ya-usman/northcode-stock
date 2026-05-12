@@ -531,9 +531,8 @@ const fetchProducts = async () => {
         icon={<Archive className="h-4 w-4 text-amber-500" />}
       >
         <PremiumDialogBody>
-          <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 p-3 text-sm text-amber-700 dark:text-amber-400 space-y-1">
-            <p className="font-semibold">{t('products.archive_confirm_title') || 'Archiver ce produit ?'}</p>
-            <p>{t('products.archive_confirm_body') || 'Il sera masqué de la liste active. Vous pourrez le restaurer à tout moment depuis la section Archivés.'}</p>
+          <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 p-3 text-sm text-amber-700 dark:text-amber-400">
+            <p>{t('products.archive_confirm')}</p>
           </div>
         </PremiumDialogBody>
         <PremiumDialogFooter onCancel={() => setArchiveConfirmProduct(null)} cancelLabel={t('actions.cancel')}>
