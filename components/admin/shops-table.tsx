@@ -11,12 +11,16 @@ import {
 } from '@/components/ui/dialog'
 import {
   ShieldOff, ShieldCheck, Clock, CreditCard, Search,
-  ChevronDown, ChevronUp, ExternalLink, Activity,
+  ChevronDown, ChevronUp, ExternalLink, Activity, MoreVertical,
 } from 'lucide-react'
 import { ShopRestorePanel } from '@/components/admin/shop-restore-panel'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 function healthScore(owner: { last_seen: string | null } | null, subscribed: boolean) {
   const lastSeen = owner?.last_seen ? new Date(owner.last_seen) : null
@@ -125,31 +129,61 @@ function ActionButtons({ shop, isSuspended, loading, locale, onConfirm }: {
   onConfirm: (action: ActionType, shop: Shop) => void
 }) {
   return (
-    <>
-      {isSuspended ? (
-        <button onClick={() => onConfirm('reactivate', shop)} disabled={!!loading}
-          className="flex items-center gap-1 text-xs bg-green-500/20 hover:bg-green-500/30 text-green-400 px-2 py-1 rounded-md transition-colors">
-          <ShieldCheck className="h-3 w-3" /> Réactiver
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          disabled={loading === shop.id}
+          className="h-8 w-8 flex items-center justify-center rounded-lg border border-border bg-card hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <MoreVertical className="h-4 w-4" />
         </button>
-      ) : (
-        <button onClick={() => onConfirm('suspend', shop)} disabled={!!loading}
-          className="flex items-center gap-1 text-xs bg-red-500/20 hover:bg-red-500/30 text-red-400 px-2 py-1 rounded-md transition-colors">
-          <ShieldOff className="h-3 w-3" /> Suspendre
-        </button>
-      )}
-      <button onClick={() => onConfirm('extend', shop)} disabled={!!loading}
-        className="flex items-center gap-1 text-xs bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 px-2 py-1 rounded-md transition-colors">
-        <Clock className="h-3 w-3" /> Prolonger
-      </button>
-      <button onClick={() => onConfirm('grant_plan', shop)} disabled={!!loading}
-        className="flex items-center gap-1 text-xs bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 px-2 py-1 rounded-md transition-colors">
-        <CreditCard className="h-3 w-3" /> Plan
-      </button>
-      <Link href={`/${locale}/admin/shops/${shop.id}`}
-        className="flex items-center gap-1 text-xs bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 px-2 py-1 rounded-md transition-colors">
-        <Activity className="h-3 w-3" /> Inspecter
-      </Link>
-    </>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-44">
+        <DropdownMenuItem asChild>
+          <Link href={`/${locale}/admin/shops/${shop.id}`} className="flex items-center gap-2 cursor-pointer">
+            <Activity className="h-3.5 w-3.5 text-purple-400" />
+            <span>Inspecter</span>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() => onConfirm('extend', shop)}
+          disabled={!!loading}
+          className="flex items-center gap-2 cursor-pointer"
+        >
+          <Clock className="h-3.5 w-3.5 text-amber-400" />
+          <span>Prolonger l'accès</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => onConfirm('grant_plan', shop)}
+          disabled={!!loading}
+          className="flex items-center gap-2 cursor-pointer"
+        >
+          <CreditCard className="h-3.5 w-3.5 text-blue-400" />
+          <span>Attribuer un plan</span>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        {isSuspended ? (
+          <DropdownMenuItem
+            onClick={() => onConfirm('reactivate', shop)}
+            disabled={!!loading}
+            className="flex items-center gap-2 cursor-pointer text-green-500 focus:text-green-500"
+          >
+            <ShieldCheck className="h-3.5 w-3.5" />
+            <span>Réactiver</span>
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem
+            onClick={() => onConfirm('suspend', shop)}
+            disabled={!!loading}
+            className="flex items-center gap-2 cursor-pointer text-red-500 focus:text-red-500"
+          >
+            <ShieldOff className="h-3.5 w-3.5" />
+            <span>Suspendre</span>
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
