@@ -81,7 +81,7 @@ export default function TeamPage() {
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; member: Member | null }>({ open: false, member: null })
   const [deleting, setDeleting] = useState(false)
 
-  const isOwner = myProfile?.role === 'owner' || myProfile?.role === 'super_admin'
+  const isOwner = myProfile?.role === 'owner' || myProfile?.role === 'manager' || myProfile?.role === 'super_admin'
 
   // Sync viewShopId when shop loads or dashboardShopFilter changes
   useEffect(() => {

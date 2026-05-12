@@ -28,7 +28,7 @@ interface SidebarProps {
   userEmail?: string
 }
 
-const ALL_NON_OWNER = ['owner', 'super_admin', 'cashier', 'viewer', 'stock_manager']
+const ALL_NON_OWNER = ['owner', 'super_admin', 'manager', 'cashier', 'viewer', 'stock_manager']
 
 export function Sidebar({ locale, role, profile, shop, onSignOut, userEmail = '' }: SidebarProps) {
   const t = useTranslations('nav')
@@ -41,7 +41,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut, userEmail = ''
     {
       section: null,
       items: [
-        { href: `/${locale}/dashboard`, icon: LayoutDashboard, label: t('dashboard'), roles: ['super_admin', 'owner', 'viewer', 'cashier', 'stock_manager'] },
+        { href: `/${locale}/dashboard`, icon: LayoutDashboard, label: t('dashboard'), roles: ['super_admin', 'owner', 'manager', 'viewer', 'cashier', 'stock_manager'] },
       ],
     },
     {
@@ -66,10 +66,10 @@ export function Sidebar({ locale, role, profile, shop, onSignOut, userEmail = ''
       section: t('section_management'),
       items: [
         { href: `/${locale}/reports`, icon: BarChart2, label: t('reports'), roles: ALL_NON_OWNER, feature: 'reports' as PermFeature },
-        { href: `/${locale}/expenses`, icon: Receipt, label: t('expenses'), roles: ['owner'] },
-        { href: `/${locale}/team`, icon: Users, label: t('team'), roles: ['owner'] },
+        { href: `/${locale}/expenses`, icon: Receipt, label: t('expenses'), roles: ['owner', 'manager'] },
+        { href: `/${locale}/team`, icon: Users, label: t('team'), roles: ['owner', 'manager'] },
         { href: `/${locale}/shops`, icon: Store, label: t('shops'), roles: ['owner'] },
-        { href: `/${locale}/settings`, icon: Settings, label: t('settings'), roles: ['owner'] },
+        { href: `/${locale}/settings`, icon: Settings, label: t('settings'), roles: ['owner', 'manager'] },
         { href: `/${locale}/billing`, icon: Zap, label: t('billing'), roles: ['owner'] },
       ],
     },

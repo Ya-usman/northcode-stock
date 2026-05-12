@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import Link from 'next/link'
@@ -23,7 +23,7 @@ interface BottomNavProps {
   userEmail?: string
 }
 
-const ALL_NON_OWNER = ['super_admin', 'owner', 'cashier', 'viewer', 'stock_manager']
+const ALL_NON_OWNER = ['super_admin', 'owner', 'manager', 'cashier', 'viewer', 'stock_manager']
 
 export function BottomNav({ locale, role, onSignOut, userEmail = '' }: BottomNavProps) {
   const t = useTranslations('nav')
@@ -32,7 +32,7 @@ export function BottomNav({ locale, role, onSignOut, userEmail = '' }: BottomNav
   const { canAccess } = useRolePermissions()
 
   const allItems = [
-    { href: `/${locale}/dashboard`,       icon: LayoutDashboard, label: t('dashboard'),    roles: ['super_admin', 'owner', 'viewer', 'cashier', 'stock_manager'], primary: true },
+    { href: `/${locale}/dashboard`,       icon: LayoutDashboard, label: t('dashboard'),    roles: ['super_admin', 'owner', 'manager', 'viewer', 'cashier', 'stock_manager'], primary: true },
     { href: `/${locale}/sales/new`,       icon: ShoppingCart,    label: t('new_sale'),      roles: ALL_NON_OWNER, feature: 'new_sale' as PermFeature,       primary: true },
     { href: `/${locale}/stock`,           icon: Package,         label: t('stock'),         roles: ALL_NON_OWNER, feature: 'stock' as PermFeature,           primary: true },
     { href: `/${locale}/reports`,         icon: BarChart2,       label: t('reports'),       roles: ALL_NON_OWNER, feature: 'reports' as PermFeature,         primary: true },
@@ -42,11 +42,11 @@ export function BottomNav({ locale, role, onSignOut, userEmail = '' }: BottomNav
     { href: `/${locale}/stock/movements`, icon: ArrowLeftRight,  label: t('movements'),     roles: ALL_NON_OWNER, feature: 'movements' as PermFeature,       primary: false },
     { href: `/${locale}/categories`,      icon: Tag,             label: t('categories'),    roles: ALL_NON_OWNER, feature: 'categories' as PermFeature,      primary: false },
     { href: `/${locale}/suppliers`,       icon: Truck,           label: t('suppliers'),     roles: ALL_NON_OWNER, feature: 'suppliers' as PermFeature,       primary: false },
-    { href: `/${locale}/expenses`,         icon: Receipt,         label: t('expenses'),      roles: ['owner'],                                                primary: false },
-    { href: `/${locale}/team`,            icon: Users,           label: t('team'),          roles: ['owner'],                                                primary: false },
+    { href: `/${locale}/expenses`,         icon: Receipt,         label: t('expenses'),      roles: ['owner', 'manager'],                                     primary: false },
+    { href: `/${locale}/team`,            icon: Users,           label: t('team'),          roles: ['owner', 'manager'],                                     primary: false },
     { href: `/${locale}/shops`,           icon: Store,           label: t('shops'),         roles: ['owner'],                                                primary: false },
     { href: `/${locale}/billing`,         icon: Zap,             label: t('billing'),       roles: ['owner'],                                                primary: false },
-    { href: `/${locale}/settings`,        icon: Settings,        label: t('settings'),      roles: ['owner'],                                                primary: false },
+    { href: `/${locale}/settings`,        icon: Settings,        label: t('settings'),      roles: ['owner', 'manager'],                                     primary: false },
   ].filter(item => item.roles.includes(role) && (!item.feature || canAccess(item.feature)))
 
   const primaryItems = allItems.filter(i => i.primary)

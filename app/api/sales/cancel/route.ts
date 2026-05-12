@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 // supabase user client used for shop membership check (respects RLS)
 
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
     }
 
-    const isOwner = memberRow.role === 'owner' || memberRow.role === 'super_admin'
+    const isOwner = memberRow.role === 'owner' || memberRow.role === 'manager' || memberRow.role === 'super_admin'
     const isCashierOwn = memberRow.role === 'cashier' && sale.cashier_id === user.id
 
     if (!isOwner && !isCashierOwn) {

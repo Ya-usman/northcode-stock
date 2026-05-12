@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, Fragment } from 'react'
 import { useTranslations } from 'next-intl'
@@ -92,7 +92,7 @@ export default function SalesHistoryPage() {
   const [validateMethod, setValidateMethod] = useState('cash')
   const [actionLoading, setActionLoading] = useState(false)
 
-  const isOwner = profile?.role === 'owner' || profile?.role === 'super_admin'
+  const isOwner = profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'super_admin'
   const isCashier = profile?.role === 'cashier'
 
   const getDateBounds = () => {

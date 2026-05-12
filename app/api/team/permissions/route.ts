@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
@@ -28,7 +28,7 @@ export async function PUT(request: Request) {
       .eq('is_active', true)
       .single()
 
-    const isOwner = callerMember?.role === 'owner' || callerMember?.role === 'super_admin'
+    const isOwner = callerMember?.role === 'owner' || callerMember?.role === 'manager' || callerMember?.role === 'super_admin'
     if (!isOwner) return NextResponse.json({ error: 'Seul le propriétaire peut modifier ces permissions' }, { status: 403 })
 
     const admin = await createAdminClient() as any

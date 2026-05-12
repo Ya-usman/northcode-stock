@@ -24,10 +24,11 @@ const PUBLIC_PATHS = ['/', '/login', '/register', '/forgot-password', '/reset-pa
 // authentifiés — les permissions granulaires sont gérées par le système de
 // permissions par rôle (nav + RLS Supabase).
 const ROLE_ACCESS: Record<string, string[]> = {
-  '/team':     ['owner', 'super_admin'],
-  '/settings': ['owner', 'super_admin'],
+  '/team':     ['owner', 'manager', 'super_admin'],
+  '/settings': ['owner', 'manager', 'super_admin'],
   '/billing':  ['owner', 'super_admin'],
   '/shops':    ['owner', 'super_admin'],
+  '/expenses': ['owner', 'manager', 'super_admin'],
 }
 
 const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean)

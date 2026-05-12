@@ -52,7 +52,7 @@ export function useRolePermissions() {
   const stored = (shop as any)?.role_permissions as Partial<AllPerms> | null | undefined
 
   function canAccess(feature: PermFeature): boolean {
-    if (!role || role === 'owner' || role === 'super_admin') return true
+    if (!role || role === 'owner' || role === 'manager' || role === 'super_admin') return true
     const cfgRole = role as ConfigurableRole
     if (!DEFAULT_PERMISSIONS[cfgRole]) return false
     const override = stored?.[cfgRole]
