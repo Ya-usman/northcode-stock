@@ -32,11 +32,11 @@ async function getData(supabase: any) {
     { count: salesToday },
     { count: sales7d },
   ] = await Promise.all([
-    supabase.from('shops').select('id, name, plan, trial_ends_at, plan_expires_at, created_at, is_active, currency, country').order('created_at', { ascending: false }),
+    supabase.from('shops').select('id, name, plan, trial_ends_at, plan_expires_at, created_at, currency, country').order('created_at', { ascending: false }),
     supabase.from('subscriptions').select('id, shop_id, plan, amount, status, paystack_reference, starts_at, created_at').order('created_at', { ascending: false }),
     supabase.from('subscriptions').select('shop_id, amount').eq('status', 'active').gte('created_at', startOfMonth),
     supabase.from('subscriptions').select('shop_id, amount').eq('status', 'active').gte('created_at', startOfLastMonth).lte('created_at', endOfLastMonth),
-    supabase.from('profiles').select('id, full_name, shop_id, last_seen').eq('role', 'owner'),
+    supabase.from('profiles').select('id, full_name, shop_id, last_seen, is_active').eq('role', 'owner'),
     supabase.from('products').select('id', { count: 'exact', head: true }).eq('is_active', true),
     supabase.from('customers').select('id', { count: 'exact', head: true }).is('deleted_at', null),
     supabase.from('sales').select('id', { count: 'exact', head: true }).gte('created_at', startToday),
@@ -118,7 +118,7 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
     const days = getTrialDaysLeft(s.trial_ends_at)
     return !hasActiveSubscription(s.plan, s.plan_expires_at) && days < 0
   }).length
-  const suspended = shops.filter((s: any) => s.is_active === false).length
+  const suspended = shops.filter((s: any) => ownersByShop[s.id]?.is_active === false).length
   const newShopsThisMonth = shops.filter((s: any) => {
     return new Date(s.created_at) >= new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   }).length
