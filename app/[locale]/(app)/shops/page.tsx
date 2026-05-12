@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
-import { Plus, Store, Users, CheckCircle2 } from 'lucide-react'
+import { Plus, Store, Users, CheckCircle2, Trash2, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import type { Shop } from '@/lib/types/database'
 
@@ -22,6 +22,8 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
   const [newCity, setNewCity] = useState('')
   const [loading, setLoading] = useState(false)
   const [memberCounts, setMemberCounts] = useState<Record<string, number>>({})
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     if (userShops.length === 0) return
@@ -57,6 +59,26 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
       toast({ title: err?.message ?? t('errors.generic'), variant: 'destructive' })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDelete = async (shopId: string) => {
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/shops/${shopId}`, { method: 'DELETE' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || t('errors.generic'))
+      toast({ title: 'Boutique supprimée', variant: 'success' })
+      setConfirmDeleteId(null)
+      if (activeShop?.id === shopId) {
+        const next = userShops.find(s => s.id !== shopId)
+        if (next) switchShop(next.id)
+      }
+      await refreshShop()
+    } catch (err: any) {
+      toast({ title: err?.message ?? t('errors.generic'), variant: 'destructive' })
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -152,17 +174,61 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
                     </Badge>
                   </div>
                 </div>
-                {!isActive && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => switchShop(shop.id)}
-                    className="gap-1.5 text-xs flex-shrink-0"
-                  >
-                    {t('shops.switch')}
-                  </Button>
-                )}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {!isActive && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => switchShop(shop.id)}
+                      className="gap-1.5 text-xs"
+                    >
+                      {t('shops.switch')}
+                    </Button>
+                  )}
+                  {isOwner && userShops.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setConfirmDeleteId(shop.id)}
+                      className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 px-2"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
+
+              {/* Confirmation inline */}
+              {confirmDeleteId === shop.id && (
+                <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-900 flex items-start gap-3">
+                  <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-red-600 dark:text-red-400">Supprimer « {shop.name} » ?</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Tous les produits, ventes, clients et données de cette boutique seront définitivement effacés. Cette action est irréversible.
+                    </p>
+                    <div className="flex gap-2 mt-2">
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        loading={deleting}
+                        onClick={() => handleDelete(shop.id)}
+                        className="text-xs h-7 px-3"
+                      >
+                        Oui, supprimer
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setConfirmDeleteId(null)}
+                        className="text-xs h-7 px-3"
+                      >
+                        Annuler
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )
         })}
