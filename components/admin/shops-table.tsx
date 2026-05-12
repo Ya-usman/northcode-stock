@@ -55,9 +55,37 @@ interface Props {
 
 type ActionType = 'suspend' | 'reactivate' | 'extend' | 'grant_plan'
 
-const COUNTRY_LABELS: Record<string, string> = {
-  NG: '🇳🇬 Nigeria',
-  CM: '🇨🇲 Cameroun',
+const COUNTRY_LABELS: Record<string, { flag: string; name: string }> = {
+  NG: { flag: '🇳🇬', name: 'Nigeria' },
+  CM: { flag: '🇨🇲', name: 'Cameroun' },
+  CI: { flag: '🇨🇮', name: "Côte d'Ivoire" },
+  SN: { flag: '🇸🇳', name: 'Sénégal' },
+  GH: { flag: '🇬🇭', name: 'Ghana' },
+  NE: { flag: '🇳🇪', name: 'Niger' },
+  ML: { flag: '🇲🇱', name: 'Mali' },
+  BF: { flag: '🇧🇫', name: 'Burkina Faso' },
+  BJ: { flag: '🇧🇯', name: 'Bénin' },
+  TG: { flag: '🇹🇬', name: 'Togo' },
+  GN: { flag: '🇬🇳', name: 'Guinée' },
+  CD: { flag: '🇨🇩', name: 'RD Congo' },
+  CG: { flag: '🇨🇬', name: 'Congo' },
+  GA: { flag: '🇬🇦', name: 'Gabon' },
+  TD: { flag: '🇹🇩', name: 'Tchad' },
+  CF: { flag: '🇨🇫', name: 'Centrafrique' },
+  GQ: { flag: '🇬🇶', name: 'Guinée Équatoriale' },
+  MA: { flag: '🇲🇦', name: 'Maroc' },
+  DZ: { flag: '🇩🇿', name: 'Algérie' },
+  TN: { flag: '🇹🇳', name: 'Tunisie' },
+  KE: { flag: '🇰🇪', name: 'Kenya' },
+  ZA: { flag: '🇿🇦', name: 'Afrique du Sud' },
+  FR: { flag: '🇫🇷', name: 'France' },
+  GB: { flag: '🇬🇧', name: 'Royaume-Uni' },
+  US: { flag: '🇺🇸', name: 'États-Unis' },
+}
+
+function countryLabel(code: string) {
+  const c = COUNTRY_LABELS[code]
+  return c ? `${c.flag} ${c.name}` : `🌐 ${code}`
 }
 
 export function AdminShopsTable({ shops, locale }: Props) {
@@ -153,9 +181,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
               <SelectContent>
                 <SelectItem value="all">🌍 Tous les pays</SelectItem>
                 {availableCountries.map(c => (
-                  <SelectItem key={c} value={c}>
-                    {COUNTRY_LABELS[c] ?? `🌐 ${c}`}
-                  </SelectItem>
+                  <SelectItem key={c} value={c}>{countryLabel(c)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
