@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { headers } from 'next/headers'
 import { LayoutDashboard, ShoppingBag, CreditCard, LogOut, Package, Users, TrendingUp } from 'lucide-react'
 
-const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim())
+const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean)
 
 export default async function AdminLayout({
   children,

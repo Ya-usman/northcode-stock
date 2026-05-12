@@ -30,7 +30,7 @@ const ROLE_ACCESS: Record<string, string[]> = {
   '/shops':    ['owner', 'super_admin'],
 }
 
-const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim())
+const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean)
 
 function isPublic(path: string): boolean {
   return PUBLIC_PATHS.some(p => path === p || path.startsWith(p + '?'))
