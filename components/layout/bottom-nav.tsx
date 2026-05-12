@@ -130,15 +130,16 @@ export function BottomNav({ locale, role, onSignOut, userEmail = '' }: BottomNav
                 })}
 
                 {/* Admin Panel — super_admin uniquement */}
+                {/* Use <a> (hard nav) to avoid client/server auth race condition */}
                 {SUPER_ADMIN_EMAILS.includes(userEmail) && (
-                  <Link
+                  <a
                     href={`/${locale}/admin`}
                     onClick={() => setMoreOpen(false)}
                     className="flex flex-col items-center gap-1.5 rounded-xl p-3 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
                   >
                     <ShieldCheck className="h-5 w-5" />
                     <span className="text-[10px] font-medium leading-none text-center">Admin</span>
-                  </Link>
+                  </a>
                 )}
 
                 {/* Logout */}

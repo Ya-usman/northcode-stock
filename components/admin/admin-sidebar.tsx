@@ -118,13 +118,13 @@ export function AdminSidebar({ locale, userEmail }: AdminSidebarProps) {
             <p className="text-xs text-foreground font-medium truncate">{userEmail}</p>
             <p className="text-[10px] text-muted-foreground">Super Admin</p>
           </div>
-          <Link
+          <a
             href={`/${locale}/dashboard`}
             title="Back to App"
             className="h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex-shrink-0"
           >
             <LogOut className="h-4 w-4" />
-          </Link>
+          </a>
         </div>
       </div>
     </aside>

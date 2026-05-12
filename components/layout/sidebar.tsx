@@ -208,16 +208,18 @@ export function Sidebar({ locale, role, profile, shop, onSignOut, userEmail = ''
       </nav>
 
       {/* Admin Panel — super_admin uniquement */}
+      {/* Use <a> (hard nav) instead of <Link> to avoid client/server auth race condition
+          when crossing from the (app) route group to the (admin) route group */}
       {SUPER_ADMIN_EMAILS.includes(userEmail) && (
         <div className="px-3 pb-2">
           <div className="h-px bg-border mb-2" />
-          <Link
+          <a
             href={`/${locale}/admin`}
             className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20"
           >
             <ShieldCheck className="h-4 w-4 flex-shrink-0" />
             Admin Panel
-          </Link>
+          </a>
         </div>
       )}
 
