@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
-import { Save, Upload, Globe, Moon, Sun, ShoppingCart, History, CreditCard, Users, Package, ArrowLeftRight, Tag, Truck, BarChart2, ShieldCheck } from 'lucide-react'
+import { Save, Upload, Globe, Moon, Sun, ShoppingCart, History, CreditCard, Users, Package, ArrowLeftRight, Tag, Truck, BarChart2, ShieldCheck, Bell } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
+import { isPushSupported, subscribeToPush, unsubscribeFromPush, getPushPermission } from '@/lib/push'
 import { useTheme } from '@/lib/hooks/use-theme'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -44,6 +45,11 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const [notifyEmailLowStock, setNotifyEmailLowStock] = useState(true)
   const [notifyEmailDaily, setNotifyEmailDaily] = useState(true)
   const [uploadingLogo, setUploadingLogo] = useState(false)
+
+  // Push notifications
+  const [pushSupported, setPushSupported] = useState(false)
+  const [pushEnabled, setPushEnabled] = useState(false)
+  const [pushLoading, setPushLoading] = useState(false)
 
   // ── Role permissions ────────────────────────────────────────────────────────
   const [activePermRole, setActivePermRole] = useState<ConfigurableRole>('cashier')
@@ -98,6 +104,32 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       }
     }
   }, [shopData])
+
+  // Check current push subscription state
+  useEffect(() => {
+    if (!isPushSupported()) return
+    setPushSupported(true)
+    navigator.serviceWorker.ready.then(reg =>
+      reg.pushManager.getSubscription().then(sub => setPushEnabled(!!sub))
+    )
+  }, [])
+
+  const togglePush = async (enabled: boolean) => {
+    if (!shop?.id) return
+    setPushLoading(true)
+    try {
+      if (enabled) {
+        const ok = await subscribeToPush(shop.id)
+        setPushEnabled(ok)
+        if (!ok) toast({ title: 'Permission refusée ou non supportée', variant: 'destructive' })
+      } else {
+        await unsubscribeFromPush()
+        setPushEnabled(false)
+      }
+    } finally {
+      setPushLoading(false)
+    }
+  }
 
   const saveSettings = async () => {
     if (!shop?.id) return
@@ -321,6 +353,31 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
               </div>
             ))}
           </div>
+
+          {pushSupported && (
+            <>
+              <Separator />
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Bell className="h-3.5 w-3.5" />
+                  Notifications push
+                </p>
+                <div className="flex items-center justify-between py-1">
+                  <div>
+                    <Label className="cursor-pointer">Alertes stock bas</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {pushEnabled ? 'Activé sur cet appareil' : 'Désactivé sur cet appareil'}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={pushEnabled}
+                    onCheckedChange={togglePush}
+                    disabled={pushLoading}
+                  />
+                </div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

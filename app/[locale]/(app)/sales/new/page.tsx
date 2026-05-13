@@ -29,6 +29,7 @@ import { cacheProducts, getCachedProducts, savePendingSale } from '@/lib/offline
 import { useOffline } from '@/lib/offline/use-offline'
 import { getCountry, getMethodType } from '@/lib/saas/countries'
 import { formatInputValue } from '@/lib/utils/currency'
+import { checkAndNotifyLowStock } from '@/lib/push'
 
 interface Draft {
   id: string
@@ -622,6 +623,10 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       setShowReceipt(true)
       resetForm()
       toast({ title: t('sales.receipt_ready'), variant: 'success' })
+
+      // Fire-and-forget: check low stock for sold products
+      const soldProductIds = cart.map(item => item.product.id)
+      checkAndNotifyLowStock(selectedShop!.id, soldProductIds).catch(() => {})
     } catch (err: any) {
       toast({ title: err.message || t('errors.generic'), variant: 'destructive' })
     } finally {
