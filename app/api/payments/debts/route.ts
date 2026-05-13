@@ -5,7 +5,7 @@ import { cookies } from 'next/headers'
 
 // GET /api/payments/debts?shop_ids=id1,id2  (or legacy ?shop_id=xxx)
 // Returns customers with debt + their unpaid sales (bypasses RLS)
-// Cashiers only see debtors whose unpaid sales they created (cashier_id = user.id)
+// All roles see full shop debt — access is restricted to allowedIds (their shop only)
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -49,71 +49,32 @@ export async function GET(request: Request) {
     const allowedIds = shopIds.filter(id => accessibleShopIds.includes(id))
     if (!allowedIds.length) return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
 
-    // Determine caller role (for cashier-specific filtering)
-    const callerMemberRow = (memberRows || []).find((m: any) => allowedIds.includes(m.shop_id))
-    let callerRole: string | null = callerMemberRow?.role || null
-    if (!callerRole) {
-      const { data: profile } = await supabase.from('profiles').select('role, shop_id').eq('id', user.id).single()
-      if (profile && allowedIds.includes((profile as any).shop_id)) {
-        callerRole = (profile as any).role
-      }
-    }
-
-    const isCashier = callerRole === 'cashier'
     const admin = await createAdminClient() as any
 
-    let allSales: any[] = []
-    let customers: any[] = []
+    // All roles: fetch all customers with outstanding debt in their shop(s)
+    const { data: shopCustomers, error: custErr } = await admin
+      .from('customers')
+      .select('*')
+      .in('shop_id', allowedIds)
+      .gt('total_debt', 0)
+      .order('total_debt', { ascending: false })
 
-    if (isCashier) {
-      // Cashier: fetch only their own unpaid sales, then derive the customers
-      const { data: cashierSales, error: salesErr } = await admin
-        .from('sales')
-        .select('id, sale_number, created_at, total, balance, amount_paid, payment_status, customer_id, cashier_id, sale_items(product_name, quantity, subtotal)')
-        .in('shop_id', allowedIds)
-        .eq('cashier_id', user.id)
-        .gt('balance', 0)
-        .eq('sale_status', 'active')
-        .order('created_at', { ascending: true })
+    if (custErr) throw custErr
+    const customers = shopCustomers || []
+    if (!customers.length) return NextResponse.json({ debtors: [] })
 
-      if (salesErr) throw salesErr
-      allSales = cashierSales || []
-      if (!allSales.length) return NextResponse.json({ debtors: [] })
+    const customerIds = customers.map((c: any) => c.id)
+    const { data: shopSales, error: salesErr } = await admin
+      .from('sales')
+      .select('id, sale_number, created_at, total, balance, amount_paid, payment_status, customer_id, cashier_id, sale_items(product_name, quantity, subtotal)')
+      .in('shop_id', allowedIds)
+      .in('customer_id', customerIds)
+      .gt('balance', 0)
+      .eq('sale_status', 'active')
+      .order('created_at', { ascending: true })
 
-      const cashierCustomerIds = Array.from(new Set(allSales.map((s: any) => s.customer_id).filter(Boolean)))
-      const { data: cashierCustomers, error: custErr } = await admin
-        .from('customers')
-        .select('*')
-        .in('id', cashierCustomerIds)
-
-      if (custErr) throw custErr
-      customers = cashierCustomers || []
-    } else {
-      // Owner/manager: all customers with outstanding debt
-      const { data: ownerCustomers, error: custErr } = await admin
-        .from('customers')
-        .select('*')
-        .in('shop_id', allowedIds)
-        .gt('total_debt', 0)
-        .order('total_debt', { ascending: false })
-
-      if (custErr) throw custErr
-      customers = ownerCustomers || []
-      if (!customers.length) return NextResponse.json({ debtors: [] })
-
-      const customerIds = customers.map((c: any) => c.id)
-      const { data: ownerSales, error: salesErr } = await admin
-        .from('sales')
-        .select('id, sale_number, created_at, total, balance, amount_paid, payment_status, customer_id, cashier_id, sale_items(product_name, quantity, subtotal)')
-        .in('shop_id', allowedIds)
-        .in('customer_id', customerIds)
-        .gt('balance', 0)
-        .eq('sale_status', 'active')
-        .order('created_at', { ascending: true })
-
-      if (salesErr) throw salesErr
-      allSales = ownerSales || []
-    }
+    if (salesErr) throw salesErr
+    const allSales = shopSales || []
 
     // Fetch cashier names for all sales
     const cashierIds = Array.from(new Set(allSales.map((s: any) => s.cashier_id).filter(Boolean)))
@@ -136,13 +97,10 @@ export async function GET(request: Request) {
       })
     }
 
-    // For cashiers: totalDebt = sum of their own unpaid sales balances (not customer.total_debt)
     const debtors = customers
       .map((customer: any) => {
         const unpaidSales = salesByCustomer[customer.id] || []
-        const totalDebt = isCashier
-          ? unpaidSales.reduce((s: number, sale: any) => s + Number(sale.balance), 0)
-          : Number(customer.total_debt)
+        const totalDebt = Number(customer.total_debt)
         return { customer, unpaidSales, totalDebt }
       })
       .filter(d => d.totalDebt > 0 || d.unpaidSales.length > 0)
