@@ -211,8 +211,10 @@ export default function DashboardPage() {
 
       const salesArr = (todaySales || []) as unknown as Sale[]
       const salesCount = salesArr.length
-      // Cashier should not see shop-wide debt — only owner/manager sees it
-      const debt = isCashier ? 0 : (debtData || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0)
+      // Cashier sees debt from their own sales only; owner/manager sees shop-wide debt
+      const debt = isCashier
+        ? salesArr.reduce((s: number, sale: any) => s + Number(sale.balance), 0)
+        : (debtData || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0)
       const expensesTotal = (expensesRaw || []).reduce((s: number, e: any) => s + Number(e.amount), 0)
 
       // Cashier's own sale IDs (already filtered by cashier_id above)
