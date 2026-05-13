@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { getPlan, isBetaPeriod } from '@/lib/saas/plans'
+import { getPlan } from '@/lib/saas/plans'
 
 export async function POST(request: Request) {
   try {
@@ -39,8 +39,8 @@ export async function POST(request: Request) {
       currency = getCountry(country).currencySymbol
     }
 
-    // Enforce shop limit based on plan (skip during beta)
-    if (!isBetaPeriod()) {
+    // Enforce shop limit — always, including trial and beta
+    {
       const { data: primaryShop } = await supabase
         .from('shops').select('plan, plan_expires_at, trial_ends_at')
         .eq('id', profile?.shop_id ?? '').single()
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
           .eq('user_id', user.id).eq('role', 'owner').eq('is_active', true)
         if ((count ?? 0) >= plan.limits.shops) {
           return NextResponse.json(
-            { error: `Votre forfait ${plan.name} est limité à ${plan.limits.shops} boutique(s). Passez au forfait supérieur.` },
+            { error: `Votre forfait ${plan.name} est limité à ${plan.limits.shops} boutique(s). Passez au forfait supérieur pour en créer davantage.` },
             { status: 403 }
           )
         }

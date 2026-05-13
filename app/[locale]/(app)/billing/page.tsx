@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { useTranslations, useLocale } from 'next-intl'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { getPlan, getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
@@ -10,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import { CheckCircle2, Clock, Crown, Sparkles, Building2, ShieldCheck } from 'lucide-react'
+import { PlanUsageCard } from '@/components/saas/plan-usage-card'
 import { cn } from '@/lib/utils/cn'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Script from 'next/script'
@@ -27,6 +29,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   const { shop, user, refreshShop } = useAuth()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const [usageStats, setUsageStats] = useState({ products: 0, team: 0, shops: 0 })
   const period: BillingPeriod = 'monthly'
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -70,6 +73,19 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
       router.replace(`/${locale}/billing`)
     }
   }, [searchParams])
+
+  // Fetch usage stats once shop is loaded
+  const supabase = useRef(createClient()).current
+  useEffect(() => {
+    if (!shop?.id || !user?.id) return
+    Promise.all([
+      supabase.from('products').select('id', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('is_active', true),
+      (supabase as any).from('shop_members').select('id', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('is_active', true).neq('role', 'owner'),
+      (supabase as any).from('shop_members').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('role', 'owner').eq('is_active', true),
+    ]).then(([{ count: p }, { count: t }, { count: s }]) => {
+      setUsageStats({ products: p ?? 0, team: t ?? 0, shops: s ?? 0 })
+    })
+  }, [shop?.id, user?.id])
 
   const currentPlan = getPlan(shop?.plan)
   const trialDaysLeft = getTrialDaysLeft(shop?.trial_ends_at)
@@ -201,6 +217,19 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
             )}
           </div>
         </div>
+
+        {/* Plan usage stats */}
+        {shop && (
+          <PlanUsageCard
+            plan={shop.plan ?? null}
+            planExpiresAt={(shop as any).plan_expires_at ?? null}
+            trialEndsAt={(shop as any).trial_ends_at ?? null}
+            productCount={usageStats.products}
+            teamCount={usageStats.team}
+            shopCount={usageStats.shops}
+            locale={locale}
+          />
+        )}
 
         {/* Plans */}
         <div>

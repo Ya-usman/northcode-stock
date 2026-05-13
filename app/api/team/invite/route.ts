@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { cookies } from 'next/headers'
+import { getPlan } from '@/lib/saas/plans'
 
 // Use raw supabase-js client with service role to bypass RLS entirely
 function getAdminClient() {
@@ -37,6 +38,23 @@ export async function POST(request: Request) {
 
     if (!callerMember || !['owner', 'super_admin'].includes(callerMember.role)) {
       return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+    }
+
+    // Enforce team member limit based on shop plan
+    const { data: shopRow } = await supabase
+      .from('shops').select('plan, plan_expires_at').eq('id', shop_id).single()
+    const plan = getPlan((shopRow as any)?.plan)
+    if (plan.limits.team_members !== -1) {
+      // Count active non-owner members
+      const { count: memberCount } = await supabase
+        .from('shop_members').select('id', { count: 'exact', head: true })
+        .eq('shop_id', shop_id).eq('is_active', true).neq('role', 'owner')
+      if ((memberCount ?? 0) >= plan.limits.team_members) {
+        return NextResponse.json(
+          { error: `Votre forfait ${plan.name} est limité à ${plan.limits.team_members} employé(s). Passez au forfait supérieur pour en ajouter davantage.` },
+          { status: 403 }
+        )
+      }
     }
 
     const admin = getAdminClient()
