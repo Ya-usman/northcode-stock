@@ -30,6 +30,9 @@ export default function ReportsPage() {
   const supabase = createClient() as any
 
   const [dateFilter, setDateFilter] = useState('month')
+  const today = format(new Date(), 'yyyy-MM-dd')
+  const [customStart, setCustomStart] = useState(today)
+  const [customEnd, setCustomEnd] = useState(today)
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
 
@@ -54,6 +57,10 @@ export default function ReportsPage() {
       case 'quarter':  start = startOfQuarter(now); break
       case 'semester': start = new Date(now.getFullYear(), now.getMonth() < 6 ? 0 : 6, 1); break
       case 'year':     start = startOfYear(now); break
+      case 'custom':   return {
+        start: startOfDay(new Date(customStart)).toISOString(),
+        end: endOfDay(new Date(customEnd)).toISOString(),
+      }
       default:         start = startOfMonth(now)
     }
     return { start: start.toISOString(), end: end.toISOString() }
@@ -214,7 +221,10 @@ export default function ReportsPage() {
     setLoading(false)
   }
 
-  useEffect(() => { fetchReports() }, [effectiveShopIds.join(','), dateFilter])
+  useEffect(() => {
+    if (dateFilter === 'custom' && (!customStart || !customEnd)) return
+    fetchReports()
+  }, [effectiveShopIds.join(','), dateFilter, dateFilter === 'custom' ? customStart : '', dateFilter === 'custom' ? customEnd : ''])
 
   const exportPDF = async () => {
     setExporting(true)
@@ -307,23 +317,52 @@ export default function ReportsPage() {
   return (
     <div className="space-y-3 pb-6">
       {/* Controls */}
-      <div className="flex items-center justify-between gap-2">
-        <Select value={dateFilter} onValueChange={setDateFilter}>
-          <SelectTrigger className="w-[140px] sm:w-[170px] text-xs sm:text-sm h-9"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="today">{t('reports.today')}</SelectItem>
-            <SelectItem value="week">{t('reports.this_week')}</SelectItem>
-            <SelectItem value="month">{t('reports.this_month')}</SelectItem>
-            <SelectItem value="quarter">{t('reports.this_quarter')}</SelectItem>
-            <SelectItem value="semester">{t('reports.this_semester')}</SelectItem>
-            <SelectItem value="year">{t('reports.this_year')}</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button variant="outline" onClick={exportPDF} loading={exporting} className="gap-1.5 h-9 px-3 text-xs sm:text-sm">
-          <Download className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">{t('actions.download_pdf')}</span>
-          <span className="sm:hidden">PDF</span>
-        </Button>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <Select value={dateFilter} onValueChange={setDateFilter}>
+            <SelectTrigger className="w-[150px] sm:w-[175px] text-xs sm:text-sm h-9"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="today">{t('reports.today')}</SelectItem>
+              <SelectItem value="week">{t('reports.this_week')}</SelectItem>
+              <SelectItem value="month">{t('reports.this_month')}</SelectItem>
+              <SelectItem value="quarter">{t('reports.this_quarter')}</SelectItem>
+              <SelectItem value="semester">{t('reports.this_semester')}</SelectItem>
+              <SelectItem value="year">{t('reports.this_year')}</SelectItem>
+              <SelectItem value="custom">Période personnalisée</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="outline" onClick={exportPDF} loading={exporting} className="gap-1.5 h-9 px-3 text-xs sm:text-sm">
+            <Download className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">{t('actions.download_pdf')}</span>
+            <span className="sm:hidden">PDF</span>
+          </Button>
+        </div>
+
+        {dateFilter === 'custom' && (
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 flex-1">
+              <span className="text-xs text-muted-foreground flex-shrink-0">Du</span>
+              <input
+                type="date"
+                value={customStart}
+                max={customEnd}
+                onChange={e => setCustomStart(e.target.value)}
+                className="flex-1 h-9 rounded-md border border-input bg-background px-2 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
+            <div className="flex items-center gap-1.5 flex-1">
+              <span className="text-xs text-muted-foreground flex-shrink-0">Au</span>
+              <input
+                type="date"
+                value={customEnd}
+                min={customStart}
+                max={today}
+                onChange={e => setCustomEnd(e.target.value)}
+                className="flex-1 h-9 rounded-md border border-input bg-background px-2 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* KPI — ligne 1 : Encaissé · Dépenses · Transactions */}
