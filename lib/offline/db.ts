@@ -1,7 +1,7 @@
 import { openDB, type IDBPDatabase } from 'idb'
 
 const DB_NAME = 'stockshop-offline'
-const DB_VERSION = 1
+const DB_VERSION = 2
 
 export interface CachedProduct {
   id: string
@@ -14,6 +14,15 @@ export interface CachedProduct {
   category_id: string | null
   is_active: boolean
   tax_rate?: number
+  cached_at: number
+}
+
+export interface CachedCustomer {
+  id: string
+  shop_id: string
+  name: string
+  phone: string | null
+  total_debt: number
   cached_at: number
 }
 
@@ -37,12 +46,12 @@ export interface PendingSale {
   payment_status: string
   amount_paid: number
   balance: number
+  customer_id: string | null
   customer_name: string | null
   customer_phone: string | null
   notes: string | null
   created_at: string
   items: PendingSaleItem[]
-  // Payment record to insert after sale
   payment_amount: number
   payment_reference: string | null
   synced: boolean
@@ -54,15 +63,17 @@ let _db: Promise<IDBPDatabase> | null = null
 function getDB() {
   if (!_db) {
     _db = openDB(DB_NAME, DB_VERSION, {
-      upgrade(db) {
-        if (!db.objectStoreNames.contains('products')) {
-          const store = db.createObjectStore('products', { keyPath: 'id' })
-          store.createIndex('shop_id', 'shop_id')
+      upgrade(db, oldVersion) {
+        if (oldVersion < 1) {
+          const products = db.createObjectStore('products', { keyPath: 'id' })
+          products.createIndex('shop_id', 'shop_id')
+          const sales = db.createObjectStore('pending_sales', { keyPath: 'local_id' })
+          sales.createIndex('shop_id', 'shop_id')
+          sales.createIndex('synced', 'synced')
         }
-        if (!db.objectStoreNames.contains('pending_sales')) {
-          const store = db.createObjectStore('pending_sales', { keyPath: 'local_id' })
-          store.createIndex('shop_id', 'shop_id')
-          store.createIndex('synced', 'synced')
+        if (oldVersion < 2) {
+          const customers = db.createObjectStore('customers', { keyPath: 'id' })
+          customers.createIndex('shop_id', 'shop_id')
         }
       },
     })
@@ -84,6 +95,22 @@ export async function cacheProducts(shopId: string, products: Omit<CachedProduct
 export async function getCachedProducts(shopId: string): Promise<CachedProduct[]> {
   const db = await getDB()
   return db.getAllFromIndex('products', 'shop_id', shopId)
+}
+
+// ── Customers ────────────────────────────────────────────────────────────────
+
+export async function cacheCustomers(shopId: string, customers: Omit<CachedCustomer, 'cached_at'>[]): Promise<void> {
+  const db = await getDB()
+  const tx = db.transaction('customers', 'readwrite')
+  await Promise.all([
+    ...customers.map(c => tx.store.put({ ...c, shop_id: shopId, cached_at: Date.now() })),
+    tx.done,
+  ])
+}
+
+export async function getCachedCustomers(shopId: string): Promise<CachedCustomer[]> {
+  const db = await getDB()
+  return db.getAllFromIndex('customers', 'shop_id', shopId)
 }
 
 // ── Pending sales ────────────────────────────────────────────────────────────

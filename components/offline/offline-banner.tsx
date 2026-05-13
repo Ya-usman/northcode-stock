@@ -35,8 +35,8 @@ export function OfflineBanner() {
       className={cn(
         'flex items-center justify-between gap-3 px-4 py-2 text-xs font-medium border-b',
         !isOnline
-          ? 'bg-red-50 border-red-200 text-red-700'
-          : 'bg-amber-50 border-amber-200 text-amber-700'
+          ? 'bg-red-500/10 border-red-500/20 text-red-500 dark:text-red-400'
+          : 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
       )}
     >
       <div className="flex items-center gap-2">
@@ -50,7 +50,7 @@ export function OfflineBanner() {
         <button
           onClick={handleSync}
           disabled={syncing}
-          className="flex items-center gap-1.5 rounded-md bg-amber-100 hover:bg-amber-200 px-2.5 py-1 transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-md bg-amber-500/15 hover:bg-amber-500/25 px-2.5 py-1 transition-colors disabled:opacity-50"
         >
           <RefreshCw className={cn('h-3 w-3', syncing && 'animate-spin')} />
           {syncing ? 'Sync…' : 'Synchroniser'}

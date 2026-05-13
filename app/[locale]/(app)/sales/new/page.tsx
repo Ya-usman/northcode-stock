@@ -25,7 +25,7 @@ import { generateReceiptPDFBlob } from '@/lib/utils/pdf'
 import { shareReceiptWhatsApp, buildReceiptWhatsAppMessage } from '@/lib/utils/whatsapp'
 import { sharePDFNative, printPDFNative, isCapacitor } from '@/lib/utils/native-share'
 import type { Product, Customer, CartItem, Sale, SaleItem, Category } from '@/lib/types/database'
-import { cacheProducts, getCachedProducts, savePendingSale } from '@/lib/offline/db'
+import { cacheProducts, getCachedProducts, cacheCustomers, getCachedCustomers, savePendingSale } from '@/lib/offline/db'
 import { useOffline } from '@/lib/offline/use-offline'
 import { getCountry, getMethodType } from '@/lib/saas/countries'
 import { formatInputValue } from '@/lib/utils/currency'
@@ -122,11 +122,15 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     const load = async () => {
       // Offline: use IndexedDB cache
       if (!navigator.onLine) {
-        const cached = await getCachedProducts(selectedShop.id)
-        if (cached.length > 0) {
-          setProducts(cached as unknown as Product[])
-          setFilteredProducts(cached as unknown as Product[])
+        const [cachedProds, cachedCusts] = await Promise.all([
+          getCachedProducts(selectedShop.id),
+          getCachedCustomers(selectedShop.id),
+        ])
+        if (cachedProds.length > 0) {
+          setProducts(cachedProds as unknown as Product[])
+          setFilteredProducts(cachedProds as unknown as Product[])
         }
+        if (cachedCusts.length > 0) setCustomers(cachedCusts as unknown as Customer[])
         return
       }
       const [{ data: prods }, { data: custs }, { data: cats }] = await Promise.all([
@@ -140,9 +144,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       setFilteredProducts(safeProds)
       setCustomers((custs || []) as Customer[])
       setCategories((cats || []) as Category[])
-      // Cache products for offline use
-      if (safeProds.length > 0) {
-        await cacheProducts(selectedShop.id, safeProds.map((p: any) => ({
+      // Cache products + customers for offline use
+      await Promise.all([
+        safeProds.length > 0 ? cacheProducts(selectedShop.id, safeProds.map((p: any) => ({
           id: p.id,
           shop_id: selectedShop.id,
           name: p.name,
@@ -152,8 +156,15 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           quantity: Number(p.quantity),
           category_id: p.category_id ?? null,
           is_active: p.is_active,
-        })))
-      }
+        }))) : Promise.resolve(),
+        custs && custs.length > 0 ? cacheCustomers(selectedShop.id, custs.map((c: any) => ({
+          id: c.id,
+          shop_id: selectedShop.id,
+          name: c.name,
+          phone: c.phone ?? null,
+          total_debt: Number(c.total_debt ?? 0),
+        }))) : Promise.resolve(),
+      ])
     }
     load()
   }, [selectedShop?.id])
@@ -437,6 +448,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             : balance > 0 ? (paid > 0 ? 'partial' : 'pending') : 'paid',
           amount_paid: paid,
           balance,
+          customer_id: selectedCustomer?.id ?? null,
           customer_name: customerName.trim() || selectedCustomer?.name || null,
           customer_phone: customerPhone.trim() || selectedCustomer?.phone || null,
           notes: notes || null,
