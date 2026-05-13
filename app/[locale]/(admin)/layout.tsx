@@ -31,7 +31,7 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex overflow-x-hidden">
+    <div className="min-h-screen bg-background text-foreground flex">
       {/* Sidebar desktop */}
       <AdminSidebar locale={locale} userEmail={user!.email ?? ''} />
 
@@ -45,7 +45,7 @@ export default async function AdminLayout({
       <AdminBottomNav locale={locale} />
 
       {/* Main */}
-      <main className="flex-1 md:pl-56 pt-14 md:pt-0 pb-16 md:pb-0">
+      <main className="flex-1 md:pl-56 pt-14 md:pt-0 pb-16 md:pb-0 overflow-x-hidden">
         <div className="p-5 md:p-8">{children}</div>
       </main>
     </div>
