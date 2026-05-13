@@ -72,8 +72,56 @@ export default async function AdminPaymentsPage({
         </div>
       </div>
 
-      {/* Payments table */}
-      <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+      {/* Payments — mobile cards */}
+      <div className="md:hidden bg-card rounded-xl border border-border shadow-sm divide-y divide-border/50">
+        {payments.length === 0 && (
+          <p className="px-5 py-10 text-center text-muted-foreground text-sm">Aucun paiement</p>
+        )}
+        {payments.map((p: any) => {
+          const shop = shopMap[p.shop_id]
+          const planLabel = PLANS[p.plan as keyof typeof PLANS]?.name || p.plan
+          const colorClass = PLAN_COLORS[p.plan] || 'text-muted-foreground bg-muted'
+          const isExpired = p.expires_at && new Date(p.expires_at) < new Date()
+          const currency = shop?.currency || '₦'
+          const countryConfig = shop?.country ? COUNTRIES[shop.country as keyof typeof COUNTRIES] : null
+          const flag = countryConfig?.flag || '🌐'
+
+          return (
+            <div key={p.id} className="px-4 py-3.5 space-y-2">
+              {/* Shop name + amount */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-semibold text-foreground text-sm truncate">{shop?.name || '—'}</p>
+                  <p className="text-xs text-muted-foreground">{flag} {shop?.city || '—'}</p>
+                </div>
+                <span className="font-bold text-green-400 text-sm flex-shrink-0">{formatCurrency(p.amount, currency)}</span>
+              </div>
+              {/* Plan + status */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded ${colorClass}`}>{planLabel}</span>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${p.status === 'active' ? 'text-green-400 bg-green-400/10' : 'text-muted-foreground bg-muted'}`}>
+                  {p.status}
+                </span>
+              </div>
+              {/* Date + expiry */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                <span>{new Date(p.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                {p.expires_at && (
+                  <span className={isExpired ? 'text-red-400' : ''}>
+                    Exp. {new Date(p.expires_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
+                )}
+                {p.paystack_reference && (
+                  <span className="font-mono truncate max-w-[160px]">{p.paystack_reference}</span>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Payments — desktop table */}
+      <div className="hidden md:block bg-card rounded-xl border border-border shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -90,9 +138,7 @@ export default async function AdminPaymentsPage({
             <tbody>
               {payments.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-5 py-10 text-center text-muted-foreground text-sm">
-                    Aucun paiement
-                  </td>
+                  <td colSpan={7} className="px-5 py-10 text-center text-muted-foreground text-sm">Aucun paiement</td>
                 </tr>
               )}
               {payments.map((p: any) => {
@@ -111,26 +157,16 @@ export default async function AdminPaymentsPage({
                       <p className="text-xs text-muted-foreground">{flag} {shop?.city}</p>
                     </td>
                     <td className="px-5 py-3">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded ${colorClass}`}>
-                        {planLabel}
-                      </span>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded ${colorClass}`}>{planLabel}</span>
                     </td>
-                    <td className="px-5 py-3 font-bold text-green-400">
-                      {formatCurrency(p.amount, currency)}
-                    </td>
+                    <td className="px-5 py-3 font-bold text-green-400">{formatCurrency(p.amount, currency)}</td>
                     <td className="px-5 py-3">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                        p.status === 'active'
-                          ? 'text-green-400 bg-green-400/10'
-                          : 'text-muted-foreground bg-muted'
-                      }`}>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${p.status === 'active' ? 'text-green-400 bg-green-400/10' : 'text-muted-foreground bg-muted'}`}>
                         {p.status}
                       </span>
                     </td>
                     <td className="px-5 py-3">
-                      <span className="text-xs font-mono text-muted-foreground truncate max-w-[120px] block">
-                        {p.paystack_reference || '—'}
-                      </span>
+                      <span className="text-xs font-mono text-muted-foreground truncate max-w-[120px] block">{p.paystack_reference || '—'}</span>
                     </td>
                     <td className="px-5 py-3 text-muted-foreground text-xs">
                       {new Date(p.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}

@@ -31,7 +31,7 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex">
+    <div className="min-h-screen bg-background text-foreground flex overflow-x-hidden">
       {/* Sidebar desktop */}
       <AdminSidebar locale={locale} userEmail={user!.email ?? ''} />
 

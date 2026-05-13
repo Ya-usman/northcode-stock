@@ -163,7 +163,29 @@ export default async function AnalyticsPage({
       {/* Cohortes de conversion */}
       <div className="bg-card rounded-xl border border-border shadow-sm p-5">
         <h2 className="font-semibold text-foreground text-sm mb-4">Taux de conversion par cohorte (mois d'inscription)</h2>
-        <div className="overflow-x-auto">
+
+        {/* Mobile: stacked cards */}
+        <div className="md:hidden space-y-2">
+          {cohorts.map(c => (
+            <div key={c.month} className="flex items-center justify-between gap-3 py-2 border-b border-border/50 last:border-0">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-foreground capitalize">{c.month}</p>
+                <p className="text-[11px] text-muted-foreground">{c.total} inscrits · {c.converted} convertis</p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="h-1.5 bg-muted rounded-full w-16 overflow-hidden">
+                  <div className={`h-full rounded-full ${c.rate >= 30 ? 'bg-green-500' : c.rate >= 10 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${c.rate}%` }} />
+                </div>
+                <span className={`text-xs font-bold w-8 text-right ${c.rate >= 30 ? 'text-green-400' : c.rate >= 10 ? 'text-amber-400' : 'text-red-400'}`}>
+                  {c.rate}%
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop: table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-border">
