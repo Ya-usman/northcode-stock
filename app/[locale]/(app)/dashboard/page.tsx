@@ -50,7 +50,7 @@ function writeDashCache(data: Omit<DashCache, 'savedAt'>) {
 export default function DashboardPage() {
   const t = useTranslations()
   const locale = useLocale()
-  const { profile, shop, userShops, dashboardShopFilter, setDashboardShopFilter } = useAuth()
+  const { profile, shop, userShops, dashboardShopFilter, setDashboardShopFilter, roleInActiveShop } = useAuth()
   const { fmt: formatNaira } = useCurrency()
   const { toast } = useToast()
 
@@ -105,7 +105,7 @@ export default function DashboardPage() {
     if (loadingRef.current) return
     loadingRef.current = true
 
-    const isCashier = profile?.role === 'cashier'
+    const isCashier = (roleInActiveShop ?? profile?.role) === 'cashier'
     const cashierId = profile?.id
 
     const shopKey = shopIds.join(',')
@@ -305,7 +305,7 @@ export default function DashboardPage() {
 
   const handleRefresh = () => loadDashboard(true)
 
-  const isCashierView = profile?.role === 'cashier'
+  const isCashierView = (roleInActiveShop ?? profile?.role) === 'cashier'
   useDashboardRealtime(shop?.id || null, {
     onNewSale: (sale) => {
       if (shopIds.includes(sale.shop_id || '')) {

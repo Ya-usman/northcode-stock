@@ -33,7 +33,7 @@ type DialogType = 'cancel' | 'validate'
 
 export default function SalesHistoryPage() {
   const t = useTranslations()
-  const { profile, shop, effectiveShopIds, userShops } = useAuth()
+  const { profile, shop, effectiveShopIds, userShops, roleInActiveShop } = useAuth()
   const isMultiShop = effectiveShopIds.length > 1
 
   const receiptLabels = {
@@ -92,8 +92,9 @@ export default function SalesHistoryPage() {
   const [validateMethod, setValidateMethod] = useState('cash')
   const [actionLoading, setActionLoading] = useState(false)
 
-  const isOwner = profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'super_admin'
-  const isCashier = profile?.role === 'cashier'
+  const effectiveRole = roleInActiveShop ?? profile?.role
+  const isOwner = effectiveRole === 'owner' || effectiveRole === 'manager' || effectiveRole === 'super_admin'
+  const isCashier = effectiveRole === 'cashier'
 
   const getDateBounds = () => {
     const now = new Date()
