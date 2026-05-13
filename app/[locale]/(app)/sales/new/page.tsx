@@ -121,7 +121,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     if (!selectedShop?.id) return
     const load = async () => {
       // Offline: use IndexedDB cache
-      if (!navigator.onLine) {
+      if (!isOnline) {
         const [cachedProds, cachedCusts] = await Promise.all([
           getCachedProducts(selectedShop.id),
           getCachedCustomers(selectedShop.id),
@@ -430,7 +430,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     setCompleting(true)
 
     // ── OFFLINE PATH ────────────────────────────────────────────────────────
-    if (!navigator.onLine) {
+    if (!isOnline) {
       try {
         const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
         const saleNumber = `HL-${localId.slice(-5).toUpperCase()}`

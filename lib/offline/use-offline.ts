@@ -5,6 +5,21 @@ import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { getPendingCount } from './db'
 import { syncPendingSales, type SyncResult } from './sync'
 
+// navigator.onLine is unreliable in Capacitor WebViews.
+// Do a real HEAD request to confirm actual connectivity.
+async function checkRealConnectivity(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/health', {
+      method: 'HEAD',
+      cache: 'no-store',
+      signal: AbortSignal.timeout(4000),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
 export function useOffline() {
   const { shop } = useAuth()
   const [isOnline, setIsOnline] = useState(true)
@@ -33,23 +48,34 @@ export function useOffline() {
     }
   }, [shopId, refreshPendingCount])
 
+  // Real connectivity check — called on mount and on browser online/offline events
+  const verifyAndSetOnline = useCallback(async (triggerSync = false) => {
+    const online = await checkRealConnectivity()
+    setIsOnline(online)
+    if (online && triggerSync) await sync()
+  }, [sync])
+
   useEffect(() => {
     if (typeof window === 'undefined') return
-    setIsOnline(navigator.onLine)
 
-    const handleOnline = async () => {
-      setIsOnline(true)
-      await sync()
-    }
+    // Initial check
+    verifyAndSetOnline()
+
+    const handleOnline = () => verifyAndSetOnline(true)
     const handleOffline = () => setIsOnline(false)
 
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
+
+    // Re-check every 30s in case the device regained connectivity silently
+    const interval = setInterval(() => verifyAndSetOnline(), 30_000)
+
     return () => {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
+      clearInterval(interval)
     }
-  }, [sync])
+  }, [verifyAndSetOnline])
 
   useEffect(() => {
     refreshPendingCount()
