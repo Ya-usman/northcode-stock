@@ -22,7 +22,9 @@ const PIE_COLORS = ['#60a5fa', '#D4AF37', '#16A34A', '#DC2626', '#a78bfa']
 
 export default function ReportsPage() {
   const t = useTranslations()
-  const { shop, effectiveShopIds, userShops } = useAuth()
+  const { shop, effectiveShopIds, userShops, profile, roleInActiveShop } = useAuth()
+  const effectiveRole = roleInActiveShop ?? profile?.role
+  const isCashier = effectiveRole === 'cashier'
   const isMultiShop = effectiveShopIds.length > 1
   const { fmt: formatNaira, symbol: currencySymbol } = useCurrency()
   const supabase = createClient() as any
@@ -252,10 +254,15 @@ export default function ReportsPage() {
           },
           {
             title: t('reports.full_inventory'),
-            headers: [t('reports.col_product'), t('reports.col_stock'), t('reports.col_sold_qty'), t('reports.col_buying_price'), t('reports.col_selling_price')],
-            rows: allInventory.map(p => [p.name, p.quantity, p.soldQty || '—', formatNaira(p.buying_price), formatNaira(p.selling_price)]),
+            headers: isCashier
+              ? [t('reports.col_product'), t('reports.col_stock'), t('reports.col_sold_qty'), t('reports.col_selling_price')]
+              : [t('reports.col_product'), t('reports.col_stock'), t('reports.col_sold_qty'), t('reports.col_buying_price'), t('reports.col_selling_price')],
+            rows: allInventory.map(p => isCashier
+              ? [p.name, p.quantity, p.soldQty || '—', formatNaira(p.selling_price)]
+              : [p.name, p.quantity, p.soldQty || '—', formatNaira(p.buying_price), formatNaira(p.selling_price)]
+            ),
           },
-          {
+          ...(!isCashier ? [{
             title: t('reports.stock_valuation'),
             headers: [t('reports.col_metric'), t('reports.col_value')],
             rows: [
@@ -263,7 +270,7 @@ export default function ReportsPage() {
               [t('reports.selling_value'), formatNaira(stockValuation.sellingValue)],
               [t('reports.potential_profit'), formatNaira(stockValuation.potentialProfit)],
             ],
-          },
+          }] : []),
           ...(expenses.length > 0 ? [{
             title: t('expenses.title'),
             headers: ['Date', 'Description', 'Montant'],
@@ -277,9 +284,9 @@ export default function ReportsPage() {
             headers: isMultiShop
               ? [t('reports.col_rank'), t('reports.col_cashier'), t('nav.shops'), t('reports.col_sales'), t('reports.col_revenue')]
               : [t('reports.col_rank'), t('reports.col_cashier'), t('reports.col_sales'), t('reports.col_revenue')],
-            rows: cashierPerf.map((c, idx) => isMultiShop
-              ? [c.sales > 0 ? idx + 1 : '—', c.name, c.shopName || '', c.sales, c.sales > 0 ? formatNaira(c.revenue) : '—']
-              : [c.sales > 0 ? idx + 1 : '—', c.name, c.sales, c.sales > 0 ? formatNaira(c.revenue) : '—']
+            rows: (isCashier ? cashierPerf.filter(c => c.id === profile?.id) : cashierPerf).map((c, idx) => isMultiShop
+              ? [isCashier ? '—' : c.sales > 0 ? idx + 1 : '—', c.name, c.shopName || '', c.sales, c.sales > 0 ? formatNaira(c.revenue) : '—']
+              : [isCashier ? '—' : c.sales > 0 ? idx + 1 : '—', c.name, c.sales, c.sales > 0 ? formatNaira(c.revenue) : '—']
             ),
           },
         ],
@@ -460,7 +467,7 @@ export default function ReportsPage() {
                         <TableHead className="px-2 sm:px-4">{t('reports.col_product')}</TableHead>
                         <TableHead className="text-right px-2 sm:px-4">{t('reports.col_stock')}</TableHead>
                         <TableHead className="text-right px-2 sm:px-4 hidden sm:table-cell">{t('reports.col_sold_qty')}</TableHead>
-                        <TableHead className="text-right px-2 sm:px-4 hidden sm:table-cell">{t('reports.col_buying_price')}</TableHead>
+                        {!isCashier && <TableHead className="text-right px-2 sm:px-4 hidden sm:table-cell">{t('reports.col_buying_price')}</TableHead>}
                         <TableHead className="text-right px-2 sm:px-4">{t('reports.col_selling_price')}</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -472,7 +479,7 @@ export default function ReportsPage() {
                             {p.quantity}
                           </TableCell>
                           <TableCell className="text-right text-xs text-muted-foreground px-2 sm:px-4 hidden sm:table-cell">{p.soldQty > 0 ? p.soldQty : '—'}</TableCell>
-                          <TableCell className="text-right text-xs text-muted-foreground px-2 sm:px-4 hidden sm:table-cell">{formatNaira(p.buying_price)}</TableCell>
+                          {!isCashier && <TableCell className="text-right text-xs text-muted-foreground px-2 sm:px-4 hidden sm:table-cell">{formatNaira(p.buying_price)}</TableCell>}
                           <TableCell className="text-right text-xs sm:text-sm text-blue-500 px-2 sm:px-4 whitespace-nowrap">{formatNaira(p.selling_price)}</TableCell>
                         </TableRow>
                       ))}
@@ -483,26 +490,28 @@ export default function ReportsPage() {
             </CardContent>
           </Card>
 
-          {/* Stock valuation */}
-          <Card className="border-0 shadow-sm">
-            <CardHeader className="pb-2 px-3 sm:px-6">
-              <CardTitle className="text-sm">{t('reports.stock_valuation')}</CardTitle>
-            </CardHeader>
-            <CardContent className="px-3 sm:px-6">
-              <div className="grid grid-cols-3 gap-2 text-center">
-                {[
-                  { label: t('reports.buying_value'), value: formatNaira(stockValuation.buyingValue), color: 'text-muted-foreground' },
-                  { label: t('reports.selling_value'), value: formatNaira(stockValuation.sellingValue), color: 'text-blue-500' },
-                  { label: t('reports.potential_profit'), value: formatNaira(stockValuation.potentialProfit), color: 'text-green-600' },
-                ].map(item => (
-                  <div key={item.label} className="rounded-lg bg-muted/30 p-2 sm:p-3">
-                    <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">{item.label}</p>
-                    <p className={`text-[11px] sm:text-sm font-bold mt-1 truncate ${item.color}`}>{item.value}</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          {/* Stock valuation — hidden for cashiers (exposes buying costs) */}
+          {!isCashier && (
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-2 px-3 sm:px-6">
+                <CardTitle className="text-sm">{t('reports.stock_valuation')}</CardTitle>
+              </CardHeader>
+              <CardContent className="px-3 sm:px-6">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  {[
+                    { label: t('reports.buying_value'), value: formatNaira(stockValuation.buyingValue), color: 'text-muted-foreground' },
+                    { label: t('reports.selling_value'), value: formatNaira(stockValuation.sellingValue), color: 'text-blue-500' },
+                    { label: t('reports.potential_profit'), value: formatNaira(stockValuation.potentialProfit), color: 'text-green-600' },
+                  ].map(item => (
+                    <div key={item.label} className="rounded-lg bg-muted/30 p-2 sm:p-3">
+                      <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">{item.label}</p>
+                      <p className={`text-[11px] sm:text-sm font-bold mt-1 truncate ${item.color}`}>{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Expenses list */}
           {expenses.length > 0 && (
@@ -545,8 +554,8 @@ export default function ReportsPage() {
             </Card>
           )}
 
-          {/* Cashier performance */}
-          {cashierPerf.length > 0 && (
+          {/* Cashier performance — cashier sees only their own row */}
+          {(isCashier ? cashierPerf.filter(c => c.id === profile?.id) : cashierPerf).length > 0 && (
             <Card className="border-0 shadow-sm">
               <CardHeader className="pb-2 px-3 sm:px-6">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -575,10 +584,10 @@ export default function ReportsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {cashierPerf.map((c, idx) => (
+                      {(isCashier ? cashierPerf.filter(c => c.id === profile?.id) : cashierPerf).map((c, idx) => (
                         <TableRow key={c.id} className={c.sales === 0 ? 'opacity-50' : ''}>
                           <TableCell className="text-muted-foreground text-xs font-medium px-2 sm:px-4">
-                            {c.sales > 0 ? (idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1) : '—'}
+                            {isCashier ? '—' : c.sales > 0 ? (idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1) : '—'}
                           </TableCell>
                           <TableCell className="font-medium text-xs sm:text-sm px-2 sm:px-4 max-w-[100px] truncate">{c.name}</TableCell>
                           {isMultiShop && <TableCell className="text-xs text-muted-foreground px-2 sm:px-4 hidden sm:table-cell">{c.shopName}</TableCell>}
