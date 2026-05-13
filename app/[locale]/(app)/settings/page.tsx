@@ -87,11 +87,13 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       setNotifyEmailLowStock(shopData.notify_email_low_stock)
       setNotifyEmailDaily(shopData.notify_email_daily)
       setLoading(false)
-      // Load stored permissions if any
-      if ((shopData as any).role_permissions) {
+      // Load stored permissions — deep merge so partial DB objects don't lose default keys
+      const stored = (shopData as any).role_permissions as Partial<AllPerms> | null
+      if (stored) {
         setPermissions({
-          ...DEFAULT_PERMISSIONS,
-          ...(shopData as any).role_permissions,
+          cashier:       { ...DEFAULT_PERMISSIONS.cashier,       ...(stored.cashier       ?? {}) },
+          viewer:        { ...DEFAULT_PERMISSIONS.viewer,        ...(stored.viewer        ?? {}) },
+          stock_manager: { ...DEFAULT_PERMISSIONS.stock_manager, ...(stored.stock_manager ?? {}) },
         })
       }
     }
@@ -176,20 +178,29 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
 
   const togglePermission = async (role: ConfigurableRole, feature: PermFeature, value: boolean) => {
     if (!shop?.id) return
+    const prev = permissions
     const updated: AllPerms = {
       ...permissions,
       [role]: { ...permissions[role], [feature]: value },
     }
     setPermissions(updated)
     setSavingPerms(true)
-    const { error } = await supabase.from('shops').update({ role_permissions: updated }).eq('id', shop.id)
-    if (error) {
-      toast({ title: 'Erreur : migration 031 non appliquée dans Supabase', description: error.message, variant: 'destructive' })
-      setPermissions(permissions) // revert
-    } else {
+    try {
+      const res = await fetch('/api/team/permissions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop_id: shop.id, role_permissions: updated }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Erreur inconnue')
       await refreshShop()
+      toast({ title: 'Permissions mises à jour', description: 'Le caissier devra recharger l\'app pour voir les changements.', variant: 'success' })
+    } catch (err: any) {
+      toast({ title: 'Erreur sauvegarde permissions', description: err.message, variant: 'destructive' })
+      setPermissions(prev)
+    } finally {
+      setSavingPerms(false)
     }
-    setSavingPerms(false)
   }
 
   const switchLanguage = async (newLocale: string) => {
