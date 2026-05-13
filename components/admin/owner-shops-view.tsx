@@ -92,7 +92,7 @@ export function OwnerShopsView({ owners: initialOwners, locale }: Props) {
   return (
     <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3">
+      <div className="px-4 sm:px-5 py-4 border-b border-border space-y-2 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-3">
         <div className="flex items-center gap-2">
           <h2 className="font-semibold text-foreground">Propriétaires</h2>
           <span className="text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5">{filtered.length}</span>
@@ -101,7 +101,7 @@ export function OwnerShopsView({ owners: initialOwners, locale }: Props) {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Nom, email, boutique…"
-          className="bg-muted border border-border rounded-lg px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary w-52"
+          className="w-full sm:w-52 bg-muted border border-border rounded-lg px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
         />
       </div>
 
@@ -234,14 +234,14 @@ export function OwnerShopsView({ owners: initialOwners, locale }: Props) {
               {isOpen && (
                 <div className="bg-muted/30 border-t border-border/50">
                   {owner.shops.length === 0 ? (
-                    <p className="px-12 py-3 text-xs text-muted-foreground italic">Aucune boutique créée</p>
+                    <p className="px-5 py-3 text-xs text-muted-foreground italic">Aucune boutique créée</p>
                   ) : owner.shops.map(shop => {
                     const shopFlag = shop.country === 'CM' ? '🇨🇲' : '🇳🇬'
                     return (
                       <Link
                         key={shop.id}
                         href={`/${locale}/admin/shops/${shop.id}`}
-                        className="flex items-center gap-3 px-12 py-2.5 hover:bg-accent/40 transition-colors group"
+                        className="flex items-center gap-3 px-4 sm:px-8 py-2.5 hover:bg-accent/40 transition-colors group"
                       >
                         <Store className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                         <div className="flex-1 min-w-0">
@@ -249,15 +249,15 @@ export function OwnerShopsView({ owners: initialOwners, locale }: Props) {
                             {shop.name}
                           </span>
                           {shop.city && (
-                            <span className="text-xs text-muted-foreground ml-2">{shopFlag} {shop.city}</span>
+                            <span className="text-xs text-muted-foreground ml-2 hidden sm:inline">{shopFlag} {shop.city}</span>
                           )}
                         </div>
-                        <div className="flex items-center gap-3 flex-shrink-0">
+                        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
                           <ShopStatusBadge shop={shop} />
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-xs text-muted-foreground hidden sm:inline">
                             {new Date(shop.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: '2-digit' })}
                           </span>
-                          <span className="text-xs text-muted-foreground group-hover:text-primary transition-colors">Inspecter →</span>
+                          <span className="text-xs text-muted-foreground group-hover:text-primary transition-colors">→</span>
                         </div>
                       </Link>
                     )

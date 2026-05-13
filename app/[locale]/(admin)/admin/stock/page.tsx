@@ -89,19 +89,50 @@ export default async function AdminStockPage({
 
         return (
           <div key={shop.id} className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-border flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Store className="h-4 w-4 text-primary" />
-                <h2 className="font-semibold text-foreground">{shop.name}</h2>
-                {shop.city && <span className="text-xs text-muted-foreground">— {flag} {shop.city}</span>}
+            {/* Shop header */}
+            <div className="px-4 sm:px-5 py-4 border-b border-border flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Store className="h-4 w-4 text-primary flex-shrink-0" />
+                <h2 className="font-semibold text-foreground truncate">{shop.name}</h2>
+                {shop.city && <span className="text-xs text-muted-foreground hidden sm:inline">— {flag} {shop.city}</span>}
               </div>
-              <div className="flex gap-4 text-xs">
+              <div className="flex flex-wrap gap-3 text-xs">
                 <span className="text-muted-foreground">{prods.length} produits</span>
                 {shopLow > 0 && <span className="text-amber-400 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{shopLow} faible</span>}
                 {shopOut > 0 && <span className="text-red-400 flex items-center gap-1"><TrendingDown className="h-3 w-3" />{shopOut} rupture</span>}
               </div>
             </div>
-            <div className="overflow-x-auto">
+
+            {/* Mobile: product rows */}
+            <div className="md:hidden divide-y divide-border/50">
+              {prods.map((p: any) => {
+                const threshold = p.low_stock_threshold ?? 10
+                const isOut = p.quantity === 0
+                const isLow = !isOut && p.quantity <= threshold
+                return (
+                  <div key={p.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground truncate">{p.name}</p>
+                      {p.sku && <p className="text-[11px] font-mono text-muted-foreground">{p.sku}</p>}
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className={`text-sm font-bold ${isOut ? 'text-red-400' : isLow ? 'text-amber-400' : 'text-green-400'}`}>
+                        {p.quantity}<span className="text-xs font-normal text-muted-foreground ml-0.5">{p.unit}</span>
+                      </span>
+                      {isOut
+                        ? <span className="text-[10px] bg-red-400/10 text-red-400 rounded-full px-1.5 py-0.5">Rupture</span>
+                        : isLow
+                        ? <span className="text-[10px] bg-amber-400/10 text-amber-400 rounded-full px-1.5 py-0.5">Faible</span>
+                        : <span className="text-[10px] bg-green-400/10 text-green-400 rounded-full px-1.5 py-0.5">OK</span>
+                      }
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Desktop: full table */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
@@ -122,9 +153,7 @@ export default async function AdminStockPage({
                         <td className="px-4 py-2.5 text-foreground font-medium">{p.name}</td>
                         <td className="px-4 py-2.5 text-muted-foreground font-mono text-xs">{p.sku ?? '—'}</td>
                         <td className="px-4 py-2.5 text-right font-bold">
-                          <span className={isOut ? 'text-red-400' : isLow ? 'text-amber-400' : 'text-green-400'}>
-                            {p.quantity}
-                          </span>
+                          <span className={isOut ? 'text-red-400' : isLow ? 'text-amber-400' : 'text-green-400'}>{p.quantity}</span>
                           <span className="text-muted-foreground text-xs ml-1">{p.unit}</span>
                         </td>
                         <td className="px-4 py-2.5 text-right text-foreground">{p.selling_price.toLocaleString('fr-FR')}</td>
