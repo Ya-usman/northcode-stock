@@ -108,7 +108,7 @@ export default function DashboardPage() {
     const isCashier = (roleInActiveShop ?? profile?.role) === 'cashier'
     const cashierId = profile?.id
 
-    const shopKey = shopIds.join(',')
+    const shopKey = `${profile?.id}:${shopIds.join(',')}`
 
     // ── Serve cache immediately, then refresh in background ────────
     const cached = readDashCache(shopKey)
@@ -287,7 +287,7 @@ export default function DashboardPage() {
       setFirstLoad(false)
       setRefreshing(false)
     }
-  }, [shopIds.join(','), shop?.low_stock_threshold, applyDashData, profile?.role, profile?.id])
+  }, [shopIds.join(','), shop?.low_stock_threshold, applyDashData, roleInActiveShop, profile?.role, profile?.id])
 
   // Initial load when shopIds become available
   useEffect(() => {
