@@ -211,12 +211,20 @@ export default function DashboardPage() {
 
       const salesArr = (todaySales || []) as unknown as Sale[]
       const salesCount = salesArr.length
-      const debt = (debtData || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0)
+      // Cashier should not see shop-wide debt — only owner/manager sees it
+      const debt = isCashier ? 0 : (debtData || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0)
       const expensesTotal = (expensesRaw || []).reduce((s: number, e: any) => s + Number(e.amount), 0)
 
-      // Build repayment feed items — all payments today (credit, repayments, partial)
+      // Cashier's own sale IDs (already filtered by cashier_id above)
+      const cashierSaleIds = new Set(salesArr.map((s: any) => s.id))
+
+      // Build repayment feed items — cashier sees only repayments on their own sales
       const repaymentItems: RepaymentFeedItem[] = (todayPaymentsRaw || [])
-        .filter((p: any) => shopIds.includes(p.sales?.shop_id))
+        .filter((p: any) => {
+          if (!shopIds.includes(p.sales?.shop_id)) return false
+          if (isCashier) return cashierSaleIds.has(p.sale_id)
+          return true
+        })
         .map((p: any) => ({
           type: 'repayment' as const,
           id: p.id,
@@ -238,13 +246,13 @@ export default function DashboardPage() {
         if (dayMap[key]) { dayMap[key].sales += 1 }
       })
 
-      if (paymentsApiOk) {
-        // Preferred: actual cash received per day (includes debt repayments)
+      if (!isCashier && paymentsApiOk) {
+        // Owner/manager: actual cash received per day (includes debt repayments)
         ;(paymentsData.weekPayments as { date: string; amount: number }[]).forEach(p => {
           if (dayMap[p.date]) dayMap[p.date].revenue += p.amount
         })
       } else {
-        // Fallback: sum amount_paid per day from weekSales
+        // Cashier (or API fallback): sum amount_paid from their own sales only
         ;(weekSales || []).forEach((sale: any) => {
           const key = format(parseISO(sale.created_at), 'yyyy-MM-dd')
           if (dayMap[key]) dayMap[key].revenue += Number(sale.amount_paid)
@@ -266,15 +274,16 @@ export default function DashboardPage() {
       })
       const tops = Object.values(totals).sort((a, b) => b.revenue - a.revenue).slice(0, 5)
 
-      // Revenue = total cash received today from the payments table (single source of truth).
-      // Includes: new sales payments + old-debt repayments made today.
-      // Using paymentsData.todayTotal avoids double-counting caused by DB trigger
-      // updating sales.amount_paid cumulatively.
-      const revenue = paymentsApiOk
-        ? paymentsData.todayTotal
-        : (todayPaymentsRaw || [])
-            .filter((p: any) => shopIds.includes(p.sales?.shop_id))
-            .reduce((s: number, p: any) => s + Number(p.amount), 0)
+      // Revenue = total cash received today.
+      // For cashier: sum amount_paid on their own sales only (already filtered by cashier_id).
+      // For owner/manager: use payments API (includes debt repayments, avoids double-counting).
+      const revenue = isCashier
+        ? salesArr.reduce((s: number, sale: any) => s + Number(sale.amount_paid), 0)
+        : paymentsApiOk
+          ? paymentsData.todayTotal
+          : (todayPaymentsRaw || [])
+              .filter((p: any) => shopIds.includes(p.sales?.shop_id))
+              .reduce((s: number, p: any) => s + Number(p.amount), 0)
 
       applyDashData(salesCount, revenue, debt, salesArr, repaymentItems, revData, tops, lowSt, outOf, expensesTotal)
 
