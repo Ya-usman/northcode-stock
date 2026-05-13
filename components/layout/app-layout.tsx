@@ -129,7 +129,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   const isBillingPage = pathname.includes('/billing')
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       {!beta && !accessAllowed && !isBillingPage && (
         <UpgradeWall locale={locale} shopName={shop?.name} />
       )}
