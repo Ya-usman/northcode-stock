@@ -4,14 +4,23 @@ import { getPendingSales, markSaleSynced, markSaleError } from './db'
 export interface SyncResult {
   synced: number
   failed: number
+  errors: string[]
 }
 
 export async function syncPendingSales(shopId: string): Promise<SyncResult> {
   const supabase = createClient() as any
+
+  // Ensure the session is fresh before syncing — it may have expired while offline
+  const { error: sessionError } = await supabase.auth.getSession()
+  if (sessionError) {
+    return { synced: 0, failed: 0, errors: [] }
+  }
+
   const pending = await getPendingSales(shopId)
 
   let synced = 0
   let failed = 0
+  const errors: string[] = []
 
   for (const sale of pending) {
     try {
@@ -37,6 +46,9 @@ export async function syncPendingSales(shopId: string): Promise<SyncResult> {
         }
       }
 
+      // 'mixed' is not a valid payment_method in the DB; map to 'cash'
+      const dbPaymentMethod = sale.payment_method === 'mixed' ? 'cash' : sale.payment_method
+
       const { data: saleData, error: saleError } = await supabase
         .from('sales')
         .insert({
@@ -47,10 +59,10 @@ export async function syncPendingSales(shopId: string): Promise<SyncResult> {
           discount: sale.discount,
           tax: sale.tax,
           total: sale.total,
-          payment_method: sale.payment_method,
+          payment_method: dbPaymentMethod,
           payment_status: sale.payment_status,
           amount_paid: 0,
-          balance: sale.balance,
+          // balance is GENERATED (total - amount_paid); amount_paid is updated by the after_payment_insert trigger
           notes: sale.notes,
           sale_status: 'active',
           created_at: sale.created_at,
@@ -69,16 +81,16 @@ export async function syncPendingSales(shopId: string): Promise<SyncResult> {
             product_name: item.product_name,
             quantity: item.quantity,
             unit_price: item.unit_price,
-            subtotal: item.subtotal,
+            // subtotal is GENERATED (quantity * unit_price) — do not insert it
           })))
         if (itemsError) throw new Error(itemsError.message)
       }
 
-      if (sale.payment_method !== 'credit' && sale.payment_amount > 0) {
+      if (dbPaymentMethod !== 'credit' && sale.payment_amount > 0) {
         await supabase.from('payments').insert({
           sale_id: saleData.id,
           amount: sale.payment_amount,
-          method: sale.payment_method,
+          method: dbPaymentMethod,
           reference: sale.payment_reference,
           received_by: sale.cashier_id,
         })
@@ -87,10 +99,13 @@ export async function syncPendingSales(shopId: string): Promise<SyncResult> {
       await markSaleSynced(sale.local_id)
       synced++
     } catch (err: any) {
-      await markSaleError(sale.local_id, err.message)
+      const msg: string = err.message || String(err)
+      console.error('[sync] Failed to sync sale', sale.local_id, err)
+      await markSaleError(sale.local_id, msg)
+      errors.push(msg)
       failed++
     }
   }
 
-  return { synced, failed }
+  return { synced, failed, errors }
 }

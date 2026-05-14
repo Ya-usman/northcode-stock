@@ -21,7 +21,7 @@ export function OfflineBanner() {
     if (result.failed > 0) {
       toast({
         title: `${result.failed} vente${result.failed > 1 ? 's' : ''} en erreur`,
-        description: 'Vérifiez votre connexion et réessayez.',
+        description: result.errors[0] ?? 'Vérifiez votre connexion et réessayez.',
         variant: 'destructive',
       })
     }
