@@ -5,17 +5,65 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { cacheProducts, cacheCustomers } from './db'
 
-const TTL = 60 * 60 * 1000 // 1 hour between pre-loads
+const DATA_TTL  = 60 * 60 * 1000       // re-cache data every hour
+const PAGES_TTL = 24 * 60 * 60 * 1000  // re-cache pages every 24h
 
-function shouldPreload(shopId: string): boolean {
+// All navigable app routes (relative to /{locale}/)
+const APP_ROUTES = [
+  'dashboard',
+  'sales/new',
+  'sales/history',
+  'stock',
+  'stock/movements',
+  'customers',
+  'suppliers',
+  'payments',
+  'reports',
+  'categories',
+  'team',
+  'settings',
+  'expenses',
+  'help',
+]
+
+function getLocale(): string {
+  if (typeof window === 'undefined') return 'fr'
+  return window.location.pathname.split('/')[1] || 'fr'
+}
+
+function shouldRun(key: string, ttl: number): boolean {
   try {
-    const ts = localStorage.getItem(`pc_preload_${shopId}`)
-    return !ts || Date.now() - Number(ts) > TTL
+    const ts = localStorage.getItem(key)
+    return !ts || Date.now() - Number(ts) > ttl
   } catch { return true }
 }
 
-function markPreloaded(shopId: string): void {
-  try { localStorage.setItem(`pc_preload_${shopId}`, String(Date.now())) } catch {}
+function markDone(key: string): void {
+  try { localStorage.setItem(key, String(Date.now())) } catch {}
+}
+
+// Pre-fetch a page as both HTML (hard-nav) and RSC payload (client-nav).
+// Both responses go through the service worker which stores them in cache.
+async function prefetchPage(url: string): Promise<void> {
+  const htmlCache = await caches.open('next-pages')
+  const rscCache  = await caches.open('next-rsc-nav')
+
+  await Promise.allSettled([
+    fetch(url).then(r => { if (r.ok) htmlCache.put(url, r) }),
+    fetch(url, { headers: { RSC: '1', 'Next-Router-Prefetch': '1' } })
+      .then(r => { if (r.ok) rscCache.put(url, r) }),
+  ])
+}
+
+// Pre-fetch all routes in batches of 3 to avoid saturating the connection
+async function prefetchAllPages(locale: string): Promise<void> {
+  if (!('caches' in window)) return
+  const batch = 3
+  for (let i = 0; i < APP_ROUTES.length; i += batch) {
+    await Promise.allSettled(
+      APP_ROUTES.slice(i, i + batch).map(r => prefetchPage(`/${locale}/${r}`))
+    )
+  }
 }
 
 export function useOfflinePreload() {
@@ -27,51 +75,62 @@ export function useOfflinePreload() {
     if (!shopId || !effectiveShopIds.length) return
     if (runningRef.current) return
     if (typeof navigator !== 'undefined' && !navigator.onLine) return
-    if (!shouldPreload(shopId)) return
 
     runningRef.current = true
     const supabase = createClient() as any
+    const locale    = getLocale()
+    const dataKey   = `pc_data_${shopId}`
+    const pagesKey  = `pc_pages_${locale}`
 
     async function preload() {
       try {
-        const shopIds = effectiveShopIds
-        const [{ data: products }, { data: customers }] = await Promise.all([
-          supabase
-            .from('products')
-            .select('id, shop_id, name, sku, selling_price, buying_price, quantity, category_id, is_active, tax_rate')
-            .in('shop_id', shopIds)
-            .eq('is_active', true)
-            .order('name'),
-          supabase
-            .from('customers')
-            .select('id, shop_id, name, phone, total_debt')
-            .in('shop_id', shopIds)
-            .order('name'),
-        ])
+        // ── 1. Cache products + customers in IndexedDB (for offline sales) ──
+        if (shouldRun(dataKey, DATA_TTL)) {
+          const shopIds = effectiveShopIds
+          const [{ data: products }, { data: customers }] = await Promise.all([
+            supabase
+              .from('products')
+              .select('id, shop_id, name, sku, selling_price, buying_price, quantity, category_id, is_active, tax_rate')
+              .in('shop_id', shopIds)
+              .eq('is_active', true)
+              .order('name'),
+            supabase
+              .from('customers')
+              .select('id, shop_id, name, phone, total_debt')
+              .in('shop_id', shopIds)
+              .order('name'),
+          ])
 
-        if (products?.length) {
-          for (const sid of shopIds) {
-            const batch = products.filter((p: any) => p.shop_id === sid)
-            if (batch.length) await cacheProducts(sid, batch)
+          if (products?.length) {
+            for (const sid of shopIds) {
+              const batch = products.filter((p: any) => p.shop_id === sid)
+              if (batch.length) await cacheProducts(sid, batch)
+            }
           }
+          if (customers?.length) {
+            for (const sid of shopIds) {
+              const batch = customers.filter((c: any) => c.shop_id === sid)
+              if (batch.length) await cacheCustomers(sid, batch)
+            }
+          }
+          markDone(dataKey)
         }
 
-        if (customers?.length) {
-          for (const sid of shopIds) {
-            const batch = customers.filter((c: any) => c.shop_id === sid)
-            if (batch.length) await cacheCustomers(sid, batch)
-          }
+        // ── 2. Pre-fetch all page HTML + RSC payloads into SW cache ──────────
+        if (shouldRun(pagesKey, PAGES_TTL)) {
+          await prefetchAllPages(locale)
+          markDone(pagesKey)
         }
-
-        markPreloaded(shopId)
       } catch {
-        // Silent failure — user is offline or not yet authenticated
+        // Silent — offline or fetch failed
       } finally {
         runningRef.current = false
       }
     }
 
-    preload()
+    // Small delay so the initial page render is not competing with pre-fetches
+    const timer = setTimeout(preload, 3000)
+    return () => clearTimeout(timer)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shopId])
 }
