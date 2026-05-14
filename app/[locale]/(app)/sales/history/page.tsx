@@ -22,6 +22,7 @@ import { generateReceiptPDFBlob } from '@/lib/utils/pdf'
 import { printPDFNative, downloadOrShareCSV, isCapacitor } from '@/lib/utils/native-share'
 import { format, startOfDay, endOfDay, subDays, startOfWeek, startOfMonth } from 'date-fns'
 import type { Sale } from '@/lib/types/database'
+import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 
 const supabase = createClient() as any
 
@@ -139,13 +140,26 @@ export default function SalesHistoryPage() {
     if (!effectiveShopIds.length) return
     setLoading(true)
     setSalesOffset(0)
-    const { start, end } = getDateBounds()
-    const { data } = await buildSalesQuery(start, end, 0)
-    const salesData = (data || []) as Sale[]
-    setSales(salesData)
-    setHasMoreSales(salesData.length === PAGE_SIZE)
-    setCashierMap(await enrichCashiers(salesData))
-    setLoading(false)
+    const cacheKey = `sales_history_${effectiveShopIds.join(',')}`
+    try {
+      const { start, end } = getDateBounds()
+      const { data, error } = await buildSalesQuery(start, end, 0)
+      if (error) throw error
+      const salesData = (data || []) as Sale[]
+      setSales(salesData)
+      setHasMoreSales(salesData.length === PAGE_SIZE)
+      setCashierMap(await enrichCashiers(salesData))
+      await setPageCache(cacheKey, salesData)
+    } catch {
+      const cached = await getPageCache<Sale[]>(cacheKey)
+      if (cached) {
+        setSales(cached)
+        setHasMoreSales(false)
+        setCashierMap(await enrichCashiers(cached))
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
   const loadMoreSales = async () => {

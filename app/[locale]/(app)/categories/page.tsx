@@ -15,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import { cn } from '@/lib/utils/cn'
 import type { Category, Product } from '@/lib/types/database'
+import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 
 function CategoryCard({ cat, products, expandedId, setExpandedId, canEdit, deleteCategory, t, fmt }: any) {
   const catProducts = products.filter((p: any) => p.category_id === cat.id)
@@ -136,9 +137,15 @@ export default function CategoriesPage() {
         supabase.from('categories').select('*').in('shop_id', effectiveShopIds).order('name'),
         supabase.from('products').select('id, name, selling_price, quantity, unit, category_id, shop_id').in('shop_id', effectiveShopIds).eq('is_active', true).order('name'),
       ])
-      setCategories((catData.data || []) as Category[])
-      setProducts((prodData.data || []) as unknown as Product[])
-    } catch { /* keep */ } finally {
+      const fetchedCategories = (catData.data || []) as Category[]
+      const fetchedProducts = (prodData.data || []) as unknown as Product[]
+      setCategories(fetchedCategories)
+      setProducts(fetchedProducts)
+      setPageCache(`categories_${effectiveShopIds.join(',')}`, { categories: fetchedCategories, products: fetchedProducts })
+    } catch {
+      const cached = getPageCache<any>(`categories_${effectiveShopIds.join(',')}`)
+      if (cached) { setCategories(cached.categories); setProducts(cached.products) }
+    } finally {
       setLoading(false)
     }
   }

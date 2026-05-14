@@ -25,6 +25,7 @@ import { getCountry, getMethodType } from '@/lib/saas/countries'
 import { formatInputValue } from '@/lib/utils/currency'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 
 interface UnpaidSale {
   id: string
@@ -227,14 +228,16 @@ export default function DettesPage() {
     if (!effectiveShopIds.length) return
     if (!quiet) setLoading(true)
     else setRefreshing(true)
+    const cacheKey = `debtors_${effectiveShopIds.join(',')}`
     try {
       const res = await fetch(`/api/payments/debts?shop_ids=${effectiveShopIds.join(',')}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setDebtors(data.debtors || [])
-    } catch (e: any) {
-      toast({ title: e.message, variant: 'destructive' })
-      setDebtors([])
+      setPageCache(cacheKey, data.debtors || [])
+    } catch {
+      const cached = getPageCache<any[]>(cacheKey)
+      if (cached) setDebtors(cached)
     } finally {
       setLoading(false)
       setRefreshing(false)

@@ -17,6 +17,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { customerSchema, type CustomerFormData } from '@/lib/validations/customer'
 import type { Customer } from '@/lib/types/database'
+import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 
 function CustomerCard({ customer, profile, formatNaira, setEditingCustomer, form, setShowModal, deleteCustomer, t }: any) {
   return (
@@ -80,10 +81,17 @@ export default function CustomersPage() {
 
   const fetchCustomers = async () => {
     if (!effectiveShopIds.length) return
-    const { data } = await supabase
-      .from('customers').select('*').in('shop_id', effectiveShopIds).order('name')
-    setCustomers((data || []) as Customer[])
-    setLoading(false)
+    try {
+      const { data } = await supabase
+        .from('customers').select('*').in('shop_id', effectiveShopIds).order('name')
+      setCustomers((data || []) as Customer[])
+      setPageCache(`customers_${effectiveShopIds.join(',')}`, data || [])
+    } catch {
+      const cached = getPageCache<Customer[]>(`customers_${effectiveShopIds.join(',')}`)
+      if (cached) setCustomers(cached)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { fetchCustomers() }, [effectiveShopIds.join(',')])

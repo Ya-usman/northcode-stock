@@ -21,6 +21,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { fr, enUS } from 'date-fns/locale'
 import type { UserRole } from '@/lib/types/database'
 import { cn } from '@/lib/utils/cn'
+import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 
 const supabase = createClient() as any
 
@@ -120,10 +121,15 @@ export default function TeamPage() {
       const profilesMap: Record<string, any> = {}
       ;(profilesData || []).forEach((p: any) => { profilesMap[p.id] = p })
 
-      setMembers(rows.map(m => ({
+      const membersArray = rows.map(m => ({
         ...m,
         profiles: profilesMap[m.user_id] ?? { id: m.user_id, full_name: t('actions.invite'), last_seen: null, is_active: m.is_active },
-      })) as Member[])
+      })) as Member[]
+      setMembers(membersArray)
+      setPageCache(`team_${effectiveShopIds.join(',')}`, membersArray)
+    } catch {
+      const cached = getPageCache<Member[]>(`team_${effectiveShopIds.join(',')}`)
+      if (cached) setMembers(cached)
     } finally {
       setLoading(false)
     }

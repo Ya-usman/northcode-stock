@@ -20,6 +20,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { restockSchema, type RestockFormData, type ProductFormData } from '@/lib/validations/product'
 import type { Product, Category, Supplier } from '@/lib/types/database'
 import { ProductForm } from '@/components/stock/product-form'
+import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 
 
 function StockBadge({ quantity, threshold }: { quantity: number; threshold: number }) {
@@ -66,25 +67,37 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
 const fetchProducts = async () => {
     if (!effectiveShopIds.length) return
-    const [{ data: prods }, { data: archived }, { data: cats }, { data: sups }] = await Promise.all([
-      supabase.from('products')
-        .select('*, categories(name), suppliers(name)')
-        .in('shop_id', effectiveShopIds)
-        .eq('is_active', true)
-        .order('name'),
-      supabase.from('products')
-        .select('*, categories(name), suppliers(name)')
-        .in('shop_id', effectiveShopIds)
-        .eq('is_active', false)
-        .order('name'),
-      supabase.from('categories').select('*').in('shop_id', effectiveShopIds).order('name'),
-      supabase.from('suppliers').select('*').in('shop_id', effectiveShopIds).order('name'),
-    ])
-    setProducts((prods || []) as unknown as Product[])
-    setArchivedProducts((archived || []) as unknown as Product[])
-    setCategories((cats || []) as Category[])
-    setSuppliers((sups || []) as Supplier[])
-    setLoading(false)
+    const cacheKey = `stock_${effectiveShopIds.join(',')}`
+    try {
+      const [{ data: prods }, { data: archived }, { data: cats }, { data: sups }] = await Promise.all([
+        supabase.from('products')
+          .select('*, categories(name), suppliers(name)')
+          .in('shop_id', effectiveShopIds)
+          .eq('is_active', true)
+          .order('name'),
+        supabase.from('products')
+          .select('*, categories(name), suppliers(name)')
+          .in('shop_id', effectiveShopIds)
+          .eq('is_active', false)
+          .order('name'),
+        supabase.from('categories').select('*').in('shop_id', effectiveShopIds).order('name'),
+        supabase.from('suppliers').select('*').in('shop_id', effectiveShopIds).order('name'),
+      ])
+      setProducts((prods || []) as unknown as Product[])
+      setArchivedProducts((archived || []) as unknown as Product[])
+      setCategories((cats || []) as Category[])
+      setSuppliers((sups || []) as Supplier[])
+      setPageCache(cacheKey, { prods: prods || [], cats: cats || [], sups: sups || [] })
+    } catch {
+      const cached = getPageCache<{ prods: any[]; cats: any[]; sups: any[] }>(cacheKey)
+      if (cached) {
+        setProducts(cached.prods as unknown as Product[])
+        setCategories(cached.cats as Category[])
+        setSuppliers(cached.sups as Supplier[])
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { fetchProducts() }, [effectiveShopIds.join(',')])

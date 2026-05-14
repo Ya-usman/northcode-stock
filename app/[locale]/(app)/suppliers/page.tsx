@@ -16,6 +16,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { supplierSchema, type SupplierFormData } from '@/lib/validations/customer'
 import type { Supplier } from '@/lib/types/database'
+import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 
 function SupplierCard({ supplier, productCounts, setEditingSupplier, form, setShowModal, deleteSupplier, t }: any) {
   return (
@@ -77,19 +78,25 @@ export default function SuppliersPage() {
 
   const fetchSuppliers = async () => {
     if (!effectiveShopIds.length) return
-    const { data } = await supabase.from('suppliers').select('*').in('shop_id', effectiveShopIds).order('name')
-    setSuppliers((data || []) as Supplier[])
-
-    if (data?.length) {
-      const { data: products } = await supabase
-        .from('products').select('supplier_id').in('shop_id', effectiveShopIds).eq('is_active', true)
-      const counts: Record<string, number> = {}
-      products?.forEach((p: any) => {
-        if (p.supplier_id) counts[p.supplier_id] = (counts[p.supplier_id] || 0) + 1
-      })
-      setProductCounts(counts)
+    try {
+      const { data } = await supabase.from('suppliers').select('*').in('shop_id', effectiveShopIds).order('name')
+      setSuppliers((data || []) as Supplier[])
+      setPageCache(`suppliers_${effectiveShopIds.join(',')}`, data || [])
+      if (data?.length) {
+        const { data: products } = await supabase
+          .from('products').select('supplier_id').in('shop_id', effectiveShopIds).eq('is_active', true)
+        const counts: Record<string, number> = {}
+        products?.forEach((p: any) => {
+          if (p.supplier_id) counts[p.supplier_id] = (counts[p.supplier_id] || 0) + 1
+        })
+        setProductCounts(counts)
+      }
+    } catch {
+      const cached = getPageCache<Supplier[]>(`suppliers_${effectiveShopIds.join(',')}`)
+      if (cached) setSuppliers(cached)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   useEffect(() => { fetchSuppliers() }, [effectiveShopIds.join(',')])
