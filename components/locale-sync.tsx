@@ -19,10 +19,10 @@ export function LocaleSync({ currentLocale }: { currentLocale: string }) {
     if (!saved || !VALID_LOCALES.includes(saved)) return
     if (saved === currentLocale) return
 
-    // Replace the locale segment in the current path
-    const newPath = pathname.replace(`/${currentLocale}`, `/${saved}`)
-    // Also re-set cookie in case it was cleared
+    // Cookie was cleared (iOS PWA 7-day expiry) but localStorage still has it.
+    // Re-write the cookie so the middleware enforces it on the next navigation.
     document.cookie = `NEXT_LOCALE=${saved}; path=/; max-age=31536000; SameSite=lax`
+    const newPath = pathname.replace(`/${currentLocale}`, `/${saved}`)
     router.replace(newPath)
   }, [])
 

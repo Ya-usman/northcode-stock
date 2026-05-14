@@ -73,6 +73,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // ── Locale enforcement (server-side, no flash) ─────────────────────────────
+  // If the URL locale doesn't match the saved NEXT_LOCALE cookie, redirect
+  // immediately before the page renders — eliminates the client-side flicker.
+  const urlLocale = pathname.split('/')[1]
+  if (locales.includes(urlLocale as any)) {
+    const savedLocale = request.cookies.get('NEXT_LOCALE')?.value
+    if (savedLocale && locales.includes(savedLocale as any) && savedLocale !== urlLocale) {
+      const corrected = new URL(request.url)
+      corrected.pathname = pathname.replace(`/${urlLocale}`, `/${savedLocale}`)
+      return NextResponse.redirect(corrected)
+    }
+  }
+
   let response = NextResponse.next({ request: { headers: request.headers } })
 
   const supabase = createServerClient(
