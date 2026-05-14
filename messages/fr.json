@@ -24,7 +24,8 @@
     "section_inventory": "Inventaire",
     "section_management": "Gestion",
     "expenses": "Dépenses",
-    "more": "Plus"
+    "more": "Plus",
+    "notes": "Notes"
   },
   "auth": {
     "login": "Se connecter",

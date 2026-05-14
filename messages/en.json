@@ -24,7 +24,8 @@
     "section_inventory": "Inventory",
     "section_management": "Management",
     "expenses": "Expenses",
-    "more": "More"
+    "more": "More",
+    "notes": "Notes"
   },
   "auth": {
     "login": "Log In",
