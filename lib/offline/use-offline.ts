@@ -22,7 +22,10 @@ async function checkRealConnectivity(): Promise<boolean> {
 
 export function useOffline() {
   const { shop } = useAuth()
-  const [isOnline, setIsOnline] = useState(true)
+  // Use navigator.onLine as fast initial guess; real check updates it immediately
+  const [isOnline, setIsOnline] = useState(() =>
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  )
   const [pendingCount, setPendingCount] = useState(0)
   const [syncing, setSyncing] = useState(false)
   const shopId = shop?.id

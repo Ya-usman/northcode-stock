@@ -133,38 +133,42 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         if (cachedCusts.length > 0) setCustomers(cachedCusts as unknown as Customer[])
         return
       }
-      const [{ data: prods }, { data: custs }, { data: cats }] = await Promise.all([
-        supabase.from('products').select('*, categories(name), suppliers(name)')
-          .eq('shop_id', selectedShop.id).eq('is_active', true).gt('quantity', 0).order('name'),
-        supabase.from('customers').select('*').eq('shop_id', selectedShop.id).order('name'),
-        supabase.from('categories').select('*').eq('shop_id', selectedShop.id).order('name'),
-      ])
-      const safeProds = (prods || []) as unknown as Product[]
-      setProducts(safeProds)
-      setFilteredProducts(safeProds)
-      setCustomers((custs || []) as Customer[])
-      setCategories((cats || []) as Category[])
-      // Cache products + customers for offline use
-      await Promise.all([
-        safeProds.length > 0 ? cacheProducts(selectedShop.id, safeProds.map((p: any) => ({
-          id: p.id,
-          shop_id: selectedShop.id,
-          name: p.name,
-          sku: p.sku ?? null,
-          selling_price: Number(p.selling_price),
-          buying_price: Number(p.buying_price),
-          quantity: Number(p.quantity),
-          category_id: p.category_id ?? null,
-          is_active: p.is_active,
-        }))) : Promise.resolve(),
-        custs && custs.length > 0 ? cacheCustomers(selectedShop.id, custs.map((c: any) => ({
-          id: c.id,
-          shop_id: selectedShop.id,
-          name: c.name,
-          phone: c.phone ?? null,
-          total_debt: Number(c.total_debt ?? 0),
-        }))) : Promise.resolve(),
-      ])
+      try {
+        const [{ data: prods }, { data: custs }, { data: cats }] = await Promise.all([
+          supabase.from('products').select('*, categories(name), suppliers(name)')
+            .eq('shop_id', selectedShop.id).eq('is_active', true).gt('quantity', 0).order('name'),
+          supabase.from('customers').select('*').eq('shop_id', selectedShop.id).order('name'),
+          supabase.from('categories').select('*').eq('shop_id', selectedShop.id).order('name'),
+        ])
+        const safeProds = (prods || []) as unknown as Product[]
+        setProducts(safeProds)
+        setFilteredProducts(safeProds)
+        setCustomers((custs || []) as Customer[])
+        setCategories((cats || []) as Category[])
+        // Cache for offline use
+        await Promise.all([
+          safeProds.length > 0 ? cacheProducts(selectedShop.id, safeProds.map((p: any) => ({
+            id: p.id, shop_id: selectedShop.id, name: p.name, sku: p.sku ?? null,
+            selling_price: Number(p.selling_price), buying_price: Number(p.buying_price),
+            quantity: Number(p.quantity), category_id: p.category_id ?? null, is_active: p.is_active,
+          }))) : Promise.resolve(),
+          custs && custs.length > 0 ? cacheCustomers(selectedShop.id, custs.map((c: any) => ({
+            id: c.id, shop_id: selectedShop.id, name: c.name,
+            phone: c.phone ?? null, total_debt: Number(c.total_debt ?? 0),
+          }))) : Promise.resolve(),
+        ])
+      } catch {
+        // Network failed while isOnline was stale — fall back to cache silently
+        const [cachedProds, cachedCusts] = await Promise.all([
+          getCachedProducts(selectedShop.id),
+          getCachedCustomers(selectedShop.id),
+        ])
+        if (cachedProds.length > 0) {
+          setProducts(cachedProds as unknown as Product[])
+          setFilteredProducts(cachedProds as unknown as Product[])
+        }
+        if (cachedCusts.length > 0) setCustomers(cachedCusts as unknown as Customer[])
+      }
     }
     load()
   }, [selectedShop?.id])
