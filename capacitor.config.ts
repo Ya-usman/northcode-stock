@@ -18,6 +18,10 @@ const config: CapacitorConfig = {
     captureInput: true,
     webContentsDebuggingEnabled: false, // true en dev, false en prod
   },
+  ios: {
+    // Required for service workers to intercept navigation on iOS WKWebView
+    limitsNavigationsToAppBoundDomains: true,
+  },
   plugins: {
     SplashScreen: {
       launchShowDuration: 2000,
