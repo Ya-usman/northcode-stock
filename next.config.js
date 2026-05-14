@@ -7,6 +7,38 @@ const withPWA = require('next-pwa')({
   skipWaiting: true,
   disable: process.env.NODE_ENV === 'development',
   runtimeCaching: [
+    // Next.js App Router RSC payloads — cache so offline navigation works
+    {
+      urlPattern: ({ request, url }) =>
+        request.headers.get('RSC') === '1' ||
+        url.searchParams.has('_rsc'),
+      handler: 'NetworkFirst',
+      options: {
+        cacheName: 'next-rsc',
+        expiration: { maxEntries: 100, maxAgeSeconds: 24 * 60 * 60 },
+        networkTimeoutSeconds: 5,
+      },
+    },
+    // Next.js page HTML — NetworkFirst with offline fallback
+    {
+      urlPattern: ({ request }) => request.mode === 'navigate',
+      handler: 'NetworkFirst',
+      options: {
+        cacheName: 'next-pages',
+        expiration: { maxEntries: 50, maxAgeSeconds: 24 * 60 * 60 },
+        networkTimeoutSeconds: 5,
+      },
+    },
+    // Internal API routes (health, push, etc.)
+    {
+      urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
+      handler: 'NetworkFirst',
+      options: {
+        cacheName: 'api-routes',
+        expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 },
+        networkTimeoutSeconds: 5,
+      },
+    },
     {
       urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/.*/i,
       handler: 'NetworkFirst',
