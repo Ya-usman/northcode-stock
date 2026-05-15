@@ -29,7 +29,7 @@ export const PLANS: Record<PlanId, Plan> = {
     id: 'trial',
     name: 'Free Trial',
     price_monthly: 0,
-    limits: { products: 50, team_members: 2, history_days: 30, shops: 1 },
+    limits: { products: -1, team_members: 2, history_days: 30, shops: 1 },
     features: {
       reports: true,
       export_csv: false,
