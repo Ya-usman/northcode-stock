@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrency } from '@/lib/hooks/use-currency'
-import { generateReportPDFBlob } from '@/lib/utils/pdf'
+import { generateReportPDF } from '@/lib/utils/pdf'
 import { format, startOfDay, endOfDay, startOfMonth, startOfWeek, startOfQuarter, startOfYear } from 'date-fns'
 
 const PIE_COLORS = ['#60a5fa', '#D4AF37', '#16A34A', '#DC2626', '#a78bfa']
@@ -227,12 +227,16 @@ export default function ReportsPage() {
   }, [effectiveShopIds.join(','), dateFilter, dateFilter === 'custom' ? customStart : '', dateFilter === 'custom' ? customEnd : ''])
 
   const exportPDF = async () => {
+    if (!shop) {
+      toast({ title: t('reports.error_no_shop'), variant: 'destructive' })
+      return
+    }
     setExporting(true)
     try {
       const { start, end } = getDateRange()
       const dateRange = `${format(new Date(start), 'dd MMM yyyy')} – ${format(new Date(end), 'dd MMM yyyy')}`
-      const { blob, fileName } = await generateReportPDFBlob({
-        shopName: shop!.name,
+      await generateReportPDF({
+        shopName: shop.name,
         dateRange,
         labels: {
           businessReport: t('reports.pdf_business_report'),
@@ -301,14 +305,9 @@ export default function ReportsPage() {
           },
         ],
       })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = fileName
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      setTimeout(() => URL.revokeObjectURL(url), 10000)
+    } catch (err) {
+      console.error('[exportPDF]', err)
+      toast({ title: t('reports.error_pdf'), description: String(err), variant: 'destructive' })
     } finally {
       setExporting(false)
     }
