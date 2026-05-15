@@ -1,7 +1,5 @@
-import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+﻿import { NextResponse } from 'next/server'
+import { createAdminClient, createClient } from '@/lib/supabase/server'
 
 // GET /api/payments/history?shop_id=xxx&customer_id=yyy
 export async function GET(request: Request) {
@@ -14,12 +12,7 @@ export async function GET(request: Request) {
     }
 
     
-    const cookieStore = cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
-    )
+    const supabase = await createClient() as any
     // Use getSession() to avoid network round-trip failures on expired tokens.
     const { data: { session } } = await supabase.auth.getSession()
     const user = session?.user

@@ -1,7 +1,5 @@
-import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+﻿import { NextResponse } from 'next/server'
+import { createAdminClient, createClient } from '@/lib/supabase/server'
 
 // GET /api/stock/movements?shop_ids=id1,id2&type=in&from=2026-01-01&to=2026-12-31
 export async function GET(request: Request) {
@@ -11,12 +9,7 @@ export async function GET(request: Request) {
     if (!shopIdsParam) return NextResponse.json({ error: 'shop_ids requis' }, { status: 400 })
     const shopIds = shopIdsParam.split(',').map(s => s.trim()).filter(Boolean)
 
-    const cookieStore = cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
-    )
+    const supabase = await createClient() as any
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 

@@ -1,7 +1,6 @@
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 import { createClient } from '@supabase/supabase-js'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 
 function getAdminClient() {
   return createClient(
@@ -20,12 +19,7 @@ export async function POST(request: Request) {
     }
 
     // Verify caller is owner or super_admin
-    const cookieStore = cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
-    )
+    const supabase = await createClient() as any
     const { data: { user } } = await supabase.auth.getUser()
     
     if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })

@@ -1,17 +1,10 @@
 ﻿import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { createAdminClient, createClient } from '@/lib/supabase/server'
 
 // PATCH /api/team/permissions — save role_permissions JSON on a shop (bypasses RLS via admin client)
 export async function PATCH(request: Request) {
   try {
-    const cookieStore = cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
-    )
+    const supabase = await createClient() as any
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
@@ -46,14 +39,8 @@ export async function PATCH(request: Request) {
 // PUT /api/team/permissions — toggle can_delete_sales for a shop member
 export async function PUT(request: Request) {
   try {
-    const cookieStore = cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
-    )
+    const supabase = await createClient() as any
     const { data: { user } } = await supabase.auth.getUser()
-    
     if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
     const { shop_id, user_id, can_delete_sales } = await request.json()
