@@ -29,7 +29,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const pathname = usePathname()
   const { isDark, setIsDark } = useTheme()
 
-  const isOwner = profile?.role === 'owner' || profile?.role === 'super_admin'
+  const isOwner = profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'super_admin'
 
   const [shop, setShop] = useState<Shop | null>(shopData)
   const [saving, setSaving] = useState(false)
@@ -71,6 +71,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   ]
 
   const ROLE_LABELS: Record<ConfigurableRole, string> = {
+    manager:       t('roles.manager'),
     cashier:       t('settings.role_cashier'),
     viewer:        t('settings.role_viewer'),
     stock_manager: t('settings.role_stock_manager'),
@@ -99,6 +100,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       const stored = (shopData as any).role_permissions as Partial<AllPerms> | null
       if (stored) {
         setPermissions({
+          manager:       { ...DEFAULT_PERMISSIONS.manager,       ...(stored.manager       ?? {}) },
           cashier:       { ...DEFAULT_PERMISSIONS.cashier,       ...(stored.cashier       ?? {}) },
           viewer:        { ...DEFAULT_PERMISSIONS.viewer,        ...(stored.viewer        ?? {}) },
           stock_manager: { ...DEFAULT_PERMISSIONS.stock_manager, ...(stored.stock_manager ?? {}) },
@@ -453,7 +455,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
           <CardContent className="space-y-4">
             {/* Role tabs */}
             <div className="flex gap-2 flex-wrap">
-              {(['cashier', 'viewer', 'stock_manager'] as ConfigurableRole[]).map(r => (
+              {(['manager', 'cashier', 'viewer', 'stock_manager'] as ConfigurableRole[]).map(r => (
                 <button
                   key={r}
                   onClick={() => setActivePermRole(r)}
