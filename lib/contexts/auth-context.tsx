@@ -327,6 +327,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch { /* keep */ }
   }, [applyUserData])
 
+  // Real-time: sync shop data when owner updates role_permissions
+  useEffect(() => {
+    const shopId = state.activeShop?.id
+    if (!shopId) return
+
+    const channel = supabase
+      .channel(`shop-perms-${shopId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'shops',
+        filter: `id=eq.${shopId}`,
+      }, (payload) => {
+        const updated = payload.new as Shop
+        setState(prev => ({
+          ...prev,
+          userShops: prev.userShops.map(s => s.id === updated.id ? { ...s, ...updated } : s),
+          activeShop: prev.activeShop?.id === updated.id ? { ...prev.activeShop, ...updated } : prev.activeShop,
+        }))
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [state.activeShop?.id])
+
   // Update last_seen every 3 minutes while the user is active
   useEffect(() => {
     const updateLastSeen = async () => {
