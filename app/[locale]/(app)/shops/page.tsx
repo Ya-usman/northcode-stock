@@ -155,23 +155,23 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
                   {shop.name.slice(0, 2).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-sm truncate">{shop.name}</p>
                     {isActive && (
-                      <Badge className="bg-stockshop-blue dark:bg-blue-500 text-white text-[10px] px-1.5 py-0.5 flex items-center gap-1">
+                      <Badge className="bg-stockshop-blue dark:bg-blue-500 text-white text-[10px] px-1.5 py-0.5 flex items-center gap-1 flex-shrink-0">
                         <CheckCircle2 className="h-2.5 w-2.5" /> {t('shops.active')}
                       </Badge>
                     )}
+                    <Badge variant={shop.plan === 'trial' ? 'warning' : 'success'} className="text-[10px] flex-shrink-0">
+                      {shop.plan ?? 'trial'}
+                    </Badge>
                   </div>
-                  <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
-                    {shop.city && <span>{shop.city}</span>}
-                    <span className="flex items-center gap-1">
+                  <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                    {shop.city && <span className="truncate">{shop.city}</span>}
+                    <span className="flex items-center gap-1 flex-shrink-0">
                       <Users className="h-3 w-3" />
                       {t('shops.members', { count: memberCounts[shop.id] ?? 0 })}
                     </span>
-                    <Badge variant={shop.plan === 'trial' ? 'warning' : 'success'} className="text-[10px]">
-                      {shop.plan ?? 'trial'}
-                    </Badge>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
