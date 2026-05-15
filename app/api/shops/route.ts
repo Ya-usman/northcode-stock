@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { getPlan } from '@/lib/saas/plans'
+import { getPlan, hasActiveSubscription } from '@/lib/saas/plans'
 
 export async function POST(request: Request) {
   try {
@@ -39,12 +39,23 @@ export async function POST(request: Request) {
       currency = getCountry(country).currencySymbol
     }
 
-    // Enforce shop limit and fetch primary shop plan to inherit on new shop
-    const { data: primaryShop } = await supabase
-      .from('shops').select('plan, plan_expires_at, trial_ends_at')
-      .eq('id', profile?.shop_id ?? '').single()
+    // Fetch ALL active shops owned by this user to determine the best plan.
+    // We look at all shops (not just profile.shop_id) so that even if the
+    // original primary shop was deleted, we still find the active subscription.
+    const { data: ownerShops } = await supabase
+      .from('shops')
+      .select('id, plan, plan_expires_at, trial_ends_at')
+      .eq('owner_id', user.id)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: true })
 
-    const plan = getPlan((primaryShop as any)?.plan)
+    // Pick the shop with the best active plan; fall back to the oldest shop
+    const referenceShop = (ownerShops ?? []).find(s =>
+      hasActiveSubscription(s.plan, s.plan_expires_at)
+    ) ?? (ownerShops ?? [])[0] ?? null
+
+    // Enforce shop limit based on reference plan
+    const plan = getPlan((referenceShop as any)?.plan)
     if (plan.limits.shops !== -1) {
       const { count } = await supabase
         .from('shop_members').select('id', { count: 'exact', head: true })
@@ -57,20 +68,17 @@ export async function POST(request: Request) {
       }
     }
 
-    // New shops inherit the plan of the primary shop so users don't pay twice.
-    // If the primary shop has an active paid subscription, the new shop gets the same plan + expiry.
-    // If the primary is still on trial, the new shop also starts a trial.
-    const { hasActiveSubscription } = await import('@/lib/saas/plans')
-    const primaryPlan = (primaryShop as any)?.plan ?? 'trial'
-    const primaryExpiry = (primaryShop as any)?.plan_expires_at ?? null
-    const primaryTrial = (primaryShop as any)?.trial_ends_at ?? null
-    const isActiveSub = hasActiveSubscription(primaryPlan, primaryExpiry)
+    // New shop inherits the paid plan — no double billing.
+    const refPlan = (referenceShop as any)?.plan ?? 'trial'
+    const refExpiry = (referenceShop as any)?.plan_expires_at ?? null
+    const refTrial = (referenceShop as any)?.trial_ends_at ?? null
+    const isActiveSub = hasActiveSubscription(refPlan, refExpiry)
 
-    const newShopPlan = isActiveSub ? primaryPlan : 'trial'
-    const newShopExpiry = isActiveSub ? primaryExpiry : null
+    const newShopPlan = isActiveSub ? refPlan : 'trial'
+    const newShopExpiry = isActiveSub ? refExpiry : null
     const newShopTrial = isActiveSub
       ? null
-      : (primaryTrial ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString())
+      : (refTrial ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString())
 
     // Use admin client to bypass RLS
     const admin = await createAdminClient()

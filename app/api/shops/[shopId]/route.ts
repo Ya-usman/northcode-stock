@@ -37,6 +37,28 @@ export async function DELETE(
       .from('shops').update({ deleted_at: new Date().toISOString() }).eq('id', shopId)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // If the deleted shop was the user's primary shop (profile.shop_id),
+    // redirect profile.shop_id to the next active shop so plan lookups stay valid.
+    const { data: profile } = await admin
+      .from('profiles').select('shop_id').eq('id', user.id).single()
+
+    if ((profile as any)?.shop_id === shopId) {
+      const { data: nextShop } = await admin
+        .from('shops')
+        .select('id')
+        .eq('owner_id', user.id)
+        .is('deleted_at', null)
+        .neq('id', shopId)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .single()
+
+      if (nextShop) {
+        await admin.from('profiles').update({ shop_id: (nextShop as any).id }).eq('id', user.id)
+      }
+    }
+
     return NextResponse.json({ success: true })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
