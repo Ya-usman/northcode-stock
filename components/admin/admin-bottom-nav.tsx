@@ -81,7 +81,15 @@ export function AdminBottomNav({ locale }: AdminBottomNavProps) {
           />
           <div className="fixed bottom-16 left-0 right-0 z-40 bg-card rounded-t-2xl shadow-2xl border-t md:hidden animate-in slide-in-from-bottom-4 duration-200">
             <div className="px-4 pt-4 pb-2">
-              <div className="w-10 h-1 rounded-full bg-border mx-auto mb-4" />
+              <div className="w-10 h-1 rounded-full bg-border mx-auto mb-3" />
+              {/* Mini header */}
+              <div className="flex items-center gap-2 mb-4 px-1">
+                <img src="/logo-icon-t.png" alt="StockShop" className="h-7 w-7 object-contain dark:brightness-0 dark:invert flex-shrink-0" />
+                <div className="flex flex-col leading-none">
+                  <span className="text-xs font-bold text-foreground">StockShop</span>
+                  <span className="text-[9px] font-semibold text-stockshop-gold tracking-widest uppercase">Admin Panel</span>
+                </div>
+              </div>
               <div className="grid grid-cols-4 gap-1">
                 {moreItems.map(({ href, label, icon: Icon }) => {
                   const active = isActive(href)

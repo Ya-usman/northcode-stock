@@ -58,21 +58,35 @@ export function AdminSidebar({ locale, userEmail }: AdminSidebarProps) {
         <div className="absolute -top-8 -right-8 h-28 w-28 rounded-full bg-white/5" />
         <div className="absolute -bottom-6 -left-6 h-20 w-20 rounded-full bg-white/5" />
 
-        {/* Logo */}
-        <div className="relative px-4 pt-4 pb-2">
+        {/* Logo row */}
+        <div className="relative px-4 pt-5 pb-1 flex items-center gap-3">
           <img
-            src="/logo-full-t.png"
+            src="/logo-icon-t.png"
             alt="StockShop"
-            className="h-14 w-auto object-contain brightness-0 invert"
+            className="h-10 w-10 object-contain brightness-0 invert flex-shrink-0"
           />
+          <div className="flex flex-col leading-none">
+            <span className="font-extrabold text-base text-white tracking-wide">StockShop</span>
+            <span className="text-[9px] font-semibold text-white/60 tracking-widest uppercase">Platform</span>
+          </div>
         </div>
 
         {/* Admin badge row */}
-        <div className="relative flex items-center gap-2 px-4 pb-3">
-          <div className="h-5 w-5 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-            <ShieldCheck className="h-3 w-3 text-white" />
+        <div className="relative flex items-center justify-between px-4 pb-4 pt-2">
+          <div className="flex items-center gap-2">
+            <div className="h-5 w-5 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+              <ShieldCheck className="h-3 w-3 text-white" />
+            </div>
+            <p className="text-xs font-bold text-stockshop-gold tracking-wide">ADMIN PANEL</p>
           </div>
-          <p className="text-xs font-bold text-stockshop-gold tracking-wide">ADMIN PANEL</p>
+          {/* Live status */}
+          <div className="flex items-center gap-1">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-400" />
+            </span>
+            <span className="text-[8px] font-bold text-green-400 tracking-widest">LIVE</span>
+          </div>
         </div>
       </div>
 
@@ -109,14 +123,20 @@ export function AdminSidebar({ locale, userEmail }: AdminSidebarProps) {
       </nav>
 
       {/* User footer */}
-      <div className="border-t p-3">
-        <div className="flex items-center gap-3 rounded-md px-2 py-2">
-          <div className="h-8 w-8 rounded-full bg-stockshop-blue flex items-center justify-center flex-shrink-0">
+      <div className="border-t border-border p-3">
+        <div className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-accent/50 transition-colors">
+          <div
+            className="h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ring-2 ring-stockshop-gold/40"
+            style={{ background: 'linear-gradient(135deg, #073e8a 0%, #0d52b8 100%)' }}
+          >
             <span className="text-white text-xs font-bold">{initials}</span>
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xs text-foreground font-medium truncate">{userEmail}</p>
-            <p className="text-[10px] text-muted-foreground">Super Admin</p>
+            <span className="inline-flex items-center gap-1 mt-0.5">
+              <ShieldCheck className="h-2.5 w-2.5 text-stockshop-gold" />
+              <span className="text-[9px] font-bold text-stockshop-gold tracking-wide">SUPER ADMIN</span>
+            </span>
           </div>
           <a
             href={`/${locale}/dashboard`}

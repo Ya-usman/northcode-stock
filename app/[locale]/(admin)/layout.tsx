@@ -36,9 +36,23 @@ export default async function AdminLayout({
       <AdminSidebar locale={locale} userEmail={user!.email ?? ''} />
 
       {/* Mobile header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-30 border-b border-border bg-card h-14 flex items-center px-4 gap-2">
-        <div className="h-7 w-7 rounded-md bg-stockshop-gold flex items-center justify-center text-gray-900 font-bold text-xs flex-shrink-0">SS</div>
-        <span className="font-bold text-sm text-stockshop-gold">ADMIN PANEL</span>
+      <div
+        className="md:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center px-4 gap-3 border-b border-blue-900/40"
+        style={{ background: 'linear-gradient(135deg, #073e8a 0%, #0d52b8 100%)' }}
+      >
+        <img src="/logo-icon-t.png" alt="StockShop" className="h-8 w-8 object-contain brightness-0 invert flex-shrink-0" />
+        <div className="flex flex-col leading-none">
+          <span className="font-bold text-sm text-white tracking-wide">StockShop</span>
+          <span className="text-[9px] font-semibold text-stockshop-gold tracking-widest uppercase">Admin Panel</span>
+        </div>
+        {/* Live dot */}
+        <div className="ml-auto flex items-center gap-1.5">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-400" />
+          </span>
+          <span className="text-[9px] text-green-400 font-semibold tracking-wide">LIVE</span>
+        </div>
       </div>
 
       {/* Mobile bottom nav */}
