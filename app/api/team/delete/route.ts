@@ -1,14 +1,5 @@
 ﻿import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { createClient } from '@supabase/supabase-js'
-
-function getAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-}
+import { createAdminClient, createClient } from '@/lib/supabase/server'
 
 export async function POST(request: Request) {
   try {
@@ -43,7 +34,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Vous ne pouvez pas vous supprimer vous-même' }, { status: 400 })
     }
 
-    const admin = getAdminClient()
+    const admin = await createAdminClient()
 
     // 1. Deactivate membership for this shop (soft delete — preserves sales attribution)
     await admin.from('shop_members')
