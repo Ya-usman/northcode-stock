@@ -23,9 +23,12 @@ export async function POST(request: Request) {
     
     if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
-    // Get owner's country directly from their profile (set at registration)
-    // Fallback: look at their primary shop if profile.country is not yet set (pre-migration accounts)
-    const { data: profile } = await supabase.from('profiles').select('shop_id, country').eq('id', user.id).single()
+    // Get owner profile: country + owner-level plan (single source of truth)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('shop_id, country, plan, plan_expires_at, trial_ends_at')
+      .eq('id', user.id)
+      .single()
 
     let country = (profile as any)?.country ?? null
     let currency = 'NGN'
@@ -39,23 +42,28 @@ export async function POST(request: Request) {
       currency = getCountry(country).currencySymbol
     }
 
-    // Fetch ALL active shops owned by this user to determine the best plan.
-    // We look at all shops (not just profile.shop_id) so that even if the
-    // original primary shop was deleted, we still find the active subscription.
-    const { data: ownerShops } = await supabase
-      .from('shops')
-      .select('id, plan, plan_expires_at, trial_ends_at')
-      .eq('owner_id', user.id)
-      .is('deleted_at', null)
-      .order('created_at', { ascending: true })
+    // Read plan from owner profile (owner-level billing)
+    // Fallback to scanning all shops for pre-migration accounts without profiles.plan
+    let refPlan: string = (profile as any)?.plan ?? null
+    let refExpiry: string | null = (profile as any)?.plan_expires_at ?? null
+    let refTrial: string | null = (profile as any)?.trial_ends_at ?? null
 
-    // Pick the shop with the best active plan; fall back to the oldest shop
-    const referenceShop = (ownerShops ?? []).find(s =>
-      hasActiveSubscription(s.plan, s.plan_expires_at)
-    ) ?? (ownerShops ?? [])[0] ?? null
+    if (!refPlan) {
+      const { data: ownerShops } = await supabase
+        .from('shops')
+        .select('id, plan, plan_expires_at, trial_ends_at')
+        .eq('owner_id', user.id)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: true })
+      const best = (ownerShops ?? []).find(s => hasActiveSubscription(s.plan, s.plan_expires_at))
+        ?? (ownerShops ?? [])[0] ?? null
+      refPlan = (best as any)?.plan ?? 'trial'
+      refExpiry = (best as any)?.plan_expires_at ?? null
+      refTrial = (best as any)?.trial_ends_at ?? null
+    }
 
-    // Enforce shop limit based on reference plan
-    const plan = getPlan((referenceShop as any)?.plan)
+    // Enforce shop limit based on owner's plan
+    const plan = getPlan(refPlan)
     if (plan.limits.shops !== -1) {
       const { count } = await supabase
         .from('shop_members').select('id', { count: 'exact', head: true })
@@ -68,10 +76,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // New shop inherits the paid plan — no double billing.
-    const refPlan = (referenceShop as any)?.plan ?? 'trial'
-    const refExpiry = (referenceShop as any)?.plan_expires_at ?? null
-    const refTrial = (referenceShop as any)?.trial_ends_at ?? null
+    // New shop inherits owner's paid plan — no double billing
     const isActiveSub = hasActiveSubscription(refPlan, refExpiry)
 
     const newShopPlan = isActiveSub ? refPlan : 'trial'

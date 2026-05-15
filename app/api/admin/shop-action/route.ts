@@ -27,45 +27,75 @@ export async function POST(request: Request) {
 
     const admin = await createAdminClient() as any
 
+    // Get owner_id for profile-level updates
+    const { data: targetShop } = await admin.from('shops').select('owner_id').eq('id', shop_id).single()
+    const owner_id = (targetShop as any)?.owner_id
+
     switch (action) {
       case 'suspend': {
+        const expiredAt = new Date(Date.now() - 1000).toISOString()
         // Deactivate all profiles for this shop
         await admin.from('profiles').update({ is_active: false }).eq('shop_id', shop_id)
-        // Expire the plan immediately
+        // Expire the plan on all owner shops + owner profile
         await admin.from('shops').update({
-          plan_expires_at: new Date(Date.now() - 1000).toISOString(),
-          trial_ends_at: new Date(Date.now() - 1000).toISOString(),
+          plan_expires_at: expiredAt,
+          trial_ends_at: expiredAt,
         } as any).eq('id', shop_id)
+        if (owner_id) {
+          await admin.from('profiles').update({
+            plan_expires_at: expiredAt,
+            trial_ends_at: expiredAt,
+          } as any).eq('id', owner_id)
+        }
         return NextResponse.json({ success: true, message: 'Shop suspended' })
       }
 
       case 'reactivate': {
+        const newTrial = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
         // Reactivate all profiles for this shop
         await admin.from('profiles').update({ is_active: true }).eq('shop_id', shop_id)
-        // Extend trial by 30 days
         await admin.from('shops').update({
-          trial_ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          trial_ends_at: newTrial,
           plan: 'trial',
           plan_expires_at: null,
         } as any).eq('id', shop_id)
+        if (owner_id) {
+          await admin.from('profiles').update({
+            plan: 'trial',
+            plan_expires_at: null,
+            trial_ends_at: newTrial,
+          } as any).eq('id', owner_id)
+        }
         return NextResponse.json({ success: true, message: 'Shop reactivated' })
       }
 
       case 'extend': {
         const daysToAdd = Number(days) || 30
-        // Extend plan_expires_at or trial_ends_at
-        const { data: shop } = await admin.from('shops').select('plan, plan_expires_at, trial_ends_at').eq('id', shop_id).single()
-        const hasActivePlan = shop?.plan && shop.plan !== 'trial' && shop?.plan_expires_at && new Date(shop.plan_expires_at) > new Date()
+        // Read plan from owner profile if available, fallback to shop
+        let planSource: any = null
+        if (owner_id) {
+          const { data: ownerProfile } = await admin.from('profiles').select('plan, plan_expires_at, trial_ends_at').eq('id', owner_id).single()
+          planSource = ownerProfile
+        }
+        if (!planSource) {
+          const { data: shop } = await admin.from('shops').select('plan, plan_expires_at, trial_ends_at').eq('id', shop_id).single()
+          planSource = shop
+        }
+        const hasActivePlan = planSource?.plan && planSource.plan !== 'trial' && planSource?.plan_expires_at && new Date(planSource.plan_expires_at) > new Date()
 
         if (hasActivePlan) {
-          const current = new Date(shop!.plan_expires_at!)
+          const current = new Date(planSource.plan_expires_at)
           current.setDate(current.getDate() + daysToAdd)
-          await admin.from('shops').update({ plan_expires_at: current.toISOString() } as any).eq('id', shop_id)
+          const newExpiry = current.toISOString()
+          await admin.from('shops').update({ plan_expires_at: newExpiry } as any).eq('id', shop_id)
+          if (owner_id) await admin.from('profiles').update({ plan_expires_at: newExpiry } as any).eq('id', owner_id)
         } else {
-          const current = shop?.trial_ends_at ? new Date(shop.trial_ends_at) : new Date()
+          const current = planSource?.trial_ends_at ? new Date(planSource.trial_ends_at) : new Date()
           if (current < new Date()) current.setTime(Date.now())
           current.setDate(current.getDate() + daysToAdd)
-          await admin.from('shops').update({ trial_ends_at: current.toISOString() } as any).eq('id', shop_id)
+          const newTrial = current.toISOString()
+          await admin.from('shops').update({ trial_ends_at: newTrial } as any).eq('id', shop_id)
+          if (owner_id) await admin.from('profiles').update({ trial_ends_at: newTrial } as any).eq('id', owner_id)
         }
         return NextResponse.json({ success: true, message: `Extended by ${daysToAdd} days` })
       }
@@ -78,6 +108,18 @@ export async function POST(request: Request) {
           plan_expires_at: expires,
         } as any).eq('id', shop_id)
         await admin.from('profiles').update({ is_active: true }).eq('shop_id', shop_id)
+        if (owner_id) {
+          await admin.from('profiles').update({
+            plan: planId,
+            plan_expires_at: expires,
+            trial_ends_at: null,
+          } as any).eq('id', owner_id)
+          // Sync all owner's active shops
+          await admin.from('shops').update({
+            plan: planId,
+            plan_expires_at: expires,
+          } as any).eq('owner_id', owner_id).is('deleted_at', null)
+        }
         return NextResponse.json({ success: true, message: `Plan ${planId} granted` })
       }
 

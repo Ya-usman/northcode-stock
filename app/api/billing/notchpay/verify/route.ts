@@ -48,10 +48,28 @@ export async function GET(request: NextRequest) {
 
     const plan_expires_at = new Date(Date.now() + 31 * 24 * 60 * 60 * 1000).toISOString()
 
-    await supabase.from('shops').update({
-      plan: plan_id,
-      plan_expires_at,
-    } as any).eq('id', shop_id)
+    // Get owner_id to update profile (owner-level billing)
+    const { data: shopRow } = await supabase.from('shops').select('owner_id').eq('id', shop_id).single()
+    const owner_id = (shopRow as any)?.owner_id
+
+    if (owner_id) {
+      await supabase.from('profiles').update({
+        plan: plan_id,
+        plan_expires_at,
+        trial_ends_at: null,
+      } as any).eq('id', owner_id)
+
+      await supabase.from('shops').update({
+        plan: plan_id,
+        plan_expires_at,
+        trial_ends_at: null,
+      } as any).eq('owner_id', owner_id).is('deleted_at', null)
+    } else {
+      await supabase.from('shops').update({
+        plan: plan_id,
+        plan_expires_at,
+      } as any).eq('id', shop_id)
+    }
 
     const amount = data.transaction?.amount || data.payment?.amount || 0
 

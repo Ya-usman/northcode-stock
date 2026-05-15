@@ -46,7 +46,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: shopError?.message || 'Erreur création boutique' }, { status: 500 })
     }
 
-    // Create owner profile — store country directly so multi-shop creation always uses the right country
+    // Create owner profile — store country + plan so billing is owner-level
+    const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
     const { error: profileError } = await supabase
       .from('profiles')
       .upsert({
@@ -56,6 +57,9 @@ export async function POST(request: Request) {
         role: 'owner',
         is_active: true,
         country: countryConfig.code,
+        plan: 'trial',
+        trial_ends_at: trialEndsAt,
+        plan_expires_at: null,
       } as any)
 
     if (profileError) {

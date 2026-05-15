@@ -245,13 +245,13 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                   className={cn(
                     'relative rounded-2xl border-2 bg-card p-6 shadow-sm transition-all',
                     popular
-                      ? 'border-stockshop-blue shadow-xl ring-2 ring-stockshop-blue'
+                      ? 'border-stockshop-blue shadow-xl ring-2 ring-stockshop-blue mt-4 md:mt-0'
                       : 'border-gray-200 dark:border-gray-700 hover:border-stockshop-blue/40'
                   )}
                 >
                   {popular && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                      <Badge className="bg-stockshop-blue text-white px-3 py-1 text-xs font-semibold">
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
+                      <Badge className="bg-stockshop-blue text-white px-3 py-1 text-xs font-semibold whitespace-nowrap">
                         {t('popular_badge')}
                       </Badge>
                     </div>
@@ -296,7 +296,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                           : 'border border-blue-600 dark:border-blue-400 text-stockshop-blue dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 bg-transparent'
                       )}
                     >
-                      {isSubscribed ? `${t('upgrade_to')} ${planName}` : `Choisir ${planName}`}
+                      {isSubscribed ? `${t('upgrade_to')} ${planName}` : `${t('choose_plan_btn')} ${planName}`}
                     </Button>
                   )}
                 </div>
