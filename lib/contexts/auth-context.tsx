@@ -366,11 +366,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         table: 'shops',
         filter: `id=eq.${shopId}`,
       }, (payload) => {
-        const updated = payload.new as Shop
+        const raw = payload.new as any
+        const id: string | undefined = raw?.id
+        if (!id) return
+        // Supabase Realtime may omit JSONB columns — only update role_permissions if present
+        const patch: Partial<Shop> = {}
+        if (raw.role_permissions !== undefined) (patch as any).role_permissions = raw.role_permissions
+        if (raw.name !== undefined) patch.name = raw.name
+        if (Object.keys(patch).length === 0) return
         setState(prev => ({
           ...prev,
-          userShops: prev.userShops.map(s => s.id === updated.id ? { ...s, ...updated } : s),
-          activeShop: prev.activeShop?.id === updated.id ? { ...prev.activeShop, ...updated } : prev.activeShop,
+          userShops: prev.userShops.map(s => s.id === id ? { ...s, ...patch } : s),
+          activeShop: prev.activeShop?.id === id ? { ...prev.activeShop, ...patch } : prev.activeShop,
         }))
       })
       .subscribe()
