@@ -6,7 +6,11 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useRouter, usePathname } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { useAuthContext } from '@/lib/contexts/auth-context'
 import type { Shop } from '@/lib/types/database'
+
+const supabase = createClient()
 
 const LOCALE_FLAGS: Record<string, string> = {
   en: '🇬🇧',
@@ -24,11 +28,16 @@ interface HeaderProps {
 export function Header({ title, locale, onSignOut }: HeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
+  const { profile } = useAuthContext()
 
   const switchLanguage = (newLocale: string) => {
     const newPath = pathname.replace(`/${locale}`, `/${newLocale}`)
     localStorage.setItem('NEXT_LOCALE', newLocale)
     document.cookie = `NEXT_LOCALE=${newLocale}; path=/; max-age=31536000; SameSite=lax`
+    // Save in DB so preference survives iOS cookie clearing and syncs across devices
+    if (profile?.id) {
+      supabase.from('profiles').update({ locale: newLocale }).eq('id', profile.id)
+    }
     router.push(newPath)
   }
 

@@ -57,21 +57,21 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const [savingPerms, setSavingPerms] = useState(false)
 
   const PERM_FEATURES: { key: PermFeature; label: string; icon: React.ReactNode }[] = [
-    { key: 'new_sale',      label: 'Nouvelle vente',           icon: <ShoppingCart className="h-4 w-4" /> },
-    { key: 'sales_history', label: 'Historique des ventes',    icon: <History className="h-4 w-4" /> },
-    { key: 'payments',      label: 'Paiements / Dettes',       icon: <CreditCard className="h-4 w-4" /> },
-    { key: 'customers',     label: 'Clients',                  icon: <Users className="h-4 w-4" /> },
-    { key: 'stock',         label: 'Produits / Stock',         icon: <Package className="h-4 w-4" /> },
-    { key: 'movements',     label: 'Mouvements de stock',      icon: <ArrowLeftRight className="h-4 w-4" /> },
-    { key: 'categories',    label: 'Catégories',               icon: <Tag className="h-4 w-4" /> },
-    { key: 'suppliers',     label: 'Fournisseurs',             icon: <Truck className="h-4 w-4" /> },
-    { key: 'reports',       label: 'Rapports',                 icon: <BarChart2 className="h-4 w-4" /> },
+    { key: 'new_sale',      label: t('settings.perm_new_sale'),      icon: <ShoppingCart className="h-4 w-4" /> },
+    { key: 'sales_history', label: t('settings.perm_sales_history'), icon: <History className="h-4 w-4" /> },
+    { key: 'payments',      label: t('settings.perm_payments'),      icon: <CreditCard className="h-4 w-4" /> },
+    { key: 'customers',     label: t('settings.perm_customers'),     icon: <Users className="h-4 w-4" /> },
+    { key: 'stock',         label: t('settings.perm_stock'),         icon: <Package className="h-4 w-4" /> },
+    { key: 'movements',     label: t('settings.perm_movements'),     icon: <ArrowLeftRight className="h-4 w-4" /> },
+    { key: 'categories',    label: t('settings.perm_categories'),    icon: <Tag className="h-4 w-4" /> },
+    { key: 'suppliers',     label: t('settings.perm_suppliers'),     icon: <Truck className="h-4 w-4" /> },
+    { key: 'reports',       label: t('settings.perm_reports'),       icon: <BarChart2 className="h-4 w-4" /> },
   ]
 
   const ROLE_LABELS: Record<ConfigurableRole, string> = {
-    cashier:       'Caissier',
-    viewer:        'Viewer',
-    stock_manager: 'Gestionnaire stock',
+    cashier:       t('settings.role_cashier'),
+    viewer:        t('settings.role_viewer'),
+    stock_manager: t('settings.role_stock_manager'),
   }
 
   // Initialise the form only once when shopData first loads (not on every re-render)
@@ -121,7 +121,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       if (enabled) {
         const ok = await subscribeToPush(shop.id)
         setPushEnabled(ok)
-        if (!ok) toast({ title: 'Permission refusée ou non supportée', variant: 'destructive' })
+        if (!ok) toast({ title: t('settings.push_denied'), variant: 'destructive' })
       } else {
         await unsubscribeFromPush()
         setPushEnabled(false)
@@ -226,9 +226,9 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur inconnue')
       await refreshShop()
-      toast({ title: 'Permissions mises à jour', description: 'Le caissier devra recharger l\'app pour voir les changements.', variant: 'success' })
+      toast({ title: t('settings.perms_saved'), description: t('settings.perms_saved_desc'), variant: 'success' })
     } catch (err: any) {
-      toast({ title: 'Erreur sauvegarde permissions', description: err.message, variant: 'destructive' })
+      toast({ title: t('settings.perms_error'), description: err.message, variant: 'destructive' })
       setPermissions(prev)
     } finally {
       setSavingPerms(false)
@@ -360,13 +360,13 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
               <div className="space-y-3">
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   <Bell className="h-3.5 w-3.5" />
-                  Notifications push
+                  {t('settings.push_notifications')}
                 </p>
                 <div className="flex items-center justify-between py-1">
                   <div>
-                    <Label className="cursor-pointer">Alertes stock bas</Label>
+                    <Label className="cursor-pointer">{t('settings.push_low_stock')}</Label>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {pushEnabled ? 'Activé sur cet appareil' : 'Désactivé sur cet appareil'}
+                      {pushEnabled ? t('settings.push_enabled') : t('settings.push_disabled')}
                     </p>
                   </div>
                   <Switch
@@ -436,10 +436,10 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-stockshop-blue" />
-            Accès par rôle
+            {t('settings.role_permissions')}
           </CardTitle>
           <p className="text-xs text-muted-foreground mt-1">
-            Choisissez les fonctionnalités auxquelles chaque rôle peut accéder.
+            {t('settings.role_permissions_desc')}
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -459,7 +459,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                 {ROLE_LABELS[r]}
               </button>
             ))}
-            {savingPerms && <span className="text-xs text-muted-foreground self-center ml-1">Enregistrement…</span>}
+            {savingPerms && <span className="text-xs text-muted-foreground self-center ml-1">{t('settings.saving_perms')}</span>}
           </div>
 
           {/* Feature toggles */}
