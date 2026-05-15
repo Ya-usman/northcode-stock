@@ -29,6 +29,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const pathname = usePathname()
   const { isDark, setIsDark } = useTheme()
 
+  const isOwner = profile?.role === 'owner' || profile?.role === 'super_admin'
+
   const [shop, setShop] = useState<Shop | null>(shopData)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(!shopData)
@@ -251,135 +253,140 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   return (
     <div className="space-y-4 max-w-2xl">
 
-      {/* Shop Info */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold">{t('settings.shop_info')}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="h-16 w-16 rounded-xl overflow-hidden border bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center flex-shrink-0">
-              {shop?.logo_url ? (
-                <img src={shop.logo_url} alt="Logo" className="h-full w-full object-cover" />
-              ) : (
-                <span className="text-stockshop-blue dark:text-blue-400 font-bold text-xl">NC</span>
-              )}
-            </div>
-            <div>
-              <p className="text-sm font-medium">{t('settings.logo')}</p>
-              <label className="mt-1 inline-flex items-center gap-2 cursor-pointer rounded-md border px-3 py-1.5 text-xs hover:bg-muted transition-colors">
-                <Upload className="h-3 w-3" />
-                {uploadingLogo ? t('settings.uploading') : t('settings.upload_logo')}
-                <input type="file" accept="image/*" className="hidden" onChange={uploadLogo} />
-              </label>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <Label>{t('settings.shop_name')} *</Label>
-              <Input value={name} onChange={e => setName(e.target.value)} placeholder="Boutique Alpha" />
-            </div>
-            <div className="space-y-1">
-              <Label>{t('settings.whatsapp')}</Label>
-              <Input value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="2348012345678" type="tel" />
-            </div>
-            <div className="space-y-1">
-              <Label>{t('settings.city')}</Label>
-              <Input value={city} onChange={e => setCity(e.target.value)} placeholder="Kano" />
-            </div>
-            <div className="space-y-1">
-              <Label>{t('settings.state')}</Label>
-              <Input value={state} onChange={e => setState(e.target.value)} placeholder="Kano State" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Business Settings */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold">{t('settings.business')}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <Label>{t('settings.low_stock_threshold')}</Label>
-              <Input type="number" min={1} value={threshold} onChange={e => setThreshold(Number(e.target.value))} />
-              <p className="text-xs text-muted-foreground">{t('settings.stock_alert_hint')}</p>
-            </div>
-            <div className="space-y-1">
-              <Label>{t('settings.tax_rate')}</Label>
-              <div className="relative">
-                <Input type="number" min={0} max={100} step={0.5} value={taxRate} onChange={e => setTaxRate(Number(e.target.value))} className="pr-8" />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
-              </div>
-              <p className="text-xs text-muted-foreground">{t('settings.tax_hint')}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Notifications */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold">{t('settings.notifications')}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-xs text-muted-foreground">{t('settings.notif_hint')}</p>
-          <div className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">WhatsApp</p>
-            {[
-              { label: t('settings.alert_low_stock'), value: notifyWaLowStock, setter: setNotifyWaLowStock },
-              { label: t('settings.alert_daily'), value: notifyWaDaily, setter: setNotifyWaDaily },
-              { label: t('settings.alert_each_sale'), value: notifyWaEachSale, setter: setNotifyWaEachSale },
-            ].map(item => (
-              <div key={item.label} className="flex items-center justify-between py-1">
-                <Label className="cursor-pointer">{item.label}</Label>
-                <Switch checked={item.value} onCheckedChange={item.setter} />
-              </div>
-            ))}
-          </div>
-          <Separator />
-          <div className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Email</p>
-            {[
-              { label: t('settings.alert_low_stock'), value: notifyEmailLowStock, setter: setNotifyEmailLowStock },
-              { label: t('settings.alert_daily'), value: notifyEmailDaily, setter: setNotifyEmailDaily },
-            ].map(item => (
-              <div key={item.label} className="flex items-center justify-between py-1">
-                <Label className="cursor-pointer">{item.label}</Label>
-                <Switch checked={item.value} onCheckedChange={item.setter} />
-              </div>
-            ))}
-          </div>
-
-          {pushSupported && (
-            <>
-              <Separator />
-              <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <Bell className="h-3.5 w-3.5" />
-                  {t('settings.push_notifications')}
-                </p>
-                <div className="flex items-center justify-between py-1">
-                  <div>
-                    <Label className="cursor-pointer">{t('settings.push_low_stock')}</Label>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {pushEnabled ? t('settings.push_enabled') : t('settings.push_disabled')}
-                    </p>
-                  </div>
-                  <Switch
-                    checked={pushEnabled}
-                    onCheckedChange={togglePush}
-                    disabled={pushLoading}
-                  />
+      {/* Owner-only sections: shop info, business settings, notifications */}
+      {isOwner && (
+        <>
+          {/* Shop Info */}
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold">{t('settings.shop_info')}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="h-16 w-16 rounded-xl overflow-hidden border bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center flex-shrink-0">
+                  {shop?.logo_url ? (
+                    <img src={shop.logo_url} alt="Logo" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-stockshop-blue dark:text-blue-400 font-bold text-xl">NC</span>
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-medium">{t('settings.logo')}</p>
+                  <label className="mt-1 inline-flex items-center gap-2 cursor-pointer rounded-md border px-3 py-1.5 text-xs hover:bg-muted transition-colors">
+                    <Upload className="h-3 w-3" />
+                    {uploadingLogo ? t('settings.uploading') : t('settings.upload_logo')}
+                    <input type="file" accept="image/*" className="hidden" onChange={uploadLogo} />
+                  </label>
                 </div>
               </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label>{t('settings.shop_name')} *</Label>
+                  <Input value={name} onChange={e => setName(e.target.value)} placeholder="Boutique Alpha" />
+                </div>
+                <div className="space-y-1">
+                  <Label>{t('settings.whatsapp')}</Label>
+                  <Input value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="2348012345678" type="tel" />
+                </div>
+                <div className="space-y-1">
+                  <Label>{t('settings.city')}</Label>
+                  <Input value={city} onChange={e => setCity(e.target.value)} placeholder="Kano" />
+                </div>
+                <div className="space-y-1">
+                  <Label>{t('settings.state')}</Label>
+                  <Input value={state} onChange={e => setState(e.target.value)} placeholder="Kano State" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Business Settings */}
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold">{t('settings.business')}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label>{t('settings.low_stock_threshold')}</Label>
+                  <Input type="number" min={1} value={threshold} onChange={e => setThreshold(Number(e.target.value))} />
+                  <p className="text-xs text-muted-foreground">{t('settings.stock_alert_hint')}</p>
+                </div>
+                <div className="space-y-1">
+                  <Label>{t('settings.tax_rate')}</Label>
+                  <div className="relative">
+                    <Input type="number" min={0} max={100} step={0.5} value={taxRate} onChange={e => setTaxRate(Number(e.target.value))} className="pr-8" />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{t('settings.tax_hint')}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Notifications */}
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold">{t('settings.notifications')}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground">{t('settings.notif_hint')}</p>
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">WhatsApp</p>
+                {[
+                  { label: t('settings.alert_low_stock'), value: notifyWaLowStock, setter: setNotifyWaLowStock },
+                  { label: t('settings.alert_daily'), value: notifyWaDaily, setter: setNotifyWaDaily },
+                  { label: t('settings.alert_each_sale'), value: notifyWaEachSale, setter: setNotifyWaEachSale },
+                ].map(item => (
+                  <div key={item.label} className="flex items-center justify-between py-1">
+                    <Label className="cursor-pointer">{item.label}</Label>
+                    <Switch checked={item.value} onCheckedChange={item.setter} />
+                  </div>
+                ))}
+              </div>
+              <Separator />
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Email</p>
+                {[
+                  { label: t('settings.alert_low_stock'), value: notifyEmailLowStock, setter: setNotifyEmailLowStock },
+                  { label: t('settings.alert_daily'), value: notifyEmailDaily, setter: setNotifyEmailDaily },
+                ].map(item => (
+                  <div key={item.label} className="flex items-center justify-between py-1">
+                    <Label className="cursor-pointer">{item.label}</Label>
+                    <Switch checked={item.value} onCheckedChange={item.setter} />
+                  </div>
+                ))}
+              </div>
+
+              {pushSupported && (
+                <>
+                  <Separator />
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Bell className="h-3.5 w-3.5" />
+                      {t('settings.push_notifications')}
+                    </p>
+                    <div className="flex items-center justify-between py-1">
+                      <div>
+                        <Label className="cursor-pointer">{t('settings.push_low_stock')}</Label>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {pushEnabled ? t('settings.push_enabled') : t('settings.push_disabled')}
+                        </p>
+                      </div>
+                      <Switch
+                        checked={pushEnabled}
+                        onCheckedChange={togglePush}
+                        disabled={pushLoading}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       {/* Appearance — Dark Mode */}
       <Card className="border-0 shadow-sm">
@@ -431,65 +438,69 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
         </CardContent>
       </Card>
 
-      {/* Role Permissions */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-stockshop-blue" />
-            {t('settings.role_permissions')}
-          </CardTitle>
-          <p className="text-xs text-muted-foreground mt-1">
-            {t('settings.role_permissions_desc')}
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Role tabs */}
-          <div className="flex gap-2 flex-wrap">
-            {(['cashier', 'viewer', 'stock_manager'] as ConfigurableRole[]).map(r => (
-              <button
-                key={r}
-                onClick={() => setActivePermRole(r)}
-                className={cn(
-                  'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors border',
-                  activePermRole === r
-                    ? 'bg-stockshop-blue text-white border-stockshop-blue'
-                    : 'border-border text-muted-foreground hover:bg-muted'
-                )}
-              >
-                {ROLE_LABELS[r]}
-              </button>
-            ))}
-            {savingPerms && <span className="text-xs text-muted-foreground self-center ml-1">{t('settings.saving_perms')}</span>}
-          </div>
+      {/* Role Permissions — owner only */}
+      {isOwner && (
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-stockshop-blue" />
+              {t('settings.role_permissions')}
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              {t('settings.role_permissions_desc')}
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Role tabs */}
+            <div className="flex gap-2 flex-wrap">
+              {(['cashier', 'viewer', 'stock_manager'] as ConfigurableRole[]).map(r => (
+                <button
+                  key={r}
+                  onClick={() => setActivePermRole(r)}
+                  className={cn(
+                    'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors border',
+                    activePermRole === r
+                      ? 'bg-stockshop-blue text-white border-stockshop-blue'
+                      : 'border-border text-muted-foreground hover:bg-muted'
+                  )}
+                >
+                  {ROLE_LABELS[r]}
+                </button>
+              ))}
+              {savingPerms && <span className="text-xs text-muted-foreground self-center ml-1">{t('settings.saving_perms')}</span>}
+            </div>
 
-          {/* Feature toggles */}
-          <div className="space-y-1">
-            {PERM_FEATURES.map(({ key, label, icon }) => (
-              <div key={key} className="flex items-center justify-between rounded-lg px-3 py-2.5 hover:bg-muted/50 transition-colors">
-                <div className="flex items-center gap-2.5 text-sm">
-                  <span className="text-muted-foreground">{icon}</span>
-                  <span>{label}</span>
+            {/* Feature toggles */}
+            <div className="space-y-1">
+              {PERM_FEATURES.map(({ key, label, icon }) => (
+                <div key={key} className="flex items-center justify-between rounded-lg px-3 py-2.5 hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center gap-2.5 text-sm">
+                    <span className="text-muted-foreground">{icon}</span>
+                    <span>{label}</span>
+                  </div>
+                  <Switch
+                    checked={permissions[activePermRole][key]}
+                    onCheckedChange={val => togglePermission(activePermRole, key, val)}
+                  />
                 </div>
-                <Switch
-                  checked={permissions[activePermRole][key]}
-                  onCheckedChange={val => togglePermission(activePermRole, key, val)}
-                />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Save button */}
-      <Button
-        onClick={saveSettings}
-        loading={saving}
-        className="w-full h-12 bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500"
-        size="lg"
-      >
-        <Save className="mr-2 h-4 w-4" />
-        {t('actions.save')}
-      </Button>
+      {/* Save button — owner only */}
+      {isOwner && (
+        <Button
+          onClick={saveSettings}
+          loading={saving}
+          className="w-full h-12 bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500"
+          size="lg"
+        >
+          <Save className="mr-2 h-4 w-4" />
+          {t('actions.save')}
+        </Button>
+      )}
     </div>
   )
 }
