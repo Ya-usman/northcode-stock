@@ -19,6 +19,7 @@ interface AuthContextValue extends AuthState {
   isSuperAdmin: boolean
   signOut: () => Promise<void>
   refreshShop: () => Promise<void>
+  patchShop: (shopId: string, updates: Partial<Shop>) => void
   switchShop: (shopId: string) => void
   dashboardShopFilter: string | null
   setDashboardShopFilter: (id: string | null) => void
@@ -111,6 +112,21 @@ async function fetchUserData(userId: string): Promise<{
   if (userShops.length === 0 && profile?.shop_id) {
     const { data: shop } = await supabase.from('shops').select('*').eq('id', profile.shop_id).single()
     if (shop) return { profile, userShops: [shop as Shop], memberships: rows }
+  }
+
+  // Always fetch role_permissions directly — the join may return a stale schema-cache
+  // version of JSONB columns; this separate query guarantees up-to-date permissions.
+  if (userShops.length > 0) {
+    const { data: permsData } = await supabase
+      .from('shops')
+      .select('id, role_permissions')
+      .in('id', userShops.map(s => s.id))
+    if (permsData) {
+      permsData.forEach(p => {
+        const shop = userShops.find(s => s.id === p.id)
+        if (shop) (shop as any).role_permissions = (p as any).role_permissions
+      })
+    }
   }
 
   return { profile, userShops, memberships: rows }
@@ -327,6 +343,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch { /* keep */ }
   }, [applyUserData])
 
+  // Directly patch a shop in state without a DB round-trip.
+  // Use this after a successful write to avoid stale-read issues on replicas.
+  const patchShop = useCallback((shopId: string, updates: Partial<Shop>) => {
+    setState(prev => ({
+      ...prev,
+      userShops: prev.userShops.map(s => s.id === shopId ? { ...s, ...updates } : s),
+      activeShop: prev.activeShop?.id === shopId ? { ...prev.activeShop, ...updates } : prev.activeShop,
+    }))
+  }, [])
+
   // Real-time: sync shop data when owner updates role_permissions
   useEffect(() => {
     const shopId = state.activeShop?.id
@@ -392,11 +418,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isSuperAdmin: state.profile?.role === 'super_admin',
     signOut,
     refreshShop,
+    patchShop,
     switchShop,
     dashboardShopFilter,
     setDashboardShopFilter,
     effectiveShopIds,
-  }), [state, signOut, refreshShop, switchShop, dashboardShopFilter, setDashboardShopFilter, effectiveShopIds])
+  }), [state, signOut, refreshShop, patchShop, switchShop, dashboardShopFilter, setDashboardShopFilter, effectiveShopIds])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

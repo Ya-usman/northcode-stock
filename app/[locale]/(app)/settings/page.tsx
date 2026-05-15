@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils/cn'
 
 export default function SettingsPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations()
-  const { shop: shopData, profile, refreshShop } = useAuth()
+  const { shop: shopData, profile, refreshShop, patchShop } = useAuth()
   const supabase = createClient() as any
   const { toast } = useToast()
   const router = useRouter()
@@ -229,7 +229,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur inconnue')
-      await refreshShop()
+      // Update auth context directly — avoids stale-read from DB replica after write
+      patchShop(shop.id, { role_permissions: updated })
       toast({ title: t('settings.perms_saved'), description: t('settings.perms_saved_desc'), variant: 'success' })
     } catch (err: any) {
       toast({ title: t('settings.perms_error'), description: err.message, variant: 'destructive' })
