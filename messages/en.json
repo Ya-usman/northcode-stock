@@ -67,7 +67,7 @@
     "items_low": "{count} item(s) low",
     "more_items": "+{count} more",
     "qty_left": "{qty} left",
-    "today_expenses": "Today's Expenses"
+    "month_expenses": "Month Expenses"
   },
   "dashboard_banner": {
     "beta_active": "Free beta access — enjoy full access for {days} more days.",

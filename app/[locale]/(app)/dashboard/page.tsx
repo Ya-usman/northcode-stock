@@ -14,7 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { RefreshCw, Store, ChevronDown, Check } from 'lucide-react'
-import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns'
+import { format, subDays, startOfDay, endOfDay, startOfMonth, endOfMonth, parseISO } from 'date-fns'
 import type { Sale, Product, RevenueDataPoint, TopProduct } from '@/lib/types/database'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { cn } from '@/lib/utils/cn'
@@ -69,7 +69,7 @@ export default function DashboardPage() {
   const [topProducts, setTopProducts] = useState<TopProduct[]>([])
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([])
   const [outOfStockProducts, setOutOfStockProducts] = useState<Product[]>([])
-  const [todayExpenses, setTodayExpenses] = useState(0)
+  const [monthExpenses, setMonthExpenses] = useState(0)
 
   // Determine which shop IDs to query
   const shopIds = dashboardShopFilter
@@ -97,7 +97,7 @@ export default function DashboardPage() {
     setTopProducts(tops)
     setLowStockProducts(low)
     setOutOfStockProducts(out)
-    setTodayExpenses(expenses)
+    setMonthExpenses(expenses)
   }, [])
 
   const loadDashboard = useCallback(async (quiet = false) => {
@@ -192,12 +192,13 @@ export default function DashboardPage() {
         // Actual cash received via admin route (for weekly chart)
         fetch(`/api/dashboard/payments-today?shop_ids=${shopIds.join(',')}&start=${encodeURIComponent(todayStart)}&end=${encodeURIComponent(todayEnd)}&week_start=${encodeURIComponent(weekStartISO)}`),
 
-        // Today's expenses (owner only)
+        // Month expenses (owner only) — 1st to last day of current month
         !isCashier ? supabase
           .from('expenses')
           .select('amount')
           .in('shop_id', shopIds)
-          .eq('date', todayStart.slice(0, 10)) : Promise.resolve({ data: [] }),
+          .gte('date', startOfMonth(today).toISOString().slice(0, 10))
+          .lte('date', endOfMonth(today).toISOString().slice(0, 10)) : Promise.resolve({ data: [] }),
       ])
 
       const paymentsApiOk = paymentsRes.ok
@@ -466,7 +467,7 @@ export default function DashboardPage() {
         todaySalesCount={todaySalesCount}
         lowStockCount={lowStockProducts.length + outOfStockProducts.length}
         outstandingDebt={outstandingDebt}
-        todayExpenses={todayExpenses}
+        monthExpenses={monthExpenses}
         role={profile?.role || 'viewer'}
         isCashier={isCashierView}
       />

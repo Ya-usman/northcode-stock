@@ -67,7 +67,7 @@
     "items_low": "kaya {count} suna ƙarewa",
     "more_items": "+{count} ƙari",
     "qty_left": "{qty} ya rage",
-    "today_expenses": "Kashe Kuɗin Yau"
+    "month_expenses": "Kashe Kuɗin Watan"
   },
   "dashboard_banner": {
     "beta_active": "Gwaji kyauta — cikakken damar amfani ya rage kwanaki {days}.",

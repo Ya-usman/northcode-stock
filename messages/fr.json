@@ -67,7 +67,7 @@
     "items_low": "{count} article(s) en alerte",
     "more_items": "+{count} de plus",
     "qty_left": "{qty} restant(s)",
-    "today_expenses": "Dépenses aujourd'hui"
+    "month_expenses": "Dépenses du mois"
   },
   "dashboard_banner": {
     "beta_active": "Accès bêta gratuit — profitez de l'accès complet pendant encore {days} jours.",
