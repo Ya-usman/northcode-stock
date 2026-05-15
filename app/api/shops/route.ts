@@ -39,24 +39,38 @@ export async function POST(request: Request) {
       currency = getCountry(country).currencySymbol
     }
 
-    // Enforce shop limit — always, including trial and beta
-    {
-      const { data: primaryShop } = await supabase
-        .from('shops').select('plan, plan_expires_at, trial_ends_at')
-        .eq('id', profile?.shop_id ?? '').single()
-      const plan = getPlan((primaryShop as any)?.plan)
-      if (plan.limits.shops !== -1) {
-        const { count } = await supabase
-          .from('shop_members').select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id).eq('role', 'owner').eq('is_active', true)
-        if ((count ?? 0) >= plan.limits.shops) {
-          return NextResponse.json(
-            { error: `Votre forfait ${plan.name} est limité à ${plan.limits.shops} boutique(s). Passez au forfait supérieur pour en créer davantage.` },
-            { status: 403 }
-          )
-        }
+    // Enforce shop limit and fetch primary shop plan to inherit on new shop
+    const { data: primaryShop } = await supabase
+      .from('shops').select('plan, plan_expires_at, trial_ends_at')
+      .eq('id', profile?.shop_id ?? '').single()
+
+    const plan = getPlan((primaryShop as any)?.plan)
+    if (plan.limits.shops !== -1) {
+      const { count } = await supabase
+        .from('shop_members').select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id).eq('role', 'owner').eq('is_active', true)
+      if ((count ?? 0) >= plan.limits.shops) {
+        return NextResponse.json(
+          { error: `Votre forfait ${plan.name} est limité à ${plan.limits.shops} boutique(s). Passez au forfait supérieur pour en créer davantage.` },
+          { status: 403 }
+        )
       }
     }
+
+    // New shops inherit the plan of the primary shop so users don't pay twice.
+    // If the primary shop has an active paid subscription, the new shop gets the same plan + expiry.
+    // If the primary is still on trial, the new shop also starts a trial.
+    const { hasActiveSubscription } = await import('@/lib/saas/plans')
+    const primaryPlan = (primaryShop as any)?.plan ?? 'trial'
+    const primaryExpiry = (primaryShop as any)?.plan_expires_at ?? null
+    const primaryTrial = (primaryShop as any)?.trial_ends_at ?? null
+    const isActiveSub = hasActiveSubscription(primaryPlan, primaryExpiry)
+
+    const newShopPlan = isActiveSub ? primaryPlan : 'trial'
+    const newShopExpiry = isActiveSub ? primaryExpiry : null
+    const newShopTrial = isActiveSub
+      ? null
+      : (primaryTrial ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString())
 
     // Use admin client to bypass RLS
     const admin = await createAdminClient()
@@ -66,8 +80,9 @@ export async function POST(request: Request) {
       city: city?.trim() || '',
       state: '',
       owner_id: user.id,
-      plan: 'trial',
-      trial_ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      plan: newShopPlan,
+      plan_expires_at: newShopExpiry,
+      trial_ends_at: newShopTrial,
       currency,
       country,
       low_stock_threshold: 10,
