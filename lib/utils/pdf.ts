@@ -268,7 +268,7 @@ async function buildReceiptDoc(data: ReceiptData) {
 
 export async function generateReceiptPDF(data: ReceiptData): Promise<void> {
   const { doc, fileName } = await buildReceiptDoc(data)
-  doc.save(fileName)
+  savePDF(doc.output('blob') as Blob, fileName)
 }
 
 export async function generateReceiptPDFBlob(data: ReceiptData): Promise<Blob> {
@@ -558,7 +558,7 @@ async function buildDebtReceiptDoc(data: DebtReceiptData) {
 
 export async function generateDebtReceiptPDF(data: DebtReceiptData): Promise<void> {
   const { doc, fileName } = await buildDebtReceiptDoc(data)
-  doc.save(fileName)
+  savePDF(doc.output('blob') as Blob, fileName)
 }
 
 export async function generateDebtReceiptPDFBlob(data: DebtReceiptData): Promise<{ blob: Blob; fileName: string }> {
@@ -701,10 +701,34 @@ async function buildReportDoc(params: ReportParams) {
 
 export async function generateReportPDF(params: ReportParams): Promise<void> {
   const { doc, fileName } = await buildReportDoc(params)
-  doc.save(fileName)
+  savePDF(doc.output('blob') as Blob, fileName)
 }
 
 export async function generateReportPDFBlob(params: ReportParams): Promise<{ blob: Blob; fileName: string }> {
   const { doc, fileName } = await buildReportDoc(params)
   return { blob: doc.output('blob'), fileName }
+}
+
+/**
+ * Cross-platform PDF download.
+ * - iOS Safari: opens blob in new tab → native PDF viewer with share/save button
+ * - Android Chrome + Desktop: triggers <a download> to save the file directly
+ */
+export function savePDF(blob: Blob, fileName: string): void {
+  const url = URL.createObjectURL(blob)
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+
+  const a = document.createElement('a')
+  a.href = url
+  if (isIOS) {
+    // No download attr on iOS — opens in Safari PDF viewer where user can share/save
+    a.target = '_blank'
+    a.rel = 'noopener noreferrer'
+  } else {
+    a.download = fileName
+  }
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), isIOS ? 60000 : 2000)
 }
