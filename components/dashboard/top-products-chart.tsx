@@ -17,6 +17,7 @@ const COLORS = ['#60a5fa', '#34d399', '#f59e0b', '#f87171', '#a78bfa']
 export function TopProductsChart({ data }: TopProductsChartProps) {
   const t = useTranslations('dashboard')
   const { fmt, symbol } = useCurrency()
+  const isFCFA = symbol.includes('CFA')
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null
@@ -29,10 +30,10 @@ export function TopProductsChart({ data }: TopProductsChartProps) {
     )
   }
 
-  const tickFormatter = (v: number) =>
-    symbol === 'FCFA'
-      ? `${(v / 1000).toFixed(0)}K`
-      : `₦${(v / 1000).toFixed(0)}k`
+  const tickFormatter = (v: number) => {
+    const k = (v / 1000).toFixed(0)
+    return isFCFA ? `${k}K` : `${symbol}${k}K`
+  }
 
   const chartData = data.map(p => ({
     name: p.name.length > 14 ? p.name.slice(0, 14) + '…' : p.name,
@@ -43,7 +44,14 @@ export function TopProductsChart({ data }: TopProductsChartProps) {
   return (
     <Card className="border-0 shadow-sm">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-semibold">{t('top_products')}</CardTitle>
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          {t('top_products')}
+          {isFCFA && (
+            <span className="text-[10px] font-normal text-muted-foreground bg-muted rounded px-1.5 py-0.5">
+              F CFA
+            </span>
+          )}
+        </CardTitle>
       </CardHeader>
       <CardContent className="pb-2">
         {data.length === 0 ? (

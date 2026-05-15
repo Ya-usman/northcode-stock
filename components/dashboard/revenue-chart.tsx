@@ -16,6 +16,7 @@ interface RevenueChartProps {
 export function RevenueChart({ data }: RevenueChartProps) {
   const t = useTranslations('dashboard')
   const { fmt, symbol } = useCurrency()
+  const isFCFA = symbol.includes('CFA')
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null
@@ -28,15 +29,24 @@ export function RevenueChart({ data }: RevenueChartProps) {
     )
   }
 
+  // FCFA: "65K" only (symbol shown in title) — avoids line-wrap inside narrow Y-axis
+  // NGN / others: "₦65K" prefix form
   const tickFormatter = (v: number) => {
-    const k = `${(v / 1000).toFixed(0)}K`
-    return symbol.length > 2 ? `${k} ${symbol}` : `${symbol}${k}`
+    const k = (v / 1000).toFixed(0)
+    return isFCFA ? `${k}K` : `${symbol}${k}K`
   }
 
   return (
     <Card className="border-0 shadow-sm">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-semibold">{t('revenue_chart')}</CardTitle>
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          {t('revenue_chart')}
+          {isFCFA && (
+            <span className="text-[10px] font-normal text-muted-foreground bg-muted rounded px-1.5 py-0.5">
+              F CFA
+            </span>
+          )}
+        </CardTitle>
       </CardHeader>
       <CardContent className="pb-2">
         <ResponsiveContainer width="100%" height={180}>
@@ -49,7 +59,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
-            <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} tickFormatter={tickFormatter} width={46} />
+            <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} tickFormatter={tickFormatter} width={44} />
             <Tooltip content={<CustomTooltip />} />
             <Area type="monotone" dataKey="revenue" stroke="#60a5fa" strokeWidth={2.5} fill="url(#revenueGrad)" dot={{ fill: '#60a5fa', r: 3 }} activeDot={{ r: 5, fill: '#3b82f6' }} />
           </AreaChart>
