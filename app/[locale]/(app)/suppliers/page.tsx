@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
 import { Search, Plus, Edit2, Trash2, Phone, MapPin, Package, Store } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -69,7 +70,7 @@ export default function SuppliersPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [productCounts, setProductCounts] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
+  const [{ search }, setFilter] = usePersistedFilters('suppliers', shop?.id, { search: '' })
   const [showModal, setShowModal] = useState(false)
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null)
   const [saving, setSaving] = useState(false)
@@ -141,7 +142,7 @@ export default function SuppliersPage() {
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('suppliers.search_placeholder')} className="pl-9 h-9" />
+          <Input value={search} onChange={e => setFilter({ search: e.target.value })} placeholder={t('suppliers.search_placeholder')} className="pl-9 h-9" />
         </div>
         <Button
           className="h-9 gap-1 bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500"

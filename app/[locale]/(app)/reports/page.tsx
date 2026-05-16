@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
 import { Download, Receipt, TrendingDown, Banknote } from 'lucide-react'
 import {
@@ -29,10 +30,10 @@ export default function ReportsPage() {
   const { fmt: formatNaira, symbol: currencySymbol } = useCurrency()
   const supabase = createClient() as any
 
-  const [dateFilter, setDateFilter] = useState('month')
   const today = format(new Date(), 'yyyy-MM-dd')
-  const [customStart, setCustomStart] = useState(today)
-  const [customEnd, setCustomEnd] = useState(today)
+  const [{ dateFilter, customStart, customEnd }, setFilter] = usePersistedFilters(
+    'reports', shop?.id, { dateFilter: 'month', customStart: today, customEnd: today }
+  )
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
 
@@ -318,7 +319,7 @@ export default function ReportsPage() {
       {/* Controls */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
-          <Select value={dateFilter} onValueChange={setDateFilter}>
+          <Select value={dateFilter} onValueChange={v => setFilter({ dateFilter: v })}>
             <SelectTrigger className="w-[150px] sm:w-[175px] text-xs sm:text-sm h-9"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="today">{t('reports.today')}</SelectItem>
@@ -345,7 +346,7 @@ export default function ReportsPage() {
                 type="date"
                 value={customStart}
                 max={customEnd}
-                onChange={e => setCustomStart(e.target.value)}
+                onChange={e => setFilter({ customStart: e.target.value })}
                 className="flex-1 h-9 rounded-md border border-input bg-background px-2 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
@@ -356,7 +357,7 @@ export default function ReportsPage() {
                 value={customEnd}
                 min={customStart}
                 max={today}
-                onChange={e => setCustomEnd(e.target.value)}
+                onChange={e => setFilter({ customEnd: e.target.value })}
                 className="flex-1 h-9 rounded-md border border-input bg-background px-2 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>

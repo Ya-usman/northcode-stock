@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
 import { Search, Calendar, Package, ArrowRight, X, History } from 'lucide-react'
@@ -44,13 +45,13 @@ function fmtDate(d: string) {
 
 export default function StockMovementsPage() {
   const t = useTranslations('movements')
-  const { effectiveShopIds } = useAuth()
+  const { effectiveShopIds, shop } = useAuth()
+  const [{ search, dateFrom, dateTo }, setFilter] = usePersistedFilters(
+    'movements', shop?.id, { search: '', dateFrom: '', dateTo: '' }
+  )
 
   const [movements, setMovements] = useState<Movement[]>([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
   const [openProduct, setOpenProduct] = useState<ProductSummary | null>(null)
 
   useEffect(() => {
@@ -135,15 +136,15 @@ export default function StockMovementsPage() {
       <div className="flex flex-wrap gap-2">
         <div className="relative flex-1 min-w-[160px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)}
+          <Input value={search} onChange={e => setFilter({ search: e.target.value })}
             placeholder={t('search_placeholder')} className="pl-9 h-9" />
         </div>
         <div className="flex items-center gap-1">
           <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+          <Input type="date" value={dateFrom} onChange={e => setFilter({ dateFrom: e.target.value })}
             className="h-9 w-[130px] text-xs" />
           <span className="text-muted-foreground text-xs">→</span>
-          <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+          <Input type="date" value={dateTo} onChange={e => setFilter({ dateTo: e.target.value })}
             className="h-9 w-[130px] text-xs" />
         </div>
       </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -45,8 +46,9 @@ export default function NotesPage() {
 
   const [notes, setNotes] = useState<Note[]>([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [shopFilter, setShopFilter] = useState<string>('all')
+  const [{ search, shopFilter }, setFilter] = usePersistedFilters(
+    'notes', shop?.id, { search: '', shopFilter: 'all' }
+  )
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Note | null>(null)
   const [saving, setSaving] = useState(false)
@@ -162,7 +164,7 @@ export default function NotesPage() {
           <Input
             placeholder="Rechercher dans les notes…"
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => setFilter({ search: e.target.value })}
             className="pl-9"
           />
         </div>
@@ -170,7 +172,7 @@ export default function NotesPage() {
         {userShops.length > 1 && (
           <select
             value={shopFilter}
-            onChange={e => setShopFilter(e.target.value)}
+            onChange={e => setFilter({ shopFilter: e.target.value })}
             className="h-10 rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="all">Toutes les boutiques</option>

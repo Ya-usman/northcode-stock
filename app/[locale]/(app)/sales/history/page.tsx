@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import { useState, useEffect, Fragment } from 'react'
+import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
 import {
   Search, FileDown, ChevronDown, ChevronUp,
@@ -79,11 +80,10 @@ export default function SalesHistoryPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [salesOffset, setSalesOffset] = useState(0)
   const [hasMoreSales, setHasMoreSales] = useState(false)
-  const [search, setSearch] = useState('')
-  const [dateFilter, setDateFilter] = useState('today')
-  const [methodFilter, setMethodFilter] = useState('all')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [saleStatusFilter, setSaleStatusFilter] = useState<'all' | 'active' | 'cancelled'>('all')
+  const [{ search, dateFilter, methodFilter, statusFilter, saleStatusFilter }, setFilter] = usePersistedFilters(
+    'sales_history', shop?.id,
+    { search: '', dateFilter: 'today', methodFilter: 'all', statusFilter: 'all', saleStatusFilter: 'all' as 'all' | 'active' | 'cancelled' }
+  )
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   // Dialog state
@@ -415,10 +415,10 @@ export default function SalesHistoryPage() {
       <div className="flex flex-wrap gap-2">
         <div className="relative flex-1 min-w-[160px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('sales.search_history')} className="pl-9 h-9" />
+          <Input value={search} onChange={e => setFilter({ search: e.target.value })} placeholder={t('sales.search_history')} className="pl-9 h-9" />
         </div>
 
-        <Select value={dateFilter} onValueChange={setDateFilter}>
+        <Select value={dateFilter} onValueChange={v => setFilter({ dateFilter: v })}>
           <SelectTrigger className="w-[120px] h-9"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="today">{t('sales.filter_today')}</SelectItem>
@@ -428,7 +428,7 @@ export default function SalesHistoryPage() {
           </SelectContent>
         </Select>
 
-        <Select value={methodFilter} onValueChange={setMethodFilter}>
+        <Select value={methodFilter} onValueChange={v => setFilter({ methodFilter: v })}>
           <SelectTrigger className="w-[120px] h-9"><SelectValue placeholder="Méthode" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('sales.all_methods')}</SelectItem>
@@ -441,7 +441,7 @@ export default function SalesHistoryPage() {
 
         {view === 'sales' && (
           <>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select value={statusFilter} onValueChange={v => setFilter({ statusFilter: v })}>
               <SelectTrigger className="w-[110px] h-9"><SelectValue placeholder="Statut" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t('sales.all_statuses')}</SelectItem>
@@ -451,7 +451,7 @@ export default function SalesHistoryPage() {
               </SelectContent>
             </Select>
 
-            <Select value={saleStatusFilter} onValueChange={v => setSaleStatusFilter(v as any)}>
+            <Select value={saleStatusFilter} onValueChange={v => setFilter({ saleStatusFilter: v as any })}>
               <SelectTrigger className="w-[110px] h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t('sales.filter_all')}</SelectItem>

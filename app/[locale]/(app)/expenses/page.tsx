@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -21,6 +22,9 @@ const supabase = createClient() as any
 
 export default function ExpensesPage() {
   const { shop, effectiveShopIds } = useAuth()
+  const [{ monthFilter }, setFilter] = usePersistedFilters(
+    'expenses', shop?.id, { monthFilter: format(new Date(), 'yyyy-MM') }
+  )
   const { toast } = useToast()
   const { fmt } = useCurrency()
   const t = useTranslations('expenses')
@@ -37,7 +41,6 @@ export default function ExpensesPage() {
   const [description, setDescription] = useState('')
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'))
 
-  const [monthFilter, setMonthFilter] = useState(format(new Date(), 'yyyy-MM'))
 
   const fetchExpenses = async () => {
     if (!effectiveShopIds.length) return
@@ -118,7 +121,7 @@ export default function ExpensesPage() {
           <input
             type="month"
             value={monthFilter}
-            onChange={e => setMonthFilter(e.target.value)}
+            onChange={e => setFilter({ monthFilter: e.target.value })}
             className="rounded-lg border px-3 py-1.5 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-stockshop-blue"
           />
         </div>

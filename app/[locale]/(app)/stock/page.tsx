@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
 import { motion } from 'framer-motion'
 import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, ChevronDown, ChevronUp } from 'lucide-react'
@@ -43,9 +44,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [categories, setCategories] = useState<Category[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('all')
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [{ search, categoryFilter, statusFilter, showArchived }, setFilter] = usePersistedFilters(
+    'stock', shop?.id, { search: '', categoryFilter: 'all', statusFilter: 'all', showArchived: false }
+  )
   const [showAddModal, setShowAddModal] = useState(false)
   const [showRestockModal, setShowRestockModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
@@ -55,7 +56,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [newCatName, setNewCatName] = useState('')
   const [savingCat, setSavingCat] = useState(false)
   const [archivedProducts, setArchivedProducts] = useState<Product[]>([])
-  const [showArchived, setShowArchived] = useState(false)
   const [deleteConfirmProduct, setDeleteConfirmProduct] = useState<Product | null>(null)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
@@ -279,7 +279,7 @@ const fetchProducts = async () => {
 
   const deleteCategory = async (catId: string) => {
     await fetch(`/api/categories?id=${catId}&shop_id=${shop?.id}`, { method: 'DELETE' })
-    if (categoryFilter === catId) setCategoryFilter('all')
+    if (categoryFilter === catId) setFilter({ categoryFilter: 'all' })
     setDeleteCatConfirmId(null)
     fetchProducts()
   }
@@ -355,10 +355,10 @@ const fetchProducts = async () => {
       <div className="flex flex-wrap gap-2">
         <div className="relative flex-1 min-w-[180px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('products.search_placeholder')} className="pl-9 h-9" />
+          <Input value={search} onChange={e => setFilter({ search: e.target.value })} placeholder={t('products.search_placeholder')} className="pl-9 h-9" />
         </div>
         <div className="flex gap-1">
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <Select value={categoryFilter} onValueChange={v => setFilter({ categoryFilter: v })}>
             <SelectTrigger className="w-[130px] h-9"><SelectValue placeholder={t('products.all_categories')} /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t('products.all_categories')}</SelectItem>
@@ -371,7 +371,7 @@ const fetchProducts = async () => {
             </Button>
           )}
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <Select value={statusFilter} onValueChange={v => setFilter({ statusFilter: v })}>
           <SelectTrigger className="w-[110px] h-9"><SelectValue placeholder={t('status.all')} /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('status.all')}</SelectItem>
@@ -443,7 +443,7 @@ const fetchProducts = async () => {
       {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && archivedProducts.length > 0 && (
         <div className="border border-dashed rounded-xl p-3 space-y-2">
           <button
-            onClick={() => setShowArchived(v => !v)}
+            onClick={() => setFilter({ showArchived: !showArchived })}
             className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-full"
           >
             <Archive className="h-4 w-4" />
