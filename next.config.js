@@ -91,6 +91,35 @@ const securityHeaders = [
   },
 ]
 
+const csp = [
+  "default-src 'self'",
+  // Scripts : app + Paystack inline SDK
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.paystack.co",
+  // Styles : app + inline (Next.js / Tailwind)
+  "style-src 'self' 'unsafe-inline'",
+  // Images : app + Supabase Storage + data URIs
+  "img-src 'self' data: blob: https://*.supabase.co",
+  // Fonts
+  "font-src 'self' data:",
+  // Connexions réseau autorisées
+  [
+    "connect-src 'self'",
+    "https://*.supabase.co",
+    "wss://*.supabase.co",
+    "https://api.paystack.co",
+    "https://api.flutterwave.com",
+    "https://api.notchpay.co",
+    "https://*.upstash.io",
+  ].join(' '),
+  // Iframes : uniquement Paystack checkout
+  "frame-src 'self' https://checkout.paystack.com https://checkout.flutterwave.com",
+  // Interdit de charger cette page dans une iframe externe
+  "frame-ancestors 'self'",
+  // Workers (service worker PWA)
+  "worker-src 'self' blob:",
+  "manifest-src 'self'",
+].join('; ')
+
 const nextConfig = {
   compress: true,
   poweredByHeader: false,
@@ -98,7 +127,10 @@ const nextConfig = {
     return [
       {
         source: '/(.*)',
-        headers: securityHeaders,
+        headers: [
+          ...securityHeaders,
+          { key: 'Content-Security-Policy', value: csp },
+        ],
       },
     ]
   },
