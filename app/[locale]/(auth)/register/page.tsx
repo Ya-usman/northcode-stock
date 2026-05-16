@@ -86,6 +86,11 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
     setCountdown(0)
     let authUserId: string | null = null
     try {
+      // Clear any existing session and cache before registering a new account
+      await supabase.auth.signOut()
+      localStorage.removeItem('auth_cache_v1')
+      localStorage.removeItem('active_shop_id')
+
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
