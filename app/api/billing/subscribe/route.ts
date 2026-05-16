@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getCountry, getPeriodPrice, type BillingPeriod } from '@/lib/saas/countries'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { validateBody, uuid, email as emailSchema, billingPeriodEnum, planEnum } from '@/lib/api/validate'
+import { fetchWithTimeout } from '@/lib/api/fetch'
 import { z } from 'zod'
 
 const subscribeSchema = z.object({
@@ -79,7 +80,7 @@ export async function POST(request: Request) {
 
       const channels = toPaystackChannels(payment_method)
 
-      const res = await fetch('https://api.paystack.co/transaction/initialize', {
+      const res = await fetchWithTimeout('https://api.paystack.co/transaction/initialize', {
         method: 'POST',
         headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -107,7 +108,7 @@ export async function POST(request: Request) {
       const publicKey = process.env.NOTCHPAY_PUBLIC_KEY
       if (!publicKey) return NextResponse.json({ error: 'NotchPay not configured' }, { status: 500 })
 
-      const res = await fetch('https://api.notchpay.co/payments/initialize', {
+      const res = await fetchWithTimeout('https://api.notchpay.co/payments/initialize', {
         method: 'POST',
         headers: {
           Authorization: publicKey,
@@ -137,7 +138,7 @@ export async function POST(request: Request) {
       const tx_ref = `SS-${shop_id.slice(0, 8)}-${Date.now()}`
       const payment_options = toFlutterwaveOption(payment_method, country.code)
 
-      const res = await fetch('https://api.flutterwave.com/v3/payments', {
+      const res = await fetchWithTimeout('https://api.flutterwave.com/v3/payments', {
         method: 'POST',
         headers: { Authorization: `Bearer ${secretKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({

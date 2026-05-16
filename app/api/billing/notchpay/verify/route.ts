@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getPeriodDays, type BillingPeriod } from '@/lib/saas/countries'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
+import { fetchWithTimeout } from '@/lib/api/fetch'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
     // Verification requires the hash key (secret), not the public key
     const hashKey = process.env.NOTCHPAY_HASH_KEY || process.env.NOTCHPAY_PUBLIC_KEY!
 
-    const res = await fetch(`https://api.notchpay.co/payments/${reference}`, {
+    const res = await fetchWithTimeout(`https://api.notchpay.co/payments/${reference}`, {
       headers: {
         Authorization: hashKey,
         Accept: 'application/json',

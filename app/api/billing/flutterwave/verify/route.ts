@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getPeriodDays, type BillingPeriod } from '@/lib/saas/countries'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
+import { fetchWithTimeout } from '@/lib/api/fetch'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
     const secretKey = process.env.FLUTTERWAVE_SECRET_KEY!
 
     // Verify transaction with Flutterwave
-    const res = await fetch(`https://api.flutterwave.com/v3/transactions/${transaction_id}/verify`, {
+    const res = await fetchWithTimeout(`https://api.flutterwave.com/v3/transactions/${transaction_id}/verify`, {
       headers: { Authorization: `Bearer ${secretKey}` },
     })
     const data = await res.json()

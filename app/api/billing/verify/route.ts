@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { PLANS } from '@/lib/saas/plans'
 import { getPeriodDays, type BillingPeriod } from '@/lib/saas/countries'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
+import { fetchWithTimeout } from '@/lib/api/fetch'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
   try {
     const secret = process.env.PAYSTACK_SECRET_KEY!
 
-    const res = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
+    const res = await fetchWithTimeout(`https://api.paystack.co/transaction/verify/${reference}`, {
       headers: { Authorization: `Bearer ${secret}` },
     })
     const data = await res.json()
