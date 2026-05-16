@@ -89,7 +89,10 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
-        options: { data: { full_name: data.full_name } },
+        options: {
+          data: { full_name: data.full_name },
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/${locale}/dashboard`,
+        },
       })
       if (signUpError) throw signUpError
       if (!authData.user) throw new Error(t('account_error'))
