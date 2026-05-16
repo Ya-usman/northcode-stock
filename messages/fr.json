@@ -687,7 +687,8 @@
     "confirm_password_placeholder": "Répétez votre mot de passe",
     "confirm_password_required": "Veuillez confirmer votre mot de passe",
     "password_mismatch": "Les mots de passe ne correspondent pas",
-    "email_already_used": "Cette adresse e-mail est déjà associée à un compte"
+    "email_already_used": "Cette adresse e-mail est déjà associée à un compte",
+    "check_email": "Un email de confirmation a été envoyé. Veuillez confirmer votre adresse avant de continuer."
   },
   "saas": {
     "trial_expires_today": "Votre essai gratuit expire aujourd'hui !",

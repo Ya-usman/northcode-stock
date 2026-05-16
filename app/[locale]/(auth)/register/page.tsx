@@ -94,21 +94,27 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
       if (signUpError) throw signUpError
       if (!authData.user) throw new Error(t('account_error'))
 
-      // Supabase returns a fake user (identities=[]) when email already exists but is unconfirmed
-      // Don't set authUserId so cleanup won't delete the real pending user
+      // Supabase returns a fake user (identities=[]) when email already exists
       if (!authData.user.identities || authData.user.identities.length === 0) {
         throw new Error(t('email_already_used'))
       }
 
       authUserId = authData.user.id
 
+      // If no session (email confirmation enabled), we can't proceed with shop creation yet
+      // The user must confirm their email first
+      if (!authData.session) {
+        authUserId = null // prevent cleanup — user needs to confirm email
+        setError(t('check_email'))
+        setLoading(false)
+        return
+      }
+
       const res = await fetch('/api/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(authData.session?.access_token
-            ? { Authorization: `Bearer ${authData.session.access_token}` }
-            : {}),
+          Authorization: `Bearer ${authData.session.access_token}`,
         },
         body: JSON.stringify({
           user_id: authData.user.id,

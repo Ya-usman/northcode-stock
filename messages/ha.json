@@ -709,7 +709,8 @@
     "confirm_password_placeholder": "Maimaita kalmar sirrinka",
     "confirm_password_required": "Da fatan a tabbatar da kalmar sirrinka",
     "password_mismatch": "Kalmomin sirri ba su dace ba",
-    "email_already_used": "Ana amfani da wannan adireshin imel a asusun da ke wanzu"
+    "email_already_used": "Ana amfani da wannan adireshin imel a asusun da ke wanzu",
+    "check_email": "An aika da imel na tabbatarwa. Da fatan a tabbatar da adireshin ka kafin ka ci gaba."
   },
   "landing": {
     "nav": {
