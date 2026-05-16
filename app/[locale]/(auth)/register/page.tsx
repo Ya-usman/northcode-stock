@@ -90,6 +90,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
       await supabase.auth.signOut()
       localStorage.removeItem('auth_cache_v1')
       localStorage.removeItem('active_shop_id')
+      localStorage.removeItem('dashboard_shop_filter')
 
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: data.email,
