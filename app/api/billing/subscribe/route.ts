@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getCountry, getPeriodPrice, type BillingPeriod } from '@/lib/saas/countries'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 // Map our internal payment method IDs to Paystack channels
 function toPaystackChannels(methodId: string): string[] {
@@ -37,6 +38,9 @@ function toFlutterwaveOption(methodId: string, countryCode: string): string {
 }
 
 export async function POST(request: Request) {
+  const limited = await checkRateLimit(request, 'billing')
+  if (limited) return limited
+
   try {
     const {
       plan_id, shop_id, email, locale,

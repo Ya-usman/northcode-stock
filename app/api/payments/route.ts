@@ -1,8 +1,12 @@
 ﻿import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 // POST /api/payments — record FIFO repayment for a customer's unpaid sales
 export async function POST(request: Request) {
+  const limited = await checkRateLimit(request, 'api')
+  if (limited) return limited
+
   try {
     const supabase = await createClient() as any
     const { data: { session } } = await supabase.auth.getSession()

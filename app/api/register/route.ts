@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getCountry } from '@/lib/saas/countries'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: Request) {
+  const limited = await checkRateLimit(request, 'register')
+  if (limited) return limited
+
   try {
     const { user_id, full_name, email, shop_name, city, phone, country } = await request.json()
 
