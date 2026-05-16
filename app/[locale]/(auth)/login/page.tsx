@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { setLocaleCookie } from '@/lib/utils/cookies'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -73,7 +74,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
     const preferredLocale = profileData?.locale || document.cookie.match(/NEXT_LOCALE=([^;]+)/)?.[1] || localStorage.getItem('NEXT_LOCALE') || locale
     // Sync to browser for this session
     localStorage.setItem('NEXT_LOCALE', preferredLocale)
-    document.cookie = `NEXT_LOCALE=${preferredLocale}; path=/; max-age=31536000; SameSite=lax`
+    setLocaleCookie(preferredLocale)
     window.location.href = `/${preferredLocale}/dashboard`
   }
 

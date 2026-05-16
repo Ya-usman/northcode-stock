@@ -19,6 +19,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import type { Shop } from '@/lib/types/database'
 import { DEFAULT_PERMISSIONS, type AllPerms, type ConfigurableRole, type PermFeature } from '@/lib/hooks/use-role-permissions'
 import { cn } from '@/lib/utils/cn'
+import { setLocaleCookie } from '@/lib/utils/cookies'
 
 export default function SettingsPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations()
@@ -243,7 +244,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const switchLanguage = async (newLocale: string) => {
     const newPath = pathname.replace(`/${locale}`, `/${newLocale}`)
     localStorage.setItem('NEXT_LOCALE', newLocale)
-    document.cookie = `NEXT_LOCALE=${newLocale}; path=/; max-age=31536000; SameSite=lax`
+    setLocaleCookie(newLocale)
     // Save in DB so the preference persists on all devices (survives iOS cookie clearing)
     if (profile?.id) {
       await supabase.from('profiles').update({ locale: newLocale }).eq('id', profile.id)

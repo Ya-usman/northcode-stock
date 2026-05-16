@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, useRef, useCallback, us
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
 import type { Profile, Shop, UserRole } from '@/lib/types/database'
+import { setLocaleCookie } from '@/lib/utils/cookies'
 
 interface AuthState {
   user: User | null
@@ -183,7 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Sync locale preference from DB → browser (survives cookie clearing on iOS Safari)
     if (profile?.locale) {
       localStorage.setItem('NEXT_LOCALE', profile.locale)
-      document.cookie = `NEXT_LOCALE=${profile.locale}; path=/; max-age=31536000; SameSite=lax`
+      setLocaleCookie(profile.locale)
     }
 
     setState({ user, profile, userShops, activeShop, roleInActiveShop, loading: false })

@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
+import { setLocaleCookie } from '@/lib/utils/cookies'
 
 const VALID_LOCALES = ['en', 'fr', 'ha']
 
@@ -21,7 +22,7 @@ export function LocaleSync({ currentLocale }: { currentLocale: string }) {
 
     // Cookie was cleared (iOS PWA 7-day expiry) but localStorage still has it.
     // Re-write the cookie so the middleware enforces it on the next navigation.
-    document.cookie = `NEXT_LOCALE=${saved}; path=/; max-age=31536000; SameSite=lax`
+    setLocaleCookie(saved)
     const newPath = pathname.replace(`/${currentLocale}`, `/${saved}`)
     router.replace(newPath)
   }, [])

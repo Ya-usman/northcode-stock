@@ -8,6 +8,7 @@ import {
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext } from '@/lib/contexts/auth-context'
+import { setLocaleCookie } from '@/lib/utils/cookies'
 import type { Shop } from '@/lib/types/database'
 
 const supabase = createClient()
@@ -33,7 +34,7 @@ export function Header({ title, locale, onSignOut }: HeaderProps) {
   const switchLanguage = (newLocale: string) => {
     const newPath = pathname.replace(`/${locale}`, `/${newLocale}`)
     localStorage.setItem('NEXT_LOCALE', newLocale)
-    document.cookie = `NEXT_LOCALE=${newLocale}; path=/; max-age=31536000; SameSite=lax`
+    setLocaleCookie(newLocale)
     // Save in DB so preference survives iOS cookie clearing and syncs across devices
     if (profile?.id) {
       supabase.from('profiles').update({ locale: newLocale }).eq('id', profile.id)
