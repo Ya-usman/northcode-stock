@@ -704,7 +704,11 @@
     "shop_name_required": "Ana buƙatar sunan kantin",
     "city_required": "Ana buƙatar gari",
     "account_error": "Kuskuren ƙirƙira asusu",
-    "rate_limit": "Yawan yunƙuri. Sake gwadawa bayan daƙiƙa {seconds}"
+    "rate_limit": "Yawan yunƙuri. Sake gwadawa bayan daƙiƙa {seconds}",
+    "confirm_password": "Tabbatar Kalmar Sirri",
+    "confirm_password_placeholder": "Maimaita kalmar sirrinka",
+    "confirm_password_required": "Da fatan a tabbatar da kalmar sirrinka",
+    "password_mismatch": "Kalmomin sirri ba su dace ba"
   },
   "landing": {
     "nav": {

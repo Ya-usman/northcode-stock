@@ -682,7 +682,11 @@
     "shop_name_required": "Shop name required",
     "city_required": "City required",
     "account_error": "Error creating account",
-    "rate_limit": "Too many attempts. Try again in {seconds}s"
+    "rate_limit": "Too many attempts. Try again in {seconds}s",
+    "confirm_password": "Confirm password",
+    "confirm_password_placeholder": "Repeat your password",
+    "confirm_password_required": "Please confirm your password",
+    "password_mismatch": "Passwords do not match"
   },
   "saas": {
     "trial_expires_today": "Your free trial expires today!",

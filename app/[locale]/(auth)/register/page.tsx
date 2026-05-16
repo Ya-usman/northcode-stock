@@ -20,6 +20,7 @@ type FormData = {
   full_name: string
   email: string
   password: string
+  confirm_password: string
   shop_name: string
   city: string
   phone?: string
@@ -30,6 +31,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
   const router = useRouter()
   const supabase = createClient()
   const [showPwd, setShowPwd] = useState(false)
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false)
   const [error, setError] = useState('')
   const [countdown, setCountdown] = useState(0)
   const [step, setStep] = useState<1 | 2 | 3>(1)
@@ -55,9 +57,13 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
     full_name: z.string().min(2, t('name_required')),
     email: z.string().email(t('email_invalid')),
     password: z.string().min(8, t('password_min')),
+    confirm_password: z.string().min(1, t('confirm_password_required')),
     shop_name: z.string().min(2, t('shop_name_required')),
     city: z.string().min(2, t('city_required')),
     phone: z.string().optional(),
+  }).refine(d => d.password === d.confirm_password, {
+    message: t('password_mismatch'),
+    path: ['confirm_password'],
   })
 
   const { register, handleSubmit, formState: { errors, isSubmitting }, trigger } = useForm<FormData>({
@@ -65,7 +71,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
   })
 
   const goStep2 = async () => {
-    const ok = await trigger(['full_name', 'email', 'password'])
+    const ok = await trigger(['full_name', 'email', 'password', 'confirm_password'])
     if (ok) setStep(2)
   }
 
@@ -201,6 +207,23 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                     </button>
                   </div>
                   {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>{t('confirm_password')}</Label>
+                  <div className="relative">
+                    <Input
+                      {...register('confirm_password')}
+                      type={showConfirmPwd ? 'text' : 'password'}
+                      placeholder={t('confirm_password_placeholder')}
+                      className="pr-10"
+                    />
+                    <button type="button" onClick={() => setShowConfirmPwd(!showConfirmPwd)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                      {showConfirmPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  {errors.confirm_password && <p className="text-xs text-destructive">{errors.confirm_password.message}</p>}
                 </div>
 
                 <Button type="button" onClick={goStep2} className="w-full bg-stockshop-blue h-11">
