@@ -49,6 +49,15 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
 
   const onLogin = async (data: LoginData) => {
     setError('')
+    // Clear previous account's cache before signing in
+    localStorage.removeItem('auth_cache_v1')
+    localStorage.removeItem('active_shop_id')
+    localStorage.removeItem('dashboard_cache_v1')
+    localStorage.removeItem('dashboard_shop_filter')
+    if ('caches' in window) {
+      const keys = await caches.keys()
+      await Promise.all(keys.map(k => caches.delete(k)))
+    }
     const { data: authData, error } = await supabase.auth.signInWithPassword({
       email: data.email,
       password: data.password,
@@ -65,8 +74,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
     // Sync to browser for this session
     localStorage.setItem('NEXT_LOCALE', preferredLocale)
     document.cookie = `NEXT_LOCALE=${preferredLocale}; path=/; max-age=31536000; SameSite=lax`
-    router.push(`/${preferredLocale}/dashboard`)
-    router.refresh()
+    window.location.href = `/${preferredLocale}/dashboard`
   }
 
   const onForgot = async (data: ForgotData) => {
