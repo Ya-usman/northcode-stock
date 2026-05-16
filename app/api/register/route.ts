@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getCountry } from '@/lib/saas/countries'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { validateBody, uuid, email as emailSchema, shortText } from '@/lib/api/validate'
+import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { z } from 'zod'
 
 const registerSchema = z.object({
@@ -91,6 +92,17 @@ export async function POST(request: Request) {
       await cleanup(shop.id)
       return NextResponse.json({ error: memberError.message }, { status: 500 })
     }
+
+    await writeAuditLog({
+      action: 'account.register',
+      shop_id: shop.id,
+      actor_id: user_id,
+      actor_email: email,
+      target_id: shop.id,
+      target_type: 'shop',
+      metadata: { shop_name, country, city },
+      ip: getClientIp(request),
+    })
 
     return NextResponse.json({ success: true, shop_id: shop.id })
   } catch (err: any) {

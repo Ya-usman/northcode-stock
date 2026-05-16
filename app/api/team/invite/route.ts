@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { getPlan } from '@/lib/saas/plans'
 import { validateBody, uuid, email as emailSchema, shortText, roleEnum } from '@/lib/api/validate'
+import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { z } from 'zod'
 
 const inviteSchema = z.object({
@@ -106,6 +107,17 @@ export async function POST(request: Request) {
     if (memberError) {
       console.error('Shop member upsert error:', memberError)
     }
+
+    await writeAuditLog({
+      action: 'member.invite',
+      shop_id,
+      actor_id: caller.id,
+      actor_email: caller.email,
+      target_id: user.id,
+      target_type: 'profile',
+      metadata: { email, role },
+      ip: getClientIp(request),
+    })
 
     return NextResponse.json({ success: true })
   } catch (error: any) {

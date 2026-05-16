@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getPeriodDays, type BillingPeriod } from '@/lib/saas/countries'
+import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
@@ -86,6 +87,16 @@ export async function GET(request: NextRequest) {
       expires_at: plan_expires_at,
       status: 'active',
     } as any)
+
+    await writeAuditLog({
+      action: 'billing.verify',
+      shop_id,
+      actor_id: owner_id ?? null,
+      target_id: transaction_id,
+      target_type: 'flutterwave_payment',
+      metadata: { plan_id, billing_period, amount: data.data?.amount || 0 },
+      ip: getClientIp(request),
+    })
 
     return NextResponse.redirect(new URL(`/${locale}/billing?success=1`, baseUrl))
   } catch (err: any) {

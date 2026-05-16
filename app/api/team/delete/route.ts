@@ -1,6 +1,7 @@
 ﻿import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { validateBody, uuid } from '@/lib/api/validate'
+import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { z } from 'zod'
 
 const deleteSchema = z.object({
@@ -59,6 +60,16 @@ export async function POST(request: Request) {
     if (!otherActiveMemberships || otherActiveMemberships.length === 0) {
       await admin.from('profiles').update({ is_active: false }).eq('id', employee_id)
     }
+
+    await writeAuditLog({
+      action: 'member.delete',
+      shop_id,
+      actor_id: user.id,
+      actor_email: user.email,
+      target_id: employee_id,
+      target_type: 'profile',
+      ip: getClientIp(request),
+    })
 
     return NextResponse.json({ success: true })
   } catch (err: any) {
