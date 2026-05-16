@@ -91,10 +91,12 @@ const securityHeaders = [
   },
 ]
 
+const isDev = process.env.NODE_ENV === 'development'
+
 const csp = [
   "default-src 'self'",
-  // Scripts : app + Paystack inline SDK
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.paystack.co",
+  // unsafe-eval: dev only (Next.js HMR). Removed in production.
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''} https://js.paystack.co`,
   // Styles : app + inline (Next.js / Tailwind)
   "style-src 'self' 'unsafe-inline'",
   // Images : app + Supabase Storage + data URIs
