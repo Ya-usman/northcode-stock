@@ -2,6 +2,17 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getCountry, getPeriodPrice, type BillingPeriod } from '@/lib/saas/countries'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { validateBody, uuid, email as emailSchema, billingPeriodEnum, planEnum } from '@/lib/api/validate'
+import { z } from 'zod'
+
+const subscribeSchema = z.object({
+  plan_id: planEnum,
+  shop_id: uuid,
+  email: emailSchema,
+  locale: z.string().max(5).optional(),
+  billing_period: billingPeriodEnum.default('monthly'),
+  payment_method: z.string().max(50).default(''),
+})
 
 // Map our internal payment method IDs to Paystack channels
 function toPaystackChannels(methodId: string): string[] {
@@ -42,18 +53,10 @@ export async function POST(request: Request) {
   if (limited) return limited
 
   try {
-    const {
-      plan_id, shop_id, email, locale,
-      billing_period = 'monthly',
-      payment_method = '',
-    } = await request.json()
-
-    if (!plan_id || !shop_id || !email) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
-    }
-    if (plan_id === 'trial') {
-      return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
-    }
+    const body = await request.json()
+    const validated = validateBody(subscribeSchema, body)
+    if ('error' in validated) return validated.error
+    const { plan_id, shop_id, email, locale, billing_period, payment_method } = validated.data
 
     const period = billing_period as BillingPeriod
     const supabase = await createAdminClient()

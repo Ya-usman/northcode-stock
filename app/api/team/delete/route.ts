@@ -1,13 +1,19 @@
 ﻿import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { validateBody, uuid } from '@/lib/api/validate'
+import { z } from 'zod'
+
+const deleteSchema = z.object({
+  employee_id: uuid,
+  shop_id: uuid,
+})
 
 export async function POST(request: Request) {
   try {
-    const { employee_id, shop_id } = await request.json()
-
-    if (!employee_id || !shop_id) {
-      return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
-    }
+    const body = await request.json()
+    const validated = validateBody(deleteSchema, body)
+    if ('error' in validated) return validated.error
+    const { employee_id, shop_id } = validated.data
 
     // Verify caller is owner or super_admin
     const supabase = await createClient() as any

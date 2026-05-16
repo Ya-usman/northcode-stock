@@ -2,17 +2,28 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getCountry } from '@/lib/saas/countries'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { validateBody, uuid, email as emailSchema, shortText } from '@/lib/api/validate'
+import { z } from 'zod'
+
+const registerSchema = z.object({
+  user_id: uuid,
+  full_name: shortText,
+  email: emailSchema,
+  shop_name: shortText,
+  city: shortText,
+  phone: z.string().max(20).optional().nullable(),
+  country: z.string().length(2).optional(),
+})
 
 export async function POST(request: Request) {
   const limited = await checkRateLimit(request, 'register')
   if (limited) return limited
 
   try {
-    const { user_id, full_name, email, shop_name, city, phone, country } = await request.json()
-
-    if (!user_id || !full_name || !shop_name || !city) {
-      return NextResponse.json({ error: 'Champs manquants' }, { status: 400 })
-    }
+    const body = await request.json()
+    const validated = validateBody(registerSchema, body)
+    if ('error' in validated) return validated.error
+    const { user_id, full_name, email, shop_name, city, phone, country } = validated.data
 
     const supabase = await createAdminClient() as any
 

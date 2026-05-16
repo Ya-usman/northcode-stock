@@ -1,8 +1,17 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
-import { cookies } from 'next/headers'
 import { getPlan } from '@/lib/saas/plans'
+import { validateBody, uuid, email as emailSchema, shortText, roleEnum } from '@/lib/api/validate'
+import { z } from 'zod'
+
+const inviteSchema = z.object({
+  email: emailSchema,
+  full_name: shortText,
+  role: roleEnum,
+  shop_id: uuid,
+  invited_by: uuid.optional().nullable(),
+})
 
 // Use raw supabase-js client with service role to bypass RLS entirely
 function getAdminClient() {
@@ -21,11 +30,10 @@ export async function POST(request: Request) {
     
     if (!caller) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
-    const { email, full_name, role, shop_id, invited_by } = await request.json()
-
-    if (!email || !full_name || !role || !shop_id) {
-      return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
-    }
+    const body = await request.json()
+    const validated = validateBody(inviteSchema, body)
+    if ('error' in validated) return validated.error
+    const { email, full_name, role, shop_id, invited_by } = validated.data
 
     // Only owners and super_admins can invite
     const { data: callerMember } = await supabase
