@@ -22,6 +22,7 @@ interface AuthContextValue extends AuthState {
   refreshShop: () => Promise<void>
   patchShop: (shopId: string, updates: Partial<Shop>) => void
   switchShop: (shopId: string) => void
+  updateLocale: (locale: string) => void
   dashboardShopFilter: string | null
   setDashboardShopFilter: (id: string | null) => void
   effectiveShopIds: string[]
@@ -181,8 +182,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Persist to cache so next reload is instant
     if (profile && !skipCache) writeCache(user.id, profile, userShops, rows)
 
-    // Sync locale preference from DB → browser (survives cookie clearing on iOS Safari)
-    if (profile?.locale) {
+    // Sync locale from DB → browser only on fresh data (not cache).
+    // Skipping on cache prevents overwriting a locale the user just changed
+    // via the navbar before the background refresh completes.
+    if (profile?.locale && !skipCache) {
       localStorage.setItem('NEXT_LOCALE', profile.locale)
       setLocaleCookie(profile.locale)
     }
@@ -406,6 +409,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  const updateLocale = useCallback((locale: string) => {
+    localStorage.setItem('NEXT_LOCALE', locale)
+    setLocaleCookie(locale)
+    // Update in-memory profile + cache so the next cache read has the correct locale
+    setState(prev => {
+      if (!prev.profile || !prev.user) return prev
+      const updated = { ...prev.profile, locale }
+      writeCache(prev.user.id, updated, prev.userShops, memberships)
+      return { ...prev, profile: updated }
+    })
+    // Persist to DB (best-effort — cache is already updated)
+    supabase.from('profiles').update({ locale }).eq('id', state.user?.id ?? '').then(() => {})
+  }, [state.user?.id, memberships])
+
   const signOut = useCallback(async () => {
     const savedLocale = localStorage.getItem('NEXT_LOCALE') || 'en'
     localStorage.removeItem('active_shop_id')
@@ -428,10 +445,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refreshShop,
     patchShop,
     switchShop,
+    updateLocale,
     dashboardShopFilter,
     setDashboardShopFilter,
     effectiveShopIds,
-  }), [state, signOut, refreshShop, patchShop, switchShop, dashboardShopFilter, setDashboardShopFilter, effectiveShopIds])
+  }), [state, signOut, refreshShop, patchShop, switchShop, updateLocale, dashboardShopFilter, setDashboardShopFilter, effectiveShopIds])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
