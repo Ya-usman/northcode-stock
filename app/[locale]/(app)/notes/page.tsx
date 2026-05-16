@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils/cn'
 import { Plus, Pin, Pencil, Trash2, Store, Search, PinOff } from 'lucide-react'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 
 const supabase = createClient() as any
 
@@ -67,16 +68,24 @@ export default function NotesPage() {
   const fetchNotes = async () => {
     if (!effectiveShopIds.length) return
     setLoading(true)
-    let q = supabase
-      .from('notes')
-      .select('*')
-      .in('shop_id', effectiveShopIds)
-      .order('pinned', { ascending: false })
-      .order('updated_at', { ascending: false })
-    if (shopFilter !== 'all') q = q.eq('shop_id', shopFilter)
-    const { data } = await q
-    setNotes((data || []) as Note[])
-    setLoading(false)
+    const cacheKey = `notes_${effectiveShopIds.join(',')}_${shopFilter}`
+    try {
+      let q = supabase
+        .from('notes')
+        .select('*')
+        .in('shop_id', effectiveShopIds)
+        .order('pinned', { ascending: false })
+        .order('updated_at', { ascending: false })
+      if (shopFilter !== 'all') q = q.eq('shop_id', shopFilter)
+      const { data } = await q
+      setNotes((data || []) as Note[])
+      setPageCache(cacheKey, data || [])
+    } catch {
+      const cached = getPageCache<Note[]>(cacheKey)
+      if (cached) setNotes(cached)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { fetchNotes() }, [effectiveShopIds.join(','), shopFilter])

@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
 import { Search, Calendar, Package, ArrowRight, X, History } from 'lucide-react'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
+import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -61,10 +62,20 @@ export default function StockMovementsPage() {
     if (dateFrom) params.set('from', dateFrom)
     if (dateTo)   params.set('to', dateTo)
 
+    const cacheKey = `movements_${effectiveShopIds.join(',')}_${dateFrom}_${dateTo}`
     fetch(`/api/stock/movements?${params}`)
       .then(r => r.json())
-      .then(data => { setMovements(data.movements || []); setLoading(false) })
-      .catch(() => setLoading(false))
+      .then(data => {
+        const list = data.movements || []
+        setMovements(list)
+        setPageCache(cacheKey, list)
+        setLoading(false)
+      })
+      .catch(() => {
+        const cached = getPageCache<Movement[]>(cacheKey)
+        if (cached) setMovements(cached)
+        setLoading(false)
+      })
   }, [effectiveShopIds.join(','), dateFrom, dateTo])
 
   const products = useMemo<ProductSummary[]>(() => {

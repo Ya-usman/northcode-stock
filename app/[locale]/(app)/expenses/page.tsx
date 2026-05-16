@@ -17,6 +17,7 @@ import { useCurrency } from '@/lib/hooks/use-currency'
 import { NumericInput } from '@/components/ui/numeric-input'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 import type { Expense } from '@/lib/types/database'
+import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 
 const supabase = createClient() as any
 
@@ -45,17 +46,25 @@ export default function ExpensesPage() {
   const fetchExpenses = async () => {
     if (!effectiveShopIds.length) return
     setLoading(true)
+    const cacheKey = `expenses_${effectiveShopIds.join(',')}_${monthFilter}`
     const start = startOfMonth(new Date(monthFilter + '-01')).toISOString().slice(0, 10)
     const end = endOfMonth(new Date(monthFilter + '-01')).toISOString().slice(0, 10)
-    const { data } = await supabase
-      .from('expenses')
-      .select('*')
-      .in('shop_id', effectiveShopIds)
-      .gte('date', start)
-      .lte('date', end)
-      .order('date', { ascending: false })
-    setExpenses((data || []) as Expense[])
-    setLoading(false)
+    try {
+      const { data } = await supabase
+        .from('expenses')
+        .select('*')
+        .in('shop_id', effectiveShopIds)
+        .gte('date', start)
+        .lte('date', end)
+        .order('date', { ascending: false })
+      setExpenses((data || []) as Expense[])
+      setPageCache(cacheKey, data || [])
+    } catch {
+      const cached = getPageCache<Expense[]>(cacheKey)
+      if (cached) setExpenses(cached)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { fetchExpenses() }, [effectiveShopIds.join(','), monthFilter])

@@ -18,6 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { generateReportPDF } from '@/lib/utils/pdf'
 import { format, startOfDay, endOfDay, startOfMonth, startOfWeek, startOfQuarter, startOfYear } from 'date-fns'
+import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 
 const PIE_COLORS = ['#60a5fa', '#D4AF37', '#16A34A', '#DC2626', '#a78bfa']
 
@@ -70,7 +71,9 @@ export default function ReportsPage() {
   const fetchReports = async () => {
     if (!effectiveShopIds.length) return
     setLoading(true)
+    const cacheKey = `reports_${effectiveShopIds.join(',')}_${dateFilter}_${customStart}_${customEnd}`
     const { start, end } = getDateRange()
+    try {
 
     // Sales in period
     const { data: salesRaw } = await supabase
@@ -201,25 +204,51 @@ export default function ReportsPage() {
     // Union: members who sold + all active members
     const allUserIds = Array.from(new Set([...Object.keys(cashierMap), ...allMembers.map(m => m.user_id)]))
 
+    let _cashierPerf: any[] = []
     if (allUserIds.length > 0) {
       const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', allUserIds)
       const shopNameMap: Record<string, string> = {}
       userShops.forEach((s: any) => { shopNameMap[s.id] = s.name })
-      setCashierPerf(
-        allUserIds.map(id => ({
-          id,
-          name: (profiles || []).find((p: any) => p.id === id)?.full_name || 'Unknown',
-          shopName: shopNameMap[cashierMap[id]?.shopId || memberShopMap[id] || ''],
-          sales: cashierMap[id]?.sales || 0,
-          revenue: cashierMap[id]?.revenue || 0,
-          shopId: cashierMap[id]?.shopId || memberShopMap[id] || '',
-        })).sort((a, b) => b.revenue - a.revenue)
-      )
+      _cashierPerf = allUserIds.map(id => ({
+        id,
+        name: (profiles || []).find((p: any) => p.id === id)?.full_name || 'Unknown',
+        shopName: shopNameMap[cashierMap[id]?.shopId || memberShopMap[id] || ''],
+        sales: cashierMap[id]?.sales || 0,
+        revenue: cashierMap[id]?.revenue || 0,
+        shopId: cashierMap[id]?.shopId || memberShopMap[id] || '',
+      })).sort((a, b) => b.revenue - a.revenue)
+      setCashierPerf(_cashierPerf)
     } else {
       setCashierPerf([])
     }
 
-    setLoading(false)
+      setPageCache(cacheKey, {
+        revenueByMethod: Object.entries(byMethod).map(([name, value]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), value })),
+        topProducts: Object.entries(prodTotals).map(([name, { qty, revenue }]) => ({ name, qty, revenue })).sort((a, b) => b.revenue - a.revenue).slice(0, 10),
+        stockValuation: { buyingValue, sellingValue, potentialProfit: sellingValue - buyingValue },
+        totals: { revenue: totalRevenue, profit: totalProfit, sales: sales.length },
+        outstandingDebt: totalOutstandingDebt,
+        allInventory: inventoryList,
+        expenses: expensesList,
+        totalExpenses: expTotal,
+        cashierPerf: _cashierPerf,
+      })
+    } catch {
+      const cached = getPageCache<any>(cacheKey)
+      if (cached) {
+        setRevenueByMethod(cached.revenueByMethod ?? [])
+        setTopProducts(cached.topProducts ?? [])
+        setStockValuation(cached.stockValuation ?? { buyingValue: 0, sellingValue: 0, potentialProfit: 0 })
+        setCashierPerf(cached.cashierPerf ?? [])
+        setTotals(cached.totals ?? { revenue: 0, profit: 0, sales: 0 })
+        setOutstandingDebt(cached.outstandingDebt ?? 0)
+        setAllInventory(cached.allInventory ?? [])
+        setExpenses(cached.expenses ?? [])
+        setTotalExpenses(cached.totalExpenses ?? 0)
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
