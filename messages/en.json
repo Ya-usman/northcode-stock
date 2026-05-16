@@ -686,7 +686,8 @@
     "confirm_password": "Confirm password",
     "confirm_password_placeholder": "Repeat your password",
     "confirm_password_required": "Please confirm your password",
-    "password_mismatch": "Passwords do not match"
+    "password_mismatch": "Passwords do not match",
+    "email_already_used": "This email address is already linked to an account"
   },
   "saas": {
     "trial_expires_today": "Your free trial expires today!",
