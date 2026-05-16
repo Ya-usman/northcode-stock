@@ -10,12 +10,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Champs manquants' }, { status: 400 })
     }
 
-    // Verify the user_id exists in Supabase Auth using the admin client
     const supabase = await createAdminClient() as any
-    const { data: { user: authUser }, error: authError } = await supabase.auth.admin.getUserById(user_id)
-    if (authError || !authUser) {
-      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
-    }
 
     const countryConfig = getCountry(country || 'NG')
 
