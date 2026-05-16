@@ -93,6 +93,13 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
       })
       if (signUpError) throw signUpError
       if (!authData.user) throw new Error(t('account_error'))
+
+      // Supabase returns a fake user (identities=[]) when email already exists but is unconfirmed
+      // Don't set authUserId so cleanup won't delete the real pending user
+      if (!authData.user.identities || authData.user.identities.length === 0) {
+        throw new Error(t('email_already_used'))
+      }
+
       authUserId = authData.user.id
 
       const res = await fetch('/api/register', {
