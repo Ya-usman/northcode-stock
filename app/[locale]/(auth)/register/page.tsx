@@ -106,8 +106,15 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
       if (signUpError) throw signUpError
       if (!authData.user) throw new Error(t('account_error'))
 
-      // Supabase returns a fake user (identities=[]) when email already exists
+      // Supabase returns a fake user (identities=[]) when email already exists.
+      // It may be an orphan from a failed previous registration — attempt cleanup first.
+      // If the user is confirmed or has a profile, the cleanup route will reject it safely.
       if (!authData.user.identities || authData.user.identities.length === 0) {
+        await fetch('/api/cleanup-registration', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: authData.user.id }),
+        }).catch(() => {})
         throw new Error(t('email_already_used'))
       }
 
