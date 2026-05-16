@@ -101,20 +101,13 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
 
       authUserId = authData.user.id
 
-      // If no session (email confirmation enabled), we can't proceed with shop creation yet
-      // The user must confirm their email first
-      if (!authData.session) {
-        authUserId = null // prevent cleanup — user needs to confirm email
-        setError(t('check_email'))
-        setLoading(false)
-        return
-      }
-
       const res = await fetch('/api/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${authData.session.access_token}`,
+          ...(authData.session?.access_token
+            ? { Authorization: `Bearer ${authData.session.access_token}` }
+            : {}),
         },
         body: JSON.stringify({
           user_id: authData.user.id,
@@ -131,9 +124,15 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
         throw new Error(err.error || t('account_error'))
       }
 
-      await supabase.auth.refreshSession()
-      await fetch('/api/auth/set-role', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
-      router.push(`/${locale}/dashboard`)
+      if (authData.session) {
+        await supabase.auth.refreshSession()
+        await fetch('/api/auth/set-role', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        router.push(`/${locale}/dashboard`)
+      } else {
+        // Email confirmation required — account + shop created, user must confirm email
+        authUserId = null
+        setError(t('check_email'))
+      }
     } catch (err: any) {
       // Clean up orphan auth user if registration failed after signUp succeeded
       if (authUserId) {
