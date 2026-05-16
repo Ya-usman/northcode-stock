@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
+import { getPeriodDays, type BillingPeriod } from '@/lib/saas/countries'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL(`/${locale}/billing?error=payment_failed`, baseUrl))
     }
 
-    const { shop_id, plan_id } = data.data?.meta || {}
+    const { shop_id, plan_id, billing_period = 'monthly' } = data.data?.meta || {}
 
     if (!shop_id || !plan_id) {
       return NextResponse.redirect(new URL(`/${locale}/billing?error=invalid_meta`, baseUrl))
@@ -49,7 +50,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL(`/${locale}/billing?success=1`, baseUrl))
     }
 
-    const plan_expires_at = new Date(Date.now() + 31 * 24 * 60 * 60 * 1000).toISOString()
+    const days = getPeriodDays(billing_period as BillingPeriod)
+    const plan_expires_at = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
 
     // Get owner_id to update profile (owner-level billing)
     const { data: shopRow } = await supabase.from('shops').select('owner_id').eq('id', shop_id).single()
@@ -78,6 +80,7 @@ export async function GET(request: NextRequest) {
       shop_id,
       plan: plan_id,
       amount: data.data?.amount || 0,
+      billing_period,
       paystack_reference: tx_ref,
       starts_at: new Date().toISOString(),
       expires_at: plan_expires_at,

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
+import { getPeriodDays, type BillingPeriod } from '@/lib/saas/countries'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
@@ -13,12 +14,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const publicKey = process.env.NOTCHPAY_PUBLIC_KEY!
+    // Verification requires the hash key (secret), not the public key
+    const hashKey = process.env.NOTCHPAY_HASH_KEY || process.env.NOTCHPAY_PUBLIC_KEY!
 
-    // Verify with NotchPay
     const res = await fetch(`https://api.notchpay.co/payments/${reference}`, {
       headers: {
-        Authorization: publicKey,
+        Authorization: hashKey,
         Accept: 'application/json',
       },
     })
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
     }
 
     const meta = data.transaction?.meta || data.payment?.meta || {}
-    const { shop_id, plan_id } = meta
+    const { shop_id, plan_id, billing_period = 'monthly' } = meta
 
     if (!shop_id || !plan_id) {
       return NextResponse.redirect(new URL(`/${locale}/billing?error=invalid_meta`, baseUrl))
@@ -46,7 +47,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL(`/${locale}/billing?success=1`, baseUrl))
     }
 
-    const plan_expires_at = new Date(Date.now() + 31 * 24 * 60 * 60 * 1000).toISOString()
+    const days = getPeriodDays(billing_period as BillingPeriod)
+    const plan_expires_at = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
 
     // Get owner_id to update profile (owner-level billing)
     const { data: shopRow } = await supabase.from('shops').select('owner_id').eq('id', shop_id).single()
@@ -77,6 +79,7 @@ export async function GET(request: NextRequest) {
       shop_id,
       plan: plan_id,
       amount,
+      billing_period,
       paystack_reference: reference,
       starts_at: new Date().toISOString(),
       expires_at: plan_expires_at,
