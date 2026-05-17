@@ -98,7 +98,7 @@ export function buildMorningCheckHtml(data: MorningCheckData): string {
               <td>
                 <div style="color:#93c5fd;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px;">StockShop Platform</div>
                 <div style="color:#ffffff;font-size:20px;font-weight:700;">Daily Morning Check</div>
-                <div style="color:#bfdbfe;font-size:13px;margin-top:4px;">${data.date} &mdash; 08:00 WAT</div>
+                <div style="color:#bfdbfe;font-size:13px;margin-top:4px;">${data.date} &mdash; 07:00 WAT</div>
               </td>
               <td align="right">
                 <div style="font-size:36px;">${overall.icon}</div>
