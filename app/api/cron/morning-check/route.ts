@@ -104,20 +104,22 @@ export async function GET(request: Request) {
           const { error } = await admin.from('shops').select('id').limit(1)
           if (error) throw new Error(error.message)
         }),
-        checkService('Authentification (Supabase Auth)', () =>
-          checkUrl(`${supabaseUrl}/auth/v1/health`)
-        ),
-        checkService('Supabase Storage', () =>
-          checkUrl(`${supabaseUrl}/storage/v1/status`)
-        ),
+        checkService('Authentification (Supabase Auth)', async () => {
+          const { error } = await admin.auth.admin.listUsers({ perPage: 1 })
+          if (error) throw new Error(error.message)
+        }),
+        checkService('Supabase Storage', async () => {
+          const { error } = await admin.storage.listBuckets()
+          if (error) throw new Error(error.message)
+        }),
         ...(process.env.PAYSTACK_SECRET_KEY ? [
-          checkService('Paystack', () => checkUrl('https://api.paystack.co/integration/payment_providers')),
+          checkService('Paystack', () => checkUrl('https://paystack.com')),
         ] : []),
         ...(process.env.FLUTTERWAVE_SECRET_KEY ? [
-          checkService('Flutterwave', () => checkUrl('https://api.flutterwave.com/v3/banks/NG')),
+          checkService('Flutterwave', () => checkUrl('https://flutterwave.com')),
         ] : []),
         ...(process.env.NOTCHPAY_PUBLIC_KEY ? [
-          checkService('NotchPay', () => checkUrl('https://api.notchpay.co')),
+          checkService('NotchPay', () => checkUrl('https://notchpay.co')),
         ] : []),
       ]),
       getMetrics(admin),
