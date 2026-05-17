@@ -144,12 +144,13 @@ export async function GET(request: Request) {
         ? '🌦️ PERTURBATION — StockShop Daily Check'
         : '☀️ All OK — StockShop Daily Check'
 
-    await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'noreply@stockshop.ng',
+    const { error: sendError } = await resend.emails.send({
+      from: 'StockShop <onboarding@resend.dev>',
       to: ADMIN_EMAILS,
       subject: `${overallLabel} | ${format(new Date(), 'dd/MM/yyyy')}`,
       html,
     })
+    if (sendError) throw new Error(sendError.message)
 
     return NextResponse.json({
       ok: true,
