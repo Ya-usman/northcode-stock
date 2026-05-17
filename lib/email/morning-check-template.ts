@@ -157,20 +157,6 @@ export function buildMorningCheckHtml(data: MorningCheckData): string {
               </div>
             </td>
             <td width="50%" style="padding-left:8px;padding-bottom:12px;">
-              <div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:16px;">
-                <div style="font-size:11px;color:#6d28d9;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Chiffre d'affaires</div>
-                <div style="font-size:20px;font-weight:700;color:#111827;margin-top:4px;">${fmtNumber(data.metrics.totalRevenue)}</div>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td width="50%" style="padding-right:8px;padding-bottom:12px;">
-              <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:16px;">
-                <div style="font-size:11px;color:#0369a1;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Utilisateurs total</div>
-                <div style="font-size:28px;font-weight:700;color:#111827;margin-top:4px;">${fmtNumber(data.metrics.totalUsers)}</div>
-              </div>
-            </td>
-            <td width="50%" style="padding-left:8px;padding-bottom:12px;">
               <div style="background:${data.metrics.failedPayments > 0 ? '#fef2f2' : '#f9fafb'};border:1px solid ${data.metrics.failedPayments > 0 ? '#fecaca' : '#e5e7eb'};border-radius:8px;padding:16px;">
                 <div style="font-size:11px;color:${data.metrics.failedPayments > 0 ? '#dc2626' : '#6b7280'};font-weight:600;text-transform:uppercase;letter-spacing:1px;">Paiements échoués</div>
                 <div style="font-size:28px;font-weight:700;color:${data.metrics.failedPayments > 0 ? '#dc2626' : '#111827'};margin-top:4px;">${fmtNumber(data.metrics.failedPayments)}</div>
