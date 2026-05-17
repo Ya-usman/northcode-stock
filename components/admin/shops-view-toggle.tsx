@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Store, Users } from 'lucide-react'
 import { AdminShopsTable } from './shops-table'
 import { OwnerShopsView } from './owner-shops-view'
+import { CsvExportBtn } from './csv-export-btn'
 
 interface Props {
   shops: any[]
@@ -16,30 +17,33 @@ export function ShopsViewToggle({ shops, owners, locale }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Toggle */}
-      <div className="flex items-center gap-2 p-1 bg-muted rounded-lg w-fit">
-        <button
-          onClick={() => setView('shops')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            view === 'shops'
-              ? 'bg-card text-foreground shadow-sm border border-border'
-              : 'text-foreground/60 hover:text-foreground'
-          }`}
-        >
-          <Store className="h-4 w-4" />
-          Boutiques
-        </button>
-        <button
-          onClick={() => setView('owners')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            view === 'owners'
-              ? 'bg-card text-foreground shadow-sm border border-border'
-              : 'text-foreground/60 hover:text-foreground'
-          }`}
-        >
-          <Users className="h-4 w-4" />
-          Par propriétaire
-        </button>
+      {/* Toggle + export */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2 p-1 bg-muted rounded-lg w-fit">
+          <button
+            onClick={() => setView('shops')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              view === 'shops'
+                ? 'bg-card text-foreground shadow-sm border border-border'
+                : 'text-foreground/60 hover:text-foreground'
+            }`}
+          >
+            <Store className="h-4 w-4" />
+            Boutiques
+          </button>
+          <button
+            onClick={() => setView('owners')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              view === 'owners'
+                ? 'bg-card text-foreground shadow-sm border border-border'
+                : 'text-foreground/60 hover:text-foreground'
+            }`}
+          >
+            <Users className="h-4 w-4" />
+            Par propriétaire
+          </button>
+        </div>
+        <CsvExportBtn href="/api/admin/export/shops" label="Exporter boutiques CSV" />
       </div>
 
       {view === 'shops'

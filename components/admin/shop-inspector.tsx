@@ -12,7 +12,7 @@ import {
   ArrowLeft, ShoppingBag, Users, Package, TrendingUp, Clock,
   MessageSquare, Send, Trash2, Phone, ExternalLink, Shield,
   ShieldOff, ShieldCheck, RefreshCw, AlertTriangle, CheckCircle2,
-  Bell, StickyNote, Activity, CreditCard, ChevronRight,
+  Bell, StickyNote, Activity, CreditCard, ChevronRight, Pencil,
 } from 'lucide-react'
 
 interface Props {
@@ -35,7 +35,9 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
   const [notifMsg, setNotifMsg] = useState('')
   const [sendingNotif, setSendingNotif] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'overview' | 'notes' | 'notifications' | 'restore'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'notes' | 'notifications' | 'restore' | 'edit'>('overview')
+  const [editForm, setEditForm] = useState({ name: '', city: '', country: '', whatsapp: '', currency: '' })
+  const [savingEdit, setSavingEdit] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -51,6 +53,39 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
   }
 
   useEffect(() => { load() }, [shopId])
+
+  useEffect(() => {
+    if (data?.shop) {
+      setEditForm({
+        name: data.shop.name || '',
+        city: data.shop.city || '',
+        country: data.shop.country || '',
+        whatsapp: data.shop.whatsapp || '',
+        currency: data.shop.currency || '',
+      })
+    }
+  }, [data])
+
+  const saveEdit = async () => {
+    setSavingEdit(true)
+    const res = await fetch('/api/admin/shop-action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'edit_shop',
+        shop_id: shopId,
+        name: editForm.name || undefined,
+        city: editForm.city || undefined,
+        country: editForm.country || undefined,
+        whatsapp: editForm.whatsapp !== '' ? editForm.whatsapp : undefined,
+        currency: editForm.currency || undefined,
+      }),
+    })
+    const json = await res.json()
+    setSavingEdit(false)
+    if (!res.ok) toast({ title: json.error, variant: 'destructive' })
+    else { toast({ title: '✅ Boutique mise à jour', variant: 'success' }); load() }
+  }
 
   const shopAction = async (action: string, extra?: Record<string, any>) => {
     setActionLoading(true)
@@ -142,6 +177,7 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
     { id: 'notes', label: `Notes (${notes.length})`, icon: StickyNote },
     { id: 'notifications', label: `Notifications (${notifications.length})`, icon: Bell },
     { id: 'restore', label: 'Restauration', icon: RefreshCw },
+    { id: 'edit', label: 'Modifier', icon: Pencil },
   ] as const
 
   return (
@@ -543,6 +579,80 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
           </h3>
           <p className="text-xs text-muted-foreground mb-4">Restaurez les produits supprimés, archivés, et les clients supprimés pour cette boutique.</p>
           <ShopRestorePanel shopId={shopId} shopName={shop.name} />
+        </div>
+      )}
+
+      {/* Tab: Modifier */}
+      {activeTab === 'edit' && (
+        <div className="bg-card rounded-xl border border-border shadow-sm p-5 space-y-4">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Pencil className="h-4 w-4 text-blue-400" />
+              Modifier les informations de la boutique
+            </h3>
+            <p className="text-xs text-muted-foreground mt-1">Les modifications sont appliquées immédiatement.</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Nom de la boutique</label>
+              <input
+                value={editForm.name}
+                onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
+                placeholder="Nom de la boutique"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Ville</label>
+              <input
+                value={editForm.city}
+                onChange={e => setEditForm(f => ({ ...f, city: e.target.value }))}
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
+                placeholder="Lagos, Douala…"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Pays (code ISO)</label>
+              <input
+                value={editForm.country}
+                onChange={e => setEditForm(f => ({ ...f, country: e.target.value.toUpperCase() }))}
+                maxLength={2}
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500 uppercase"
+                placeholder="NG, CM, CI…"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">WhatsApp (format international)</label>
+              <input
+                value={editForm.whatsapp}
+                onChange={e => setEditForm(f => ({ ...f, whatsapp: e.target.value }))}
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
+                placeholder="+2348012345678"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Devise</label>
+              <input
+                value={editForm.currency}
+                onChange={e => setEditForm(f => ({ ...f, currency: e.target.value }))}
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
+                placeholder="₦, FCFA…"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <Button
+              size="sm"
+              disabled={savingEdit}
+              onClick={saveEdit}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Send className="h-3.5 w-3.5 mr-1.5" />
+              {savingEdit ? 'Enregistrement…' : 'Enregistrer les modifications'}
+            </Button>
+          </div>
         </div>
       )}
     </div>

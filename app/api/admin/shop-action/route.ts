@@ -20,7 +20,8 @@ export async function POST(request: Request) {
       }
     }
 
-    const { action, shop_id, days } = await request.json()
+    const body = await request.json()
+    const { action, shop_id, days, name, city, country, whatsapp, currency } = body
     if (!action || !shop_id) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
@@ -121,6 +122,20 @@ export async function POST(request: Request) {
           } as any).eq('owner_id', owner_id).is('deleted_at', null)
         }
         return NextResponse.json({ success: true, message: `Plan ${planId} granted` })
+      }
+
+      case 'edit_shop': {
+        const updates: Record<string, any> = {}
+        if (name !== undefined)     updates.name     = name
+        if (city !== undefined)     updates.city     = city
+        if (country !== undefined)  updates.country  = country
+        if (whatsapp !== undefined) updates.whatsapp = whatsapp
+        if (currency !== undefined) updates.currency = currency
+        if (Object.keys(updates).length === 0) {
+          return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+        }
+        await admin.from('shops').update(updates).eq('id', shop_id)
+        return NextResponse.json({ success: true, message: 'Boutique mise à jour' })
       }
 
       default:
