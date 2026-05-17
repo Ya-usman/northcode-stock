@@ -144,15 +144,9 @@ export async function GET(request: Request) {
         ? '🌦️ PERTURBATION — StockShop Daily Check'
         : '☀️ All OK — StockShop Daily Check'
 
-    // Until a custom domain is verified in Resend, onboarding@resend.dev
-    // can only send to the Resend account owner email.
-    const toAddresses = process.env.RESEND_DOMAIN_VERIFIED === 'true'
-      ? ADMIN_EMAILS
-      : [ADMIN_EMAILS[0]]
-
     const { error: sendError } = await resend.emails.send({
       from: 'StockShop <onboarding@resend.dev>',
-      to: toAddresses,
+      to: 'yahaya.dev@gmail.com',
       subject: `${overallLabel} | ${format(new Date(), 'dd/MM/yyyy')}`,
       html,
     })
