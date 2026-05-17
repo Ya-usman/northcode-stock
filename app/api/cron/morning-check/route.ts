@@ -112,13 +112,13 @@ export async function GET(request: Request) {
           const { error } = await admin.storage.listBuckets()
           if (error) throw new Error(error.message)
         }),
-        ...(process.env.PAYSTACK_SECRET_KEY ? [
+        ...(process.env.PAYSTACK_SECRET_KEY?.startsWith('sk_') ? [
           checkService('Paystack', () => checkUrl('https://paystack.com')),
         ] : []),
-        ...(process.env.FLUTTERWAVE_SECRET_KEY ? [
+        ...(process.env.FLUTTERWAVE_SECRET_KEY?.startsWith('FLWSECK') ? [
           checkService('Flutterwave', () => checkUrl('https://flutterwave.com')),
         ] : []),
-        ...(process.env.NOTCHPAY_PUBLIC_KEY ? [
+        ...(process.env.NOTCHPAY_PUBLIC_KEY?.startsWith('pk.') ? [
           checkService('NotchPay', () => checkUrl('https://notchpay.co')),
         ] : []),
       ]),
