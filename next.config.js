@@ -6,6 +6,8 @@ const withPWA = require('next-pwa')({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === 'development',
+  // Exclude heavy chunks from pre-cache (loaded on demand)
+  buildExcludes: [/chunks\/.*zxing.*/i, /chunks\/.*pdf.*/i, /middleware-manifest\.json$/],
   runtimeCaching: [
     // Next.js App Router RSC payloads — cache so offline navigation works
     {
@@ -61,7 +63,7 @@ const withPWA = require('next-pwa')({
       handler: 'CacheFirst',
       options: {
         cacheName: 'next-static',
-        expiration: { maxEntries: 200, maxAgeSeconds: 30 * 24 * 60 * 60 },
+        expiration: { maxEntries: 80, maxAgeSeconds: 30 * 24 * 60 * 60 },
       },
     },
     {
@@ -69,7 +71,7 @@ const withPWA = require('next-pwa')({
       handler: 'CacheFirst',
       options: {
         cacheName: 'static-images',
-        expiration: { maxEntries: 100, maxAgeSeconds: 30 * 24 * 60 * 60 },
+        expiration: { maxEntries: 50, maxAgeSeconds: 7 * 24 * 60 * 60 },
       },
     },
   ],
@@ -150,7 +152,7 @@ const nextConfig = {
     formats: ['image/avif', 'image/webp'],
   },
   experimental: {
-    optimizePackageImports: ['lucide-react', 'recharts', 'framer-motion'],
+    optimizePackageImports: ['lucide-react', 'recharts', 'framer-motion', '@zxing/browser', '@zxing/library'],
     instrumentationHook: true,
   },
 }

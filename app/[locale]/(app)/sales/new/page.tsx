@@ -21,12 +21,16 @@ import { PremiumDialog, PremiumDialogBody } from '@/components/ui/premium-dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { useCurrency } from '@/lib/hooks/use-currency'
-import { generateReceiptPDFBlob } from '@/lib/utils/pdf'
 import { shareReceiptWhatsApp, buildReceiptWhatsAppMessage } from '@/lib/utils/whatsapp'
 import { sharePDFNative, printPDFNative, isCapacitor } from '@/lib/utils/native-share'
 import type { Product, Customer, CartItem, Sale, SaleItem, Category } from '@/lib/types/database'
-import { BarcodeScanner } from '@/components/stock/barcode-scanner'
+import dynamic from 'next/dynamic'
 import { cacheProducts, getCachedProducts, cacheCustomers, getCachedCustomers, savePendingSale } from '@/lib/offline/db'
+
+const BarcodeScanner = dynamic(
+  () => import('@/components/stock/barcode-scanner').then(m => ({ default: m.BarcodeScanner })),
+  { ssr: false, loading: () => <div className="mt-1 h-12 rounded-xl bg-muted animate-pulse" /> }
+)
 import { useOffline } from '@/lib/offline/use-offline'
 import { getCountry, getMethodType } from '@/lib/saas/countries'
 import { formatInputValue } from '@/lib/utils/currency'
@@ -672,6 +676,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
   const handlePrintReceipt = async () => {
     if (!completedSale || !shop) return
+    const { generateReceiptPDFBlob } = await import('@/lib/utils/pdf')
     const blob = await generateReceiptPDFBlob({
       sale: completedSale as any,
       shop: selectedShop as any,
@@ -686,6 +691,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     if (!completedSale || !shop) return
     const fileName = `Recu-${completedSale.sale_number}.pdf`
     try {
+      const { generateReceiptPDFBlob } = await import('@/lib/utils/pdf')
       const blob = await generateReceiptPDFBlob({
         sale: completedSale as any,
         shop: selectedShop as any,

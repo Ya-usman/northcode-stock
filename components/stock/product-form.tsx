@@ -12,8 +12,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DialogFooter } from '@/components/ui/dialog'
 import { productSchema, type ProductFormData } from '@/lib/validations/product'
 import type { Category, Supplier } from '@/lib/types/database'
-import { BarcodeScanner } from '@/components/stock/barcode-scanner'
+import dynamic from 'next/dynamic'
 import { Camera, ScanLine, ImagePlus, X, Loader2, AlertCircle } from 'lucide-react'
+
+const BarcodeScanner = dynamic(
+  () => import('@/components/stock/barcode-scanner').then(m => ({ default: m.BarcodeScanner })),
+  { ssr: false, loading: () => <div className="mt-2 h-16 rounded-xl bg-muted animate-pulse" /> }
+)
 import { useToast } from '@/components/ui/use-toast'
 import { compressImage } from '@/lib/utils/compress-image'
 

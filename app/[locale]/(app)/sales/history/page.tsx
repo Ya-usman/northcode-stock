@@ -19,7 +19,6 @@ import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/compone
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { useCurrency } from '@/lib/hooks/use-currency'
-import { generateReceiptPDFBlob } from '@/lib/utils/pdf'
 import { printPDFNative, downloadOrShareCSV, isCapacitor } from '@/lib/utils/native-share'
 import { format, startOfDay, endOfDay, subDays, startOfWeek, startOfMonth } from 'date-fns'
 import type { Sale } from '@/lib/types/database'
@@ -58,6 +57,7 @@ export default function SalesHistoryPage() {
 
   const printSale = async (sale: Sale) => {
     if (!shop) return
+    const { generateReceiptPDFBlob } = await import('@/lib/utils/pdf')
     const blob = await generateReceiptPDFBlob({
       sale: sale as any,
       shop,
