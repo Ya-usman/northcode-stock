@@ -875,6 +875,10 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 <button key={product.id} onClick={() => addToCart(product)}
                   className="flex flex-col items-start text-left rounded-lg border bg-card p-3 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors tap-target"
                 >
+                  {product.image_url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={product.image_url} alt={product.name} className="w-full h-20 object-cover rounded-md mb-2 border border-border" />
+                  )}
                   <p className="text-sm font-medium truncate w-full text-foreground">{product.name}</p>
                   {product.name_hausa && <p className="text-xs text-muted-foreground truncate w-full">{product.name_hausa}</p>}
                   {product.sku && <p className="text-[10px] text-muted-foreground font-mono">{product.sku}</p>}

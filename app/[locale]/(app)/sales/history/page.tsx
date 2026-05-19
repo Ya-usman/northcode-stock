@@ -113,7 +113,7 @@ export default function SalesHistoryPage() {
   const buildSalesQuery = (start: Date, end: Date, offset: number) => {
     let query = supabase
       .from('sales')
-      .select('*, customers(name, phone), sale_items(product_name, quantity, unit_price, subtotal)')
+      .select('*, customers(name, phone), sale_items(product_id, product_name, quantity, unit_price, subtotal, products(image_url))')
       .in('shop_id', effectiveShopIds)
       .gte('created_at', start.toISOString())
       .lte('created_at', end.toISOString())
@@ -332,9 +332,15 @@ export default function SalesHistoryPage() {
               <div className="p-3 space-y-2">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('sales.items')}</p>
                 {(sale as any).sale_items?.map((item: any) => (
-                  <div key={item.id} className="flex justify-between text-xs">
-                    <span>{item.product_name} × {item.quantity} @ {formatNaira(item.unit_price)}</span>
-                    <span className="font-medium">{formatNaira(item.subtotal)}</span>
+                  <div key={item.id} className="flex items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {item.products?.image_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={item.products.image_url} alt={item.product_name} className="h-8 w-8 rounded object-cover border border-border shrink-0" />
+                      )}
+                      <span className="truncate">{item.product_name} × {item.quantity} @ {formatNaira(item.unit_price)}</span>
+                    </div>
+                    <span className="font-medium shrink-0">{formatNaira(item.subtotal)}</span>
                   </div>
                 ))}
                 {sale.notes && (
