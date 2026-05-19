@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
 import { motion } from 'framer-motion'
-import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, ChevronDown, ChevronUp, Upload } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -21,6 +21,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { restockSchema, type RestockFormData, type ProductFormData } from '@/lib/validations/product'
 import type { Product, Category, Supplier } from '@/lib/types/database'
 import { ProductForm } from '@/components/stock/product-form'
+import { ImportProductsModal } from '@/components/stock/import-products-modal'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 
 
@@ -48,6 +49,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     'stock', shop?.id, { search: '', categoryFilter: 'all', statusFilter: 'all', showArchived: false }
   )
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showImportModal, setShowImportModal] = useState(false)
   const [showRestockModal, setShowRestockModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [restockProduct, setRestockProduct] = useState<Product | null>(null)
@@ -404,15 +406,20 @@ const fetchProducts = async () => {
           <FileDown className="h-3.5 w-3.5" /> CSV
         </Button>
         {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'cashier' || effectiveRole === 'super_admin') && (
-          <Button
-            className="h-9 gap-1 bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500"
-            size="sm"
-            disabled={saving}
-            onClick={() => { setEditingProduct(null); setShowRestockModal(false); setShowAddModal(true) }}
-          >
-            <Plus className="h-4 w-4" />
-            {t('actions.add_product')}
-          </Button>
+          <>
+            <Button variant="outline" size="sm" className="h-9 gap-1" onClick={() => setShowImportModal(true)}>
+              <Upload className="h-3.5 w-3.5" /> Import
+            </Button>
+            <Button
+              className="h-9 gap-1 bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500"
+              size="sm"
+              disabled={saving}
+              onClick={() => { setEditingProduct(null); setShowRestockModal(false); setShowAddModal(true) }}
+            >
+              <Plus className="h-4 w-4" />
+              {t('actions.add_product')}
+            </Button>
+          </>
         )}
       </div>
 
@@ -499,6 +506,16 @@ const fetchProducts = async () => {
             </div>
           )}
         </div>
+      )}
+
+      {/* Import Products Modal */}
+      {shop?.id && (
+        <ImportProductsModal
+          open={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          shopId={shop.id}
+          onImported={(count) => { setShowImportModal(false); fetchProducts(); }}
+        />
       )}
 
       {/* Add Product Modal */}
