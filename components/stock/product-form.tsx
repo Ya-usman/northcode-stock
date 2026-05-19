@@ -3,6 +3,7 @@
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslations } from 'next-intl'
+import { useState, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NumericInput } from '@/components/ui/numeric-input'
@@ -11,12 +12,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DialogFooter } from '@/components/ui/dialog'
 import { productSchema, type ProductFormData } from '@/lib/validations/product'
 import type { Category, Supplier } from '@/lib/types/database'
+import { BarcodeScanner } from '@/components/stock/barcode-scanner'
+import { Camera, ScanLine, ImagePlus, X, Loader2 } from 'lucide-react'
 
 interface ProductFormProps {
   categories: Category[]
   suppliers: Supplier[]
   currency: string
   isOwner: boolean
+  shopId?: string
   isEdit?: boolean
   defaultValues?: Partial<ProductFormData>
   saving: boolean
@@ -25,10 +29,14 @@ interface ProductFormProps {
 }
 
 export function ProductForm({
-  categories, suppliers, currency, isOwner, isEdit,
+  categories, suppliers, currency, isOwner, shopId, isEdit,
   defaultValues, saving, onSubmit, onCancel,
 }: ProductFormProps) {
   const t = useTranslations()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [showScanner, setShowScanner] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [imagePreview, setImagePreview] = useState<string>(defaultValues?.image_url || '')
 
   const form = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
@@ -42,6 +50,8 @@ export function ProductForm({
       selling_price: 0,
       quantity: 0,
       low_stock_threshold: undefined,
+      sku: '',
+      image_url: '',
       ...defaultValues,
     },
   })
@@ -51,10 +61,53 @@ export function ProductForm({
   const categoryId = form.watch('category_id') || NONE
   const supplierId = form.watch('supplier_id') || NONE
 
+  const handleBarcodeDetected = (code: string) => {
+    form.setValue('sku', code)
+    setShowScanner(false)
+  }
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !shopId) return
+
+    // Local preview immediately
+    const localUrl = URL.createObjectURL(file)
+    setImagePreview(localUrl)
+
+    setUploadingImage(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('shop_id', shopId)
+      const res = await fetch('/api/products/upload-image', { method: 'POST', body: fd })
+      const json = await res.json()
+      if (res.ok && json.url) {
+        form.setValue('image_url', json.url)
+        setImagePreview(json.url)
+      } else {
+        setImagePreview('')
+        form.setValue('image_url', '')
+      }
+    } catch {
+      setImagePreview('')
+      form.setValue('image_url', '')
+    } finally {
+      setUploadingImage(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const removeImage = () => {
+    setImagePreview('')
+    form.setValue('image_url', '')
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 overflow-y-auto max-h-[70vh] px-1">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 overflow-y-auto max-h-[75vh] px-1">
       <div className="grid grid-cols-2 gap-3">
 
+        {/* Name */}
         <div className="col-span-2 space-y-1">
           <Label>{t('products.name')} *</Label>
           <Input {...form.register('name')} placeholder={t('products.name')} />
@@ -63,7 +116,8 @@ export function ProductForm({
           )}
         </div>
 
-<div className="space-y-1">
+        {/* Unit */}
+        <div className="space-y-1">
           <Label>{t('products.unit')}</Label>
           <Select value={unit} onValueChange={v => form.setValue('unit', v)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
@@ -75,6 +129,7 @@ export function ProductForm({
           </Select>
         </div>
 
+        {/* Category */}
         <div className="space-y-1">
           <Label>
             {t('products.category')}{' '}
@@ -89,6 +144,7 @@ export function ProductForm({
           </Select>
         </div>
 
+        {/* Supplier */}
         <div className="space-y-1">
           <Label>
             {t('products.supplier')}{' '}
@@ -103,6 +159,7 @@ export function ProductForm({
           </Select>
         </div>
 
+        {/* Buying price */}
         {isOwner && (
           <div className="space-y-1">
             <Label>
@@ -118,6 +175,7 @@ export function ProductForm({
           </div>
         )}
 
+        {/* Selling price */}
         <div className="space-y-1">
           <Label>
             {t('products.selling_price')} *{' '}
@@ -131,6 +189,7 @@ export function ProductForm({
           )}
         </div>
 
+        {/* Quantity */}
         {!isEdit && (
           <div className="space-y-1">
             <Label>{t('products.quantity')} *</Label>
@@ -143,6 +202,7 @@ export function ProductForm({
           </div>
         )}
 
+        {/* Low stock threshold */}
         <div className="space-y-1">
           <Label>
             {t('products.low_stock_threshold')}{' '}
@@ -155,11 +215,103 @@ export function ProductForm({
 
       </div>
 
+      {/* ── SKU / Barcode — optional ─────────────────────────────────── */}
+      <div className="space-y-1">
+        <Label className="flex items-center gap-1.5">
+          <ScanLine className="h-3.5 w-3.5 text-muted-foreground" />
+          SKU / Code-barres
+          <span className="text-muted-foreground text-xs font-normal">({t('form.optional')})</span>
+        </Label>
+        <div className="flex gap-2">
+          <Input
+            {...form.register('sku')}
+            placeholder="Ex : 6001234567890"
+            className="font-mono text-sm flex-1"
+          />
+          <button
+            type="button"
+            onClick={() => setShowScanner(v => !v)}
+            className="h-9 px-3 flex items-center gap-1.5 text-xs font-medium border border-border rounded-lg bg-muted hover:bg-accent transition-colors shrink-0"
+            title="Scanner avec la caméra"
+          >
+            <Camera className="h-3.5 w-3.5" />
+            Scan
+          </button>
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Scanner physique Bluetooth/USB : cliquez dans le champ et scannez directement.
+        </p>
+
+        {showScanner && (
+          <BarcodeScanner
+            onDetected={handleBarcodeDetected}
+            onClose={() => setShowScanner(false)}
+          />
+        )}
+      </div>
+
+      {/* ── Photo — optional ─────────────────────────────────────────── */}
+      <div className="space-y-1.5">
+        <Label className="flex items-center gap-1.5">
+          <ImagePlus className="h-3.5 w-3.5 text-muted-foreground" />
+          Photo du produit
+          <span className="text-muted-foreground text-xs font-normal">({t('form.optional')})</span>
+        </Label>
+
+        {imagePreview ? (
+          <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-border group">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={imagePreview} alt="Aperçu" className="w-full h-full object-cover" />
+            {uploadingImage && (
+              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                <Loader2 className="h-5 w-5 text-white animate-spin" />
+              </div>
+            )}
+            {!uploadingImage && (
+              <button
+                type="button"
+                onClick={removeImage}
+                className="absolute top-1 right-1 bg-black/60 hover:bg-black/80 rounded-full p-0.5 transition-colors opacity-0 group-hover:opacity-100"
+              >
+                <X className="h-3 w-3 text-white" />
+              </button>
+            )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => shopId && fileInputRef.current?.click()}
+            disabled={!shopId || uploadingImage}
+            className="w-full h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:border-primary hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {uploadingImage ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <>
+                <ImagePlus className="h-5 w-5" />
+                <span className="text-xs">Choisir une photo</span>
+              </>
+            )}
+          </button>
+        )}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={handleImageSelect}
+        />
+        {!shopId && (
+          <p className="text-[11px] text-amber-500">Sauvegardez d'abord la boutique pour uploader une photo.</p>
+        )}
+      </div>
+
       <DialogFooter className="pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>
           {t('actions.cancel')}
         </Button>
-        <Button type="submit" disabled={saving} className="bg-blue-600 dark:bg-blue-500">
+        <Button type="submit" disabled={saving || uploadingImage} className="bg-blue-600 dark:bg-blue-500">
           {saving ? t('actions.saving') : isEdit ? t('actions.update') : t('actions.save')}
         </Button>
       </DialogFooter>

@@ -135,6 +135,8 @@ const fetchProducts = async () => {
           quantity: data.quantity,
           unit: data.unit || 'piece',
           low_stock_threshold: data.low_stock_threshold || null,
+          sku: data.sku || null,
+          image_url: data.image_url || null,
           is_active: true,
         }),
       })
@@ -166,6 +168,8 @@ const fetchProducts = async () => {
           selling_price: data.selling_price,
           unit: data.unit || 'piece',
           low_stock_threshold: data.low_stock_threshold || null,
+          sku: data.sku || null,
+          image_url: data.image_url || null,
         }),
       })
       const json = await res.json()
@@ -295,11 +299,24 @@ const fetchProducts = async () => {
         className="rounded-lg border bg-card shadow-sm p-4 space-y-2"
       >
         <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <p className="font-medium text-sm truncate">{product.name}</p>
-            {product.name_hausa && (
-              <p className="text-xs text-muted-foreground truncate">{product.name_hausa}</p>
+          <div className="flex items-start gap-3 min-w-0 flex-1">
+            {(product as any).image_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={(product as any).image_url}
+                alt={product.name}
+                className="h-12 w-12 rounded-lg object-cover border border-border shrink-0"
+              />
             )}
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-sm truncate">{product.name}</p>
+              {product.name_hausa && (
+                <p className="text-xs text-muted-foreground truncate">{product.name_hausa}</p>
+              )}
+              {(product as any).sku && (
+                <p className="text-[10px] font-mono text-muted-foreground truncate">{(product as any).sku}</p>
+              )}
+            </div>
           </div>
           <StockBadge quantity={product.quantity} threshold={threshold} />
         </div>
@@ -346,6 +363,7 @@ const fetchProducts = async () => {
     suppliers: suppliers.filter((s: any) => !shop?.id || s.shop_id === shop.id),
     currency: currencySymbol,
     isOwner: effectiveRole === 'owner' || effectiveRole === 'super_admin',
+    shopId: shop?.id,
     saving,
   }
 
@@ -493,7 +511,7 @@ const fetchProducts = async () => {
         <div className="p-5">
           {editingProduct && (
             <ProductForm key={editingProduct.id} {...productFormProps} isEdit
-              defaultValues={{ name: editingProduct.name, name_hausa: editingProduct.name_hausa || '', category_id: editingProduct.category_id || '', supplier_id: editingProduct.supplier_id || '', buying_price: editingProduct.buying_price, selling_price: editingProduct.selling_price, quantity: editingProduct.quantity, unit: editingProduct.unit, low_stock_threshold: editingProduct.low_stock_threshold || undefined }}
+              defaultValues={{ name: editingProduct.name, name_hausa: editingProduct.name_hausa || '', category_id: editingProduct.category_id || '', supplier_id: editingProduct.supplier_id || '', buying_price: editingProduct.buying_price, selling_price: editingProduct.selling_price, quantity: editingProduct.quantity, unit: editingProduct.unit, low_stock_threshold: editingProduct.low_stock_threshold || undefined, sku: editingProduct.sku || '', image_url: editingProduct.image_url || '' }}
               onSubmit={onEditProduct} onCancel={() => setEditingProduct(null)}
             />
           )}

@@ -10,6 +10,7 @@ export const productSchema = z.object({
   quantity: z.coerce.number().int().min(0, 'Quantity must be ≥ 0'),
   unit: z.string().min(1).default('piece'),
   low_stock_threshold: z.coerce.number().int().min(0).optional(),
+  sku: z.string().max(100).optional().or(z.literal('')),
   image_url: z.string().url().optional().or(z.literal('')),
   is_active: z.boolean().default(true),
 })
