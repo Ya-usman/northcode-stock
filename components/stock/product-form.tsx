@@ -3,7 +3,7 @@
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslations } from 'next-intl'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NumericInput } from '@/components/ui/numeric-input'
@@ -13,7 +13,8 @@ import { DialogFooter } from '@/components/ui/dialog'
 import { productSchema, type ProductFormData } from '@/lib/validations/product'
 import type { Category, Supplier } from '@/lib/types/database'
 import { BarcodeScanner } from '@/components/stock/barcode-scanner'
-import { Camera, ScanLine, ImagePlus, X, Loader2 } from 'lucide-react'
+import { Camera, ScanLine, ImagePlus, X, Loader2, AlertCircle } from 'lucide-react'
+import { useToast } from '@/components/ui/use-toast'
 
 interface ProductFormProps {
   categories: Category[]
@@ -33,10 +34,17 @@ export function ProductForm({
   defaultValues, saving, onSubmit, onCancel,
 }: ProductFormProps) {
   const t = useTranslations()
+  const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [showScanner, setShowScanner] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
   const [imagePreview, setImagePreview] = useState<string>(defaultValues?.image_url || '')
+  // BarcodeDetector support checked client-side only (not SSR)
+  const [barcodeSupported, setBarcodeSupported] = useState(false)
+  useEffect(() => {
+    setBarcodeSupported('BarcodeDetector' in window)
+  }, [])
 
   const form = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
@@ -64,32 +72,45 @@ export function ProductForm({
   const handleBarcodeDetected = (code: string) => {
     form.setValue('sku', code)
     setShowScanner(false)
+    toast({ title: `Code scanné : ${code}`, variant: 'success' })
   }
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file || !shopId) return
+    if (!file) return
+    if (!shopId) {
+      toast({ title: 'shop_id manquant — impossible d\'uploader', variant: 'destructive' })
+      return
+    }
 
+    setUploadError(null)
     // Local preview immediately
     const localUrl = URL.createObjectURL(file)
     setImagePreview(localUrl)
-
     setUploadingImage(true)
+
     try {
       const fd = new FormData()
       fd.append('file', file)
       fd.append('shop_id', shopId)
       const res = await fetch('/api/products/upload-image', { method: 'POST', body: fd })
       const json = await res.json()
+
       if (res.ok && json.url) {
         form.setValue('image_url', json.url)
         setImagePreview(json.url)
+        URL.revokeObjectURL(localUrl)
       } else {
-        setImagePreview('')
+        const errMsg = json.error || 'Erreur upload'
+        setUploadError(errMsg)
+        toast({ title: `Upload échoué : ${errMsg}`, variant: 'destructive' })
+        // Keep local preview so user sees what they selected
         form.setValue('image_url', '')
       }
-    } catch {
-      setImagePreview('')
+    } catch (err: any) {
+      const errMsg = err.message || 'Erreur réseau'
+      setUploadError(errMsg)
+      toast({ title: `Upload échoué : ${errMsg}`, variant: 'destructive' })
       form.setValue('image_url', '')
     } finally {
       setUploadingImage(false)
@@ -99,9 +120,12 @@ export function ProductForm({
 
   const removeImage = () => {
     setImagePreview('')
+    setUploadError(null)
     form.setValue('image_url', '')
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
+
+  const imageUrl = form.watch('image_url')
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 overflow-y-auto max-h-[75vh] px-1">
@@ -169,9 +193,6 @@ export function ProductForm({
             <Controller control={form.control} name="buying_price" render={({ field }) => (
               <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" currency={currency} />
             )} />
-            {form.formState.errors.buying_price && (
-              <p className="text-xs text-destructive">{form.formState.errors.buying_price.message}</p>
-            )}
           </div>
         )}
 
@@ -196,13 +217,10 @@ export function ProductForm({
             <Controller control={form.control} name="quantity" render={({ field }) => (
               <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" currency={currency} />
             )} />
-            {form.formState.errors.quantity && (
-              <p className="text-xs text-destructive">{form.formState.errors.quantity.message}</p>
-            )}
           </div>
         )}
 
-        {/* Low stock threshold */}
+        {/* Low stock */}
         <div className="space-y-1">
           <Label>
             {t('products.low_stock_threshold')}{' '}
@@ -215,7 +233,7 @@ export function ProductForm({
 
       </div>
 
-      {/* ── SKU / Barcode — optional ─────────────────────────────────── */}
+      {/* ── SKU / Barcode ───────────────────────────────────────────── */}
       <div className="space-y-1">
         <Label className="flex items-center gap-1.5">
           <ScanLine className="h-3.5 w-3.5 text-muted-foreground" />
@@ -228,18 +246,19 @@ export function ProductForm({
             placeholder="Ex : 6001234567890"
             className="font-mono text-sm flex-1"
           />
-          <button
-            type="button"
-            onClick={() => setShowScanner(v => !v)}
-            className="h-9 px-3 flex items-center gap-1.5 text-xs font-medium border border-border rounded-lg bg-muted hover:bg-accent transition-colors shrink-0"
-            title="Scanner avec la caméra"
-          >
-            <Camera className="h-3.5 w-3.5" />
-            Scan
-          </button>
+          {barcodeSupported && (
+            <button
+              type="button"
+              onClick={() => setShowScanner(v => !v)}
+              className="h-9 px-3 flex items-center gap-1.5 text-xs font-medium border border-border rounded-lg bg-muted hover:bg-accent transition-colors shrink-0"
+            >
+              <Camera className="h-3.5 w-3.5" />
+              Scan
+            </button>
+          )}
         </div>
         <p className="text-[11px] text-muted-foreground">
-          Scanner physique Bluetooth/USB : cliquez dans le champ et scannez directement.
+          Scanner Bluetooth/USB : cliquez dans le champ et scannez directement.
         </p>
 
         {showScanner && (
@@ -250,7 +269,7 @@ export function ProductForm({
         )}
       </div>
 
-      {/* ── Photo — optional ─────────────────────────────────────────── */}
+      {/* ── Photo ──────────────────────────────────────────────────── */}
       <div className="space-y-1.5">
         <Label className="flex items-center gap-1.5">
           <ImagePlus className="h-3.5 w-3.5 text-muted-foreground" />
@@ -259,23 +278,40 @@ export function ProductForm({
         </Label>
 
         {imagePreview ? (
-          <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-border group">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imagePreview} alt="Aperçu" className="w-full h-full object-cover" />
-            {uploadingImage && (
-              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                <Loader2 className="h-5 w-5 text-white animate-spin" />
-              </div>
-            )}
-            {!uploadingImage && (
-              <button
-                type="button"
-                onClick={removeImage}
-                className="absolute top-1 right-1 bg-black/60 hover:bg-black/80 rounded-full p-0.5 transition-colors opacity-0 group-hover:opacity-100"
-              >
-                <X className="h-3 w-3 text-white" />
-              </button>
-            )}
+          <div className="flex items-start gap-3">
+            <div className="relative w-20 h-20 rounded-lg overflow-hidden border border-border group shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={imagePreview} alt="Aperçu" className="w-full h-full object-cover" />
+              {uploadingImage && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                  <Loader2 className="h-4 w-4 text-white animate-spin" />
+                </div>
+              )}
+              {!uploadingImage && (
+                <button
+                  type="button"
+                  onClick={removeImage}
+                  className="absolute top-1 right-1 bg-black/60 hover:bg-black/80 rounded-full p-0.5 transition-colors"
+                >
+                  <X className="h-3 w-3 text-white" />
+                </button>
+              )}
+            </div>
+            <div className="text-xs space-y-1 pt-1">
+              {uploadingImage && <p className="text-muted-foreground">Upload en cours…</p>}
+              {!uploadingImage && imageUrl && <p className="text-green-500">Photo enregistrée ✓</p>}
+              {!uploadingImage && uploadError && (
+                <div className="flex items-start gap-1 text-red-400">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <span>{uploadError}</span>
+                </div>
+              )}
+              {!uploadingImage && uploadError && (
+                <p className="text-muted-foreground text-[11px]">
+                  Vérifiez que le bucket "product-images" existe dans Supabase Storage.
+                </p>
+              )}
+            </div>
           </div>
         ) : (
           <button
@@ -284,14 +320,8 @@ export function ProductForm({
             disabled={!shopId || uploadingImage}
             className="w-full h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:border-primary hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {uploadingImage ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <>
-                <ImagePlus className="h-5 w-5" />
-                <span className="text-xs">Choisir une photo</span>
-              </>
-            )}
+            <ImagePlus className="h-5 w-5" />
+            <span className="text-xs">Choisir une photo</span>
           </button>
         )}
 
@@ -302,9 +332,6 @@ export function ProductForm({
           className="hidden"
           onChange={handleImageSelect}
         />
-        {!shopId && (
-          <p className="text-[11px] text-amber-500">Sauvegardez d'abord la boutique pour uploader une photo.</p>
-        )}
       </div>
 
       <DialogFooter className="pt-2">

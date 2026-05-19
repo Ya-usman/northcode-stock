@@ -296,27 +296,27 @@ const fetchProducts = async () => {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: idx * 0.02 }}
-        className="rounded-lg border bg-card shadow-sm p-4 space-y-2"
+        className="rounded-lg border bg-card shadow-sm overflow-hidden"
       >
+        {/* Image bannière si disponible */}
+        {product.image_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={product.image_url}
+            alt={product.name}
+            className="w-full h-32 object-cover"
+          />
+        )}
+        <div className="p-4 space-y-2">
         <div className="flex items-start justify-between gap-2">
-          <div className="flex items-start gap-3 min-w-0 flex-1">
-            {(product as any).image_url && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={(product as any).image_url}
-                alt={product.name}
-                className="h-12 w-12 rounded-lg object-cover border border-border shrink-0"
-              />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium text-sm truncate">{product.name}</p>
+            {product.name_hausa && (
+              <p className="text-xs text-muted-foreground truncate">{product.name_hausa}</p>
             )}
-            <div className="min-w-0 flex-1">
-              <p className="font-medium text-sm truncate">{product.name}</p>
-              {product.name_hausa && (
-                <p className="text-xs text-muted-foreground truncate">{product.name_hausa}</p>
-              )}
-              {(product as any).sku && (
-                <p className="text-[10px] font-mono text-muted-foreground truncate">{(product as any).sku}</p>
-              )}
-            </div>
+            {product.sku && (
+              <p className="text-[10px] font-mono text-muted-foreground truncate">{product.sku}</p>
+            )}
           </div>
           <StockBadge quantity={product.quantity} threshold={threshold} />
         </div>
@@ -354,6 +354,7 @@ const fetchProducts = async () => {
             )}
           </div>
         </div>
+        </div>{/* end p-4 */}
       </motion.div>
     )
   }

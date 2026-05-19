@@ -11,7 +11,8 @@ interface Props {
 export function BarcodeScanner({ onDetected, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [error, setError] = useState<string | null>(null)
-  const [supported] = useState(() => 'BarcodeDetector' in window)
+  // Always true here — parent only renders this component when supported
+  const supported = typeof window !== 'undefined' && 'BarcodeDetector' in window
 
   useEffect(() => {
     if (!supported) return
