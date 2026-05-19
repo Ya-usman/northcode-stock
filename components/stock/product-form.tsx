@@ -3,7 +3,7 @@
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslations } from 'next-intl'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NumericInput } from '@/components/ui/numeric-input'
@@ -15,6 +15,7 @@ import type { Category, Supplier } from '@/lib/types/database'
 import { BarcodeScanner } from '@/components/stock/barcode-scanner'
 import { Camera, ScanLine, ImagePlus, X, Loader2, AlertCircle } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
+// ZXing works on all browsers including iPhone Safari
 
 interface ProductFormProps {
   categories: Category[]
@@ -40,11 +41,6 @@ export function ProductForm({
   const [uploadingImage, setUploadingImage] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [imagePreview, setImagePreview] = useState<string>(defaultValues?.image_url || '')
-  // BarcodeDetector support checked client-side only (not SSR)
-  const [barcodeSupported, setBarcodeSupported] = useState(false)
-  useEffect(() => {
-    setBarcodeSupported('BarcodeDetector' in window)
-  }, [])
 
   const form = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
@@ -246,16 +242,14 @@ export function ProductForm({
             placeholder="Ex : 6001234567890"
             className="font-mono text-sm flex-1"
           />
-          {barcodeSupported && (
-            <button
-              type="button"
-              onClick={() => setShowScanner(v => !v)}
-              className="h-9 px-3 flex items-center gap-1.5 text-xs font-medium border border-border rounded-lg bg-muted hover:bg-accent transition-colors shrink-0"
-            >
-              <Camera className="h-3.5 w-3.5" />
-              Scan
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setShowScanner(v => !v)}
+            className="h-9 px-3 flex items-center gap-1.5 text-xs font-medium border border-border rounded-lg bg-muted hover:bg-accent transition-colors shrink-0"
+          >
+            <Camera className="h-3.5 w-3.5" />
+            Scan
+          </button>
         </div>
         <p className="text-[11px] text-muted-foreground">
           Scanner Bluetooth/USB : cliquez dans le champ et scannez directement.
