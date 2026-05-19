@@ -25,6 +25,7 @@ import { generateReceiptPDFBlob } from '@/lib/utils/pdf'
 import { shareReceiptWhatsApp, buildReceiptWhatsAppMessage } from '@/lib/utils/whatsapp'
 import { sharePDFNative, printPDFNative, isCapacitor } from '@/lib/utils/native-share'
 import type { Product, Customer, CartItem, Sale, SaleItem, Category } from '@/lib/types/database'
+import { BarcodeScanner } from '@/components/stock/barcode-scanner'
 import { cacheProducts, getCachedProducts, cacheCustomers, getCachedCustomers, savePendingSale } from '@/lib/offline/db'
 import { useOffline } from '@/lib/offline/use-offline'
 import { getCountry, getMethodType } from '@/lib/saas/countries'
@@ -91,6 +92,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const [completedSale, setCompletedSale] = useState<Sale & { sale_items: SaleItem[] } | null>(null)
   const [showReceipt, setShowReceipt] = useState(false)
   const [scanFlash, setScanFlash] = useState(false)
+  const [showCameraScanner, setShowCameraScanner] = useState(false)
 
   // Debt repayment included in sale
   const [customerUnpaidSales, setCustomerUnpaidSales] = useState<any[]>([])
@@ -786,25 +788,46 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       )}
 
       {/* Search + Scan */}
-      <div className={`relative transition-all ${scanFlash ? 'ring-2 ring-green-400 rounded-lg' : ''}`}>
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-        <Input
-          ref={searchRef}
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && filteredProducts.length === 1) addToCart(filteredProducts[0]) }}
-          placeholder={t('sales.search_or_scan')}
-          className="pl-10 pr-12 h-12 text-base border-blue-500/30 focus:border-blue-500"
-        />
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+      <div className="flex gap-2">
+        <div className={`relative flex-1 transition-all ${scanFlash ? 'ring-2 ring-green-400 rounded-lg' : ''}`}>
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+          <Input
+            ref={searchRef}
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && filteredProducts.length === 1) addToCart(filteredProducts[0]) }}
+            placeholder={t('sales.search_or_scan')}
+            className="pl-10 pr-8 h-12 text-base border-blue-500/30 focus:border-blue-500"
+          />
           {searchQuery && (
-            <button onClick={() => setSearchQuery('')} className="text-muted-foreground hover:text-foreground">
+            <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
               <X className="h-4 w-4" />
             </button>
           )}
-          <Scan className={`h-5 w-5 transition-colors ${scanFlash ? 'text-green-500' : 'text-muted-foreground'}`} />
         </div>
+        <button
+          type="button"
+          onClick={() => setShowCameraScanner(v => !v)}
+          className={`h-12 px-4 flex items-center gap-1.5 text-sm font-medium border rounded-lg transition-colors shrink-0 ${
+            showCameraScanner
+              ? 'bg-green-500 border-green-500 text-white'
+              : 'bg-muted border-border hover:bg-accent'
+          }`}
+        >
+          <Scan className="h-4 w-4" />
+          Scan
+        </button>
       </div>
+
+      {showCameraScanner && (
+        <BarcodeScanner
+          onDetected={(code) => {
+            handleBarcodeScan(code)
+            setShowCameraScanner(false)
+          }}
+          onClose={() => setShowCameraScanner(false)}
+        />
+      )}
 
       <p className="text-xs text-muted-foreground -mt-2 px-1">
         {t('sales.scan_hint')}
