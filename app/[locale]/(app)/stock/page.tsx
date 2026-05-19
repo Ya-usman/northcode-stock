@@ -354,7 +354,6 @@ const fetchProducts = async () => {
             )}
           </div>
         </div>
-        </div>{/* end p-4 */}
       </motion.div>
     )
   }
