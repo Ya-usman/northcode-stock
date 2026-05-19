@@ -1,11 +1,10 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { usePathname, useSearchParams } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 
 export function NavigationProgress() {
   const pathname = usePathname()
-  const searchParams = useSearchParams()
   const [visible, setVisible] = useState(false)
   const [width, setWidth] = useState(0)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
@@ -44,7 +43,7 @@ export function NavigationProgress() {
       setVisible(false)
       setWidth(0)
     }, 350)
-  }, [pathname, searchParams])
+  }, [pathname])
 
   if (!visible && width === 0) return null
 
