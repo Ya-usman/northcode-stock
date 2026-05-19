@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { X, Loader2 } from 'lucide-react'
-import { BrowserMultiFormatReader, NotFoundException } from '@zxing/browser'
+import { BrowserMultiFormatReader } from '@zxing/browser'
+import { NotFoundException } from '@zxing/library'
 
 interface Props {
   onDetected: (code: string) => void
@@ -11,13 +12,12 @@ interface Props {
 
 export function BarcodeScanner({ onDetected, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const readerRef = useRef<BrowserMultiFormatReader | null>(null)
+  const controlsRef = useRef<{ stop: () => void } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
     const reader = new BrowserMultiFormatReader()
-    readerRef.current = reader
 
     reader.decodeFromConstraints(
       { video: { facingMode: 'environment' } },
@@ -25,7 +25,7 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
       (result, err) => {
         if (result) {
           onDetected(result.getText())
-          reader.reset()
+          controlsRef.current?.stop()
           return
         }
         if (err && !(err instanceof NotFoundException)) {
@@ -34,7 +34,8 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
           }
         }
       }
-    ).then(() => {
+    ).then((controls) => {
+      controlsRef.current = controls
       setReady(true)
     }).catch((err: any) => {
       if (err?.name === 'NotAllowedError') {
@@ -45,7 +46,7 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
     })
 
     return () => {
-      reader.reset()
+      controlsRef.current?.stop()
     }
   }, [onDetected])
 
@@ -67,14 +68,12 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
         <>
           <video ref={videoRef} className="w-full h-48 object-cover" playsInline muted />
 
-          {/* Loading overlay */}
           {!ready && !error && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/60">
               <Loader2 className="h-6 w-6 text-white animate-spin" />
             </div>
           )}
 
-          {/* Scan frame */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="w-52 h-24 relative">
               <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-green-400 rounded-tl" />
