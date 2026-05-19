@@ -336,7 +336,7 @@ export default function SalesHistoryPage() {
                     <div className="flex items-center gap-2 min-w-0">
                       {item.products?.image_url && (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={item.products.image_url} alt={item.product_name} className="h-8 w-8 rounded object-cover border border-border shrink-0" />
+                        <img src={item.products.image_url} alt={item.product_name} loading="lazy" decoding="async" className="h-8 w-8 rounded object-cover border border-border shrink-0" />
                       )}
                       <span className="truncate">{item.product_name} × {item.quantity} @ {formatNaira(item.unit_price)}</span>
                     </div>

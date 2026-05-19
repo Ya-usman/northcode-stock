@@ -305,6 +305,8 @@ const fetchProducts = async () => {
               <img
                 src={product.image_url}
                 alt={product.name}
+                loading="lazy"
+                decoding="async"
                 className="h-10 w-10 rounded-lg object-cover border border-border shrink-0"
               />
             )}

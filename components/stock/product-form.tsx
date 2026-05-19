@@ -15,7 +15,7 @@ import type { Category, Supplier } from '@/lib/types/database'
 import { BarcodeScanner } from '@/components/stock/barcode-scanner'
 import { Camera, ScanLine, ImagePlus, X, Loader2, AlertCircle } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
-// ZXing works on all browsers including iPhone Safari
+import { compressImage } from '@/lib/utils/compress-image'
 
 interface ProductFormProps {
   categories: Category[]
@@ -80,14 +80,15 @@ export function ProductForm({
     }
 
     setUploadError(null)
-    // Local preview immediately
-    const localUrl = URL.createObjectURL(file)
-    setImagePreview(localUrl)
     setUploadingImage(true)
 
     try {
+      const compressed = await compressImage(file)
+      const localUrl = URL.createObjectURL(compressed)
+      setImagePreview(localUrl)
+
       const fd = new FormData()
-      fd.append('file', file)
+      fd.append('file', compressed)
       fd.append('shop_id', shopId)
       const res = await fetch('/api/products/upload-image', { method: 'POST', body: fd })
       const json = await res.json()

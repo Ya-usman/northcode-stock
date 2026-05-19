@@ -878,7 +878,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   <div className="flex items-start gap-2 w-full">
                     {product.image_url && (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={product.image_url} alt={product.name} className="h-9 w-9 object-cover rounded border border-border shrink-0" />
+                      <img src={product.image_url} alt={product.name} loading="lazy" decoding="async" className="h-9 w-9 object-cover rounded border border-border shrink-0" />
                     )}
                     <p className="text-sm font-medium truncate flex-1 text-foreground">{product.name}</p>
                   </div>
