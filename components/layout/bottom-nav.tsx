@@ -65,6 +65,7 @@ export function BottomNav({ locale, role, onSignOut, userEmail = '' }: BottomNav
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={true}
                 onClick={() => setMoreOpen(false)}
                 className={cn(
                   'relative flex flex-1 flex-col items-center justify-center gap-0.5 text-xs transition-colors tap-target',
@@ -116,6 +117,7 @@ export function BottomNav({ locale, role, onSignOut, userEmail = '' }: BottomNav
                     <Link
                       key={item.href}
                       href={item.href}
+                      prefetch={true}
                       onClick={() => setMoreOpen(false)}
                       className={cn(
                         'flex flex-col items-center gap-1.5 rounded-xl p-3 transition-colors',
