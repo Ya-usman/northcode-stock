@@ -125,7 +125,8 @@ export async function middleware(request: NextRequest) {
       const browserLang = acceptLang.split(',')[0].split('-')[0].toLowerCase()
       resolvedLocale = locales.includes(browserLang as any) ? browserLang : defaultLocale
     }
-    const dest = userId ? `/${resolvedLocale}/dashboard` : `/${resolvedLocale}/login`
+    // Connecté → dashboard, non connecté → landing page
+    const dest = userId ? `/${resolvedLocale}/dashboard` : `/${resolvedLocale}`
     return mergeAuthCookies(NextResponse.redirect(new URL(dest, request.url)), response)
   }
 
