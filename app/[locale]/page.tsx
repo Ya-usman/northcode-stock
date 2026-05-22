@@ -98,17 +98,12 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
       {/* ── NAVBAR ── */}
       <header className="sticky top-0 z-50 border-b border-gray-200 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md">
         <div className="mx-auto max-w-6xl px-4 h-20 flex items-center justify-between">
-          <Link href={`/${locale}`}>
+          <Link href={`/${locale}`} className="dark:bg-white dark:rounded-xl dark:px-2 overflow-hidden flex items-center">
             <img
               src="/logo-full.png"
               alt="StockShop"
-              className="h-20 w-auto object-contain dark:hidden"
+              className="h-16 w-auto object-contain"
               style={{ mixBlendMode: 'multiply' }}
-            />
-            <img
-              src="/logo-full.png"
-              alt="StockShop"
-              className="h-20 w-auto object-contain hidden dark:block brightness-0 invert"
             />
           </Link>
           <nav className="hidden md:flex items-center gap-6 text-sm text-gray-500 dark:text-gray-400">
@@ -401,17 +396,12 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
       <footer className="border-t border-gray-200 dark:border-gray-800 py-10 px-4 bg-white dark:bg-gray-900">
         <div className="mx-auto max-w-6xl">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <Link href={`/${locale}`}>
+            <Link href={`/${locale}`} className="dark:bg-white dark:rounded-xl dark:px-2 overflow-hidden flex items-center">
               <img
                 src="/logo-full.png"
                 alt="StockShop"
-                className="h-16 w-auto object-contain dark:hidden"
+                className="h-14 w-auto object-contain"
                 style={{ mixBlendMode: 'multiply' }}
-              />
-              <img
-                src="/logo-full.png"
-                alt="StockShop"
-                className="h-16 w-auto object-contain hidden dark:block brightness-0 invert"
               />
             </Link>
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
