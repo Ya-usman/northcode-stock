@@ -41,7 +41,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
 
   const switchLanguage = (newLocale: string) => {
     const newPath = pathname.replace(`/${locale}`, `/${newLocale}`)
-    localStorage.setItem('NEXT_LOCALE', newLocale)
+    document.cookie = `NEXT_LOCALE=${newLocale};path=/;max-age=31536000`
     router.push(newPath)
   }
 
