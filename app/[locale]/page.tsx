@@ -2,11 +2,11 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter, usePathname } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
   ShoppingCart, Package, Users, BarChart2, MessageCircle,
-  CheckCircle2, ArrowRight, Star, Shield, Zap, CreditCard, Smartphone,
+  CheckCircle2, ArrowRight, Star, Shield, Zap, CreditCard, Smartphone, Sun, Moon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -16,6 +16,7 @@ import {
 import { cn } from '@/lib/utils/cn'
 import { useTranslations } from 'next-intl'
 import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
+import { useTheme } from '@/lib/hooks/use-theme'
 
 const LANGUAGES = [
   { code: 'en', flag: '🇬🇧', label: 'English' },
@@ -25,24 +26,24 @@ const LANGUAGES = [
 
 const FEATURE_ICONS = [ShoppingCart, Package, Users, BarChart2, MessageCircle, CreditCard]
 const FEATURE_COLORS = [
-  'text-blue-600 bg-blue-50',
-  'text-green-600 bg-green-50',
-  'text-purple-600 bg-purple-50',
-  'text-rose-600 bg-rose-50',
-  'text-teal-600 bg-teal-50',
-  'text-amber-600 bg-amber-50',
+  'text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-950/40',
+  'text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-950/40',
+  'text-purple-600 bg-purple-50 dark:text-purple-400 dark:bg-purple-950/40',
+  'text-rose-600 bg-rose-50 dark:text-rose-400 dark:bg-rose-950/40',
+  'text-teal-600 bg-teal-50 dark:text-teal-400 dark:bg-teal-950/40',
+  'text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-950/40',
 ]
 
 export default function LandingPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('landing')
-  const router = useRouter()
   const pathname = usePathname()
+  const { isDark, toggle } = useTheme()
   const [pricingCountry, setPricingCountry] = useState<CountryCode>('NG')
 
   const switchLanguage = (newLocale: string) => {
     const newPath = pathname.replace(`/${locale}`, `/${newLocale}`)
     document.cookie = `NEXT_LOCALE=${newLocale};path=/;max-age=31536000`
-    router.push(newPath)
+    window.location.href = newPath
   }
 
   const country = COUNTRIES[pricingCountry]
@@ -67,7 +68,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
       name: 'Starter',
       price: country.prices.starter,
       popular: false,
-      color: 'border-gray-200',
+      color: 'border-gray-200 dark:border-gray-700',
       features: [t('pricing.f1'), t('pricing.f2'), t('pricing.f3'), t('pricing.f4')],
     },
     {
@@ -81,7 +82,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
       name: 'Business',
       price: country.prices.business,
       popular: false,
-      color: 'border-gray-200',
+      color: 'border-gray-200 dark:border-gray-700',
       features: [t('pricing.f9'), t('pricing.f10'), t('pricing.f11'), t('pricing.f12')],
     },
   ]
@@ -92,24 +93,44 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
       : `${n.toLocaleString('fr-FR')} FCFA`
 
   return (
-    <div className="min-h-screen bg-white text-gray-900">
+    <div className="min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
 
       {/* ── NAVBAR ── */}
-      <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur-md">
+      <header className="sticky top-0 z-50 border-b border-gray-200 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md">
         <div className="mx-auto max-w-6xl px-4 h-20 flex items-center justify-between">
           <Link href={`/${locale}`}>
-            <img src="/logo-full.png" alt="StockShop" className="h-20 w-auto object-contain" style={{ mixBlendMode: 'multiply' }} />
+            <img
+              src="/logo-full.png"
+              alt="StockShop"
+              className="h-20 w-auto object-contain dark:hidden"
+              style={{ mixBlendMode: 'multiply' }}
+            />
+            <img
+              src="/logo-full.png"
+              alt="StockShop"
+              className="h-20 w-auto object-contain hidden dark:block brightness-0 invert"
+            />
           </Link>
-          <nav className="hidden md:flex items-center gap-6 text-sm text-gray-500">
-            <a href="#features" className="hover:text-gray-900 transition-colors">{t('nav.features')}</a>
-            <a href="#pricing" className="hover:text-gray-900 transition-colors">{t('nav.pricing')}</a>
-            <a href="#testimonials" className="hover:text-gray-900 transition-colors">{t('nav.reviews')}</a>
+          <nav className="hidden md:flex items-center gap-6 text-sm text-gray-500 dark:text-gray-400">
+            <a href="#features" className="hover:text-gray-900 dark:hover:text-white transition-colors">{t('nav.features')}</a>
+            <a href="#pricing" className="hover:text-gray-900 dark:hover:text-white transition-colors">{t('nav.pricing')}</a>
+            <a href="#testimonials" className="hover:text-gray-900 dark:hover:text-white transition-colors">{t('nav.reviews')}</a>
           </nav>
           <div className="flex items-center gap-2">
+            {/* Dark / Light toggle */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggle}
+              className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+            >
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
+
             {/* Language switcher — shows only active language */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-gray-700 hover:text-gray-900 hover:bg-gray-100 gap-1.5">
+                <Button variant="ghost" size="sm" className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 gap-1.5">
                   <span>{LANGUAGES.find(l => l.code === locale)?.flag ?? '🌐'}</span>
                   <span className="text-sm font-medium">{(LANGUAGES.find(l => l.code === locale)?.label ?? locale).split(' ')[0]}</span>
                 </Button>
@@ -129,7 +150,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
             </DropdownMenu>
 
             <Link href={`/${locale}/login`}>
-              <Button variant="ghost" size="sm" className="text-gray-700 hover:text-gray-900 hover:bg-gray-100">{t('nav.login')}</Button>
+              <Button variant="ghost" size="sm" className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800">{t('nav.login')}</Button>
             </Link>
             <Link href={`/${locale}/register`}>
               <Button size="sm" className="bg-stockshop-blue hover:bg-stockshop-blue-light text-white">
@@ -194,12 +215,12 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
       </section>
 
       {/* ── TRUST BAR ── */}
-      <section className="border-b bg-gray-50 py-5">
+      <section className="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 py-5">
         <div className="mx-auto max-w-4xl px-4 text-center">
           <p className="text-xs text-muted-foreground mb-3 uppercase tracking-wider font-medium">
             {t('trust.label')}
           </p>
-          <p className="text-sm font-medium text-gray-500">{t('trust.cities')}</p>
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('trust.cities')}</p>
         </div>
       </section>
 
@@ -207,7 +228,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
       <section id="features" className="py-20 px-4">
         <div className="mx-auto max-w-6xl">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">{t('features.title')}</h2>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">{t('features.title')}</h2>
             <p className="text-lg text-muted-foreground max-w-xl mx-auto">{t('features.subtitle')}</p>
           </div>
 
@@ -218,12 +239,12 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
                 <motion.div
                   key={f.title}
                   initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.07 }}
-                  className="rounded-xl border bg-white p-6 shadow-sm hover:shadow-md transition-shadow"
+                  className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 p-6 shadow-sm hover:shadow-md transition-shadow"
                 >
                   <div className={cn('inline-flex h-11 w-11 items-center justify-center rounded-xl mb-4', FEATURE_COLORS[i])}>
                     <Icon className="h-5 w-5" />
                   </div>
-                  <h3 className="font-semibold text-gray-900 mb-2">{f.title}</h3>
+                  <h3 className="font-semibold text-gray-900 dark:text-white mb-2">{f.title}</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
                 </motion.div>
               )
@@ -233,10 +254,10 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
       </section>
 
       {/* ── TESTIMONIALS ── */}
-      <section id="testimonials" className="bg-gray-50 py-20 px-4">
+      <section id="testimonials" className="bg-gray-50 dark:bg-gray-800/50 py-20 px-4">
         <div className="mx-auto max-w-6xl">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">{t('testimonials.title')}</h2>
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">{t('testimonials.title')}</h2>
             <div className="flex justify-center gap-1 mb-2">
               {[...Array(5)].map((_, i) => <Star key={i} className="h-5 w-5 fill-yellow-400 text-yellow-400" />)}
             </div>
@@ -248,18 +269,18 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
               <motion.div
                 key={item.name}
                 initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
-                className="bg-white rounded-xl border p-6 shadow-sm"
+                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm"
               >
                 <div className="flex items-center gap-3 mb-4">
                   <div className="h-10 w-10 rounded-full bg-stockshop-blue flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                     {item.initials}
                   </div>
                   <div>
-                    <p className="font-semibold text-sm text-gray-900">{item.name}</p>
+                    <p className="font-semibold text-sm text-gray-900 dark:text-white">{item.name}</p>
                     <p className="text-xs text-muted-foreground">{item.shop}</p>
                   </div>
                 </div>
-                <p className="text-sm text-gray-600 leading-relaxed italic">"{item.text}"</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed italic">"{item.text}"</p>
                 <div className="flex gap-0.5 mt-3">
                   {[...Array(5)].map((_, i) => <Star key={i} className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />)}
                 </div>
@@ -273,11 +294,11 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
       <section id="pricing" className="py-20 px-4">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-10">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">{t('pricing.title')}</h2>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">{t('pricing.title')}</h2>
             <p className="text-lg text-muted-foreground mb-6">{t('pricing.subtitle')}</p>
 
             {/* Country toggle */}
-            <div className="inline-flex flex-wrap justify-center rounded-xl border bg-gray-50 p-1 gap-1">
+            <div className="inline-flex flex-wrap justify-center rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-1 gap-1">
               {Object.values(COUNTRIES).map(c => {
                 const selected = pricingCountry === c.code
                 return (
@@ -310,7 +331,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
                 key={plan.name}
                 initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
                 className={cn(
-                  'relative rounded-2xl border-2 bg-white p-6 shadow-sm',
+                  'relative rounded-2xl border-2 bg-white dark:bg-gray-800/50 p-6 shadow-sm',
                   plan.color,
                   plan.popular && 'shadow-xl ring-2 ring-stockshop-blue'
                 )}
@@ -324,7 +345,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
                 )}
 
                 <div className="mb-6">
-                  <p className="font-bold text-gray-900 text-lg mb-1">{plan.name}</p>
+                  <p className="font-bold text-gray-900 dark:text-white text-lg mb-1">{plan.name}</p>
                   <div className="flex items-baseline gap-1">
                     <span className="text-3xl font-extrabold text-stockshop-blue dark:text-blue-400">
                       {formatPrice(plan.price)}
@@ -335,7 +356,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
 
                 <ul className="space-y-2.5 mb-6">
                   {plan.features.map(f => (
-                    <li key={f} className="flex items-center gap-2 text-sm text-gray-700">
+                    <li key={f} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                       <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
                       {f}
                     </li>
@@ -377,11 +398,21 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
       </section>
 
       {/* ── FOOTER ── */}
-      <footer className="border-t py-10 px-4 bg-white">
+      <footer className="border-t border-gray-200 dark:border-gray-800 py-10 px-4 bg-white dark:bg-gray-900">
         <div className="mx-auto max-w-6xl">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <Link href={`/${locale}`}>
-              <img src="/logo-full.png" alt="StockShop" className="h-16 w-auto object-contain" style={{ mixBlendMode: 'multiply' }} />
+              <img
+                src="/logo-full.png"
+                alt="StockShop"
+                className="h-16 w-auto object-contain dark:hidden"
+                style={{ mixBlendMode: 'multiply' }}
+              />
+              <img
+                src="/logo-full.png"
+                alt="StockShop"
+                className="h-16 w-auto object-contain hidden dark:block brightness-0 invert"
+              />
             </Link>
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
               <a href="#pricing" className="hover:text-foreground">{t('nav.pricing')}</a>
