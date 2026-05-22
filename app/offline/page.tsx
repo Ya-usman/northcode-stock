@@ -20,9 +20,9 @@ export default function OfflinePage() {
       <div className="flex flex-col gap-3 w-full max-w-xs">
         <button
           onClick={() => {
-            const locale = typeof localStorage !== 'undefined'
-              ? localStorage.getItem('NEXT_LOCALE') || 'fr'
-              : 'fr'
+            const locale = document.cookie.match(/NEXT_LOCALE=([^;]+)/)?.[1]
+              || (typeof localStorage !== 'undefined' && localStorage.getItem('NEXT_LOCALE'))
+              || 'fr'
             window.location.href = `/${locale}/sales/new`
           }}
           className="flex items-center justify-center gap-2 w-full rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-3 transition-colors"

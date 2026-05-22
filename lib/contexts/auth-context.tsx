@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState, useRef, useCallback, us
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
 import type { Profile, Shop, UserRole } from '@/lib/types/database'
-import { setLocaleCookie } from '@/lib/utils/cookies'
+import { setLocaleCookie, getLocaleCookie } from '@/lib/utils/cookies'
 
 interface AuthState {
   user: User | null
@@ -100,7 +100,7 @@ async function fetchUserData(userId: string): Promise<{
   const profile = profileData as Profile | null
 
   if (profile && !profile.is_active) {
-    const savedLocale = (typeof localStorage !== 'undefined' && localStorage.getItem('NEXT_LOCALE')) || profile.locale || 'en'
+    const savedLocale = getLocaleCookie() || (typeof localStorage !== 'undefined' && localStorage.getItem('NEXT_LOCALE')) || profile.locale || 'en'
     fetch('/api/auth/set-role', { method: 'DELETE' }).catch(() => {})
     clearCache()
     await supabase.auth.signOut()
@@ -424,7 +424,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [state.user?.id, memberships])
 
   const signOut = useCallback(async () => {
-    const savedLocale = localStorage.getItem('NEXT_LOCALE') || 'en'
+    const savedLocale = getLocaleCookie() || localStorage.getItem('NEXT_LOCALE') || 'en'
     localStorage.removeItem('active_shop_id')
     clearCache()
     await fetch('/api/auth/set-role', { method: 'DELETE' }).catch(() => {})
