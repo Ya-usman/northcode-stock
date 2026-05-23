@@ -268,7 +268,7 @@ async function buildReceiptDoc(data: ReceiptData) {
 
 export async function generateReceiptPDF(data: ReceiptData): Promise<void> {
   const { doc, fileName } = await buildReceiptDoc(data)
-  savePDF(doc.output('blob') as Blob, fileName)
+  await savePDF(doc.output('blob') as Blob, fileName)
 }
 
 export async function generateReceiptPDFBlob(data: ReceiptData): Promise<Blob> {
@@ -558,7 +558,7 @@ async function buildDebtReceiptDoc(data: DebtReceiptData) {
 
 export async function generateDebtReceiptPDF(data: DebtReceiptData): Promise<void> {
   const { doc, fileName } = await buildDebtReceiptDoc(data)
-  savePDF(doc.output('blob') as Blob, fileName)
+  await savePDF(doc.output('blob') as Blob, fileName)
 }
 
 export async function generateDebtReceiptPDFBlob(data: DebtReceiptData): Promise<{ blob: Blob; fileName: string }> {
@@ -701,7 +701,7 @@ async function buildReportDoc(params: ReportParams) {
 
 export async function generateReportPDF(params: ReportParams): Promise<void> {
   const { doc, fileName } = await buildReportDoc(params)
-  savePDF(doc.output('blob') as Blob, fileName)
+  await savePDF(doc.output('blob') as Blob, fileName)
 }
 
 export async function generateReportPDFBlob(params: ReportParams): Promise<{ blob: Blob; fileName: string }> {
@@ -710,25 +710,48 @@ export async function generateReportPDFBlob(params: ReportParams): Promise<{ blo
 }
 
 /**
- * Cross-platform PDF download.
- * - iOS Safari: opens blob in new tab → native PDF viewer with share/save button
- * - Android Chrome + Desktop: triggers <a download> to save the file directly
+ * Cross-platform PDF save.
+ *
+ * Android: après plusieurs await, le navigateur perd le "user gesture context"
+ * et bloque le a.click() sur un blob URL. On utilise la Web Share API
+ * (Android Chrome 75+) qui ne nécessite pas de contexte de geste actif.
+ * Fallback : ouverture dans un nouvel onglet pour sauvegarde manuelle.
+ *
+ * iOS : nouvel onglet → visionneuse PDF native avec bouton partager/enregistrer.
+ * Desktop : déclencheur <a download> standard.
  */
-export function savePDF(blob: Blob, fileName: string): void {
-  const url = URL.createObjectURL(blob)
+export async function savePDF(blob: Blob, fileName: string): Promise<void> {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+  const isAndroid = /Android/i.test(navigator.userAgent)
 
+  // Android — Web Share API en priorité (pas besoin de geste actif)
+  if (isAndroid && typeof navigator.canShare === 'function') {
+    const file = new File([blob], fileName, { type: 'application/pdf' })
+    if (navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: fileName })
+        return
+      } catch (e: any) {
+        if (e?.name === 'AbortError') return // l'utilisateur a fermé la sheet — pas une erreur
+        // Fallback vers blob URL
+      }
+    }
+  }
+
+  const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  if (isIOS) {
-    // No download attr on iOS — opens in Safari PDF viewer where user can share/save
+
+  if (isIOS || isAndroid) {
+    // Nouvel onglet : iOS → visionneuse PDF, Android → appui long pour télécharger
     a.target = '_blank'
     a.rel = 'noopener noreferrer'
   } else {
     a.download = fileName
   }
+
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
-  setTimeout(() => URL.revokeObjectURL(url), isIOS ? 60000 : 2000)
+  setTimeout(() => URL.revokeObjectURL(url), 60000)
 }
