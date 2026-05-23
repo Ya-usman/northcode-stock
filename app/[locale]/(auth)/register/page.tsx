@@ -7,14 +7,14 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Eye, EyeOff, Store, User, Phone, MapPin } from 'lucide-react'
+import { Eye, EyeOff, Store, User, Phone, MapPin, Sun, Moon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
-import { ForceLight } from '@/components/force-light'
+import { useTheme } from '@/lib/hooks/use-theme'
 
 type FormData = {
   full_name: string
@@ -29,6 +29,7 @@ type FormData = {
 export default function RegisterPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('register')
   const router = useRouter()
+  const { isDark, toggle } = useTheme()
   const supabase = createClient()
   const [showPwd, setShowPwd] = useState(false)
   const [showConfirmPwd, setShowConfirmPwd] = useState(false)
@@ -178,8 +179,14 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
   const selectedCountry = country ? COUNTRIES[country] : null
 
   return (
-    <ForceLight>
     <div className="min-h-screen overflow-y-auto flex items-center justify-center bg-gradient-to-br from-stockshop-blue via-stockshop-blue-light to-blue-800 p-4 py-8">
+      {/* Theme toggle */}
+      <button
+        onClick={toggle}
+        className="fixed top-4 right-4 z-50 flex h-9 w-9 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 text-white backdrop-blur-sm transition-colors"
+      >
+        {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      </button>
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
@@ -343,7 +350,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                 </div>
 
                 {error && (
-                  <p className="text-sm text-destructive bg-red-50 rounded-md p-2 text-center">
+                  <p className="text-sm text-destructive bg-red-50 dark:bg-red-950/40 rounded-md p-2 text-center">
                     {countdown > 0
                       ? t('rate_limit', { seconds: countdown })
                       : error}
@@ -374,6 +381,5 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
         </p>
       </motion.div>
     </div>
-    </ForceLight>
   )
 }

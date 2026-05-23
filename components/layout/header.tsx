@@ -1,12 +1,13 @@
 'use client'
 
-import { LogOut } from 'lucide-react'
+import { LogOut, Sun, Moon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useRouter, usePathname } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useAuthContext } from '@/lib/contexts/auth-context'
+import { useTheme } from '@/lib/hooks/use-theme'
 import type { Shop } from '@/lib/types/database'
 
 const LOCALE_FLAGS: Record<string, string> = {
@@ -23,9 +24,9 @@ interface HeaderProps {
 }
 
 export function Header({ title, locale, onSignOut }: HeaderProps) {
-  const router = useRouter()
   const pathname = usePathname()
   const { updateLocale } = useAuthContext()
+  const { isDark, toggle } = useTheme()
 
   const switchLanguage = (newLocale: string) => {
     const newPath = pathname.replace(`/${locale}`, `/${newLocale}`)
@@ -41,6 +42,11 @@ export function Header({ title, locale, onSignOut }: HeaderProps) {
       <h1 className="flex-1 font-semibold text-base text-foreground truncate">{title}</h1>
 
       <div className="flex items-center gap-1">
+        {/* Dark / Light toggle */}
+        <Button variant="ghost" size="icon" onClick={toggle} className="h-8 w-8 text-muted-foreground hover:text-foreground">
+          {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </Button>
+
         {/* Language toggle */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
