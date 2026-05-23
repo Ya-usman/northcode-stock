@@ -111,15 +111,14 @@ export function AdminBottomNav({ locale }: AdminBottomNavProps) {
                   )
                 })}
 
-                {/* Back to App — hard nav to avoid auth race condition between route groups */}
-                <a
+                <Link
                   href={`/${locale}/dashboard`}
                   onClick={() => setMoreOpen(false)}
                   className="flex flex-col items-center gap-1.5 rounded-xl p-3 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                 >
                   <LogOut className="h-5 w-5" />
                   <span className="text-[10px] font-medium leading-none text-center">App</span>
-                </a>
+                </Link>
               </div>
             </div>
             <div className="h-2" />

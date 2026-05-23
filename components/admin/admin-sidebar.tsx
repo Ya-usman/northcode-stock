@@ -138,13 +138,13 @@ export function AdminSidebar({ locale, userEmail }: AdminSidebarProps) {
               <span className="text-[9px] font-bold text-stockshop-gold tracking-wide">SUPER ADMIN</span>
             </span>
           </div>
-          <a
+          <Link
             href={`/${locale}/dashboard`}
             title="Back to App"
             className="h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex-shrink-0"
           >
             <LogOut className="h-4 w-4" />
-          </a>
+          </Link>
         </div>
       </div>
     </aside>
