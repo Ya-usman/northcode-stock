@@ -919,7 +919,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       </div>{/* end LEFT column */}
 
       {/* ── RIGHT column: cart + payment ── */}
-      <div className="flex flex-col gap-3 md:w-[400px] md:overflow-y-auto md:p-5 md:shrink-0 md:min-h-0">
+      <div className="flex flex-col gap-3 pb-24 md:pb-0 md:w-[400px] md:overflow-y-auto md:p-5 md:shrink-0 md:min-h-0">
 
       {/* Cart */}
       {cart.length === 0 ? (
@@ -1473,6 +1473,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         category="Ventes"
         title={t('sales.receipt_ready')}
         icon={<CheckCircle className="h-4 w-4" />}
+        centered
       >
         <PremiumDialogBody>
           {completedSale && (

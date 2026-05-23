@@ -57,12 +57,15 @@ export default function StockMovementsPage() {
 
   useEffect(() => {
     if (!effectiveShopIds.length) return
-    setLoading(true)
     const params = new URLSearchParams({ shop_ids: effectiveShopIds.join(',') })
     if (dateFrom) params.set('from', dateFrom)
     if (dateTo)   params.set('to', dateTo)
 
     const cacheKey = `movements_${effectiveShopIds.join(',')}_${dateFrom}_${dateTo}`
+    const cached = getPageCache<Movement[]>(cacheKey)
+    if (cached) { setMovements(cached); setLoading(false) }
+    else setLoading(true)
+
     fetch(`/api/stock/movements?${params}`)
       .then(r => r.json())
       .then(data => {
@@ -72,8 +75,7 @@ export default function StockMovementsPage() {
         setLoading(false)
       })
       .catch(() => {
-        const cached = getPageCache<Movement[]>(cacheKey)
-        if (cached) setMovements(cached)
+        // cache already shown if available
         setLoading(false)
       })
   }, [effectiveShopIds.join(','), dateFrom, dateTo])

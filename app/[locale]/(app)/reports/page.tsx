@@ -70,8 +70,22 @@ export default function ReportsPage() {
 
   const fetchReports = async () => {
     if (!effectiveShopIds.length) return
-    setLoading(true)
     const cacheKey = `reports_${effectiveShopIds.join(',')}_${dateFilter}_${customStart}_${customEnd}`
+    const cached = getPageCache<any>(cacheKey)
+    if (cached) {
+      setRevenueByMethod(cached.revenueByMethod ?? [])
+      setTopProducts(cached.topProducts ?? [])
+      setStockValuation(cached.stockValuation ?? { buyingValue: 0, sellingValue: 0, potentialProfit: 0 })
+      setCashierPerf(cached.cashierPerf ?? [])
+      setTotals(cached.totals ?? { revenue: 0, profit: 0, sales: 0 })
+      setOutstandingDebt(cached.outstandingDebt ?? 0)
+      setAllInventory(cached.allInventory ?? [])
+      setExpenses(cached.expenses ?? [])
+      setTotalExpenses(cached.totalExpenses ?? 0)
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
     const { start, end } = getDateRange()
     try {
 

@@ -19,11 +19,13 @@ interface PremiumDialogProps {
   icon?: React.ReactNode
   /** Tailwind max-width class, e.g. 'max-w-sm' (default) or 'max-w-md' */
   maxWidth?: string
+  /** Center dialog vertically on mobile (use for dialogs without form inputs) */
+  centered?: boolean
   children: React.ReactNode
 }
 
 export function PremiumDialog({
-  open, onOpenChange, category, title, icon, maxWidth = 'max-w-sm', children,
+  open, onOpenChange, category, title, icon, maxWidth = 'max-w-sm', centered, children,
 }: PremiumDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -31,6 +33,7 @@ export function PremiumDialog({
         className={cn(
           'p-0 gap-0',
           '[&>button]:text-white [&>button]:bg-white/20 [&>button]:hover:bg-white/35',
+          centered && 'max-sm:!top-1/2 max-sm:!-translate-y-1/2',
           maxWidth
         )}
         onPointerDownOutside={(e) => e.preventDefault()}
