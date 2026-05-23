@@ -39,18 +39,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="StockShop" />
-        {/* Blocking script — runs before first paint, eliminates dark mode flash + sets splash bg. */}
-        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('theme');var d=t==='dark'||(t===null&&window.matchMedia('(prefers-color-scheme:dark)').matches);var bg=d?'#091524':'#ffffff';if(d){var r=document.documentElement;r.classList.add('dark');r.style.backgroundColor=bg;r.style.colorScheme='dark'}document.addEventListener('DOMContentLoaded',function(){var s=document.getElementById('app-splash');if(s)s.style.backgroundColor=bg})}catch(e){}})()` }} />
+        {/* Dark mode anti-flash: runs before first paint, sets html class + background */}
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('theme');var d=t==='dark'||(t===null&&window.matchMedia('(prefers-color-scheme:dark)').matches);if(d){var r=document.documentElement;r.classList.add('dark');r.style.backgroundColor='#091524';r.style.colorScheme='dark'}}catch(e){}})()` }} />
       </head>
       <body className="bg-background">
-        {/* Splash: covers blank page while JS loads. SplashRemover fades it out once React mounts. */}
+        {/* Splash: covers blank page while JS loads.
+            Background uses var(--background) so it matches the theme automatically.
+            SplashRemover fades it once React mounts; the inline script removes it after
+            6s as a safety fallback (in case React hydration is slow or errors). */}
         <div
           id="app-splash"
           style={{
             position: 'fixed', inset: 0, zIndex: 9999,
             display: 'flex', flexDirection: 'column',
             alignItems: 'center', justifyContent: 'center', gap: 16,
-            backgroundColor: '#ffffff',
+            backgroundColor: 'var(--background, #ffffff)',
           }}
         >
           <img src="/logo-icon.png" alt="StockShop" width={80} height={80} style={{ borderRadius: 20 }} />
@@ -65,6 +68,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             }} />
           </div>
           <style>{`@keyframes splashBar{0%{transform:translateX(-100%)}50%{transform:translateX(150%)}100%{transform:translateX(150%)}}`}</style>
+          <script dangerouslySetInnerHTML={{ __html: `setTimeout(function(){var s=document.getElementById('app-splash');if(s){s.style.transition='opacity 0.2s';s.style.opacity='0';setTimeout(function(){s.remove()},220)}},6000)` }} />
         </div>
         <SplashRemover />
         {children}

@@ -309,12 +309,11 @@ export default function ReportsPage() {
           ]),
         },
         {
-          // Limit to 100 rows to avoid memory crash on mobile
-          title: t('reports.full_inventory') + (allInventory.length > 100 ? ` (Top 100 / ${allInventory.length})` : ''),
+          title: t('reports.full_inventory'),
           headers: isCashier
             ? [t('reports.col_product'), t('reports.col_stock'), t('reports.col_sold_qty'), t('reports.col_selling_price')]
             : [t('reports.col_product'), t('reports.col_stock'), t('reports.col_sold_qty'), t('reports.col_buying_price'), t('reports.col_selling_price')],
-          rows: allInventory.slice(0, 100).map(p => isCashier
+          rows: allInventory.map(p => isCashier
             ? [p.name, p.quantity, p.soldQty || '—', formatNaira(p.selling_price)]
             : [p.name, p.quantity, p.soldQty || '—', formatNaira(p.buying_price), formatNaira(p.selling_price)]
           ),

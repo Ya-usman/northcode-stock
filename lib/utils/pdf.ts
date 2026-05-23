@@ -600,24 +600,26 @@ async function buildReportDoc(params: ReportParams) {
   doc.setFillColor(212, 175, 55)
   doc.rect(0, 22, pageWidth, 2, 'F')
 
-  // App logo (logo-tab.png) — white rounded square background
+  // App logo — load via <img> element (respects SW cache, no fetch CORS issues)
   let logoLoaded = false
   try {
-    const logoUrl = `${window.location.origin}/logo-icon.png`
-    const ctrl = new AbortController()
-    const logoTimer = setTimeout(() => ctrl.abort(), 3000)
-    const res = await fetch(logoUrl, { signal: ctrl.signal })
-    clearTimeout(logoTimer)
-    const blob = await res.blob()
-    const base64 = await Promise.race([
-      new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = () => resolve((reader.result as string).split(',')[1])
-        reader.onerror = reject
-        reader.readAsDataURL(blob)
-      }),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('FileReader timeout')), 3000)),
-    ])
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const img = new Image()
+      const timer = setTimeout(() => reject(new Error('logo timeout')), 6000)
+      img.onload = () => {
+        clearTimeout(timer)
+        try {
+          const canvas = document.createElement('canvas')
+          canvas.width = img.naturalWidth || 512
+          canvas.height = img.naturalHeight || 512
+          const ctx = canvas.getContext('2d')!
+          ctx.drawImage(img, 0, 0)
+          resolve(canvas.toDataURL('image/png').split(',')[1])
+        } catch (e) { reject(e) }
+      }
+      img.onerror = () => { clearTimeout(timer); reject(new Error('logo load error')) }
+      img.src = `${window.location.origin}/logo-icon.png`
+    })
     // Gold outer ring
     doc.setFillColor(212, 175, 55)
     doc.roundedRect(margin - 1, 2, 18, 18, 2.5, 2.5, 'F')
