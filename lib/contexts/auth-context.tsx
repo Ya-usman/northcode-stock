@@ -220,11 +220,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      // ── Step 2: no cache — fetch with exponential backoff + jitter ─────
-      // Jitter: random 0–500ms offset so concurrent tabs don't all hit Supabase at once
-      const jitter = Math.random() * 500
-      await new Promise(r => setTimeout(r, jitter))
-
+      // ── Step 2: no cache — fetch with exponential backoff ─────────────
       let lastErr: unknown = null
       for (let attempt = 0; attempt < 8; attempt++) {
         if (cancelled) return
