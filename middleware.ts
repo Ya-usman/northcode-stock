@@ -65,10 +65,11 @@ export async function middleware(request: NextRequest) {
   const pathnameWithoutLocale = pathname.replace(/^\/(en|fr|ha)/, '') || '/'
   const locale = pathname.split('/')[1] || defaultLocale
 
-  // Always allow static assets and API
+  // Always allow static assets, API, and auth routes
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
+    pathname.startsWith('/auth') ||
     pathname.includes('.')
   ) {
     return NextResponse.next()
