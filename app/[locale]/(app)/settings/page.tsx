@@ -243,7 +243,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const switchLanguage = (newLocale: string) => {
     const newPath = pathname.replace(`/${locale}`, `/${newLocale}`)
     updateLocale(newLocale)
-    router.push(newPath)
+    window.location.href = newPath
   }
 
   if (loading) return <div className="space-y-4">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-32 rounded-lg" />)}</div>

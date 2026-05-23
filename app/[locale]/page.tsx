@@ -42,7 +42,8 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
 
   const switchLanguage = (newLocale: string) => {
     const newPath = pathname.replace(`/${locale}`, `/${newLocale}`)
-    document.cookie = `NEXT_LOCALE=${newLocale};path=/;max-age=31536000`
+    document.cookie = `NEXT_LOCALE=${newLocale};path=/;max-age=31536000;SameSite=Lax`
+    localStorage.setItem('NEXT_LOCALE', newLocale)
     window.location.href = newPath
   }
 

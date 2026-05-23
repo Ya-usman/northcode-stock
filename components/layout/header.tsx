@@ -30,7 +30,7 @@ export function Header({ title, locale, onSignOut }: HeaderProps) {
   const switchLanguage = (newLocale: string) => {
     const newPath = pathname.replace(`/${locale}`, `/${newLocale}`)
     updateLocale(newLocale)
-    router.push(newPath)
+    window.location.href = newPath
   }
 
   return (
