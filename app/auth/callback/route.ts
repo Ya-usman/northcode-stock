@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 
 // Supabase auth callback — échange le code PKCE contre une session
 // Utilisé pour : confirmation email, reset password, invitation équipe, OAuth
@@ -13,6 +13,7 @@ export async function GET(request: Request) {
     const { data: sessionData, error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error && sessionData.user) {
       const user = sessionData.user
+      const locale = next?.split('/')?.[1] || request.headers.get('cookie')?.match(/NEXT_LOCALE=([^;]+)/)?.[1] || 'fr'
 
       // Pour les connexions OAuth (Google, Apple) : créer profil + boutique si inexistants
       if (user.app_metadata?.provider && user.app_metadata.provider !== 'email') {
@@ -23,14 +24,30 @@ export async function GET(request: Request) {
           .single()
 
         if (!existingProfile) {
-          // Créer le profil et la boutique via l'API register
-          const locale = next?.split('/')?.[1] || 'fr'
+          // Vérifier si un profil existe déjà pour cet email (compte email/password existant)
+          const admin = await createAdminClient()
+          const { data: profileByEmail } = await (admin as any)
+            .from('profiles')
+            .select('id')
+            .eq('email', user.email)
+            .single()
+
+          if (profileByEmail) {
+            // L'utilisateur a un compte email/mot de passe existant — lui dire de l'utiliser
+            await supabase.auth.signOut()
+            return NextResponse.redirect(`${origin}/${locale}/login?error=use_email`)
+          }
+
+          // Aucun profil existant — créer le profil et la boutique
           const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Utilisateur'
           const shopName = `Boutique de ${fullName.split(' ')[0]}`
 
-          await fetch(`${origin}/api/register`, {
+          const res = await fetch(`${origin}/api/register`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionData.session?.access_token}` },
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${sessionData.session?.access_token}`,
+            },
             body: JSON.stringify({
               user_id: user.id,
               full_name: fullName,
@@ -40,7 +57,13 @@ export async function GET(request: Request) {
               phone: null,
               country: 'NG',
             }),
-          }).catch(() => {})
+          }).catch(() => null)
+
+          if (!res || !res.ok) {
+            // Création du profil échouée — rediriger vers login avec erreur
+            await supabase.auth.signOut()
+            return NextResponse.redirect(`${origin}/${locale}/login?error=no_profile`)
+          }
         }
       }
 
@@ -56,7 +79,6 @@ export async function GET(request: Request) {
         return NextResponse.redirect(`${origin}${next}`)
       }
 
-      // Read locale from cookie — falls back to 'fr'
       const localeCookie = request.headers.get('cookie')?.match(/NEXT_LOCALE=([^;]+)/)?.[1] ?? 'fr'
       return NextResponse.redirect(`${origin}/${localeCookie}/dashboard`)
     }

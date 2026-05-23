@@ -54,6 +54,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
   const [error, setError] = useState(
     searchParams?.error === 'no_profile' ? 'Account not configured yet. Contact your administrator.' :
     searchParams?.error === 'inactive' ? 'Your account has been deactivated. Contact your administrator.' :
+    searchParams?.error === 'use_email' ? 'Un compte existe déjà avec cet email. Connectez-vous avec votre email et mot de passe.' :
     ''
   )
   const [success, setSuccess] = useState('')
