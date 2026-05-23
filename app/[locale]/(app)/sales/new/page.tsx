@@ -719,7 +719,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
   // ── RENDER ──────────────────────────────────────────────
   return (
-    <div className="flex flex-col gap-4 max-w-2xl mx-auto w-full md:max-w-none md:flex-row md:gap-0 md:h-screen md:overflow-hidden">
+    <div className="flex flex-col gap-4 max-w-2xl mx-auto w-full md:max-w-none md:flex-row md:gap-0 md:h-[calc(100dvh-6.5rem)] md:overflow-hidden">
 
       {/* ── LEFT column: search + products ── */}
       <div className="flex flex-col md:flex-1 md:overflow-hidden md:border-r md:border-border md:min-h-0">
@@ -863,7 +863,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       </div>{/* end sticky header */}
 
       {/* Product grid scroll wrapper */}
-      <div className="flex-1 md:overflow-y-auto md:px-5 md:pb-5">
+      <div className="flex-1 md:overflow-y-auto md:px-5 md:pb-8 md:min-h-0">
       {/* Product grid */}
       <AnimatePresence>
         {(products.length > 0 || searchQuery) && (
