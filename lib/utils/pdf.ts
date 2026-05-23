@@ -604,14 +604,20 @@ async function buildReportDoc(params: ReportParams) {
   let logoLoaded = false
   try {
     const logoUrl = `${window.location.origin}/logo-icon.png`
-    const res = await fetch(logoUrl)
+    const ctrl = new AbortController()
+    const logoTimer = setTimeout(() => ctrl.abort(), 3000)
+    const res = await fetch(logoUrl, { signal: ctrl.signal })
+    clearTimeout(logoTimer)
     const blob = await res.blob()
-    const base64 = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve((reader.result as string).split(',')[1])
-      reader.onerror = reject
-      reader.readAsDataURL(blob)
-    })
+    const base64 = await Promise.race([
+      new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve((reader.result as string).split(',')[1])
+        reader.onerror = reject
+        reader.readAsDataURL(blob)
+      }),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('FileReader timeout')), 3000)),
+    ])
     // Gold outer ring
     doc.setFillColor(212, 175, 55)
     doc.roundedRect(margin - 1, 2, 18, 18, 2.5, 2.5, 'F')

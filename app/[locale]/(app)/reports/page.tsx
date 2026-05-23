@@ -309,11 +309,12 @@ export default function ReportsPage() {
           ]),
         },
         {
-          title: t('reports.full_inventory'),
+          // Limit to 100 rows to avoid memory crash on mobile
+          title: t('reports.full_inventory') + (allInventory.length > 100 ? ` (Top 100 / ${allInventory.length})` : ''),
           headers: isCashier
             ? [t('reports.col_product'), t('reports.col_stock'), t('reports.col_sold_qty'), t('reports.col_selling_price')]
             : [t('reports.col_product'), t('reports.col_stock'), t('reports.col_sold_qty'), t('reports.col_buying_price'), t('reports.col_selling_price')],
-          rows: allInventory.map(p => isCashier
+          rows: allInventory.slice(0, 100).map(p => isCashier
             ? [p.name, p.quantity, p.soldQty || '—', formatNaira(p.selling_price)]
             : [p.name, p.quantity, p.soldQty || '—', formatNaira(p.buying_price), formatNaira(p.selling_price)]
           ),
@@ -373,7 +374,10 @@ export default function ReportsPage() {
     }
     setExporting(true)
     try {
-      const { blob, fileName } = await generateReportPDFBlob(buildPdfParams())
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('PDF generation timed out — please try again')), 45_000)
+      )
+      const { blob, fileName } = await Promise.race([generateReportPDFBlob(buildPdfParams()), timeout])
       if (isAndroid || isIOS) {
         // After multiple awaits, gesture context is lost on mobile.
         // Store blob and let user tap again (fresh gesture) to trigger share/download.
