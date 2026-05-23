@@ -102,12 +102,11 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
         <div className="mx-auto max-w-6xl px-4 h-14 md:h-20 flex items-center justify-between gap-2">
 
           {/* Logo */}
-          <Link href={`/${locale}`} className="dark:bg-white dark:rounded-xl dark:px-2 overflow-hidden flex items-center flex-shrink-0">
+          <Link href={`/${locale}`} className="flex items-center flex-shrink-0">
             <img
-              src="/logo-full.png"
+              src={isDark ? '/logo-full-white.png' : '/logo-full.png'}
               alt="StockShop"
               className="h-10 md:h-16 w-auto object-contain"
-              style={{ mixBlendMode: 'multiply' }}
             />
           </Link>
 
@@ -154,17 +153,10 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Login — hidden on very small screens */}
-            <Link href={`/${locale}/login`} className="hidden sm:block">
-              <Button variant="ghost" size="sm" className="h-8 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
-                {t('nav.login')}
-              </Button>
-            </Link>
-
-            {/* CTA */}
-            <Link href={`/${locale}/register`}>
+            {/* Login */}
+            <Link href={`/${locale}/login`}>
               <Button size="sm" className="h-8 bg-stockshop-blue hover:bg-stockshop-blue-light text-white text-xs sm:text-sm px-3">
-                {t('nav.start_trial')}
+                {t('nav.login')}
               </Button>
             </Link>
 
@@ -210,7 +202,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center mb-6 px-4 sm:px-0">
-              <Link href={`/${locale}/register`} className="w-full sm:w-auto">
+              <Link href={`/${locale}/register?plan=business`} className="w-full sm:w-auto">
                 <Button size="lg" className="w-full sm:w-auto bg-stockshop-gold hover:bg-stockshop-gold-light text-gray-900 font-bold h-12 px-8 text-base gap-2">
                   {t('hero.cta_primary')}
                   <ArrowRight className="h-4 w-4" />
@@ -393,7 +385,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
                   ))}
                 </ul>
 
-                <Link href={`/${locale}/register`}>
+                <Link href={`/${locale}/register?plan=${plan.name.toLowerCase()}`}>
                   <Button className={cn(
                     'w-full',
                     plan.popular
@@ -417,7 +409,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
           <Zap className="h-8 w-8 md:h-10 md:w-10 text-stockshop-gold mx-auto mb-3" />
           <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">{t('cta.title')}</h2>
           <p className="text-blue-200 mb-6 md:mb-8 text-sm md:text-base">{t('cta.subtitle')}</p>
-          <Link href={`/${locale}/register`}>
+          <Link href={`/${locale}/register?plan=business`}>
             <Button size="lg" className="bg-stockshop-gold hover:bg-stockshop-gold-light text-gray-900 font-bold h-12 px-8 md:px-10 text-base gap-2 w-full sm:w-auto">
               {t('cta.button')}
               <ArrowRight className="h-4 w-4" />
@@ -431,12 +423,11 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
       <footer className="border-t border-gray-200 dark:border-gray-800 py-8 md:py-10 px-4 bg-white dark:bg-gray-900">
         <div className="mx-auto max-w-6xl">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <Link href={`/${locale}`} className="dark:bg-white dark:rounded-xl dark:px-2 overflow-hidden flex items-center">
+            <Link href={`/${locale}`} className="flex items-center">
               <img
-                src="/logo-full.png"
+                src={isDark ? '/logo-full-white.png' : '/logo-full.png'}
                 alt="StockShop"
                 className="h-12 md:h-14 w-auto object-contain"
-                style={{ mixBlendMode: 'multiply' }}
               />
             </Link>
             <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6 text-sm text-muted-foreground">
