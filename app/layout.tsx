@@ -70,7 +70,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             }} />
           </div>
           <style>{`@keyframes splashBar{0%{transform:translateX(-100%)}50%{transform:translateX(150%)}100%{transform:translateX(150%)}}`}</style>
-          <script dangerouslySetInnerHTML={{ __html: `setTimeout(function(){var s=document.getElementById('app-splash');if(s){s.style.transition='opacity 0.2s';s.style.opacity='0';setTimeout(function(){s.remove()},220)}},6000)` }} />
+          <script dangerouslySetInnerHTML={{ __html: `(function(){var isMobile=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);var s=document.getElementById('app-splash');if(!isMobile&&s){s.remove();return;}setTimeout(function(){if(s){s.style.transition='opacity 0.2s';s.style.opacity='0';setTimeout(function(){s.remove()},220)}},6000)})()` }} />
         </div>
         <SplashRemover />
         {children}
