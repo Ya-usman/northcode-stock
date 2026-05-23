@@ -106,7 +106,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
             <img
               src={isDark ? '/logo-full-white.png' : '/logo-full.png'}
               alt="StockShop"
-              className={isDark ? 'h-7 md:h-10 w-auto object-contain' : 'h-10 md:h-16 w-auto object-contain'}
+              className="h-7 md:h-10 w-auto object-contain"
             />
           </Link>
 
