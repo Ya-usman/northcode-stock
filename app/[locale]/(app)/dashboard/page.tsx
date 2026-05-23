@@ -37,9 +37,21 @@ function readDashCache(shopKey: string): DashCache | null {
     const raw = localStorage.getItem(DASH_CACHE_KEY)
     if (!raw) return null
     const c: DashCache = JSON.parse(raw)
-    // Online: cache valid 1 minute (stale-while-revalidate). Offline: accept up to 24h.
+    // Online: cache valid 10 min (stale-while-revalidate). Offline: accept up to 24h.
     const ttl = navigator.onLine ? 600_000 : 24 * 60 * 60 * 1000
     if (c.shopKey !== shopKey || Date.now() - c.savedAt > ttl) return null
+    return c
+  } catch { return null }
+}
+
+// Stale-only read: used at mount to pre-fill UI immediately.
+// Ignores TTL — loadDashboard will always refresh in background anyway.
+function readDashCacheStale(shopKey: string): DashCache | null {
+  try {
+    const raw = localStorage.getItem(DASH_CACHE_KEY)
+    if (!raw) return null
+    const c: DashCache = JSON.parse(raw)
+    if (c.shopKey !== shopKey) return null
     return c
   } catch { return null }
 }
@@ -60,11 +72,11 @@ export default function DashboardPage() {
     ? [dashboardShopFilter]
     : userShops.map(s => s.id).filter(Boolean)
 
-  // Read cache synchronously at mount — if auth is already loaded (e.g. coming from admin),
-  // data is available immediately and firstLoad starts as false (no skeleton flash)
+  // Read stale cache synchronously at mount — shows data instantly even if TTL expired.
+  // loadDashboard always refreshes in background, so stale data is fine here.
   const [mountCache] = useState<DashCache | null>(() => {
     if (!profile?.id || shopIds.length === 0) return null
-    return readDashCache(`${profile.id}:${shopIds.join(',')}`)
+    return readDashCacheStale(`${profile.id}:${shopIds.join(',')}`)
   })
 
   const [shopPickerOpen, setShopPickerOpen] = useState(false)
