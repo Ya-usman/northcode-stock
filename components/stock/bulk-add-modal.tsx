@@ -189,7 +189,7 @@ export function BulkAddModal({ open, onClose, shopId, currency, isOwner, onSaved
       {savedCount === 0 && (
         <PremiumDialogFooter onCancel={handleClose}>
           <Button
-            className="bg-blue-600 dark:bg-blue-500 gap-2"
+            className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500 dark:hover:bg-blue-600 gap-2"
             disabled={saving || rows.every(r => !r.name.trim())}
             onClick={handleSave}
           >
