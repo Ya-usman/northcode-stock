@@ -121,7 +121,11 @@ export async function middleware(request: NextRequest) {
   // Page publique (landing, login, register...)
   if (isPublic(pathnameWithoutLocale)) {
     if (userId && (pathnameWithoutLocale === '/login' || pathnameWithoutLocale === '/register')) {
-      return mergeAuthCookies(NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url)), response)
+      // Ne pas rediriger si une erreur est présente (ex: no_profile, inactive) — évite la boucle infinie
+      const hasError = request.nextUrl.searchParams.has('error')
+      if (!hasError) {
+        return mergeAuthCookies(NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url)), response)
+      }
     }
     const intlRes = intlMiddleware(request)
     return mergeAuthCookies(intlRes || response, response)
