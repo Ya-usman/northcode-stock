@@ -776,7 +776,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       )}
 
       {/* Sticky top area: search + categories */}
-      <div className="flex flex-col gap-3 px-0 md:px-5 md:pt-5 md:pb-2 md:sticky md:top-0 md:bg-background md:z-10 md:border-b md:border-border/50">
+      <div className="flex flex-col gap-3 px-0 pt-2 md:pt-5 md:px-5 md:pb-2 md:sticky md:top-0 md:bg-background md:z-10 md:border-b md:border-border/50">
       {/* Active draft indicator */}
       {activeDraftId && (
         <div className="flex items-center gap-2 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-700">
