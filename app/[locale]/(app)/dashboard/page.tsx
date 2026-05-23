@@ -55,27 +55,32 @@ export default function DashboardPage() {
   const { fmt: formatNaira } = useCurrency()
   const { toast } = useToast()
 
-  const [shopPickerOpen, setShopPickerOpen] = useState(false)
-
-  // firstLoad = show skeleton only when no cached data available
-  const [firstLoad, setFirstLoad] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-
-  const [todayRevenue, setTodayRevenue] = useState(0)
-  const [todaySalesCount, setTodaySalesCount] = useState(0)
-  const [repaymentFeed, setRepaymentFeed] = useState<RepaymentFeedItem[]>([])
-  const [outstandingDebt, setOutstandingDebt] = useState(0)
-  const [recentSales, setRecentSales] = useState<Sale[]>([])
-  const [revenueData, setRevenueData] = useState<RevenueDataPoint[]>([])
-  const [topProducts, setTopProducts] = useState<TopProduct[]>([])
-  const [lowStockProducts, setLowStockProducts] = useState<Product[]>([])
-  const [outOfStockProducts, setOutOfStockProducts] = useState<Product[]>([])
-  const [monthExpenses, setMonthExpenses] = useState(0)
-
-  // Determine which shop IDs to query
+  // Compute shopIds before useState so the lazy initializer can read the cache key
   const shopIds = dashboardShopFilter
     ? [dashboardShopFilter]
     : userShops.map(s => s.id).filter(Boolean)
+
+  // Read cache synchronously at mount — if auth is already loaded (e.g. coming from admin),
+  // data is available immediately and firstLoad starts as false (no skeleton flash)
+  const [mountCache] = useState<DashCache | null>(() => {
+    if (!profile?.id || shopIds.length === 0) return null
+    return readDashCache(`${profile.id}:${shopIds.join(',')}`)
+  })
+
+  const [shopPickerOpen, setShopPickerOpen] = useState(false)
+  const [firstLoad, setFirstLoad] = useState(!mountCache && shopIds.length > 0)
+  const [refreshing, setRefreshing] = useState(false)
+
+  const [todayRevenue, setTodayRevenue] = useState(mountCache?.todayRevenue ?? 0)
+  const [todaySalesCount, setTodaySalesCount] = useState(mountCache?.todaySalesCount ?? 0)
+  const [repaymentFeed, setRepaymentFeed] = useState<RepaymentFeedItem[]>(mountCache?.repaymentItems ?? [])
+  const [outstandingDebt, setOutstandingDebt] = useState(mountCache?.outstandingDebt ?? 0)
+  const [recentSales, setRecentSales] = useState<Sale[]>(mountCache?.recentSales ?? [])
+  const [revenueData, setRevenueData] = useState<RevenueDataPoint[]>(mountCache?.revenueData ?? [])
+  const [topProducts, setTopProducts] = useState<TopProduct[]>(mountCache?.topProducts ?? [])
+  const [lowStockProducts, setLowStockProducts] = useState<Product[]>(mountCache?.lowStock ?? [])
+  const [outOfStockProducts, setOutOfStockProducts] = useState<Product[]>(mountCache?.outOfStock ?? [])
+  const [monthExpenses, setMonthExpenses] = useState(0)
 
   const activeShopLabel = dashboardShopFilter
     ? userShops.find(s => s.id === dashboardShopFilter)?.name || t('nav.shops')
