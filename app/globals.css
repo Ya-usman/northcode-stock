@@ -79,6 +79,17 @@
   }
 }
 
+/* Mobile dark mode: brand blue background */
+@media (max-width: 640px) {
+  .dark {
+    --background: 215 91% 28%;   /* #073e8a — même bleu que les boutons */
+    --card: 215 70% 20%;         /* #0b2a5e — carte légèrement plus sombre */
+    --popover: 215 70% 22%;
+    --border: 215 50% 35%;
+    --input: 215 70% 18%;
+  }
+}
+
 /* Smooth scrolling */
 html {
   scroll-behavior: smooth;

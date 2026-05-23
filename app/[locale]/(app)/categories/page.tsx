@@ -27,8 +27,8 @@ function CategoryCard({ cat, products, expandedId, setExpandedId, canEdit, delet
         onClick={() => setExpandedId(isExpanded ? null : cat.id)}
       >
         <div className="flex items-center gap-3 min-w-0">
-          <div className="h-8 w-8 rounded-md bg-blue-50 dark:bg-blue-950 flex items-center justify-center shrink-0">
-            <Tag className="h-4 w-4 text-stockshop-blue dark:text-blue-400" />
+          <div className="h-8 w-8 rounded-md bg-amber-100 dark:bg-amber-400/20 flex items-center justify-center shrink-0">
+            <Tag className="h-4 w-4 text-amber-600 dark:text-amber-400" />
           </div>
           <span className="font-medium text-sm truncate">{cat.name}</span>
           <Badge variant="secondary" className="text-xs shrink-0">{catProducts.length}</Badge>
@@ -84,8 +84,8 @@ function UncategorizedCard({ products, shopId, expandedId, setExpandedId, t, fmt
         onClick={() => setExpandedId(isExpanded ? null : key)}
       >
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-md bg-muted flex items-center justify-center shrink-0">
-            <Tag className="h-4 w-4 text-muted-foreground" />
+          <div className="h-8 w-8 rounded-md bg-amber-100/50 dark:bg-amber-400/10 flex items-center justify-center shrink-0">
+            <Tag className="h-4 w-4 text-amber-500/70 dark:text-amber-400/60" />
           </div>
           <span className="font-medium text-sm text-muted-foreground">{t('categories.uncategorized')}</span>
           <Badge variant="outline" className="text-xs">{products.length}</Badge>
