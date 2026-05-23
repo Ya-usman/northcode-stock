@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
   ShoppingCart, Package, Users, BarChart2, MessageCircle,
-  CheckCircle2, ArrowRight, Star, Shield, Zap, CreditCard, Smartphone, Sun, Moon,
+  CheckCircle2, ArrowRight, Star, Shield, Zap, CreditCard, Smartphone, Sun, Moon, Menu, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -39,6 +39,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
   const pathname = usePathname()
   const { isDark, toggle } = useTheme()
   const [pricingCountry, setPricingCountry] = useState<CountryCode>('NG')
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const switchLanguage = (newLocale: string) => {
     const newPath = pathname.replace(`/${locale}`, `/${newLocale}`)
@@ -98,37 +99,45 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
 
       {/* ── NAVBAR ── */}
       <header className="sticky top-0 z-50 border-b border-gray-200 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md">
-        <div className="mx-auto max-w-6xl px-4 h-20 flex items-center justify-between">
-          <Link href={`/${locale}`} className="dark:bg-white dark:rounded-xl dark:px-2 overflow-hidden flex items-center">
+        <div className="mx-auto max-w-6xl px-4 h-14 md:h-20 flex items-center justify-between gap-2">
+
+          {/* Logo */}
+          <Link href={`/${locale}`} className="dark:bg-white dark:rounded-xl dark:px-2 overflow-hidden flex items-center flex-shrink-0">
             <img
               src="/logo-full.png"
               alt="StockShop"
-              className="h-16 w-auto object-contain"
+              className="h-10 md:h-16 w-auto object-contain"
               style={{ mixBlendMode: 'multiply' }}
             />
           </Link>
+
+          {/* Desktop nav links */}
           <nav className="hidden md:flex items-center gap-6 text-sm text-gray-500 dark:text-gray-400">
             <a href="#features" className="hover:text-gray-900 dark:hover:text-white transition-colors">{t('nav.features')}</a>
             <a href="#pricing" className="hover:text-gray-900 dark:hover:text-white transition-colors">{t('nav.pricing')}</a>
             <a href="#testimonials" className="hover:text-gray-900 dark:hover:text-white transition-colors">{t('nav.reviews')}</a>
           </nav>
-          <div className="flex items-center gap-2">
+
+          {/* Right controls */}
+          <div className="flex items-center gap-1">
             {/* Dark / Light toggle */}
             <Button
               variant="ghost"
               size="sm"
               onClick={toggle}
-              className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="h-8 w-8 p-0 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
 
-            {/* Language switcher — shows only active language */}
+            {/* Language switcher */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 gap-1.5">
+                <Button variant="ghost" size="sm" className="h-8 px-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 gap-1">
                   <span>{LANGUAGES.find(l => l.code === locale)?.flag ?? '🌐'}</span>
-                  <span className="text-sm font-medium">{(LANGUAGES.find(l => l.code === locale)?.label ?? locale).split(' ')[0]}</span>
+                  <span className="hidden sm:inline text-sm font-medium">
+                    {(LANGUAGES.find(l => l.code === locale)?.label ?? locale).split(' ')[0]}
+                  </span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -145,45 +154,70 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Link href={`/${locale}/login`}>
-              <Button variant="ghost" size="sm" className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800">{t('nav.login')}</Button>
+            {/* Login — hidden on very small screens */}
+            <Link href={`/${locale}/login`} className="hidden sm:block">
+              <Button variant="ghost" size="sm" className="h-8 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
+                {t('nav.login')}
+              </Button>
             </Link>
+
+            {/* CTA */}
             <Link href={`/${locale}/register`}>
-              <Button size="sm" className="bg-stockshop-blue hover:bg-stockshop-blue-light text-white">
+              <Button size="sm" className="h-8 bg-stockshop-blue hover:bg-stockshop-blue-light text-white text-xs sm:text-sm px-3">
                 {t('nav.start_trial')}
               </Button>
             </Link>
+
+            {/* Mobile hamburger */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="md:hidden h-8 w-8 p-0 text-gray-700 dark:text-gray-300 ml-1"
+              onClick={() => setMobileMenuOpen(v => !v)}
+            >
+              {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            </Button>
           </div>
         </div>
+
+        {/* Mobile menu dropdown */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-4 flex flex-col gap-3">
+            <a href="#features" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white py-1">{t('nav.features')}</a>
+            <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white py-1">{t('nav.pricing')}</a>
+            <a href="#testimonials" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white py-1">{t('nav.reviews')}</a>
+            <Link href={`/${locale}/login`} onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white py-1">{t('nav.login')}</Link>
+          </div>
+        )}
       </header>
 
       {/* ── HERO ── */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-stockshop-blue via-[#0d3a84] to-[#1a4f9e] py-20 md:py-28">
-        <div className="absolute inset-0 opacity-10">
+      <section className="relative overflow-hidden bg-gradient-to-br from-stockshop-blue via-[#0d3a84] to-[#1a4f9e] py-14 md:py-28">
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
           <div className="absolute top-20 left-10 h-64 w-64 rounded-full bg-white blur-3xl" />
           <div className="absolute bottom-10 right-10 h-96 w-96 rounded-full bg-stockshop-gold blur-3xl" />
         </div>
 
         <div className="relative mx-auto max-w-6xl px-4 text-center">
           <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-            <h1 className="text-4xl md:text-6xl font-extrabold text-white leading-tight mb-6">
+            <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold text-white leading-tight mb-4 md:mb-6">
               {t('hero.title')}<br />
               <span className="text-stockshop-gold">{t('hero.title_highlight')}</span>
             </h1>
 
-            <p className="text-lg md:text-xl text-blue-100 max-w-2xl mx-auto mb-8">
+            <p className="text-base md:text-xl text-blue-100 max-w-2xl mx-auto mb-6 md:mb-8 px-2">
               {t('hero.subtitle')}
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-3 justify-center mb-6">
-              <Link href={`/${locale}/register`}>
-                <Button size="lg" className="bg-stockshop-gold hover:bg-stockshop-gold-light text-gray-900 font-bold h-12 px-8 text-base gap-2">
+            <div className="flex flex-col sm:flex-row gap-3 justify-center mb-6 px-4 sm:px-0">
+              <Link href={`/${locale}/register`} className="w-full sm:w-auto">
+                <Button size="lg" className="w-full sm:w-auto bg-stockshop-gold hover:bg-stockshop-gold-light text-gray-900 font-bold h-12 px-8 text-base gap-2">
                   {t('hero.cta_primary')}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
-              <a href="#features">
-                <Button size="lg" className="bg-white/15 border border-white/40 text-white hover:bg-white/25 h-12 px-8 text-base backdrop-blur-sm">
+              <a href="#features" className="w-full sm:w-auto">
+                <Button size="lg" className="w-full sm:w-auto bg-white/15 border border-white/40 text-white hover:bg-white/25 h-12 px-8 text-base backdrop-blur-sm">
                   {t('hero.cta_secondary')}
                 </Button>
               </a>
@@ -194,16 +228,16 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
 
           <motion.div
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.6 }}
-            className="mt-16 grid grid-cols-3 gap-4 max-w-lg mx-auto"
+            className="mt-10 md:mt-16 grid grid-cols-3 gap-3 max-w-sm md:max-w-lg mx-auto"
           >
             {[
               { value: '500+', label: t('hero.stat_shops') },
               { value: '2B+', label: t('hero.stat_sales') },
               { value: '4.9★', label: t('hero.stat_rating') },
             ].map(stat => (
-              <div key={stat.label} className="bg-white/10 rounded-xl p-4">
-                <p className="text-2xl font-bold text-white">{stat.value}</p>
-                <p className="text-xs text-blue-200 mt-1">{stat.label}</p>
+              <div key={stat.label} className="bg-white/10 rounded-xl p-3 md:p-4">
+                <p className="text-xl md:text-2xl font-bold text-white">{stat.value}</p>
+                <p className="text-xs text-blue-200 mt-1 leading-tight">{stat.label}</p>
               </div>
             ))}
           </motion.div>
@@ -211,9 +245,9 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
       </section>
 
       {/* ── TRUST BAR ── */}
-      <section className="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 py-5">
+      <section className="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 py-4">
         <div className="mx-auto max-w-4xl px-4 text-center">
-          <p className="text-xs text-muted-foreground mb-3 uppercase tracking-wider font-medium">
+          <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider font-medium">
             {t('trust.label')}
           </p>
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('trust.cities')}</p>
@@ -221,26 +255,26 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
       </section>
 
       {/* ── FEATURES ── */}
-      <section id="features" className="py-20 px-4">
+      <section id="features" className="py-12 md:py-20 px-4">
         <div className="mx-auto max-w-6xl">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">{t('features.title')}</h2>
-            <p className="text-lg text-muted-foreground max-w-xl mx-auto">{t('features.subtitle')}</p>
+          <div className="text-center mb-10">
+            <h2 className="text-2xl md:text-4xl font-bold text-gray-900 dark:text-white mb-3">{t('features.title')}</h2>
+            <p className="text-base md:text-lg text-muted-foreground max-w-xl mx-auto">{t('features.subtitle')}</p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {features.map((f, i) => {
               const Icon = FEATURE_ICONS[i]
               return (
                 <motion.div
                   key={f.title}
                   initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.07 }}
-                  className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 p-6 shadow-sm hover:shadow-md transition-shadow"
+                  className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 p-5 md:p-6 shadow-sm hover:shadow-md transition-shadow"
                 >
-                  <div className={cn('inline-flex h-11 w-11 items-center justify-center rounded-xl mb-4', FEATURE_COLORS[i])}>
+                  <div className={cn('inline-flex h-10 w-10 md:h-11 md:w-11 items-center justify-center rounded-xl mb-3', FEATURE_COLORS[i])}>
                     <Icon className="h-5 w-5" />
                   </div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white mb-2">{f.title}</h3>
+                  <h3 className="font-semibold text-gray-900 dark:text-white mb-1.5">{f.title}</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
                 </motion.div>
               )
@@ -250,25 +284,25 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
       </section>
 
       {/* ── TESTIMONIALS ── */}
-      <section id="testimonials" className="bg-gray-50 dark:bg-gray-800/50 py-20 px-4">
+      <section id="testimonials" className="bg-gray-50 dark:bg-gray-800/50 py-12 md:py-20 px-4">
         <div className="mx-auto max-w-6xl">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">{t('testimonials.title')}</h2>
+          <div className="text-center mb-10">
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-3">{t('testimonials.title')}</h2>
             <div className="flex justify-center gap-1 mb-2">
-              {[...Array(5)].map((_, i) => <Star key={i} className="h-5 w-5 fill-yellow-400 text-yellow-400" />)}
+              {[...Array(5)].map((_, i) => <Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400" />)}
             </div>
-            <p className="text-muted-foreground">{t('testimonials.rating')}</p>
+            <p className="text-muted-foreground text-sm md:text-base">{t('testimonials.rating')}</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
             {testimonials.map((item, i) => (
               <motion.div
                 key={item.name}
                 initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
-                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm"
+                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm"
               >
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="h-10 w-10 rounded-full bg-stockshop-blue flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="h-9 w-9 rounded-full bg-stockshop-blue flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                     {item.initials}
                   </div>
                   <div>
@@ -287,11 +321,11 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
       </section>
 
       {/* ── PRICING ── */}
-      <section id="pricing" className="py-20 px-4">
+      <section id="pricing" className="py-12 md:py-20 px-4">
         <div className="mx-auto max-w-5xl">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">{t('pricing.title')}</h2>
-            <p className="text-lg text-muted-foreground mb-6">{t('pricing.subtitle')}</p>
+          <div className="text-center mb-8 md:mb-10">
+            <h2 className="text-2xl md:text-4xl font-bold text-gray-900 dark:text-white mb-3">{t('pricing.title')}</h2>
+            <p className="text-base md:text-lg text-muted-foreground mb-5">{t('pricing.subtitle')}</p>
 
             {/* Country toggle */}
             <div className="inline-flex flex-wrap justify-center rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-1 gap-1">
@@ -303,8 +337,8 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
                     onClick={() => setPricingCountry(c.code)}
                     className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all"
                     style={selected
-                      ? { backgroundColor: '#fff', boxShadow: `0 0 0 2px ${c.flagColor}`, color: c.flagColor }
-                      : { color: '#6b7280' }
+                      ? { backgroundColor: isDark ? '#1e293b' : '#fff', boxShadow: `0 0 0 2px ${c.flagColor}`, color: c.flagColor }
+                      : { color: isDark ? '#9ca3af' : '#6b7280' }
                     }
                   >
                     <span className="text-base">{c.flag}</span>
@@ -321,7 +355,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
             {plans.map((plan, i) => (
               <motion.div
                 key={plan.name}
@@ -329,7 +363,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
                 className={cn(
                   'relative rounded-2xl border-2 bg-white dark:bg-gray-800/50 p-6 shadow-sm',
                   plan.color,
-                  plan.popular && 'shadow-xl ring-2 ring-stockshop-blue'
+                  plan.popular && 'shadow-xl ring-2 ring-stockshop-blue mt-4 md:mt-0'
                 )}
               >
                 {plan.popular && (
@@ -340,17 +374,17 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
                   </div>
                 )}
 
-                <div className="mb-6">
+                <div className="mb-5">
                   <p className="font-bold text-gray-900 dark:text-white text-lg mb-1">{plan.name}</p>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-extrabold text-stockshop-blue dark:text-blue-400">
+                  <div className="flex items-baseline gap-1 flex-wrap">
+                    <span className="text-2xl md:text-3xl font-extrabold text-stockshop-blue dark:text-blue-400">
                       {formatPrice(plan.price)}
                     </span>
                     <span className="text-muted-foreground text-sm">{t('pricing.per_month')}</span>
                   </div>
                 </div>
 
-                <ul className="space-y-2.5 mb-6">
+                <ul className="space-y-2 mb-5">
                   {plan.features.map(f => (
                     <li key={f} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                       <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
@@ -378,13 +412,13 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
       </section>
 
       {/* ── FINAL CTA ── */}
-      <section className="bg-stockshop-blue py-16 px-4">
+      <section className="bg-stockshop-blue py-12 md:py-16 px-4">
         <div className="mx-auto max-w-2xl text-center">
-          <Zap className="h-10 w-10 text-stockshop-gold mx-auto mb-4" />
-          <h2 className="text-3xl font-bold text-white mb-4">{t('cta.title')}</h2>
-          <p className="text-blue-200 mb-8">{t('cta.subtitle')}</p>
+          <Zap className="h-8 w-8 md:h-10 md:w-10 text-stockshop-gold mx-auto mb-3" />
+          <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">{t('cta.title')}</h2>
+          <p className="text-blue-200 mb-6 md:mb-8 text-sm md:text-base">{t('cta.subtitle')}</p>
           <Link href={`/${locale}/register`}>
-            <Button size="lg" className="bg-stockshop-gold hover:bg-stockshop-gold-light text-gray-900 font-bold h-12 px-10 text-base gap-2">
+            <Button size="lg" className="bg-stockshop-gold hover:bg-stockshop-gold-light text-gray-900 font-bold h-12 px-8 md:px-10 text-base gap-2 w-full sm:w-auto">
               {t('cta.button')}
               <ArrowRight className="h-4 w-4" />
             </Button>
@@ -394,18 +428,18 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
       </section>
 
       {/* ── FOOTER ── */}
-      <footer className="border-t border-gray-200 dark:border-gray-800 py-10 px-4 bg-white dark:bg-gray-900">
+      <footer className="border-t border-gray-200 dark:border-gray-800 py-8 md:py-10 px-4 bg-white dark:bg-gray-900">
         <div className="mx-auto max-w-6xl">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <Link href={`/${locale}`} className="dark:bg-white dark:rounded-xl dark:px-2 overflow-hidden flex items-center">
               <img
                 src="/logo-full.png"
                 alt="StockShop"
-                className="h-14 w-auto object-contain"
+                className="h-12 md:h-14 w-auto object-contain"
                 style={{ mixBlendMode: 'multiply' }}
               />
             </Link>
-            <div className="flex items-center gap-6 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6 text-sm text-muted-foreground">
               <a href="#pricing" className="hover:text-foreground">{t('nav.pricing')}</a>
               <Link href={`/${locale}/login`} className="hover:text-foreground">{t('nav.login')}</Link>
               <Link href={`/${locale}/register`} className="hover:text-foreground">{t('nav.start_trial')}</Link>
@@ -415,7 +449,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
               <span>{t('footer.secure')}</span>
             </div>
           </div>
-          <p className="text-center text-xs text-muted-foreground mt-6">
+          <p className="text-center text-xs text-muted-foreground mt-5">
             {t('footer.rights', { year: new Date().getFullYear() })}
           </p>
         </div>

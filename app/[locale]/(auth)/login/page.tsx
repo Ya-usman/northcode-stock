@@ -8,13 +8,13 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Eye, EyeOff, Mail, Lock } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, Sun, Moon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { setLocaleCookie } from '@/lib/utils/cookies'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ForceLight } from '@/components/force-light'
+import { useTheme } from '@/lib/hooks/use-theme'
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -33,6 +33,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
   const t = useTranslations('auth')
   const router = useRouter()
   const supabase = createClient()
+  const { isDark, toggle } = useTheme()
   const [showPwd, setShowPwd] = useState(false)
   const [mode, setMode] = useState<'login' | 'forgot'>('login')
   const [error, setError] = useState(
@@ -92,8 +93,13 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
   }
 
   return (
-    <ForceLight>
-    <div className="min-h-screen overflow-y-auto flex items-center justify-center bg-gradient-to-br from-stockshop-blue via-stockshop-blue-light to-blue-800 p-4 py-8">
+    <div className="min-h-screen overflow-y-auto flex items-center justify-center bg-gradient-to-br from-stockshop-blue via-[#0d3a84] to-blue-900 dark:from-[#040d1f] dark:via-[#071530] dark:to-[#0a1e40] p-4 py-8">
+      <button
+        onClick={toggle}
+        className="fixed top-4 right-4 z-50 flex h-9 w-9 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 text-white backdrop-blur-sm transition-colors"
+      >
+        {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      </button>
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
@@ -275,6 +281,5 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
         </p>
       </motion.div>
     </div>
-    </ForceLight>
   )
 }
