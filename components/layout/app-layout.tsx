@@ -154,7 +154,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
           />
         )}
 
-        <main className="flex-1 p-4 sm:p-6 has-bottom-nav sm:pb-6 overflow-x-hidden">
+        <main className="flex-1 p-4 sm:p-6 pb-24 sm:pb-6 overflow-x-hidden">
           {children}
         </main>
       </div>
