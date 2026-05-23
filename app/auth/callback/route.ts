@@ -38,7 +38,7 @@ export async function GET(request: Request) {
               shop_name: shopName,
               city: 'Non défini',
               phone: null,
-              country: 'NGA',
+              country: 'NG',
             }),
           }).catch(() => {})
         }
