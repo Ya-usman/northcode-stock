@@ -6,7 +6,7 @@ export default function OfflinePage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-950 p-6 text-center">
       <div className="flex items-center justify-center bg-white rounded-2xl p-4 shadow-sm mb-6">
-        <img src="/logo-tab.png" alt="StockShop" width={72} height={72} />
+        <img src="/logo-offline.png" alt="StockShop" width={72} height={72} />
       </div>
 
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-50 dark:bg-red-950/40 mb-5">
