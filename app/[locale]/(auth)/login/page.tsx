@@ -93,7 +93,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
   }
 
   return (
-    <div className="min-h-screen overflow-y-auto flex items-center justify-center bg-gradient-to-br from-stockshop-blue via-[#0d3a84] to-blue-900 dark:from-[#040d1f] dark:via-[#071530] dark:to-[#0a1e40] p-4 py-8">
+    <div className="min-h-screen overflow-y-auto flex items-center justify-center bg-gradient-to-br from-stockshop-blue via-stockshop-blue-light to-blue-800 p-4 py-8">
       <button
         onClick={toggle}
         className="fixed top-4 right-4 z-50 flex h-9 w-9 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 text-white backdrop-blur-sm transition-colors"
@@ -116,7 +116,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
           </p>
         </div>
 
-        <div className="rounded-2xl bg-card shadow-2xl overflow-hidden">
+        <div className="rounded-2xl bg-card dark:bg-[#0d2a5e] shadow-2xl overflow-hidden">
           <AnimatePresence mode="wait">
             {mode === 'login' ? (
               <motion.div
