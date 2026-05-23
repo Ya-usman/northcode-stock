@@ -79,10 +79,13 @@ export default function SuppliersPage() {
 
   const fetchSuppliers = async () => {
     if (!effectiveShopIds.length) return
+    const cacheKey = `suppliers_${effectiveShopIds.join(',')}`
+    const cached = getPageCache<Supplier[]>(cacheKey)
+    if (cached) { setSuppliers(cached); setLoading(false) }
     try {
       const { data } = await supabase.from('suppliers').select('*').in('shop_id', effectiveShopIds).order('name')
       setSuppliers((data || []) as Supplier[])
-      setPageCache(`suppliers_${effectiveShopIds.join(',')}`, data || [])
+      setPageCache(cacheKey, data || [])
       if (data?.length) {
         const { data: products } = await supabase
           .from('products').select('supplier_id').in('shop_id', effectiveShopIds).eq('is_active', true)
@@ -93,8 +96,7 @@ export default function SuppliersPage() {
         setProductCounts(counts)
       }
     } catch {
-      const cached = getPageCache<Supplier[]>(`suppliers_${effectiveShopIds.join(',')}`)
-      if (cached) setSuppliers(cached)
+      // cache already applied if available
     } finally {
       setLoading(false)
     }

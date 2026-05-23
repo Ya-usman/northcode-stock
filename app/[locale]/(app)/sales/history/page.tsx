@@ -138,9 +138,17 @@ export default function SalesHistoryPage() {
 
   const fetchSales = async () => {
     if (!effectiveShopIds.length) return
-    setLoading(true)
     setSalesOffset(0)
     const cacheKey = `sales_history_${effectiveShopIds.join(',')}`
+    const cached = getPageCache<Sale[]>(cacheKey)
+    if (cached) {
+      setSales(cached)
+      setHasMoreSales(false)
+      setCashierMap(await enrichCashiers(cached))
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
     try {
       const { start, end } = getDateBounds()
       const { data, error } = await buildSalesQuery(start, end, 0)
@@ -149,14 +157,9 @@ export default function SalesHistoryPage() {
       setSales(salesData)
       setHasMoreSales(salesData.length === PAGE_SIZE)
       setCashierMap(await enrichCashiers(salesData))
-      await setPageCache(cacheKey, salesData)
+      setPageCache(cacheKey, salesData)
     } catch {
-      const cached = await getPageCache<Sale[]>(cacheKey)
-      if (cached) {
-        setSales(cached)
-        setHasMoreSales(false)
-        setCashierMap(await enrichCashiers(cached))
-      }
+      // cache already applied if available
     } finally {
       setLoading(false)
     }

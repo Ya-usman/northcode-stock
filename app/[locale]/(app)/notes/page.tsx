@@ -67,8 +67,10 @@ export default function NotesPage() {
 
   const fetchNotes = async () => {
     if (!effectiveShopIds.length) return
-    setLoading(true)
     const cacheKey = `notes_${effectiveShopIds.join(',')}_${shopFilter}`
+    const cached = getPageCache<Note[]>(cacheKey)
+    if (cached) { setNotes(cached); setLoading(false) }
+    else setLoading(true)
     try {
       let q = supabase
         .from('notes')
@@ -81,8 +83,7 @@ export default function NotesPage() {
       setNotes((data || []) as Note[])
       setPageCache(cacheKey, data || [])
     } catch {
-      const cached = getPageCache<Note[]>(cacheKey)
-      if (cached) setNotes(cached)
+      // cache already applied if available
     } finally {
       setLoading(false)
     }

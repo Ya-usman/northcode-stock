@@ -97,7 +97,10 @@ export default function TeamPage() {
 
   const fetchMembers = async () => {
     if (!effectiveShopIds.length) return
-    setLoading(true)
+    const cacheKey = `team_${effectiveShopIds.join(',')}`
+    const cached = getPageCache<Member[]>(cacheKey)
+    if (cached) { setMembers(cached); setLoading(false) }
+    else setLoading(true)
     try {
       // Fetch members from all effective shops in parallel
       const results = await Promise.all(
@@ -126,10 +129,9 @@ export default function TeamPage() {
         profiles: profilesMap[m.user_id] ?? { id: m.user_id, full_name: t('actions.invite'), last_seen: null, is_active: m.is_active },
       })) as Member[]
       setMembers(membersArray)
-      setPageCache(`team_${effectiveShopIds.join(',')}`, membersArray)
+      setPageCache(cacheKey, membersArray)
     } catch {
-      const cached = getPageCache<Member[]>(`team_${effectiveShopIds.join(',')}`)
-      if (cached) setMembers(cached)
+      // cache already applied if available
     } finally {
       setLoading(false)
     }

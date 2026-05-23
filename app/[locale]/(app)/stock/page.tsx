@@ -72,6 +72,13 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 const fetchProducts = async () => {
     if (!effectiveShopIds.length) return
     const cacheKey = `stock_${effectiveShopIds.join(',')}`
+    const cached = getPageCache<{ prods: any[]; cats: any[]; sups: any[] }>(cacheKey)
+    if (cached) {
+      setProducts(cached.prods as unknown as Product[])
+      setCategories(cached.cats as Category[])
+      setSuppliers(cached.sups as Supplier[])
+      setLoading(false)
+    }
     try {
       const [{ data: prods }, { data: archived }, { data: cats }, { data: sups }] = await Promise.all([
         supabase.from('products')
@@ -93,12 +100,7 @@ const fetchProducts = async () => {
       setSuppliers((sups || []) as Supplier[])
       setPageCache(cacheKey, { prods: prods || [], cats: cats || [], sups: sups || [] })
     } catch {
-      const cached = getPageCache<{ prods: any[]; cats: any[]; sups: any[] }>(cacheKey)
-      if (cached) {
-        setProducts(cached.prods as unknown as Product[])
-        setCategories(cached.cats as Category[])
-        setSuppliers(cached.sups as Supplier[])
-      }
+      // cache already applied if available
     } finally {
       setLoading(false)
     }

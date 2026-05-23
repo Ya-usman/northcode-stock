@@ -132,6 +132,9 @@ export default function CategoriesPage() {
 
   const fetchData = async () => {
     if (!effectiveShopIds.length) return
+    const cacheKey = `categories_${effectiveShopIds.join(',')}`
+    const cached = getPageCache<any>(cacheKey)
+    if (cached) { setCategories(cached.categories); setProducts(cached.products); setLoading(false) }
     try {
       const [catData, prodData] = await Promise.all([
         supabase.from('categories').select('*').in('shop_id', effectiveShopIds).order('name'),
@@ -141,10 +144,9 @@ export default function CategoriesPage() {
       const fetchedProducts = (prodData.data || []) as unknown as Product[]
       setCategories(fetchedCategories)
       setProducts(fetchedProducts)
-      setPageCache(`categories_${effectiveShopIds.join(',')}`, { categories: fetchedCategories, products: fetchedProducts })
+      setPageCache(cacheKey, { categories: fetchedCategories, products: fetchedProducts })
     } catch {
-      const cached = getPageCache<any>(`categories_${effectiveShopIds.join(',')}`)
-      if (cached) { setCategories(cached.categories); setProducts(cached.products) }
+      // cache already applied if available
     } finally {
       setLoading(false)
     }

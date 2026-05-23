@@ -82,14 +82,16 @@ export default function CustomersPage() {
 
   const fetchCustomers = async () => {
     if (!effectiveShopIds.length) return
+    const cacheKey = `customers_${effectiveShopIds.join(',')}`
+    const cached = getPageCache<Customer[]>(cacheKey)
+    if (cached) { setCustomers(cached); setLoading(false) }
     try {
       const { data } = await supabase
         .from('customers').select('*').in('shop_id', effectiveShopIds).order('name')
       setCustomers((data || []) as Customer[])
-      setPageCache(`customers_${effectiveShopIds.join(',')}`, data || [])
+      setPageCache(cacheKey, data || [])
     } catch {
-      const cached = getPageCache<Customer[]>(`customers_${effectiveShopIds.join(',')}`)
-      if (cached) setCustomers(cached)
+      // cache already applied if available
     } finally {
       setLoading(false)
     }

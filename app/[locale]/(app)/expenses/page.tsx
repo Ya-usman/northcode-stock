@@ -45,8 +45,10 @@ export default function ExpensesPage() {
 
   const fetchExpenses = async () => {
     if (!effectiveShopIds.length) return
-    setLoading(true)
     const cacheKey = `expenses_${effectiveShopIds.join(',')}_${monthFilter}`
+    const cached = getPageCache<Expense[]>(cacheKey)
+    if (cached) { setExpenses(cached); setLoading(false) }
+    else setLoading(true)
     const start = startOfMonth(new Date(monthFilter + '-01')).toISOString().slice(0, 10)
     const end = endOfMonth(new Date(monthFilter + '-01')).toISOString().slice(0, 10)
     try {
@@ -60,8 +62,7 @@ export default function ExpensesPage() {
       setExpenses((data || []) as Expense[])
       setPageCache(cacheKey, data || [])
     } catch {
-      const cached = getPageCache<Expense[]>(cacheKey)
-      if (cached) setExpenses(cached)
+      // cache already applied if available
     } finally {
       setLoading(false)
     }
