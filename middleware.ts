@@ -7,6 +7,7 @@ const intlMiddleware = createMiddleware({
   locales,
   defaultLocale,
   localePrefix: 'always',
+  localeDetection: false,
 })
 
 // Période d'accès gratuit bêta : 13 avril → 13 juillet 2026
