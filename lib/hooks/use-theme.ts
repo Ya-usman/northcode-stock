@@ -21,13 +21,12 @@ export function useTheme() {
     else root.classList.remove('dark')
   }, [isDark])
 
-  // Suit les changements système en temps réel (seulement si pas de préférence manuelle)
+  // Suit les changements système en temps réel — toujours prioritaire sur la préférence manuelle
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
     const handler = (e: MediaQueryListEvent) => {
-      if (!localStorage.getItem('theme')) {
-        setIsDark(e.matches)
-      }
+      setIsDark(e.matches)
+      localStorage.setItem('theme', e.matches ? 'dark' : 'light')
     }
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)

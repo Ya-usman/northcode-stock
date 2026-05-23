@@ -27,12 +27,12 @@
   }
 
   .dark {
-    /* ── StockShop dark palette — inspired by Vercel / Linear ── */
-    --background: 240 6% 4%;          /* #09090c  near-black base */
+    /* ── StockShop dark palette — blue-navy base ── */
+    --background: 215 60% 9%;         /* #091524  dark navy base */
     --foreground: 0 0% 94%;           /* #f0f0f0  primary text */
-    --card: 240 5% 8%;                /* #111115  card surface, slightly elevated */
+    --card: 215 35% 13%;              /* #101e30  card surface, elevated */
     --card-foreground: 0 0% 94%;
-    --popover: 240 5% 9%;
+    --popover: 215 35% 14%;
     --popover-foreground: 0 0% 94%;
     --primary: 217 91% 60%;           /* #3b82f6  blue-500, visible on dark */
     --primary-foreground: 0 0% 100%;
@@ -44,8 +44,8 @@
     --accent-foreground: 0 0% 94%;
     --destructive: 0 72% 51%;         /* #dc2626  red visible on dark */
     --destructive-foreground: 0 0% 98%;
-    --border: 240 4% 17%;             /* #252529  visible border */
-    --input: 240 4% 12%;              /* slightly darker than card */
+    --border: 215 25% 20%;             /* #263040  visible border */
+    --input: 215 35% 11%;              /* slightly darker than card */
     --ring: 217 91% 60%;
   }
 }

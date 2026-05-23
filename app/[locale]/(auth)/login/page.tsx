@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -42,6 +42,13 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
     ''
   )
   const [success, setSuccess] = useState('')
+
+  // Si déjà connecté → rediriger directement sur le dashboard
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) router.replace(`/${locale}/dashboard`)
+    })
+  }, [])
 
   const loginForm = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
