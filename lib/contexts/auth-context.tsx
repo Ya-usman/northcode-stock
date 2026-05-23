@@ -281,7 +281,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')) {
+      // TOKEN_REFRESHED: only the JWT changed — profile/shops are unchanged.
+      // Just update user reference in state; avoid 3-4 unnecessary Supabase queries.
+      if (event === 'TOKEN_REFRESHED' && session?.user) {
+        setState(prev => prev.profile ? { ...prev, user: session.user } : prev)
+        return
+      }
+
+      if (session?.user && (event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
         // Retry loop: profile may not exist yet if SIGNED_IN fires before /api/register completes
         let fetched = false
         for (let attempt = 0; attempt < 6; attempt++) {
@@ -387,23 +394,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Update last_seen every 3 minutes while the user is active
   useEffect(() => {
-    const updateLastSeen = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user) return
-      await (supabase as any).from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', session.user.id)
+    if (!state.user?.id) return
+    const userId = state.user.id
+    const updateLastSeen = () => {
+      // Fire-and-forget — use user id from closure, no network round-trip for session
+      ;(supabase as any).from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', userId).then(() => {})
     }
-    // Update immediately on mount
     updateLastSeen()
-    // Then every 3 minutes
     const interval = setInterval(updateLastSeen, 3 * 60 * 1000)
-    // Also update on visibility change (when user returns to tab)
     const onVisible = () => { if (document.visibilityState === 'visible') updateLastSeen() }
     document.addEventListener('visibilitychange', onVisible)
     return () => {
       clearInterval(interval)
       document.removeEventListener('visibilitychange', onVisible)
     }
-  }, [])
+  }, [state.user?.id])
 
   const updateLocale = useCallback((locale: string) => {
     localStorage.setItem('NEXT_LOCALE', locale)
