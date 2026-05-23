@@ -16,7 +16,6 @@ export default function Icon() {
           alignItems: 'center',
           justifyContent: 'center',
           background: 'white',
-          borderRadius: 8,
         }}
       >
         <div
