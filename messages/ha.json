@@ -40,7 +40,10 @@
     "invalid_credentials": "Imel ko kalmar sirri ba daidai ba ne.",
     "welcome_back": "Barka da dawowa",
     "no_account": "Ba ka da asusun ku?",
-    "register_link": "Ƙirƙiri asusun"
+    "register_link": "Ƙirƙiri asusun",
+    "or_separator": "ko",
+    "continue_google": "Ci gaba da Google",
+    "continue_apple": "Ci gaba da Apple"
   },
   "dashboard": {
     "title": "Taswirar Aiki",

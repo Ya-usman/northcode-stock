@@ -40,7 +40,10 @@
     "invalid_credentials": "Invalid email or password.",
     "welcome_back": "Welcome back",
     "no_account": "No account yet?",
-    "register_link": "Create an account"
+    "register_link": "Create an account",
+    "or_separator": "or",
+    "continue_google": "Continue with Google",
+    "continue_apple": "Continue with Apple"
   },
   "dashboard": {
     "title": "Dashboard",
