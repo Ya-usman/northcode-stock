@@ -5,9 +5,10 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, ShoppingBag, CreditCard, Package, Users,
-  TrendingUp, MoreHorizontal, X, LogOut,
+  TrendingUp, MoreHorizontal, X, LogOut, Sun, Moon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { useTheme } from '@/lib/hooks/use-theme'
 
 interface AdminBottomNavProps {
   locale: string
@@ -16,6 +17,7 @@ interface AdminBottomNavProps {
 export function AdminBottomNav({ locale }: AdminBottomNavProps) {
   const pathname = usePathname()
   const [moreOpen, setMoreOpen] = useState(false)
+  const { isDark, toggle } = useTheme()
 
   const primaryItems = [
     { href: `/${locale}/admin`,           label: 'Command Center', icon: LayoutDashboard },
@@ -119,6 +121,14 @@ export function AdminBottomNav({ locale }: AdminBottomNavProps) {
                   <LogOut className="h-5 w-5" />
                   <span className="text-[10px] font-medium leading-none text-center">App</span>
                 </Link>
+
+                <button
+                  onClick={() => { toggle(); setMoreOpen(false) }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl p-3 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                >
+                  {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                  <span className="text-[10px] font-medium leading-none text-center">{isDark ? 'Clair' : 'Sombre'}</span>
+                </button>
               </div>
             </div>
             <div className="h-2" />

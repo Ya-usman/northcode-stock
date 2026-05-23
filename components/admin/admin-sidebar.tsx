@@ -4,9 +4,10 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, ShoppingBag, CreditCard, Package, Users,
-  TrendingUp, LogOut, ChevronRight, ShieldCheck,
+  TrendingUp, LogOut, ChevronRight, ShieldCheck, Sun, Moon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { useTheme } from '@/lib/hooks/use-theme'
 
 interface AdminSidebarProps {
   locale: string
@@ -39,6 +40,7 @@ const navSections = (locale: string) => [
 
 export function AdminSidebar({ locale, userEmail }: AdminSidebarProps) {
   const pathname = usePathname()
+  const { isDark, toggle } = useTheme()
 
   const isActive = (href: string) =>
     href === `/${locale}/admin`
@@ -79,13 +81,23 @@ export function AdminSidebar({ locale, userEmail }: AdminSidebarProps) {
             </div>
             <p className="text-xs font-bold text-stockshop-gold tracking-wide">ADMIN PANEL</p>
           </div>
-          {/* Live status */}
-          <div className="flex items-center gap-1">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-400" />
-            </span>
-            <span className="text-[8px] font-bold text-green-400 tracking-widest">LIVE</span>
+          <div className="flex items-center gap-2">
+            {/* Live status */}
+            <div className="flex items-center gap-1">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-400" />
+              </span>
+              <span className="text-[8px] font-bold text-green-400 tracking-widest">LIVE</span>
+            </div>
+            {/* Theme toggle */}
+            <button
+              onClick={toggle}
+              className="flex h-5 w-5 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 text-white transition-colors"
+              title={isDark ? 'Mode clair' : 'Mode sombre'}
+            >
+              {isDark ? <Sun className="h-3 w-3" /> : <Moon className="h-3 w-3" />}
+            </button>
           </div>
         </div>
       </div>
