@@ -124,7 +124,11 @@ export function AdminSidebar({ locale, userEmail }: AdminSidebarProps) {
 
       {/* User footer */}
       <div className="border-t border-border p-3">
-        <div className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-accent/50 transition-colors">
+        <Link
+          href={`/${locale}/dashboard`}
+          title="Back to App"
+          className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-accent/50 transition-colors"
+        >
           <div
             className="h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ring-2 ring-stockshop-gold/40"
             style={{ background: 'linear-gradient(135deg, #073e8a 0%, #0d52b8 100%)' }}
@@ -138,14 +142,8 @@ export function AdminSidebar({ locale, userEmail }: AdminSidebarProps) {
               <span className="text-[9px] font-bold text-stockshop-gold tracking-wide">SUPER ADMIN</span>
             </span>
           </div>
-          <Link
-            href={`/${locale}/dashboard`}
-            title="Back to App"
-            className="h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex-shrink-0"
-          >
-            <LogOut className="h-4 w-4" />
-          </Link>
-        </div>
+          <LogOut className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+        </Link>
       </div>
     </aside>
   )
