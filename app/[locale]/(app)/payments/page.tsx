@@ -227,13 +227,11 @@ export default function DettesPage() {
   const fetchDebtors = async (quiet = false) => {
     if (!effectiveShopIds.length) return
     const cacheKey = `debtors_${effectiveShopIds.join(',')}`
-    if (!quiet) {
-      const cached = getPageCache<any[]>(cacheKey)
-      if (cached) { setDebtors(cached); setLoading(false); setRefreshing(true) }
-      else setLoading(true)
-    } else {
-      setRefreshing(true)
-    }
+    // Always serve cache immediately — before any loading state change
+    const cached = getPageCache<any[]>(cacheKey)
+    if (cached) { setDebtors(cached); setLoading(false) }
+    if (!cached && !quiet) setLoading(true)
+    setRefreshing(true)
     try {
       const res = await fetch(`/api/payments/debts?shop_ids=${effectiveShopIds.join(',')}`)
       const data = await res.json()
