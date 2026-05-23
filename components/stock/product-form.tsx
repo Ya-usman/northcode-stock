@@ -9,7 +9,6 @@ import { Input } from '@/components/ui/input'
 import { NumericInput } from '@/components/ui/numeric-input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { DialogFooter } from '@/components/ui/dialog'
 import { productSchema, type ProductFormData } from '@/lib/validations/product'
 import type { Category, Supplier } from '@/lib/types/database'
 import dynamic from 'next/dynamic'
@@ -42,6 +41,7 @@ export function ProductForm({
   const t = useTranslations()
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
   const [showScanner, setShowScanner] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -130,7 +130,8 @@ export function ProductForm({
   const imageUrl = form.watch('image_url')
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 overflow-y-auto max-h-[75vh] px-1">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col">
+      <div className="flex-1 space-y-3 p-5 pb-3">
       <div className="grid grid-cols-2 gap-3">
 
         {/* Name */}
@@ -314,17 +315,38 @@ export function ProductForm({
             </div>
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => shopId && fileInputRef.current?.click()}
-            disabled={!shopId || uploadingImage}
-            className="w-full h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:border-primary hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <ImagePlus className="h-5 w-5" />
-            <span className="text-xs">Choisir une photo</span>
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => shopId && cameraInputRef.current?.click()}
+              disabled={!shopId || uploadingImage}
+              className="flex-1 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:border-primary hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Camera className="h-5 w-5" />
+              <span className="text-xs">Prendre une photo</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => shopId && fileInputRef.current?.click()}
+              disabled={!shopId || uploadingImage}
+              className="flex-1 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:border-primary hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ImagePlus className="h-5 w-5" />
+              <span className="text-xs">Choisir une photo</span>
+            </button>
+          </div>
         )}
 
+        {/* Camera capture (Android: opens camera directly) */}
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={handleImageSelect}
+        />
+        {/* Gallery / file picker */}
         <input
           ref={fileInputRef}
           type="file"
@@ -334,7 +356,9 @@ export function ProductForm({
         />
       </div>
 
-      <div className="px-5 pb-5 pt-2 flex justify-center gap-3">
+      </div>{/* end scrollable area */}
+
+      <div className="sticky bottom-0 bg-background px-5 pb-5 pt-3 flex justify-center gap-3 border-t border-border/40 shrink-0">
         <Button
           type="button"
           variant="ghost"
@@ -346,7 +370,7 @@ export function ProductForm({
         <Button
           type="submit"
           disabled={saving || uploadingImage}
-          className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500 dark:hover:bg-blue-600"
+          className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light"
         >
           {saving ? t('actions.saving') : isEdit ? t('actions.update') : t('actions.save')}
         </Button>

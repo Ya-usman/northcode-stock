@@ -537,21 +537,17 @@ const fetchProducts = async () => {
 
       {/* Add Product Modal */}
       <PremiumDialog open={showAddModal} onOpenChange={setShowAddModal} category={t('nav.stock')} title={t('actions.add_product')} icon={<Package className="h-4 w-4" />} maxWidth="max-w-lg">
-        <div className="p-5">
-          {showAddModal && <ProductForm key="add" {...productFormProps} onSubmit={onAddProduct} onCancel={() => setShowAddModal(false)} />}
-        </div>
+        {showAddModal && <ProductForm key="add" {...productFormProps} onSubmit={onAddProduct} onCancel={() => setShowAddModal(false)} />}
       </PremiumDialog>
 
       {/* Edit Product Modal */}
       <PremiumDialog open={!!editingProduct} onOpenChange={open => !open && setEditingProduct(null)} category={t('nav.stock')} title={t('products.edit_title')} icon={<Edit2 className="h-4 w-4" />} maxWidth="max-w-lg">
-        <div className="p-5">
-          {editingProduct && (
-            <ProductForm key={editingProduct.id} {...productFormProps} isEdit
-              defaultValues={{ name: editingProduct.name, name_hausa: editingProduct.name_hausa || '', category_id: editingProduct.category_id || '', supplier_id: editingProduct.supplier_id || '', buying_price: editingProduct.buying_price, selling_price: editingProduct.selling_price, quantity: editingProduct.quantity, unit: editingProduct.unit, low_stock_threshold: editingProduct.low_stock_threshold || undefined, sku: editingProduct.sku || '', image_url: editingProduct.image_url || '' }}
-              onSubmit={onEditProduct} onCancel={() => setEditingProduct(null)}
-            />
-          )}
-        </div>
+        {editingProduct && (
+          <ProductForm key={editingProduct.id} {...productFormProps} isEdit
+            defaultValues={{ name: editingProduct.name, name_hausa: editingProduct.name_hausa || '', category_id: editingProduct.category_id || '', supplier_id: editingProduct.supplier_id || '', buying_price: editingProduct.buying_price, selling_price: editingProduct.selling_price, quantity: editingProduct.quantity, unit: editingProduct.unit, low_stock_threshold: editingProduct.low_stock_threshold || undefined, sku: editingProduct.sku || '', image_url: editingProduct.image_url || '' }}
+            onSubmit={onEditProduct} onCancel={() => setEditingProduct(null)}
+          />
+        )}
       </PremiumDialog>
 
       {/* Categories Modal */}
