@@ -148,7 +148,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
         await supabase.auth.refreshSession()
         await fetch('/api/auth/set-role', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
         // Hard reload to fully reinitialize the auth context with the new account's data
-        window.location.href = `/${locale}/dashboard`
+        router.push(`/${locale}/dashboard`)
       } else {
         // Email confirmation required — account + shop created, user must confirm email
         authUserId = null

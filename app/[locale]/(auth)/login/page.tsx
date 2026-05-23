@@ -76,7 +76,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
     // Sync to browser for this session
     localStorage.setItem('NEXT_LOCALE', preferredLocale)
     setLocaleCookie(preferredLocale)
-    window.location.href = `/${preferredLocale}/dashboard`
+    router.push(`/${preferredLocale}/dashboard`)
   }
 
   const onForgot = async (data: ForgotData) => {
@@ -135,13 +135,13 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
                   <div className="space-y-1.5">
                     <Label htmlFor="email">{t('email')}</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-gray-500" />
                       <Input
                         id="email"
                         type="email"
                         autoComplete="email"
                         placeholder="admin@stockshop.ng"
-                        className="pl-9"
+                        className="pl-9 dark:bg-white dark:text-gray-900 dark:placeholder:text-gray-400 dark:border-white/30"
                         {...loginForm.register('email')}
                       />
                     </div>
@@ -153,19 +153,19 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
                   <div className="space-y-1.5">
                     <Label htmlFor="password">{t('password')}</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-gray-500" />
                       <Input
                         id="password"
                         type={showPwd ? 'text' : 'password'}
                         autoComplete="current-password"
                         placeholder="••••••••"
-                        className="pl-9 pr-10"
+                        className="pl-9 pr-10 dark:bg-white dark:text-gray-900 dark:placeholder:text-gray-400 dark:border-white/30"
                         {...loginForm.register('password')}
                       />
                       <button
                         type="button"
                         onClick={() => setShowPwd(!showPwd)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-gray-500 hover:text-foreground dark:hover:text-gray-700"
                       >
                         {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
@@ -232,11 +232,11 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
                     <div className="space-y-1.5">
                       <Label htmlFor="reset-email">{t('email')}</Label>
                       <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-gray-500" />
                         <Input
                           id="reset-email"
                           type="email"
-                          className="pl-9"
+                          className="pl-9 dark:bg-white dark:text-gray-900 dark:placeholder:text-gray-400 dark:border-white/30"
                           placeholder="your@email.com"
                           {...forgotForm.register('email')}
                         />
