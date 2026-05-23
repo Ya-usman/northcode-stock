@@ -497,7 +497,7 @@ export default function DettesPage() {
                   </Button>
                 </a>
               )}
-              <Button className="w-full h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500"
+              <Button className="w-full h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light"
                 onClick={() => { setRepayDebtor(null); setReceiptResult(null) }}>
                 {t('actions.close')}
               </Button>

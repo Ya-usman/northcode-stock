@@ -191,7 +191,7 @@ export default function NotesPage() {
           </select>
         )}
 
-        <Button onClick={openCreate} className="gap-2 shrink-0 bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500 dark:hover:bg-blue-600">
+        <Button onClick={openCreate} className="gap-2 shrink-0 bg-stockshop-blue hover:bg-stockshop-blue-light">
           <Plus className="h-4 w-4" />
           Nouvelle note
         </Button>

@@ -150,7 +150,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
               <div className="flex items-center gap-3">
                 <div className={cn(
                   'flex h-10 w-10 items-center justify-center rounded-lg font-bold text-sm flex-shrink-0',
-                  isActive ? 'bg-stockshop-blue dark:bg-blue-500 text-white' : 'bg-muted text-muted-foreground'
+                  isActive ? 'bg-stockshop-blue text-white' : 'bg-muted text-muted-foreground'
                 )}>
                   {shop.name.slice(0, 2).toUpperCase()}
                 </div>
@@ -158,7 +158,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-sm truncate">{shop.name}</p>
                     {isActive && (
-                      <Badge className="bg-stockshop-blue dark:bg-blue-500 text-white text-[10px] px-1.5 py-0.5 flex items-center gap-1 flex-shrink-0">
+                      <Badge className="bg-stockshop-blue text-white text-[10px] px-1.5 py-0.5 flex items-center gap-1 flex-shrink-0">
                         <CheckCircle2 className="h-2.5 w-2.5" /> {t('shops.active')}
                       </Badge>
                     )}

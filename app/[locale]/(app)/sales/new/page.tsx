@@ -846,7 +846,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             onClick={() => setCategoryFilter('all')}
             className={`flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
               categoryFilter === 'all'
-                ? 'bg-stockshop-blue dark:bg-blue-500 text-white'
+                ? 'bg-stockshop-blue text-white'
                 : 'bg-muted text-muted-foreground hover:bg-muted'
             }`}
           >
@@ -858,7 +858,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               onClick={() => setCategoryFilter(cat.id)}
               className={`flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                 categoryFilter === cat.id
-                  ? 'bg-stockshop-blue dark:bg-blue-500 text-white'
+                  ? 'bg-stockshop-blue text-white'
                   : 'bg-muted text-muted-foreground hover:bg-muted'
               }`}
             >
@@ -1339,7 +1339,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               Mettre en attente
             </Button>
             <Button
-              className="flex-[2] h-12 text-base bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500 dark:hover:bg-blue-600"
+              className="flex-[2] h-12 text-base bg-stockshop-blue hover:bg-stockshop-blue-light"
               onClick={completeSale}
               loading={completing}
               disabled={cart.length === 0 || completing}
@@ -1452,7 +1452,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   {draft.cart.map(i => `${i.product.name} ×${i.quantity}`).join(', ')}
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" className="flex-1 h-8 bg-stockshop-blue dark:bg-blue-500 gap-1" onClick={() => resumeDraft(draft)}>
+                  <Button size="sm" className="flex-1 h-8 bg-stockshop-blue gap-1" onClick={() => resumeDraft(draft)}>
                     <PlayCircle className="h-3.5 w-3.5" /> Reprendre
                   </Button>
                   <Button size="sm" variant="outline" className="h-8 border-red-200 text-red-500 hover:bg-red-50"
@@ -1482,7 +1482,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   {selectedShop?.logo_url ? (
                     <img src={selectedShop.logo_url} alt={selectedShop.name} className="h-8 w-8 object-contain rounded" />
                   ) : (
-                    <div className="h-8 w-8 rounded bg-blue-600 dark:bg-blue-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                    <div className="h-8 w-8 rounded bg-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                       {selectedShop?.name?.slice(0, 2).toUpperCase() || 'SS'}
                     </div>
                   )}
@@ -1526,7 +1526,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   {isCapacitor() ? t('actions.share') : t('actions.print_receipt')}
                 </Button>
               </div>
-              <Button className="w-full h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500 dark:hover:bg-blue-600"
+              <Button className="w-full h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light"
                 onClick={() => { setShowReceipt(false) }}>
                 {t('sales.new_sale_cta')}
               </Button>

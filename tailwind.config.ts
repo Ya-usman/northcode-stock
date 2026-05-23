@@ -52,9 +52,9 @@ const config: Config = {
         },
         // StockShop brand colors
         stockshop: {
-          blue: '#1d4ed8',
-          'blue-light': '#2563eb',
-          'blue-muted': '#eff6ff',
+          blue: '#073e8a',
+          'blue-light': '#0d52b8',
+          'blue-muted': '#e8eef8',
           gold: '#D4AF37',
           'gold-light': '#F5E580',
           green: '#16A34A',

@@ -181,14 +181,14 @@ export function ImportProductsModal({ open, onClose, shopId, onImported }: Props
       <PremiumDialogFooter onCancel={() => { reset(); onClose() }}>
         {!result ? (
           <Button
-            className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500 dark:hover:bg-blue-600"
+            className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light"
             disabled={rows.length === 0 || importing}
             onClick={handleImport}
           >
             {importing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Import en cours…</> : `Importer ${rows.length} produit${rows.length > 1 ? 's' : ''}`}
           </Button>
         ) : (
-          <Button onClick={() => { reset(); onClose() }} className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500 dark:hover:bg-blue-600">
+          <Button onClick={() => { reset(); onClose() }} className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light">
             Fermer
           </Button>
         )}

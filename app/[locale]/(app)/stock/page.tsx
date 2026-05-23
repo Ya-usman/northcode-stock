@@ -416,7 +416,7 @@ const fetchProducts = async () => {
               <Upload className="h-3.5 w-3.5" /> CSV
             </Button>
             <Button
-              className="h-9 gap-1 bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500"
+              className="h-9 gap-1 bg-stockshop-blue hover:bg-stockshop-blue-light"
               size="sm"
               disabled={saving}
               onClick={() => { setEditingProduct(null); setShowRestockModal(false); setShowAddModal(true) }}
@@ -555,7 +555,7 @@ const fetchProducts = async () => {
         <PremiumDialogBody>
           <div className="flex gap-2">
             <Input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder={t('categories.add_placeholder')} onKeyDown={e => e.key === 'Enter' && addCategory()} />
-            <Button onClick={addCategory} loading={savingCat} className="bg-stockshop-blue dark:bg-blue-500 shrink-0 rounded-xl">
+            <Button onClick={addCategory} loading={savingCat} className="bg-stockshop-blue shrink-0 rounded-xl">
               <Plus className="h-4 w-4" />
             </Button>
           </div>
@@ -682,7 +682,7 @@ const fetchProducts = async () => {
             </div>
           </PremiumDialogBody>
           <PremiumDialogFooter onCancel={() => setShowRestockModal(false)} cancelLabel={t('actions.cancel')}>
-            <Button type="submit" loading={saving} className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500">{t('actions.restock')}</Button>
+            <Button type="submit" loading={saving} className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light">{t('actions.restock')}</Button>
           </PremiumDialogFooter>
         </form>
       </PremiumDialog>

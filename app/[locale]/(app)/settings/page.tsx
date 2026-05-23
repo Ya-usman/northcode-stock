@@ -492,7 +492,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
         <Button
           onClick={saveSettings}
           loading={saving}
-          className="w-full h-12 bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500"
+          className="w-full h-12 bg-stockshop-blue hover:bg-stockshop-blue-light"
           size="lg"
         >
           <Save className="mr-2 h-4 w-4" />
