@@ -2,7 +2,7 @@
   "name": "StockShop",
   "short_name": "StockShop",
   "description": "Gérez votre boutique facilement avec StockShop",
-  "start_url": "/en/dashboard",
+  "start_url": "/en/login",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
