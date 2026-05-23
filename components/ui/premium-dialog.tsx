@@ -27,11 +27,15 @@ export function PremiumDialog({
 }: PremiumDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn(
-        'p-0 gap-0',
-        '[&>button]:text-white [&>button]:bg-white/20 [&>button]:hover:bg-white/35',
-        maxWidth
-      )}>
+      <DialogContent
+        className={cn(
+          'p-0 gap-0',
+          '[&>button]:text-white [&>button]:bg-white/20 [&>button]:hover:bg-white/35',
+          maxWidth
+        )}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <div className="rounded-lg">
           {/* Blue header */}
           <div className="bg-stockshop-blue rounded-t-lg px-5 pt-5 pb-4 pr-12">

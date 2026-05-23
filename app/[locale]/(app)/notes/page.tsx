@@ -191,7 +191,7 @@ export default function NotesPage() {
           </select>
         )}
 
-        <Button onClick={openCreate} className="gap-2 shrink-0">
+        <Button onClick={openCreate} className="gap-2 shrink-0 bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500 dark:hover:bg-blue-600">
           <Plus className="h-4 w-4" />
           Nouvelle note
         </Button>
@@ -321,12 +321,13 @@ export default function NotesPage() {
             </div>
           </div>
         </PremiumDialogBody>
-        <PremiumDialogFooter>
-          <Button variant="outline" onClick={closeModal} disabled={saving}>Annuler</Button>
-          <Button onClick={save} disabled={saving || (!content.trim() && !title.trim())}>
-            {saving ? 'Enregistrement…' : editing ? 'Modifier' : 'Créer'}
-          </Button>
-        </PremiumDialogFooter>
+        <PremiumDialogFooter
+          onCancel={closeModal}
+          onConfirm={save}
+          confirmLabel={editing ? 'Modifier' : 'Créer'}
+          confirmDisabled={saving || (!content.trim() && !title.trim())}
+          confirmLoading={saving}
+        />
       </PremiumDialog>
     </div>
   )
