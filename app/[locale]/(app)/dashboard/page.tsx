@@ -103,21 +103,23 @@ export default function DashboardPage() {
 
   const loadDashboard = useCallback(async (quiet = false) => {
     if (shopIds.length === 0) return
-    if (loadingRef.current) return
-    loadingRef.current = true
-
-    const isCashier = (roleInActiveShop ?? profile?.role) === 'cashier'
-    const cashierId = profile?.id
 
     const shopKey = `${profile?.id}:${shopIds.join(',')}`
 
-    // ── Serve cache immediately (always, including on visibility return) ──
+    // ── Serve cache immediately — before any guard so unlock is always instant ──
     const cached = readDashCache(shopKey)
     if (cached) {
       applyDashData(cached.todaySalesCount, cached.todayRevenue, cached.outstandingDebt,
         cached.recentSales, cached.repaymentItems ?? [], cached.revenueData, cached.topProducts, cached.lowStock, cached.outOfStock)
       setFirstLoad(false)
     }
+
+    // Don't start a new network fetch if one is already in flight
+    if (loadingRef.current) return
+    loadingRef.current = true
+
+    const isCashier = (roleInActiveShop ?? profile?.role) === 'cashier'
+    const cashierId = profile?.id
 
     if (quiet) setRefreshing(true)
 
