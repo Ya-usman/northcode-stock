@@ -38,7 +38,7 @@ function readDashCache(shopKey: string): DashCache | null {
     if (!raw) return null
     const c: DashCache = JSON.parse(raw)
     // Online: cache valid 1 minute (stale-while-revalidate). Offline: accept up to 24h.
-    const ttl = navigator.onLine ? 60_000 : 24 * 60 * 60 * 1000
+    const ttl = navigator.onLine ? 600_000 : 24 * 60 * 60 * 1000
     if (c.shopKey !== shopKey || Date.now() - c.savedAt > ttl) return null
     return c
   } catch { return null }

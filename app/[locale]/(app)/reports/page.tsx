@@ -16,7 +16,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrency } from '@/lib/hooks/use-currency'
-import { generateReportPDF } from '@/lib/utils/pdf'
+import { useToast } from '@/components/ui/use-toast'
+import { generateReportPDFBlob, savePDF } from '@/lib/utils/pdf'
+import { cn } from '@/lib/utils/cn'
 import { format, startOfDay, endOfDay, startOfMonth, startOfWeek, startOfQuarter, startOfYear } from 'date-fns'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 
@@ -29,6 +31,7 @@ export default function ReportsPage() {
   const isCashier = effectiveRole === 'cashier'
   const isMultiShop = effectiveShopIds.length > 1
   const { fmt: formatNaira, symbol: currencySymbol } = useCurrency()
+  const { toast } = useToast()
   const supabase = createClient() as any
 
   const today = format(new Date(), 'yyyy-MM-dd')
@@ -37,6 +40,7 @@ export default function ReportsPage() {
   )
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
+  const [pendingPdf, setPendingPdf] = useState<{ blob: Blob; name: string } | null>(null)
 
   const [revenueByMethod, setRevenueByMethod] = useState<{ name: string; value: number }[]>([])
   const [topProducts, setTopProducts] = useState<{ name: string; qty: number; revenue: number }[]>([])
@@ -270,85 +274,107 @@ export default function ReportsPage() {
     fetchReports()
   }, [effectiveShopIds.join(','), dateFilter, dateFilter === 'custom' ? customStart : '', dateFilter === 'custom' ? customEnd : ''])
 
+  const buildPdfParams = () => {
+    const { start, end } = getDateRange()
+    const dateRange = `${format(new Date(start), 'dd MMM yyyy')} – ${format(new Date(end), 'dd MMM yyyy')}`
+    return {
+      shopName: shop!.name,
+      dateRange,
+      labels: {
+        businessReport: t('reports.pdf_business_report'),
+        generatedBy: t('reports.pdf_generated_by'),
+        page: t('reports.pdf_page'),
+        of: t('reports.pdf_of'),
+      },
+      sections: [
+        {
+          title: t('reports.encaisse') + ' / ' + t('reports.cash_in_register'),
+          headers: [t('reports.col_metric'), t('reports.col_value')],
+          rows: [
+            [t('reports.encaisse'), formatNaira(totals.revenue)],
+            ['Marge brute sur ventes', formatNaira(totals.profit)],
+            [t('expenses.title'), formatNaira(totalExpenses)],
+            [t('expenses.net_profit'), formatNaira(totals.profit - totalExpenses)],
+            [t('reports.outstanding_debt'), formatNaira(outstandingDebt)],
+            [t('reports.transactions'), String(totals.sales)],
+          ],
+        },
+        {
+          title: t('reports.revenue_by_method'),
+          headers: [t('reports.col_method'), currencySymbol, t('reports.col_share')],
+          rows: revenueByMethod.map(m => [
+            m.name,
+            formatNaira(m.value),
+            totals.revenue > 0 ? `${((m.value / totals.revenue) * 100).toFixed(1)}%` : '0%',
+          ]),
+        },
+        {
+          title: t('reports.full_inventory'),
+          headers: isCashier
+            ? [t('reports.col_product'), t('reports.col_stock'), t('reports.col_sold_qty'), t('reports.col_selling_price')]
+            : [t('reports.col_product'), t('reports.col_stock'), t('reports.col_sold_qty'), t('reports.col_buying_price'), t('reports.col_selling_price')],
+          rows: allInventory.map(p => isCashier
+            ? [p.name, p.quantity, p.soldQty || '—', formatNaira(p.selling_price)]
+            : [p.name, p.quantity, p.soldQty || '—', formatNaira(p.buying_price), formatNaira(p.selling_price)]
+          ),
+        },
+        ...(!isCashier ? [{
+          title: t('reports.stock_valuation'),
+          headers: [t('reports.col_metric'), t('reports.col_value')],
+          rows: [
+            [t('reports.buying_value'), formatNaira(stockValuation.buyingValue)],
+            [t('reports.selling_value'), formatNaira(stockValuation.sellingValue)],
+            [t('reports.potential_profit'), formatNaira(stockValuation.potentialProfit)],
+          ],
+        }] : []),
+        ...(expenses.length > 0 ? [{
+          title: t('expenses.title'),
+          headers: ['Date', 'Description', 'Montant'],
+          rows: [
+            ...expenses.map(e => [format(new Date(e.date), 'dd MMM yyyy'), e.description, formatNaira(e.amount)]),
+            ['', 'Total', formatNaira(totalExpenses)],
+          ],
+        }] : []),
+        {
+          title: t('reports.cashier_performance'),
+          headers: isMultiShop
+            ? [t('reports.col_rank'), t('reports.col_cashier'), t('nav.shops'), t('reports.col_sales'), t('reports.col_revenue')]
+            : [t('reports.col_rank'), t('reports.col_cashier'), t('reports.col_sales'), t('reports.col_revenue')],
+          rows: (isCashier ? cashierPerf.filter(c => c.id === profile?.id) : cashierPerf).map((c, idx) => isMultiShop
+            ? [isCashier ? '—' : c.sales > 0 ? idx + 1 : '—', c.name, c.shopName || '', c.sales, c.sales > 0 ? formatNaira(c.revenue) : '—']
+            : [isCashier ? '—' : c.sales > 0 ? idx + 1 : '—', c.name, c.sales, c.sales > 0 ? formatNaira(c.revenue) : '—']
+          ),
+        },
+      ],
+    }
+  }
+
   const exportPDF = async () => {
+    const isAndroid = /Android/i.test(navigator.userAgent)
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+
+    // Mobile: second tap = blob already generated, download with fresh user gesture
+    if (pendingPdf) {
+      const { blob, name } = pendingPdf
+      setPendingPdf(null)
+      await savePDF(blob, name)
+      return
+    }
+
     if (!shop) {
       toast({ title: t('reports.error_no_shop'), variant: 'destructive' })
       return
     }
     setExporting(true)
     try {
-      const { start, end } = getDateRange()
-      const dateRange = `${format(new Date(start), 'dd MMM yyyy')} – ${format(new Date(end), 'dd MMM yyyy')}`
-      await generateReportPDF({
-        shopName: shop.name,
-        dateRange,
-        labels: {
-          businessReport: t('reports.pdf_business_report'),
-          generatedBy: t('reports.pdf_generated_by'),
-          page: t('reports.pdf_page'),
-          of: t('reports.pdf_of'),
-        },
-        sections: [
-          {
-            title: t('reports.encaisse') + ' / ' + t('reports.cash_in_register'),
-            headers: [t('reports.col_metric'), t('reports.col_value')],
-            rows: [
-              [t('reports.encaisse'), formatNaira(totals.revenue)],
-              ['Marge brute sur ventes', formatNaira(totals.profit)],
-              [t('expenses.title'), formatNaira(totalExpenses)],
-              [t('expenses.net_profit'), formatNaira(totals.profit - totalExpenses)],
-              [t('reports.outstanding_debt'), formatNaira(outstandingDebt)],
-              [t('reports.transactions'), String(totals.sales)],
-            ],
-          },
-          {
-            title: t('reports.revenue_by_method'),
-            headers: [t('reports.col_method'), currencySymbol, t('reports.col_share')],
-            rows: revenueByMethod.map(m => [
-              m.name,
-              formatNaira(m.value),
-              totals.revenue > 0 ? `${((m.value / totals.revenue) * 100).toFixed(1)}%` : '0%',
-            ]),
-          },
-          {
-            title: t('reports.full_inventory'),
-            headers: isCashier
-              ? [t('reports.col_product'), t('reports.col_stock'), t('reports.col_sold_qty'), t('reports.col_selling_price')]
-              : [t('reports.col_product'), t('reports.col_stock'), t('reports.col_sold_qty'), t('reports.col_buying_price'), t('reports.col_selling_price')],
-            rows: allInventory.map(p => isCashier
-              ? [p.name, p.quantity, p.soldQty || '—', formatNaira(p.selling_price)]
-              : [p.name, p.quantity, p.soldQty || '—', formatNaira(p.buying_price), formatNaira(p.selling_price)]
-            ),
-          },
-          ...(!isCashier ? [{
-            title: t('reports.stock_valuation'),
-            headers: [t('reports.col_metric'), t('reports.col_value')],
-            rows: [
-              [t('reports.buying_value'), formatNaira(stockValuation.buyingValue)],
-              [t('reports.selling_value'), formatNaira(stockValuation.sellingValue)],
-              [t('reports.potential_profit'), formatNaira(stockValuation.potentialProfit)],
-            ],
-          }] : []),
-          ...(expenses.length > 0 ? [{
-            title: t('expenses.title'),
-            headers: ['Date', 'Description', 'Montant'],
-            rows: [
-              ...expenses.map(e => [format(new Date(e.date), 'dd MMM yyyy'), e.description, formatNaira(e.amount)]),
-              ['', 'Total', formatNaira(totalExpenses)],
-            ],
-          }] : []),
-          {
-            title: t('reports.cashier_performance'),
-            headers: isMultiShop
-              ? [t('reports.col_rank'), t('reports.col_cashier'), t('nav.shops'), t('reports.col_sales'), t('reports.col_revenue')]
-              : [t('reports.col_rank'), t('reports.col_cashier'), t('reports.col_sales'), t('reports.col_revenue')],
-            rows: (isCashier ? cashierPerf.filter(c => c.id === profile?.id) : cashierPerf).map((c, idx) => isMultiShop
-              ? [isCashier ? '—' : c.sales > 0 ? idx + 1 : '—', c.name, c.shopName || '', c.sales, c.sales > 0 ? formatNaira(c.revenue) : '—']
-              : [isCashier ? '—' : c.sales > 0 ? idx + 1 : '—', c.name, c.sales, c.sales > 0 ? formatNaira(c.revenue) : '—']
-            ),
-          },
-        ],
-      })
+      const { blob, fileName } = await generateReportPDFBlob(buildPdfParams())
+      if (isAndroid || isIOS) {
+        // After multiple awaits, gesture context is lost on mobile.
+        // Store blob and let user tap again (fresh gesture) to trigger share/download.
+        setPendingPdf({ blob, name: fileName })
+      } else {
+        await savePDF(blob, fileName)
+      }
     } catch (err) {
       console.error('[exportPDF]', err)
       toast({ title: t('reports.error_pdf'), description: String(err), variant: 'destructive' })
@@ -374,10 +400,24 @@ export default function ReportsPage() {
               <SelectItem value="custom">Période personnalisée</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" onClick={exportPDF} loading={exporting} className="gap-1.5 h-9 px-3 text-xs sm:text-sm">
+          <Button
+            variant={pendingPdf ? 'default' : 'outline'}
+            onClick={exportPDF}
+            loading={exporting}
+            className={cn(
+              'gap-1.5 h-9 px-3 text-xs sm:text-sm',
+              pendingPdf && 'bg-green-600 hover:bg-green-700 text-white border-green-600'
+            )}
+          >
             <Download className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">{t('actions.download_pdf')}</span>
-            <span className="sm:hidden">PDF</span>
+            {pendingPdf ? (
+              <span>Appuyez pour télécharger</span>
+            ) : (
+              <>
+                <span className="hidden sm:inline">{t('actions.download_pdf')}</span>
+                <span className="sm:hidden">PDF</span>
+              </>
+            )}
           </Button>
         </div>
 
