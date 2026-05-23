@@ -5,8 +5,12 @@ import { WifiOff, ShoppingCart, RefreshCw } from 'lucide-react'
 export default function OfflinePage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-950 p-6 text-center">
-      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-red-50 dark:bg-red-950/40 mb-6">
-        <WifiOff className="h-10 w-10 text-red-500 dark:text-red-400" />
+      <div className="flex items-center justify-center bg-white rounded-2xl p-4 shadow-sm mb-6">
+        <img src="/logo-removebg.png" alt="StockShop" width={72} height={72} />
+      </div>
+
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-50 dark:bg-red-950/40 mb-5">
+        <WifiOff className="h-8 w-8 text-red-500 dark:text-red-400" />
       </div>
 
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">

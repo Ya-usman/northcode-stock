@@ -56,7 +56,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             backgroundColor: 'var(--background, #ffffff)',
           }}
         >
-          <img src="/logo-icon.png" alt="StockShop" width={80} height={80} style={{ borderRadius: 20 }} />
+          <div style={{ background: '#ffffff', borderRadius: 20, padding: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <img src="/logo-removebg.png" alt="StockShop" width={64} height={64} />
+          </div>
           <div style={{
             width: 40, height: 4, borderRadius: 2, overflow: 'hidden',
             backgroundColor: 'rgba(128,128,128,0.2)',
