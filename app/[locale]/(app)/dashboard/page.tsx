@@ -51,7 +51,7 @@ function writeDashCache(data: Omit<DashCache, 'savedAt'>) {
 export default function DashboardPage() {
   const t = useTranslations()
   const locale = useLocale()
-  const { profile, shop, userShops, dashboardShopFilter, setDashboardShopFilter, roleInActiveShop } = useAuth()
+  const { profile, shop, userShops, dashboardShopFilter, setDashboardShopFilter, roleInActiveShop, loading: authLoading } = useAuth()
   const { fmt: formatNaira } = useCurrency()
   const { toast } = useToast()
 
@@ -304,6 +304,11 @@ export default function DashboardPage() {
   useEffect(() => {
     if (shopIds.length > 0) loadDashboard()
   }, [loadDashboard])
+
+  // Si auth est terminée mais aucune boutique disponible, débloquer le skeleton
+  useEffect(() => {
+    if (!authLoading && shopIds.length === 0) setFirstLoad(false)
+  }, [authLoading, shopIds.length])
 
   // Auto-refresh when user comes back to this tab
   useEffect(() => {
