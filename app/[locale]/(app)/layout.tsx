@@ -1,9 +1,9 @@
 import { AppLayout } from '@/components/layout/app-layout'
-import { AuthProvider } from '@/lib/contexts/auth-context'
 import { OfflineBanner } from '@/components/offline/offline-banner'
 import { OfflinePreloader } from '@/components/offline/offline-preloader'
 
-// AuthProvider wraps the entire app group — single subscription for all pages.
+// AuthProvider is mounted in app/[locale]/layout.tsx so it persists
+// across (admin) and (app) route groups — no skeleton when switching.
 export default function AppRouteLayout({
   children,
   params: { locale },
@@ -12,12 +12,12 @@ export default function AppRouteLayout({
   params: { locale: string }
 }) {
   return (
-    <AuthProvider>
+    <>
       <OfflineBanner />
       <OfflinePreloader />
       <AppLayout locale={locale}>
         {children}
       </AppLayout>
-    </AuthProvider>
+    </>
   )
 }
