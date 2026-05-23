@@ -691,7 +691,13 @@
     "confirm_password_required": "Please confirm your password",
     "password_mismatch": "Passwords do not match",
     "email_already_used": "This email address is already linked to an account",
-    "check_email": "A confirmation email has been sent. Please confirm your address before continuing."
+    "check_email": "A confirmation email has been sent. Please confirm your address before continuing.",
+    "email_sent_title": "Confirm your email address",
+    "email_sent_desc": "A confirmation link has been sent to",
+    "email_sent_note": "Check your spam folder if you don't receive it within a few minutes.",
+    "resend_email": "Resend email",
+    "resent_success": "Email resent!",
+    "go_to_login": "Go to login"
   },
   "saas": {
     "trial_expires_today": "Your free trial expires today!",

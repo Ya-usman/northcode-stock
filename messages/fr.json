@@ -691,7 +691,13 @@
     "confirm_password_required": "Veuillez confirmer votre mot de passe",
     "password_mismatch": "Les mots de passe ne correspondent pas",
     "email_already_used": "Cette adresse e-mail est déjà associée à un compte",
-    "check_email": "Un email de confirmation a été envoyé. Veuillez confirmer votre adresse avant de continuer."
+    "check_email": "Un email de confirmation a été envoyé. Veuillez confirmer votre adresse avant de continuer.",
+    "email_sent_title": "Confirmez votre adresse e-mail",
+    "email_sent_desc": "Un lien de confirmation a été envoyé à",
+    "email_sent_note": "Vérifiez vos spams si vous ne le recevez pas dans quelques minutes.",
+    "resend_email": "Renvoyer l'email",
+    "resent_success": "Email renvoyé !",
+    "go_to_login": "Aller à la connexion"
   },
   "saas": {
     "trial_expires_today": "Votre essai gratuit expire aujourd'hui !",

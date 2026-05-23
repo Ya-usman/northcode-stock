@@ -713,7 +713,13 @@
     "confirm_password_required": "Da fatan a tabbatar da kalmar sirrinka",
     "password_mismatch": "Kalmomin sirri ba su dace ba",
     "email_already_used": "Ana amfani da wannan adireshin imel a asusun da ke wanzu",
-    "check_email": "An aika da imel na tabbatarwa. Da fatan a tabbatar da adireshin ka kafin ka ci gaba."
+    "check_email": "An aika da imel na tabbatarwa. Da fatan a tabbatar da adireshin ka kafin ka ci gaba.",
+    "email_sent_title": "Tabbatar da imelinka",
+    "email_sent_desc": "An aika da hanyar tabbatarwa zuwa",
+    "email_sent_note": "Duba akwatin spam idan ba ka karba ba cikin minti kadan.",
+    "resend_email": "Sake aika imel",
+    "resent_success": "An sake aika imel!",
+    "go_to_login": "Je zuwa shiga"
   },
   "landing": {
     "nav": {

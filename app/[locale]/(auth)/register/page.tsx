@@ -53,6 +53,10 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
   const [countdown, setCountdown] = useState(0)
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [country, setCountry] = useState<CountryCode | null>(null)
+  const [emailSent, setEmailSent] = useState(false)
+  const [sentToEmail, setSentToEmail] = useState('')
+  const [resendLoading, setResendLoading] = useState(false)
+  const [resendSuccess, setResendSuccess] = useState(false)
 
   useEffect(() => {
     if (countdown <= 0) return
@@ -98,6 +102,17 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
       provider: 'apple',
       options: { redirectTo: `${window.location.origin}/auth/callback?next=/${locale}/dashboard` },
     })
+  }
+
+  const handleResend = async () => {
+    setResendLoading(true)
+    setResendSuccess(false)
+    await supabase.auth.resend({ type: 'signup', email: sentToEmail, options: {
+      emailRedirectTo: `${window.location.origin}/auth/callback?next=/${locale}/dashboard`,
+    }})
+    setResendLoading(false)
+    setResendSuccess(true)
+    setTimeout(() => setResendSuccess(false), 4000)
   }
 
   const goStep2 = async () => {
@@ -174,7 +189,8 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
         router.push(`/${locale}/dashboard`)
       } else {
         authUserId = null
-        setError(t('check_email'))
+        setSentToEmail(data.email)
+        setEmailSent(true)
       }
     } catch (err: any) {
       if (authUserId) {
@@ -199,24 +215,64 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
 
   const selectedCountry = country ? COUNTRIES[country] : null
 
+  const wrapperCls = "min-h-screen overflow-y-auto flex items-center justify-center bg-gradient-to-br from-stockshop-blue via-stockshop-blue-light to-blue-800 p-4 py-8"
+  const themeBtn = (
+    <button onClick={toggle} className="fixed top-4 right-4 z-50 flex h-9 w-9 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 text-white backdrop-blur-sm transition-colors">
+      {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+    </button>
+  )
+  const logoBlock = (
+    <div className="flex flex-col items-center mb-6">
+      <Link href={`/${locale}`} onClick={e => { if ((window as any).Capacitor?.isNativePlatform?.()) e.preventDefault() }}>
+        <img src="/logo-login-t.png" alt="StockShop" className="h-36 w-auto object-contain" style={{ filter: 'brightness(0) invert(1) drop-shadow(0 8px 24px rgba(0,0,0,0.55))' }} />
+      </Link>
+      <p className="text-blue-200 text-sm mt-2">{t('trial_note')}</p>
+    </div>
+  )
+
+  if (emailSent) {
+    return (
+      <div className={wrapperCls}>
+        {themeBtn}
+        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="w-full max-w-sm">
+          {logoBlock}
+          <div className="rounded-2xl bg-card dark:bg-[#0d2a5e] shadow-2xl overflow-hidden p-8 text-center space-y-4">
+            <div className="text-6xl">📧</div>
+            <div>
+              <h2 className="text-xl font-bold">{t('email_sent_title')}</h2>
+              <p className="text-sm text-muted-foreground mt-2">
+                {t('email_sent_desc')}{' '}
+                <span className="font-semibold text-foreground break-all">{sentToEmail}</span>
+              </p>
+            </div>
+            <p className="text-xs text-muted-foreground">{t('email_sent_note')}</p>
+            <div className="space-y-2 pt-2">
+              <Button
+                onClick={handleResend}
+                loading={resendLoading}
+                variant="outline"
+                className="w-full"
+              >
+                {resendSuccess ? t('resent_success') : t('resend_email')}
+              </Button>
+              <Link
+                href={`/${locale}/login`}
+                className="block text-sm text-stockshop-blue dark:text-blue-400 hover:underline"
+              >
+                {t('go_to_login')}
+              </Link>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen overflow-y-auto flex items-center justify-center bg-gradient-to-br from-stockshop-blue via-stockshop-blue-light to-blue-800 p-4 py-8">
-      <button
-        onClick={toggle}
-        className="fixed top-4 right-4 z-50 flex h-9 w-9 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 text-white backdrop-blur-sm transition-colors"
-      >
-        {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-      </button>
+    <div className={wrapperCls}>
+      {themeBtn}
 
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="w-full max-w-sm">
-
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-6">
-          <Link href={`/${locale}`} onClick={e => { if ((window as any).Capacitor?.isNativePlatform?.()) e.preventDefault() }}>
-            <img src="/logo-login-t.png" alt="StockShop" className="h-36 w-auto object-contain" style={{ filter: 'brightness(0) invert(1) drop-shadow(0 8px 24px rgba(0,0,0,0.55))' }} />
-          </Link>
-          <p className="text-blue-200 text-sm mt-2">{t('trial_note')}</p>
-        </div>
 
         <div className="rounded-2xl bg-card dark:bg-[#0d2a5e] shadow-2xl overflow-hidden">
           <div className="p-6">
