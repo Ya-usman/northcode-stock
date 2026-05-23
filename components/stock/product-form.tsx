@@ -334,14 +334,23 @@ export function ProductForm({
         />
       </div>
 
-      <DialogFooter className="pt-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+      <div className="px-5 pb-5 pt-2 flex justify-center gap-3">
+        <Button
+          type="button"
+          variant="ghost"
+          className="flex-1 h-11 rounded-xl text-foreground/70 hover:text-foreground hover:bg-foreground/8 border border-border"
+          onClick={onCancel}
+        >
           {t('actions.cancel')}
         </Button>
-        <Button type="submit" disabled={saving || uploadingImage} className="bg-blue-600 dark:bg-blue-500">
+        <Button
+          type="submit"
+          disabled={saving || uploadingImage}
+          className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500 dark:hover:bg-blue-600"
+        >
           {saving ? t('actions.saving') : isEdit ? t('actions.update') : t('actions.save')}
         </Button>
-      </DialogFooter>
+      </div>
     </form>
   )
 }
