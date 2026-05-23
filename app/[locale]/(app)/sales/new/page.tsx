@@ -126,19 +126,20 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   useEffect(() => {
     if (!selectedShop?.id) return
     const load = async () => {
-      // Offline: use IndexedDB cache
-      if (!isOnline) {
-        const [cachedProds, cachedCusts] = await Promise.all([
-          getCachedProducts(selectedShop.id),
-          getCachedCustomers(selectedShop.id),
-        ])
-        if (cachedProds.length > 0) {
-          setProducts(cachedProds as unknown as Product[])
-          setFilteredProducts(cachedProds as unknown as Product[])
-        }
-        if (cachedCusts.length > 0) setCustomers(cachedCusts as unknown as Customer[])
-        return
+      // Always show IndexedDB cache immediately (stale-while-revalidate)
+      const [cachedProds, cachedCusts] = await Promise.all([
+        getCachedProducts(selectedShop.id),
+        getCachedCustomers(selectedShop.id),
+      ])
+      if (cachedProds.length > 0) {
+        setProducts(cachedProds as unknown as Product[])
+        setFilteredProducts(cachedProds as unknown as Product[])
       }
+      if (cachedCusts.length > 0) setCustomers(cachedCusts as unknown as Customer[])
+
+      if (!isOnline) return
+
+      // Fetch fresh data in background
       try {
         const [{ data: prods }, { data: custs }, { data: cats }] = await Promise.all([
           supabase.from('products').select('*, categories(name), suppliers(name)')
@@ -151,7 +152,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         setFilteredProducts(safeProds)
         setCustomers((custs || []) as Customer[])
         setCategories((cats || []) as Category[])
-        // Cache for offline use
+        // Refresh IndexedDB cache
         await Promise.all([
           safeProds.length > 0 ? cacheProducts(selectedShop.id, safeProds.map((p: any) => ({
             id: p.id, shop_id: selectedShop.id, name: p.name, sku: p.sku ?? null,
@@ -164,16 +165,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           }))) : Promise.resolve(),
         ])
       } catch {
-        // Network failed while isOnline was stale — fall back to cache silently
-        const [cachedProds, cachedCusts] = await Promise.all([
-          getCachedProducts(selectedShop.id),
-          getCachedCustomers(selectedShop.id),
-        ])
-        if (cachedProds.length > 0) {
-          setProducts(cachedProds as unknown as Product[])
-          setFilteredProducts(cachedProds as unknown as Product[])
-        }
-        if (cachedCusts.length > 0) setCustomers(cachedCusts as unknown as Customer[])
+        // Cache already applied above — nothing to do
       }
     }
     load()

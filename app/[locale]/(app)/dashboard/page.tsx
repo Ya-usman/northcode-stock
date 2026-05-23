@@ -111,13 +111,12 @@ export default function DashboardPage() {
 
     const shopKey = `${profile?.id}:${shopIds.join(',')}`
 
-    // ── Serve cache immediately, then refresh in background ────────
+    // ── Serve cache immediately (always, including on visibility return) ──
     const cached = readDashCache(shopKey)
-    if (cached && !quiet) {
+    if (cached) {
       applyDashData(cached.todaySalesCount, cached.todayRevenue, cached.outstandingDebt,
         cached.recentSales, cached.repaymentItems ?? [], cached.revenueData, cached.topProducts, cached.lowStock, cached.outOfStock)
       setFirstLoad(false)
-      // Still fetch fresh data in background — don't block render
     }
 
     if (quiet) setRefreshing(true)

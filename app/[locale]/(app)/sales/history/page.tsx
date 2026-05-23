@@ -144,8 +144,9 @@ export default function SalesHistoryPage() {
     if (cached) {
       setSales(cached)
       setHasMoreSales(false)
-      setCashierMap(await enrichCashiers(cached))
       setLoading(false)
+      // Enrich cashier names in background — don't block render
+      enrichCashiers(cached).then(map => setCashierMap(map))
     } else {
       setLoading(true)
     }
