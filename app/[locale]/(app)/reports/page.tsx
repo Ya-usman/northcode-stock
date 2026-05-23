@@ -353,11 +353,17 @@ export default function ReportsPage() {
     const isAndroid = /Android/i.test(navigator.userAgent)
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
 
-    // Mobile: second tap = blob already generated, download with fresh user gesture
+    // Mobile: second tap = blob is ready, trigger download from fresh user gesture
     if (pendingPdf) {
       const { blob, name } = pendingPdf
-      setPendingPdf(null)
-      await savePDF(blob, name)
+      try {
+        await savePDF(blob, name)
+        setPendingPdf(null)
+      } catch (e: any) {
+        if (e?.name === 'AbortError') return // user dismissed share sheet — keep ready
+        setPendingPdf(null)
+        toast({ title: t('reports.error_pdf'), description: String(e), variant: 'destructive' })
+      }
       return
     }
 

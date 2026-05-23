@@ -721,29 +721,43 @@ export async function generateReportPDFBlob(params: ReportParams): Promise<{ blo
  * Desktop : déclencheur <a download> standard.
  */
 export async function savePDF(blob: Blob, fileName: string): Promise<void> {
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-  const isAndroid = /Android/i.test(navigator.userAgent)
+  const ua = navigator.userAgent
+  const isIOS = /iPad|iPhone|iPod/.test(ua)
+  const isAndroid = /Android/i.test(ua)
 
-  // Android — Web Share API en priorité (pas besoin de geste actif)
-  if (isAndroid && typeof navigator.canShare === 'function') {
-    const file = new File([blob], fileName, { type: 'application/pdf' })
-    if (navigator.canShare({ files: [file] })) {
-      try {
-        await navigator.share({ files: [file], title: fileName })
-        return
-      } catch (e: any) {
-        if (e?.name === 'AbortError') return // l'utilisateur a fermé la sheet — pas une erreur
-        // Fallback vers blob URL
+  if (isAndroid) {
+    // Try Web Share API first — best UX, shows native share sheet
+    if (typeof navigator.canShare === 'function') {
+      const file = new File([blob], fileName, { type: 'application/pdf' })
+      if (navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: fileName })
+          return
+        } catch (e: any) {
+          // Propagate AbortError so caller knows user dismissed
+          if (e?.name === 'AbortError') throw e
+          // Other error: fall through to download
+        }
       }
     }
+    // Fallback: force download to Downloads folder via <a download>
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    return
   }
 
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
 
-  if (isIOS || isAndroid) {
-    // Nouvel onglet : iOS → visionneuse PDF, Android → appui long pour télécharger
+  if (isIOS) {
+    // iOS: open in native PDF viewer (user can share/save from there)
     a.target = '_blank'
     a.rel = 'noopener noreferrer'
   } else {
@@ -753,5 +767,5 @@ export async function savePDF(blob: Blob, fileName: string): Promise<void> {
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
-  setTimeout(() => URL.revokeObjectURL(url), 60000)
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
