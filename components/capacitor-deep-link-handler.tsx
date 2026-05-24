@@ -15,17 +15,23 @@ async function handleOAuthUrl(url: string, locale: string) {
       return
     }
 
-    // Read the PKCE code verifier directly from localStorage (stored by createNativeClient)
+    // Read the PKCE code verifier from our stable backup key (written in login page
+    // right after signInWithOAuth, from whatever storage Supabase used).
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     const projectRef = supabaseUrl.match(/\/\/([^.]+)/)?.[1] ?? ''
-    const verifierKey = `sb-${projectRef}-auth-token-code-verifier`
-    const codeVerifier = localStorage.getItem(verifierKey)
+
+    const codeVerifier =
+      localStorage.getItem('__oauth_pkce_verifier') ||
+      localStorage.getItem(`sb-${projectRef}-auth-token-code-verifier`)
 
     if (!codeVerifier) {
       window.location.replace(`/${savedLocale}/login?error=${encodeURIComponent('verifier_not_found')}`)
       return
     }
+
+    // Clean up backup key
+    localStorage.removeItem('__oauth_pkce_verifier')
 
     // Exchange code + verifier directly with Supabase token endpoint — bypasses client storage entirely
     const res = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=pkce`, {

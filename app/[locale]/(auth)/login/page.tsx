@@ -107,6 +107,24 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
         options: { redirectTo, skipBrowserRedirect: true },
       })
       if (error || !data?.url) { setError(error?.message || 'Erreur OAuth'); return }
+
+      // Read the verifier from wherever Supabase stored it (localStorage or cookies)
+      // and save under our own stable key so the deep link handler always finds it.
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+      const projectRef = supabaseUrl.match(/\/\/([^.]+)/)?.[1] ?? ''
+      const supabaseVerifierKey = `sb-${projectRef}-auth-token-code-verifier`
+
+      // Try localStorage first (native client), then cookies (SSR singleton fallback)
+      let verifier = localStorage.getItem(supabaseVerifierKey)
+      if (!verifier) {
+        const cookieEntry = document.cookie.split(';')
+          .find(c => c.trim().startsWith(supabaseVerifierKey + '='))
+        verifier = cookieEntry ? decodeURIComponent(cookieEntry.split('=').slice(1).join('=').trim()) : null
+      }
+      if (verifier) {
+        localStorage.setItem('__oauth_pkce_verifier', verifier)
+      }
+
       // Try App.openUrl first (keeps WebView alive), fallback to window.location.href
       try {
         const { App } = await import('@capacitor/app')
