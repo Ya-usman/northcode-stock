@@ -1166,7 +1166,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   }`}
                 >
                   {method.logo
-                    ? <img src={method.logo} alt={method.label} className="h-5 w-5 object-contain flex-shrink-0 inline-block mr-1.5" />
+                    ? <img src={method.logo} alt={method.label} className="h-8 w-8 object-contain flex-shrink-0 inline-block mr-1.5" />
                     : <span className="mr-1">{method.icon}</span>
                   }
                   {method.label}
@@ -1289,7 +1289,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                         }`}
                       >
                         {method.logo
-                          ? <img src={method.logo} alt={method.label} className="h-5 w-5 object-contain flex-shrink-0 inline-block mr-1.5" />
+                          ? <img src={method.logo} alt={method.label} className="h-8 w-8 object-contain flex-shrink-0 inline-block mr-1.5" />
                           : <span className="mr-1">{method.icon}</span>
                         }
                         {method.label}

@@ -591,7 +591,7 @@ export default function DettesPage() {
                             : 'border-input bg-card text-muted-foreground hover:bg-muted'
                         }`}>
                         {m.logo
-                          ? <img src={m.logo} alt={m.label} className="h-5 w-5 object-contain flex-shrink-0 inline-block mr-1.5" />
+                          ? <img src={m.logo} alt={m.label} className="h-8 w-8 object-contain flex-shrink-0 inline-block mr-1.5" />
                           : <span className="mr-1">{m.icon}</span>
                         }
                         {m.label}
