@@ -5,6 +5,7 @@ import { locales, type Locale } from '@/i18n'
 import { Toaster } from '@/components/ui/toaster'
 import { LocaleSync } from '@/components/locale-sync'
 import { AuthProvider } from '@/lib/contexts/auth-context'
+import { CapacitorDeepLinkHandler } from '@/components/capacitor-deep-link-handler'
 
 interface LocaleLayoutProps {
   children: React.ReactNode
@@ -23,6 +24,7 @@ export default async function LocaleLayout({ children, params: { locale } }: Loc
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
       <AuthProvider>
+        <CapacitorDeepLinkHandler locale={locale} />
         <LocaleSync currentLocale={locale} />
         {children}
         <Toaster />
