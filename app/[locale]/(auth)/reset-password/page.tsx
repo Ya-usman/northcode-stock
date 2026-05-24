@@ -76,8 +76,9 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
       return
     }
 
+    await supabase.auth.signOut()
     setDone(true)
-    setTimeout(() => router.push(`/${locale}/dashboard`), 2000)
+    setTimeout(() => router.push(`/${locale}/login`), 2000)
   }
 
   return (
@@ -96,7 +97,7 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
             <div className="text-center py-4">
               <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
               <h2 className="text-lg font-semibold mb-1">Mot de passe défini !</h2>
-              <p className="text-sm text-muted-foreground">Redirection vers le dashboard…</p>
+              <p className="text-sm text-muted-foreground">Redirection vers la connexion…</p>
             </div>
           ) : !sessionReady ? (
             <div className="text-center py-8">

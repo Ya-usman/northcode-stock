@@ -215,8 +215,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const sessionAlive = sessionStorage.getItem('session_alive') === '1'
       const provider = session.user.app_metadata?.provider
       const isOAuth = Boolean(provider && provider !== 'email')
+      // Ne pas déconnecter sur la page reset-password (recovery flow via callback PKCE)
+      const isResetFlow = window.location.pathname.includes('/reset-password')
 
-      if (!remember && !isOAuth && !sessionAlive) {
+      if (!remember && !isOAuth && !sessionAlive && !isResetFlow) {
         await supabase.auth.signOut()
         clearCache()
         if (!cancelled) setState(s => ({ ...s, loading: false }))
