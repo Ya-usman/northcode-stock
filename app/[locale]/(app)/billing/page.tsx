@@ -366,7 +366,10 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                           : 'border-border hover:border-stockshop-blue/30 bg-card'
                       )}
                     >
-                      <span className="text-xl leading-none">{method.icon}</span>
+                      {method.logo
+                        ? <img src={method.logo} alt={method.label} className="h-7 w-7 object-contain flex-shrink-0" />
+                        : <span className="text-xl leading-none">{method.icon}</span>
+                      }
                       <span className={cn(
                         'flex-1 font-medium text-sm',
                         selectedMethod === method.id ? 'text-stockshop-blue dark:text-blue-400' : 'text-foreground'

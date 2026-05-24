@@ -22,6 +22,7 @@ export interface PaymentMethod {
   id: string
   label: string
   icon: string
+  logo?: string  // chemin dans /public/payment/
   type: PaymentMethodType
 }
 
@@ -55,13 +56,13 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     prices: { starter: 4999, pro: 9999, business: 19999 },
     phonePrefix: '+234', cityPlaceholder: 'Lagos, Kano, Abuja…',
     paymentMethods: [
-      { id: 'cash',       label: 'Cash',        icon: '💵', type: 'cash' },
-      { id: 'transfer',   label: 'Bank Transfer',icon: '🏦', type: 'transfer' },
-      { id: 'pos',        label: 'POS / Card',   icon: '💳', type: 'card' },
-      { id: 'opay',       label: 'OPay',         icon: '📱', type: 'mobile_money' },
-      { id: 'palmpay',    label: 'PalmPay',      icon: '📱', type: 'mobile_money' },
-      { id: 'moniepoint', label: 'Moniepoint',   icon: '📱', type: 'mobile_money' },
-      { id: 'credit',     label: 'Credit',       icon: '📝', type: 'credit' },
+      { id: 'cash',       label: 'Cash',         icon: '💵', type: 'cash' },
+      { id: 'transfer',   label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'pos',        label: 'POS / Card',    icon: '💳', type: 'card' },
+      { id: 'opay',       label: 'OPay',          icon: '📱', logo: '/payment/opay.png',       type: 'mobile_money' },
+      { id: 'palmpay',    label: 'PalmPay',       icon: '📱', logo: '/payment/palmpay.png',    type: 'mobile_money' },
+      { id: 'moniepoint', label: 'Moniepoint',    icon: '📱', logo: '/payment/moniepoint.png', type: 'mobile_money' },
+      { id: 'credit',     label: 'Credit',        icon: '📝', type: 'credit' },
     ],
   },
   CM: {
@@ -71,8 +72,8 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     phonePrefix: '+237', cityPlaceholder: 'Douala, Yaoundé, Bafoussam…',
     paymentMethods: [
       { id: 'cash',         label: 'Espèces',      icon: '💵', type: 'cash' },
-      { id: 'mtn_momo',     label: 'MTN MoMo',     icon: '📱', type: 'mobile_money' },
-      { id: 'orange_money', label: 'Orange Money', icon: '🟠', type: 'mobile_money' },
+      { id: 'mtn_momo',     label: 'MTN MoMo',     icon: '📱', logo: '/payment/mtn_momo.png',     type: 'mobile_money' },
+      { id: 'orange_money', label: 'Orange Money', icon: '🟠', logo: '/payment/orange_money.jpg', type: 'mobile_money' },
       { id: 'transfer',     label: 'Virement',     icon: '🏦', type: 'transfer' },
       { id: 'credit',       label: 'Crédit',       icon: '📝', type: 'credit' },
     ],
@@ -84,10 +85,10 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     phonePrefix: '+225', cityPlaceholder: 'Abidjan, Bouaké, San-Pédro…',
     paymentMethods: [
       { id: 'cash',         label: 'Espèces',      icon: '💵', type: 'cash' },
-      { id: 'wave',         label: 'Wave',         icon: '🌊', type: 'mobile_money' },
-      { id: 'orange_money', label: 'Orange Money', icon: '🟠', type: 'mobile_money' },
-      { id: 'mtn_momo',     label: 'MTN MoMo',     icon: '📱', type: 'mobile_money' },
-      { id: 'moov_money',   label: 'Moov Money',   icon: '📱', type: 'mobile_money' },
+      { id: 'wave',         label: 'Wave',         icon: '🌊', logo: '/payment/wave.png',         type: 'mobile_money' },
+      { id: 'orange_money', label: 'Orange Money', icon: '🟠', logo: '/payment/orange_money.jpg', type: 'mobile_money' },
+      { id: 'mtn_momo',     label: 'MTN MoMo',     icon: '📱', logo: '/payment/mtn_momo.png',     type: 'mobile_money' },
+      { id: 'moov_money',   label: 'Moov Money',   icon: '📱', logo: '/payment/moov_money.png',   type: 'mobile_money' },
       { id: 'transfer',     label: 'Virement',     icon: '🏦', type: 'transfer' },
       { id: 'credit',       label: 'Crédit',       icon: '📝', type: 'credit' },
     ],
@@ -99,9 +100,9 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     phonePrefix: '+223', cityPlaceholder: 'Bamako, Sikasso, Ségou…',
     paymentMethods: [
       { id: 'cash',         label: 'Espèces',      icon: '💵', type: 'cash' },
-      { id: 'orange_money', label: 'Orange Money', icon: '🟠', type: 'mobile_money' },
-      { id: 'wave',         label: 'Wave',         icon: '🌊', type: 'mobile_money' },
-      { id: 'moov_money',   label: 'Moov Money',   icon: '📱', type: 'mobile_money' },
+      { id: 'orange_money', label: 'Orange Money', icon: '🟠', logo: '/payment/orange_money.jpg', type: 'mobile_money' },
+      { id: 'wave',         label: 'Wave',         icon: '🌊', logo: '/payment/wave.png',         type: 'mobile_money' },
+      { id: 'moov_money',   label: 'Moov Money',   icon: '📱', logo: '/payment/moov_money.png',   type: 'mobile_money' },
       { id: 'transfer',     label: 'Virement',     icon: '🏦', type: 'transfer' },
       { id: 'credit',       label: 'Crédit',       icon: '📝', type: 'credit' },
     ],
@@ -113,10 +114,10 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     phonePrefix: '+227', cityPlaceholder: 'Niamey, Zinder, Maradi…',
     paymentMethods: [
       { id: 'cash',         label: 'Espèces',      icon: '💵', type: 'cash' },
-      { id: 'amana',        label: 'Amana',        icon: '📱', type: 'mobile_money' },
-      { id: 'wave',         label: 'Wave',         icon: '🌊', type: 'mobile_money' },
-      { id: 'nita',         label: 'NITA',         icon: '📱', type: 'mobile_money' },
-      { id: 'airtel_money', label: 'Airtel Money', icon: '📱', type: 'mobile_money' },
+      { id: 'amana',        label: 'Amana',        icon: '📱', logo: '/payment/amana.png',       type: 'mobile_money' },
+      { id: 'wave',         label: 'Wave',         icon: '🌊', logo: '/payment/wave.png',        type: 'mobile_money' },
+      { id: 'nita',         label: 'NITA',         icon: '📱', logo: '/payment/nita.png',        type: 'mobile_money' },
+      { id: 'airtel_money', label: 'Airtel Money', icon: '📱', logo: '/payment/airtel_money.png', type: 'mobile_money' },
       { id: 'transfer',     label: 'Virement',     icon: '🏦', type: 'transfer' },
       { id: 'credit',       label: 'Crédit',       icon: '📝', type: 'credit' },
     ],
@@ -128,9 +129,9 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     phonePrefix: '+221', cityPlaceholder: 'Dakar, Thiès, Saint-Louis…',
     paymentMethods: [
       { id: 'cash',         label: 'Espèces',      icon: '💵', type: 'cash' },
-      { id: 'wave',         label: 'Wave',         icon: '🌊', type: 'mobile_money' },
-      { id: 'orange_money', label: 'Orange Money', icon: '🟠', type: 'mobile_money' },
-      { id: 'free_money',   label: 'Free Money',   icon: '📱', type: 'mobile_money' },
+      { id: 'wave',         label: 'Wave',         icon: '🌊', logo: '/payment/wave.png',         type: 'mobile_money' },
+      { id: 'orange_money', label: 'Orange Money', icon: '🟠', logo: '/payment/orange_money.jpg', type: 'mobile_money' },
+      { id: 'free_money',   label: 'Free Money',   icon: '📱', logo: '/payment/free_money.png',   type: 'mobile_money' },
       { id: 'transfer',     label: 'Virement',     icon: '🏦', type: 'transfer' },
       { id: 'credit',       label: 'Crédit',       icon: '📝', type: 'credit' },
     ],
@@ -142,9 +143,9 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     phonePrefix: '+229', cityPlaceholder: 'Cotonou, Porto-Novo, Parakou…',
     paymentMethods: [
       { id: 'cash',       label: 'Espèces',    icon: '💵', type: 'cash' },
-      { id: 'mtn_momo',   label: 'MTN MoMo',   icon: '📱', type: 'mobile_money' },
-      { id: 'moov_money', label: 'Moov Money', icon: '📱', type: 'mobile_money' },
-      { id: 'wave',       label: 'Wave',       icon: '🌊', type: 'mobile_money' },
+      { id: 'mtn_momo',   label: 'MTN MoMo',   icon: '📱', logo: '/payment/mtn_momo.png',   type: 'mobile_money' },
+      { id: 'moov_money', label: 'Moov Money', icon: '📱', logo: '/payment/moov_money.png', type: 'mobile_money' },
+      { id: 'wave',       label: 'Wave',       icon: '🌊', logo: '/payment/wave.png',       type: 'mobile_money' },
       { id: 'transfer',   label: 'Virement',   icon: '🏦', type: 'transfer' },
       { id: 'credit',     label: 'Crédit',     icon: '📝', type: 'credit' },
     ],
@@ -157,7 +158,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     paymentMethods: [
       { id: 'cash',     label: 'Espèces', icon: '💵', type: 'cash' },
       { id: 'flooz',    label: 'Flooz',   icon: '📱', type: 'mobile_money' },
-      { id: 'tmoney',   label: 'T-Money', icon: '📱', type: 'mobile_money' },
+      { id: 'tmoney',   label: 'T-Money', icon: '📱', logo: '/payment/tmoney.jpg', type: 'mobile_money' },
       { id: 'transfer', label: 'Virement',icon: '🏦', type: 'transfer' },
       { id: 'credit',   label: 'Crédit',  icon: '📝', type: 'credit' },
     ],

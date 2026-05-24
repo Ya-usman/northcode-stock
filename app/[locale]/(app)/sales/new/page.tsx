@@ -1165,7 +1165,11 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                       : 'border-input bg-card text-muted-foreground hover:bg-muted'
                   }`}
                 >
-                  {method.icon} {method.label}
+                  {method.logo
+                    ? <img src={method.logo} alt={method.label} className="h-5 w-5 object-contain flex-shrink-0 inline-block mr-1.5" />
+                    : <span className="mr-1">{method.icon}</span>
+                  }
+                  {method.label}
                 </button>
               ))}
             </div>
@@ -1284,7 +1288,11 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                             : 'border-input bg-card text-muted-foreground hover:bg-muted'
                         }`}
                       >
-                        {method.icon} {method.label}
+                        {method.logo
+                          ? <img src={method.logo} alt={method.label} className="h-5 w-5 object-contain flex-shrink-0 inline-block mr-1.5" />
+                          : <span className="mr-1">{method.icon}</span>
+                        }
+                        {method.label}
                       </button>
                     ))
                   }
