@@ -65,3 +65,23 @@ export async function checkAndNotifyLowStock(shopId: string, productIds?: string
     body: JSON.stringify({ shop_id: shopId, product_ids: productIds }),
   })
 }
+
+export async function notifyNewSale(opts: {
+  shopId: string
+  total: number
+  currencySymbol: string
+  cashierName?: string
+  paymentLabel: string
+}) {
+  await fetch('/api/push/sale', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      shop_id: opts.shopId,
+      total: opts.total,
+      currency_symbol: opts.currencySymbol,
+      cashier_name: opts.cashierName,
+      payment_label: opts.paymentLabel,
+    }),
+  }).catch(() => {})
+}

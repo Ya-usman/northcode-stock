@@ -35,7 +35,7 @@ import { useOffline } from '@/lib/offline/use-offline'
 import { triggerSaleFeedback, unlockAudio } from '@/lib/utils/sale-feedback'
 import { getCountry, getMethodType } from '@/lib/saas/countries'
 import { formatInputValue } from '@/lib/utils/currency'
-import { checkAndNotifyLowStock } from '@/lib/push'
+import { checkAndNotifyLowStock, notifyNewSale } from '@/lib/push'
 
 interface Draft {
   id: string
@@ -642,8 +642,15 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       triggerSaleFeedback()
       toast({ title: t('sales.receipt_ready'), variant: 'success' })
 
-      // Fire-and-forget: check low stock for sold products
+      // Fire-and-forget: notify admin of new sale + check low stock
       const soldProductIds = cart.map(item => item.product.id)
+      notifyNewSale({
+        shopId: selectedShop!.id,
+        total: totalToCollect,
+        currencySymbol: selectedShop!.currency || '₦',
+        cashierName: profile?.full_name || profile?.email || undefined,
+        paymentLabel: shopCountry.paymentMethods.find(m => m.id === paymentMethod)?.label || paymentMethod,
+      })
       checkAndNotifyLowStock(selectedShop!.id, soldProductIds).catch(() => {})
     } catch (err: any) {
       toast({ title: err.message || t('errors.generic'), variant: 'destructive' })
