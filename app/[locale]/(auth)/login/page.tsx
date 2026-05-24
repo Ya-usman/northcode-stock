@@ -15,7 +15,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useTheme } from '@/lib/hooks/use-theme'
-import { isCapacitor } from '@/lib/utils/native-share'
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -45,7 +44,7 @@ const AppleIcon = () => (
   </svg>
 )
 
-export default function LoginPage({ params: { locale }, searchParams }: { params: { locale: string }, searchParams: { error?: string, confirmed?: string, oauth_web?: string } }) {
+export default function LoginPage({ params: { locale }, searchParams }: { params: { locale: string }, searchParams: { error?: string, confirmed?: string } }) {
   const t = useTranslations('auth')
   const router = useRouter()
   const supabase = createClient()
@@ -99,17 +98,13 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
   const signInWithGoogle = async () => {
     setError('')
     localStorage.setItem('auth_remember_me', '1')
-    const native = isCapacitor()
-    const next = native ? `/${locale}/dashboard` : `/${locale}/login?oauth_web=1`
-    await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/auth/callback?next=${next}` } })
+    await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/auth/callback?next=/${locale}/dashboard` } })
   }
 
   const signInWithApple = async () => {
     setError('')
     localStorage.setItem('auth_remember_me', '1')
-    const native = isCapacitor()
-    const next = native ? `/${locale}/dashboard` : `/${locale}/login?oauth_web=1`
-    await supabase.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo: `${window.location.origin}/auth/callback?next=${next}` } })
+    await supabase.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo: `${window.location.origin}/auth/callback?next=/${locale}/dashboard` } })
   }
 
   const onForgot = async (data: ForgotData) => {
@@ -189,20 +184,6 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
                     </button>
                   </div>
 
-                  {searchParams?.oauth_web === '1' && (
-                    <div className="rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 p-3 text-center space-y-2">
-                      <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">✅ Connecté avec Google !</p>
-                      <p className="text-xs text-blue-600 dark:text-blue-400">Installez l'application pour une meilleure expérience.</p>
-                      <a
-                        href="https://play.google.com/store/apps/details?id=com.stockshop.stockshop"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-stockshop-blue text-white text-xs font-semibold px-3 py-1.5 hover:bg-stockshop-blue-light transition-colors"
-                      >
-                        📲 Télécharger l'app
-                      </a>
-                    </div>
-                  )}
                   {success && <p className="text-sm text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/40 rounded-md p-2 text-center">✓ {success}</p>}
                   {error && <p className="text-sm text-destructive bg-red-50 dark:bg-red-950/40 rounded-md p-2 text-center">{error}</p>}
 
