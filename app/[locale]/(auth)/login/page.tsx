@@ -100,11 +100,21 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
     setError('')
     localStorage.setItem('auth_remember_me', '1')
     const isNative = (window as any).Capacitor?.isNativePlatform?.()
-    // On Capacitor: redirectTo uses custom scheme so Chrome Custom Tab renvoie dans l'app via deep link
     const redirectTo = isNative
       ? 'stockshop://auth/callback'
       : `${window.location.origin}/auth/callback?next=/${locale}/dashboard`
-    await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } })
+    if (isNative) {
+      // skipBrowserRedirect: true → Supabase stocke le PKCE verifier AVANT toute navigation
+      // Ensuite on navigue manuellement → Capacitor ouvre Chrome Custom Tab
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo, skipBrowserRedirect: true },
+      })
+      if (error || !data?.url) { setError(error?.message || 'OAuth error'); return }
+      window.location.href = data.url
+    } else {
+      await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } })
+    }
   }
 
   const signInWithApple = async () => {
@@ -114,7 +124,16 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
     const redirectTo = isNative
       ? 'stockshop://auth/callback'
       : `${window.location.origin}/auth/callback?next=/${locale}/dashboard`
-    await supabase.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo } })
+    if (isNative) {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: { redirectTo, skipBrowserRedirect: true },
+      })
+      if (error || !data?.url) { setError(error?.message || 'OAuth error'); return }
+      window.location.href = data.url
+    } else {
+      await supabase.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo } })
+    }
   }
 
   const onForgot = async (data: ForgotData) => {
