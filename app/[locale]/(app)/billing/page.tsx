@@ -360,25 +360,37 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                       key={method.id}
                       onClick={() => setSelectedMethod(method.id)}
                       className={cn(
-                        'w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all text-left',
+                        'relative w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl border-2 transition-all duration-200 text-left active:scale-[0.98]',
                         selectedMethod === method.id
-                          ? 'border-stockshop-blue bg-stockshop-blue/5 dark:bg-blue-950/30'
-                          : 'border-border hover:border-stockshop-blue/30 bg-card'
+                          ? 'border-stockshop-blue bg-gradient-to-r from-blue-50 to-blue-100/50 dark:from-blue-950/60 dark:to-blue-900/30 shadow-lg shadow-blue-200/50 dark:shadow-blue-900/40'
+                          : 'border-border hover:border-stockshop-blue/40 hover:shadow-md hover:-translate-y-0.5 bg-card'
                       )}
                     >
-                      {method.logo
-                        ? <img src={method.logo} alt={method.label} className="h-14 w-14 object-contain flex-shrink-0" />
-                        : <span className="text-xl leading-none">{method.icon}</span>
-                      }
+                      <div className={cn(
+                        'rounded-xl p-2 flex-shrink-0 transition-colors',
+                        selectedMethod === method.id ? 'bg-white dark:bg-white/15 shadow-sm' : 'bg-muted/50 dark:bg-white/5'
+                      )}>
+                        {method.logo
+                          ? <img src={method.logo} alt={method.label} className="h-14 w-14 object-contain" />
+                          : <span className="text-3xl leading-none block">{method.icon}</span>
+                        }
+                      </div>
                       <span className={cn(
-                        'flex-1 font-medium text-sm',
+                        'flex-1 font-semibold text-sm',
                         selectedMethod === method.id ? 'text-stockshop-blue dark:text-blue-400' : 'text-foreground'
                       )}>
                         {method.label}
                       </span>
-                      {selectedMethod === method.id && (
-                        <CheckCircle2 className="h-4 w-4 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
-                      )}
+                      <div className={cn(
+                        'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 transition-colors',
+                        selectedMethod === method.id
+                          ? 'border-stockshop-blue bg-stockshop-blue'
+                          : 'border-muted-foreground/30'
+                      )}>
+                        {selectedMethod === method.id && (
+                          <span className="text-white text-[10px] font-bold">✓</span>
+                        )}
+                      </div>
                     </button>
                   ))}
                 </div>

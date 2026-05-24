@@ -580,21 +580,28 @@ export default function DettesPage() {
               {/* Payment method */}
               <div className="space-y-1">
                 <Label>{t('payment.method')}</Label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-2.5">
                   {getCountry(shop?.country).paymentMethods
                     .filter(m => m.type !== 'credit')
                     .map(m => (
                       <button key={m.id} onClick={() => setRepayMethod(m.id)}
-                        className={`rounded-xl border-2 py-3 px-2 flex flex-col items-center gap-1.5 transition-colors ${
+                        className={`relative rounded-2xl border-2 py-4 px-2 flex flex-col items-center gap-2 transition-all duration-200 active:scale-95 ${
                           repayMethod === m.id
-                            ? 'border-blue-500 bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400'
-                            : 'border-input bg-card text-muted-foreground hover:bg-muted'
+                            ? 'border-blue-500 bg-gradient-to-b from-blue-50 to-blue-100/60 dark:from-blue-950/60 dark:to-blue-900/30 shadow-lg shadow-blue-200/60 dark:shadow-blue-900/40'
+                            : 'border-input bg-card hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md hover:-translate-y-0.5'
                         }`}>
-                        {m.logo
-                          ? <img src={m.logo} alt={m.label} className="h-12 w-12 object-contain" />
-                          : <span className="text-3xl leading-none">{m.icon}</span>
-                        }
-                        <span className="text-xs font-medium text-center leading-tight">{m.label}</span>
+                        {repayMethod === m.id && (
+                          <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-white text-[9px] font-bold">✓</span>
+                        )}
+                        <div className={`rounded-xl p-2 transition-colors ${repayMethod === m.id ? 'bg-white dark:bg-white/15 shadow-sm' : 'bg-muted/40 dark:bg-white/5'}`}>
+                          {m.logo
+                            ? <img src={m.logo} alt={m.label} className="h-12 w-12 object-contain" />
+                            : <span className="text-3xl leading-none block">{m.icon}</span>
+                          }
+                        </div>
+                        <span className={`text-xs font-semibold text-center leading-tight ${repayMethod === m.id ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground'}`}>
+                          {m.label}
+                        </span>
                       </button>
                     ))}
                 </div>
