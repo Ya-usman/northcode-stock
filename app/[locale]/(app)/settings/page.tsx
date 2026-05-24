@@ -52,7 +52,9 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const [pushSupported, setPushSupported] = useState(false)
   const [pushEnabled, setPushEnabled] = useState(false)
   const [pushLoading, setPushLoading] = useState(false)
-  const [notifyPushNewSale, setNotifyPushNewSale] = useState(true)
+  const [notifyPushNewSale, setNotifyPushNewSale] = useState(() =>
+    typeof window !== 'undefined' ? localStorage.getItem('notify_push_new_sale') !== '0' : true
+  )
   const [saleSoundEnabled, setSaleSoundEnabled] = useState(() =>
     typeof window !== 'undefined' ? localStorage.getItem('sale_sound_enabled') !== '0' : true
   )
@@ -99,7 +101,6 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       setNotifyWaEachSale(shopData.notify_whatsapp_each_sale)
       setNotifyEmailLowStock(shopData.notify_email_low_stock)
       setNotifyEmailDaily(shopData.notify_email_daily)
-      setNotifyPushNewSale((shopData as any).notify_push_new_sale ?? true)
       setLoading(false)
       // Load stored permissions — deep merge so partial DB objects don't lose default keys
       const stored = (shopData as any).role_permissions as Partial<AllPerms> | null
@@ -153,7 +154,6 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       notify_whatsapp_each_sale: notifyWaEachSale,
       notify_email_low_stock: notifyEmailLowStock,
       notify_email_daily: notifyEmailDaily,
-      notify_push_new_sale: notifyPushNewSale,
     }
     const { error } = await supabase.from('shops').update(updates).eq('id', shop.id)
     setSaving(false)
@@ -394,7 +394,10 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                         </div>
                         <Switch
                           checked={notifyPushNewSale}
-                          onCheckedChange={setNotifyPushNewSale}
+                          onCheckedChange={v => {
+                            setNotifyPushNewSale(v)
+                            localStorage.setItem('notify_push_new_sale', v ? '1' : '0')
+                          }}
                         />
                       </div>
                       {notifyPushNewSale && (
