@@ -6,11 +6,22 @@ import { createClient } from '@/lib/supabase/client'
 async function handleOAuthUrl(url: string, locale: string) {
   if (!url.startsWith('stockshop://auth')) return
   const supabase = createClient()
-  const { error } = await supabase.auth.exchangeCodeForSession(url)
-  if (!error) {
+  const { data, error } = await supabase.auth.exchangeCodeForSession(url)
+  if (!error && data.session) {
     localStorage.setItem('auth_remember_me', '1')
+    // Set role cookie so middleware recognizes the session
+    await fetch('/api/auth/set-role', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    }).catch(() => {})
     const savedLocale = localStorage.getItem('NEXT_LOCALE') || locale
-    window.location.href = `/${savedLocale}/dashboard`
+    window.location.replace(`/${savedLocale}/dashboard`)
+  } else {
+    // Redirect to login with error so the user knows something failed
+    const savedLocale = localStorage.getItem('NEXT_LOCALE') || locale
+    const msg = error?.message ?? 'no_session'
+    window.location.replace(`/${savedLocale}/login?error=${encodeURIComponent(msg)}`)
   }
 }
 
