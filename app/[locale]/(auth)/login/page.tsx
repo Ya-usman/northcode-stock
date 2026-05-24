@@ -104,14 +104,14 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
       ? 'stockshop://auth/callback'
       : `${window.location.origin}/auth/callback?next=/${locale}/dashboard`
     if (isNative) {
-      // skipBrowserRedirect: true → Supabase stocke le PKCE verifier AVANT toute navigation
-      // Ensuite on navigue manuellement → Capacitor ouvre Chrome Custom Tab
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo, skipBrowserRedirect: true },
       })
       if (error || !data?.url) { setError(error?.message || 'OAuth error'); return }
-      window.location.href = data.url
+      // App.openUrl ouvre Chrome sans naviguer le WebView → le PKCE verifier reste intact
+      const { App } = await import('@capacitor/app')
+      await App.openUrl({ url: data.url })
     } else {
       await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } })
     }
@@ -130,7 +130,8 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
         options: { redirectTo, skipBrowserRedirect: true },
       })
       if (error || !data?.url) { setError(error?.message || 'OAuth error'); return }
-      window.location.href = data.url
+      const { App } = await import('@capacitor/app')
+      await App.openUrl({ url: data.url })
     } else {
       await supabase.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo } })
     }
