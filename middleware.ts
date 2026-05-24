@@ -109,13 +109,18 @@ export async function middleware(request: NextRequest) {
     if (cookieLocale && locales.includes(cookieLocale as any)) {
       resolvedLocale = cookieLocale
     } else {
-      // Auto-detect from browser's Accept-Language header
       const acceptLang = request.headers.get('Accept-Language') || ''
       const browserLang = acceptLang.split(',')[0].split('-')[0].toLowerCase()
       resolvedLocale = locales.includes(browserLang as any) ? browserLang : defaultLocale
     }
-    // Connecté → dashboard, non connecté → landing page
-    const dest = userId ? `/${resolvedLocale}/dashboard` : `/${resolvedLocale}`
+    // Connecté → dashboard
+    if (userId) {
+      return mergeAuthCookies(NextResponse.redirect(new URL(`/${resolvedLocale}/dashboard`, request.url)), response)
+    }
+    // Mobile (Android/iOS/app native) → login directement, pas de landing page
+    const ua = request.headers.get('user-agent') || ''
+    const isMobile = /android|iphone|ipad|ipod|mobile/i.test(ua)
+    const dest = isMobile ? `/${resolvedLocale}/login` : `/${resolvedLocale}`
     return mergeAuthCookies(NextResponse.redirect(new URL(dest, request.url)), response)
   }
 
