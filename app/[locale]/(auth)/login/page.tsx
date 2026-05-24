@@ -98,13 +98,31 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
   const signInWithGoogle = async () => {
     setError('')
     localStorage.setItem('auth_remember_me', '1')
-    await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/auth/callback?next=/${locale}/dashboard` } })
+    const redirectTo = `${window.location.origin}/auth/callback?next=/${locale}/dashboard`
+    const isNative = (window as any).Capacitor?.isNativePlatform?.()
+    if (isNative) {
+      // Capacitor: navigate the WebView directly instead of opening Chrome Custom Tab
+      // (Chrome Custom Tab has a separate cookie store — session wouldn't transfer to the app)
+      const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo, skipBrowserRedirect: true } })
+      if (error || !data?.url) { setError(error?.message || 'OAuth error'); return }
+      window.location.href = data.url
+    } else {
+      await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } })
+    }
   }
 
   const signInWithApple = async () => {
     setError('')
     localStorage.setItem('auth_remember_me', '1')
-    await supabase.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo: `${window.location.origin}/auth/callback?next=/${locale}/dashboard` } })
+    const redirectTo = `${window.location.origin}/auth/callback?next=/${locale}/dashboard`
+    const isNative = (window as any).Capacitor?.isNativePlatform?.()
+    if (isNative) {
+      const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo, skipBrowserRedirect: true } })
+      if (error || !data?.url) { setError(error?.message || 'OAuth error'); return }
+      window.location.href = data.url
+    } else {
+      await supabase.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo } })
+    }
   }
 
   const onForgot = async (data: ForgotData) => {
