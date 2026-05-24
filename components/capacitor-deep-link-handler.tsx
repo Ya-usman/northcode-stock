@@ -5,37 +5,62 @@ import { useEffect } from 'react'
 async function handleOAuthUrl(url: string, locale: string) {
   if (!url.startsWith('stockshop://auth')) return
 
+  const savedLocale = localStorage.getItem('NEXT_LOCALE') || locale
+
   try {
-    // The native client (used in login page) stores the PKCE verifier in localStorage.
-    // The SSR client (createClient) reads from cookies. Bridge the gap by copying
-    // the verifier from localStorage into a cookie before calling exchangeCodeForSession.
-    const projectRef = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').match(/\/\/([^.]+)/)?.[1] ?? ''
+    // Extract the authorization code from the deep link URL
+    const code = new URLSearchParams(url.split('?')[1] ?? '').get('code')
+    if (!code) {
+      window.location.replace(`/${savedLocale}/login?error=${encodeURIComponent('no_code_in_url')}`)
+      return
+    }
+
+    // Read the PKCE code verifier directly from localStorage (stored by createNativeClient)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    const projectRef = supabaseUrl.match(/\/\/([^.]+)/)?.[1] ?? ''
     const verifierKey = `sb-${projectRef}-auth-token-code-verifier`
-    const verifier = localStorage.getItem(verifierKey)
-    if (verifier) {
-      document.cookie = `${verifierKey}=${encodeURIComponent(verifier)}; path=/; max-age=300; samesite=lax`
+    const codeVerifier = localStorage.getItem(verifierKey)
+
+    if (!codeVerifier) {
+      window.location.replace(`/${savedLocale}/login?error=${encodeURIComponent('verifier_not_found')}`)
+      return
     }
 
-    const { createClient } = await import('@/lib/supabase/client')
-    const supabase = createClient()
-    const { data, error } = await supabase.auth.exchangeCodeForSession(url)
+    // Exchange code + verifier directly with Supabase token endpoint — bypasses client storage entirely
+    const res = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=pkce`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseAnonKey,
+      },
+      body: JSON.stringify({ auth_code: code, code_verifier: codeVerifier }),
+    })
 
-    if (!error && data.session) {
-      localStorage.setItem('auth_remember_me', '1')
-      await fetch('/api/auth/set-role', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: '{}',
-      }).catch(() => {})
-      const savedLocale = localStorage.getItem('NEXT_LOCALE') || locale
-      window.location.replace(`/${savedLocale}/dashboard`)
-    } else {
-      const savedLocale = localStorage.getItem('NEXT_LOCALE') || locale
-      const msg = error?.message ?? 'no_session'
+    const tokenData = await res.json()
+
+    if (!res.ok || !tokenData.access_token) {
+      const msg = tokenData.error_description ?? tokenData.msg ?? tokenData.error ?? 'token_exchange_failed'
       window.location.replace(`/${savedLocale}/login?error=${encodeURIComponent(msg)}`)
+      return
     }
+
+    // Set session on the SSR client so middleware and the app recognize the user
+    const { createClient } = await import('@/lib/supabase/client')
+    await createClient().auth.setSession({
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token,
+    })
+
+    localStorage.setItem('auth_remember_me', '1')
+    await fetch('/api/auth/set-role', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    }).catch(() => {})
+
+    window.location.replace(`/${savedLocale}/dashboard`)
   } catch (e: any) {
-    const savedLocale = localStorage.getItem('NEXT_LOCALE') || locale
     window.location.replace(`/${savedLocale}/login?error=${encodeURIComponent(e?.message ?? 'unknown_error')}`)
   }
 }
