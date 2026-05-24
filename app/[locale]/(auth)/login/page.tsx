@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -61,6 +61,12 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
     searchParams?.confirmed === '1' ? 'Adresse e-mail confirmée ! Vous pouvez maintenant vous connecter.' : ''
   )
 
+  useEffect(() => {
+    if (searchParams?.confirmed === '1') {
+      supabase.auth.signOut().catch(() => {})
+    }
+  }, [])
+
   const loginForm = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: '', password: '', rememberMe: false },
@@ -79,6 +85,8 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
     }
     const { data: authData, error } = await supabase.auth.signInWithPassword({ email: data.email, password: data.password })
     if (error) { setError(t('invalid_credentials')); return }
+    localStorage.setItem('auth_remember_me', data.rememberMe ? '1' : '0')
+    sessionStorage.setItem('session_alive', '1')
     await fetch('/api/auth/set-role', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
     const { data: profileData } = await supabase.from('profiles').select('locale').eq('id', authData.user.id).single()
     const preferredLocale = profileData?.locale || document.cookie.match(/NEXT_LOCALE=([^;]+)/)?.[1] || localStorage.getItem('NEXT_LOCALE') || locale
@@ -89,11 +97,13 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
 
   const signInWithGoogle = async () => {
     setError('')
+    localStorage.setItem('auth_remember_me', '1') // OAuth → toujours mémoriser
     await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/auth/callback?next=/${locale}/dashboard` } })
   }
 
   const signInWithApple = async () => {
     setError('')
+    localStorage.setItem('auth_remember_me', '1') // OAuth → toujours mémoriser
     await supabase.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo: `${window.location.origin}/auth/callback?next=/${locale}/dashboard` } })
   }
 

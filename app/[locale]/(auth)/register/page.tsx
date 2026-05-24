@@ -93,6 +93,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
   })
 
   const signInWithGoogle = async () => {
+    localStorage.setItem('auth_remember_me', '1')
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/auth/callback?next=/${locale}/dashboard` },
@@ -100,6 +101,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
   }
 
   const signInWithApple = async () => {
+    localStorage.setItem('auth_remember_me', '1')
     await supabase.auth.signInWithOAuth({
       provider: 'apple',
       options: { redirectTo: `${window.location.origin}/auth/callback?next=/${locale}/dashboard` },
@@ -110,7 +112,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
     setResendLoading(true)
     setResendSuccess(false)
     await supabase.auth.resend({ type: 'signup', email: sentToEmail, options: {
-      emailRedirectTo: `${window.location.origin}/auth/callback?next=/${locale}/dashboard`,
+      emailRedirectTo: `${window.location.origin}/auth/callback?next=/${locale}/login&confirmed=1`,
     }})
     setResendLoading(false)
     setResendSuccess(true)
@@ -145,7 +147,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
         password: data.password,
         options: {
           data: { full_name: data.full_name },
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/${locale}/login&signout=1&confirmed=1`,
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/${locale}/login&confirmed=1`,
         },
       })
       if (signUpError) throw signUpError
@@ -188,6 +190,8 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
       if (authData.session) {
         await supabase.auth.refreshSession()
         await fetch('/api/auth/set-role', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        localStorage.setItem('auth_remember_me', '1') // nouveau compte → mémorisé par défaut
+        sessionStorage.setItem('session_alive', '1')
         // Pre-load auth context before navigating so dashboard never shows skeleton
         await refreshShop()
         router.push(`/${locale}/dashboard`)

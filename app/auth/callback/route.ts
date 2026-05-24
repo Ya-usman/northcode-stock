@@ -9,30 +9,32 @@ export async function GET(request: Request) {
   const next = searchParams.get('next')
   const localeCookie = request.headers.get('cookie')?.match(/NEXT_LOCALE=([^;]+)/)?.[1] ?? 'fr'
 
-  // signout=1 → confirmation email : on confirme puis on déconnecte
-  // pour renvoyer l'utilisateur à la page de connexion sans session active
-  const signout = searchParams.get('signout') === '1'
+  // confirmed=1 → confirmation email : la page login se charge de signOut() côté client
+  // (signOut() serveur ne propage pas ses cookies dans NextResponse.redirect)
+  const confirmed = searchParams.get('confirmed') === '1'
 
   if (code) {
     const supabase = await createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error) {
-      if (signout) {
-        // Email confirmation flow : email confirmé, session détruite → login
-        await supabase.auth.signOut()
-        const dest = next ? `${origin}${next}` : `${origin}/${localeCookie}/login?confirmed=1`
-        return NextResponse.redirect(dest)
+      // Pour la confirmation email, on ne définit pas le rôle — l'utilisateur va se déconnecter
+      // côté client sur la page login avant de se reconnecter normalement
+      if (!confirmed) {
+        fetch(`${origin}/api/auth/set-role`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+        }).catch(() => {})
       }
 
-      // OAuth / reset password / invitation : garder la session
-      fetch(`${origin}/api/auth/set-role`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: '{}',
-      }).catch(() => {})
-
-      const dest = next ? `${origin}${next}` : `${origin}/${localeCookie}/dashboard`
+      // Ajouter ?confirmed=1 à la destination si le flag est présent
+      const confirmedSuffix = confirmed ? '?confirmed=1' : ''
+      const dest = next
+        ? `${origin}${next}${confirmedSuffix}`
+        : confirmed
+          ? `${origin}/${localeCookie}/login?confirmed=1`
+          : `${origin}/${localeCookie}/dashboard`
       return NextResponse.redirect(dest)
     }
   }

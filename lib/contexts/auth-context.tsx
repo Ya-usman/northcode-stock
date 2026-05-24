@@ -206,6 +206,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
+      // ── Remember Me check ──────────────────────────────────────────────
+      // sessionStorage est vidé à la fermeture du navigateur/onglet.
+      // Si session_alive est absent = nouvelle ouverture du navigateur.
+      // Dans ce cas, on déconnecte sauf si l'utilisateur a coché "Remember Me"
+      // ou s'il est connecté via OAuth (Google/Apple).
+      const remember = localStorage.getItem('auth_remember_me') === '1'
+      const sessionAlive = sessionStorage.getItem('session_alive') === '1'
+      const provider = session.user.app_metadata?.provider
+      const isOAuth = Boolean(provider && provider !== 'email')
+
+      if (!remember && !isOAuth && !sessionAlive) {
+        await supabase.auth.signOut()
+        clearCache()
+        if (!cancelled) setState(s => ({ ...s, loading: false }))
+        const locale = getLocaleCookie() || localStorage.getItem('NEXT_LOCALE') || 'fr'
+        window.location.replace(`/${locale}/login`)
+        return
+      }
+      sessionStorage.setItem('session_alive', '1')
+      // ──────────────────────────────────────────────────────────────────
+
       // ── Step 1: serve from cache immediately (zero latency) ────────────
       const cached = readCache(session.user.id)
       if (cached) {

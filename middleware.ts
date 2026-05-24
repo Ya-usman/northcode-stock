@@ -123,8 +123,11 @@ export async function middleware(request: NextRequest) {
   if (isPublic(pathnameWithoutLocale)) {
     if (userId && (pathnameWithoutLocale === '/login' || pathnameWithoutLocale === '/register')) {
       // Ne pas rediriger si une erreur est présente (ex: no_profile, inactive) — évite la boucle infinie
+      // Ne pas rediriger si confirmed=1 : l'utilisateur vient de confirmer son email, la page login
+      // va appeler signOut() côté client pour vider la session avant d'afficher le message de succès
       const hasError = request.nextUrl.searchParams.has('error')
-      if (!hasError) {
+      const isConfirmed = request.nextUrl.searchParams.get('confirmed') === '1'
+      if (!hasError && !isConfirmed) {
         return mergeAuthCookies(NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url)), response)
       }
     }
