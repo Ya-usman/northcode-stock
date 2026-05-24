@@ -6,21 +6,21 @@ async function handleOAuthUrl(url: string, locale: string) {
   if (!url.startsWith('stockshop://auth')) return
 
   try {
-    // DEBUG: collect all localStorage keys to diagnose storage issues
-    const allKeys = Object.keys(localStorage)
-    const sbKeys = allKeys.filter(k => k.startsWith('sb-') || k.includes('verifier') || k.includes('pkce') || k.includes('code'))
-    const debugInfo = `keys[${allKeys.length}]:${sbKeys.join('|') || 'none'}`
+    // The native client (used in login page) stores the PKCE verifier in localStorage.
+    // The SSR client (createClient) reads from cookies. Bridge the gap by copying
+    // the verifier from localStorage into a cookie before calling exchangeCodeForSession.
+    const projectRef = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').match(/\/\/([^.]+)/)?.[1] ?? ''
+    const verifierKey = `sb-${projectRef}-auth-token-code-verifier`
+    const verifier = localStorage.getItem(verifierKey)
+    if (verifier) {
+      document.cookie = `${verifierKey}=${encodeURIComponent(verifier)}; path=/; max-age=300; samesite=lax`
+    }
 
-    const { createNativeClient } = await import('@/lib/supabase/native-client')
-    const { data, error } = await createNativeClient().auth.exchangeCodeForSession(url)
+    const { createClient } = await import('@/lib/supabase/client')
+    const supabase = createClient()
+    const { data, error } = await supabase.auth.exchangeCodeForSession(url)
 
     if (!error && data.session) {
-      // Sync session to the regular SSR client (cookies) so middleware recognizes it
-      const { createClient } = await import('@/lib/supabase/client')
-      await createClient().auth.setSession({
-        access_token: data.session.access_token,
-        refresh_token: data.session.refresh_token,
-      })
       localStorage.setItem('auth_remember_me', '1')
       await fetch('/api/auth/set-role', {
         method: 'POST',
@@ -31,7 +31,7 @@ async function handleOAuthUrl(url: string, locale: string) {
       window.location.replace(`/${savedLocale}/dashboard`)
     } else {
       const savedLocale = localStorage.getItem('NEXT_LOCALE') || locale
-      const msg = `${error?.message ?? 'no_session'} | ${debugInfo}`
+      const msg = error?.message ?? 'no_session'
       window.location.replace(`/${savedLocale}/login?error=${encodeURIComponent(msg)}`)
     }
   } catch (e: any) {
