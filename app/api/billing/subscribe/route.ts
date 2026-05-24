@@ -130,6 +130,31 @@ export async function POST(request: Request) {
       return NextResponse.json({ authorization_url: url, reference: data.transaction?.reference || '' })
     }
 
+    // ── Wave (pays FCFA avec Wave sélectionné) ────────────────────────────
+    if (country.gateway === 'flutterwave' && payment_method === 'wave') {
+      const waveKey = process.env.WAVE_API_KEY
+      if (!waveKey) return NextResponse.json({ error: 'Wave not configured' }, { status: 500 })
+
+      const tx_ref = `SS-${shop_id.slice(0, 8)}-${Date.now()}`
+
+      const res = await fetchWithTimeout('https://api.wave.com/v1/checkout/sessions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${waveKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: String(amount),
+          currency: country.currency,
+          success_url: `${baseUrl}/api/billing/wave/verify?locale=${locale}`,
+          error_url: `${baseUrl}/${locale}/billing?error=payment_failed`,
+          client_reference: `${shop_id}|${plan_id}|${period}|${tx_ref}`,
+        }),
+      })
+      const data = await res.json()
+      const url = data.wave_launch_url
+      if (!url) return NextResponse.json({ error: data.message || 'Wave error' }, { status: 500 })
+
+      return NextResponse.json({ authorization_url: url, reference: tx_ref })
+    }
+
     // ── Flutterwave (tous les autres pays FCFA) ────────────────────────────
     if (country.gateway === 'flutterwave') {
       const secretKey = process.env.FLUTTERWAVE_SECRET_KEY
