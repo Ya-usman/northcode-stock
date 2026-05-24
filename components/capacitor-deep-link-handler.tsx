@@ -6,6 +6,11 @@ async function handleOAuthUrl(url: string, locale: string) {
   if (!url.startsWith('stockshop://auth')) return
 
   try {
+    // DEBUG: collect all localStorage keys to diagnose storage issues
+    const allKeys = Object.keys(localStorage)
+    const sbKeys = allKeys.filter(k => k.startsWith('sb-') || k.includes('verifier') || k.includes('pkce') || k.includes('code'))
+    const debugInfo = `keys[${allKeys.length}]:${sbKeys.join('|') || 'none'}`
+
     const { createNativeClient } = await import('@/lib/supabase/native-client')
     const { data, error } = await createNativeClient().auth.exchangeCodeForSession(url)
 
@@ -26,7 +31,7 @@ async function handleOAuthUrl(url: string, locale: string) {
       window.location.replace(`/${savedLocale}/dashboard`)
     } else {
       const savedLocale = localStorage.getItem('NEXT_LOCALE') || locale
-      const msg = error?.message ?? 'no_session'
+      const msg = `${error?.message ?? 'no_session'} | ${debugInfo}`
       window.location.replace(`/${savedLocale}/login?error=${encodeURIComponent(msg)}`)
     }
   } catch (e: any) {
