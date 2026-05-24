@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
 import type { Profile, Shop, UserRole } from '@/lib/types/database'
 import { setLocaleCookie, getLocaleCookie } from '@/lib/utils/cookies'
+import { isCapacitor } from '@/lib/utils/native-share'
 
 interface AuthState {
   user: User | null
@@ -218,7 +219,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Ne pas déconnecter sur la page reset-password (recovery flow via callback PKCE)
       const isResetFlow = window.location.pathname.includes('/reset-password')
 
-      if (!remember && !isOAuth && !sessionAlive && !isResetFlow) {
+      const isNativeApp = isCapacitor()
+
+      if (!remember && !isOAuth && !sessionAlive && !isResetFlow && !isNativeApp) {
         await supabase.auth.signOut()
         clearCache()
         if (!cancelled) setState(s => ({ ...s, loading: false }))
