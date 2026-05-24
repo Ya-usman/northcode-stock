@@ -127,7 +127,8 @@ export async function middleware(request: NextRequest) {
       // va appeler signOut() côté client pour vider la session avant d'afficher le message de succès
       const hasError = request.nextUrl.searchParams.has('error')
       const isConfirmed = request.nextUrl.searchParams.get('confirmed') === '1'
-      if (!hasError && !isConfirmed) {
+      const isOAuthWeb = request.nextUrl.searchParams.get('oauth_web') === '1'
+      if (!hasError && !isConfirmed && !isOAuthWeb) {
         return mergeAuthCookies(NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url)), response)
       }
     }
