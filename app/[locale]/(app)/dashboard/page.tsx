@@ -327,6 +327,13 @@ export default function DashboardPage() {
     if (!authLoading && shopIds.length === 0) setFirstLoad(false)
   }, [authLoading, shopIds.length])
 
+  // Timeout de sécurité : skeleton jamais bloqué plus de 6 secondes
+  useEffect(() => {
+    if (!firstLoad) return
+    const t = setTimeout(() => setFirstLoad(false), 6000)
+    return () => clearTimeout(t)
+  }, [firstLoad])
+
   // Auto-refresh when user comes back to this tab
   useEffect(() => {
     const onVisible = () => {

@@ -10,6 +10,7 @@ import { motion } from 'framer-motion'
 import { Eye, EyeOff, Store, User, Mail, Lock, MapPin, Sun, Moon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
+import { useAuthContext } from '@/lib/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -46,6 +47,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
   const tAuth = useTranslations('auth')
   const router = useRouter()
   const { isDark, toggle } = useTheme()
+  const { refreshShop } = useAuthContext()
   const supabase = createClient()
   const [showPwd, setShowPwd] = useState(false)
   const [showConfirmPwd, setShowConfirmPwd] = useState(false)
@@ -186,6 +188,8 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
       if (authData.session) {
         await supabase.auth.refreshSession()
         await fetch('/api/auth/set-role', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        // Pre-load auth context before navigating so dashboard never shows skeleton
+        await refreshShop()
         router.push(`/${locale}/dashboard`)
       } else {
         authUserId = null
