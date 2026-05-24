@@ -1,28 +1,29 @@
 'use client'
 
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 import type { Database } from '@/lib/types/database'
 
-// Dedicated client for Capacitor Android/iOS OAuth flow.
-// Uses localStorage (persisted to disk) instead of session cookies so the
-// PKCE code verifier survives WebView backgrounding between signInWithOAuth
-// and exchangeCodeForSession (which run in separate Chrome/WebView contexts).
-let _client: ReturnType<typeof createClient<Database>> | null = null
-
+// Mobile OAuth client: redirects cookie storage to localStorage.
+// localStorage is persisted to disk on Android WebView — it survives
+// when the renderer process is killed while Chrome is in foreground.
+// Session cookies are memory-only and are lost in that scenario.
 export function createNativeClient() {
-  if (!_client) {
-    _client = createClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        auth: {
-          storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-          flowType: 'pkce',
-          persistSession: true,
-          autoRefreshToken: true,
+  return createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get: (name) => {
+          if (typeof window === 'undefined') return undefined
+          return window.localStorage.getItem(name) ?? undefined
         },
-      }
-    )
-  }
-  return _client
+        set: (name, value) => {
+          if (typeof window !== 'undefined') window.localStorage.setItem(name, value)
+        },
+        remove: (name) => {
+          if (typeof window !== 'undefined') window.localStorage.removeItem(name)
+        },
+      },
+    }
+  )
 }

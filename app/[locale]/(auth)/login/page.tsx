@@ -96,45 +96,54 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
     router.push(`/${preferredLocale}/dashboard`)
   }
 
-  const signInWithGoogle = async () => {
+  const signInWithOAuthNative = async (provider: 'google' | 'apple') => {
     setError('')
     localStorage.setItem('auth_remember_me', '1')
-    const isNative = (window as any).Capacitor?.isNativePlatform?.()
-    const redirectTo = isNative
-      ? 'stockshop://auth/callback'
-      : `${window.location.origin}/auth/callback?next=/${locale}/dashboard`
-    if (isNative) {
+    try {
+      const redirectTo = 'stockshop://auth/callback'
       const { createNativeClient } = await import('@/lib/supabase/native-client')
       const { data, error } = await createNativeClient().auth.signInWithOAuth({
-        provider: 'google',
+        provider,
         options: { redirectTo, skipBrowserRedirect: true },
       })
-      if (error || !data?.url) { setError(error?.message || 'OAuth error'); return }
-      const { App } = await import('@capacitor/app')
-      await App.openUrl({ url: data.url })
+      if (error || !data?.url) { setError(error?.message || 'Erreur OAuth'); return }
+      // Try App.openUrl first (keeps WebView alive), fallback to window.location.href
+      try {
+        const { App } = await import('@capacitor/app')
+        await App.openUrl({ url: data.url })
+      } catch {
+        window.location.href = data.url
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Erreur inattendue')
+    }
+  }
+
+  const signInWithGoogle = async () => {
+    const isNative = (window as any).Capacitor?.isNativePlatform?.()
+    if (isNative) {
+      await signInWithOAuthNative('google')
     } else {
-      await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } })
+      setError('')
+      localStorage.setItem('auth_remember_me', '1')
+      await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: `${window.location.origin}/auth/callback?next=/${locale}/dashboard` },
+      })
     }
   }
 
   const signInWithApple = async () => {
-    setError('')
-    localStorage.setItem('auth_remember_me', '1')
     const isNative = (window as any).Capacitor?.isNativePlatform?.()
-    const redirectTo = isNative
-      ? 'stockshop://auth/callback'
-      : `${window.location.origin}/auth/callback?next=/${locale}/dashboard`
     if (isNative) {
-      const { createNativeClient } = await import('@/lib/supabase/native-client')
-      const { data, error } = await createNativeClient().auth.signInWithOAuth({
-        provider: 'apple',
-        options: { redirectTo, skipBrowserRedirect: true },
-      })
-      if (error || !data?.url) { setError(error?.message || 'OAuth error'); return }
-      const { App } = await import('@capacitor/app')
-      await App.openUrl({ url: data.url })
+      await signInWithOAuthNative('apple')
     } else {
-      await supabase.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo } })
+      setError('')
+      localStorage.setItem('auth_remember_me', '1')
+      await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: { redirectTo: `${window.location.origin}/auth/callback?next=/${locale}/dashboard` },
+      })
     }
   }
 
