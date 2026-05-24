@@ -14,6 +14,8 @@ import { TrialBanner } from '@/components/saas/trial-banner'
 import { UpgradeWall } from '@/components/saas/upgrade-wall'
 import { PlanLimitAlert } from '@/components/saas/plan-limit-alert'
 import { getTrialDaysLeft, hasActiveSubscription, isAccessAllowed, isBetaPeriod } from '@/lib/saas/plans'
+import { useToast } from '@/components/ui/use-toast'
+import { triggerSaleFeedback, unlockAudio } from '@/lib/utils/sale-feedback'
 
 const supabase = createClient()
 
@@ -63,8 +65,51 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   const title = usePageTitle(pathname, locale)
   const [productCount, setProductCount] = useState(0)
   const [teamCount, setTeamCount] = useState(0)
+  const { toast } = useToast()
 
   const handleSignOut = () => signOut()
+
+  // ── REALTIME: notifier l'admin quand un caissier fait une vente ────────────
+  useEffect(() => {
+    const isAdmin = profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'super_admin'
+    if (!shop?.id || !user?.id || !isAdmin) return
+
+    // Pré-déverrouiller l'AudioContext au premier geste utilisateur
+    const unlock = () => {
+      unlockAudio()
+      document.removeEventListener('click', unlock)
+      document.removeEventListener('touchstart', unlock)
+    }
+    document.addEventListener('click', unlock, { passive: true })
+    document.addEventListener('touchstart', unlock, { passive: true })
+
+    const channel = supabase
+      .channel(`sale-notify-${shop.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'sales',
+        filter: `shop_id=eq.${shop.id}`,
+      }, (payload) => {
+        const sale = payload.new as any
+        if (sale.cashier_id === user.id) return   // ne pas notifier le caissier lui-même
+
+        triggerSaleFeedback()
+        const amount = `${Number(sale.total ?? 0).toLocaleString('fr-FR')} ${shop.currency || ''}`
+        toast({
+          title: '💰 Nouvelle vente',
+          description: `${amount}${sale.sale_number ? ` · #${sale.sale_number}` : ''}`,
+          variant: 'success',
+        })
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+      document.removeEventListener('click', unlock)
+      document.removeEventListener('touchstart', unlock)
+    }
+  }, [shop?.id, user?.id, profile?.role])
 
   // Redirect handled in render below (avoids double redirect race)
 
