@@ -68,10 +68,13 @@ function playChime() {
  * incoming sale notification (admin side via Realtime).
  */
 export async function triggerSaleFeedback() {
-  // Haptics: essaye Capacitor native d'abord, sinon navigator.vibrate
-  const usedNative = await vibrateNative()
-  if (!usedNative) vibrateWeb()
+  const soundEnabled = typeof localStorage !== 'undefined'
+    ? localStorage.getItem('sale_sound_enabled') !== '0'
+    : true
 
-  // Son
-  playChime()
+  if (soundEnabled) {
+    const usedNative = await vibrateNative()
+    if (!usedNative) vibrateWeb()
+    playChime()
+  }
 }
