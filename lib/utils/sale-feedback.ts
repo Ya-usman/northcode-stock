@@ -68,13 +68,14 @@ function playChime() {
  * incoming sale notification (admin side via Realtime).
  */
 export async function triggerSaleFeedback() {
-  const soundEnabled = typeof localStorage !== 'undefined'
-    ? localStorage.getItem('sale_sound_enabled') !== '0'
-    : true
+  if (typeof localStorage === 'undefined') return
 
-  if (soundEnabled) {
-    const usedNative = await vibrateNative()
-    if (!usedNative) vibrateWeb()
-    playChime()
-  }
+  const alertEnabled = localStorage.getItem('notify_push_new_sale') !== '0'
+  const soundEnabled = localStorage.getItem('sale_sound_enabled') !== '0'
+
+  if (!alertEnabled || !soundEnabled) return
+
+  const usedNative = await vibrateNative()
+  if (!usedNative) vibrateWeb()
+  playChime()
 }
