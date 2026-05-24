@@ -1,12 +1,11 @@
 'use client'
 
 import { useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 
 async function handleOAuthUrl(url: string, locale: string) {
   if (!url.startsWith('stockshop://auth')) return
-  const supabase = createClient()
-  const { data, error } = await supabase.auth.exchangeCodeForSession(url)
+  const { createNativeClient } = await import('@/lib/supabase/native-client')
+  const { data, error } = await createNativeClient().auth.exchangeCodeForSession(url)
   if (!error && data.session) {
     localStorage.setItem('auth_remember_me', '1')
     // Set role cookie so middleware recognizes the session

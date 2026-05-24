@@ -104,12 +104,12 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
       ? 'stockshop://auth/callback'
       : `${window.location.origin}/auth/callback?next=/${locale}/dashboard`
     if (isNative) {
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { createNativeClient } = await import('@/lib/supabase/native-client')
+      const { data, error } = await createNativeClient().auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo, skipBrowserRedirect: true },
       })
       if (error || !data?.url) { setError(error?.message || 'OAuth error'); return }
-      // App.openUrl ouvre Chrome sans naviguer le WebView → le PKCE verifier reste intact
       const { App } = await import('@capacitor/app')
       await App.openUrl({ url: data.url })
     } else {
@@ -125,7 +125,8 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
       ? 'stockshop://auth/callback'
       : `${window.location.origin}/auth/callback?next=/${locale}/dashboard`
     if (isNative) {
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { createNativeClient } = await import('@/lib/supabase/native-client')
+      const { data, error } = await createNativeClient().auth.signInWithOAuth({
         provider: 'apple',
         options: { redirectTo, skipBrowserRedirect: true },
       })
