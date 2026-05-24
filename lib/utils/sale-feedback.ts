@@ -1,11 +1,10 @@
 /**
  * Audio context singleton.
  * Must be created/resumed during a user gesture (synchronous click handler).
- * Once running, it stays usable even after async awaits.
  */
 let _ctx: AudioContext | null = null
 
-/** Call this synchronously at the start of the click handler (before any await). */
+/** Call this synchronously at the start of a click handler (before any await). */
 export function unlockAudio() {
   if (typeof window === 'undefined') return
   try {
@@ -16,14 +15,32 @@ export function unlockAudio() {
   } catch {}
 }
 
-/** Call this after the sale is confirmed (can be inside an async block). */
-export function triggerSaleFeedback() {
-  // Haptic — works on Android Chrome / installed PWA
-  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-    navigator.vibrate([60, 40, 100])
-  }
+/** Native haptic via Capacitor — works even in silent/low-volume mode. */
+async function vibrateNative() {
+  try {
+    const cap = (window as any).Capacitor
+    if (!cap?.isNativePlatform?.()) return false
 
-  // Chime — uses the already-unlocked context
+    const { Haptics, ImpactStyle } = await import('@capacitor/haptics')
+    // Heavy impact suivi d'un medium — ressemble à un double buzz
+    await Haptics.impact({ style: ImpactStyle.Heavy })
+    await new Promise(r => setTimeout(r, 80))
+    await Haptics.impact({ style: ImpactStyle.Medium })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** Web fallback via navigator.vibrate — dépend du mode du téléphone. */
+function vibrateWeb() {
+  if (typeof navigator === 'undefined' || !('vibrate' in navigator)) return
+  // Motif long pour être bien perceptible
+  navigator.vibrate([120, 60, 180])
+}
+
+/** Chime two-tone — uses the already-unlocked AudioContext. */
+function playChime() {
   const ctx = _ctx
   if (!ctx || ctx.state !== 'running') return
 
@@ -42,6 +59,19 @@ export function triggerSaleFeedback() {
     osc.stop(t + dur + 0.05)
   }
 
-  tone(880,  0,    0.15)   // note basse
-  tone(1320, 0.13, 0.26)   // note haute
+  tone(880,  0,    0.15)
+  tone(1320, 0.13, 0.26)
+}
+
+/**
+ * Triggered on every completed sale (cashier side) and on every
+ * incoming sale notification (admin side via Realtime).
+ */
+export async function triggerSaleFeedback() {
+  // Haptics: essaye Capacitor native d'abord, sinon navigator.vibrate
+  const usedNative = await vibrateNative()
+  if (!usedNative) vibrateWeb()
+
+  // Son
+  playChime()
 }
