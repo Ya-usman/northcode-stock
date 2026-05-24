@@ -367,7 +367,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                       )}
                     >
                       {method.logo
-                        ? <img src={method.logo} alt={method.label} className="h-10 w-10 object-contain flex-shrink-0" />
+                        ? <img src={method.logo} alt={method.label} className="h-14 w-14 object-contain flex-shrink-0" />
                         : <span className="text-xl leading-none">{method.icon}</span>
                       }
                       <span className={cn(

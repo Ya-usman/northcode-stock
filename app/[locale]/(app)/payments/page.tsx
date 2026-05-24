@@ -580,21 +580,21 @@ export default function DettesPage() {
               {/* Payment method */}
               <div className="space-y-1">
                 <Label>{t('payment.method')}</Label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {getCountry(shop?.country).paymentMethods
                     .filter(m => m.type !== 'credit')
                     .map(m => (
                       <button key={m.id} onClick={() => setRepayMethod(m.id)}
-                        className={`rounded-lg border p-2.5 text-sm font-medium transition-colors ${
+                        className={`rounded-xl border-2 py-3 px-2 flex flex-col items-center gap-1.5 transition-colors ${
                           repayMethod === m.id
                             ? 'border-blue-500 bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400'
                             : 'border-input bg-card text-muted-foreground hover:bg-muted'
                         }`}>
                         {m.logo
-                          ? <img src={m.logo} alt={m.label} className="h-8 w-8 object-contain flex-shrink-0 inline-block mr-1.5" />
-                          : <span className="mr-1">{m.icon}</span>
+                          ? <img src={m.logo} alt={m.label} className="h-12 w-12 object-contain" />
+                          : <span className="text-3xl leading-none">{m.icon}</span>
                         }
-                        {m.label}
+                        <span className="text-xs font-medium text-center leading-tight">{m.label}</span>
                       </button>
                     ))}
                 </div>

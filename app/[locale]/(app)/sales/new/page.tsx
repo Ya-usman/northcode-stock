@@ -1152,24 +1152,24 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               {t('payment.method')}
               {splitPayment && <span className="text-xs text-muted-foreground ml-1">(1er paiement)</span>}
             </Label>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
               {getCountry(selectedShop?.country).paymentMethods.map(method => (
                 <button key={method.id}
                   onClick={() => {
                     setPaymentMethod(method.id)
                     if (splitMethod2 === method.id) setSplitMethod2('')
                   }}
-                  className={`rounded-lg border p-3 text-sm font-medium transition-colors tap-target text-left ${
+                  className={`rounded-xl border-2 py-3 px-2 flex flex-col items-center gap-1.5 transition-colors tap-target ${
                     paymentMethod === method.id
                       ? 'border-blue-500 bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400'
                       : 'border-input bg-card text-muted-foreground hover:bg-muted'
                   }`}
                 >
                   {method.logo
-                    ? <img src={method.logo} alt={method.label} className="h-8 w-8 object-contain flex-shrink-0 inline-block mr-1.5" />
-                    : <span className="mr-1">{method.icon}</span>
+                    ? <img src={method.logo} alt={method.label} className="h-12 w-12 object-contain" />
+                    : <span className="text-3xl leading-none">{method.icon}</span>
                   }
-                  {method.label}
+                  <span className="text-xs font-medium text-center leading-tight">{method.label}</span>
                 </button>
               ))}
             </div>
@@ -1277,22 +1277,22 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               {/* Method 2 selector */}
               <div className="space-y-1.5">
                 <Label className="text-sm">2ème moyen de paiement</Label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {getCountry(selectedShop?.country).paymentMethods
                     .filter(m => m.id !== paymentMethod && m.id !== 'credit')
                     .map(method => (
                       <button key={method.id} type="button" onClick={() => setSplitMethod2(method.id)}
-                        className={`rounded-lg border p-2.5 text-sm font-medium transition-colors tap-target text-left ${
+                        className={`rounded-xl border-2 py-3 px-2 flex flex-col items-center gap-1.5 transition-colors tap-target ${
                           splitMethod2 === method.id
                             ? 'border-blue-500 bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400'
                             : 'border-input bg-card text-muted-foreground hover:bg-muted'
                         }`}
                       >
                         {method.logo
-                          ? <img src={method.logo} alt={method.label} className="h-8 w-8 object-contain flex-shrink-0 inline-block mr-1.5" />
-                          : <span className="mr-1">{method.icon}</span>
+                          ? <img src={method.logo} alt={method.label} className="h-12 w-12 object-contain" />
+                          : <span className="text-3xl leading-none">{method.icon}</span>
                         }
-                        {method.label}
+                        <span className="text-xs font-medium text-center leading-tight">{method.label}</span>
                       </button>
                     ))
                   }
