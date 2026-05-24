@@ -2,44 +2,39 @@
 
 import { useEffect } from 'react'
 
+// Prevent double-handling when both getLaunchUrl and appUrlOpen fire for the same URL
+let handledCode: string | null = null
+
 async function handleOAuthUrl(url: string, locale: string) {
   if (!url.startsWith('stockshop://auth')) return
 
   const savedLocale = localStorage.getItem('NEXT_LOCALE') || locale
 
   try {
-    // Extract the authorization code from the deep link URL
     const code = new URLSearchParams(url.split('?')[1] ?? '').get('code')
     if (!code) {
       window.location.replace(`/${savedLocale}/login?error=${encodeURIComponent('no_code_in_url')}`)
       return
     }
 
-    // Read the PKCE code verifier from our stable backup key (written in login page
-    // right after signInWithOAuth, from whatever storage Supabase used).
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    const projectRef = supabaseUrl.match(/\/\/([^.]+)/)?.[1] ?? ''
+    // Prevent double-handling (getLaunchUrl + appUrlOpen can both fire)
+    if (handledCode === code) return
+    handledCode = code
 
-    const codeVerifier =
-      localStorage.getItem('__oauth_pkce_verifier') ||
-      localStorage.getItem(`sb-${projectRef}-auth-token-code-verifier`)
-
+    const codeVerifier = localStorage.getItem('__oauth_pkce_verifier')
     if (!codeVerifier) {
       window.location.replace(`/${savedLocale}/login?error=${encodeURIComponent('verifier_not_found')}`)
       return
     }
-
-    // Clean up backup key
     localStorage.removeItem('__oauth_pkce_verifier')
 
-    // Exchange code + verifier directly with Supabase token endpoint — bypasses client storage entirely
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+    // Exchange code + verifier directly with Supabase — bypasses client storage entirely
     const res = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=pkce`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': supabaseAnonKey,
-      },
+      headers: { 'Content-Type': 'application/json', 'apikey': supabaseAnonKey },
       body: JSON.stringify({ auth_code: code, code_verifier: codeVerifier }),
     })
 
@@ -51,12 +46,25 @@ async function handleOAuthUrl(url: string, locale: string) {
       return
     }
 
-    // Set session on the SSR client so middleware and the app recognize the user
+    // Set session on the SSR client so cookies are written for middleware
     const { createClient } = await import('@/lib/supabase/client')
-    await createClient().auth.setSession({
+    const supabase = createClient()
+    const { error: sessionError } = await supabase.auth.setSession({
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
     })
+
+    if (sessionError) {
+      window.location.replace(`/${savedLocale}/login?error=${encodeURIComponent(sessionError.message)}`)
+      return
+    }
+
+    // Verify session was persisted before redirecting
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      window.location.replace(`/${savedLocale}/login?error=${encodeURIComponent('session_not_persisted')}`)
+      return
+    }
 
     localStorage.setItem('auth_remember_me', '1')
     await fetch('/api/auth/set-role', {
