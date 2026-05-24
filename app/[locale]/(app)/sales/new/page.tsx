@@ -32,6 +32,7 @@ const BarcodeScanner = dynamic(
   { ssr: false, loading: () => <div className="mt-1 h-12 rounded-xl bg-muted animate-pulse" /> }
 )
 import { useOffline } from '@/lib/offline/use-offline'
+import { triggerSaleFeedback } from '@/lib/utils/sale-feedback'
 import { getCountry, getMethodType } from '@/lib/saas/countries'
 import { formatInputValue } from '@/lib/utils/currency'
 import { checkAndNotifyLowStock } from '@/lib/push'
@@ -496,6 +497,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         } as any)
         setShowReceipt(true)
         resetForm()
+        triggerSaleFeedback()
         toast({ title: 'Vente sauvegardée hors-ligne · sera synchronisée automatiquement', variant: 'success' })
       } catch (err: any) {
         toast({ title: err.message || t('errors.generic'), variant: 'destructive' })
@@ -636,6 +638,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       setCompletedSale(fullSale as any)
       setShowReceipt(true)
       resetForm()
+      triggerSaleFeedback()
       toast({ title: t('sales.receipt_ready'), variant: 'success' })
 
       // Fire-and-forget: check low stock for sold products
