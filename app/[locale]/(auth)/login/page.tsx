@@ -100,37 +100,33 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
     setError('')
     localStorage.setItem('auth_remember_me', '1')
     try {
-      const redirectTo = 'stockshop://auth/callback'
-      const { createNativeClient } = await import('@/lib/supabase/native-client')
-      const { data, error } = await createNativeClient().auth.signInWithOAuth({
+      // Generate PKCE verifier/challenge manually so we always know exactly
+      // what was sent to Supabase — no dependency on client internal storage.
+      const array = new Uint8Array(32)
+      crypto.getRandomValues(array)
+      const verifier = btoa(String.fromCharCode(...array))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))
+      const challenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+
+      localStorage.setItem('__oauth_pkce_verifier', verifier)
+
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+      const params = new URLSearchParams({
         provider,
-        options: { redirectTo, skipBrowserRedirect: true },
+        redirect_to: 'stockshop://auth/callback',
+        code_challenge: challenge,
+        code_challenge_method: 'S256',
+        flow_type: 'pkce',
       })
-      if (error || !data?.url) { setError(error?.message || 'Erreur OAuth'); return }
+      const oauthUrl = `${supabaseUrl}/auth/v1/authorize?${params.toString()}`
 
-      // Read the verifier from wherever Supabase stored it (localStorage or cookies)
-      // and save under our own stable key so the deep link handler always finds it.
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
-      const projectRef = supabaseUrl.match(/\/\/([^.]+)/)?.[1] ?? ''
-      const supabaseVerifierKey = `sb-${projectRef}-auth-token-code-verifier`
-
-      // Try localStorage first (native client), then cookies (SSR singleton fallback)
-      let verifier = localStorage.getItem(supabaseVerifierKey)
-      if (!verifier) {
-        const cookieEntry = document.cookie.split(';')
-          .find(c => c.trim().startsWith(supabaseVerifierKey + '='))
-        verifier = cookieEntry ? decodeURIComponent(cookieEntry.split('=').slice(1).join('=').trim()) : null
-      }
-      if (verifier) {
-        localStorage.setItem('__oauth_pkce_verifier', verifier)
-      }
-
-      // Try App.openUrl first (keeps WebView alive), fallback to window.location.href
       try {
         const { App } = await import('@capacitor/app')
-        await App.openUrl({ url: data.url })
+        await App.openUrl({ url: oauthUrl })
       } catch {
-        window.location.href = data.url
+        window.location.href = oauthUrl
       }
     } catch (e: any) {
       setError(e?.message || 'Erreur inattendue')
