@@ -9,12 +9,23 @@ export async function GET(request: Request) {
   const next = searchParams.get('next')
   const localeCookie = request.headers.get('cookie')?.match(/NEXT_LOCALE=([^;]+)/)?.[1] ?? 'fr'
 
+  // signout=1 → confirmation email : on confirme puis on déconnecte
+  // pour renvoyer l'utilisateur à la page de connexion sans session active
+  const signout = searchParams.get('signout') === '1'
+
   if (code) {
     const supabase = await createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error) {
-      // Set JWT role claim — fire and forget, pas besoin d'attendre
+      if (signout) {
+        // Email confirmation flow : email confirmé, session détruite → login
+        await supabase.auth.signOut()
+        const dest = next ? `${origin}${next}` : `${origin}/${localeCookie}/login?confirmed=1`
+        return NextResponse.redirect(dest)
+      }
+
+      // OAuth / reset password / invitation : garder la session
       fetch(`${origin}/api/auth/set-role`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

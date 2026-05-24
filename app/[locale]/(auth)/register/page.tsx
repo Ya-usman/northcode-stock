@@ -145,7 +145,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
         password: data.password,
         options: {
           data: { full_name: data.full_name },
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/${locale}/dashboard`,
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/${locale}/login&signout=1&confirmed=1`,
         },
       })
       if (signUpError) throw signUpError

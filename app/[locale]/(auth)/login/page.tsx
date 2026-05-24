@@ -44,7 +44,7 @@ const AppleIcon = () => (
   </svg>
 )
 
-export default function LoginPage({ params: { locale }, searchParams }: { params: { locale: string }, searchParams: { error?: string } }) {
+export default function LoginPage({ params: { locale }, searchParams }: { params: { locale: string }, searchParams: { error?: string, confirmed?: string } }) {
   const t = useTranslations('auth')
   const router = useRouter()
   const supabase = createClient()
@@ -57,7 +57,9 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
     searchParams?.error === 'use_email' ? 'Un compte existe déjà avec cet email. Connectez-vous avec votre email et mot de passe.' :
     ''
   )
-  const [success, setSuccess] = useState('')
+  const [success, setSuccess] = useState(
+    searchParams?.confirmed === '1' ? 'Adresse e-mail confirmée ! Vous pouvez maintenant vous connecter.' : ''
+  )
 
   const loginForm = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
@@ -172,6 +174,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
                     </button>
                   </div>
 
+                  {success && <p className="text-sm text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/40 rounded-md p-2 text-center">✓ {success}</p>}
                   {error && <p className="text-sm text-destructive bg-red-50 dark:bg-red-950/40 rounded-md p-2 text-center">{error}</p>}
 
                   <Button type="submit" className="w-full bg-stockshop-blue hover:bg-stockshop-blue-light h-11 text-base" loading={loginForm.formState.isSubmitting}>
