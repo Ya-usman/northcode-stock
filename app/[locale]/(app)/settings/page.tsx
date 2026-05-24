@@ -52,6 +52,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const [pushSupported, setPushSupported] = useState(false)
   const [pushEnabled, setPushEnabled] = useState(false)
   const [pushLoading, setPushLoading] = useState(false)
+  const [notifyPushNewSale, setNotifyPushNewSale] = useState(true)
 
   // ── Role permissions ────────────────────────────────────────────────────────
   const [activePermRole, setActivePermRole] = useState<ConfigurableRole>('cashier')
@@ -95,6 +96,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       setNotifyWaEachSale(shopData.notify_whatsapp_each_sale)
       setNotifyEmailLowStock(shopData.notify_email_low_stock)
       setNotifyEmailDaily(shopData.notify_email_daily)
+      setNotifyPushNewSale((shopData as any).notify_push_new_sale ?? true)
       setLoading(false)
       // Load stored permissions — deep merge so partial DB objects don't lose default keys
       const stored = (shopData as any).role_permissions as Partial<AllPerms> | null
@@ -148,6 +150,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       notify_whatsapp_each_sale: notifyWaEachSale,
       notify_email_low_stock: notifyEmailLowStock,
       notify_email_daily: notifyEmailDaily,
+      notify_push_new_sale: notifyPushNewSale,
     }
     const { error } = await supabase.from('shops').update(updates).eq('id', shop.id)
     setSaving(false)
@@ -376,6 +379,18 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                         checked={pushEnabled}
                         onCheckedChange={togglePush}
                         disabled={pushLoading}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between py-1">
+                      <div>
+                        <Label className="cursor-pointer">Alerte nouvelle vente</Label>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Recevoir son + vibration quand un caissier fait une vente
+                        </p>
+                      </div>
+                      <Switch
+                        checked={notifyPushNewSale}
+                        onCheckedChange={setNotifyPushNewSale}
                       />
                     </div>
                   </div>

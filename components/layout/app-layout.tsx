@@ -92,7 +92,8 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         filter: `shop_id=eq.${shop.id}`,
       }, (payload) => {
         const sale = payload.new as any
-        if (sale.cashier_id === user.id) return   // ne pas notifier le caissier lui-même
+        if (sale.cashier_id === user.id) return
+        if ((shop as any).notify_push_new_sale === false) return
 
         triggerSaleFeedback()
         const amount = `${Number(sale.total ?? 0).toLocaleString('fr-FR')} ${shop.currency || ''}`
