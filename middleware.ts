@@ -167,7 +167,7 @@ export async function middleware(request: NextRequest) {
   const isBillingExempt = BILLING_EXEMPT.some(
     p => pathnameWithoutLocale === p || pathnameWithoutLocale.startsWith(p + '/')
   )
-  if (!isBetaPeriod() && !isBillingExempt && role === 'owner') {
+  if (!isBillingExempt && role === 'owner') {
     const planOkUntil = request.cookies.get('plan_ok_until')?.value
     const expired = !planOkUntil || new Date(planOkUntil) < new Date()
     if (expired) {

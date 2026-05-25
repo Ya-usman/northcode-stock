@@ -168,18 +168,17 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
     )
   }
 
-  const beta = isBetaPeriod()
   const trialDaysLeft = getTrialDaysLeft(shop?.trial_ends_at ?? null)
   const subscribed = hasActiveSubscription(shop?.plan ?? null, shop?.plan_expires_at ?? null)
   // Don't show upgrade wall if shop hasn't loaded yet
   const accessAllowed = !shop || isAccessAllowed(shop.plan ?? null, shop.trial_ends_at ?? null, shop.plan_expires_at ?? null)
-  const showTrialBanner = !beta && !subscribed && accessAllowed && trialDaysLeft <= 30 && profile.role === 'owner'
+  const showTrialBanner = !subscribed && accessAllowed && trialDaysLeft <= 7 && profile.role === 'owner'
   const isBillingPage = pathname.includes('/billing')
 
   return (
     <div className="min-h-screen bg-background">
       <NavigationProgress />
-      {!beta && !accessAllowed && !isBillingPage && (
+      {!accessAllowed && !isBillingPage && (
         <UpgradeWall locale={locale} shopName={shop?.name} />
       )}
 
@@ -190,8 +189,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
 
         <Header title={title} shop={shop} locale={locale} onSignOut={handleSignOut} />
 
-        {/* Plan limit alert — masqué pendant la période bêta */}
-        {!beta && profile.role === 'owner' && accessAllowed && !isBillingPage && (
+        {profile.role === 'owner' && accessAllowed && !isBillingPage && (
           <PlanLimitAlert
             currentPlan={shop?.plan ?? null}
             productCount={productCount}

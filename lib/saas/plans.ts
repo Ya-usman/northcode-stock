@@ -134,8 +134,7 @@ export function isAccessAllowed(
   trialEndsAt: string | null,
   planExpiresAt: string | null,
 ): boolean {
-  // Accès gratuit universel pendant la période bêta
-  if (isBetaPeriod()) return true
+  // Each user has their own 1-month trial from registration — no global beta exemption
   if (hasActiveSubscription(planId, planExpiresAt)) return true
   return getTrialDaysLeft(trialEndsAt) >= 0
 }
