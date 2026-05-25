@@ -169,7 +169,10 @@ export async function middleware(request: NextRequest) {
   )
   if (!isBillingExempt && role === 'owner') {
     const planOkUntil = request.cookies.get('plan_ok_until')?.value
-    const expired = !planOkUntil || new Date(planOkUntil) < new Date()
+    // Only redirect if the cookie is explicitly set AND expired.
+    // If missing (old session before this cookie was introduced), let through —
+    // the client-side UpgradeWall handles it without causing a blank page.
+    const expired = planOkUntil ? new Date(planOkUntil) < new Date() : false
     if (expired) {
       return mergeAuthCookies(
         NextResponse.redirect(new URL(`/${locale}/billing`, request.url)),

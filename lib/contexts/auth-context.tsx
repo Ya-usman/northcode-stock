@@ -191,6 +191,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLocaleCookie(profile.locale)
     }
 
+    // Refresh role + plan_ok_until cookies silently on fresh data load.
+    // Ensures old sessions (before plan_ok_until was introduced) get the cookie
+    // without requiring a manual logout, preventing the blank dashboard issue.
+    if (profile && !skipCache) {
+      fetch('/api/auth/set-role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      }).catch(() => {})
+    }
+
     setState({ user, profile, userShops, activeShop, roleInActiveShop, loading: false })
   }, [])
 
