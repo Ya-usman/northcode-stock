@@ -28,30 +28,40 @@ export async function POST(request: Request) {
 
     const { data } = await query.order('created_at', { ascending: true }).limit(1).single()
 
-    // Fallback: check profiles table
+    // Fallback: check profiles table (also fetches plan info for billing cookie)
     let role = data?.role
-    if (!role) {
+    let planOkUntil: string | null = null
+    {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role')
+        .select('role, plan, plan_expires_at, trial_ends_at')
         .eq('id', user.id)
         .single()
-      role = profile?.role
+      if (!role) role = profile?.role
+      // access_until: for paid plan → plan_expires_at ; for trial → trial_ends_at
+      if (profile?.plan && profile.plan !== 'trial') {
+        planOkUntil = profile.plan_expires_at ?? null
+      } else {
+        planOkUntil = profile?.trial_ends_at ?? null
+      }
     }
 
     if (!role) return NextResponse.json({ error: 'Role not found' }, { status: 404 })
 
     const response = NextResponse.json({ success: true, role })
     response.cookies.set('user_role', role, { ...COOKIE_OPTS, maxAge: 3600 })
+    // Refreshed on every login/shop switch — lets middleware block without a DB call
+    response.cookies.set('plan_ok_until', planOkUntil ?? '', { ...COOKIE_OPTS, maxAge: 86400 })
     return response
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
 
-// DELETE — clear the role cookie on sign-out
+// DELETE — clear the role and plan cookies on sign-out
 export async function DELETE() {
   const response = NextResponse.json({ success: true })
   response.cookies.set('user_role', '', { ...COOKIE_OPTS, maxAge: 0 })
+  response.cookies.set('plan_ok_until', '', { ...COOKIE_OPTS, maxAge: 0 })
   return response
 }

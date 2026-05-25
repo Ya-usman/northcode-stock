@@ -160,6 +160,24 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Subscription enforcement — redirect owners to /billing when plan is expired
+  // Runs only outside the beta period. /billing and /settings remain accessible
+  // so the owner can pay. Members see the UpgradeWall via app-layout instead.
+  const BILLING_EXEMPT = ['/billing', '/settings']
+  const isBillingExempt = BILLING_EXEMPT.some(
+    p => pathnameWithoutLocale === p || pathnameWithoutLocale.startsWith(p + '/')
+  )
+  if (!isBetaPeriod() && !isBillingExempt && role === 'owner') {
+    const planOkUntil = request.cookies.get('plan_ok_until')?.value
+    const expired = !planOkUntil || new Date(planOkUntil) < new Date()
+    if (expired) {
+      return mergeAuthCookies(
+        NextResponse.redirect(new URL(`/${locale}/billing`, request.url)),
+        response
+      )
+    }
+  }
+
   // Role-based access control (cookie fast-path)
   const requiredRoles = getRequiredRoles(pathnameWithoutLocale)
   if (requiredRoles && role && !requiredRoles.includes(role)) {
