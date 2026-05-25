@@ -14,6 +14,7 @@ const registerSchema = z.object({
   city: shortText,
   phone: z.string().max(20).optional().nullable(),
   country: z.string().length(2).optional(),
+  referral_code: z.string().max(20).optional().nullable(),
 })
 
 export async function POST(request: Request) {
@@ -24,11 +25,23 @@ export async function POST(request: Request) {
     const body = await request.json()
     const validated = validateBody(registerSchema, body)
     if ('error' in validated) return validated.error
-    const { user_id, full_name, email, shop_name, city, phone, country } = validated.data
+    const { user_id, full_name, email, shop_name, city, phone, country, referral_code } = validated.data
 
     const supabase = await createAdminClient() as any
 
     const countryConfig = getCountry(country || 'NG')
+
+    // Validate referral code and get agent_id if provided
+    let agentId: string | null = null
+    if (referral_code) {
+      const { data: agent } = await supabase
+        .from('agents')
+        .select('id')
+        .eq('referral_code', referral_code.toUpperCase())
+        .eq('is_active', true)
+        .maybeSingle()
+      agentId = agent?.id ?? null
+    }
 
     // Create shop
     const { data: shop, error: shopError } = await supabase
@@ -43,6 +56,7 @@ export async function POST(request: Request) {
         country: countryConfig.code,
         plan: 'trial',
         trial_ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        agent_id: agentId,
       } as any)
       .select('id')
       .single()
@@ -100,7 +114,7 @@ export async function POST(request: Request) {
       actor_email: email,
       target_id: shop.id,
       target_type: 'shop',
-      metadata: { shop_name, country, city },
+      metadata: { shop_name, country, city, referral_code: referral_code ?? null, agent_id: agentId },
       ip: getClientIp(request),
     })
 

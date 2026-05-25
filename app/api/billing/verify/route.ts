@@ -49,9 +49,10 @@ export async function GET(request: NextRequest) {
     const days = getPeriodDays(billing_period as BillingPeriod)
     const plan_expires_at = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
 
-    // Get owner_id to update profile (owner-level billing)
-    const { data: shopRow } = await supabase.from('shops').select('owner_id').eq('id', shop_id).single()
+    // Get owner_id and agent_id to update profile (owner-level billing)
+    const { data: shopRow } = await supabase.from('shops').select('owner_id, agent_id').eq('id', shop_id).single()
     const owner_id = (shopRow as any)?.owner_id
+    const agent_id = (shopRow as any)?.agent_id
 
     if (owner_id) {
       // Update profiles — single source of truth
@@ -84,6 +85,29 @@ export async function GET(request: NextRequest) {
       expires_at: plan_expires_at,
       status: 'active',
     } as any)
+
+    // Créer une commission pour l'agent qui a parrainé cette boutique
+    if (agent_id) {
+      const { data: agentRow } = await supabase
+        .from('agents')
+        .select('commission_rate')
+        .eq('id', agent_id)
+        .maybeSingle()
+      if (agentRow) {
+        const paymentAmount = data.data.amount / 100
+        const commissionAmount = (paymentAmount * (agentRow as any).commission_rate) / 100
+        await supabase.from('agent_commissions').insert({
+          agent_id,
+          shop_id,
+          subscription_amount: paymentAmount,
+          commission_amount: commissionAmount,
+          plan_id,
+          billing_period,
+          paystack_reference: reference,
+          status: 'pending',
+        } as any)
+      }
+    }
 
     await writeAuditLog({
       action: 'billing.verify',

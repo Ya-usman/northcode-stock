@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -25,6 +25,7 @@ type FormData = {
   shop_name: string
   city: string
   phone?: string
+  referral_code?: string
 }
 
 const GoogleIcon = () => (
@@ -59,6 +60,10 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
   const [sentToEmail, setSentToEmail] = useState('')
   const [resendLoading, setResendLoading] = useState(false)
   const [resendSuccess, setResendSuccess] = useState(false)
+  const [referralCode, setReferralCode] = useState('')
+  const [referralAgent, setReferralAgent] = useState<string | null>(null)
+  const [referralChecking, setReferralChecking] = useState(false)
+  const referralTimeout = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     if (countdown <= 0) return
@@ -83,6 +88,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
     shop_name: z.string().min(2, t('shop_name_required')),
     city: z.string().min(2, t('city_required')),
     phone: z.string().optional(),
+    referral_code: z.string().optional(),
   }).refine(d => d.password === d.confirm_password, {
     message: t('password_mismatch'),
     path: ['confirm_password'],
@@ -117,6 +123,25 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
     setResendLoading(false)
     setResendSuccess(true)
     setTimeout(() => setResendSuccess(false), 4000)
+  }
+
+  const checkReferralCode = (code: string) => {
+    setReferralCode(code)
+    setReferralAgent(null)
+    if (referralTimeout.current) clearTimeout(referralTimeout.current)
+    if (!code.trim()) return
+    setReferralChecking(true)
+    referralTimeout.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/referral/validate?code=${encodeURIComponent(code.trim())}`)
+        const data = await res.json()
+        setReferralAgent(data.valid ? data.agent.name : null)
+      } catch {
+        setReferralAgent(null)
+      } finally {
+        setReferralChecking(false)
+      }
+    }, 500)
   }
 
   const goStep2 = async () => {
@@ -180,6 +205,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
           city: data.city,
           phone: data.phone || null,
           country,
+          referral_code: referralCode.trim() || null,
         }),
       })
       if (!res.ok) {
@@ -458,6 +484,25 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                       <Input {...register('phone')} placeholder="XXXXXXXXXX"
                         className="pl-14 dark:bg-white dark:text-gray-900 dark:placeholder:text-gray-400 dark:border-white/30" />
                     </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>Code de parrainage <span className="text-muted-foreground text-xs">({t('optional')})</span></Label>
+                    <Input
+                      value={referralCode}
+                      onChange={e => checkReferralCode(e.target.value.toUpperCase())}
+                      placeholder="ex: ALHAJI2025"
+                      maxLength={20}
+                      className="font-mono uppercase dark:bg-white dark:text-gray-900 dark:placeholder:text-gray-400 dark:border-white/30"
+                    />
+                    {referralChecking && (
+                      <p className="text-xs text-muted-foreground">Vérification...</p>
+                    )}
+                    {!referralChecking && referralCode && (
+                      referralAgent
+                        ? <p className="text-xs text-green-500 dark:text-green-400">✓ Agent : {referralAgent}</p>
+                        : <p className="text-xs text-amber-500 dark:text-amber-400">Code non reconnu (tu peux continuer sans)</p>
+                    )}
                   </div>
 
                   {error && (
