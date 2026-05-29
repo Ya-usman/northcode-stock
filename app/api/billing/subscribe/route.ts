@@ -188,6 +188,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ authorization_url: url, reference: tx_ref })
     }
 
+    if (country.gateway === 'stripe') {
+      return NextResponse.json({ error: 'stripe_coming_soon' }, { status: 400 })
+    }
+
     return NextResponse.json({ error: 'Unknown gateway' }, { status: 500 })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })

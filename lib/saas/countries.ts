@@ -1,4 +1,4 @@
-export type CountryCode = 'NG' | 'CM' | 'CI' | 'ML' | 'NE' | 'SN' | 'BJ' | 'TG'
+export type CountryCode = 'NG' | 'CM' | 'CI' | 'ML' | 'NE' | 'SN' | 'BJ' | 'TG' | 'EU' | 'US' | 'CA'
 export type BillingPeriod = 'monthly' | 'quarterly' | 'annual'
 
 export const BILLING_PERIODS: Record<BillingPeriod, { months: number; days: number; discount: number; label: string; badge?: string }> = {
@@ -34,7 +34,7 @@ export interface CountryConfig {
   flagColor: string
   currency: string
   currencySymbol: string
-  gateway: 'paystack' | 'flutterwave' | 'notchpay'
+  gateway: 'paystack' | 'flutterwave' | 'notchpay' | 'stripe'
   prices: {
     starter: number
     pro: number
@@ -163,6 +163,47 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
       { id: 'credit',   label: 'Crédit',  icon: '📝', type: 'credit' },
     ],
   },
+  EU: {
+    code: 'EU', name: 'Europe', flag: '🇪🇺', flagColor: '#003399',
+    currency: 'EUR', currencySymbol: '€', gateway: 'stripe',
+    prices: { starter: 5, pro: 10, business: 20 },
+    phonePrefix: '+', cityPlaceholder: 'Paris, Berlin, Madrid…',
+    paymentMethods: [
+      { id: 'cash',     label: 'Espèces',        icon: '💵', type: 'cash' },
+      { id: 'card',     label: 'Carte bancaire',  icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Virement',        icon: '🏦', type: 'transfer' },
+      { id: 'paypal',   label: 'PayPal',          icon: '🔵', type: 'card' },
+      { id: 'credit',   label: 'Crédit',          icon: '📝', type: 'credit' },
+    ],
+  },
+  US: {
+    code: 'US', name: 'United States', flag: '🇺🇸', flagColor: '#B22234',
+    currency: 'USD', currencySymbol: '$', gateway: 'stripe',
+    prices: { starter: 5, pro: 10, business: 20 },
+    phonePrefix: '+1', cityPlaceholder: 'New York, Los Angeles, Chicago…',
+    paymentMethods: [
+      { id: 'cash',     label: 'Cash',           icon: '💵', type: 'cash' },
+      { id: 'card',     label: 'Credit / Debit',  icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer',   icon: '🏦', type: 'transfer' },
+      { id: 'paypal',   label: 'PayPal',          icon: '🔵', type: 'card' },
+      { id: 'zelle',    label: 'Zelle',           icon: '📱', type: 'mobile_money' },
+      { id: 'venmo',    label: 'Venmo',           icon: '📱', type: 'mobile_money' },
+      { id: 'credit',   label: 'Credit',          icon: '📝', type: 'credit' },
+    ],
+  },
+  CA: {
+    code: 'CA', name: 'Canada', flag: '🇨🇦', flagColor: '#FF0000',
+    currency: 'CAD', currencySymbol: 'CA$', gateway: 'stripe',
+    prices: { starter: 7, pro: 14, business: 27 },
+    phonePrefix: '+1', cityPlaceholder: 'Toronto, Montréal, Vancouver…',
+    paymentMethods: [
+      { id: 'cash',       label: 'Cash',           icon: '💵', type: 'cash' },
+      { id: 'card',       label: 'Credit / Debit',  icon: '💳', type: 'card' },
+      { id: 'etransfer',  label: 'e-Transfer',      icon: '🏦', type: 'transfer' },
+      { id: 'paypal',     label: 'PayPal',          icon: '🔵', type: 'card' },
+      { id: 'credit',     label: 'Credit',          icon: '📝', type: 'credit' },
+    ],
+  },
 }
 
 export function getCountry(code: string | null | undefined): CountryConfig {
@@ -173,5 +214,8 @@ export function formatPrice(amount: number, country: CountryConfig): string {
   if (country.currency === 'XAF' || country.currency === 'XOF') {
     return `${amount.toLocaleString('fr-FR')} FCFA/mois`
   }
+  if (country.currency === 'EUR') return `${amount.toLocaleString('fr-FR')} €/mois`
+  if (country.currency === 'USD') return `$${amount}/mo`
+  if (country.currency === 'CAD') return `CA$${amount}/mo`
   return `₦${amount.toLocaleString('en-NG')}/mo`
 }
