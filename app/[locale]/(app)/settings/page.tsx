@@ -52,6 +52,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const [pushSupported, setPushSupported] = useState(false)
   const [pushEnabled, setPushEnabled] = useState(false)
   const [pushLoading, setPushLoading] = useState(false)
+  const [testingPush, setTestingPush] = useState(false)
   const [notifyPushNewSale, setNotifyPushNewSale] = useState(true)
   const [saleSoundEnabled, setSaleSoundEnabled] = useState(() =>
     typeof window !== 'undefined' ? localStorage.getItem('sale_sound_enabled') !== '0' : true
@@ -137,6 +138,28 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       }
     } finally {
       setPushLoading(false)
+    }
+  }
+
+  const testPush = async () => {
+    if (!shop?.id) return
+    setTestingPush(true)
+    try {
+      const res = await fetch('/api/push/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop_id: shop.id }),
+      })
+      const data = await res.json()
+      if (data.error === 'no_subscription') {
+        toast({ title: 'Aucun abonnement trouvé. Active d\'abord les notifications.', variant: 'destructive' })
+      } else if (data.ok) {
+        toast({ title: 'Notification envoyée ! Vérifie ton téléphone.', variant: 'success' })
+      } else {
+        toast({ title: data.error || 'Erreur', variant: 'destructive' })
+      }
+    } finally {
+      setTestingPush(false)
     }
   }
 
@@ -415,6 +438,17 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                         </div>
                       )}
                     </div>
+                    {pushEnabled && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full text-xs"
+                        onClick={testPush}
+                        disabled={testingPush}
+                      >
+                        {testingPush ? 'Envoi...' : 'Tester la notification'}
+                      </Button>
+                    )}
                   </div>
                 </>
               )}
