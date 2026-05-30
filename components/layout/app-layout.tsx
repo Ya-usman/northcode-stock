@@ -93,7 +93,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
       }, (payload) => {
         const sale = payload.new as any
         if (sale.cashier_id === user.id) return
-        if (localStorage.getItem('notify_push_new_sale') === '0') return
+        if ((shop as any).notify_push_new_sale === false) return
 
         triggerSaleFeedback()
         const amount = `${Number(sale.total ?? 0).toLocaleString('fr-FR')} ${shop.currency || ''}`
