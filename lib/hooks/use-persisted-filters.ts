@@ -1,10 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 
 /**
- * Persists filters in localStorage keyed by page + shop.
- * - Survives navigation and page reload.
- * - Auto-resets when the active shop changes (different data context).
- * - resetFilters() lets the user manually clear all filters for a page.
+ * Manages page filters using sessionStorage (within a tab session only).
+ * - Resets automatically when navigating away (unmount clears storage key).
+ * - Also resets when the active shop changes (different data context).
+ * - resetFilters() lets the user manually clear all filters.
  */
 export function usePersistedFilters<T extends Record<string, unknown>>(
   pageKey: string,
@@ -14,49 +14,51 @@ export function usePersistedFilters<T extends Record<string, unknown>>(
   const defaultsRef = useRef(defaults)
 
   const makeKey = (sid: string | null | undefined) =>
-    sid ? `filters_v1_${pageKey}_${sid}` : null
+    sid ? `filters_session_${pageKey}_${sid}` : null
 
   const read = (key: string | null): T => {
     if (!key || typeof window === 'undefined') return defaultsRef.current
     try {
-      const raw = localStorage.getItem(key)
+      const raw = sessionStorage.getItem(key)
       if (!raw) return defaultsRef.current
-      // Spread defaults first so new filter keys added later get their default value
       return { ...defaultsRef.current, ...JSON.parse(raw) }
     } catch {
       return defaultsRef.current
     }
   }
 
-  const [filters, setFiltersState] = useState<T>(() => read(makeKey(shopId)))
+  const [filters, setFiltersState] = useState<T>(defaultsRef.current)
 
-  // When shop changes: load filters for the new shop (or reset if none saved)
+  // When shop changes: reset filters for the new shop
   const prevShopId = useRef(shopId)
   useEffect(() => {
     if (prevShopId.current !== shopId) {
       prevShopId.current = shopId
-      setFiltersState(read(makeKey(shopId)))
+      setFiltersState(defaultsRef.current)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shopId])
 
+  // Clear filters from sessionStorage when navigating away (unmount)
+  useEffect(() => {
+    return () => {
+      const key = makeKey(prevShopId.current)
+      if (key) {
+        try { sessionStorage.removeItem(key) } catch { /* ignore */ }
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageKey])
+
   const setFilter = useCallback((updates: Partial<T>) => {
     setFiltersState(prev => {
       const next = { ...prev, ...updates }
-      const key = makeKey(prevShopId.current)
-      if (key) {
-        try { localStorage.setItem(key, JSON.stringify(next)) } catch { /* storage full */ }
-      }
       return next
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageKey])
 
   const resetFilters = useCallback(() => {
-    const key = makeKey(prevShopId.current)
-    if (key) {
-      try { localStorage.removeItem(key) } catch { /* ignore */ }
-    }
     setFiltersState(defaultsRef.current)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageKey])
