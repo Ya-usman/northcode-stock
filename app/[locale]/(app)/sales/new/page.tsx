@@ -155,15 +155,15 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         setCategories((cats || []) as Category[])
         // Refresh IndexedDB cache
         await Promise.all([
-          safeProds.length > 0 ? cacheProducts(selectedShop.id, safeProds.map((p: any) => ({
+          cacheProducts(selectedShop.id, safeProds.map((p: any) => ({
             id: p.id, shop_id: selectedShop.id, name: p.name, sku: p.sku ?? null,
             selling_price: Number(p.selling_price), buying_price: Number(p.buying_price),
             quantity: Number(p.quantity), category_id: p.category_id ?? null, is_active: p.is_active,
-          }))) : Promise.resolve(),
-          custs && custs.length > 0 ? cacheCustomers(selectedShop.id, custs.map((c: any) => ({
+          }))),
+          cacheCustomers(selectedShop.id, (custs || []).map((c: any) => ({
             id: c.id, shop_id: selectedShop.id, name: c.name,
             phone: c.phone ?? null, total_debt: Number(c.total_debt ?? 0),
-          }))) : Promise.resolve(),
+          }))),
         ])
       } catch {
         // Cache already applied above — nothing to do

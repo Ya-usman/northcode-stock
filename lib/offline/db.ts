@@ -86,6 +86,9 @@ function getDB() {
 export async function cacheProducts(shopId: string, products: Omit<CachedProduct, 'cached_at'>[]): Promise<void> {
   const db = await getDB()
   const tx = db.transaction('products', 'readwrite')
+  // Delete all existing entries for this shop first, then insert fresh data
+  const existing = await tx.store.index('shop_id').getAllKeys(shopId)
+  await Promise.all(existing.map(key => tx.store.delete(key)))
   await Promise.all([
     ...products.map(p => tx.store.put({ ...p, shop_id: shopId, cached_at: Date.now() })),
     tx.done,
@@ -102,6 +105,8 @@ export async function getCachedProducts(shopId: string): Promise<CachedProduct[]
 export async function cacheCustomers(shopId: string, customers: Omit<CachedCustomer, 'cached_at'>[]): Promise<void> {
   const db = await getDB()
   const tx = db.transaction('customers', 'readwrite')
+  const existing = await tx.store.index('shop_id').getAllKeys(shopId)
+  await Promise.all(existing.map(key => tx.store.delete(key)))
   await Promise.all([
     ...customers.map(c => tx.store.put({ ...c, shop_id: shopId, cached_at: Date.now() })),
     tx.done,
