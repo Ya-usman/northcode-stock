@@ -74,7 +74,7 @@ export default function ReportsPage() {
 
   const fetchReports = async () => {
     if (!effectiveShopIds.length) return
-    const cacheKey = `reports_${effectiveShopIds.join(',')}_${dateFilter}_${customStart}_${customEnd}`
+    const cacheKey = `reports_v2_${effectiveShopIds.join(',')}_${dateFilter}_${customStart}_${customEnd}`
     const cached = getPageCache<any>(cacheKey)
     if (cached) {
       setRevenueByMethod(cached.revenueByMethod ?? [])
@@ -142,13 +142,11 @@ export default function ReportsPage() {
         return s + (priceMap[item.product_id || ''] || 0) * Number(item.quantity)
       }, 0)
 
-      // Top 10 products — use sale total ratio to avoid subtotal > total issue
-      const itemsSubtotalSum = safeItems.reduce((s, item) => s + Number(item.subtotal), 0)
-      const revenueRatio = itemsSubtotalSum > 0 ? totalRevenue / itemsSubtotalSum : 1
+      // Top 10 products
       safeItems.forEach(item => {
         if (!prodTotals[item.product_name]) prodTotals[item.product_name] = { qty: 0, revenue: 0 }
         prodTotals[item.product_name].qty += Number(item.quantity)
-        prodTotals[item.product_name].revenue += Number(item.subtotal) * revenueRatio
+        prodTotals[item.product_name].revenue += Number(item.subtotal)
       })
     }
 
