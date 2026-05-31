@@ -590,6 +590,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           product_name: item.product.name,
           quantity: Math.round(item.quantity),
           unit_price: item.unit_price,
+          buying_price: Number(item.product.buying_price) || 0,
         }))
       )
       if (itemsError) throw itemsError

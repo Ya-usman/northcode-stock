@@ -123,23 +123,15 @@ export default function ReportsPage() {
     if (sales.length > 0) {
       const { data: items } = await supabase
         .from('sale_items')
-        .select('product_name, quantity, unit_price, subtotal, product_id, sale_id')
+        .select('product_name, quantity, unit_price, subtotal, buying_price, product_id, sale_id')
         .in('sale_id', sales.map(s => s.id))
 
-      const safeItems = (items || []) as Array<{ product_name: string; quantity: number; unit_price: number; subtotal: number; product_id: string | null; sale_id: string }>
+      const safeItems = (items || []) as Array<{ product_name: string; quantity: number; unit_price: number; subtotal: number; buying_price: number; product_id: string | null; sale_id: string }>
 
-      // Product buying prices for profit
-      const productIds = Array.from(new Set(safeItems.map(i => i.product_id).filter(Boolean) as string[]))
-      let priceMap: Record<string, number> = {}
-      if (productIds.length > 0) {
-        const { data: prodPrices } = await supabase
-          .from('products').select('id, buying_price').in('id', productIds)
-        ;(prodPrices || []).forEach((p: any) => { priceMap[p.id] = Number(p.buying_price) })
-      }
-
-      // Total buying cost of all items sold
+      // Buying cost stored directly on sale_items at time of sale
+      // — remains accurate even if products are deleted or prices change
       totalBuyingCost = safeItems.reduce((s, item) => {
-        return s + (priceMap[item.product_id || ''] || 0) * Number(item.quantity)
+        return s + Number(item.buying_price || 0) * Number(item.quantity)
       }, 0)
 
       // Top 10 products
