@@ -78,6 +78,16 @@ export async function DELETE(request: Request) {
     if (role !== 'owner' && role !== 'super_admin')
       return NextResponse.json({ error: 'Seul le propriétaire peut supprimer définitivement' }, { status: 403 })
     const admin = await createAdminClient()
+    // Freeze buying_price into historical sale_items before deletion
+    // so reports remain accurate even after product is removed
+    const { data: product } = await (admin as any)
+      .from('products').select('buying_price').eq('id', id).single()
+    if (product?.buying_price) {
+      await (admin as any).from('sale_items')
+        .update({ buying_price: Number(product.buying_price) })
+        .eq('product_id', id)
+        .eq('buying_price', 0)
+    }
     // Archive first to trigger any soft-delete hooks, then hard delete
     await (admin as any).from('products').update({ is_active: false }).eq('id', id)
     const { error } = await (admin as any).from('products').delete().eq('id', id)
