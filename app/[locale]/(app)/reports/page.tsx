@@ -103,17 +103,9 @@ export default function ReportsPage() {
       .lte('created_at', end)
     const sales = (salesRaw || []) as Array<{ id: string; total: number; amount_paid: number; payment_method: string; created_at: string; cashier_id: string | null; shop_id: string }>
 
-    // Actual payments received in period (new sales + debt repayments)
-    const { data: paymentsRaw } = await supabase
-      .from('payments')
-      .select('amount, method, sales!inner(shop_id)')
-      .gte('paid_at', start)
-      .lte('paid_at', end)
-    const paymentsInPeriod = (paymentsRaw || []).filter((p: any) => effectiveShopIds.includes(p.sales?.shop_id)) as Array<{ amount: number; method: string }>
-
-    // Revenue by payment method (from actual payments)
+    // Revenue by payment method (from sales in period)
     const byMethod: Record<string, number> = {}
-    paymentsInPeriod.forEach(p => { byMethod[p.method] = (byMethod[p.method] || 0) + Number(p.amount) })
+    sales.forEach(s => { byMethod[s.payment_method] = (byMethod[s.payment_method] || 0) + Number(s.total) })
     setRevenueByMethod(
       Object.entries(byMethod).map(([name, value]) => ({
         name: name.charAt(0).toUpperCase() + name.slice(1),
@@ -121,10 +113,11 @@ export default function ReportsPage() {
       }))
     )
 
-    const totalRevenue = paymentsInPeriod.reduce((s, p) => s + Number(p.amount), 0)
+    // Total revenue = sum of sales.total (consistent base for marge brute)
+    const totalRevenue = sales.reduce((s, sale) => s + Number(sale.total), 0)
 
     // Sale items for profit calculation (only if there are sales)
-    let totalProfit = 0
+    let totalBuyingCost = 0
     let prodTotals: Record<string, { qty: number; revenue: number }> = {}
 
     if (sales.length > 0) {
@@ -144,18 +137,23 @@ export default function ReportsPage() {
         ;(prodPrices || []).forEach((p: any) => { priceMap[p.id] = Number(p.buying_price) })
       }
 
-      totalProfit = safeItems.reduce((s, item) => {
-        const buyingCost = (priceMap[item.product_id || ''] || 0) * Number(item.quantity)
-        return s + Number(item.subtotal) - buyingCost
+      // Total buying cost of all items sold
+      totalBuyingCost = safeItems.reduce((s, item) => {
+        return s + (priceMap[item.product_id || ''] || 0) * Number(item.quantity)
       }, 0)
 
-      // Top 10 products
+      // Top 10 products — use sale total ratio to avoid subtotal > total issue
+      const itemsSubtotalSum = safeItems.reduce((s, item) => s + Number(item.subtotal), 0)
+      const revenueRatio = itemsSubtotalSum > 0 ? totalRevenue / itemsSubtotalSum : 1
       safeItems.forEach(item => {
         if (!prodTotals[item.product_name]) prodTotals[item.product_name] = { qty: 0, revenue: 0 }
         prodTotals[item.product_name].qty += Number(item.quantity)
-        prodTotals[item.product_name].revenue += Number(item.subtotal)
+        prodTotals[item.product_name].revenue += Number(item.subtotal) * revenueRatio
       })
     }
+
+    // Marge brute = revenue - buying cost (always ≤ revenue)
+    const totalProfit = totalRevenue - totalBuyingCost
 
     setTotals({ revenue: totalRevenue, profit: totalProfit, sales: sales.length })
     setTopProducts(
