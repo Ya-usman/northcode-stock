@@ -57,11 +57,12 @@ export default function NotesPage() {
 
   // Form state
   const [title, setTitle]     = useState('')
-  const [content, setContent] = useState('')
   const [color, setColor]     = useState('default')
   const [pinned, setPinned]   = useState(false)
   const [noteShop, setNoteShop] = useState(shop?.id ?? '')
   const contentRef = useRef<HTMLTextAreaElement>(null)
+  // Uncontrolled content — avoids Android IME interference (suggestions + onChange bugs)
+  const contentValueRef = useRef('')
 
   const effectiveShopIds = userShops.map(s => s.id)
 
@@ -94,34 +95,44 @@ export default function NotesPage() {
   const openCreate = () => {
     setEditing(null)
     setTitle('')
-    setContent('')
+    contentValueRef.current = ''
     setColor('default')
     setPinned(false)
     setNoteShop(shop?.id ?? effectiveShopIds[0] ?? '')
     setModalOpen(true)
-    setTimeout(() => contentRef.current?.focus(), 100)
+    setTimeout(() => {
+      if (contentRef.current) {
+        contentRef.current.value = ''
+        contentRef.current.focus()
+      }
+    }, 100)
   }
 
   const openEdit = (note: Note) => {
     setEditing(note)
     setTitle(note.title ?? '')
-    setContent(note.content)
+    contentValueRef.current = note.content
     setColor(note.color)
     setPinned(note.pinned)
     setNoteShop(note.shop_id)
     setModalOpen(true)
+    setTimeout(() => {
+      if (contentRef.current) contentRef.current.value = note.content
+    }, 50)
   }
 
   const closeModal = () => { setModalOpen(false); setEditing(null) }
 
   const save = async () => {
-    if (!content.trim() && !title.trim()) return
+    // Read directly from DOM ref — bypasses Android IME/onChange sync issues
+    const currentContent = contentRef.current?.value ?? contentValueRef.current
+    if (!currentContent.trim() && !title.trim()) return
     setSaving(true)
     const payload = {
       shop_id: noteShop,
       owner_id: profile!.id,
       title: title.trim() || null,
-      content: content.trim(),
+      content: currentContent.trim(),
       color,
       pinned,
     }
@@ -254,12 +265,12 @@ export default function NotesPage() {
               className="font-medium"
             />
 
-            {/* Content */}
+            {/* Content — uncontrolled to preserve Android IME suggestions */}
             <textarea
               ref={contentRef}
               placeholder="Écrivez votre note ici…"
-              value={content}
-              onChange={e => setContent(e.target.value)}
+              defaultValue={editing?.content ?? ''}
+              onInput={e => { contentValueRef.current = (e.target as HTMLTextAreaElement).value }}
               rows={6}
               className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
@@ -326,7 +337,7 @@ export default function NotesPage() {
           onCancel={closeModal}
           onConfirm={save}
           confirmLabel={editing ? 'Modifier' : 'Créer'}
-          confirmDisabled={saving || (!content.trim() && !title.trim())}
+          confirmDisabled={saving}
           confirmLoading={saving}
         />
       </PremiumDialog>

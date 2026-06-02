@@ -87,6 +87,8 @@ export default function ReportsPage() {
       setExpenses(cached.expenses ?? [])
       setTotalExpenses(cached.totalExpenses ?? 0)
       setLoading(false)
+      // Stale-while-revalidate: show cache instantly, refresh silently in background
+      if (!navigator.onLine) return
     } else {
       setLoading(true)
     }
