@@ -96,7 +96,7 @@ export function BulkAddModal({ open, onClose, shopId, currency, isOwner, onSaved
   const handleClose = () => { reset(); onClose() }
 
   return (
-    <PremiumDialog open={open} onOpenChange={v => { if (!v) handleClose() }} category="Stock" title="Ajout multiple" icon={<Plus className="h-4 w-4" />}>
+    <PremiumDialog open={open} onOpenChange={v => { if (!v) handleClose() }} category="Stock" title="Ajouter plusieurs produits" icon={<Plus className="h-4 w-4" />} maxWidth="max-w-xl">
       <PremiumDialogBody className="space-y-3">
 
         {savedCount > 0 ? (
@@ -122,7 +122,7 @@ export function BulkAddModal({ open, onClose, shopId, currency, isOwner, onSaved
             </div>
 
             {/* Rows */}
-            <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+            <div className="space-y-2 pr-1">
               {rows.map((row, idx) => (
                 <div key={row.id} className={`grid gap-2 items-start ${isOwner ? 'grid-cols-[1fr_80px_80px_60px_90px_28px]' : 'grid-cols-[1fr_80px_60px_90px_28px]'}`}>
                   <div>

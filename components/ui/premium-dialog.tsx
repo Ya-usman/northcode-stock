@@ -31,7 +31,7 @@ export function PremiumDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          'p-0 gap-0',
+          'p-0 gap-0 flex flex-col max-h-[90dvh] overflow-hidden',
           '[&>button]:text-white [&>button]:bg-white/20 [&>button]:hover:bg-white/35',
           centered && 'max-sm:!top-1/2 max-sm:!-translate-y-1/2',
           maxWidth
@@ -39,9 +39,9 @@ export function PremiumDialog({
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
       >
-        <div className="rounded-lg">
-          {/* Blue header */}
-          <div className="bg-stockshop-blue rounded-t-lg px-5 pt-5 pb-4 pr-12">
+        <div className="flex flex-col flex-1 min-h-0 rounded-lg overflow-hidden">
+          {/* Blue header — sticky */}
+          <div className="flex-shrink-0 bg-stockshop-blue rounded-t-lg px-5 pt-5 pb-4 pr-12">
             {category && (
               <p className="text-xs font-medium text-blue-200 uppercase tracking-wider mb-1">{category}</p>
             )}
@@ -50,8 +50,8 @@ export function PremiumDialog({
               <p className="text-white font-semibold text-base leading-tight">{title}</p>
             </div>
           </div>
-          {/* Body — rendered directly, no extra wrapper */}
-          <div className="bg-background rounded-b-lg">
+          {/* Body — scrollable, footer stays pinned below */}
+          <div className="flex flex-col flex-1 min-h-0 bg-background rounded-b-lg overflow-hidden">
             {children}
           </div>
         </div>
@@ -68,7 +68,7 @@ interface PremiumDialogBodyProps {
 
 export function PremiumDialogBody({ children, className }: PremiumDialogBodyProps) {
   return (
-    <div className={cn('p-5 space-y-4', className)}>
+    <div className={cn('flex-1 overflow-y-auto p-5 space-y-4', className)}>
       {children}
     </div>
   )
@@ -95,7 +95,7 @@ export function PremiumDialogFooter({
   children,
 }: PremiumDialogFooterProps) {
   return (
-    <div className="px-5 pb-5 flex justify-center gap-3">
+    <div className="flex-shrink-0 px-5 pb-5 pt-3 flex justify-center gap-3 border-t border-border bg-background">
       <Button
         type="button"
         variant="ghost"

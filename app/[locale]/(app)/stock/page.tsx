@@ -460,7 +460,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         </Button>
         {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'cashier' || effectiveRole === 'super_admin') && (
           <>
-            <Button variant="outline" size="sm" className="h-9 gap-1" onClick={() => setShowBulkModal(true)}>
+            <Button size="sm" className="h-9 gap-1 bg-stockshop-blue hover:bg-stockshop-blue-light text-white" onClick={() => setShowBulkModal(true)}>
               <Plus className="h-3.5 w-3.5" /> Multiple
             </Button>
             <Button variant="outline" size="sm" className="h-9 gap-1" onClick={() => setShowImportModal(true)}>
