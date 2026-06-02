@@ -24,7 +24,11 @@ const APP_ROUTES = [
   'settings',
   'expenses',
   'help',
+  'notes',
 ]
+
+// Absolute routes pre-cached regardless of locale (offline fallback page)
+const ABSOLUTE_ROUTES = ['/offline']
 
 function getLocale(): string {
   if (typeof window === 'undefined') return 'fr'
@@ -119,6 +123,13 @@ export function useOfflinePreload() {
         // ── 2. Pre-fetch all page HTML + RSC payloads into SW cache ──────────
         if (shouldRun(pagesKey, PAGES_TTL)) {
           await prefetchAllPages(locale)
+          // Also cache absolute routes (offline fallback page)
+          const htmlCache = await caches.open('next-pages')
+          await Promise.allSettled(
+            ABSOLUTE_ROUTES.map(url =>
+              fetch(url).then(r => { if (r.ok) htmlCache.put(url, r) })
+            )
+          )
           markDone(pagesKey)
         }
       } catch {

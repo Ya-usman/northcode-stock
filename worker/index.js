@@ -32,9 +32,10 @@ self.addEventListener('fetch', (event) => {
       } catch {
         const cached = await cache.match(cacheKey.toString())
         if (cached) return cached
-        // Last resort: serve the offline fallback HTML
-        const fallback = await caches.match('/offline')
-        return fallback || Response.error()
+        // RSC requests expect RSC data, NOT HTML — returning HTML crashes Next.js.
+        // Return a network error so Next.js ErrorBoundary handles it in-app
+        // instead of the browser showing its own "no internet" page.
+        return Response.error()
       }
     })
   )
