@@ -9,6 +9,7 @@ import { Sidebar } from './sidebar'
 import { BottomNav } from './bottom-nav'
 import { Header } from './header'
 import { NavigationProgress } from './navigation-progress'
+import { OfflineBanner } from './offline-banner'
 import { Skeleton } from '@/components/ui/skeleton'
 import { TrialBanner } from '@/components/saas/trial-banner'
 import { UpgradeWall } from '@/components/saas/upgrade-wall'
@@ -177,6 +178,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
 
   return (
     <div className="min-h-screen bg-background">
+      <OfflineBanner />
       <NavigationProgress />
       {!accessAllowed && !isBillingPage && (
         <UpgradeWall locale={locale} shopName={shop?.name} />

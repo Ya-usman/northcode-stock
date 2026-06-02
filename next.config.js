@@ -21,14 +21,14 @@ const withPWA = require('next-pwa')({
         networkTimeoutSeconds: 5,
       },
     },
-    // Next.js page HTML — NetworkFirst, 3s timeout so iOS falls back to cache quickly
+    // Next.js page HTML — NetworkFirst, 1s timeout so SW serves cache quickly when offline
     {
       urlPattern: ({ request }) => request.mode === 'navigate',
       handler: 'NetworkFirst',
       options: {
         cacheName: 'next-pages',
-        expiration: { maxEntries: 50, maxAgeSeconds: 24 * 60 * 60 },
-        networkTimeoutSeconds: 3,
+        expiration: { maxEntries: 60, maxAgeSeconds: 24 * 60 * 60 },
+        networkTimeoutSeconds: 1,
       },
     },
     // Internal API routes (health, push, etc.)

@@ -3,6 +3,14 @@
 import { WifiOff, ShoppingCart, RefreshCw } from 'lucide-react'
 
 export default function OfflinePage() {
+  const goToSale = () => {
+    const locale =
+      document.cookie.match(/NEXT_LOCALE=([^;]+)/)?.[1] ||
+      (typeof localStorage !== 'undefined' && localStorage.getItem('NEXT_LOCALE')) ||
+      'fr'
+    window.location.href = `/${locale}/sales/new`
+  }
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-950 p-6 text-center">
       <div className="flex items-center justify-center bg-white rounded-2xl p-3 overflow-hidden mb-6">
@@ -17,18 +25,13 @@ export default function OfflinePage() {
         Mode hors-ligne
       </h1>
       <p className="text-gray-500 dark:text-gray-400 max-w-sm mb-8">
-        Cette page n&apos;est pas disponible hors-ligne.<br />
+        Pas de connexion internet.<br />
         La page de vente reste entièrement accessible.
       </p>
 
       <div className="flex flex-col gap-3 w-full max-w-xs">
         <button
-          onClick={() => {
-            const locale = document.cookie.match(/NEXT_LOCALE=([^;]+)/)?.[1]
-              || (typeof localStorage !== 'undefined' && localStorage.getItem('NEXT_LOCALE'))
-              || 'fr'
-            window.location.href = `/${locale}/sales/new`
-          }}
+          onClick={goToSale}
           className="flex items-center justify-center gap-2 w-full rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-3 transition-colors"
         >
           <ShoppingCart className="h-4 w-4" />
@@ -36,11 +39,11 @@ export default function OfflinePage() {
         </button>
 
         <button
-          onClick={() => window.history.back()}
+          onClick={() => window.location.reload()}
           className="flex items-center justify-center gap-2 w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium px-4 py-3 transition-colors"
         >
           <RefreshCw className="h-4 w-4" />
-          Page précédente
+          Réessayer
         </button>
       </div>
 
