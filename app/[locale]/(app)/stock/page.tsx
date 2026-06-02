@@ -23,7 +23,10 @@ import type { Product, Category, Supplier } from '@/lib/types/database'
 import { ProductForm } from '@/components/stock/product-form'
 import { ImportProductsModal } from '@/components/stock/import-products-modal'
 import { BulkAddModal } from '@/components/stock/bulk-add-modal'
-import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
+import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-cache'
+import { CacheBanner } from '@/components/layout/cache-banner'
+import { savePendingMovement, updateCachedProductQuantity } from '@/lib/offline/db'
+import { registerBackgroundSync } from '@/lib/offline/sync'
 
 
 function StockBadge({ quantity, threshold }: { quantity: number; threshold: number }) {
@@ -46,6 +49,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [categories, setCategories] = useState<Category[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [loading, setLoading] = useState(true)
+  const [isOnline, setIsOnline] = useState(true)
+  const [cacheAge, setCacheAge] = useState<number | null>(null)
   const [{ search, categoryFilter, statusFilter, showArchived }, setFilter] = usePersistedFilters(
     'stock', shop?.id, { search: '', categoryFilter: 'all', statusFilter: 'all', showArchived: false }
   )
@@ -69,7 +74,16 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
   const restockForm = useForm<RestockFormData>({ resolver: zodResolver(restockSchema) })
 
-const fetchProducts = async () => {
+  useEffect(() => {
+    setIsOnline(navigator.onLine)
+    const on = () => setIsOnline(true)
+    const off = () => setIsOnline(false)
+    window.addEventListener('online', on)
+    window.addEventListener('offline', off)
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
+  }, [])
+
+  const fetchProducts = async () => {
     if (!effectiveShopIds.length) return
     const cacheKey = `stock_${effectiveShopIds.join(',')}`
     const cached = getPageCache<{ prods: any[]; cats: any[]; sups: any[] }>(cacheKey)
@@ -77,8 +91,10 @@ const fetchProducts = async () => {
       setProducts(cached.prods as unknown as Product[])
       setCategories(cached.cats as Category[])
       setSuppliers(cached.sups as Supplier[])
+      setCacheAge(getPageCacheAge(cacheKey))
       setLoading(false)
     }
+    if (!navigator.onLine) return
     try {
       const [{ data: prods }, { data: archived }, { data: cats }, { data: sups }] = await Promise.all([
         supabase.from('products')
@@ -99,6 +115,7 @@ const fetchProducts = async () => {
       setCategories((cats || []) as Category[])
       setSuppliers((sups || []) as Supplier[])
       setPageCache(cacheKey, { prods: prods || [], cats: cats || [], sups: sups || [] })
+      setCacheAge(null)
     } catch {
       // cache already applied if available
     } finally {
@@ -191,6 +208,37 @@ const fetchProducts = async () => {
   const onRestock = async (data: RestockFormData) => {
     if (!restockProduct || !shop?.id) return
     setSaving(true)
+
+    // Offline path — save to IndexedDB and update local cache optimistically
+    if (!navigator.onLine) {
+      const localId = `mv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+      await savePendingMovement({
+        local_id: localId,
+        shop_id: shop.id,
+        product_id: restockProduct.id,
+        product_name: restockProduct.name,
+        current_quantity: restockProduct.quantity,
+        quantity_to_add: data.quantity,
+        supplier_name: suppliers.find(s => s.id === data.supplier_id)?.name || null,
+        buying_price: data.buying_price || null,
+        notes: data.notes || null,
+        performed_by: profile!.id,
+        created_at: new Date().toISOString(),
+        synced: false,
+      })
+      await updateCachedProductQuantity(restockProduct.id, data.quantity)
+      registerBackgroundSync()
+      setSaving(false)
+      toast({ title: t('toast.restock_done', { qty: data.quantity, name: restockProduct.name }), variant: 'success' })
+      setShowRestockModal(false)
+      restockForm.reset()
+      // Update UI locally — no network call
+      setProducts(prev => prev.map(p =>
+        p.id === restockProduct.id ? { ...p, quantity: p.quantity + data.quantity } : p
+      ))
+      return
+    }
+
     const res = await fetch('/api/products', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -377,6 +425,7 @@ const fetchProducts = async () => {
 
   return (
     <div className="space-y-4">
+      <CacheBanner ageMs={cacheAge} isOnline={isOnline} />
       {/* Controls */}
       <div className="flex flex-wrap gap-2">
         <div className="relative flex-1 min-w-[180px]">

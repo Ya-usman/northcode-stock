@@ -26,6 +26,7 @@ import { sharePDFNative, printPDFNative, isCapacitor } from '@/lib/utils/native-
 import type { Product, Customer, CartItem, Sale, SaleItem, Category } from '@/lib/types/database'
 import dynamic from 'next/dynamic'
 import { cacheProducts, getCachedProducts, cacheCustomers, getCachedCustomers, savePendingSale } from '@/lib/offline/db'
+import { registerBackgroundSync } from '@/lib/offline/sync'
 
 const BarcodeScanner = dynamic(
   () => import('@/components/stock/barcode-scanner').then(m => ({ default: m.BarcodeScanner })),
@@ -469,6 +470,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           synced: false,
         })
         await refreshPendingCount()
+        registerBackgroundSync() // ask SW to retry when connectivity returns
         // Build a fake completed sale for the receipt modal
         setCompletedSale({
           id: localId,

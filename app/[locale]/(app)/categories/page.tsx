@@ -27,8 +27,8 @@ function CategoryCard({ cat, products, expandedId, setExpandedId, canEdit, delet
         onClick={() => setExpandedId(isExpanded ? null : cat.id)}
       >
         <div className="flex items-center gap-3 min-w-0">
-          <div className="h-8 w-8 rounded-md bg-amber-100 dark:bg-amber-400/20 flex items-center justify-center shrink-0">
-            <Tag className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <div className="h-8 w-8 rounded-md bg-blue-50 dark:bg-blue-950/30 flex items-center justify-center shrink-0">
+            <Tag className="h-4 w-4 text-stockshop-blue dark:text-blue-400" />
           </div>
           <span className="font-medium text-sm truncate">{cat.name}</span>
           <Badge variant="secondary" className="text-xs shrink-0">{catProducts.length}</Badge>
@@ -84,8 +84,8 @@ function UncategorizedCard({ products, shopId, expandedId, setExpandedId, t, fmt
         onClick={() => setExpandedId(isExpanded ? null : key)}
       >
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-md bg-amber-100/50 dark:bg-amber-400/10 flex items-center justify-center shrink-0">
-            <Tag className="h-4 w-4 text-amber-500/70 dark:text-amber-400/60" />
+          <div className="h-8 w-8 rounded-md bg-blue-50/50 dark:bg-blue-950/20 flex items-center justify-center shrink-0">
+            <Tag className="h-4 w-4 text-stockshop-blue/60 dark:text-blue-400/60" />
           </div>
           <span className="font-medium text-sm text-muted-foreground">{t('categories.uncategorized')}</span>
           <Badge variant="outline" className="text-xs">{products.length}</Badge>
@@ -260,7 +260,7 @@ export default function CategoriesPage() {
           [...Array(4)].map((_, i) => <Skeleton key={i} className="h-14 rounded-lg" />)
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <Tag className="h-10 w-10 mb-3 opacity-30" />
+            <Tag className="h-10 w-10 mb-3 opacity-30 text-stockshop-blue dark:text-blue-400" />
             <p className="text-sm">{search ? t('categories.no_results') : t('categories.none')}</p>
             {canEdit && !search && <p className="text-xs mt-1">{t('categories.add_hint')}</p>}
           </div>

@@ -22,7 +22,8 @@ import { useCurrency } from '@/lib/hooks/use-currency'
 import { printPDFNative, downloadOrShareCSV, isCapacitor } from '@/lib/utils/native-share'
 import { format, startOfDay, endOfDay, subDays, startOfWeek, startOfMonth } from 'date-fns'
 import type { Sale } from '@/lib/types/database'
-import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
+import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-cache'
+import { CacheBanner } from '@/components/layout/cache-banner'
 
 const supabase = createClient() as any
 
@@ -92,6 +93,17 @@ export default function SalesHistoryPage() {
   const [validateAmount, setValidateAmount] = useState('')
   const [validateMethod, setValidateMethod] = useState('cash')
   const [actionLoading, setActionLoading] = useState(false)
+  const [isOnline, setIsOnline] = useState(true)
+  const [cacheAge, setCacheAge] = useState<number | null>(null)
+
+  useEffect(() => {
+    setIsOnline(navigator.onLine)
+    const on = () => setIsOnline(true)
+    const off = () => setIsOnline(false)
+    window.addEventListener('online', on)
+    window.addEventListener('offline', off)
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
+  }, [])
 
   const effectiveRole = roleInActiveShop ?? profile?.role
   const isOwner = effectiveRole === 'owner' || effectiveRole === 'manager' || effectiveRole === 'super_admin'
@@ -144,12 +156,14 @@ export default function SalesHistoryPage() {
     if (cached) {
       setSales(cached)
       setHasMoreSales(false)
+      setCacheAge(getPageCacheAge(cacheKey))
       setLoading(false)
       // Enrich cashier names in background — don't block render
       enrichCashiers(cached).then(map => setCashierMap(map))
     } else {
       setLoading(true)
     }
+    if (!navigator.onLine) return
     try {
       const { start, end } = getDateBounds()
       const { data, error } = await buildSalesQuery(start, end, 0)
@@ -159,6 +173,7 @@ export default function SalesHistoryPage() {
       setHasMoreSales(salesData.length === PAGE_SIZE)
       setCashierMap(await enrichCashiers(salesData))
       setPageCache(cacheKey, salesData)
+      setCacheAge(null)
     } catch {
       // cache already applied if available
     } finally {
@@ -405,6 +420,7 @@ export default function SalesHistoryPage() {
 
   return (
     <div className="space-y-4">
+      <CacheBanner ageMs={cacheAge} isOnline={isOnline} />
       {/* View toggle */}
       <div className="flex gap-1 rounded-lg border bg-muted/30 p-1 w-fit">
         <button

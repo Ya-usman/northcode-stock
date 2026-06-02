@@ -1,5 +1,62 @@
 import { createClient } from '@/lib/supabase/client'
-import { getPendingSales, markSaleSynced, markSaleError } from './db'
+import { getPendingSales, markSaleSynced, markSaleError, getPendingMovements, markMovementSynced, markMovementError } from './db'
+
+// Register a Background Sync tag so the SW retries when connectivity is restored
+export async function registerBackgroundSync(): Promise<void> {
+  try {
+    const reg = await navigator.serviceWorker?.ready
+    if (reg && 'sync' in reg) {
+      await (reg as any).sync.register('sync-pending-sales')
+    }
+  } catch {
+    // Background Sync not supported — online/offline events handle it
+  }
+}
+
+export interface MovementSyncResult {
+  synced: number
+  failed: number
+  errors: string[]
+}
+
+export async function syncPendingMovements(shopId: string): Promise<MovementSyncResult> {
+  const pending = await getPendingMovements(shopId)
+  let synced = 0
+  let failed = 0
+  const errors: string[] = []
+
+  for (const movement of pending) {
+    try {
+      const res = await fetch('/api/products', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_id: movement.product_id,
+          shop_id: movement.shop_id,
+          current_quantity: movement.current_quantity,
+          quantity_to_add: movement.quantity_to_add,
+          supplier_name: movement.supplier_name,
+          buying_price: movement.buying_price,
+          notes: movement.notes,
+          performed_by: movement.performed_by,
+        }),
+      })
+      if (!res.ok) {
+        const json = await res.json()
+        throw new Error(json.error || `HTTP ${res.status}`)
+      }
+      await markMovementSynced(movement.local_id)
+      synced++
+    } catch (err: any) {
+      const msg: string = err.message || String(err)
+      await markMovementError(movement.local_id, msg)
+      errors.push(msg)
+      failed++
+    }
+  }
+
+  return { synced, failed, errors }
+}
 
 export interface SyncResult {
   synced: number

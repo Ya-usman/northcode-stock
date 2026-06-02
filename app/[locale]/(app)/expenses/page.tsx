@@ -17,7 +17,8 @@ import { useCurrency } from '@/lib/hooks/use-currency'
 import { NumericInput } from '@/components/ui/numeric-input'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 import type { Expense } from '@/lib/types/database'
-import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
+import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-cache'
+import { CacheBanner } from '@/components/layout/cache-banner'
 
 const supabase = createClient() as any
 
@@ -35,6 +36,8 @@ export default function ExpensesPage() {
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
 
+  const [isOnline, setIsOnline] = useState(true)
+  const [cacheAge, setCacheAge] = useState<number | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Expense | null>(null)
 
@@ -43,12 +46,27 @@ export default function ExpensesPage() {
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'))
 
 
+  useEffect(() => {
+    setIsOnline(navigator.onLine)
+    const on = () => setIsOnline(true)
+    const off = () => setIsOnline(false)
+    window.addEventListener('online', on)
+    window.addEventListener('offline', off)
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
+  }, [])
+
   const fetchExpenses = async () => {
     if (!effectiveShopIds.length) return
     const cacheKey = `expenses_${effectiveShopIds.join(',')}_${monthFilter}`
     const cached = getPageCache<Expense[]>(cacheKey)
-    if (cached) { setExpenses(cached); setLoading(false) }
-    else setLoading(true)
+    if (cached) {
+      setExpenses(cached)
+      setCacheAge(getPageCacheAge(cacheKey))
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
+    if (!navigator.onLine) return
     const start = startOfMonth(new Date(monthFilter + '-01')).toISOString().slice(0, 10)
     const end = endOfMonth(new Date(monthFilter + '-01')).toISOString().slice(0, 10)
     try {
@@ -61,6 +79,7 @@ export default function ExpensesPage() {
         .order('date', { ascending: false })
       setExpenses((data || []) as Expense[])
       setPageCache(cacheKey, data || [])
+      setCacheAge(null)
     } catch {
       // cache already applied if available
     } finally {
@@ -124,6 +143,7 @@ export default function ExpensesPage() {
 
   return (
     <div className="space-y-4 max-w-2xl">
+      <CacheBanner ageMs={cacheAge} isOnline={isOnline} />
 
       {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">

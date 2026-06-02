@@ -17,6 +17,9 @@ import { PlanLimitAlert } from '@/components/saas/plan-limit-alert'
 import { getTrialDaysLeft, hasActiveSubscription, isAccessAllowed, isBetaPeriod } from '@/lib/saas/plans'
 import { useToast } from '@/components/ui/use-toast'
 import { triggerSaleFeedback, unlockAudio } from '@/lib/utils/sale-feedback'
+import { useOfflinePreload } from '@/lib/offline/use-offline-preload'
+import { useOffline } from '@/lib/offline/use-offline'
+import { SyncBanner } from './sync-banner'
 
 const supabase = createClient()
 
@@ -68,7 +71,26 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   const [teamCount, setTeamCount] = useState(0)
   const { toast } = useToast()
 
-  const handleSignOut = () => signOut()
+  // ── OFFLINE: preload data + auto-sync pending sales ───────────────────────
+  useOfflinePreload()
+  const { pendingCount, syncing, sync } = useOffline()
+
+  const handleSignOut = async () => {
+    const result = await signOut()
+    if (result === 'blocked') {
+      toast({
+        title: 'Ventes non synchronisées',
+        description: `${pendingCount} vente${pendingCount > 1 ? 's' : ''} en attente. Connectez-vous à internet avant de vous déconnecter.`,
+        variant: 'destructive',
+      })
+    } else if (result === 'sync_failed') {
+      toast({
+        title: 'Échec de synchronisation',
+        description: 'Certaines ventes n\'ont pas pu être envoyées. Réessayez dans quelques secondes.',
+        variant: 'destructive',
+      })
+    }
+  }
 
   // ── REALTIME: notifier l'admin quand un caissier fait une vente ────────────
   useEffect(() => {
@@ -201,6 +223,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         )}
 
         <main className="flex-1 p-4 sm:p-6 pb-24 sm:pb-6 overflow-x-hidden">
+          <SyncBanner pendingCount={pendingCount} syncing={syncing} onSync={sync} />
           {children}
         </main>
       </div>

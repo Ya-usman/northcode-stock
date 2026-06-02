@@ -19,6 +19,7 @@ import type { Sale, Product, RevenueDataPoint, TopProduct } from '@/lib/types/da
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { cn } from '@/lib/utils/cn'
 import { PlanStatusBanner } from '@/components/dashboard/plan-status-banner'
+import { CacheBanner } from '@/components/layout/cache-banner'
 
 const supabase = createClient() as any
 
@@ -82,6 +83,11 @@ export default function DashboardPage() {
   const [shopPickerOpen, setShopPickerOpen] = useState(false)
   const [firstLoad, setFirstLoad] = useState(!mountCache && shopIds.length > 0)
   const [refreshing, setRefreshing] = useState(false)
+  const [isOnline, setIsOnline] = useState(true)
+  const [cacheAge, setCacheAge] = useState<number | null>(() => {
+    if (!mountCache) return null
+    return Date.now() - mountCache.savedAt
+  })
 
   const [todayRevenue, setTodayRevenue] = useState(mountCache?.todayRevenue ?? 0)
   const [todaySalesCount, setTodaySalesCount] = useState(mountCache?.todaySalesCount ?? 0)
@@ -128,7 +134,15 @@ export default function DashboardPage() {
     if (cached) {
       applyDashData(cached.todaySalesCount, cached.todayRevenue, cached.outstandingDebt,
         cached.recentSales, cached.repaymentItems ?? [], cached.revenueData, cached.topProducts, cached.lowStock, cached.outOfStock)
+      setCacheAge(Date.now() - cached.savedAt)
       setFirstLoad(false)
+    }
+
+    // Don't fetch from network when offline
+    if (!navigator.onLine) {
+      setFirstLoad(false)
+      setRefreshing(false)
+      return
     }
 
     // Don't start a new network fetch if one is already in flight
@@ -309,6 +323,7 @@ export default function DashboardPage() {
       writeDashCache({ shopKey, todaySalesCount: salesCount, todayRevenue: revenue,
         outstandingDebt: debt, recentSales: salesArr, repaymentItems,
         revenueData: revData, topProducts: tops, lowStock: lowSt, outOfStock: outOf })
+      setCacheAge(null)
 
     } finally {
       loadingRef.current = false
@@ -333,6 +348,16 @@ export default function DashboardPage() {
     const t = setTimeout(() => setFirstLoad(false), 6000)
     return () => clearTimeout(t)
   }, [firstLoad])
+
+  // Online/offline tracking
+  useEffect(() => {
+    setIsOnline(navigator.onLine)
+    const on = () => { setIsOnline(true); if (shopIds.length > 0) loadDashboard(true) }
+    const off = () => setIsOnline(false)
+    window.addEventListener('online', on)
+    window.addEventListener('offline', off)
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
+  }, [loadDashboard])
 
   // Auto-refresh when user comes back to this tab
   useEffect(() => {
@@ -416,6 +441,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-4">
+      <CacheBanner ageMs={cacheAge} isOnline={isOnline} />
       {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>

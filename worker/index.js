@@ -71,3 +71,18 @@ self.addEventListener('notificationclick', (event) => {
     })
   )
 })
+
+// ── Background Sync ───────────────────────────────────────────────────────────
+// When the device regains connectivity (even if the app is closed), the browser
+// fires this event. We message all open app windows to trigger a sync.
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-pending-sales') {
+    event.waitUntil(
+      clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+        for (const client of clientList) {
+          client.postMessage({ type: 'BACKGROUND_SYNC_SALES' })
+        }
+      })
+    )
+  }
+})

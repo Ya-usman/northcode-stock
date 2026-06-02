@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
-import { getPendingCount } from './db'
-import { syncPendingSales, type SyncResult } from './sync'
+import { getPendingCount, getPendingMovementCount } from './db'
+import { syncPendingSales, syncPendingMovements, type SyncResult } from './sync'
 
 // navigator.onLine is unreliable in Capacitor WebViews.
 // Do a real HEAD request to confirm actual connectivity.
@@ -33,8 +33,11 @@ export function useOffline() {
 
   const refreshPendingCount = useCallback(async () => {
     if (!shopId) return
-    const count = await getPendingCount(shopId)
-    setPendingCount(count)
+    const [sales, movements] = await Promise.all([
+      getPendingCount(shopId),
+      getPendingMovementCount(shopId),
+    ])
+    setPendingCount(sales + movements)
   }, [shopId])
 
   const sync = useCallback(async (): Promise<SyncResult | null> => {
@@ -42,9 +45,12 @@ export function useOffline() {
     syncingRef.current = true
     setSyncing(true)
     try {
-      const result = await syncPendingSales(shopId)
+      const [salesResult] = await Promise.all([
+        syncPendingSales(shopId),
+        syncPendingMovements(shopId),
+      ])
       await refreshPendingCount()
-      return result
+      return salesResult
     } finally {
       syncingRef.current = false
       setSyncing(false)
@@ -73,12 +79,21 @@ export function useOffline() {
     // Re-check every 30s in case the device regained connectivity silently
     const interval = setInterval(() => verifyAndSetOnline(), 30_000)
 
+    // Listen for Background Sync message from service worker
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'BACKGROUND_SYNC_SALES') {
+        sync()
+      }
+    }
+    navigator.serviceWorker?.addEventListener('message', handleMessage)
+
     return () => {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
       clearInterval(interval)
+      navigator.serviceWorker?.removeEventListener('message', handleMessage)
     }
-  }, [verifyAndSetOnline])
+  }, [verifyAndSetOnline, sync])
 
   useEffect(() => {
     refreshPendingCount()

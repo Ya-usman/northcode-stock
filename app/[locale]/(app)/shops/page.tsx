@@ -6,7 +6,10 @@ import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
+import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import { Plus, Store, Users, CheckCircle2, Trash2, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import type { Shop } from '@/lib/types/database'
@@ -93,7 +96,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
             <p className="text-sm text-muted-foreground mt-0.5">{t('shops.count', { count: userShops.length })}</p>
           </div>
           {isOwner && (
-            <Button onClick={() => setCreating(true)} className="gap-2">
+            <Button onClick={() => setCreating(true)} className="gap-2 bg-stockshop-blue hover:bg-stockshop-blue-light text-white">
               <Plus className="h-4 w-4" />
               {t('shops.new')}
             </Button>
@@ -101,39 +104,49 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
         </div>
       </div>
 
-      {/* Create form */}
-      {creating && (
-        <div className="rounded-xl border bg-card p-5 shadow-sm space-y-3">
-          <h2 className="font-semibold text-foreground">{t('shops.new_form_title')}</h2>
-          <div>
-            <label className="text-xs font-medium text-foreground/80 block mb-1">{t('shops.name_label')}</label>
-            <input
-              className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      {/* Create dialog */}
+      <PremiumDialog
+        open={creating}
+        onOpenChange={open => { if (!open) { setCreating(false); setNewName(''); setNewCity('') } }}
+        category={t('nav.shops')}
+        title={t('shops.new_form_title')}
+        icon={<Store className="h-4 w-4" />}
+      >
+        <PremiumDialogBody className="space-y-3">
+          <div className="space-y-1">
+            <Label>{t('shops.name_label')}</Label>
+            <Input
               placeholder={t('shops.name_placeholder')}
               value={newName}
               onChange={e => setNewName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleCreate()}
               autoFocus
             />
           </div>
-          <div>
-            <label className="text-xs font-medium text-foreground/80 block mb-1">{t('shops.city_label')}</label>
-            <input
-              className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          <div className="space-y-1">
+            <Label>{t('shops.city_label')}</Label>
+            <Input
               placeholder={t('shops.city_placeholder')}
               value={newCity}
               onChange={e => setNewCity(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleCreate()}
             />
           </div>
-          <div className="flex gap-2">
-            <Button onClick={handleCreate} loading={loading} disabled={!newName.trim()}>
-              {t('shops.create')}
-            </Button>
-            <Button variant="outline" onClick={() => setCreating(false)}>
-              {t('actions.cancel')}
-            </Button>
-          </div>
-        </div>
-      )}
+        </PremiumDialogBody>
+        <PremiumDialogFooter
+          onCancel={() => { setCreating(false); setNewName(''); setNewCity('') }}
+          cancelLabel={t('actions.cancel')}
+        >
+          <Button
+            onClick={handleCreate}
+            loading={loading}
+            disabled={!newName.trim() || loading}
+            className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light text-white"
+          >
+            {t('shops.create')}
+          </Button>
+        </PremiumDialogFooter>
+      </PremiumDialog>
 
       {/* Shop list */}
       <div className="space-y-3">

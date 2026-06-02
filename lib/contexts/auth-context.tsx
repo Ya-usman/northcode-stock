@@ -19,7 +19,7 @@ interface AuthState {
 interface AuthContextValue extends AuthState {
   shop: Shop | null
   isSuperAdmin: boolean
-  signOut: () => Promise<void>
+  signOut: () => Promise<'ok' | 'blocked' | 'sync_failed'>
   refreshShop: () => Promise<void>
   patchShop: (shopId: string, updates: Partial<Shop>) => void
   switchShop: (shopId: string) => void
@@ -87,6 +87,23 @@ function clearCache() {
   try { localStorage.removeItem(CACHE_KEY) } catch { /* ignore */ }
 }
 
+// Wipe read-only caches (localStorage). Safe to call anytime — no write data at risk.
+function clearReadCaches(): void {
+  try {
+    const keys = Object.keys(localStorage).filter(k =>
+      k.startsWith('pc_') || k === 'dashboard_cache_v1'
+    )
+    keys.forEach(k => localStorage.removeItem(k))
+  } catch { /* ignore */ }
+}
+
+// Full wipe of IndexedDB. Only safe AFTER all pending writes have been synced.
+async function deleteOfflineDb(): Promise<void> {
+  try {
+    await indexedDB.deleteDatabase('stockshop-offline')
+  } catch { /* ignore */ }
+}
+
 // ── Fetch from Supabase ─────────────────────────────────────────────────────
 async function fetchUserData(userId: string): Promise<{
   profile: Profile | null
@@ -120,14 +137,14 @@ async function fetchUserData(userId: string): Promise<{
   // Always fetch role_permissions directly — the join may return a stale schema-cache
   // version of JSONB columns; this separate query guarantees up-to-date permissions.
   if (userShops.length > 0) {
-    const { data: permsData } = await supabase
+    const { data: permsData } = await (supabase as any)
       .from('shops')
       .select('id, role_permissions')
       .in('id', userShops.map(s => s.id))
     if (permsData) {
-      permsData.forEach(p => {
+      permsData.forEach((p: any) => {
         const shop = userShops.find(s => s.id === p.id)
-        if (shop) (shop as any).role_permissions = (p as any).role_permissions
+        if (shop) (shop as any).role_permissions = p.role_permissions
       })
     }
   }
@@ -314,6 +331,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (event === 'SIGNED_OUT') {
         clearCache()
+        clearReadCaches() // read-only caches only — pending sales/movements are NEVER wiped here
         setState({ user: null, profile: null, userShops: [], activeShop: null, roleInActiveShop: null, loading: false })
         return
       }
@@ -458,17 +476,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { ...prev, profile: updated }
     })
     // Persist to DB (best-effort — cache is already updated)
-    supabase.from('profiles').update({ locale }).eq('id', state.user?.id ?? '').then(() => {})
+    ;(supabase as any).from('profiles').update({ locale }).eq('id', state.user?.id ?? '').then(() => {})
   }, [state.user?.id, memberships])
 
-  const signOut = useCallback(async () => {
+  // Returns null if sign-out is blocked (unsynced sales + offline).
+  // Returns a string error message if sync failed but user can retry.
+  // Returns 'ok' on success.
+  const signOut = useCallback(async (): Promise<'ok' | 'blocked' | 'sync_failed'> => {
     const savedLocale = getLocaleCookie() || localStorage.getItem('NEXT_LOCALE') || 'en'
+    const shopId = state.activeShop?.id
+
+    // Check for unsynced pending data
+    const { getTotalPendingCount } = await import('@/lib/offline/db')
+    const pendingTotal = await getTotalPendingCount().catch(() => 0)
+
+    if (pendingTotal > 0) {
+      if (!navigator.onLine) {
+        // Cannot sync — block logout to protect sales data
+        return 'blocked'
+      }
+      // Online: sync everything before wiping
+      try {
+        const { syncPendingSales, syncPendingMovements } = await import('@/lib/offline/sync')
+        if (shopId) {
+          const results = await Promise.all([syncPendingSales(shopId), syncPendingMovements(shopId)])
+          const totalFailed = results.reduce((s, r) => s + r.failed, 0)
+          if (totalFailed > 0) return 'sync_failed'
+        }
+      } catch {
+        return 'sync_failed'
+      }
+    }
+
+    // All clear — wipe caches and sign out
     localStorage.removeItem('active_shop_id')
     clearCache()
+    clearReadCaches()
     await fetch('/api/auth/set-role', { method: 'DELETE' }).catch(() => {})
-    await supabase.auth.signOut()
+    await Promise.all([supabase.auth.signOut(), deleteOfflineDb()])
     window.location.href = `/${savedLocale}/login`
-  }, [])
+    return 'ok'
+  }, [state.activeShop?.id])
 
   const effectiveShopIds = useMemo<string[]>(() => {
     if (dashboardShopFilter === null) return state.userShops.map(s => s.id)
