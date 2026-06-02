@@ -132,8 +132,8 @@ export function ProductForm({
   const imageUrl = form.watch('image_url')
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col">
-      <div className="flex-1 space-y-3 p-5 pb-3">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
+      <div className="flex-1 overflow-y-auto space-y-3 p-5 pb-3">
 
       {/* Session counter */}
       {!!sessionCount && sessionCount > 0 && (
@@ -371,7 +371,7 @@ export function ProductForm({
 
       </div>{/* end scrollable area */}
 
-      <div className="sticky bottom-0 bg-background px-5 pb-5 pt-3 space-y-2 border-t border-border/40 shrink-0">
+      <div className="shrink-0 bg-background px-5 pb-5 pt-3 space-y-2 border-t border-border/40">
         {onSaveAndAdd && !isEdit && (
           <Button
             type="button"
