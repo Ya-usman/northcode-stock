@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useTranslations } from 'next-intl'
-import { Plus, Trash2, Tag, Search, RotateCcw, ChevronDown, ChevronRight, Package, Store } from 'lucide-react'
+import { Plus, Trash2, Tag, Search, RotateCcw, ChevronDown, ChevronRight, Package, Store, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { useCurrency } from '@/lib/hooks/use-currency'
@@ -129,6 +129,8 @@ export default function CategoriesPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [seeding, setSeeding] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [confirmDeleteCat, setConfirmDeleteCat] = useState<Category | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const fetchData = async () => {
     if (!effectiveShopIds.length) return
@@ -178,9 +180,11 @@ export default function CategoriesPage() {
   }
 
   const deleteCategory = async (cat: Category) => {
-    if (!confirm(t('categories.delete_confirm', { name: cat.name }))) return
+    setDeleting(true)
     const res = await fetch(`/api/categories?id=${cat.id}&shop_id=${shop?.id}`, { method: 'DELETE' })
+    setDeleting(false)
     if (!res.ok) { toast({ title: t('categories.delete_error'), variant: 'destructive' }); return }
+    setConfirmDeleteCat(null)
     fetchData()
     toast({ title: t('categories.deleted') })
   }
@@ -277,14 +281,14 @@ export default function CategoriesPage() {
                   <span className="text-xs font-semibold text-stockshop-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
                   <div className="flex-1 h-px bg-border" />
                 </div>
-                {shopCats.map(cat => <CategoryCard key={cat.id} cat={cat} products={products} expandedId={expandedId} setExpandedId={setExpandedId} canEdit={canEdit} deleteCategory={deleteCategory} t={t} fmt={fmt} />)}
+                {shopCats.map(cat => <CategoryCard key={cat.id} cat={cat} products={products} expandedId={expandedId} setExpandedId={setExpandedId} canEdit={canEdit} deleteCategory={setConfirmDeleteCat} t={t} fmt={fmt} />)}
                 {shopUncategorized.length > 0 && <UncategorizedCard products={shopUncategorized} shopId={shopEntry.id} expandedId={expandedId} setExpandedId={setExpandedId} t={t} fmt={fmt} />}
               </div>
             )
           })
         ) : (
           <>
-            {filtered.map(cat => <CategoryCard key={cat.id} cat={cat} products={products} expandedId={expandedId} setExpandedId={setExpandedId} canEdit={canEdit} deleteCategory={deleteCategory} t={t} fmt={fmt} />)}
+            {filtered.map(cat => <CategoryCard key={cat.id} cat={cat} products={products} expandedId={expandedId} setExpandedId={setExpandedId} canEdit={canEdit} deleteCategory={setConfirmDeleteCat} t={t} fmt={fmt} />)}
             {!search && uncategorized.length > 0 && <UncategorizedCard products={uncategorized} shopId={shop?.id || ''} expandedId={expandedId} setExpandedId={setExpandedId} t={t} fmt={fmt} />}
           </>
         )}
@@ -325,6 +329,30 @@ export default function CategoriesPage() {
           confirmLabel={t('categories.add')}
           confirmDisabled={!newName.trim()}
           confirmLoading={saving}
+        />
+      </PremiumDialog>
+
+      {/* Delete category confirmation dialog */}
+      <PremiumDialog
+        open={!!confirmDeleteCat}
+        onOpenChange={open => { if (!open) setConfirmDeleteCat(null) }}
+        category={t('nav.categories')}
+        title={confirmDeleteCat?.name || ''}
+        icon={<Trash2 className="h-4 w-4 text-destructive" />}
+      >
+        <PremiumDialogBody>
+          <div className="flex items-start gap-3 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 p-3">
+            <AlertTriangle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+            <p className="text-sm text-red-700 dark:text-red-400">{t('categories.delete_confirm', { name: confirmDeleteCat?.name || '' })}</p>
+          </div>
+        </PremiumDialogBody>
+        <PremiumDialogFooter
+          onCancel={() => setConfirmDeleteCat(null)}
+          cancelLabel={t('actions.cancel')}
+          onConfirm={() => confirmDeleteCat && deleteCategory(confirmDeleteCat)}
+          confirmLabel={t('actions.delete') || 'Supprimer'}
+          confirmDestructive
+          confirmLoading={deleting}
         />
       </PremiumDialog>
     </div>
