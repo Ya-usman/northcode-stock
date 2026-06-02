@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
 import { motion } from 'framer-motion'
@@ -337,8 +337,11 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     a.click()
   }
 
+  const catInputRef = useRef<HTMLInputElement>(null)
+
   const addCategory = async () => {
-    if (!shop?.id || !newCatName.trim()) return
+    if (!shop?.id) { toast({ title: t('toast.no_active_shop'), variant: 'destructive' }); return }
+    if (!newCatName.trim()) return
     setSavingCat(true)
     const res = await fetch('/api/categories', {
       method: 'POST',
@@ -348,8 +351,10 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     setSavingCat(false)
     const json = await res.json()
     if (!res.ok) { toast({ title: json.error || t('errors.generic'), variant: 'destructive' }); return }
+    toast({ title: t('categories.added'), variant: 'success' })
     setNewCatName('')
     fetchProducts()
+    setTimeout(() => catInputRef.current?.focus(), 50)
   }
 
   const deleteCategory = async (catId: string) => {
@@ -626,14 +631,26 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       <PremiumDialog open={showCatModal} onOpenChange={setShowCatModal} category={t('nav.stock')} title={t('products.manage_categories')} icon={<Settings2 className="h-4 w-4" />}>
         <PremiumDialogBody>
           <div className="flex gap-2">
-            <Input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder={t('categories.add_placeholder')} onKeyDown={e => e.key === 'Enter' && addCategory()} />
-            <Button onClick={addCategory} loading={savingCat} className="bg-stockshop-blue shrink-0 rounded-xl">
+            <Input
+              ref={catInputRef}
+              value={newCatName}
+              onChange={e => setNewCatName(e.target.value)}
+              placeholder={t('categories.add_placeholder')}
+              onKeyDown={e => e.key === 'Enter' && addCategory()}
+              autoFocus
+            />
+            <Button
+              onClick={addCategory}
+              loading={savingCat}
+              disabled={!newCatName.trim() || savingCat}
+              className="bg-stockshop-blue shrink-0 rounded-xl"
+            >
               <Plus className="h-4 w-4" />
             </Button>
           </div>
           <div className="space-y-1 max-h-52 overflow-y-auto">
-            {categories.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">{t('categories.none')}</p>}
-            {categories.map(c => (
+            {categories.filter(c => c.shop_id === shop?.id).length === 0 && <p className="text-sm text-muted-foreground text-center py-4">{t('categories.none')}</p>}
+            {categories.filter(c => c.shop_id === shop?.id).map(c => (
               <div key={c.id} className="rounded-lg border bg-muted/30 text-sm overflow-hidden">
                 <div className="flex items-center justify-between px-3 py-2">
                   <span>{c.name}</span>
