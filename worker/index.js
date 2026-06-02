@@ -1,5 +1,12 @@
 // Custom service worker code — merged into next-pwa generated sw.js
 
+// ── Pre-cache /offline at install so it's always available as fallback ────────
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open('next-pages').then(cache => cache.add('/offline'))
+  )
+})
+
 // ── RSC navigation caching ────────────────────────────────────────────────────
 // Next.js App Router client-side navigation appends a unique `_rsc` nonce to
 // every fetch. Workbox can't match cached entries because the key changes each
@@ -32,10 +39,20 @@ self.addEventListener('fetch', (event) => {
       } catch {
         const cached = await cache.match(cacheKey.toString())
         if (cached) return cached
-        // RSC requests expect RSC data, NOT HTML — returning HTML crashes Next.js.
-        // Return a network error so Next.js ErrorBoundary handles it in-app
-        // instead of the browser showing its own "no internet" page.
-        return Response.error()
+
+        // No RSC cache — try to serve the HTML version so Workbox can handle
+        // the navigate fallback properly (avoids browser "no internet" page).
+        const htmlCache = await caches.open('next-pages')
+        const htmlFallback = await htmlCache.match(cacheKey.toString())
+        if (htmlFallback) return htmlFallback
+
+        // Return a 503 so Next.js ErrorBoundary catches it in-app.
+        // NEVER return Response.error() — it's opaque and triggers Chrome's
+        // own "web page not available" error page instead of our UI.
+        return new Response('Offline — page not cached', {
+          status: 503,
+          headers: { 'Content-Type': 'text/plain' },
+        })
       }
     })
   )
