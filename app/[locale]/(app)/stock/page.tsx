@@ -455,17 +455,19 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             <SelectItem value="out">{t('status.out_of_stock')}</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" size="sm" onClick={exportCSV} className="h-9 gap-1">
-          <FileDown className="h-3.5 w-3.5" /> CSV
-        </Button>
         {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'cashier' || effectiveRole === 'super_admin') && (
           <>
             <Button size="sm" className="h-9 gap-1 bg-stockshop-blue hover:bg-stockshop-blue-light text-white" onClick={() => setShowBulkModal(true)}>
               <Plus className="h-3.5 w-3.5" /> Multiple
             </Button>
-            <Button variant="outline" size="sm" className="h-9 gap-1" onClick={() => setShowImportModal(true)}>
-              <Upload className="h-3.5 w-3.5" /> CSV
-            </Button>
+            <div className="flex gap-1">
+              <Button variant="outline" size="sm" onClick={exportCSV} className="h-9 gap-1">
+                <FileDown className="h-3.5 w-3.5" /> CSV
+              </Button>
+              <Button variant="outline" size="sm" className="h-9 gap-1" onClick={() => setShowImportModal(true)}>
+                <Upload className="h-3.5 w-3.5" /> CSV
+              </Button>
+            </div>
             <Button
               className="h-9 gap-1 bg-stockshop-blue hover:bg-stockshop-blue-light"
               size="sm"
