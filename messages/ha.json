@@ -543,6 +543,11 @@
     "required_field": "Ana buƙatar wannan filin.",
     "invalid_email": "Shigar da ingantaccen adireshin imel.",
     "invalid_phone": "Shigar da ingantaccen lambar waya ta Najeriya.",
+    "product_name_required": "Ana buƙatar sunan kaya.",
+    "selling_price_required": "Farashin sayarwa dole ya fi 0.",
+    "buying_price_invalid": "Farashin siya dole ya zama ≥ 0.",
+    "quantity_invalid": "Yawan kaya dole ya zama ≥ 0.",
+    "restock_min_qty": "Dole ka ƙara aƙalla 1.",
     "low_stock_sale": "Faɗakarwa: {product} yana da {qty} ne kawai a hannun.",
     "out_of_stock_sale": "{product} ya ƙare ba za a iya sayarwa ba."
   },

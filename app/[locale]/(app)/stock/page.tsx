@@ -18,7 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { restockSchema, type RestockFormData, type ProductFormData } from '@/lib/validations/product'
+import { createRestockSchema, type RestockFormData, type ProductFormData } from '@/lib/validations/product'
 import type { Product, Category, Supplier } from '@/lib/types/database'
 import { ProductForm } from '@/components/stock/product-form'
 import { ImportProductsModal } from '@/components/stock/import-products-modal'
@@ -74,7 +74,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [archiving, setArchiving] = useState(false)
   const [deleteCatConfirmId, setDeleteCatConfirmId] = useState<string | null>(null)
 
-  const restockForm = useForm<RestockFormData>({ resolver: zodResolver(restockSchema) })
+  const restockForm = useForm<RestockFormData>({ resolver: zodResolver(createRestockSchema({ restock_min_qty: t('errors.restock_min_qty') })) })
 
   useEffect(() => {
     setIsOnline(navigator.onLine)

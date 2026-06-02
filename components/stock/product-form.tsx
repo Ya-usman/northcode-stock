@@ -9,7 +9,8 @@ import { Input } from '@/components/ui/input'
 import { NumericInput } from '@/components/ui/numeric-input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { productSchema, type ProductFormData } from '@/lib/validations/product'
+import { PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
+import { createProductSchema, type ProductFormData } from '@/lib/validations/product'
 import type { Category, Supplier } from '@/lib/types/database'
 import dynamic from 'next/dynamic'
 import { Camera, ScanLine, ImagePlus, X, Loader2, AlertCircle, CheckCircle2, PlusCircle } from 'lucide-react'
@@ -49,8 +50,16 @@ export function ProductForm({
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [imagePreview, setImagePreview] = useState<string>(defaultValues?.image_url || '')
 
+  const schema = createProductSchema({
+    product_name_required: t('errors.product_name_required'),
+    selling_price_required: t('errors.selling_price_required'),
+    buying_price_invalid: t('errors.buying_price_invalid'),
+    quantity_invalid: t('errors.quantity_invalid'),
+    restock_min_qty: t('errors.restock_min_qty'),
+  })
+
   const form = useForm<ProductFormData>({
-    resolver: zodResolver(productSchema),
+    resolver: zodResolver(schema),
     defaultValues: {
       name: '',
       name_hausa: '',
@@ -133,7 +142,7 @@ export function ProductForm({
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
-      <div className="flex-1 overflow-y-auto space-y-3 p-5 pb-3">
+      <PremiumDialogBody className="space-y-3">
 
       {/* Session counter */}
       {!!sessionCount && sessionCount > 0 && (
@@ -369,10 +378,10 @@ export function ProductForm({
         />
       </div>
 
-      </div>{/* end scrollable area */}
+      </PremiumDialogBody>
 
-      <div className="shrink-0 bg-background px-5 pb-5 pt-3 space-y-2 border-t border-border/40">
-        {onSaveAndAdd && !isEdit && (
+      {onSaveAndAdd && !isEdit && (
+        <div className="px-5 pt-2 shrink-0">
           <Button
             type="button"
             variant="outline"
@@ -383,25 +392,17 @@ export function ProductForm({
             <PlusCircle className="h-4 w-4" />
             Enregistrer et ajouter un autre
           </Button>
-        )}
-        <div className="flex gap-3">
-          <Button
-            type="button"
-            variant="ghost"
-            className="flex-1 h-11 rounded-xl text-foreground/70 hover:text-foreground hover:bg-foreground/8 border border-border"
-            onClick={onCancel}
-          >
-            {t('actions.cancel')}
-          </Button>
-          <Button
-            type="submit"
-            disabled={saving || uploadingImage}
-            className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light"
-          >
-            {saving ? t('actions.saving') : isEdit ? t('actions.update') : t('actions.save')}
-          </Button>
         </div>
-      </div>
+      )}
+      <PremiumDialogFooter onCancel={onCancel} cancelLabel={t('actions.cancel')}>
+        <Button
+          type="submit"
+          disabled={saving || uploadingImage}
+          className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light"
+        >
+          {saving ? t('actions.saving') : isEdit ? t('actions.update') : t('actions.save')}
+        </Button>
+      </PremiumDialogFooter>
     </form>
   )
 }

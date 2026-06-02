@@ -544,6 +544,11 @@
     "required_field": "This field is required.",
     "invalid_email": "Enter a valid email address.",
     "invalid_phone": "Enter a valid Nigerian phone number.",
+    "product_name_required": "Product name is required.",
+    "selling_price_required": "Selling price must be greater than 0.",
+    "buying_price_invalid": "Buying price must be ≥ 0.",
+    "quantity_invalid": "Quantity must be ≥ 0.",
+    "restock_min_qty": "You must add at least 1 unit.",
     "low_stock_sale": "Warning: {product} only has {qty} left in stock.",
     "out_of_stock_sale": "{product} is out of stock and cannot be sold."
   },
