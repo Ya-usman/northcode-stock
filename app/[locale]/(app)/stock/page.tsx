@@ -457,7 +457,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         <div className="flex gap-1">
           <Select value={categoryFilter} onValueChange={v => setFilter({ categoryFilter: v })}>
             <SelectTrigger className="w-[130px] h-9"><SelectValue placeholder={t('products.all_categories')} /></SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-80">
               <SelectItem value="all">{t('products.all_categories')}</SelectItem>
               {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
             </SelectContent>
