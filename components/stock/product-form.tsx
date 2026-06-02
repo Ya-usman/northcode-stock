@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { productSchema, type ProductFormData } from '@/lib/validations/product'
 import type { Category, Supplier } from '@/lib/types/database'
 import dynamic from 'next/dynamic'
-import { Camera, ScanLine, ImagePlus, X, Loader2, AlertCircle } from 'lucide-react'
+import { Camera, ScanLine, ImagePlus, X, Loader2, AlertCircle, CheckCircle2, PlusCircle } from 'lucide-react'
 
 const BarcodeScanner = dynamic(
   () => import('@/components/stock/barcode-scanner').then(m => ({ default: m.BarcodeScanner })),
@@ -30,13 +30,15 @@ interface ProductFormProps {
   isEdit?: boolean
   defaultValues?: Partial<ProductFormData>
   saving: boolean
+  sessionCount?: number
   onSubmit: (data: ProductFormData) => void
+  onSaveAndAdd?: (data: ProductFormData) => void
   onCancel: () => void
 }
 
 export function ProductForm({
   categories, suppliers, currency, isOwner, shopId, isEdit,
-  defaultValues, saving, onSubmit, onCancel,
+  defaultValues, saving, sessionCount, onSubmit, onSaveAndAdd, onCancel,
 }: ProductFormProps) {
   const t = useTranslations()
   const { toast } = useToast()
@@ -132,6 +134,17 @@ export function ProductForm({
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col">
       <div className="flex-1 space-y-3 p-5 pb-3">
+
+      {/* Session counter */}
+      {!!sessionCount && sessionCount > 0 && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
+          <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+          <span className="text-sm text-green-700 dark:text-green-400 font-medium">
+            {sessionCount} produit{sessionCount > 1 ? 's' : ''} ajouté{sessionCount > 1 ? 's' : ''} cette session
+          </span>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3">
 
         {/* Name */}
@@ -358,22 +371,36 @@ export function ProductForm({
 
       </div>{/* end scrollable area */}
 
-      <div className="sticky bottom-0 bg-background px-5 pb-5 pt-3 flex justify-center gap-3 border-t border-border/40 shrink-0">
-        <Button
-          type="button"
-          variant="ghost"
-          className="flex-1 h-11 rounded-xl text-foreground/70 hover:text-foreground hover:bg-foreground/8 border border-border"
-          onClick={onCancel}
-        >
-          {t('actions.cancel')}
-        </Button>
-        <Button
-          type="submit"
-          disabled={saving || uploadingImage}
-          className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light"
-        >
-          {saving ? t('actions.saving') : isEdit ? t('actions.update') : t('actions.save')}
-        </Button>
+      <div className="sticky bottom-0 bg-background px-5 pb-5 pt-3 space-y-2 border-t border-border/40 shrink-0">
+        {onSaveAndAdd && !isEdit && (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={saving || uploadingImage}
+            className="w-full h-10 rounded-xl gap-2 text-stockshop-blue border-stockshop-blue/40 hover:bg-stockshop-blue/5"
+            onClick={form.handleSubmit(onSaveAndAdd)}
+          >
+            <PlusCircle className="h-4 w-4" />
+            Enregistrer et ajouter un autre
+          </Button>
+        )}
+        <div className="flex gap-3">
+          <Button
+            type="button"
+            variant="ghost"
+            className="flex-1 h-11 rounded-xl text-foreground/70 hover:text-foreground hover:bg-foreground/8 border border-border"
+            onClick={onCancel}
+          >
+            {t('actions.cancel')}
+          </Button>
+          <Button
+            type="submit"
+            disabled={saving || uploadingImage}
+            className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light"
+          >
+            {saving ? t('actions.saving') : isEdit ? t('actions.update') : t('actions.save')}
+          </Button>
+        </div>
       </div>
     </form>
   )

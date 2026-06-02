@@ -55,6 +55,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     'stock', shop?.id, { search: '', categoryFilter: 'all', statusFilter: 'all', showArchived: false }
   )
   const [showAddModal, setShowAddModal] = useState(false)
+  const [addFormKey, setAddFormKey] = useState(0)
+  const [sessionAddCount, setSessionAddCount] = useState(0)
   const [showImportModal, setShowImportModal] = useState(false)
   const [showBulkModal, setShowBulkModal] = useState(false)
   const [showRestockModal, setShowRestockModal] = useState(false)
@@ -140,8 +142,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       return true
     })
 
-  const onAddProduct = async (data: ProductFormData) => {
-    if (!shop?.id) { toast({ title: t('toast.no_active_shop'), variant: 'destructive' }); return }
+  const saveProduct = async (data: ProductFormData) => {
+    if (!shop?.id) { toast({ title: t('toast.no_active_shop'), variant: 'destructive' }); return false }
     setSaving(true)
     try {
       const res = await fetch('/api/products', {
@@ -164,13 +166,28 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         }),
       })
       const json = await res.json()
-      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
-      toast({ title: t('toast.product_added'), variant: 'success' })
-      setShowAddModal(false)
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return false }
       fetchProducts()
+      return true
     } finally {
       setSaving(false)
     }
+  }
+
+  const onAddProduct = async (data: ProductFormData) => {
+    const ok = await saveProduct(data)
+    if (!ok) return
+    toast({ title: t('toast.product_added'), variant: 'success' })
+    setShowAddModal(false)
+    setSessionAddCount(0)
+  }
+
+  const onSaveAndAdd = async (data: ProductFormData) => {
+    const ok = await saveProduct(data)
+    if (!ok) return
+    setSessionAddCount(c => c + 1)
+    setAddFormKey(k => k + 1)
+    toast({ title: t('toast.product_added'), variant: 'success' })
   }
 
   const onEditProduct = async (data: ProductFormData) => {
@@ -458,7 +475,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'cashier' || effectiveRole === 'super_admin') && (
           <>
             <Button size="sm" className="h-9 gap-1 bg-stockshop-blue hover:bg-stockshop-blue-light text-white" onClick={() => setShowBulkModal(true)}>
-              <Plus className="h-3.5 w-3.5" /> Multiple
+              <Plus className="h-3.5 w-3.5" /> Ajout rapide
             </Button>
             <div className="flex gap-1">
               <Button variant="outline" size="sm" onClick={exportCSV} className="h-9 gap-1">
@@ -472,7 +489,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               className="h-9 gap-1 bg-stockshop-blue hover:bg-stockshop-blue-light"
               size="sm"
               disabled={saving}
-              onClick={() => { setEditingProduct(null); setShowRestockModal(false); setShowAddModal(true) }}
+              onClick={() => { setEditingProduct(null); setShowRestockModal(false); setSessionAddCount(0); setAddFormKey(k => k + 1); setShowAddModal(true) }}
             >
               <Plus className="h-4 w-4" />
               {t('actions.add_product')}
@@ -589,8 +606,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       )}
 
       {/* Add Product Modal */}
-      <PremiumDialog open={showAddModal} onOpenChange={setShowAddModal} category={t('nav.stock')} title={t('actions.add_product')} icon={<Package className="h-4 w-4" />} maxWidth="max-w-lg">
-        {showAddModal && <ProductForm key="add" {...productFormProps} onSubmit={onAddProduct} onCancel={() => setShowAddModal(false)} />}
+      <PremiumDialog open={showAddModal} onOpenChange={open => { if (!open) { setShowAddModal(false); setSessionAddCount(0) } }} category={t('nav.stock')} title={t('actions.add_product')} icon={<Package className="h-4 w-4" />} maxWidth="max-w-lg">
+        {showAddModal && <ProductForm key={addFormKey} {...productFormProps} sessionCount={sessionAddCount} onSubmit={onAddProduct} onSaveAndAdd={onSaveAndAdd} onCancel={() => { setShowAddModal(false); setSessionAddCount(0) }} />}
       </PremiumDialog>
 
       {/* Edit Product Modal */}
