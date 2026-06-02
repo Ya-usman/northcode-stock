@@ -648,7 +648,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               <Plus className="h-4 w-4" />
             </Button>
           </div>
-          <div className="space-y-1 max-h-52 overflow-y-auto">
+          <div className="space-y-1 max-h-80 overflow-y-auto">
             {categories.filter(c => c.shop_id === shop?.id).length === 0 && <p className="text-sm text-muted-foreground text-center py-4">{t('categories.none')}</p>}
             {categories.filter(c => c.shop_id === shop?.id).map(c => (
               <div key={c.id} className="rounded-lg border bg-muted/30 text-sm overflow-hidden">
