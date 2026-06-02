@@ -474,9 +474,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         </Select>
         {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'cashier' || effectiveRole === 'super_admin') && (
           <>
-            <Button size="sm" className="h-9 gap-1 bg-stockshop-blue hover:bg-stockshop-blue-light text-white" onClick={() => setShowBulkModal(true)}>
-              <Plus className="h-3.5 w-3.5" /> Ajout rapide
-            </Button>
             <div className="flex gap-1">
               <Button variant="outline" size="sm" onClick={exportCSV} className="h-9 gap-1">
                 <FileDown className="h-3.5 w-3.5" /> CSV
@@ -485,15 +482,20 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 <Upload className="h-3.5 w-3.5" /> CSV
               </Button>
             </div>
-            <Button
-              className="h-9 gap-1 bg-stockshop-blue hover:bg-stockshop-blue-light"
-              size="sm"
-              disabled={saving}
-              onClick={() => { setEditingProduct(null); setShowRestockModal(false); setSessionAddCount(0); setAddFormKey(k => k + 1); setShowAddModal(true) }}
-            >
-              <Plus className="h-4 w-4" />
-              {t('actions.add_product')}
-            </Button>
+            <div className="flex gap-1">
+              <Button size="sm" className="h-9 gap-1 bg-stockshop-blue hover:bg-stockshop-blue-light text-white" onClick={() => setShowBulkModal(true)}>
+                <Plus className="h-3.5 w-3.5" /> Ajout rapide
+              </Button>
+              <Button
+                className="h-9 gap-1 bg-stockshop-blue hover:bg-stockshop-blue-light"
+                size="sm"
+                disabled={saving}
+                onClick={() => { setEditingProduct(null); setShowRestockModal(false); setSessionAddCount(0); setAddFormKey(k => k + 1); setShowAddModal(true) }}
+              >
+                <Plus className="h-4 w-4" />
+                {t('actions.add_product')}
+              </Button>
+            </div>
           </>
         )}
       </div>
