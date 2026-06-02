@@ -371,36 +371,34 @@ export function ProductForm({
 
       </div>{/* end scrollable area */}
 
-      <div className="sticky bottom-0 bg-background px-5 pb-5 pt-3 space-y-2 border-t border-border/40 shrink-0">
+      <div className="sticky bottom-0 bg-background px-5 pb-5 pt-3 flex gap-3 border-t border-border/40 shrink-0">
+        <Button
+          type="button"
+          variant="ghost"
+          className="flex-1 h-11 rounded-xl text-foreground/70 hover:text-foreground hover:bg-foreground/8 border border-border"
+          onClick={onCancel}
+        >
+          {t('actions.cancel')}
+        </Button>
         {onSaveAndAdd && !isEdit && (
           <Button
             type="button"
             variant="outline"
             disabled={saving || uploadingImage}
-            className="w-full h-10 rounded-xl gap-2 text-stockshop-blue border-stockshop-blue/40 hover:bg-stockshop-blue/5"
+            className="flex-1 h-11 rounded-xl gap-1.5 text-stockshop-blue border-stockshop-blue/40 hover:bg-stockshop-blue/5"
             onClick={form.handleSubmit(onSaveAndAdd)}
           >
-            <PlusCircle className="h-4 w-4" />
-            Enregistrer et ajouter un autre
+            <PlusCircle className="h-4 w-4 shrink-0" />
+            <span className="truncate">+ Autre</span>
           </Button>
         )}
-        <div className="flex gap-3">
-          <Button
-            type="button"
-            variant="ghost"
-            className="flex-1 h-11 rounded-xl text-foreground/70 hover:text-foreground hover:bg-foreground/8 border border-border"
-            onClick={onCancel}
-          >
-            {t('actions.cancel')}
-          </Button>
-          <Button
-            type="submit"
-            disabled={saving || uploadingImage}
-            className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light"
-          >
-            {saving ? t('actions.saving') : isEdit ? t('actions.update') : t('actions.save')}
-          </Button>
-        </div>
+        <Button
+          type="submit"
+          disabled={saving || uploadingImage}
+          className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light"
+        >
+          {saving ? t('actions.saving') : isEdit ? t('actions.update') : t('actions.save')}
+        </Button>
       </div>
     </form>
   )
