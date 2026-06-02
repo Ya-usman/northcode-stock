@@ -434,74 +434,78 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     unlockAudio()   // déverrouille l'AudioContext pendant le geste utilisateur
     setCompleting(true)
 
-    // ── OFFLINE PATH ────────────────────────────────────────────────────────
+    // ── Shared offline save (used by offline path AND as online fallback) ───
+    const saveOffline = async (toastMsg: string) => {
+      const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+      const saleNumber = `HL-${localId.slice(-5).toUpperCase()}`
+      await savePendingSale({
+        local_id: localId,
+        shop_id: selectedShop!.id,
+        cashier_id: profile!.id,
+        subtotal,
+        discount: discountAmt,
+        tax,
+        total,
+        payment_method: paymentMethod,
+        payment_status: methodType === 'credit'
+          ? 'pending'
+          : balance > 0 ? (paid > 0 ? 'partial' : 'pending') : 'paid',
+        amount_paid: paid,
+        balance,
+        customer_id: selectedCustomer?.id ?? null,
+        customer_name: customerName.trim() || selectedCustomer?.name || null,
+        customer_phone: customerPhone.trim() || selectedCustomer?.phone || null,
+        notes: notes || null,
+        created_at: new Date().toISOString(),
+        items: cart.map((item: any) => ({
+          product_id: item.product.id,
+          product_name: item.product.name,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          subtotal: item.quantity * item.unit_price,
+        })),
+        payment_amount: methodType !== 'credit' ? paid : 0,
+        payment_reference: methodType === 'transfer' ? transferRef : null,
+        synced: false,
+      })
+      await refreshPendingCount()
+      registerBackgroundSync()
+      setCompletedSale({
+        id: localId,
+        sale_number: saleNumber,
+        shop_id: selectedShop!.id,
+        cashier_id: profile!.id,
+        subtotal,
+        discount: discountAmt,
+        tax,
+        total,
+        payment_method: paymentMethod,
+        payment_status: 'pending',
+        amount_paid: paid,
+        balance,
+        sale_status: 'active',
+        notes: notes || null,
+        created_at: new Date().toISOString(),
+        sale_items: cart.map((item: any) => ({
+          id: `li-${Math.random()}`,
+          sale_id: localId,
+          product_id: item.product.id,
+          product_name: item.product.name,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          subtotal: item.quantity * item.unit_price,
+        })),
+      } as any)
+      setShowReceipt(true)
+      resetForm()
+      triggerSaleFeedback()
+      toast({ title: toastMsg, variant: 'success' })
+    }
+
+    // ── OFFLINE PATH ─────────────────────────────────────────────────────────
     if (!isOnline) {
       try {
-        const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-        const saleNumber = `HL-${localId.slice(-5).toUpperCase()}`
-        await savePendingSale({
-          local_id: localId,
-          shop_id: selectedShop!.id,
-          cashier_id: profile!.id,
-          subtotal,
-          discount: discountAmt,
-          tax,
-          total,
-          payment_method: paymentMethod,
-          payment_status: methodType === 'credit'
-            ? 'pending'
-            : balance > 0 ? (paid > 0 ? 'partial' : 'pending') : 'paid',
-          amount_paid: paid,
-          balance,
-          customer_id: selectedCustomer?.id ?? null,
-          customer_name: customerName.trim() || selectedCustomer?.name || null,
-          customer_phone: customerPhone.trim() || selectedCustomer?.phone || null,
-          notes: notes || null,
-          created_at: new Date().toISOString(),
-          items: cart.map((item: any) => ({
-            product_id: item.product.id,
-            product_name: item.product.name,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            subtotal: item.quantity * item.unit_price,
-          })),
-          payment_amount: methodType !== 'credit' ? paid : 0,
-          payment_reference: methodType === 'transfer' ? transferRef : null,
-          synced: false,
-        })
-        await refreshPendingCount()
-        registerBackgroundSync() // ask SW to retry when connectivity returns
-        // Build a fake completed sale for the receipt modal
-        setCompletedSale({
-          id: localId,
-          sale_number: saleNumber,
-          shop_id: selectedShop!.id,
-          cashier_id: profile!.id,
-          subtotal,
-          discount: discountAmt,
-          tax,
-          total,
-          payment_method: paymentMethod,
-          payment_status: 'pending',
-          amount_paid: paid,
-          balance,
-          sale_status: 'active',
-          notes: notes || null,
-          created_at: new Date().toISOString(),
-          sale_items: cart.map((item: any) => ({
-            id: `li-${Math.random()}`,
-            sale_id: localId,
-            product_id: item.product.id,
-            product_name: item.product.name,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            subtotal: item.quantity * item.unit_price,
-          })),
-        } as any)
-        setShowReceipt(true)
-        resetForm()
-        triggerSaleFeedback()
-        toast({ title: 'Vente sauvegardée hors-ligne · sera synchronisée automatiquement', variant: 'success' })
+        await saveOffline('Vente sauvegardée hors-ligne · sera synchronisée automatiquement')
       } catch (err: any) {
         toast({ title: err.message || t('errors.generic'), variant: 'destructive' })
       } finally {
@@ -656,7 +660,14 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       })
       checkAndNotifyLowStock(selectedShop!.id, soldProductIds).catch(() => {})
     } catch (err: any) {
-      toast({ title: err.message || t('errors.generic'), variant: 'destructive' })
+      // If the online insert fails for any reason (timeout, network hiccup, DB lock),
+      // fall back to local save so the sale is never lost.
+      try {
+        await saveOffline('Connexion instable · vente sauvegardée localement et synchronisée automatiquement dès que la connexion est stable')
+      } catch {
+        // Only show the original error if even the offline save failed
+        toast({ title: err.message || t('errors.generic'), variant: 'destructive' })
+      }
     } finally {
       setCompleting(false)
     }
