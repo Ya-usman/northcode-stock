@@ -5,6 +5,49 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open('next-pages').then(cache => cache.add('/offline'))
   )
+  self.skipWaiting()
+})
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim())
+})
+
+// ── Navigate requests (full page loads / hard navigation) ─────────────────────
+// We own this handler entirely — Workbox NetworkFirst is too slow on Android.
+// Strategy: try network (2s timeout), fall back to cache, fall back to /offline.
+self.addEventListener('fetch', (event) => {
+  if (event.request.mode !== 'navigate') return
+
+  event.respondWith(
+    (async () => {
+      const cache = await caches.open('next-pages')
+      const url = new URL(event.request.url)
+
+      // Helper: try to match with or without query params
+      const matchCache = () =>
+        cache.match(event.request.url) ||
+        cache.match(url.origin + url.pathname)
+
+      try {
+        const response = await Promise.race([
+          fetch(event.request),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('nav-timeout')), 2000)
+          ),
+        ])
+        if (response && response.ok) {
+          cache.put(url.origin + url.pathname, response.clone())
+        }
+        return response
+      } catch {
+        const cached = await matchCache()
+        if (cached) return cached
+        const offline = await caches.match('/offline') ||
+                        await cache.match('/offline')
+        return offline || new Response('Offline', { status: 503 })
+      }
+    })()
+  )
 })
 
 // ── RSC navigation caching ────────────────────────────────────────────────────
