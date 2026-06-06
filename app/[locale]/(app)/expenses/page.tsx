@@ -110,7 +110,7 @@ export default function ExpensesPage() {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
   }, [])
 
-  const withTimeout = useCallback((p: Promise<any>, ms = 8_000) =>
+  const withTimeout = useCallback((p: Promise<any>, ms = 15_000) =>
     Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Connexion trop lente — réessayez.')), ms))]),
   [])
 
@@ -131,7 +131,7 @@ export default function ExpensesPage() {
     const start = startOfMonth(new Date(monthFilter + '-01')).toISOString().slice(0, 10)
     const end   = endOfMonth(new Date(monthFilter + '-01')).toISOString().slice(0, 10)
     try {
-      const [{ data: expData }, { data: tplData }] = await Promise.all([
+      const [{ data: expData, error: expErr }, { data: tplData }] = await Promise.all([
         supabase
           .from('expenses')
           .select('*')
@@ -147,12 +147,16 @@ export default function ExpensesPage() {
           .eq('is_recurring', true)
           .order('description'),
       ])
+      if (expErr) {
+        toast({ title: expErr.message, variant: 'destructive' })
+        return
+      }
       setExpenses((expData || []) as Expense[])
       setTemplates((tplData || []) as Expense[])
       setPageCache(cacheKey, expData || [])
       setCacheAge(null)
-    } catch {
-      // cache already applied if available
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur chargement', variant: 'destructive' })
     } finally {
       setLoading(false)
     }
