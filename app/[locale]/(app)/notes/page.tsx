@@ -116,6 +116,8 @@ export default function NotesPage() {
     setPinned(note.pinned)
     setNoteShop(note.shop_id)
     setModalOpen(true)
+    // Pré-chauffe la session Supabase pendant que l'utilisateur édite
+    supabase.auth.getSession().catch(() => {})
     setTimeout(() => {
       if (contentRef.current) contentRef.current.value = note.content
     }, 50)
@@ -165,6 +167,8 @@ export default function NotesPage() {
       fetchNotes()
     } catch (err: any) {
       toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+      // La requête a peut-être abouti malgré le timeout — on rafraîchit quand même
+      setTimeout(() => fetchNotes(), 3_000)
     } finally {
       setSaving(false)
     }
