@@ -6,7 +6,7 @@ import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { cacheProducts, cacheCustomers } from './db'
 
 const DATA_TTL  = 60 * 60 * 1000       // re-cache data every hour
-const PAGES_TTL = 24 * 60 * 60 * 1000  // re-cache pages every 24h
+const PAGES_TTL =  6 * 60 * 60 * 1000  // re-cache pages every 6h
 
 // All navigable app routes (relative to /{locale}/)
 const APP_ROUTES = [
@@ -50,7 +50,7 @@ function markDone(key: string): void {
 // Both responses go through the service worker which stores them in cache.
 async function prefetchPage(url: string): Promise<void> {
   const htmlCache = await caches.open('next-pages')
-  const rscCache  = await caches.open('next-rsc-nav')
+  const rscCache  = await caches.open('next-rsc')
 
   await Promise.allSettled([
     fetch(url).then(r => { if (r.ok) htmlCache.put(url, r) }),
