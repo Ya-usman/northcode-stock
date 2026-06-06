@@ -139,17 +139,25 @@ export default function TeamPage() {
 
   useEffect(() => { fetchMembers() }, [effectiveShopIds.join(',')])
 
+  const withTimeout = (p: Promise<any>, ms = 8_000) =>
+    Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Connexion trop lente — réessayez.')), ms))])
+
   const changeRole = async (member: Member, newRole: UserRole) => {
     if (member.user_id === myProfile?.id) {
       toast({ title: t('toast.cannot_edit_own_role'), variant: 'destructive' })
       return
     }
     setActionLoading(member.id + '_role')
-    const { error } = await supabase.from('shop_members').update({ role: newRole as string }).eq('id', member.id)
-    setActionLoading(null)
-    if (error) { toast({ title: error.message, variant: 'destructive' }); return }
-    toast({ title: t('toast.role_updated'), variant: 'success' })
-    fetchMembers()
+    try {
+      const { error } = await withTimeout(supabase.from('shop_members').update({ role: newRole as string }).eq('id', member.id))
+      if (error) { toast({ title: error.message, variant: 'destructive' }); return }
+      toast({ title: t('toast.role_updated'), variant: 'success' })
+      fetchMembers()
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+    } finally {
+      setActionLoading(null)
+    }
   }
 
   const confirmToggleActive = (member: Member) => {
@@ -166,15 +174,14 @@ export default function TeamPage() {
     setConfirmDialog(d => ({ ...d, open: false }))
     setActionLoading(member.id)
     try {
-      const res = await fetch('/api/team/toggle-active', {
+      const res = await withTimeout(fetch('/api/team/toggle-active', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           employee_id: member.user_id,
           is_active: action === 'reactivate',
           shop_id: member.shop_id,
-        }),
-      })
+        })))
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       toast({
@@ -194,11 +201,11 @@ export default function TeamPage() {
     if (!member) return
     setDeleting(true)
     try {
-      const res = await fetch('/api/team/delete', {
+      const res = await withTimeout(fetch('/api/team/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ employee_id: member.user_id, shop_id: member.shop_id }),
-      })
+      }))
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       toast({ title: t('toast.member_deleted', { name: member.profiles?.full_name }), variant: 'success' })
@@ -218,7 +225,7 @@ export default function TeamPage() {
     }
     setInviting(true)
     try {
-      const res = await fetch('/api/team/invite', {
+      const res = await withTimeout(fetch('/api/team/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -227,8 +234,7 @@ export default function TeamPage() {
           role: inviteRole,
           shop_id: inviteShopId || shop?.id,
           invited_by: myProfile?.id,
-        }),
-      })
+        })))
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur')
       toast({ title: t('toast.invite_sent', { email: inviteEmail }), variant: 'success' })
