@@ -60,6 +60,9 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
     const success = searchParams.get('success')
     const error = searchParams.get('error')
     if (success === '1') {
+      // Refresh plan cookie and shop data so new plan is visible without page reload
+      fetch('/api/auth/set-role', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => {})
+      refreshShop().catch(() => {})
       toast({ title: t('payment_success'), description: t('payment_success_desc'), variant: 'success' })
       router.replace(`/${locale}/billing`)
     } else if (error) {
