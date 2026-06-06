@@ -71,7 +71,10 @@
     "more_items": "+{count} ƙari",
     "qty_left": "{qty} ya rage",
     "month_expenses": "Kashe Kuɗin Watan",
-    "net_result": "Riba Fâk"
+    "net_result": "Riba Fâk",
+    "monthly_trend": "Kudaden vs Kashe Kuɗi (wata 6)",
+    "revenue_label": "Kudade",
+    "expenses_label": "Kashe Kuɗi"
   },
   "dashboard_banner": {
     "beta_active": "Gwaji kyauta — cikakken damar amfani ya rage kwanaki {days}.",
@@ -275,7 +278,19 @@
     "balance_due": "Saura Da Ake Bashi",
     "new_sale_cta": "Sayarwa Sabuwa →",
     "customer_label": "Abokin Ciniki",
-    "debts_tab": "Bashi"
+    "debts_tab": "Bashi",
+    "export_pdf": "Fitar PDF",
+    "pdf_title": "RAHOTON SIYARWA",
+    "pdf_col_sale": "#Siyarwa",
+    "pdf_col_client": "Abokin ciniki",
+    "pdf_col_method": "Hanyar",
+    "pdf_col_status": "Yanayi",
+    "pdf_summary": "Takardar",
+    "pdf_total_sales": "Yawan sayarwa",
+    "pdf_total_revenue": "Jimlar kudade",
+    "pdf_generated_by": "An kirkiro ta StockShop",
+    "pdf_page": "Shafi",
+    "pdf_of": "daga"
   },
   "customers": {
     "title": "Abokan Ciniki",

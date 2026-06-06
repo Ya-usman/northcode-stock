@@ -4,7 +4,7 @@ import { useState, useEffect, Fragment } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
 import {
-  Search, FileDown, ChevronDown, ChevronUp,
+  Search, FileDown, FileText, ChevronDown, ChevronUp,
   XCircle, CheckCircle2, Printer, Share2, Store, CornerDownLeft,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -68,7 +68,7 @@ export default function SalesHistoryPage() {
     })
     await printPDFNative(blob, `Recu-${sale.sale_number}.pdf`)
   }
-  const { fmt: formatNaira } = useCurrency()
+  const { fmt: formatNaira, symbol } = useCurrency()
   const { toast } = useToast()
 
   const PAGE_SIZE = 100
@@ -93,6 +93,7 @@ export default function SalesHistoryPage() {
   const [validateAmount, setValidateAmount] = useState('')
   const [validateMethod, setValidateMethod] = useState('cash')
   const [actionLoading, setActionLoading] = useState(false)
+  const [exportingPDF, setExportingPDF] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
   const [cacheAge, setCacheAge] = useState<number | null>(null)
 
@@ -261,6 +262,65 @@ export default function SalesHistoryPage() {
     ]
     const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
     await downloadOrShareCSV(csv, `ventes-${dateFilter}-${Date.now()}.csv`)
+  }
+
+  const exportPDF = async () => {
+    if (!shop || !filtered.length) return
+    setExportingPDF(true)
+    try {
+      const { generateSalesReportPDF } = await import('@/lib/utils/pdf')
+      const currency = shop.currency || 'XOF'
+      const isNGN = currency === 'NGN'
+      const fmtAmt = (n: number) => isNGN
+        ? `NGN ${n.toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+        : `${n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${currency}`
+      await generateSalesReportPDF({
+        shopName: shop.name,
+        period: dateFilter,
+        sales: filtered.map(s => ({
+          date: s.created_at,
+          sale_number: s.sale_number,
+          customer: (s as any).customers?.name || t('sales.walk_in'),
+          total: Number(s.total),
+          amount_paid: Number(s.amount_paid),
+          payment_method: s.payment_method,
+          payment_status: s.payment_status,
+          sale_status: s.sale_status || 'active',
+        })),
+        pmLabels: {
+          cash: t('payment.cash'),
+          transfer: t('payment.transfer'),
+          mobile_money: t('payment.mobile_money'),
+          credit: t('payment.credit'),
+        },
+        statusLabels: {
+          paid: t('status.paid'),
+          partial: t('status.partial'),
+          pending: t('status.pending'),
+        },
+        fmtAmt,
+        labels: {
+          title: t('sales.pdf_title'),
+          colDate: t('sales.date'),
+          colSale: t('sales.pdf_col_sale'),
+          colClient: t('sales.pdf_col_client'),
+          colTotal: t('sales.total'),
+          colPaid: t('payment.amount_paid'),
+          colMethod: t('sales.pdf_col_method'),
+          colStatus: t('sales.pdf_col_status'),
+          summary: t('sales.pdf_summary'),
+          totalSales: t('sales.pdf_total_sales'),
+          totalRevenue: t('sales.pdf_total_revenue'),
+          generatedBy: t('sales.pdf_generated_by'),
+          page: t('sales.pdf_page'),
+          of: t('sales.pdf_of'),
+        },
+      })
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') toast({ title: err.message || 'Erreur export PDF', variant: 'destructive' })
+    } finally {
+      setExportingPDF(false)
+    }
   }
 
   const doAction = async () => {
@@ -489,9 +549,15 @@ export default function SalesHistoryPage() {
         )}
 
         {isOwner && (
-          <Button variant="outline" size="sm" onClick={exportCSV} className="h-9 gap-1">
-            <FileDown className="h-3.5 w-3.5" /> CSV
-          </Button>
+          <>
+            <Button variant="outline" size="sm" onClick={exportCSV} className="h-9 gap-1">
+              <FileDown className="h-3.5 w-3.5" /> CSV
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportPDF} disabled={exportingPDF} className="h-9 gap-1">
+              <FileText className="h-3.5 w-3.5" />
+              {exportingPDF ? t('expenses.exporting') : 'PDF'}
+            </Button>
+          </>
         )}
       </div>
 

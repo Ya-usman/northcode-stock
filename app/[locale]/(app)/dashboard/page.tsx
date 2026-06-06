@@ -8,6 +8,7 @@ import { useDashboardRealtime } from '@/lib/hooks/use-realtime'
 import { MetricCards } from '@/components/dashboard/metric-cards'
 import { RevenueChart } from '@/components/dashboard/revenue-chart'
 import { TopProductsChart } from '@/components/dashboard/top-products-chart'
+import { ExpenseRevenueChart } from '@/components/dashboard/expense-revenue-chart'
 import { RecentSalesFeed, type RepaymentFeedItem, type FeedItem } from '@/components/dashboard/recent-sales-feed'
 import { StockAlerts } from '@/components/dashboard/stock-alerts'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -557,6 +558,9 @@ export default function DashboardPage() {
           <TopProductsChart data={topProducts} />
         </div>
       )}
+
+      {/* Expense vs Revenue trend — owner only */}
+      {profile?.role === 'owner' && <ExpenseRevenueChart />}
 
       {/* Recent sales — visible for all roles */}
       {(

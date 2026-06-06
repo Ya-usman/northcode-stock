@@ -210,8 +210,15 @@ export default function ExpensesPage() {
       const label = count > 1 ? t('recurring_generated_plural', { n: count }) : t('recurring_generated_one')
       toast({ title: label, variant: 'success' })
       fetchExpenses()
+      if (shop?.id) {
+        fetch('/api/push/recurring-expense', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shop_id: shop.id, count }),
+        }).catch(() => {})
+      }
     }
-  }, [shopIdsKey, fetchExpenses])
+  }, [shopIdsKey, fetchExpenses, shop?.id])
 
   useEffect(() => {
     fetchExpenses()
