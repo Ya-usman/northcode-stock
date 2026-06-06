@@ -181,7 +181,8 @@ export default function TeamPage() {
           employee_id: member.user_id,
           is_active: action === 'reactivate',
           shop_id: member.shop_id,
-        })))
+        }),
+      }))
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       toast({
@@ -234,7 +235,8 @@ export default function TeamPage() {
           role: inviteRole,
           shop_id: inviteShopId || shop?.id,
           invited_by: myProfile?.id,
-        })))
+        }),
+      }))
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur')
       toast({ title: t('toast.invite_sent', { email: inviteEmail }), variant: 'success' })

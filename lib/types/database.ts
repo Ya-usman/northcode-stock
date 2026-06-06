@@ -49,6 +49,12 @@ export interface Expense {
   amount: number
   description: string
   date: string
+  category: string
+  is_recurring: boolean
+  recurrence: 'weekly' | 'monthly' | null
+  recurrence_day: number | null
+  next_due_at: string | null
+  template_id: string | null
   created_by: string | null
   created_at: string
   updated_at: string
