@@ -105,22 +105,30 @@ export default function CustomersPage() {
     return c.name.toLowerCase().includes(q) || c.phone?.includes(q) || c.city?.toLowerCase().includes(q)
   })
 
+  const withTimeout = (p: Promise<any>, ms = 8_000) =>
+    Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Connexion trop lente — réessayez.')), ms))])
+
   const onSubmit = async (data: CustomerFormData) => {
     setSaving(true)
-    if (editingCustomer) {
-      const { error } = await supabase.from('customers').update(data).eq('id', editingCustomer.id)
-      if (error) { toast({ title: error.message, variant: 'destructive' }) }
-      else { toast({ title: t('toast.customer_updated'), variant: 'success' }) }
-    } else {
-      const { error } = await supabase.from('customers').insert({ ...data, shop_id: shop!.id })
-      if (error) { toast({ title: error.message, variant: 'destructive' }) }
-      else { toast({ title: t('toast.customer_added'), variant: 'success' }) }
+    try {
+      if (editingCustomer) {
+        const { error } = await withTimeout(supabase.from('customers').update(data).eq('id', editingCustomer.id))
+        if (error) { toast({ title: error.message, variant: 'destructive' }); return }
+        toast({ title: t('toast.customer_updated'), variant: 'success' })
+      } else {
+        const { error } = await withTimeout(supabase.from('customers').insert({ ...data, shop_id: shop!.id }))
+        if (error) { toast({ title: error.message, variant: 'destructive' }); return }
+        toast({ title: t('toast.customer_added'), variant: 'success' })
+      }
+      setShowModal(false)
+      setEditingCustomer(null)
+      form.reset({ name: '', phone: '', city: '' })
+      fetchCustomers()
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
-    setShowModal(false)
-    setEditingCustomer(null)
-    form.reset({ name: '', phone: '', city: '' })
-    fetchCustomers()
   }
 
   const deleteCustomer = async (c: Customer) => {
