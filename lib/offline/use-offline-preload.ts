@@ -5,8 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { cacheProducts, cacheCustomers, cacheExpenses, cacheCategories } from './db'
 
-const DATA_TTL  = 60 * 60 * 1000       // re-cache data every hour
-const PAGES_TTL =  6 * 60 * 60 * 1000  // re-cache pages every 6h
+const DATA_TTL  =  1 * 60 * 60 * 1000  // re-cache data every hour
+const PAGES_TTL = 24 * 60 * 60 * 1000  // re-cache pages every 24h (SW version change triggers earlier invalidation)
 
 // All navigable app routes (relative to /{locale}/)
 const APP_ROUTES = [
