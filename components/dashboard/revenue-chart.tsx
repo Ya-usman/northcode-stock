@@ -1,6 +1,6 @@
 'use client'
 
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import {
   XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Area, AreaChart,
@@ -16,6 +16,7 @@ interface RevenueChartProps {
 
 export function RevenueChart({ data }: RevenueChartProps) {
   const t = useTranslations('dashboard')
+  const locale = useLocale()
   const { fmt, symbol } = useCurrency()
   const isFCFA = symbol.includes('CFA')
 
@@ -30,7 +31,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
     )
   }
 
-  const tickFormatter = (v: number) => chartTickFormatter(v, symbol, isFCFA)
+  const tickFormatter = (v: number) => chartTickFormatter(v, symbol, isFCFA, locale)
 
   return (
     <Card className="border-0 shadow-sm">

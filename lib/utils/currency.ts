@@ -22,13 +22,15 @@ export function formatCurrency(amount: number | string | null | undefined, symbo
 /**
  * Format a number for chart Y-axis ticks: 1000 → "1k", 1500000 → "1.5M"
  * isFCFA: omit symbol prefix (symbol shown in chart title instead)
+ * locale: used for decimal separator (fr → comma, en → period)
  */
-export function chartTickFormatter(v: number, symbol: string, isFCFA: boolean): string {
+export function chartTickFormatter(v: number, symbol: string, isFCFA: boolean, locale = 'fr'): string {
   if (v === 0) return '0'
   const prefix = isFCFA ? '' : symbol
-  if (v >= 1_000_000_000) return `${prefix}${(v / 1_000_000_000).toFixed(v % 1_000_000_000 === 0 ? 0 : 1)}Md`
-  if (v >= 1_000_000)     return `${prefix}${(v / 1_000_000).toFixed(v % 1_000_000 === 0 ? 0 : 1)}M`
-  if (v >= 1_000)         return `${prefix}${(v / 1_000).toFixed(v % 1_000 === 0 ? 0 : 1)}k`
+  const fmt1 = (n: number) => n.toLocaleString(locale, { maximumFractionDigits: 1, minimumFractionDigits: 0 })
+  if (v >= 1_000_000_000) return `${prefix}${fmt1(v / 1_000_000_000)}Md`
+  if (v >= 1_000_000)     return `${prefix}${fmt1(v / 1_000_000)}M`
+  if (v >= 1_000)         return `${prefix}${fmt1(v / 1_000)}k`
   return `${prefix}${v}`
 }
 

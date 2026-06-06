@@ -92,7 +92,7 @@ export function ExpenseRevenueChart() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveShopIds.join(','), locale])
 
-  const tickFormatter = (v: number) => chartTickFormatter(v, symbol, isFCFA)
+  const tickFormatter = (v: number) => chartTickFormatter(v, symbol, isFCFA, locale)
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null

@@ -1,6 +1,6 @@
 'use client'
 
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts'
@@ -17,6 +17,7 @@ const COLORS = ['#60a5fa', '#34d399', '#f59e0b', '#f87171', '#a78bfa']
 
 export function TopProductsChart({ data }: TopProductsChartProps) {
   const t = useTranslations('dashboard')
+  const locale = useLocale()
   const { fmt, symbol } = useCurrency()
   const isFCFA = symbol.includes('CFA')
 
@@ -31,7 +32,7 @@ export function TopProductsChart({ data }: TopProductsChartProps) {
     )
   }
 
-  const tickFormatter = (v: number) => chartTickFormatter(v, symbol, isFCFA)
+  const tickFormatter = (v: number) => chartTickFormatter(v, symbol, isFCFA, locale)
 
   const chartData = data.map(p => ({
     name: p.name.length > 14 ? p.name.slice(0, 14) + '…' : p.name,

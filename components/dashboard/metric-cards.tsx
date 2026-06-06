@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion'
 import { TrendingUp, ShoppingCart, AlertTriangle, CreditCard, Receipt, Scale } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { useCurrency } from '@/lib/hooks/use-currency'
 
 interface MetricCardsProps {
@@ -28,13 +28,16 @@ const item = {
 
 export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outstandingDebt, monthExpenses = 0, monthRevenue = 0, role, isCashier }: MetricCardsProps) {
   const t = useTranslations('dashboard')
+  const locale = useLocale()
   const { fmt, symbol } = useCurrency()
   const compact = (n: number) => {
-    const isPrefix = symbol.length <= 2  // ₦, $, € → prefix; F CFA → suffix
+    const isPrefix = symbol.length <= 2
     const sfx = isPrefix ? '' : ` ${symbol}`
     const pfx = isPrefix ? symbol : ''
-    if (n >= 1_000_000) return `${pfx}${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M${sfx}`
-    if (n >= 1_000)     return `${pfx}${(n / 1_000).toFixed(n % 1_000 === 0 ? 0 : 1)}k${sfx}`
+    const loc = (v: number) => v.toLocaleString(locale, { maximumFractionDigits: 1, minimumFractionDigits: 0 })
+    if (n >= 1_000_000_000) return `${pfx}${loc(n / 1_000_000_000)}Md${sfx}`
+    if (n >= 1_000_000)     return `${pfx}${loc(n / 1_000_000)}M${sfx}`
+    if (n >= 1_000)         return `${pfx}${loc(n / 1_000)}k${sfx}`
     return fmt(n)
   }
 
