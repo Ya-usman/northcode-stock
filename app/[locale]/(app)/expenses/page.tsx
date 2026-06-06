@@ -105,6 +105,9 @@ export default function ExpensesPage() {
     setModalOpen(true)
   }
 
+  const withTimeout = (p: Promise<any>, ms = 8_000) =>
+    Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Connexion trop lente — réessayez.')), ms))])
+
   const handleSave = async () => {
     if (!shop?.id || !amount || !description.trim()) return
     setSaving(true)
@@ -114,27 +117,37 @@ export default function ExpensesPage() {
       description: description.trim(),
       date,
     }
-    let error: any = null
-    if (editing) {
-      ;({ error } = await supabase.from('expenses').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', editing.id))
-    } else {
-      ;({ error } = await supabase.from('expenses').insert(payload))
+    try {
+      let error: any = null
+      if (editing) {
+        ;({ error } = await withTimeout(supabase.from('expenses').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', editing.id)))
+      } else {
+        ;({ error } = await withTimeout(supabase.from('expenses').insert(payload)))
+      }
+      if (error) { toast({ title: error.message, variant: 'destructive' }); return }
+      toast({ title: editing ? t('updated') : t('added'), variant: 'success' })
+      setModalOpen(false)
+      fetchExpenses()
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
-    if (error) { toast({ title: error.message, variant: 'destructive' }); return }
-    toast({ title: editing ? t('updated') : t('added'), variant: 'success' })
-    setModalOpen(false)
-    fetchExpenses()
   }
 
   const handleDelete = async (id: string) => {
     if (!confirm(t('delete_confirm'))) return
     setDeleting(id)
-    const { error } = await supabase.from('expenses').delete().eq('id', id)
-    setDeleting(null)
-    if (error) { toast({ title: error.message, variant: 'destructive' }); return }
-    toast({ title: t('deleted'), variant: 'success' })
-    fetchExpenses()
+    try {
+      const { error } = await withTimeout(supabase.from('expenses').delete().eq('id', id))
+      if (error) { toast({ title: error.message, variant: 'destructive' }); return }
+      toast({ title: t('deleted'), variant: 'success' })
+      fetchExpenses()
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+    } finally {
+      setDeleting(null)
+    }
   }
 
   const total = expenses.reduce((s, e) => s + Number(e.amount), 0)
