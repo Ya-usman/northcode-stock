@@ -238,6 +238,7 @@ export default function ExpensesPage() {
     setIsRecurring(false)
     setRecurrence('monthly')
     setRecurrenceDay(Math.min(new Date().getDate(), 28))
+    supabase.auth.getSession().catch(() => {})
     setModalOpen(true)
   }
 
@@ -251,6 +252,7 @@ export default function ExpensesPage() {
     setIsRecurring(exp.is_recurring ?? false)
     setRecurrence(exp.recurrence ?? 'monthly')
     setRecurrenceDay(exp.recurrence_day ?? 1)
+    supabase.auth.getSession().catch(() => {})
     setModalOpen(true)
   }
 
@@ -298,6 +300,7 @@ export default function ExpensesPage() {
       fetchExpenses()
     } catch (err: any) {
       toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+      setTimeout(() => fetchExpenses(), 3_000)
     } finally {
       setSaving(false)
     }

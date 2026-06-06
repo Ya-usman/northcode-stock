@@ -115,6 +115,7 @@ export default function SuppliersPage() {
 
   const onSubmit = async (data: SupplierFormData) => {
     setSaving(true)
+    supabase.auth.getSession().catch(() => {})
     try {
       if (editingSupplier) {
         const { error } = await withTimeout(supabase.from('suppliers').update(data).eq('id', editingSupplier.id))
@@ -131,6 +132,7 @@ export default function SuppliersPage() {
       fetchSuppliers()
     } catch (err: any) {
       toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+      setTimeout(() => fetchSuppliers(), 3_000)
     } finally {
       setSaving(false)
     }

@@ -148,6 +148,7 @@ export default function TeamPage() {
       return
     }
     setActionLoading(member.id + '_role')
+    supabase.auth.getSession().catch(() => {})
     try {
       const { error } = await withTimeout(supabase.from('shop_members').update({ role: newRole as string }).eq('id', member.id))
       if (error) { toast({ title: error.message, variant: 'destructive' }); return }
@@ -155,6 +156,7 @@ export default function TeamPage() {
       fetchMembers()
     } catch (err: any) {
       toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+      setTimeout(() => fetchMembers(), 3_000)
     } finally {
       setActionLoading(null)
     }

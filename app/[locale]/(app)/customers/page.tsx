@@ -110,6 +110,7 @@ export default function CustomersPage() {
 
   const onSubmit = async (data: CustomerFormData) => {
     setSaving(true)
+    supabase.auth.getSession().catch(() => {})
     try {
       if (editingCustomer) {
         const { error } = await withTimeout(supabase.from('customers').update(data).eq('id', editingCustomer.id))
@@ -126,6 +127,7 @@ export default function CustomersPage() {
       fetchCustomers()
     } catch (err: any) {
       toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+      setTimeout(() => fetchCustomers(), 3_000)
     } finally {
       setSaving(false)
     }
