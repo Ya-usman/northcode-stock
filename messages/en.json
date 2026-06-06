@@ -919,6 +919,21 @@
     "cat_internet": "Internet",
     "cat_maintenance": "Maintenance",
     "cat_marketing": "Marketing",
-    "cat_other": "Other"
+    "cat_other": "Other",
+    "budget_section": "Monthly Budgets",
+    "budget_set": "Set a budget",
+    "budget_edit": "Edit",
+    "budget_saved": "Budget saved",
+    "budget_deleted": "Budget deleted",
+    "budget_modal_title": "Monthly Budget",
+    "budget_amount": "Monthly limit",
+    "budget_exceeded": "Budget exceeded · {category}",
+    "budget_near_limit": "Budget nearly reached · {category} (80%)",
+    "budget_delete_confirm": "Delete this budget?",
+    "payment_method_label": "Payment method",
+    "pm_cash": "Cash",
+    "pm_mobile_money": "Mobile Money",
+    "pm_bank_transfer": "Bank Transfer",
+    "budget_delete": "Delete budget"
   }
 }

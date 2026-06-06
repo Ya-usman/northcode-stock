@@ -918,6 +918,21 @@
     "cat_internet": "Intanet",
     "cat_maintenance": "Gyara",
     "cat_marketing": "Tallace-tallace",
-    "cat_other": "Sauransu"
+    "cat_other": "Sauransu",
+    "budget_section": "Kasafin Wata",
+    "budget_set": "Saita kasafi",
+    "budget_edit": "Gyara",
+    "budget_saved": "An ajiye kasafi",
+    "budget_deleted": "An share kasafi",
+    "budget_modal_title": "Kasafin Wata",
+    "budget_amount": "Iyaka ta wata",
+    "budget_exceeded": "An wuce kasafi · {category}",
+    "budget_near_limit": "Kasafi kusan cika · {category} (80%)",
+    "budget_delete_confirm": "Share wannan kasafin?",
+    "payment_method_label": "Hanyar biyan kuɗi",
+    "pm_cash": "Kuɗi a hannu",
+    "pm_mobile_money": "Mobile Money",
+    "pm_bank_transfer": "Canja wurin banki",
+    "budget_delete": "Goge kasafin kuɗi"
   }
 }

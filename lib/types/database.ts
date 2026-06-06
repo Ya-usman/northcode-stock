@@ -50,12 +50,22 @@ export interface Expense {
   description: string
   date: string
   category: string
+  payment_method: 'cash' | 'mobile_money' | 'bank_transfer'
   is_recurring: boolean
   recurrence: 'weekly' | 'monthly' | null
   recurrence_day: number | null
   next_due_at: string | null
   template_id: string | null
   created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ExpenseBudget {
+  id: string
+  shop_id: string
+  category: string
+  amount: number
   created_at: string
   updated_at: string
 }

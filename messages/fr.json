@@ -919,6 +919,21 @@
     "cat_internet": "Internet",
     "cat_maintenance": "Entretien",
     "cat_marketing": "Marketing",
-    "cat_other": "Autre"
+    "cat_other": "Autre",
+    "budget_section": "Budgets du mois",
+    "budget_set": "Définir un budget",
+    "budget_edit": "Modifier",
+    "budget_saved": "Budget enregistré",
+    "budget_deleted": "Budget supprimé",
+    "budget_modal_title": "Budget mensuel",
+    "budget_amount": "Plafond mensuel",
+    "budget_exceeded": "Budget dépassé · {category}",
+    "budget_near_limit": "Budget bientôt atteint · {category} (80%)",
+    "budget_delete_confirm": "Supprimer ce budget ?",
+    "payment_method_label": "Mode de paiement",
+    "pm_cash": "Espèces",
+    "pm_mobile_money": "Mobile Money",
+    "pm_bank_transfer": "Virement",
+    "budget_delete": "Supprimer le budget"
   }
 }

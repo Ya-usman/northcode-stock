@@ -12,11 +12,11 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
-import { Plus, Pencil, Trash2, Receipt, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Pencil, Trash2, Receipt, RefreshCw, ChevronDown, ChevronUp, Target } from 'lucide-react'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { NumericInput } from '@/components/ui/numeric-input'
 import { format, startOfMonth, endOfMonth, addMonths, addWeeks } from 'date-fns'
-import type { Expense } from '@/lib/types/database'
+import type { Expense, ExpenseBudget } from '@/lib/types/database'
 import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-cache'
 import { CacheBanner } from '@/components/layout/cache-banner'
 import { cn } from '@/lib/utils/cn'
@@ -37,6 +37,13 @@ const EXPENSE_CATEGORIES = [
 ] as const
 
 type CategoryId = typeof EXPENSE_CATEGORIES[number]['id']
+type PaymentMethod = 'cash' | 'mobile_money' | 'bank_transfer'
+
+const PAYMENT_METHODS: { id: PaymentMethod; icon: string }[] = [
+  { id: 'cash',          icon: '💵' },
+  { id: 'mobile_money',  icon: '📲' },
+  { id: 'bank_transfer', icon: '🏦' },
+]
 
 function catFor(id: string) {
   return EXPENSE_CATEGORIES.find(c => c.id === id) ?? EXPENSE_CATEGORIES[EXPENSE_CATEGORIES.length - 1]
@@ -61,26 +68,35 @@ export default function ExpensesPage() {
   const { fmt } = useCurrency()
   const t = useTranslations('expenses')
 
-  const [expenses, setExpenses]     = useState<Expense[]>([])
-  const [templates, setTemplates]   = useState<Expense[]>([])
-  const [loading, setLoading]       = useState(true)
-  const [saving, setSaving]         = useState(false)
-  const [deleting, setDeleting]     = useState<string | null>(null)
+  const [expenses, setExpenses]       = useState<Expense[]>([])
+  const [templates, setTemplates]     = useState<Expense[]>([])
+  const [budgets, setBudgets]         = useState<Record<string, number>>({})
+  const [loading, setLoading]         = useState(true)
+  const [saving, setSaving]           = useState(false)
+  const [savingBudget, setSavingBudget] = useState(false)
+  const [deleting, setDeleting]       = useState<string | null>(null)
   const [showTemplates, setShowTemplates] = useState(true)
+  const [showBudgets, setShowBudgets] = useState(true)
 
-  const [isOnline, setIsOnline]     = useState(true)
-  const [cacheAge, setCacheAge]     = useState<number | null>(null)
-  const [modalOpen, setModalOpen]   = useState(false)
-  const [editing, setEditing]       = useState<Expense | null>(null)
+  const [isOnline, setIsOnline]       = useState(true)
+  const [cacheAge, setCacheAge]       = useState<number | null>(null)
 
-  // Form state
+  // Expense modal state
+  const [modalOpen, setModalOpen]     = useState(false)
+  const [editing, setEditing]         = useState<Expense | null>(null)
   const [amount, setAmount]           = useState('')
   const [description, setDescription] = useState('')
   const [date, setDate]               = useState(format(new Date(), 'yyyy-MM-dd'))
   const [category, setCategory]       = useState<CategoryId>('other')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
   const [isRecurring, setIsRecurring] = useState(false)
   const [recurrence, setRecurrence]   = useState<'monthly' | 'weekly'>('monthly')
   const [recurrenceDay, setRecurrenceDay] = useState(1)
+
+  // Budget modal state
+  const [budgetModalOpen, setBudgetModalOpen] = useState(false)
+  const [budgetCategory, setBudgetCategory]   = useState<CategoryId>('other')
+  const [budgetAmount, setBudgetAmount]       = useState('')
 
   useEffect(() => {
     setIsOnline(navigator.onLine)
@@ -139,6 +155,18 @@ export default function ExpensesPage() {
     }
   }, [shopIdsKey, monthFilter])
 
+  const fetchBudgets = useCallback(async () => {
+    if (!shop?.id || !navigator.onLine) return
+    const { data } = await supabase
+      .from('expense_budgets')
+      .select('category, amount')
+      .eq('shop_id', shop.id)
+    if (!data) return
+    const map: Record<string, number> = {}
+    ;(data as ExpenseBudget[]).forEach(b => { map[b.category] = Number(b.amount) })
+    setBudgets(map)
+  }, [shop?.id])
+
   const generateDueRecurring = useCallback(async () => {
     if (!effectiveShopIds.length || !navigator.onLine) return
     const today = format(new Date(), 'yyyy-MM-dd')
@@ -156,13 +184,14 @@ export default function ExpensesPage() {
       let dueDate = tpl.next_due_at!
       while (dueDate <= today) {
         await supabase.from('expenses').insert({
-          shop_id:     tpl.shop_id,
-          amount:      tpl.amount,
-          description: tpl.description,
-          category:    tpl.category ?? 'other',
-          date:        dueDate,
-          is_recurring: false,
-          template_id: tpl.id,
+          shop_id:        tpl.shop_id,
+          amount:         tpl.amount,
+          description:    tpl.description,
+          category:       tpl.category ?? 'other',
+          payment_method: tpl.payment_method ?? 'cash',
+          date:           dueDate,
+          is_recurring:   false,
+          template_id:    tpl.id,
         })
         count++
         dueDate = advanceNextDue(dueDate, tpl.recurrence!, tpl.recurrence_day)
@@ -179,8 +208,11 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     fetchExpenses()
+    fetchBudgets()
     generateDueRecurring()
   }, [shopIdsKey, monthFilter])
+
+  // ─── Expense CRUD ────────────────────────────────────────────────────────
 
   const openAdd = () => {
     setEditing(null)
@@ -188,6 +220,7 @@ export default function ExpensesPage() {
     setDescription('')
     setDate(format(new Date(), 'yyyy-MM-dd'))
     setCategory('other')
+    setPaymentMethod('cash')
     setIsRecurring(false)
     setRecurrence('monthly')
     setRecurrenceDay(Math.min(new Date().getDate(), 28))
@@ -200,6 +233,7 @@ export default function ExpensesPage() {
     setDescription(exp.description)
     setDate(exp.date)
     setCategory((exp.category as CategoryId) || 'other')
+    setPaymentMethod(exp.payment_method ?? 'cash')
     setIsRecurring(exp.is_recurring ?? false)
     setRecurrence(exp.recurrence ?? 'monthly')
     setRecurrenceDay(exp.recurrence_day ?? 1)
@@ -210,16 +244,17 @@ export default function ExpensesPage() {
     if (!shop?.id || !amount || !description.trim()) return
     setSaving(true)
     const payload: Partial<Expense> & { shop_id: string } = {
-      shop_id:       shop.id,
-      amount:        Number(amount),
-      description:   description.trim(),
+      shop_id:        shop.id,
+      amount:         Number(amount),
+      description:    description.trim(),
       date,
       category,
-      is_recurring:  isRecurring,
-      recurrence:    isRecurring ? recurrence : null,
+      payment_method: paymentMethod,
+      is_recurring:   isRecurring,
+      recurrence:     isRecurring ? recurrence : null,
       recurrence_day: isRecurring && recurrence === 'monthly' ? recurrenceDay : null,
-      next_due_at:   isRecurring ? date : null,
-      template_id:   null,
+      next_due_at:    isRecurring ? date : null,
+      template_id:    null,
     }
     try {
       let error: any = null
@@ -232,6 +267,19 @@ export default function ExpensesPage() {
       }
       if (error) { toast({ title: error.message, variant: 'destructive' }); return }
       toast({ title: editing ? t('updated') : (isRecurring ? t('recurring_added') : t('added')), variant: 'success' })
+
+      // Budget check (only for new expenses in the displayed month, non-recurring)
+      if (!editing && !isRecurring && date.slice(0, 7) === monthFilter && budgets[category]) {
+        const currentSpent = catTotals[category] ?? 0
+        const projected = currentSpent + Number(amount)
+        const budget = budgets[category]
+        if (projected >= budget) {
+          setTimeout(() => toast({ title: `⚠️ ${t('budget_exceeded', { category: t(`cat_${category}` as any) })}`, variant: 'destructive' }), 400)
+        } else if (projected >= budget * 0.8) {
+          setTimeout(() => toast({ title: `⚠️ ${t('budget_near_limit', { category: t(`cat_${category}` as any) })}`, variant: 'default' }), 400)
+        }
+      }
+
       setModalOpen(false)
       fetchExpenses()
     } catch (err: any) {
@@ -256,15 +304,59 @@ export default function ExpensesPage() {
     }
   }
 
-  const filtered    = expenses.filter(e => categoryFilter === 'all' || e.category === categoryFilter)
-  const total       = filtered.reduce((s, e) => s + Number(e.amount), 0)
-  const monthLabel  = new Date(monthFilter + '-01').toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+  // ─── Budget CRUD ─────────────────────────────────────────────────────────
 
-  // Only show category filter tabs for categories that have entries this month
+  const openBudgetModal = (cat: CategoryId) => {
+    setBudgetCategory(cat)
+    setBudgetAmount(budgets[cat] ? String(budgets[cat]) : '')
+    setBudgetModalOpen(true)
+  }
+
+  const saveBudget = async () => {
+    if (!shop?.id || !budgetAmount) return
+    setSavingBudget(true)
+    try {
+      const { error } = await withTimeout(
+        supabase.from('expense_budgets').upsert(
+          { shop_id: shop.id, category: budgetCategory, amount: Number(budgetAmount), updated_at: new Date().toISOString() },
+          { onConflict: 'shop_id,category' }
+        )
+      )
+      if (error) { toast({ title: error.message, variant: 'destructive' }); return }
+      toast({ title: t('budget_saved'), variant: 'success' })
+      setBudgetModalOpen(false)
+      setBudgetAmount('')
+      fetchBudgets()
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+    } finally {
+      setSavingBudget(false)
+    }
+  }
+
+  const deleteBudget = async () => {
+    if (!shop?.id || !confirm(t('budget_delete_confirm'))) return
+    await withTimeout(supabase.from('expense_budgets').delete().eq('shop_id', shop.id).eq('category', budgetCategory))
+    toast({ title: t('budget_deleted'), variant: 'success' })
+    setBudgetModalOpen(false)
+    setBudgets(prev => { const n = { ...prev }; delete n[budgetCategory]; return n })
+  }
+
+  // ─── Derived state ────────────────────────────────────────────────────────
+
+  const filtered   = expenses.filter(e => categoryFilter === 'all' || (e.category || 'other') === categoryFilter)
+  const total      = filtered.reduce((s, e) => s + Number(e.amount), 0)
+  const monthLabel = new Date(monthFilter + '-01').toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+
   const activeCatIds = new Set(expenses.map(e => e.category || 'other'))
-  const catTotals = Object.fromEntries(
+  const catTotals    = Object.fromEntries(
     EXPENSE_CATEGORIES.map(c => [c.id, expenses.filter(e => (e.category || 'other') === c.id).reduce((s, e) => s + Number(e.amount), 0)])
   )
+
+  // Categories to show in budget section: those with a budget OR with expenses this month
+  const budgetCats = EXPENSE_CATEGORIES.filter(c => budgets[c.id] || activeCatIds.has(c.id))
+
+  // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-4 max-w-2xl">
@@ -284,7 +376,7 @@ export default function ExpensesPage() {
         </Button>
       </div>
 
-      {/* Recurring templates */}
+      {/* ── Recurring templates ── */}
       {templates.length > 0 && (
         <Card className="border-0 shadow-sm overflow-hidden">
           <button
@@ -295,9 +387,7 @@ export default function ExpensesPage() {
               <RefreshCw className="h-4 w-4" />
               <span>{t('recurring_section')} ({templates.length})</span>
             </div>
-            {showTemplates
-              ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
-              : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+            {showTemplates ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
           </button>
           {showTemplates && (
             <div className="border-t divide-y">
@@ -342,7 +432,75 @@ export default function ExpensesPage() {
         </Card>
       )}
 
-      {/* Total */}
+      {/* ── Budget overview ── */}
+      {budgetCats.length > 0 && (
+        <Card className="border-0 shadow-sm overflow-hidden">
+          <button
+            onClick={() => setShowBudgets(v => !v)}
+            className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-muted/40 transition-colors"
+          >
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Target className="h-4 w-4" />
+              <span>{t('budget_section')}</span>
+            </div>
+            {showBudgets ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          </button>
+          {showBudgets && (
+            <div className="border-t divide-y">
+              {budgetCats.map(c => {
+                const spent  = catTotals[c.id] ?? 0
+                const budget = budgets[c.id] ?? 0
+                const pct    = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0
+                const over   = budget > 0 && spent > budget
+                const near   = !over && pct >= 80
+                const bar    = over ? 'bg-red-500' : near ? 'bg-orange-400' : 'bg-green-500'
+
+                return (
+                  <div key={c.id} className="px-4 py-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={cn('flex-shrink-0 h-7 w-7 rounded-lg flex items-center justify-center text-sm', c.color)}>
+                          {c.icon}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium leading-tight">{t(`cat_${c.id}` as any)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {fmt(spent)}
+                            {budget > 0 && <span className={cn(over ? 'text-red-500' : near ? 'text-orange-500' : '')}>{` / ${fmt(budget)}`}</span>}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {over && <span className="text-xs font-bold text-red-500 animate-pulse">⚠️</span>}
+                        <Button
+                          variant="ghost" size="icon" className="h-7 w-7"
+                          onClick={() => openBudgetModal(c.id)}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    {budget > 0 ? (
+                      <div className="relative h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className={cn('h-full rounded-full transition-all duration-500', bar)} style={{ width: `${pct}%` }} />
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => openBudgetModal(c.id)}
+                        className="text-xs text-stockshop-blue hover:underline"
+                      >
+                        + {t('budget_set')}
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* ── Total ── */}
       <Card className="border-0 shadow-sm bg-red-50 dark:bg-red-950/20">
         <CardContent className="p-4 flex items-center justify-between">
           <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
@@ -353,7 +511,7 @@ export default function ExpensesPage() {
         </CardContent>
       </Card>
 
-      {/* Category filter tabs */}
+      {/* ── Category filter tabs ── */}
       {expenses.length > 0 && (
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
           <button
@@ -367,26 +525,32 @@ export default function ExpensesPage() {
           >
             {t('filter_all')}
           </button>
-          {EXPENSE_CATEGORIES.filter(c => activeCatIds.has(c.id)).map(c => (
-            <button
-              key={c.id}
-              onClick={() => setFilter({ categoryFilter: c.id })}
-              className={cn(
-                'flex-shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border transition-colors',
-                categoryFilter === c.id
-                  ? 'bg-stockshop-blue text-white border-stockshop-blue'
-                  : 'bg-background border-border text-muted-foreground hover:border-stockshop-blue/40'
-              )}
-            >
-              <span>{c.icon}</span>
-              <span>{t(`cat_${c.id}` as any)}</span>
-              <span className="opacity-70">{fmt(catTotals[c.id])}</span>
-            </button>
-          ))}
+          {EXPENSE_CATEGORIES.filter(c => activeCatIds.has(c.id)).map(c => {
+            const pct    = budgets[c.id] ? Math.min((catTotals[c.id] / budgets[c.id]) * 100, 999) : -1
+            const over   = pct > 100
+            const near   = pct >= 80 && pct <= 100
+            return (
+              <button
+                key={c.id}
+                onClick={() => setFilter({ categoryFilter: c.id })}
+                className={cn(
+                  'flex-shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border transition-colors',
+                  categoryFilter === c.id
+                    ? 'bg-stockshop-blue text-white border-stockshop-blue'
+                    : 'bg-background border-border text-muted-foreground hover:border-stockshop-blue/40'
+                )}
+              >
+                <span>{c.icon}</span>
+                <span>{t(`cat_${c.id}` as any)}</span>
+                {over && <span className="text-red-500">⚠️</span>}
+                {near && !over && <span className="text-orange-400">●</span>}
+              </button>
+            )
+          })}
         </div>
       )}
 
-      {/* Expense list */}
+      {/* ── Expense list ── */}
       {loading ? (
         <div className="space-y-2">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)}</div>
       ) : filtered.length === 0 ? (
@@ -398,6 +562,7 @@ export default function ExpensesPage() {
         <div className="space-y-2">
           {filtered.map(exp => {
             const cat = catFor(exp.category ?? 'other')
+            const pm  = exp.payment_method
             return (
               <Card key={exp.id} className="border-0 shadow-sm">
                 <CardContent className="p-4 flex items-center gap-3">
@@ -405,15 +570,27 @@ export default function ExpensesPage() {
                     {cat.icon}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <p className="text-sm font-medium truncate">{exp.description}</p>
                       {exp.template_id && (
                         <RefreshCw className="h-3 w-3 flex-shrink-0 text-muted-foreground/60" aria-label={t('recurring_generated_label')} />
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {new Date(exp.date + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}
-                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(exp.date + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}
+                      </p>
+                      {pm && pm !== 'cash' && (
+                        <span className={cn(
+                          'text-[10px] font-medium px-1.5 py-0.5 rounded-full',
+                          pm === 'mobile_money'
+                            ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300'
+                            : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                        )}>
+                          {PAYMENT_METHODS.find(m => m.id === pm)?.icon} {t(`pm_${pm}` as any)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <span className="text-base font-bold text-red-600 dark:text-red-400 flex-shrink-0">
                     {fmt(Number(exp.amount))}
@@ -438,7 +615,7 @@ export default function ExpensesPage() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* ── Expense modal ── */}
       <PremiumDialog
         open={modalOpen}
         onOpenChange={open => { if (!open) setModalOpen(false) }}
@@ -447,7 +624,6 @@ export default function ExpensesPage() {
         icon={<Receipt className="h-5 w-5" />}
       >
         <PremiumDialogBody>
-          {/* Amount */}
           <div className="space-y-1">
             <Label>{t('amount')}</Label>
             <NumericInput
@@ -459,7 +635,6 @@ export default function ExpensesPage() {
             />
           </div>
 
-          {/* Description */}
           <div className="space-y-1">
             <Label>{t('description')}</Label>
             <Input
@@ -493,7 +668,29 @@ export default function ExpensesPage() {
             </div>
           </div>
 
-          {/* Date */}
+          {/* Payment method */}
+          <div className="space-y-1.5">
+            <Label>{t('payment_method_label')}</Label>
+            <div className="flex gap-2">
+              {PAYMENT_METHODS.map(m => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setPaymentMethod(m.id)}
+                  className={cn(
+                    'flex-1 flex flex-col items-center gap-1 rounded-xl border-2 py-2.5 text-[10px] font-medium transition-all',
+                    paymentMethod === m.id
+                      ? 'border-stockshop-blue bg-stockshop-blue/10 text-stockshop-blue dark:text-blue-400'
+                      : 'border-border text-muted-foreground hover:border-stockshop-blue/40'
+                  )}
+                >
+                  <span className="text-lg leading-none">{m.icon}</span>
+                  <span>{t(`pm_${m.id}` as any)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="space-y-1">
             <Label>{t('date')}</Label>
             <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
@@ -515,16 +712,13 @@ export default function ExpensesPage() {
                 isRecurring ? 'bg-stockshop-blue' : 'bg-muted'
               )}
             >
-              <span
-                className={cn(
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200',
-                  isRecurring ? 'translate-x-5' : 'translate-x-0'
-                )}
-              />
+              <span className={cn(
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200',
+                isRecurring ? 'translate-x-5' : 'translate-x-0'
+              )} />
             </button>
           </div>
 
-          {/* Recurrence options */}
           {isRecurring && (
             <div className="space-y-3 rounded-xl bg-muted/40 border p-3">
               <div className="space-y-1.5">
@@ -572,6 +766,54 @@ export default function ExpensesPage() {
             className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light text-white"
           >
             {editing ? t('save') : t('add')}
+          </Button>
+        </PremiumDialogFooter>
+      </PremiumDialog>
+
+      {/* ── Budget modal ── */}
+      <PremiumDialog
+        open={budgetModalOpen}
+        onOpenChange={open => { if (!open) setBudgetModalOpen(false) }}
+        category={t('budget_section')}
+        title={`${catFor(budgetCategory).icon} ${t(`cat_${budgetCategory}` as any)}`}
+        icon={<Target className="h-5 w-5" />}
+      >
+        <PremiumDialogBody>
+          <div className="space-y-1">
+            <Label>{t('budget_amount')}</Label>
+            <NumericInput
+              value={budgetAmount}
+              onChange={v => setBudgetAmount(String(v))}
+              placeholder="0"
+              currency={shop?.currency || 'XOF'}
+              className="text-lg font-semibold"
+            />
+          </div>
+          {budgets[budgetCategory] && (
+            <p className="text-xs text-muted-foreground">
+              {t('total')} {monthLabel} : <span className="font-medium">{fmt(catTotals[budgetCategory] ?? 0)}</span>
+            </p>
+          )}
+        </PremiumDialogBody>
+        <PremiumDialogFooter onCancel={() => setBudgetModalOpen(false)}>
+          {budgets[budgetCategory] && (
+            <Button
+              type="button"
+              variant="ghost"
+              className="flex-1 h-11 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 border border-red-200 dark:border-red-800"
+              onClick={deleteBudget}
+            >
+              <Trash2 className="h-4 w-4 mr-1.5" />
+              {t('budget_delete')}
+            </Button>
+          )}
+          <Button
+            onClick={saveBudget}
+            loading={savingBudget}
+            disabled={!budgetAmount || savingBudget}
+            className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light text-white"
+          >
+            {t('save')}
           </Button>
         </PremiumDialogFooter>
       </PremiumDialog>
