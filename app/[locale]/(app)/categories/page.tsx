@@ -162,31 +162,44 @@ export default function CategoriesPage() {
     setTimeout(() => inputRef.current?.focus(), 50)
   }
 
+  const withTimeout = (p: Promise<any>, ms = 8_000) =>
+    Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Connexion trop lente — réessayez.')), ms))])
+
   const addCategory = async () => {
     if (!shop?.id || !newName.trim()) return
     setSaving(true)
-    const res = await fetch('/api/categories', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shop_id: shop.id, name: newName.trim() }),
-    })
-    setSaving(false)
-    const json = await res.json()
-    if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
-    setDialogOpen(false)
-    setNewName('')
-    fetchData()
-    toast({ title: t('categories.added'), variant: 'success' })
+    try {
+      const res = await withTimeout(fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop_id: shop.id, name: newName.trim() }),
+      }))
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      setDialogOpen(false)
+      setNewName('')
+      fetchData()
+      toast({ title: t('categories.added'), variant: 'success' })
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+    } finally {
+      setSaving(false)
+    }
   }
 
   const deleteCategory = async (cat: Category) => {
     setDeleting(true)
-    const res = await fetch(`/api/categories?id=${cat.id}&shop_id=${shop?.id}`, { method: 'DELETE' })
-    setDeleting(false)
-    if (!res.ok) { toast({ title: t('categories.delete_error'), variant: 'destructive' }); return }
-    setConfirmDeleteCat(null)
-    fetchData()
-    toast({ title: t('categories.deleted') })
+    try {
+      const res = await withTimeout(fetch(`/api/categories?id=${cat.id}&shop_id=${shop?.id}`, { method: 'DELETE' }))
+      if (!res.ok) { toast({ title: t('categories.delete_error'), variant: 'destructive' }); return }
+      setConfirmDeleteCat(null)
+      fetchData()
+      toast({ title: t('categories.deleted') })
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+    } finally {
+      setDeleting(false)
+    }
   }
 
   const restoreDefaults = async () => {
