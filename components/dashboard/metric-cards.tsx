@@ -33,8 +33,8 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
     const isPrefix = symbol.length <= 2  // ₦, $, € → prefix; F CFA → suffix
     const sfx = isPrefix ? '' : ` ${symbol}`
     const pfx = isPrefix ? symbol : ''
-    if (n >= 1_000_000) return `${pfx}${(n / 1_000_000).toFixed(1)}M${sfx}`
-    if (n >= 1_000) return `${pfx}${(n / 1_000).toFixed(1)}K${sfx}`
+    if (n >= 1_000_000) return `${pfx}${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M${sfx}`
+    if (n >= 1_000)     return `${pfx}${(n / 1_000).toFixed(n % 1_000 === 0 ? 0 : 1)}k${sfx}`
     return fmt(n)
   }
 

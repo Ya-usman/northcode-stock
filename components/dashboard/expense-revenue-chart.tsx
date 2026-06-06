@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useCurrency } from '@/lib/hooks/use-currency'
+import { chartTickFormatter } from '@/lib/utils/currency'
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns'
 import { cn } from '@/lib/utils/cn'
 
@@ -91,11 +92,7 @@ export function ExpenseRevenueChart() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveShopIds.join(','), locale])
 
-  const tickFormatter = (v: number) => {
-    if (v === 0) return '0'
-    const k = (v / 1000).toFixed(0)
-    return isFCFA ? `${k}K` : `${symbol}${k}K`
-  }
+  const tickFormatter = (v: number) => chartTickFormatter(v, symbol, isFCFA)
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null

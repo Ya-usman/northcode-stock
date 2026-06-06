@@ -1,6 +1,7 @@
 'use client'
 
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { chartTickFormatter } from '@/lib/utils/currency'
 
 interface DataPoint {
   month: string
@@ -41,7 +42,7 @@ export function RevenueChart({ data }: { data: DataPoint[] }) {
           tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
           tickLine={false}
           axisLine={false}
-          tickFormatter={v => v === 0 ? '0' : v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : `${(v / 1_000).toFixed(0)}K`}
+          tickFormatter={v => chartTickFormatter(v, '', true)}
           width={40}
         />
         <Tooltip content={<CustomTooltip />} />

@@ -6,6 +6,7 @@ import {
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useCurrency } from '@/lib/hooks/use-currency'
+import { chartTickFormatter } from '@/lib/utils/currency'
 import type { TopProduct } from '@/lib/types/database'
 
 interface TopProductsChartProps {
@@ -30,10 +31,7 @@ export function TopProductsChart({ data }: TopProductsChartProps) {
     )
   }
 
-  const tickFormatter = (v: number) => {
-    const k = (v / 1000).toFixed(0)
-    return isFCFA ? `${k}K` : `${symbol}${k}K`
-  }
+  const tickFormatter = (v: number) => chartTickFormatter(v, symbol, isFCFA)
 
   const chartData = data.map(p => ({
     name: p.name.length > 14 ? p.name.slice(0, 14) + '…' : p.name,

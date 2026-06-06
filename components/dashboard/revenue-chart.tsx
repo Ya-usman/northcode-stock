@@ -7,6 +7,7 @@ import {
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useCurrency } from '@/lib/hooks/use-currency'
+import { chartTickFormatter } from '@/lib/utils/currency'
 import type { RevenueDataPoint } from '@/lib/types/database'
 
 interface RevenueChartProps {
@@ -29,12 +30,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
     )
   }
 
-  // FCFA: "65K" only (symbol shown in title) — avoids line-wrap inside narrow Y-axis
-  // NGN / others: "₦65K" prefix form
-  const tickFormatter = (v: number) => {
-    const k = (v / 1000).toFixed(0)
-    return isFCFA ? `${k}K` : `${symbol}${k}K`
-  }
+  const tickFormatter = (v: number) => chartTickFormatter(v, symbol, isFCFA)
 
   return (
     <Card className="border-0 shadow-sm">

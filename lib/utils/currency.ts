@@ -20,6 +20,19 @@ export function formatCurrency(amount: number | string | null | undefined, symbo
 }
 
 /**
+ * Format a number for chart Y-axis ticks: 1000 → "1k", 1500000 → "1.5M"
+ * isFCFA: omit symbol prefix (symbol shown in chart title instead)
+ */
+export function chartTickFormatter(v: number, symbol: string, isFCFA: boolean): string {
+  if (v === 0) return '0'
+  const prefix = isFCFA ? '' : symbol
+  if (v >= 1_000_000_000) return `${prefix}${(v / 1_000_000_000).toFixed(v % 1_000_000_000 === 0 ? 0 : 1)}Md`
+  if (v >= 1_000_000)     return `${prefix}${(v / 1_000_000).toFixed(v % 1_000_000 === 0 ? 0 : 1)}M`
+  if (v >= 1_000)         return `${prefix}${(v / 1_000).toFixed(v % 1_000 === 0 ? 0 : 1)}k`
+  return `${prefix}${v}`
+}
+
+/**
  * Format compact (e.g. ₦1.2M, ₦45K / 1,2M FCFA)
  */
 export function formatNairaCompact(amount: number, symbol = '₦'): string {
