@@ -19,6 +19,10 @@ export function NavigationProgress() {
       if (!href || href.startsWith('http') || href.startsWith('#') || href.startsWith('mailto')) return
       if (link.target === '_blank') return
 
+      // Ne pas démarrer si on est déjà sur cette page
+      const targetPath = href.split('?')[0].split('#')[0]
+      if (targetPath === window.location.pathname) return
+
       doneRef.current = false
       setVisible(true)
       setWidth(15)
