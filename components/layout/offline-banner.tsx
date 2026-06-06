@@ -6,17 +6,23 @@ import { WifiOff } from 'lucide-react'
 export function OfflineBanner() {
   const [isOnline, setIsOnline] = useState(true)
   const [visible, setVisible] = useState(false)
+  const [leaving, setLeaving] = useState(false)
+
+  const hide = () => {
+    setLeaving(true)
+    setTimeout(() => { setVisible(false); setLeaving(false) }, 350)
+  }
 
   useEffect(() => {
     setIsOnline(navigator.onLine)
 
     const handleOnline = () => {
       setIsOnline(true)
-      // Keep banner visible briefly to confirm reconnection
-      setTimeout(() => setVisible(false), 2000)
+      setTimeout(hide, 1500)
     }
     const handleOffline = () => {
       setIsOnline(false)
+      setLeaving(false)
       setVisible(true)
     }
 
@@ -32,11 +38,9 @@ export function OfflineBanner() {
 
   return (
     <div
-      className={`fixed top-0 left-0 right-0 z-[9999] flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
-        isOnline
-          ? 'bg-green-500 text-white'
-          : 'bg-gray-900 text-white'
-      }`}
+      className={`fixed top-0 left-0 right-0 z-[9999] flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-all duration-300 ${
+        leaving ? 'opacity-0 -translate-y-full' : 'opacity-100 translate-y-0'
+      } ${isOnline ? 'bg-green-500 text-white' : 'bg-gray-900 text-white'}`}
     >
       {isOnline ? (
         <span>Connexion rétablie ✓</span>
