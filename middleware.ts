@@ -117,11 +117,21 @@ export async function middleware(request: NextRequest) {
     if (userId) {
       return mergeAuthCookies(NextResponse.redirect(new URL(`/${resolvedLocale}/dashboard`, request.url)), response)
     }
-    // Mobile (Android/iOS/app native) → login directement, pas de landing page
-    const ua = request.headers.get('user-agent') || ''
-    const isMobile = /android|iphone|ipad|ipod|mobile/i.test(ua)
-    const dest = isMobile ? `/${resolvedLocale}/login` : `/${resolvedLocale}`
-    return mergeAuthCookies(NextResponse.redirect(new URL(dest, request.url)), response)
+    // Première visite (pas de cookie has_visited) → landing page
+    // Visite suivante (cookie présent) → login directement
+    const hasVisited = request.cookies.get('has_visited')?.value
+    const dest = hasVisited ? `/${resolvedLocale}/login` : `/${resolvedLocale}`
+    const redirectRes = mergeAuthCookies(NextResponse.redirect(new URL(dest, request.url)), response)
+    if (!hasVisited) {
+      redirectRes.cookies.set('has_visited', '1', {
+        path: '/',
+        maxAge: 365 * 24 * 60 * 60, // 1 an
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: false,
+      })
+    }
+    return redirectRes
   }
 
   // Page publique (landing, login, register...)
