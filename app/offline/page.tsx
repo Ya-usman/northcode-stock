@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { WifiOff, ShoppingCart, RefreshCw, LayoutDashboard, Package, BarChart2, Users, Receipt, FileText } from 'lucide-react'
 
 function getLocale(): string {
@@ -26,6 +27,16 @@ export default function OfflinePage() {
     const locale = getLocale()
     window.location.href = `/${locale}/${route}`
   }
+
+  // Auto-redirect to dashboard when connection is restored
+  useEffect(() => {
+    const handleOnline = () => {
+      const locale = getLocale()
+      window.location.href = `/${locale}/dashboard`
+    }
+    window.addEventListener('online', handleOnline)
+    return () => window.removeEventListener('online', handleOnline)
+  }, [])
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-950">
