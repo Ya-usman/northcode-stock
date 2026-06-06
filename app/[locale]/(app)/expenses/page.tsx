@@ -373,8 +373,11 @@ export default function ExpensesPage() {
     setExporting(true)
     setExportMenuOpen(false)
     try {
-      const symbol = shop.currency || 'XOF'
-      const fmtAmt = (n: number) => `${n.toLocaleString('fr-FR')} ${symbol}`
+      const currency = shop.currency || 'XOF'
+      const isNGN = currency === 'NGN'
+      const fmtAmt = (n: number) => isNGN
+        ? `NGN ${n.toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+        : `${n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${currency}`
       await generateExpensesReportPDF({
         shopName: shop.name,
         month: monthLabel,

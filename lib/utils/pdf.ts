@@ -814,7 +814,9 @@ async function buildExpensesReportDoc(params: ExpensesReportParams) {
   const { jsPDF } = await import('jspdf')
   const autoTable = (await import('jspdf-autotable')).default
 
-  const { shopName, month, expenses, catLabels, pmLabels, fmtAmt, labels } = params
+  const { shopName, month, expenses, catLabels, pmLabels, labels } = params
+  // Always sanitize amounts so ₦, non-breaking spaces, etc. render correctly in Helvetica
+  const fmtAmt = (n: number) => sanitizePDF(params.fmtAmt(n))
   const L = {
     title:       labels?.title       ?? 'EXPENSES REPORT',
     colDate:     labels?.colDate     ?? 'Date',
