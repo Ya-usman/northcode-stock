@@ -110,22 +110,30 @@ export default function SuppliersPage() {
     return s.name.toLowerCase().includes(q) || s.city?.toLowerCase().includes(q)
   })
 
+  const withTimeout = (p: Promise<any>, ms = 8_000) =>
+    Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Connexion trop lente — réessayez.')), ms))])
+
   const onSubmit = async (data: SupplierFormData) => {
     setSaving(true)
-    if (editingSupplier) {
-      const { error } = await supabase.from('suppliers').update(data).eq('id', editingSupplier.id)
-      if (error) { toast({ title: error.message, variant: 'destructive' }) }
-      else { toast({ title: t('toast.supplier_updated'), variant: 'success' }) }
-    } else {
-      const { error } = await supabase.from('suppliers').insert({ ...data, shop_id: shop!.id })
-      if (error) { toast({ title: error.message, variant: 'destructive' }) }
-      else { toast({ title: t('toast.supplier_added'), variant: 'success' }) }
+    try {
+      if (editingSupplier) {
+        const { error } = await withTimeout(supabase.from('suppliers').update(data).eq('id', editingSupplier.id))
+        if (error) { toast({ title: error.message, variant: 'destructive' }); return }
+        toast({ title: t('toast.supplier_updated'), variant: 'success' })
+      } else {
+        const { error } = await withTimeout(supabase.from('suppliers').insert({ ...data, shop_id: shop!.id }))
+        if (error) { toast({ title: error.message, variant: 'destructive' }); return }
+        toast({ title: t('toast.supplier_added'), variant: 'success' })
+      }
+      setShowModal(false)
+      setEditingSupplier(null)
+      form.reset({ name: '', phone: '', city: '' })
+      fetchSuppliers()
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
-    setShowModal(false)
-    setEditingSupplier(null)
-    form.reset({ name: '', phone: '', city: '' })
-    fetchSuppliers()
   }
 
   const deleteSupplier = async (s: Supplier) => {
