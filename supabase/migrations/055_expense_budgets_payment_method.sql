@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS expense_budgets (
 
 ALTER TABLE expense_budgets ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "expense_budgets_owner_all" ON expense_budgets;
 CREATE POLICY "expense_budgets_owner_all" ON expense_budgets
   FOR ALL USING (get_role_in_shop(shop_id) = 'owner');
 
