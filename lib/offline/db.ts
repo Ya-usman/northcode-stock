@@ -1,7 +1,7 @@
 import { openDB, type IDBPDatabase } from 'idb'
 
 const DB_NAME = 'stockshop-offline'
-const DB_VERSION = 3
+const DB_VERSION = 4
 
 export interface CachedProduct {
   id: string
@@ -23,6 +23,26 @@ export interface CachedCustomer {
   name: string
   phone: string | null
   total_debt: number
+  cached_at: number
+}
+
+export interface CachedExpense {
+  id: string
+  shop_id: string
+  amount: number
+  description: string
+  date: string
+  category: string
+  payment_method: string
+  is_recurring: boolean
+  cached_at: number
+}
+
+export interface CachedCategory {
+  id: string
+  shop_id: string
+  name: string
+  name_hausa: string | null
   cached_at: number
 }
 
@@ -95,6 +115,12 @@ function getDB() {
           const movements = db.createObjectStore('pending_movements', { keyPath: 'local_id' })
           movements.createIndex('shop_id', 'shop_id')
           movements.createIndex('synced', 'synced')
+        }
+        if (oldVersion < 4) {
+          const expenses = db.createObjectStore('expenses', { keyPath: 'id' })
+          expenses.createIndex('shop_id', 'shop_id')
+          const categories = db.createObjectStore('categories', { keyPath: 'id' })
+          categories.createIndex('shop_id', 'shop_id')
         }
       },
     })
@@ -205,6 +231,42 @@ export async function markMovementError(localId: string, error: string): Promise
   const db = await getDB()
   const m = await db.get('pending_movements', localId)
   if (m) await db.put('pending_movements', { ...m, sync_error: error })
+}
+
+// ── Expenses ─────────────────────────────────────────────────────────────────
+
+export async function cacheExpenses(shopId: string, expenses: Omit<CachedExpense, 'cached_at'>[]): Promise<void> {
+  const db = await getDB()
+  const tx = db.transaction('expenses', 'readwrite')
+  const existing = await tx.store.index('shop_id').getAllKeys(shopId)
+  await Promise.all(existing.map(key => tx.store.delete(key)))
+  await Promise.all([
+    ...expenses.map(e => tx.store.put({ ...e, shop_id: shopId, cached_at: Date.now() })),
+    tx.done,
+  ])
+}
+
+export async function getCachedExpenses(shopId: string): Promise<CachedExpense[]> {
+  const db = await getDB()
+  return db.getAllFromIndex('expenses', 'shop_id', shopId)
+}
+
+// ── Categories ───────────────────────────────────────────────────────────────
+
+export async function cacheCategories(shopId: string, categories: Omit<CachedCategory, 'cached_at'>[]): Promise<void> {
+  const db = await getDB()
+  const tx = db.transaction('categories', 'readwrite')
+  const existing = await tx.store.index('shop_id').getAllKeys(shopId)
+  await Promise.all(existing.map(key => tx.store.delete(key)))
+  await Promise.all([
+    ...categories.map(c => tx.store.put({ ...c, shop_id: shopId, cached_at: Date.now() })),
+    tx.done,
+  ])
+}
+
+export async function getCachedCategories(shopId: string): Promise<CachedCategory[]> {
+  const db = await getDB()
+  return db.getAllFromIndex('categories', 'shop_id', shopId)
 }
 
 // Update product quantity in IndexedDB cache (optimistic update for offline restock)
