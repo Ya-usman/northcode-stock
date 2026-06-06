@@ -70,7 +70,8 @@
     "items_low": "{count} article(s) en alerte",
     "more_items": "+{count} de plus",
     "qty_left": "{qty} restant(s)",
-    "month_expenses": "Dépenses du mois"
+    "month_expenses": "Dépenses du mois",
+    "net_result": "Résultat net"
   },
   "dashboard_banner": {
     "beta_active": "Accès bêta gratuit — profitez de l'accès complet pendant encore {days} jours.",
@@ -934,6 +935,20 @@
     "pm_cash": "Espèces",
     "pm_mobile_money": "Mobile Money",
     "pm_bank_transfer": "Virement",
-    "budget_delete": "Supprimer le budget"
+    "budget_delete": "Supprimer le budget",
+    "export_pdf": "Exporter PDF",
+    "export_csv": "Exporter Excel/CSV",
+    "exporting": "Génération...",
+    "pdf_title": "RAPPORT DE DEPENSES",
+    "pdf_col_date": "Date",
+    "pdf_col_desc": "Description",
+    "pdf_col_cat": "Categorie",
+    "pdf_col_payment": "Methode de paiement",
+    "pdf_col_amount": "Montant",
+    "pdf_summary": "Recapitulatif par categorie",
+    "pdf_grand_total": "TOTAL GENERAL",
+    "pdf_generated_by": "Genere par StockShop",
+    "pdf_page": "Page",
+    "pdf_of": "sur"
   }
 }

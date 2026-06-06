@@ -70,7 +70,8 @@
     "items_low": "kaya {count} suna ƙarewa",
     "more_items": "+{count} ƙari",
     "qty_left": "{qty} ya rage",
-    "month_expenses": "Kashe Kuɗin Watan"
+    "month_expenses": "Kashe Kuɗin Watan",
+    "net_result": "Riba Fâk"
   },
   "dashboard_banner": {
     "beta_active": "Gwaji kyauta — cikakken damar amfani ya rage kwanaki {days}.",
@@ -933,6 +934,20 @@
     "pm_cash": "Kuɗi a hannu",
     "pm_mobile_money": "Mobile Money",
     "pm_bank_transfer": "Canja wurin banki",
-    "budget_delete": "Goge kasafin kuɗi"
+    "budget_delete": "Goge kasafin kuɗi",
+    "export_pdf": "Fitar PDF",
+    "export_csv": "Fitar Excel/CSV",
+    "exporting": "Ana yin...",
+    "pdf_title": "RAHOTON KASHE KUDI",
+    "pdf_col_date": "Kwanan Wata",
+    "pdf_col_desc": "Bayani",
+    "pdf_col_cat": "Rukuni",
+    "pdf_col_payment": "Hanyar Biya",
+    "pdf_col_amount": "Adadi",
+    "pdf_summary": "Takardar ta rukuni",
+    "pdf_grand_total": "JIMILLAR DUKA",
+    "pdf_generated_by": "An kirkiro ta StockShop",
+    "pdf_page": "Shafi",
+    "pdf_of": "daga"
   }
 }

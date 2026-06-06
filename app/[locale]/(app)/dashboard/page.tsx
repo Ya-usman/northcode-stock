@@ -31,6 +31,7 @@ interface DashCache {
   revenueData: RevenueDataPoint[]; topProducts: TopProduct[]
   lowStock: Product[]; outOfStock: Product[]
   recentSales: Sale[]; repaymentItems: RepaymentFeedItem[]
+  monthExpenses?: number; monthRevenue?: number
   savedAt: number
 }
 function readDashCache(shopKey: string): DashCache | null {
@@ -98,7 +99,8 @@ export default function DashboardPage() {
   const [topProducts, setTopProducts] = useState<TopProduct[]>(mountCache?.topProducts ?? [])
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>(mountCache?.lowStock ?? [])
   const [outOfStockProducts, setOutOfStockProducts] = useState<Product[]>(mountCache?.outOfStock ?? [])
-  const [monthExpenses, setMonthExpenses] = useState(0)
+  const [monthExpenses, setMonthExpenses] = useState(mountCache?.monthExpenses ?? 0)
+  const [monthRevenue, setMonthRevenue]   = useState(mountCache?.monthRevenue ?? 0)
 
   const activeShopLabel = dashboardShopFilter
     ? userShops.find(s => s.id === dashboardShopFilter)?.name || t('nav.shops')
@@ -110,7 +112,7 @@ export default function DashboardPage() {
   const applyDashData = useCallback((
     salesCount: number, revenue: number, debt: number,
     sales: Sale[], repayments: RepaymentFeedItem[], revData: RevenueDataPoint[], tops: TopProduct[],
-    low: Product[], out: Product[], expenses = 0
+    low: Product[], out: Product[], expenses = 0, mRevenue = 0
   ) => {
     setTodaySalesCount(salesCount)
     setTodayRevenue(revenue)
@@ -122,6 +124,7 @@ export default function DashboardPage() {
     setLowStockProducts(low)
     setOutOfStockProducts(out)
     setMonthExpenses(expenses)
+    setMonthRevenue(mRevenue)
   }, [])
 
   const loadDashboard = useCallback(async (quiet = false) => {
@@ -133,7 +136,8 @@ export default function DashboardPage() {
     const cached = readDashCache(shopKey)
     if (cached) {
       applyDashData(cached.todaySalesCount, cached.todayRevenue, cached.outstandingDebt,
-        cached.recentSales, cached.repaymentItems ?? [], cached.revenueData, cached.topProducts, cached.lowStock, cached.outOfStock)
+        cached.recentSales, cached.repaymentItems ?? [], cached.revenueData, cached.topProducts, cached.lowStock, cached.outOfStock,
+        cached.monthExpenses ?? 0, cached.monthRevenue ?? 0)
       setCacheAge(Date.now() - cached.savedAt)
       setFirstLoad(false)
     }
@@ -171,6 +175,7 @@ export default function DashboardPage() {
         { data: todayPaymentsRaw },
         paymentsRes,
         { data: expensesRaw },
+        { data: monthSalesRaw },
       ] = await Promise.all([
         // Today's sales — cashier sees only their own; owner/viewer sees all
         (() => {
@@ -230,8 +235,18 @@ export default function DashboardPage() {
           .from('expenses')
           .select('amount')
           .in('shop_id', shopIds)
+          .eq('is_recurring', false)
           .gte('date', startOfMonth(today).toISOString().slice(0, 10))
           .lte('date', endOfMonth(today).toISOString().slice(0, 10)) : Promise.resolve({ data: [] }),
+
+        // Month revenue (owner only) — sum of amount_paid on active sales this month
+        !isCashier ? supabase
+          .from('sales')
+          .select('amount_paid')
+          .in('shop_id', shopIds)
+          .eq('sale_status', 'active')
+          .gte('created_at', startOfMonth(today).toISOString())
+          .lte('created_at', endOfMonth(today).toISOString()) : Promise.resolve({ data: [] }),
       ])
 
       const paymentsApiOk = paymentsRes.ok
@@ -246,7 +261,8 @@ export default function DashboardPage() {
       const salesArr = (todaySales || []) as unknown as Sale[]
       const salesCount = salesArr.length
       const debt = (debtData || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0)
-      const expensesTotal = (expensesRaw || []).reduce((s: number, e: any) => s + Number(e.amount), 0)
+      const expensesTotal    = (expensesRaw   || []).reduce((s: number, e: any) => s + Number(e.amount), 0)
+      const monthRevenueTotal = (monthSalesRaw || []).reduce((s: number, e: any) => s + Number(e.amount_paid), 0)
 
       // Cashier's own sale IDs (already filtered by cashier_id above)
       const cashierSaleIds = new Set(salesArr.map((s: any) => s.id))
@@ -318,11 +334,12 @@ export default function DashboardPage() {
               .filter((p: any) => shopIds.includes(p.sales?.shop_id))
               .reduce((s: number, p: any) => s + Number(p.amount), 0)
 
-      applyDashData(salesCount, revenue, debt, salesArr, repaymentItems, revData, tops, lowSt, outOf, expensesTotal)
+      applyDashData(salesCount, revenue, debt, salesArr, repaymentItems, revData, tops, lowSt, outOf, expensesTotal, monthRevenueTotal)
 
       writeDashCache({ shopKey, todaySalesCount: salesCount, todayRevenue: revenue,
         outstandingDebt: debt, recentSales: salesArr, repaymentItems,
-        revenueData: revData, topProducts: tops, lowStock: lowSt, outOfStock: outOf })
+        revenueData: revData, topProducts: tops, lowStock: lowSt, outOfStock: outOf,
+        monthExpenses: expensesTotal, monthRevenue: monthRevenueTotal })
       setCacheAge(null)
 
     } finally {
@@ -525,6 +542,7 @@ export default function DashboardPage() {
         lowStockCount={lowStockProducts.length + outOfStockProducts.length}
         outstandingDebt={outstandingDebt}
         monthExpenses={monthExpenses}
+        monthRevenue={monthRevenue}
         role={profile?.role || 'viewer'}
         isCashier={isCashierView}
       />

@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
-import { Plus, Pencil, Trash2, Receipt, RefreshCw, ChevronDown, ChevronUp, Target } from 'lucide-react'
+import { Plus, Pencil, Trash2, Receipt, RefreshCw, ChevronDown, ChevronUp, Target, FileDown, FileText, Table2 } from 'lucide-react'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { NumericInput } from '@/components/ui/numeric-input'
 import { format, startOfMonth, endOfMonth, addMonths, addWeeks } from 'date-fns'
@@ -20,6 +20,7 @@ import type { Expense, ExpenseBudget } from '@/lib/types/database'
 import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-cache'
 import { CacheBanner } from '@/components/layout/cache-banner'
 import { cn } from '@/lib/utils/cn'
+import { generateExpensesReportPDF } from '@/lib/utils/pdf'
 
 const supabase = createClient() as any
 
@@ -77,6 +78,8 @@ export default function ExpensesPage() {
   const [deleting, setDeleting]       = useState<string | null>(null)
   const [showTemplates, setShowTemplates] = useState(true)
   const [showBudgets, setShowBudgets] = useState(true)
+  const [exporting, setExporting]     = useState(false)
+  const [exportMenuOpen, setExportMenuOpen] = useState(false)
 
   const [isOnline, setIsOnline]       = useState(true)
   const [cacheAge, setCacheAge]       = useState<number | null>(null)
@@ -356,6 +359,73 @@ export default function ExpensesPage() {
   // Categories to show in budget section: those with a budget OR with expenses this month
   const budgetCats = EXPENSE_CATEGORIES.filter(c => budgets[c.id] || activeCatIds.has(c.id))
 
+  // ─── Export helpers ───────────────────────────────────────────────────────
+
+  const catLabels = Object.fromEntries(EXPENSE_CATEGORIES.map(c => [c.id, t(`cat_${c.id}` as any)]))
+  const pmLabels  = Object.fromEntries(PAYMENT_METHODS.map(m => [m.id, t(`pm_${m.id}` as any)]))
+
+  const exportPDF = async () => {
+    if (!shop || !expenses.length) return
+    setExporting(true)
+    setExportMenuOpen(false)
+    try {
+      const symbol = shop.currency || 'XOF'
+      const fmtAmt = (n: number) => `${n.toLocaleString('fr-FR')} ${symbol}`
+      await generateExpensesReportPDF({
+        shopName: shop.name,
+        month: monthLabel,
+        expenses: filtered.map(e => ({
+          date:           e.date,
+          description:    e.description,
+          category:       e.category || 'other',
+          payment_method: e.payment_method || 'cash',
+          amount:         Number(e.amount),
+        })),
+        catLabels,
+        pmLabels,
+        fmtAmt,
+        labels: {
+          title:       t('pdf_title'),
+          colDate:     t('pdf_col_date'),
+          colDesc:     t('pdf_col_desc'),
+          colCat:      t('pdf_col_cat'),
+          colPayment:  t('pdf_col_payment'),
+          colAmount:   t('pdf_col_amount'),
+          summary:     t('pdf_summary'),
+          grandTotal:  t('pdf_grand_total'),
+          generatedBy: t('pdf_generated_by'),
+          page:        t('pdf_page'),
+          of:          t('pdf_of'),
+        },
+      })
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') toast({ title: err.message || 'Erreur export', variant: 'destructive' })
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const exportCSV = () => {
+    setExportMenuOpen(false)
+    const header = [t('pdf_col_date'), t('pdf_col_desc'), t('pdf_col_cat'), t('pdf_col_payment'), t('pdf_col_amount')]
+    const rows = filtered.map(e => [
+      e.date,
+      `"${e.description.replace(/"/g, '""')}"`,
+      catLabels[e.category || 'other'] || e.category,
+      pmLabels[e.payment_method || 'cash'] || e.payment_method,
+      String(Number(e.amount)),
+    ])
+    rows.push(['', '', '', t('pdf_grand_total'), String(total)])
+    const csv = [header, ...rows].map(r => r.join(';')).join('\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = `Depenses-${shop?.name.replace(/\s+/g, '-')}-${monthFilter}.csv`
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  }
+
   // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
@@ -363,17 +433,55 @@ export default function ExpensesPage() {
       <CacheBanner ageMs={cacheAge} isOnline={isOnline} />
 
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <input
           type="month"
           value={monthFilter}
           onChange={e => setFilter({ monthFilter: e.target.value })}
           className="rounded-lg border px-3 py-1.5 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-stockshop-blue"
         />
-        <Button onClick={openAdd} className="bg-stockshop-blue hover:bg-stockshop-blue-light text-white gap-2">
-          <Plus className="h-4 w-4" />
-          {t('add')}
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Export dropdown */}
+          {expenses.length > 0 && (
+            <div className="relative">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9"
+                loading={exporting}
+                onClick={() => setExportMenuOpen(v => !v)}
+                aria-label="Exporter"
+              >
+                <FileDown className="h-4 w-4" />
+              </Button>
+              {exportMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setExportMenuOpen(false)} />
+                  <div className="absolute right-0 top-10 z-50 w-44 rounded-xl border bg-background shadow-lg p-1 flex flex-col gap-0.5">
+                    <button
+                      onClick={exportPDF}
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left"
+                    >
+                      <FileText className="h-4 w-4 text-red-500 flex-shrink-0" />
+                      <span>{t('export_pdf')}</span>
+                    </button>
+                    <button
+                      onClick={exportCSV}
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left"
+                    >
+                      <Table2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                      <span>{t('export_csv')}</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          <Button onClick={openAdd} className="bg-stockshop-blue hover:bg-stockshop-blue-light text-white gap-2">
+            <Plus className="h-4 w-4" />
+            {t('add')}
+          </Button>
+        </div>
       </div>
 
       {/* ── Recurring templates ── */}

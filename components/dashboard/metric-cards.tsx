@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { TrendingUp, ShoppingCart, AlertTriangle, CreditCard, Receipt } from 'lucide-react'
+import { TrendingUp, ShoppingCart, AlertTriangle, CreditCard, Receipt, Scale } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { useTranslations } from 'next-intl'
 import { useCurrency } from '@/lib/hooks/use-currency'
@@ -12,6 +12,7 @@ interface MetricCardsProps {
   lowStockCount: number
   outstandingDebt: number
   monthExpenses?: number
+  monthRevenue?: number
   role: string
   isCashier?: boolean
 }
@@ -25,7 +26,7 @@ const item = {
   show: { opacity: 1, y: 0 },
 }
 
-export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outstandingDebt, monthExpenses = 0, role, isCashier }: MetricCardsProps) {
+export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outstandingDebt, monthExpenses = 0, monthRevenue = 0, role, isCashier }: MetricCardsProps) {
   const t = useTranslations('dashboard')
   const { fmt, symbol } = useCurrency()
   const compact = (n: number) => {
@@ -80,7 +81,24 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
       subValue: fmt(monthExpenses),
       icon: Receipt,
       color: monthExpenses > 0 ? 'text-red-500' : 'text-muted-foreground',
-      bg: monthExpenses > 0 ? 'bg-red-50' : 'bg-muted',
+      bg: monthExpenses > 0 ? 'bg-red-50 dark:bg-red-950/30' : 'bg-muted',
+      show: role === 'owner',
+    },
+    {
+      title: t('net_result'),
+      value: compact(monthRevenue - monthExpenses),
+      subValue: fmt(monthRevenue - monthExpenses),
+      icon: Scale,
+      color: monthRevenue - monthExpenses > 0
+        ? 'text-green-600'
+        : monthRevenue - monthExpenses < 0
+          ? 'text-red-600'
+          : 'text-muted-foreground',
+      bg: monthRevenue - monthExpenses > 0
+        ? 'bg-green-50 dark:bg-green-950/30'
+        : monthRevenue - monthExpenses < 0
+          ? 'bg-red-50 dark:bg-red-950/30'
+          : 'bg-muted',
       show: role === 'owner',
     },
   ].filter(c => c.show)
