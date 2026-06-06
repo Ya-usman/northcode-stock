@@ -5,17 +5,33 @@ import { getPeriodDays, type BillingPeriod } from '@/lib/saas/countries'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { fetchWithTimeout } from '@/lib/api/fetch'
 
+// inline=1 → appelé depuis le callback PaystackPop (client-side fetch) → retourne JSON
+// inline absent → appelé depuis le redirect navigateur Paystack → retourne redirect
+function reply(inline: boolean, locale: string, baseUrl: string, ok: true): NextResponse
+function reply(inline: boolean, locale: string, baseUrl: string, ok: false, error: string): NextResponse
+function reply(inline: boolean, locale: string, baseUrl: string, ok: boolean, error?: string): NextResponse {
+  if (inline) {
+    return ok
+      ? NextResponse.json({ ok: true })
+      : NextResponse.json({ ok: false, error }, { status: 400 })
+  }
+  return ok
+    ? NextResponse.redirect(new URL(`/${locale}/billing?success=1`, baseUrl))
+    : NextResponse.redirect(new URL(`/${locale}/billing?error=${error}`, baseUrl))
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
   const reference = searchParams.get('reference') || searchParams.get('trxref')
   const locale = searchParams.get('locale') || 'en'
+  const inline = searchParams.get('inline') === '1'
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL
     || `https://${process.env.VERCEL_URL}`
     || `${request.nextUrl.protocol}//${request.nextUrl.host}`
 
   if (!reference) {
-    return NextResponse.redirect(new URL(`/${locale}/billing?error=no_reference`, baseUrl))
+    return reply(inline, locale, baseUrl, false, 'no_reference')
   }
 
   try {
@@ -26,15 +42,18 @@ export async function GET(request: NextRequest) {
     })
     const data = await res.json()
 
-    if (!data.status || data.data.status !== 'success') {
-      return NextResponse.redirect(new URL(`/${locale}/billing?error=payment_failed`, baseUrl))
+    // Bank transfer payments may be "pending" when the callback fires — treat as success
+    // so the plan is activated immediately. Paystack webhook will confirm later.
+    const txStatus = data.data?.status
+    if (!data.status || (txStatus !== 'success' && txStatus !== 'pending')) {
+      return reply(inline, locale, baseUrl, false, 'payment_failed')
     }
 
     const { shop_id, plan_id, billing_period = 'monthly' } = data.data.metadata
     const plan = PLANS[plan_id as keyof typeof PLANS]
 
     if (!plan || plan.id === 'trial') {
-      return NextResponse.redirect(new URL(`/${locale}/billing?error=invalid_plan`, baseUrl))
+      return reply(inline, locale, baseUrl, false, 'invalid_plan')
     }
 
     const supabase = await createAdminClient() as any
@@ -43,7 +62,7 @@ export async function GET(request: NextRequest) {
     const { data: existing } = await supabase
       .from('subscriptions').select('id').eq('paystack_reference', reference).maybeSingle()
     if (existing) {
-      return NextResponse.redirect(new URL(`/${locale}/billing?success=1`, baseUrl))
+      return reply(inline, locale, baseUrl, true)
     }
 
     const days = getPeriodDays(billing_period as BillingPeriod)
@@ -119,9 +138,9 @@ export async function GET(request: NextRequest) {
       ip: getClientIp(request),
     })
 
-    return NextResponse.redirect(new URL(`/${locale}/billing?success=1`, baseUrl))
+    return reply(inline, locale, baseUrl, true)
   } catch (err: any) {
     console.error('[billing/verify]', err)
-    return NextResponse.redirect(new URL(`/${locale}/billing?error=server`, baseUrl))
+    return reply(inline, locale, baseUrl, false, 'server')
   }
 }

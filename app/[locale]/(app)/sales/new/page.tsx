@@ -434,47 +434,66 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     unlockAudio()   // déverrouille l'AudioContext pendant le geste utilisateur
     setCompleting(true)
 
+    // Snapshot values NOW (before any async wait) so they stay valid
+    // even if auth context updates during the 10s network timeout.
+    const _shopId = selectedShop?.id
+    const _cashierId = profile?.id
+    const _cart = cart.map((item: any) => ({ ...item }))
+
     // ── Shared offline save (used by offline path AND as online fallback) ───
+    // This function NEVER throws — it always shows the receipt to the user.
     const saveOffline = async (toastMsg: string) => {
       const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
       const saleNumber = `HL-${localId.slice(-5).toUpperCase()}`
-      await savePendingSale({
-        local_id: localId,
-        shop_id: selectedShop!.id,
-        cashier_id: profile!.id,
-        subtotal,
-        discount: discountAmt,
-        tax,
-        total,
-        payment_method: paymentMethod,
-        payment_status: methodType === 'credit'
-          ? 'pending'
-          : balance > 0 ? (paid > 0 ? 'partial' : 'pending') : 'paid',
-        amount_paid: paid,
-        balance,
-        customer_id: selectedCustomer?.id ?? null,
-        customer_name: customerName.trim() || selectedCustomer?.name || null,
-        customer_phone: customerPhone.trim() || selectedCustomer?.phone || null,
-        notes: notes || null,
-        created_at: new Date().toISOString(),
-        items: cart.map((item: any) => ({
-          product_id: item.product.id,
-          product_name: item.product.name,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          subtotal: item.quantity * item.unit_price,
-        })),
-        payment_amount: methodType !== 'credit' ? paid : 0,
-        payment_reference: methodType === 'transfer' ? transferRef : null,
-        synced: false,
-      })
-      await refreshPendingCount()
-      registerBackgroundSync()
+
+      // Try to persist — if IndexedDB fails, still show the receipt
+      let persisted = false
+      if (_shopId && _cashierId) {
+        try {
+          await savePendingSale({
+            local_id: localId,
+            shop_id: _shopId,
+            cashier_id: _cashierId,
+            subtotal,
+            discount: discountAmt,
+            tax,
+            total,
+            payment_method: paymentMethod,
+            payment_status: methodType === 'credit'
+              ? 'pending'
+              : balance > 0 ? (paid > 0 ? 'partial' : 'pending') : 'paid',
+            amount_paid: paid,
+            balance,
+            customer_id: selectedCustomer?.id ?? null,
+            customer_name: customerName.trim() || selectedCustomer?.name || null,
+            customer_phone: customerPhone.trim() || selectedCustomer?.phone || null,
+            notes: notes || null,
+            created_at: new Date().toISOString(),
+            items: _cart.map((item: any) => ({
+              product_id: item.product.id,
+              product_name: item.product.name,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+              subtotal: item.quantity * item.unit_price,
+            })),
+            payment_amount: methodType !== 'credit' ? paid : 0,
+            payment_reference: methodType === 'transfer' ? transferRef : null,
+            synced: false,
+          })
+          persisted = true
+          refreshPendingCount().catch(() => {})
+          registerBackgroundSync()
+        } catch {
+          // IndexedDB failed — sale will show in receipt but won't auto-sync
+        }
+      }
+
+      // Always show receipt regardless of persistence outcome
       setCompletedSale({
         id: localId,
         sale_number: saleNumber,
-        shop_id: selectedShop!.id,
-        cashier_id: profile!.id,
+        shop_id: _shopId || '',
+        cashier_id: _cashierId || '',
         subtotal,
         discount: discountAmt,
         tax,
@@ -486,7 +505,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         sale_status: 'active',
         notes: notes || null,
         created_at: new Date().toISOString(),
-        sale_items: cart.map((item: any) => ({
+        sale_items: _cart.map((item: any) => ({
           id: `li-${Math.random()}`,
           sale_id: localId,
           product_id: item.product.id,
@@ -499,7 +518,10 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       setShowReceipt(true)
       resetForm()
       triggerSaleFeedback()
-      toast({ title: toastMsg, variant: 'success' })
+      toast({
+        title: persisted ? toastMsg : 'Vente enregistrée · reconnectez-vous pour synchroniser',
+        variant: 'success',
+      })
     }
 
     // ── OFFLINE PATH ─────────────────────────────────────────────────────────

@@ -160,10 +160,24 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
             toast({ title: t('payment_cancelled'), variant: 'destructive' })
           },
           callback: (response: { reference: string }) => {
-            fetch(`/api/billing/verify?reference=${response.reference}&locale=${locale}`)
-              .then(() => refreshShop())
-              .then(() => toast({ title: t('payment_success'), description: t('payment_active'), variant: 'success' }))
-              .catch(() => toast({ title: t('verify_error'), variant: 'destructive' }))
+            fetch(`/api/billing/verify?reference=${response.reference}&locale=${locale}&inline=1`)
+              .then(async res => {
+                const json = await res.json().catch(() => ({}))
+                if (!res.ok || !json.ok) throw new Error(json.error || 'payment_failed')
+                // Refresh plan cookie so middleware sees the new plan immediately
+                await fetch('/api/auth/set-role', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shop_id: shop.id }) }).catch(() => {})
+                await refreshShop()
+                toast({ title: t('payment_success'), description: t('payment_active'), variant: 'success' })
+              })
+              .catch((err) => {
+                const msg = err?.message
+                const descriptions: Record<string, string> = {
+                  payment_failed: t('err_failed'),
+                  invalid_plan: t('err_invalid_plan'),
+                  server: t('err_server'),
+                }
+                toast({ title: t('payment_error'), description: descriptions[msg] || t('err_failed'), variant: 'destructive' })
+              })
               .finally(() => setLoading(false))
           },
         })
