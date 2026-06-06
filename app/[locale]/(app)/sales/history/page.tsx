@@ -81,9 +81,9 @@ export default function SalesHistoryPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [salesOffset, setSalesOffset] = useState(0)
   const [hasMoreSales, setHasMoreSales] = useState(false)
-  const [{ search, dateFilter, methodFilter, statusFilter, saleStatusFilter }, setFilter] = usePersistedFilters(
+  const [{ search, dateFilter, methodFilter, statusFilter, saleStatusFilter, customStart, customEnd }, setFilter] = usePersistedFilters(
     'sales_history', shop?.id,
-    { search: '', dateFilter: 'today', methodFilter: 'all', statusFilter: 'all', saleStatusFilter: 'all' as 'all' | 'active' | 'cancelled' }
+    { search: '', dateFilter: 'today', methodFilter: 'all', statusFilter: 'all', saleStatusFilter: 'all' as 'all' | 'active' | 'cancelled', customStart: '', customEnd: '' }
   )
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
@@ -112,12 +112,16 @@ export default function SalesHistoryPage() {
 
   const getDateBounds = () => {
     const now = new Date()
-    const end = endOfDay(now)
     let start: Date
+    let end = endOfDay(now)
     switch (dateFilter) {
       case 'today': start = startOfDay(now); break
       case 'week': start = startOfWeek(now, { weekStartsOn: 1 }); break
       case 'month': start = startOfMonth(now); break
+      case 'custom':
+        start = customStart ? startOfDay(new Date(customStart)) : subDays(now, 30)
+        end   = customEnd   ? endOfDay(new Date(customEnd))     : endOfDay(now)
+        break
       default: start = subDays(now, 30)
     }
     return { start, end }
@@ -221,7 +225,7 @@ export default function SalesHistoryPage() {
   useEffect(() => {
     if (view === 'sales') fetchSales()
     else fetchRepayments()
-  }, [shopKey, dateFilter, methodFilter, statusFilter, saleStatusFilter, view])
+  }, [shopKey, dateFilter, customStart, customEnd, methodFilter, statusFilter, saleStatusFilter, view])
 
   const filteredRepayments = repayments.filter(p => {
     if (!search) return true
@@ -237,7 +241,7 @@ export default function SalesHistoryPage() {
     const onFocus = () => { if (document.visibilityState === 'visible') fetchSales() }
     document.addEventListener('visibilitychange', onFocus)
     return () => document.removeEventListener('visibilitychange', onFocus)
-  }, [shopKey, dateFilter, methodFilter, statusFilter, saleStatusFilter])
+  }, [shopKey, dateFilter, customStart, customEnd, methodFilter, statusFilter, saleStatusFilter])
 
   const filtered = sales.filter(s => {
     if (!search) return true
@@ -274,9 +278,19 @@ export default function SalesHistoryPage() {
       const fmtAmt = (n: number) => isNGN
         ? `NGN ${n.toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
         : `${n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${currency}`
+      const now = new Date()
+      const periodLabel = dateFilter === 'today'
+        ? format(now, 'dd/MM/yyyy')
+        : dateFilter === 'week'
+        ? `${format(startOfWeek(now, { weekStartsOn: 1 }), 'dd/MM')} – ${format(now, 'dd/MM/yyyy')}`
+        : dateFilter === 'month'
+        ? format(startOfMonth(now), 'MMMM yyyy')
+        : dateFilter === 'custom' && customStart && customEnd
+        ? `${format(new Date(customStart), 'dd/MM/yyyy')} – ${format(new Date(customEnd), 'dd/MM/yyyy')}`
+        : t('sales.filter_30days')
       await generateSalesReportPDF({
         shopName: shop.name,
-        period: dateFilter,
+        period: periodLabel,
         sales: filtered.map(s => ({
           date: s.created_at,
           sale_number: s.sale_number,
@@ -505,14 +519,32 @@ export default function SalesHistoryPage() {
         </div>
 
         <Select value={dateFilter} onValueChange={v => setFilter({ dateFilter: v })}>
-          <SelectTrigger className="w-[120px] h-9"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-[140px] h-9"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="today">{t('sales.filter_today')}</SelectItem>
             <SelectItem value="week">{t('sales.filter_week')}</SelectItem>
             <SelectItem value="month">{t('sales.filter_month')}</SelectItem>
-            <SelectItem value="custom">{t('sales.filter_30days')}</SelectItem>
+            <SelectItem value="30days">{t('sales.filter_30days')}</SelectItem>
+            <SelectItem value="custom">{t('sales.filter_custom')}</SelectItem>
           </SelectContent>
         </Select>
+
+        {dateFilter === 'custom' && (
+          <>
+            <Input
+              type="date"
+              value={customStart}
+              onChange={e => setFilter({ customStart: e.target.value })}
+              className="h-9 w-[140px]"
+            />
+            <Input
+              type="date"
+              value={customEnd}
+              onChange={e => setFilter({ customEnd: e.target.value })}
+              className="h-9 w-[140px]"
+            />
+          </>
+        )}
 
         <Select value={methodFilter} onValueChange={v => setFilter({ methodFilter: v })}>
           <SelectTrigger className="w-[120px] h-9"><SelectValue placeholder="Méthode" /></SelectTrigger>
