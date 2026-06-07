@@ -385,7 +385,8 @@ export default function TeamPage() {
           )}
 
           <Button
-            className="gap-2 bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500"
+            variant="stockshop"
+            className="gap-2"
             disabled={inviting}
             onClick={() => { setConfirmDialog(d => ({ ...d, open: false })); setDeleteDialog({ open: false, member: null }); setInviteShopId(viewShopId); setShowInviteModal(true) }}
           >

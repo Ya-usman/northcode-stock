@@ -130,7 +130,7 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
           )}
 
           <div className="flex gap-2 mt-3">
-            <Button size="sm" className="flex-1 h-9 text-xs bg-stockshop-blue hover:bg-stockshop-blue-light gap-1"
+            <Button variant="stockshop" size="sm" className="flex-1 h-9 text-xs gap-1"
               disabled={saving}
               onClick={() => openRepayDialog({ customer, unpaidSales, totalDebt })}>
               <Banknote className="h-3.5 w-3.5" /> {t('payments.repay')}
@@ -499,7 +499,7 @@ export default function DettesPage() {
                   </Button>
                 </a>
               )}
-              <Button className="w-full h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light"
+              <Button variant="stockshop" className="w-full h-11 rounded-xl font-semibold"
                 onClick={() => { setRepayDebtor(null); setReceiptResult(null) }}>
                 {t('actions.close')}
               </Button>

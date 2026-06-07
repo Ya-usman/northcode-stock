@@ -477,7 +477,8 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                   onClick={handlePay}
                   loading={loading}
                   disabled={!selectedMethod || loading}
-                  className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light text-white"
+                  variant="stockshop"
+                  className="flex-1 h-11 rounded-xl font-semibold"
                 >
                   Payer {formatPrice(checkoutPlan)}
                 </Button>

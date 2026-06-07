@@ -494,7 +494,7 @@ export default function ExpensesPage() {
               )}
             </div>
           )}
-          <Button onClick={openAdd} className="bg-stockshop-blue hover:bg-stockshop-blue-light text-white gap-2">
+          <Button variant="stockshop" onClick={openAdd} className="gap-2">
             <Plus className="h-4 w-4" />
             {t('add')}
           </Button>
@@ -888,7 +888,8 @@ export default function ExpensesPage() {
             onClick={handleSave}
             loading={saving}
             disabled={!amount || !description.trim() || saving}
-            className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light text-white"
+            variant="stockshop"
+            className="flex-1 h-11 rounded-xl font-semibold"
           >
             {editing ? t('save') : t('add')}
           </Button>
@@ -936,7 +937,8 @@ export default function ExpensesPage() {
             onClick={saveBudget}
             loading={savingBudget}
             disabled={!budgetAmount || savingBudget}
-            className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light text-white"
+            variant="stockshop"
+            className="flex-1 h-11 rounded-xl font-semibold"
           >
             {t('save')}
           </Button>

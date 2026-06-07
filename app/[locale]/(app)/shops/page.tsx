@@ -96,7 +96,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
             <p className="text-sm text-muted-foreground mt-0.5">{t('shops.count', { count: userShops.length })}</p>
           </div>
           {isOwner && (
-            <Button onClick={() => setCreating(true)} className="gap-2 bg-stockshop-blue hover:bg-stockshop-blue-light text-white">
+            <Button variant="stockshop" onClick={() => setCreating(true)} className="gap-2">
               <Plus className="h-4 w-4" />
               {t('shops.new')}
             </Button>
@@ -141,7 +141,8 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
             onClick={handleCreate}
             loading={loading}
             disabled={!newName.trim() || loading}
-            className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light text-white"
+            variant="stockshop"
+            className="flex-1 h-11 rounded-xl font-semibold"
           >
             {t('shops.create')}
           </Button>

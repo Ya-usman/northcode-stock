@@ -1400,7 +1400,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               Mettre en attente
             </Button>
             <Button
-              className="flex-[2] h-12 text-base bg-stockshop-blue hover:bg-stockshop-blue-light"
+              variant="stockshop"
+              className="flex-[2] h-12 text-base"
               onClick={completeSale}
               loading={completing}
               disabled={cart.length === 0 || completing}
@@ -1466,7 +1467,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                     Annuler
                   </Button>
                   <Button
-                    className="flex-1 h-11 rounded-xl bg-stockshop-blue hover:bg-stockshop-blue-light font-semibold"
+                    variant="stockshop"
+                    className="flex-1 h-11 rounded-xl font-semibold"
                     disabled={!priceModalInput || Number(priceModalInput) < priceModalItem.product.selling_price}
                     onClick={() => {
                       updateItemPrice(priceModalItem.product.id, Number(priceModalInput))
@@ -1513,7 +1515,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   {draft.cart.map(i => `${i.product.name} ×${i.quantity}`).join(', ')}
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" className="flex-1 h-8 bg-stockshop-blue gap-1" onClick={() => resumeDraft(draft)}>
+                  <Button variant="stockshop" size="sm" className="flex-1 h-8 gap-1" onClick={() => resumeDraft(draft)}>
                     <PlayCircle className="h-3.5 w-3.5" /> Reprendre
                   </Button>
                   <Button size="sm" variant="outline" className="h-8 border-red-200 text-red-500 hover:bg-red-50"
@@ -1588,7 +1590,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   {isCapacitor() ? t('actions.share') : t('actions.print_receipt')}
                 </Button>
               </div>
-              <Button className="w-full h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light"
+              <Button variant="stockshop" className="w-full h-11 rounded-xl font-semibold"
                 onClick={() => { setShowReceipt(false) }}>
                 {t('sales.new_sale_cta')}
               </Button>

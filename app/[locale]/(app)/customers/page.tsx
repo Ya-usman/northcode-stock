@@ -154,7 +154,8 @@ export default function CustomersPage() {
         </div>
         {(profile?.role === 'owner' || profile?.role === 'cashier') && (
           <Button
-            className="h-9 gap-1 bg-stockshop-blue hover:bg-stockshop-blue-light"
+            variant="stockshop"
+            className="h-9 gap-1"
             size="sm"
             onClick={() => { form.reset({ name: '', phone: '', city: '' }); setEditingCustomer(null); setShowModal(true) }}
           >
@@ -221,7 +222,7 @@ export default function CustomersPage() {
             onCancel={() => setShowModal(false)}
             cancelLabel={t('actions.cancel')}
           >
-            <Button type="submit" loading={saving} className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light">
+            <Button variant="stockshop" type="submit" loading={saving} className="flex-1 h-11 rounded-xl font-semibold">
               {t('actions.save')}
             </Button>
           </PremiumDialogFooter>

@@ -263,7 +263,7 @@ export default function CategoriesPage() {
               <RotateCcw className="h-4 w-4" />
               <span className="hidden sm:inline">{t('categories.restore')}</span>
             </Button>
-            <Button onClick={openDialog} className="bg-stockshop-blue gap-1.5 h-9 px-3 text-sm">
+            <Button variant="stockshop" onClick={openDialog} className="gap-1.5 h-9 px-3 text-sm">
               <Plus className="h-4 w-4" />
               {t('categories.add')}
             </Button>
