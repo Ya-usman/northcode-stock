@@ -61,7 +61,7 @@ function advanceNextDue(dateStr: string, recurrence: 'weekly' | 'monthly', day?:
 }
 
 export default function ExpensesPage() {
-  const { shop, effectiveShopIds } = useAuth()
+  const { shop, effectiveShopIds, profile } = useAuth()
   const [{ monthFilter, categoryFilter }, setFilter] = usePersistedFilters(
     'expenses', shop?.id, { monthFilter: format(new Date(), 'yyyy-MM'), categoryFilter: 'all' }
   )
@@ -315,6 +315,26 @@ export default function ExpensesPage() {
       }
       if (error) { toast({ title: error.message, variant: 'destructive' }); return }
       toast({ title: editing ? t('updated') : (isRecurring ? t('recurring_added') : t('added')), variant: 'success' })
+
+      // Notify owner when a non-owner creates a new (non-recurring) expense
+      const role = profile?.role
+      if (!editing && !isRecurring && role && role !== 'owner' && role !== 'super_admin') {
+        const currency = shop?.currency || 'XOF'
+        const isNGN = currency === 'NGN'
+        const amountStr = isNGN
+          ? `NGN ${Number(amount).toLocaleString('en-NG', { maximumFractionDigits: 0 })}`
+          : `${Number(amount).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} ${currency}`
+        fetch('/api/push/new-expense', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            shop_id: shop!.id,
+            description: description.trim(),
+            amount_str: amountStr,
+            created_by_name: profile?.full_name || null,
+          }),
+        }).catch(() => {})
+      }
 
       // Budget check (only for new expenses in the displayed month, non-recurring)
       if (!editing && !isRecurring && date.slice(0, 7) === monthFilter && budgets[category]) {

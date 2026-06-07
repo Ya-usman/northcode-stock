@@ -20,6 +20,8 @@ export interface Shop {
   notify_whatsapp_each_sale: boolean
   notify_email_low_stock: boolean
   notify_email_daily: boolean
+  notify_push_new_sale: boolean
+  notify_push_new_expense: boolean
   created_at: string
   // SaaS fields
   plan: string | null

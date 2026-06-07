@@ -54,6 +54,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const [pushLoading, setPushLoading] = useState(false)
   const [testingPush, setTestingPush] = useState(false)
   const [notifyPushNewSale, setNotifyPushNewSale] = useState(true)
+  const [notifyPushNewExpense, setNotifyPushNewExpense] = useState(true)
   const [saleSoundEnabled, setSaleSoundEnabled] = useState(() =>
     typeof window !== 'undefined' ? localStorage.getItem('sale_sound_enabled') !== '0' : true
   )
@@ -100,7 +101,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       setNotifyWaEachSale(shopData.notify_whatsapp_each_sale)
       setNotifyEmailLowStock(shopData.notify_email_low_stock)
       setNotifyEmailDaily(shopData.notify_email_daily)
-      setNotifyPushNewSale((shopData as any).notify_push_new_sale ?? true)
+      setNotifyPushNewSale(shopData.notify_push_new_sale ?? true)
+      setNotifyPushNewExpense(shopData.notify_push_new_expense ?? true)
       setLoading(false)
       // Load stored permissions — deep merge so partial DB objects don't lose default keys
       const stored = (shopData as any).role_permissions as Partial<AllPerms> | null
@@ -177,6 +179,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       notify_email_low_stock: notifyEmailLowStock,
       notify_email_daily: notifyEmailDaily,
       notify_push_new_sale: notifyPushNewSale,
+      notify_push_new_expense: notifyPushNewExpense,
     }
     const { error } = await supabase.from('shops').update(updates).eq('id', shop.id)
     setSaving(false)
@@ -437,6 +440,18 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                           />
                         </div>
                       )}
+                      <div className="flex items-center justify-between py-1">
+                        <div>
+                          <Label className="cursor-pointer">Alerte nouvelle dépense</Label>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Recevoir une alerte quand un manager ou caissier ajoute une dépense
+                          </p>
+                        </div>
+                        <Switch
+                          checked={notifyPushNewExpense}
+                          onCheckedChange={v => setNotifyPushNewExpense(v)}
+                        />
+                      </div>
                     </div>
                     {pushEnabled && (
                       <Button
