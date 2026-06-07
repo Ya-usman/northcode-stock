@@ -16,7 +16,7 @@ export function NavigationProgress() {
       const link = (e.target as HTMLElement).closest('a')
       if (!link) return
       const href = link.getAttribute('href')
-      if (!href || href.startsWith('http') || href.startsWith('#') || href.startsWith('mailto')) return
+      if (!href || href.startsWith('http') || href.startsWith('#') || href.startsWith('mailto') || href.startsWith('blob:') || href.startsWith('data:')) return
       if (link.target === '_blank') return
 
       // Ne pas démarrer si on est déjà sur cette page
