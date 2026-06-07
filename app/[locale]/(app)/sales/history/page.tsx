@@ -518,7 +518,22 @@ export default function SalesHistoryPage() {
           <Input value={search} onChange={e => setFilter({ search: e.target.value })} placeholder={t('sales.search_history')} className="pl-9 h-9" />
         </div>
 
-        <Select value={dateFilter} onValueChange={v => setFilter({ dateFilter: v })}>
+        <Select
+          value={dateFilter}
+          onValueChange={v => {
+            if (v === 'custom') {
+              const today = format(new Date(), 'yyyy-MM-dd')
+              const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd')
+              setFilter({
+                dateFilter: v,
+                customStart: customStart || monthStart,
+                customEnd:   customEnd   || today,
+              })
+            } else {
+              setFilter({ dateFilter: v })
+            }
+          }}
+        >
           <SelectTrigger className="w-[140px] h-9"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="today">{t('sales.filter_today')}</SelectItem>
@@ -534,12 +549,15 @@ export default function SalesHistoryPage() {
             <Input
               type="date"
               value={customStart}
+              max={customEnd || format(new Date(), 'yyyy-MM-dd')}
               onChange={e => setFilter({ customStart: e.target.value })}
               className="h-9 w-[140px]"
             />
             <Input
               type="date"
               value={customEnd}
+              min={customStart}
+              max={format(new Date(), 'yyyy-MM-dd')}
               onChange={e => setFilter({ customEnd: e.target.value })}
               className="h-9 w-[140px]"
             />
