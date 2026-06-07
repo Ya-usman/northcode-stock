@@ -18,7 +18,7 @@ const withPWA = require('next-pwa')({
       options: {
         cacheName: 'next-rsc',
         expiration: { maxEntries: 100, maxAgeSeconds: 24 * 60 * 60 },
-        networkTimeoutSeconds: 5,
+        networkTimeoutSeconds: 2,
       },
     },
     // Next.js page HTML — NetworkFirst, 1s timeout so SW serves cache quickly when offline

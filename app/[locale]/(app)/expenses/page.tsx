@@ -112,7 +112,7 @@ export default function ExpensesPage() {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
   }, [])
 
-  const withTimeout = useCallback((p: Promise<any>, ms = 15_000) =>
+  const withTimeout = useCallback((p: Promise<any>, ms = 8_000) =>
     Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Connexion trop lente — réessayez.')), ms))]),
   [])
 
