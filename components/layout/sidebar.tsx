@@ -66,8 +66,8 @@ export function Sidebar({ locale, role, profile, shop, onSignOut, userEmail = ''
       section: t('section_management'),
       items: [
         { href: `/${locale}/reports`, icon: BarChart2, label: t('reports'), roles: ALL_NON_OWNER, feature: 'reports' as PermFeature },
-        { href: `/${locale}/notes`, icon: NotebookPen, label: t('notes'), roles: ['owner', 'manager'] },
-        { href: `/${locale}/expenses`, icon: Receipt, label: t('expenses'), roles: ['owner', 'manager'] },
+        { href: `/${locale}/notes`,    icon: NotebookPen, label: t('notes'),    roles: ALL_NON_OWNER, feature: 'notes' as PermFeature },
+        { href: `/${locale}/expenses`, icon: Receipt,     label: t('expenses'), roles: ALL_NON_OWNER, feature: 'expenses' as PermFeature },
         { href: `/${locale}/team`, icon: Users, label: t('team'), roles: ['owner', 'manager'] },
         { href: `/${locale}/shops`, icon: Store, label: t('shops'), roles: ['owner'] },
         { href: `/${locale}/settings`, icon: Settings, label: t('settings'), roles: ['owner', 'manager'] },

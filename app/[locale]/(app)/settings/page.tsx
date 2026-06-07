@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
-import { Save, Upload, Globe, Moon, Sun, ShoppingCart, History, CreditCard, Users, Package, ArrowLeftRight, Tag, Truck, BarChart2, ShieldCheck, Bell } from 'lucide-react'
+import { Save, Upload, Globe, Moon, Sun, ShoppingCart, History, CreditCard, Users, Package, ArrowLeftRight, Tag, Truck, BarChart2, ShieldCheck, Bell, Receipt, NotebookPen } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -74,7 +74,9 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
     { key: 'categories',    label: t('settings.perm_categories'),    icon: <Tag className="h-4 w-4" /> },
     { key: 'suppliers',     label: t('settings.perm_suppliers'),     icon: <Truck className="h-4 w-4" /> },
     { key: 'reports',        label: t('settings.perm_reports'),        icon: <BarChart2 className="h-4 w-4" /> },
-    { key: 'revenue_chart', label: t('settings.perm_revenue_chart'), icon: <ShieldCheck className="h-4 w-4" /> },
+    { key: 'expenses',       label: t('settings.perm_expenses'),       icon: <Receipt className="h-4 w-4" /> },
+    { key: 'notes',          label: t('settings.perm_notes'),          icon: <NotebookPen className="h-4 w-4" /> },
+    { key: 'revenue_chart',  label: t('settings.perm_revenue_chart'),  icon: <ShieldCheck className="h-4 w-4" /> },
   ]
 
   const ROLE_LABELS: Record<ConfigurableRole, string> = {

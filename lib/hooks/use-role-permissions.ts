@@ -3,7 +3,7 @@ import { useAuthContext } from '@/lib/contexts/auth-context'
 export type PermFeature =
   | 'new_sale' | 'sales_history' | 'payments' | 'customers'
   | 'stock' | 'movements' | 'categories' | 'suppliers' | 'reports'
-  | 'revenue_chart'
+  | 'revenue_chart' | 'notes' | 'expenses'
 
 export type ConfigurableRole = 'manager' | 'cashier' | 'viewer' | 'stock_manager'
 
@@ -22,6 +22,8 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     suppliers: true,
     reports: true,
     revenue_chart: false,
+    notes: true,
+    expenses: true,
   },
   cashier: {
     new_sale: true,
@@ -34,6 +36,8 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     suppliers: false,
     reports: false,
     revenue_chart: false,
+    notes: false,
+    expenses: false,
   },
   viewer: {
     new_sale: false,
@@ -46,6 +50,8 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     suppliers: true,
     reports: true,
     revenue_chart: false,
+    notes: false,
+    expenses: false,
   },
   stock_manager: {
     new_sale: false,
@@ -58,6 +64,8 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     suppliers: true,
     reports: false,
     revenue_chart: false,
+    notes: false,
+    expenses: false,
   },
 }
 

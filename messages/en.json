@@ -524,6 +524,8 @@
     "perm_categories": "Categories",
     "perm_suppliers": "Suppliers",
     "perm_reports": "Reports",
+    "perm_expenses": "Expenses",
+    "perm_notes": "Notes",
     "perm_revenue_chart": "Revenue vs Expenses & Net Result"
   },
   "movements": {
