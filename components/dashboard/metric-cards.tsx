@@ -15,6 +15,7 @@ interface MetricCardsProps {
   monthRevenue?: number
   role: string
   isCashier?: boolean
+  canRevenueChart?: boolean
 }
 
 const container = {
@@ -26,7 +27,7 @@ const item = {
   show: { opacity: 1, y: 0 },
 }
 
-export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outstandingDebt, monthExpenses = 0, monthRevenue = 0, role, isCashier }: MetricCardsProps) {
+export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outstandingDebt, monthExpenses = 0, monthRevenue = 0, role, isCashier, canRevenueChart = false }: MetricCardsProps) {
   const t = useTranslations('dashboard')
   const locale = useLocale()
   const { fmt, symbol } = useCurrency()
@@ -85,7 +86,7 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
       icon: Receipt,
       color: monthExpenses > 0 ? 'text-red-500' : 'text-muted-foreground',
       bg: monthExpenses > 0 ? 'bg-red-50 dark:bg-red-950/30' : 'bg-muted',
-      show: role === 'owner',
+      show: role === 'owner' || canRevenueChart,
     },
     {
       title: t('net_result'),
@@ -102,7 +103,7 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
         : monthRevenue - monthExpenses < 0
           ? 'bg-red-50 dark:bg-red-950/30'
           : 'bg-muted',
-      show: role === 'owner',
+      show: role === 'owner' || canRevenueChart,
     },
   ].filter(c => c.show)
 

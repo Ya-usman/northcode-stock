@@ -73,7 +73,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
     { key: 'movements',     label: t('settings.perm_movements'),     icon: <ArrowLeftRight className="h-4 w-4" /> },
     { key: 'categories',    label: t('settings.perm_categories'),    icon: <Tag className="h-4 w-4" /> },
     { key: 'suppliers',     label: t('settings.perm_suppliers'),     icon: <Truck className="h-4 w-4" /> },
-    { key: 'reports',       label: t('settings.perm_reports'),       icon: <BarChart2 className="h-4 w-4" /> },
+    { key: 'reports',        label: t('settings.perm_reports'),        icon: <BarChart2 className="h-4 w-4" /> },
+    { key: 'revenue_chart', label: t('settings.perm_revenue_chart'), icon: <ShieldCheck className="h-4 w-4" /> },
   ]
 
   const ROLE_LABELS: Record<ConfigurableRole, string> = {

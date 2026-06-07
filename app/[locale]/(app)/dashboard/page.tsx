@@ -21,6 +21,7 @@ import { useCurrency } from '@/lib/hooks/use-currency'
 import { cn } from '@/lib/utils/cn'
 import { PlanStatusBanner } from '@/components/dashboard/plan-status-banner'
 import { CacheBanner } from '@/components/layout/cache-banner'
+import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 
 const supabase = createClient() as any
 
@@ -389,6 +390,8 @@ export default function DashboardPage() {
   const handleRefresh = () => loadDashboard(true)
 
   const isCashierView = (roleInActiveShop ?? profile?.role) === 'cashier'
+  const { canAccess } = useRolePermissions()
+  const canSeeRevenueChart = canAccess('revenue_chart')
   useDashboardRealtime(shop?.id || null, {
     onNewSale: (sale) => {
       if (shopIds.includes(sale.shop_id || '')) {
@@ -546,6 +549,7 @@ export default function DashboardPage() {
         monthRevenue={monthRevenue}
         role={profile?.role || 'viewer'}
         isCashier={isCashierView}
+        canRevenueChart={canSeeRevenueChart}
       />
 
       {/* Stock alerts */}
@@ -559,8 +563,8 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Expense vs Revenue trend — owner only */}
-      {profile?.role === 'owner' && <ExpenseRevenueChart />}
+      {/* Expense vs Revenue trend — owner or permitted roles */}
+      {canSeeRevenueChart && <ExpenseRevenueChart />}
 
       {/* Recent sales — visible for all roles */}
       {(

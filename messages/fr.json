@@ -523,7 +523,8 @@
     "perm_movements": "Mouvements de stock",
     "perm_categories": "Catégories",
     "perm_suppliers": "Fournisseurs",
-    "perm_reports": "Rapports"
+    "perm_reports": "Rapports",
+    "perm_revenue_chart": "Revenus vs Dépenses & Résultat net"
   },
   "movements": {
     "title": "Mouvements de stock",

@@ -522,7 +522,8 @@
     "perm_movements": "Motsin Kambun",
     "perm_categories": "Nau'ikan",
     "perm_suppliers": "Masu Kaya",
-    "perm_reports": "Rahotanni"
+    "perm_reports": "Rahotanni",
+    "perm_revenue_chart": "Kudaden Shiga vs Kashe Kuɗi & Riba Fâk"
   },
   "movements": {
     "title": "Motsi na Kaya",

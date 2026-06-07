@@ -3,6 +3,7 @@ import { useAuthContext } from '@/lib/contexts/auth-context'
 export type PermFeature =
   | 'new_sale' | 'sales_history' | 'payments' | 'customers'
   | 'stock' | 'movements' | 'categories' | 'suppliers' | 'reports'
+  | 'revenue_chart'
 
 export type ConfigurableRole = 'manager' | 'cashier' | 'viewer' | 'stock_manager'
 
@@ -20,6 +21,7 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     categories: true,
     suppliers: true,
     reports: true,
+    revenue_chart: false,
   },
   cashier: {
     new_sale: true,
@@ -31,6 +33,7 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     categories: false,
     suppliers: false,
     reports: false,
+    revenue_chart: false,
   },
   viewer: {
     new_sale: false,
@@ -42,6 +45,7 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     categories: true,
     suppliers: true,
     reports: true,
+    revenue_chart: false,
   },
   stock_manager: {
     new_sale: false,
@@ -53,6 +57,7 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     categories: true,
     suppliers: true,
     reports: false,
+    revenue_chart: false,
   },
 }
 
@@ -63,7 +68,7 @@ export function useRolePermissions() {
   const stored = (shop as any)?.role_permissions as Partial<AllPerms> | null | undefined
 
   function canAccess(feature: PermFeature): boolean {
-    if (!role || role === 'owner' || role === 'manager' || role === 'super_admin') return true
+    if (!role || role === 'owner' || role === 'super_admin') return true
     const cfgRole = role as ConfigurableRole
     if (!DEFAULT_PERMISSIONS[cfgRole]) return false
     const override = stored?.[cfgRole]
