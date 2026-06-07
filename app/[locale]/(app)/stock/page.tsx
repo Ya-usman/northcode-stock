@@ -463,7 +463,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             </SelectContent>
           </Select>
           {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin') && (
-            <Button variant="stockshop" size="sm" className="h-9 px-2" onClick={() => setShowCatModal(true)} title={t('products.manage_categories')}>
+            <Button variant="outline" size="sm" className="h-9 px-2" onClick={() => setShowCatModal(true)} title={t('products.manage_categories')}>
               <Settings2 className="h-4 w-4" />
             </Button>
           )}
@@ -480,10 +480,10 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'cashier' || effectiveRole === 'super_admin') && (
           <>
             <div className="flex gap-1">
-              <Button variant="stockshop" size="sm" onClick={exportCSV} className="h-9 gap-1">
+              <Button variant="outline" size="sm" onClick={exportCSV} className="h-9 gap-1">
                 <FileDown className="h-3.5 w-3.5" /> CSV
               </Button>
-              <Button variant="stockshop" size="sm" className="h-9 gap-1" onClick={() => setShowImportModal(true)}>
+              <Button variant="outline" size="sm" className="h-9 gap-1" onClick={() => setShowImportModal(true)}>
                 <Upload className="h-3.5 w-3.5" /> CSV
               </Button>
             </div>
