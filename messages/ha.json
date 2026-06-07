@@ -908,6 +908,8 @@
     "net_profit": "Riba ta Gaske",
     "category": "KASHE KUƊI",
     "category_label": "Nau'i",
+    "receipt_label": "Takaddun Shaida",
+    "receipt_placeholder": "Hoto ko PDF na rasit (zaɓi)",
     "recurring_label": "Kashe Kuɗi Maimaiko",
     "recurring_desc": "Yana maimaituwa kai tsaye",
     "recurrence_frequency": "Sau nawa",

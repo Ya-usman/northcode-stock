@@ -909,6 +909,8 @@
     "net_profit": "Net Profit",
     "category": "EXPENSE",
     "category_label": "Category",
+    "receipt_label": "Receipt",
+    "receipt_placeholder": "Photo or PDF of receipt (optional)",
     "recurring_label": "Recurring Expense",
     "recurring_desc": "Repeats automatically",
     "recurrence_frequency": "Frequency",

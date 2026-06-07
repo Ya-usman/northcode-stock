@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
-import { Plus, Pencil, Trash2, Receipt, RefreshCw, ChevronDown, ChevronUp, Target, FileDown, FileText, Table2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Receipt, RefreshCw, ChevronDown, ChevronUp, Target, FileDown, FileText, Table2, Camera, Paperclip, X } from 'lucide-react'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { NumericInput } from '@/components/ui/numeric-input'
 import { format, startOfMonth, endOfMonth, addMonths, addWeeks } from 'date-fns'
@@ -95,6 +95,8 @@ export default function ExpensesPage() {
   const [isRecurring, setIsRecurring] = useState(false)
   const [recurrence, setRecurrence]   = useState<'monthly' | 'weekly'>('monthly')
   const [recurrenceDay, setRecurrenceDay] = useState(1)
+  const [receiptFile, setReceiptFile]     = useState<File | null>(null)
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null)
 
   // Budget modal state
   const [budgetModalOpen, setBudgetModalOpen] = useState(false)
@@ -238,6 +240,8 @@ export default function ExpensesPage() {
     setIsRecurring(false)
     setRecurrence('monthly')
     setRecurrenceDay(Math.min(new Date().getDate(), 28))
+    setReceiptFile(null)
+    setReceiptPreview(null)
     supabase.auth.getSession().catch(() => {})
     setModalOpen(true)
   }
@@ -252,13 +256,40 @@ export default function ExpensesPage() {
     setIsRecurring(exp.is_recurring ?? false)
     setRecurrence(exp.recurrence ?? 'monthly')
     setRecurrenceDay(exp.recurrence_day ?? 1)
+    setReceiptFile(null)
+    setReceiptPreview(exp.receipt_url ?? null)
     supabase.auth.getSession().catch(() => {})
     setModalOpen(true)
+  }
+
+  const uploadReceipt = async (file: File): Promise<string | null> => {
+    const ext  = file.name.split('.').pop() ?? 'jpg'
+    const path = `${shop!.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+    const { error } = await supabase.storage.from('expense-receipts').upload(path, file, { contentType: file.type, upsert: false })
+    if (error) return null
+    const { data } = supabase.storage.from('expense-receipts').getPublicUrl(path)
+    return data.publicUrl
+  }
+
+  const deleteReceipt = async (url: string) => {
+    const path = url.split('/expense-receipts/')[1]
+    if (path) await supabase.storage.from('expense-receipts').remove([decodeURIComponent(path)])
   }
 
   const handleSave = async () => {
     if (!shop?.id || !amount || !description.trim()) return
     setSaving(true)
+
+    let receipt_url = editing?.receipt_url ?? null
+    if (receiptFile) {
+      if (editing?.receipt_url) await deleteReceipt(editing.receipt_url)
+      receipt_url = await uploadReceipt(receiptFile)
+    } else if (receiptPreview === null && editing?.receipt_url) {
+      // user cleared the receipt
+      await deleteReceipt(editing.receipt_url)
+      receipt_url = null
+    }
+
     const payload: Partial<Expense> & { shop_id: string } = {
       shop_id:        shop.id,
       amount:         Number(amount),
@@ -271,6 +302,7 @@ export default function ExpensesPage() {
       recurrence_day: isRecurring && recurrence === 'monthly' ? recurrenceDay : null,
       next_due_at:    isRecurring ? date : null,
       template_id:    null,
+      receipt_url,
     }
     try {
       let error: any = null
@@ -720,7 +752,18 @@ export default function ExpensesPage() {
                   <span className="text-base font-bold text-red-600 dark:text-red-400 flex-shrink-0">
                     {fmt(Number(exp.amount))}
                   </span>
-                  <div className="flex gap-1 flex-shrink-0">
+                  <div className="flex gap-1 flex-shrink-0 items-center">
+                    {exp.receipt_url && (
+                      <a
+                        href={exp.receipt_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted transition-colors"
+                        title={t('receipt_label')}
+                      >
+                        <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+                      </a>
+                    )}
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(exp)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
@@ -819,6 +862,60 @@ export default function ExpensesPage() {
           <div className="space-y-1">
             <Label>{t('date')}</Label>
             <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
+          </div>
+
+          {/* Receipt / justificatif */}
+          <div className="space-y-1.5">
+            <Label>{t('receipt_label')}</Label>
+            {receiptPreview ? (
+              <div className="relative rounded-xl border overflow-hidden bg-muted/30">
+                {receiptPreview.match(/\.(jpg|jpeg|png|webp|gif|heic)(\?|$)/i) || (receiptFile && receiptFile.type.startsWith('image/')) ? (
+                  <img src={receiptPreview} alt="justificatif" className="w-full max-h-40 object-cover" />
+                ) : (
+                  <div className="flex items-center gap-2 px-3 py-3">
+                    <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                    <span className="text-sm text-muted-foreground truncate">
+                      {receiptFile?.name ?? t('receipt_label')}
+                    </span>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { setReceiptFile(null); setReceiptPreview(null) }}
+                  className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-black/50 flex items-center justify-center hover:bg-black/70 transition-colors"
+                >
+                  <X className="h-3.5 w-3.5 text-white" />
+                </button>
+                {!receiptFile && receiptPreview && (
+                  <a
+                    href={receiptPreview}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="absolute bottom-1.5 right-1.5 h-6 px-2 rounded-full bg-black/50 flex items-center gap-1 text-[10px] text-white hover:bg-black/70 transition-colors"
+                  >
+                    <Paperclip className="h-3 w-3" /> Voir
+                  </a>
+                )}
+              </div>
+            ) : (
+              <label className="cursor-pointer flex items-center gap-3 rounded-xl border-2 border-dashed border-border px-4 py-4 hover:border-stockshop-blue/50 hover:bg-muted/30 transition-colors">
+                <Camera className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                <span className="text-sm text-muted-foreground">{t('receipt_placeholder')}</span>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  capture="environment"
+                  className="sr-only"
+                  onChange={e => {
+                    const file = e.target.files?.[0]
+                    if (!file) return
+                    setReceiptFile(file)
+                    setReceiptPreview(URL.createObjectURL(file))
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+            )}
           </div>
 
           {/* Recurring toggle */}

@@ -909,6 +909,8 @@
     "net_profit": "Bénéfice net",
     "category": "DÉPENSE",
     "category_label": "Catégorie",
+    "receipt_label": "Justificatif",
+    "receipt_placeholder": "Photo ou PDF du reçu (optionnel)",
     "recurring_label": "Dépense récurrente",
     "recurring_desc": "Se répète automatiquement",
     "recurrence_frequency": "Fréquence",

@@ -56,6 +56,7 @@ export interface Expense {
   recurrence_day: number | null
   next_due_at: string | null
   template_id: string | null
+  receipt_url: string | null
   created_by: string | null
   created_at: string
   updated_at: string
