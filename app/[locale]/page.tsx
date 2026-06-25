@@ -96,10 +96,22 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
     },
   ]
 
-  const formatPrice = (n: number) =>
-    country.currency === 'NGN'
-      ? `₦${n.toLocaleString('en-NG')}`
-      : `${n.toLocaleString('fr-FR')} FCFA`
+  const formatPrice = (n: number) => {
+    const { currency } = country
+    if (currency === 'NGN') return `₦${n.toLocaleString('en-NG')}`
+    if (currency === 'EUR') return `${n.toFixed(2).replace('.', ',')} €`
+    if (currency === 'USD') return `$${n.toFixed(2)}`
+    if (currency === 'CAD') return `CA$${n.toFixed(2)}`
+    if (currency === 'GHS') return `GH₵ ${n}`
+    if (currency === 'GNF') return `${n.toLocaleString('fr-FR')} FG`
+    if (currency === 'GMD') return `D ${n}`
+    if (currency === 'SLE') return `Le ${n}`
+    if (currency === 'LRD') return `L$${n.toLocaleString('en-US')}`
+    if (currency === 'CVE') return `${n.toLocaleString('fr-FR')} Esc`
+    if (currency === 'MRU') return `${n} UM`
+    if (currency === 'CDF') return `${n.toLocaleString('fr-FR')} FC`
+    return `${n.toLocaleString('fr-FR')} FCFA`
+  }
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
@@ -380,10 +392,10 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
               })}
             </div>
             <p className="text-xs text-muted-foreground mt-2 flex items-center justify-center gap-1">
-              {country.gateway === 'paystack'
-                ? <><CreditCard className="h-3.5 w-3.5" /> Paystack · Carte, Virement, USSD</>
-                : <><Smartphone className="h-3.5 w-3.5" /> Flutterwave · MTN MoMo · Orange Money · Wave</>
-              }
+              {country.gateway === 'paystack' && <><CreditCard className="h-3.5 w-3.5" /> Paystack · Carte · Virement · USSD</>}
+              {country.gateway === 'notchpay' && <><CreditCard className="h-3.5 w-3.5" /> NotchPay · MTN MoMo · Orange Money · Visa / Mastercard</>}
+              {country.gateway === 'flutterwave' && <><Smartphone className="h-3.5 w-3.5" /> Flutterwave · Mobile Money · Visa / Mastercard</>}
+              {country.gateway === 'stripe' && <><CreditCard className="h-3.5 w-3.5" /> Stripe · Visa · Mastercard · PayPal</>}
             </p>
           </div>
 
