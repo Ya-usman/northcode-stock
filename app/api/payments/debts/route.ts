@@ -96,8 +96,8 @@ export async function GET(request: Request) {
         const totalDebt = Number(customer.total_debt)
         return { customer, unpaidSales, totalDebt }
       })
-      .filter(d => d.totalDebt > 0 || d.unpaidSales.length > 0)
-      .sort((a, b) => b.totalDebt - a.totalDebt)
+      .filter((d: any) => d.totalDebt > 0 || d.unpaidSales.length > 0)
+      .sort((a: any, b: any) => b.totalDebt - a.totalDebt)
 
     return NextResponse.json({ debtors })
   } catch (err: any) {

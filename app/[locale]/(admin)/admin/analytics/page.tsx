@@ -78,7 +78,7 @@ export default async function AnalyticsPage({
   const shopCurrencyMap: Record<string, string> = shops.reduce((acc: any, s: any) => { acc[s.id] = s.currency || '₦'; return acc }, {})
   const monthlyData = buildMonthlyGrowth(shops, subs)
 
-  const activeSubs = subs.filter(s => s.status === 'active')
+  const activeSubs = subs.filter((s: any) => s.status === 'active')
   let totalNGN = 0, totalCFA = 0
   for (const s of activeSubs) {
     const cur = shopCurrencyMap[s.shop_id] || '₦'
@@ -96,7 +96,7 @@ export default async function AnalyticsPage({
     d.setMonth(d.getMonth() - i)
     const start = new Date(d.getFullYear(), d.getMonth(), 1)
     const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59)
-    const monthShops = shops.filter(s => {
+    const monthShops = shops.filter((s: any) => {
       const c = new Date(s.created_at)
       return c >= start && c <= end
     })

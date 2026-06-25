@@ -756,9 +756,9 @@
     },
     "hero": {
       "badge": "Nigeria & Cameroun",
-      "title": "Gérez votre boutique",
-      "title_highlight": "plus intelligemment",
-      "subtitle": "Le seul système de gestion de stock conçu pour les boutiques d'Afrique de l'Ouest — stocks, ventes, crédits, rapports.",
+      "title": "Gérez votre business",
+      "title_highlight": "de A à Z",
+      "subtitle": "Ventes, stock, dépenses, équipe, rapports — tout ce dont votre commerce a besoin, dans une seule application mobile.",
       "cta_primary": "Démarrer l'essai gratuit 30 jours",
       "cta_secondary": "Voir les fonctionnalités",
       "no_card": "Sans carte bancaire • Annulation à tout moment • Fonctionne sur tout téléphone",
@@ -768,7 +768,7 @@
     },
     "trust": {
       "label": "Utilisé par des boutiques à",
-      "cities": "Lagos · Douala · Abidjan · Bamako · Niamey · Cotonou · Lomé · Kano"
+      "cities": "Lagos · Paris · Toronto · Kano · Douala · New York · Abidjan · Lyon · Dakar · Londres"
     },
     "features": {
       "title": "Tout ce dont votre boutique a besoin",
@@ -781,23 +781,62 @@
       "f3_desc": "Enregistrez les ventes à crédit, suivez les soldes, encaissez facilement.",
       "f4_title": "Rapports & analyses",
       "f4_desc": "Revenu journalier, top produits, performance caissier. Connaissez vos chiffres.",
-      "f5_title": "Multilingue",
-      "f5_desc": "Support complet anglais, français et haoussa. Changez de langue à tout moment.",
-      "f6_title": "Nigeria & Cameroun",
-      "f6_desc": "Paystack pour le Nigeria. MTN MoMo & Orange Money pour le Cameroun. Chaque pays dans sa devise."
+      "f5_title": "Dépenses & justificatifs",
+      "f5_desc": "Suivez toutes vos dépenses, joignez des photos ou PDF. Comparez revenus et dépenses en un graphe clair.",
+      "f6_title": "Application mobile",
+      "f6_desc": "Installez StockShop sur Android ou iPhone. Fonctionne hors connexion — vos données se synchronisent dès que vous reconnectez."
+    },
+    "modules": {
+      "title": "Tout en une seule app",
+      "subtitle": "StockShop couvre l'ensemble de votre activité — pas seulement le stock.",
+      "m1": "Ventes & caisse",
+      "m2": "Gestion du stock",
+      "m3": "Fournisseurs",
+      "m4": "Clients & crédits",
+      "m5": "Dépenses & reçus",
+      "m6": "Notes internes",
+      "m7": "Équipe & permissions",
+      "m8": "Multi-boutiques",
+      "m9": "Rapports & graphes",
+      "m10": "Notifications push",
+      "m11": "Application mobile",
+      "m12": "Mode hors ligne"
     },
     "testimonials": {
-      "title": "Ce que disent les propriétaires",
+      "title": "Ce que disent nos clients",
       "rating": "4,9/5 selon 200+ avis",
       "t1_name": "Alhaji Musa Ibrahim",
       "t1_shop": "Musa General Store, Kano",
       "t1_text": "Avant StockShop, je ne savais jamais combien je faisais par jour. Maintenant je vérifie mon téléphone et je sais tout.",
+      "t1_initials": "MI",
       "t2_name": "Jean-Pierre Mbarga",
       "t2_shop": "Mbarga Electronics, Douala",
       "t2_text": "Le suivi des crédits a changé ma gestion. Tout est enregistré, plus de disputes avec les clients.",
+      "t2_initials": "JM",
       "t3_name": "Mamadou Koné",
       "t3_shop": "Koné Mobile Store, Abidjan",
-      "t3_text": "StockShop a transformé la gestion de ma boutique. Je connais mon stock et mes bénéfices en temps réel, même quand je suis absent."
+      "t3_text": "StockShop a transformé ma boutique. Je connais mon stock et mes bénéfices en temps réel, même quand je suis absent.",
+      "t3_initials": "MK",
+      "t4_name": "Aminata Diallo",
+      "t4_shop": "Diallo Mode, Dakar",
+      "t4_text": "La gestion des dépenses avec les reçus, c'est exactement ce qu'il me manquait. Je vois enfin la différence entre mon chiffre d'affaires et mon bénéfice réel.",
+      "t4_initials": "AD",
+      "t5_name": "Sophie Martin",
+      "t5_shop": "Boutique Tropicale, Paris",
+      "t5_text": "J'importe des produits d'Afrique de l'Ouest. StockShop me permet de tout gérer depuis Paris en euros. L'application mobile est parfaite.",
+      "t5_initials": "SM",
+      "t6_name": "Emmanuel Adeyemi",
+      "t6_shop": "Adeyemi Superstore, Lagos",
+      "t6_text": "Avec plusieurs boutiques à gérer, j'avais besoin d'un outil fiable. StockShop me donne une vue complète de toutes mes boutiques depuis mon téléphone.",
+      "t6_initials": "EA",
+      "t7_name": "Marie-Claire Tossou",
+      "t7_shop": "MC Beauté, Cotonou",
+      "t7_text": "Les notifications quand mes caissières font des ventes me donnent la tranquillité d'esprit. Je sais ce qui se passe même quand je suis absente.",
+      "t7_initials": "MT",
+      "t8_name": "Ibrahim Al-Hassan",
+      "t8_shop": "Al-Hassan Halal Market, Toronto",
+      "t8_text": "Je gère ma boutique au Canada avec StockShop. Le support multi-devises et le mode hors ligne sont exactement ce qu'il faut.",
+      "t8_initials": "IA"
     },
     "pricing": {
       "title": "Tarifs simples et transparents",
@@ -823,12 +862,12 @@
     },
     "cta": {
       "title": "Prêt à connaître vos chiffres ?",
-      "subtitle": "Rejoignez des centaines de boutiques au Nigeria et au Cameroun qui utilisent déjà StockShop.",
+      "subtitle": "Rejoignez des centaines de commerces en Afrique, en Europe et en Amérique du Nord qui utilisent déjà StockShop.",
       "button": "Créer un compte gratuit",
       "note": "Sans carte bancaire • Configuration en 2 minutes"
     },
     "footer": {
-      "secure": "Sécurisé • Privé • Made in Africa",
+      "secure": "Sécurisé • Privé • Disponible partout dans le monde",
       "rights": "© {year} StockShop. Tous droits réservés."
     }
   },

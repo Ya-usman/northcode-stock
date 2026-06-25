@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Vous ne pouvez pas vous supprimer vous-même' }, { status: 400 })
     }
 
-    const admin = await createAdminClient()
+    const admin = createAdminClient() as any
 
     // 1. Deactivate membership for this shop (soft delete — preserves sales attribution)
     await admin.from('shop_members')

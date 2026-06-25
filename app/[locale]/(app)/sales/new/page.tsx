@@ -677,7 +677,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         shopId: selectedShop!.id,
         total: totalToCollect,
         currencySymbol: selectedShop!.currency || '₦',
-        cashierName: profile?.full_name || profile?.email || undefined,
+        cashierName: profile?.full_name || undefined,
         paymentLabel: shopCountry.paymentMethods.find(m => m.id === paymentMethod)?.label || paymentMethod,
       })
       checkAndNotifyLowStock(selectedShop!.id, soldProductIds).catch(() => {})

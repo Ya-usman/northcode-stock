@@ -172,7 +172,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut, userEmail = ''
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
         {navItems.map((section) => {
           const visibleItems = section.items.filter(item =>
-            item.roles.includes(role) && (!item.feature || canAccess(item.feature))
+            item.roles.includes(role) && (!(item as any).feature || canAccess((item as any).feature))
           )
           if (visibleItems.length === 0) return null
 

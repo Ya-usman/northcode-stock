@@ -756,9 +756,9 @@
     },
     "hero": {
       "badge": "Nigeria & Cameroon",
-      "title": "Run your boutique",
-      "title_highlight": "smarter, not harder",
-      "subtitle": "The only inventory system designed for West African boutiques — track stock, record sales, manage credit, and know your numbers.",
+      "title": "Run your business",
+      "title_highlight": "from A to Z",
+      "subtitle": "Sales, stock, expenses, team, reports — everything your business needs, in one mobile app.",
       "cta_primary": "Start Free 30-day Trial",
       "cta_secondary": "See Features",
       "no_card": "No credit card required • Cancel anytime • Works on any phone",
@@ -768,7 +768,7 @@
     },
     "trust": {
       "label": "Trusted by boutiques in",
-      "cities": "Lagos · Douala · Abidjan · Bamako · Niamey · Cotonou · Lomé · Kano"
+      "cities": "Lagos · Paris · Toronto · Kano · Douala · New York · Abidjan · Lyon · Dakar · London"
     },
     "features": {
       "title": "Everything your shop needs",
@@ -781,23 +781,62 @@
       "f3_desc": "Record credit sales, track balances, and collect payments easily.",
       "f4_title": "Reports & insights",
       "f4_desc": "Daily revenue, top products, cashier performance. Know your numbers.",
-      "f5_title": "Multi-language",
-      "f5_desc": "Full support for English, French and Hausa. Switch language anytime.",
-      "f6_title": "Nigeria & Cameroon",
-      "f6_desc": "Paystack for Nigeria. MTN MoMo & Orange Money for Cameroon. Each in their own currency."
+      "f5_title": "Expenses & receipts",
+      "f5_desc": "Track all your expenses, attach photos or PDFs as proof. Compare revenue vs expenses in a clear chart.",
+      "f6_title": "Mobile app",
+      "f6_desc": "Install StockShop on Android or iPhone. Works offline — your data syncs automatically when you reconnect."
+    },
+    "modules": {
+      "title": "Everything in one app",
+      "subtitle": "StockShop covers your entire business — not just stock.",
+      "m1": "Sales & checkout",
+      "m2": "Stock management",
+      "m3": "Suppliers",
+      "m4": "Customers & credit",
+      "m5": "Expenses & receipts",
+      "m6": "Internal notes",
+      "m7": "Team & permissions",
+      "m8": "Multi-shop",
+      "m9": "Reports & charts",
+      "m10": "Push notifications",
+      "m11": "Mobile app",
+      "m12": "Offline mode"
     },
     "testimonials": {
-      "title": "What shop owners say",
+      "title": "What our customers say",
       "rating": "4.9/5 from 200+ reviews",
       "t1_name": "Alhaji Musa Ibrahim",
       "t1_shop": "Musa General Store, Kano",
       "t1_text": "Before StockShop, I never knew how much I was making daily. Now I check my phone and I know everything.",
+      "t1_initials": "MI",
       "t2_name": "Jean-Pierre Mbarga",
       "t2_shop": "Mbarga Electronics, Douala",
       "t2_text": "The credit tracking changed my management. Everything is recorded, no more disputes with customers.",
+      "t2_initials": "JM",
       "t3_name": "Mamadou Koné",
       "t3_shop": "Koné Mobile Store, Abidjan",
-      "t3_text": "StockShop transformed my shop management. I know my stock and profits in real time, even when I am away."
+      "t3_text": "StockShop transformed my shop. I know my stock and profits in real time, even when I'm away.",
+      "t3_initials": "MK",
+      "t4_name": "Aminata Diallo",
+      "t4_shop": "Diallo Fashion, Dakar",
+      "t4_text": "Expense tracking with receipts was exactly what I was missing. I can finally see the difference between my revenue and real profit.",
+      "t4_initials": "AD",
+      "t5_name": "Sophie Martin",
+      "t5_shop": "Boutique Tropicale, Paris",
+      "t5_text": "I import products from West Africa. StockShop lets me manage everything from Paris in euros. The mobile app is perfect.",
+      "t5_initials": "SM",
+      "t6_name": "Emmanuel Adeyemi",
+      "t6_shop": "Adeyemi Superstore, Lagos",
+      "t6_text": "Managing multiple shops, I needed a reliable tool. StockShop gives me a complete view of all my stores from my phone.",
+      "t6_initials": "EA",
+      "t7_name": "Marie-Claire Tossou",
+      "t7_shop": "MC Beauty, Cotonou",
+      "t7_text": "Getting notifications when my cashiers make sales gives me peace of mind. I know what's happening even when I'm away.",
+      "t7_initials": "MT",
+      "t8_name": "Ibrahim Al-Hassan",
+      "t8_shop": "Al-Hassan Halal Market, Toronto",
+      "t8_text": "I run my shop in Canada with StockShop. Multi-currency support and offline mode are exactly what's needed.",
+      "t8_initials": "IA"
     },
     "pricing": {
       "title": "Simple, honest pricing",
@@ -823,12 +862,12 @@
     },
     "cta": {
       "title": "Ready to know your business numbers?",
-      "subtitle": "Join hundreds of boutiques in Nigeria and Cameroon already using StockShop.",
+      "subtitle": "Join hundreds of businesses across Africa, Europe and North America already using StockShop.",
       "button": "Create Free Account",
       "note": "No credit card • Setup in 2 minutes"
     },
     "footer": {
-      "secure": "Secure • Private • Made in Africa",
+      "secure": "Secure • Private • Available Worldwide",
       "rights": "© {year} StockShop. All rights reserved."
     }
   },

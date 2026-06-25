@@ -12,7 +12,7 @@ export async function DELETE(
     const { user } = await getAuthedUser()
     if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
-    const admin = createAdminClient()
+    const admin = createAdminClient() as any
 
     const { data: shop } = await admin
       .from('shops').select('id, owner_id, name, deleted_at').eq('id', shopId).single()
@@ -80,7 +80,7 @@ export async function POST(
       return NextResponse.json({ error: 'Réservé au support StockShop' }, { status: 403 })
     }
 
-    const admin = createAdminClient()
+    const admin = createAdminClient() as any
     const { data: shop } = await admin.from('shops').select('id, deleted_at').eq('id', shopId).single()
 
     if (!shop) return NextResponse.json({ error: 'Boutique introuvable' }, { status: 404 })
@@ -114,7 +114,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Réservé au support StockShop' }, { status: 403 })
     }
 
-    const admin = createAdminClient()
+    const admin = createAdminClient() as any
     const { error } = await admin.from('shops').update({ deleted_at: null }).eq('id', shopId)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ success: true })

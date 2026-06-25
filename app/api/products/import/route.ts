@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     if (!Array.isArray(rows) || rows.length === 0) return NextResponse.json({ error: 'Aucune ligne à importer' }, { status: 400 })
     if (rows.length > 500) return NextResponse.json({ error: 'Maximum 500 produits par import' }, { status: 400 })
 
-    const admin = createAdminClient()
+    const admin = createAdminClient() as any
 
     // Verify user owns/belongs to this shop
     const { data: shopData } = await admin.from('shops').select('id').eq('id', shop_id).single()

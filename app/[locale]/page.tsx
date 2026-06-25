@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
-  ShoppingCart, Package, Users, BarChart2, MessageCircle,
+  ShoppingCart, Package, Users, BarChart2, Receipt,
   CheckCircle2, ArrowRight, Star, Shield, Zap, CreditCard, Smartphone, Sun, Moon, Menu, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -24,7 +24,7 @@ const LANGUAGES = [
   { code: 'ha', flag: '🇳🇬', label: 'Hausa' },
 ]
 
-const FEATURE_ICONS = [ShoppingCart, Package, Users, BarChart2, MessageCircle, CreditCard]
+const FEATURE_ICONS = [ShoppingCart, Package, Users, BarChart2, Receipt, Smartphone]
 const FEATURE_COLORS = [
   'text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-950/40',
   'text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-950/40',
@@ -60,10 +60,17 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
   ]
 
   const testimonials = [
-    { name: t('testimonials.t1_name'), shop: t('testimonials.t1_shop'), text: t('testimonials.t1_text'), initials: 'MI' },
-    { name: t('testimonials.t2_name'), shop: t('testimonials.t2_shop'), text: t('testimonials.t2_text'), initials: 'JM' },
-    { name: t('testimonials.t3_name'), shop: t('testimonials.t3_shop'), text: t('testimonials.t3_text'), initials: 'UG' },
+    { name: t('testimonials.t1_name'), shop: t('testimonials.t1_shop'), text: t('testimonials.t1_text'), initials: t('testimonials.t1_initials') },
+    { name: t('testimonials.t2_name'), shop: t('testimonials.t2_shop'), text: t('testimonials.t2_text'), initials: t('testimonials.t2_initials') },
+    { name: t('testimonials.t3_name'), shop: t('testimonials.t3_shop'), text: t('testimonials.t3_text'), initials: t('testimonials.t3_initials') },
+    { name: t('testimonials.t4_name'), shop: t('testimonials.t4_shop'), text: t('testimonials.t4_text'), initials: t('testimonials.t4_initials') },
+    { name: t('testimonials.t5_name'), shop: t('testimonials.t5_shop'), text: t('testimonials.t5_text'), initials: t('testimonials.t5_initials') },
+    { name: t('testimonials.t6_name'), shop: t('testimonials.t6_shop'), text: t('testimonials.t6_text'), initials: t('testimonials.t6_initials') },
+    { name: t('testimonials.t7_name'), shop: t('testimonials.t7_shop'), text: t('testimonials.t7_text'), initials: t('testimonials.t7_initials') },
+    { name: t('testimonials.t8_name'), shop: t('testimonials.t8_shop'), text: t('testimonials.t8_text'), initials: t('testimonials.t8_initials') },
   ]
+
+  const modules = Array.from({ length: 12 }, (_, i) => t(`modules.m${i + 1}`))
 
   const plans = [
     {
@@ -275,9 +282,41 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
         </div>
       </section>
 
+      {/* ── MODULES ── */}
+      <section className="py-10 md:py-14 px-4 border-y border-gray-200 dark:border-gray-700">
+        <div className="mx-auto max-w-4xl text-center">
+          <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            {t('modules.title')}
+          </h2>
+          <p className="text-muted-foreground text-sm mb-6">{t('modules.subtitle')}</p>
+          <div className="flex flex-wrap justify-center gap-2">
+            {modules.map(m => (
+              <span
+                key={m}
+                className="px-3 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 shadow-sm"
+              >
+                {m}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── TESTIMONIALS ── */}
-      <section id="testimonials" className="bg-gray-50 dark:bg-gray-800/50 py-12 md:py-20 px-4">
-        <div className="mx-auto max-w-6xl">
+      <section id="testimonials" className="bg-gray-50 dark:bg-gray-800/50 py-12 md:py-20">
+        <style>{`
+          @keyframes marquee-left {
+            from { transform: translateX(0) }
+            to   { transform: translateX(-50%) }
+          }
+          .marquee-track {
+            animation: marquee-left 50s linear infinite;
+            will-change: transform;
+          }
+          .marquee-track:hover { animation-play-state: paused; }
+        `}</style>
+
+        <div className="mx-auto max-w-6xl px-4">
           <div className="text-center mb-10">
             <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-3">{t('testimonials.title')}</h2>
             <div className="flex justify-center gap-1 mb-2">
@@ -285,13 +324,14 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
             </div>
             <p className="text-muted-foreground text-sm md:text-base">{t('testimonials.rating')}</p>
           </div>
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-            {testimonials.map((item, i) => (
-              <motion.div
-                key={item.name}
-                initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
-                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm"
+        <div className="overflow-hidden">
+          <div className="marquee-track flex gap-4 pl-4" style={{ width: 'max-content' }}>
+            {[...testimonials, ...testimonials].map((item, i) => (
+              <div
+                key={i}
+                className="flex-shrink-0 w-72 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm"
               >
                 <div className="flex items-center gap-3 mb-3">
                   <div className="h-9 w-9 rounded-full bg-stockshop-blue flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
@@ -304,9 +344,9 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
                 </div>
                 <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed italic">"{item.text}"</p>
                 <div className="flex gap-0.5 mt-3">
-                  {[...Array(5)].map((_, i) => <Star key={i} className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />)}
+                  {[...Array(5)].map((_, j) => <Star key={j} className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />)}
                 </div>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>

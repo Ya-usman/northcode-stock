@@ -48,7 +48,7 @@ export async function POST(request: Request) {
         .eq('owner_id', user.id)
         .is('deleted_at', null)
         .order('created_at', { ascending: true })
-      const best = (ownerShops ?? []).find(s => hasActiveSubscription(s.plan, s.plan_expires_at))
+      const best = (ownerShops ?? []).find((s: any) => hasActiveSubscription(s.plan, s.plan_expires_at))
         ?? (ownerShops ?? [])[0] ?? null
       refPlan = (best as any)?.plan ?? 'trial'
       refExpiry = (best as any)?.plan_expires_at ?? null

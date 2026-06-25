@@ -91,7 +91,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
     sessionStorage.setItem('session_alive', '1')
     await fetch('/api/auth/set-role', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
     const { data: profileData } = await supabase.from('profiles').select('locale').eq('id', authData.user.id).single()
-    const preferredLocale = profileData?.locale || document.cookie.match(/NEXT_LOCALE=([^;]+)/)?.[1] || localStorage.getItem('NEXT_LOCALE') || locale
+    const preferredLocale = (profileData as any)?.locale || document.cookie.match(/NEXT_LOCALE=([^;]+)/)?.[1] || localStorage.getItem('NEXT_LOCALE') || locale
     localStorage.setItem('NEXT_LOCALE', preferredLocale)
     setLocaleCookie(preferredLocale)
     router.push(`/${preferredLocale}/dashboard`)
@@ -105,10 +105,10 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
       // what was sent to Supabase — no dependency on client internal storage.
       const array = new Uint8Array(32)
       crypto.getRandomValues(array)
-      const verifier = btoa(String.fromCharCode(...array))
+      const verifier = btoa(String.fromCharCode(...Array.from(array)))
         .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
       const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))
-      const challenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
+      const challenge = btoa(String.fromCharCode(...Array.from(new Uint8Array(digest))))
         .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
 
       localStorage.setItem('__oauth_pkce_verifier', verifier)
@@ -125,7 +125,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
 
       try {
         const { App } = await import('@capacitor/app')
-        await App.openUrl({ url: oauthUrl })
+        await (App as any).openUrl({ url: oauthUrl })
       } catch {
         window.location.href = oauthUrl
       }

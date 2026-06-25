@@ -186,8 +186,8 @@ export async function getPendingCount(shopId: string): Promise<number> {
 export async function getTotalPendingCount(): Promise<number> {
   const db = await getDB()
   const [sales, movements] = await Promise.all([
-    db.getAllFromIndex('pending_sales', 'synced', false),
-    db.getAllFromIndex('pending_movements', 'synced', false),
+    db.getAllFromIndex('pending_sales', 'synced', false as any),
+    db.getAllFromIndex('pending_movements', 'synced', false as any),
   ])
   return sales.length + movements.length
 }

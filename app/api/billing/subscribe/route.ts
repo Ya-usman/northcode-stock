@@ -78,7 +78,7 @@ export async function POST(request: Request) {
       const secret = process.env.PAYSTACK_SECRET_KEY
       if (!secret) return NextResponse.json({ error: 'Paystack not configured' }, { status: 500 })
 
-      const channels = toPaystackChannels(payment_method)
+      const channels = toPaystackChannels(payment_method ?? '')
 
       const res = await fetchWithTimeout('https://api.paystack.co/transaction/initialize', {
         method: 'POST',
@@ -161,7 +161,7 @@ export async function POST(request: Request) {
       if (!secretKey) return NextResponse.json({ error: 'Flutterwave not configured' }, { status: 500 })
 
       const tx_ref = `SS-${shop_id.slice(0, 8)}-${Date.now()}`
-      const payment_options = toFlutterwaveOption(payment_method, country.code)
+      const payment_options = toFlutterwaveOption(payment_method ?? '', country.code)
 
       const res = await fetchWithTimeout('https://api.flutterwave.com/v3/payments', {
         method: 'POST',

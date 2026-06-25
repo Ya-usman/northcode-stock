@@ -104,7 +104,7 @@ export default function StockMovementsPage() {
       }
     }
 
-    for (const p of map.values())
+    for (const p of Array.from(map.values()))
       p.restocks.sort((a, b) => b.created_at.localeCompare(a.created_at))
 
     let list = Array.from(map.values())

@@ -5,7 +5,7 @@ import { DeletedShopsPanel } from '@/components/admin/deleted-shops-panel'
 export const dynamic = 'force-dynamic'
 
 export default async function AdminShopsPage({ params: { locale } }: { params: { locale: string } }) {
-  const supabase = createAdminClient()
+  const supabase = createAdminClient() as any
 
   const [{ data: shops }, { data: deletedShops }, { data: subs }, { data: profiles }] = await Promise.all([
     supabase.from('shops').select('id, name, city, country, currency, plan, trial_ends_at, plan_expires_at, created_at, whatsapp, owner_id')

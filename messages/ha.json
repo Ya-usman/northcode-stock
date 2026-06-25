@@ -755,9 +755,9 @@
     },
     "hero": {
       "badge": "Najeriya & Kamaru",
-      "title": "Gudanar da kantin ku",
-      "title_highlight": "da wayo, ba da wahala ba",
-      "subtitle": "Tsarin kula da kaya da aka tsara don kantunan Afirka ta Yamma — kaya, sayarwa, bashi, da rahoto.",
+      "title": "Gudanar da kasuwancin ku",
+      "title_highlight": "daga farko zuwa ƙarshe",
+      "subtitle": "Sayarwa, kaya, kashe-kashe, ƙungiya, rahoto — duk abin da kasuwancin ku ke bukata, a cikin app ɗaya na wayar hannu.",
       "cta_primary": "Fara Gwaji Kyauta na Kwanaki 30",
       "cta_secondary": "Duba Abubuwa",
       "no_card": "Ba kati ba • Soke kowane lokaci • Yana aiki a kowane wayar hannu",
@@ -767,7 +767,7 @@
     },
     "trust": {
       "label": "Kantuna suna amfani a",
-      "cities": "Lagos · Douala · Abidjan · Bamako · Niamey · Cotonou · Lomé · Kano"
+      "cities": "Lagos · Paris · Toronto · Kano · Douala · New York · Abidjan · Lyon · Dakar · Landan"
     },
     "features": {
       "title": "Duk abin da kantin ku ke bukata",
@@ -780,23 +780,62 @@
       "f3_desc": "Rubuta sayarwa bisa bashi, bi diddigin ma'auni, tattara kudi.",
       "f4_title": "Rahoto & bayanai",
       "f4_desc": "Kudaden yau, manyan kayayyaki, aikin ma'aikata. San lambobin kasuwancin ku.",
-      "f5_title": "Harsuna da yawa",
-      "f5_desc": "Turanci, Faransanci, da Hausa. Canza harshe a kowane lokaci.",
-      "f6_title": "Najeriya & Kamaru",
-      "f6_desc": "Paystack don Najeriya. MTN MoMo & Orange Money don Kamaru."
+      "f5_title": "Kashe-kashe & Rasidodi",
+      "f5_desc": "Bi diddigi duk kashe-kashenku, kara hotuna ko PDF a matsayin tabbaci. Kwatanta kudaden shiga da kashe-kashe.",
+      "f6_title": "App na Wayar Hannu",
+      "f6_desc": "Saka StockShop a Android ko iPhone. Yana aiki ko ba da cibiyar sadarwa ba — bayananku suna sync kai tsaye lokacin da kuka sake haɗa."
+    },
+    "modules": {
+      "title": "Komai a cikin app ɗaya",
+      "subtitle": "StockShop ya rufe dukkan kasuwancin ku — ba kaya kawai ba.",
+      "m1": "Sayarwa & kudi",
+      "m2": "Sarrafa kaya",
+      "m3": "Masu samar da kaya",
+      "m4": "Abokan ciniki & bashi",
+      "m5": "Kashe-kashe & rasidodi",
+      "m6": "Rubutun ciki",
+      "m7": "Ƙungiya & izini",
+      "m8": "Yawan kantuna",
+      "m9": "Rahoto & zane-zane",
+      "m10": "Sanarwar push",
+      "m11": "App na wayar hannu",
+      "m12": "Yanayin offline"
     },
     "testimonials": {
-      "title": "Abin da masu kantin suka ce",
+      "title": "Abin da abokan ciniki suke cewa",
       "rating": "4.9/5 daga sakonnin 200+",
       "t1_name": "Alhaji Musa Ibrahim",
       "t1_shop": "Musa General Store, Kano",
       "t1_text": "Kafin StockShop, ban taba sanin nawa nake samu kowace rana ba. Yanzu ina duba wayata kuma na san komai.",
+      "t1_initials": "MI",
       "t2_name": "Jean-Pierre Mbarga",
       "t2_shop": "Mbarga Electronics, Douala",
       "t2_text": "Bin diddigin bashi ya canza yadda nake gudanarwa. Duk ya rubuta, ba gardama da abokan ciniki.",
+      "t2_initials": "JM",
       "t3_name": "Mamadou Koné",
       "t3_shop": "Koné Mobile Store, Abidjan",
-      "t3_text": "StockShop ya canza yadda nake gudanar da kantin ku. Ina san abubuwan da nake da su da riba a lokacin gaske."
+      "t3_text": "StockShop ya canza kantin na. Ina san kayayyaki da riba a lokaci na gaske, ko da ina nesa.",
+      "t3_initials": "MK",
+      "t4_name": "Aminata Diallo",
+      "t4_shop": "Diallo Mode, Dakar",
+      "t4_text": "Sarrafa kashe-kashe tare da rasidodi shine daidai abin da na rasa. Yanzu ina ganin bambanci tsakanin kudinata da riba ta gaske.",
+      "t4_initials": "AD",
+      "t5_name": "Sophie Martin",
+      "t5_shop": "Boutique Tropicale, Paris",
+      "t5_text": "Ina shigo da kayayyaki daga Afirka ta Yamma. StockShop ya bani damar gudanar da komai daga Paris cikin euro. App din wayar ta yi kyau sosai.",
+      "t5_initials": "SM",
+      "t6_name": "Emmanuel Adeyemi",
+      "t6_shop": "Adeyemi Superstore, Lagos",
+      "t6_text": "Da yawan kantuna da nake gudanarwa, na bukata kayan aiki mai inganci. StockShop yana bani cikakken hoto na duk kantunana daga wayata.",
+      "t6_initials": "EA",
+      "t7_name": "Marie-Claire Tossou",
+      "t7_shop": "MC Beauté, Cotonou",
+      "t7_text": "Sanarwar da ke zo inda ma'aikatana suka yi sayarwa suna bani kwanciyar hankali. Ina san abin da ke faruwa ko da ina nesa.",
+      "t7_initials": "MT",
+      "t8_name": "Ibrahim Al-Hassan",
+      "t8_shop": "Al-Hassan Halal Market, Toronto",
+      "t8_text": "Ina gudanar da kantina a Kanada da StockShop. Tallafi na kuɗi da yawa da yanayin offline sune daidai abin da ake bukata.",
+      "t8_initials": "IA"
     },
     "pricing": {
       "title": "Farashi mai sauki da gaskiya",
@@ -822,12 +861,12 @@
     },
     "cta": {
       "title": "Shirye don sanin lambobin kasuwancin ku?",
-      "subtitle": "Ku shiga daruruwan kantuna a Najeriya da Kamaru da ke amfani da StockShop.",
+      "subtitle": "Ku shiga daruruwan kasuwanci a Afirka, Turai da Arewacin Amurka da ke amfani da StockShop.",
       "button": "Kirji Asusun Kyauta",
       "note": "Ba kati ba • Kafa cikin minti 2"
     },
     "footer": {
-      "secure": "Amintacce • Mai zaman kansa • An yi a Afirka",
+      "secure": "Amintacce • Mai zaman kansa • Yana samuwa ko'ina duniya",
       "rights": "© {year} StockShop. Duk hakkokin an kiyaye."
     }
   },

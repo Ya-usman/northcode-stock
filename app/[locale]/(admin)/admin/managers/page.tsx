@@ -22,7 +22,7 @@ export default async function AdminManagersPage() {
   const shops = Object.values(shopsMap).sort((a: any, b: any) => a.name.localeCompare(b.name))
 
   // Fetch profiles separately (no direct FK shop_members.user_id → profiles.id)
-  const userIds = [...new Set((rawMembers || []).map((m: any) => m.user_id))]
+  const userIds = Array.from(new Set((rawMembers || []).map((m: any) => m.user_id)))
   const { data: profilesData } = userIds.length > 0
     ? await (supabase as any).from('profiles').select('id, full_name').in('id', userIds)
     : { data: [] as any[] }

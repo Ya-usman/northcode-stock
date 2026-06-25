@@ -123,7 +123,7 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
   }
   // One representative entry per sale (latest), carrying all repayments
   const latestByStandalone = new Map<string, RepaymentFeedItem & { allRepayments: RepaymentFeedItem[] }>()
-  for (const [saleId, repays] of standaloneGrouped) {
+  for (const [saleId, repays] of Array.from(standaloneGrouped)) {
     const sorted = repays.sort((a, b) => b.paid_at.localeCompare(a.paid_at))
     latestByStandalone.set(saleId, { ...sorted[0], allRepayments: sorted })
   }
