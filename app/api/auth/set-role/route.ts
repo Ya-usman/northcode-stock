@@ -32,17 +32,44 @@ export async function POST(request: Request) {
     let role = data?.role
     let planOkUntil: string | null = null
     {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role, plan, plan_expires_at, trial_ends_at')
-        .eq('id', user.id)
-        .single()
+      // Query profiles AND the user's shops in parallel.
+      // The verify route updates both tables, but profiles can silently fail.
+      // Using the later of the two expiries prevents a stale profiles row from
+      // locking the owner out via the middleware billing redirect.
+      const [profileRes, shopRes] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('role, plan, plan_expires_at, trial_ends_at')
+          .eq('id', user.id)
+          .single(),
+        supabase
+          .from('shops')
+          .select('plan, plan_expires_at, trial_ends_at')
+          .eq('owner_id', user.id)
+          .is('deleted_at', null)
+          .order('plan_expires_at', { ascending: false, nullsFirst: false })
+          .limit(1)
+          .maybeSingle(),
+      ])
+
+      const profile  = profileRes.data
+      const shopBill = shopRes.data
+
       if (!role) role = profile?.role
-      // access_until: for paid plan → plan_expires_at ; for trial → trial_ends_at
-      if (profile?.plan && profile.plan !== 'trial') {
-        planOkUntil = profile.plan_expires_at ?? null
+
+      const profileExpiry = profile?.plan && profile.plan !== 'trial'
+        ? (profile.plan_expires_at ?? null)
+        : (profile?.trial_ends_at ?? null)
+
+      const shopExpiry = shopBill?.plan && shopBill.plan !== 'trial'
+        ? (shopBill.plan_expires_at ?? null)
+        : (shopBill?.trial_ends_at ?? null)
+
+      // Use whichever expiry is further in the future
+      if (profileExpiry && shopExpiry) {
+        planOkUntil = new Date(shopExpiry) > new Date(profileExpiry) ? shopExpiry : profileExpiry
       } else {
-        planOkUntil = profile?.trial_ends_at ?? null
+        planOkUntil = profileExpiry ?? shopExpiry ?? null
       }
     }
 

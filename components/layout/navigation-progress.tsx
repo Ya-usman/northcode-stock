@@ -31,6 +31,15 @@ export function NavigationProgress() {
       // Crawl to 80% while waiting for route change
       timerRef.current = setTimeout(() => !doneRef.current && setWidth(60), 80)
       timerRef.current = setTimeout(() => !doneRef.current && setWidth(80), 400)
+      // Safety valve: auto-hide after 4s if route never changed (e.g. middleware
+      // redirected back to the same page, keeping pathname identical)
+      timerRef.current = setTimeout(() => {
+        if (!doneRef.current) {
+          doneRef.current = true
+          setVisible(false)
+          setWidth(0)
+        }
+      }, 4000)
     }
 
     document.addEventListener('click', handleClick, true)

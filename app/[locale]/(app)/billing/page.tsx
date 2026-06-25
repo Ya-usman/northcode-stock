@@ -60,11 +60,12 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
     const success = searchParams.get('success')
     const error = searchParams.get('error')
     if (success === '1') {
-      // Refresh plan cookie and shop data so new plan is visible without page reload
-      fetch('/api/auth/set-role', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => {})
-      refreshShop().catch(() => {})
       toast({ title: t('payment_success'), description: t('payment_success_desc'), variant: 'success' })
-      router.replace(`/${locale}/billing`)
+      // Full reload so the browser picks up the new plan_ok_until cookie set by
+      // /api/billing/verify → /api/auth/set-role before this redirect landed.
+      // router.replace() would keep the same pathname (billing→billing) and skip
+      // the cookie refresh, leaving the middleware in a redirect loop.
+      setTimeout(() => { window.location.replace(`/${locale}/billing`) }, 1200)
     } else if (error) {
       const messages: Record<string, string> = {
         payment_failed: t('err_failed'),
@@ -73,7 +74,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
         server: t('err_server'),
       }
       toast({ title: t('payment_error'), description: messages[error] || t('err_failed'), variant: 'destructive' })
-      router.replace(`/${locale}/billing`)
+      setTimeout(() => { window.location.replace(`/${locale}/billing`) }, 1200)
     }
   }, [searchParams])
 
@@ -167,10 +168,10 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
               .then(async res => {
                 const json = await res.json().catch(() => ({}))
                 if (!res.ok || !json.ok) throw new Error(json.error || 'payment_failed')
-                // Refresh plan cookie so middleware sees the new plan immediately
-                await fetch('/api/auth/set-role', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shop_id: shop.id }) }).catch(() => {})
-                await refreshShop()
                 toast({ title: t('payment_success'), description: t('payment_active'), variant: 'success' })
+                // Full reload: forces browser to re-read plan_ok_until cookie that
+                // verify route just set, preventing middleware redirect loop.
+                setTimeout(() => { window.location.replace(`/${locale}/billing`) }, 1200)
               })
               .catch((err) => {
                 const msg = err?.message
@@ -180,8 +181,8 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                   server: t('err_server'),
                 }
                 toast({ title: t('payment_error'), description: descriptions[msg] || t('err_failed'), variant: 'destructive' })
+                setLoading(false)
               })
-              .finally(() => setLoading(false))
           },
         })
         handler.openIframe()

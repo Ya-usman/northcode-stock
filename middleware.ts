@@ -177,7 +177,7 @@ export async function middleware(request: NextRequest) {
   const isBillingExempt = BILLING_EXEMPT.some(
     p => pathnameWithoutLocale === p || pathnameWithoutLocale.startsWith(p + '/')
   )
-  if (!isBillingExempt && role === 'owner') {
+  if (!isBillingExempt && role === 'owner' && !isBetaPeriod()) {
     const planOkUntil = request.cookies.get('plan_ok_until')?.value
     // Only redirect if the cookie is explicitly set AND expired.
     // If missing (old session before this cookie was introduced), let through —
