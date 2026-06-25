@@ -39,5 +39,13 @@ export async function GET(request: Request) {
     }
   }
 
+  // Pas de code PKCE → flux OTP hash-based (ex: admin.inviteUserByEmail).
+  // Le token est dans le fragment URL (#access_token=…) qui n'est pas visible
+  // côté serveur. Si `next` est fourni, on redirige vers cette page et laisse
+  // le code client gérer le hash (reset-password/page.tsx le fait déjà).
+  if (next) {
+    return NextResponse.redirect(`${origin}${next}`)
+  }
+
   return NextResponse.redirect(`${origin}/${localeCookie}/login?error=lien_invalide`)
 }
