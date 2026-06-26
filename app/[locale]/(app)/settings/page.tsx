@@ -41,9 +41,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const [whatsapp, setWhatsapp] = useState('')
   const [threshold, setThreshold] = useState<string>('10')
   const [taxRate, setTaxRate] = useState<string>('0')
-  const [notifyWaLowStock, setNotifyWaLowStock] = useState(true)
-  const [notifyWaDaily, setNotifyWaDaily] = useState(true)
-  const [notifyWaEachSale, setNotifyWaEachSale] = useState(false)
+
   const [notifyEmailLowStock, setNotifyEmailLowStock] = useState(true)
   const [notifyEmailDaily, setNotifyEmailDaily] = useState(true)
   const [uploadingLogo, setUploadingLogo] = useState(false)
@@ -103,9 +101,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       setWhatsapp(shopData.whatsapp || '')
       setThreshold(String(shopData.low_stock_threshold))
       setTaxRate(String(shopData.tax_rate))
-      setNotifyWaLowStock(shopData.notify_whatsapp_low_stock)
-      setNotifyWaDaily(shopData.notify_whatsapp_daily)
-      setNotifyWaEachSale(shopData.notify_whatsapp_each_sale)
+
       setNotifyEmailLowStock(shopData.notify_email_low_stock)
       setNotifyEmailDaily(shopData.notify_email_daily)
       setNotifyPushNewSale(shopData.notify_push_new_sale ?? true)
@@ -182,9 +178,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       whatsapp: whatsapp || null,
       low_stock_threshold: Math.max(1, Number(threshold) || 1),
       tax_rate: Math.max(0, Number(taxRate) || 0),
-      notify_whatsapp_low_stock: notifyWaLowStock,
-      notify_whatsapp_daily: notifyWaDaily,
-      notify_whatsapp_each_sale: notifyWaEachSale,
+
       notify_email_low_stock: notifyEmailLowStock,
       notify_email_daily: notifyEmailDaily,
       notify_push_new_sale: notifyPushNewSale,
@@ -382,20 +376,6 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-xs text-muted-foreground">{t('settings.notif_hint')}</p>
-              <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">WhatsApp</p>
-                {[
-                  { label: t('settings.alert_low_stock'), value: notifyWaLowStock, setter: setNotifyWaLowStock },
-                  { label: t('settings.alert_daily'), value: notifyWaDaily, setter: setNotifyWaDaily },
-                  { label: t('settings.alert_each_sale'), value: notifyWaEachSale, setter: setNotifyWaEachSale },
-                ].map(item => (
-                  <div key={item.label} className="flex items-center justify-between py-1">
-                    <Label className="cursor-pointer">{item.label}</Label>
-                    <Switch checked={item.value} onCheckedChange={item.setter} />
-                  </div>
-                ))}
-              </div>
-              <Separator />
               <div className="space-y-3">
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Email</p>
                 {[
