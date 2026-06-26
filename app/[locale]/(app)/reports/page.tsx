@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
-import { Download, Receipt, TrendingDown, Banknote, Share2, Printer, X } from 'lucide-react'
+import { Download, Receipt, TrendingDown, Banknote, Share2, X } from 'lucide-react'
 import {
   PieChart, Pie, Cell,
   Tooltip, ResponsiveContainer,
@@ -41,8 +41,6 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
   const [pdfSheet, setPdfSheet] = useState<{ blob: Blob; url: string; name: string } | null>(null)
-  const [downloading, setDownloading] = useState(false)
-
   const closePdfSheet = () => {
     if (pdfSheet) { URL.revokeObjectURL(pdfSheet.url); setPdfSheet(null) }
   }
@@ -776,42 +774,6 @@ export default function ReportsPage() {
               </div>
             </button>
 
-            {/* Imprimer — fetch JSON → blob → navigate same tab (Chrome PDF viewer) */}
-            <button
-              disabled={downloading}
-              className="flex items-center gap-4 w-full p-4 rounded-xl bg-muted/60 text-foreground active:opacity-70 disabled:opacity-50"
-              onClick={async () => {
-                setDownloading(true)
-                try {
-                  const base64 = await new Promise<string>((res, rej) => {
-                    const r = new FileReader(); r.onload = () => res((r.result as string).split(',')[1]); r.onerror = rej; r.readAsDataURL(pdfSheet.blob)
-                  })
-                  const resp = await fetch('/api/pdf-download', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ data: base64, filename: pdfSheet.name, disposition: 'inline' }),
-                  })
-                  if (!resp.ok) throw new Error('server error')
-                  const blob = await resp.blob()
-                  const url = URL.createObjectURL(blob)
-                  window.open(url, '_blank') || (window.location.href = url)
-                  setTimeout(() => URL.revokeObjectURL(url), 120_000)
-                  closePdfSheet()
-                } catch {
-                  toast({ title: 'Erreur', variant: 'destructive' })
-                } finally {
-                  setDownloading(false)
-                }
-              }}
-            >
-              <div className="h-10 w-10 flex items-center justify-center rounded-full bg-muted flex-shrink-0">
-                {downloading ? <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <Printer className="h-5 w-5" />}
-              </div>
-              <div className="text-left">
-                <p className="font-semibold text-sm">Imprimer</p>
-                <p className="text-xs text-muted-foreground">Ouvrir dans le navigateur pour imprimer</p>
-              </div>
-            </button>
 
             <button onClick={closePdfSheet} className="w-full py-2 text-sm text-muted-foreground">
               Annuler
