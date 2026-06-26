@@ -12,6 +12,23 @@ function getLocale(): string {
   )
 }
 
+// Vérifie la connectivité réelle avant de naviguer —
+// navigator.onLine et l'événement 'online' sont non fiables sur Android Capacitor.
+// Un redirect prématuré vers une URL Vercel hors ligne déclencherait
+// l'erreur native Android "Web page non disponible".
+async function checkRealConnectivity(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/health', {
+      method: 'HEAD',
+      cache: 'no-store',
+      signal: AbortSignal.timeout(3000),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: 'Tableau de bord', route: 'dashboard' },
   { icon: ShoppingCart,    label: 'Nouvelle vente',  route: 'sales/new' },
@@ -23,16 +40,24 @@ const NAV_ITEMS = [
 ]
 
 export default function OfflinePage() {
+  // Navigation via window.location.href UNIQUEMENT depuis cette page :
+  // on est déjà sur une page chargée (fallback SW), donc le WebView
+  // n'initie pas une nouvelle navigation — il recharge depuis le SW cache.
   const navigate = (route: string) => {
     const locale = getLocale()
     window.location.href = `/${locale}/${route}`
   }
 
-  // Auto-redirect to dashboard when connection is restored
   useEffect(() => {
     const handleOnline = () => {
-      const locale = getLocale()
-      window.location.href = `/${locale}/dashboard`
+      // Vérifier la connectivité réelle avant de rediriger —
+      // l'événement 'online' se déclenche trop tôt sur Android WebView.
+      checkRealConnectivity().then(online => {
+        if (online) {
+          const locale = getLocale()
+          window.location.href = `/${locale}/dashboard`
+        }
+      })
     }
     window.addEventListener('online', handleOnline)
     return () => window.removeEventListener('online', handleOnline)

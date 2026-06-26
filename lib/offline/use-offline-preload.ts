@@ -9,6 +9,8 @@ const DATA_TTL  = 1 * 60 * 60 * 1000   // rafraîchir les données IndexedDB tou
 const PAGES_TTL = 4 * 60 * 60 * 1000   // rafraîchir le cache des pages toutes les 4h
 
 // Toutes les routes navigables (relative à /{locale}/)
+// IMPORTANT : toute route accessible via la nav doit être listée ici —
+// une route absente du cache SW déclenche l'erreur Android native hors ligne.
 const APP_ROUTES = [
   'dashboard',
   'sales/new',
@@ -21,6 +23,8 @@ const APP_ROUTES = [
   'reports',
   'categories',
   'team',
+  'shops',
+  'billing',
   'settings',
   'expenses',
   'help',

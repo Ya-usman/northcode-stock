@@ -1,21 +1,37 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { WifiOff, RefreshCw, LayoutDashboard, ShoppingCart, Package, BarChart2, Users, Receipt, FileText } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 const NAV_ITEMS = [
-  { icon: LayoutDashboard, label: 'Dashboard',   route: 'dashboard' },
+  { icon: LayoutDashboard, label: 'Dashboard',      route: 'dashboard' },
   { icon: ShoppingCart,    label: 'Nouvelle vente', route: 'sales/new' },
-  { icon: Package,         label: 'Stock',        route: 'stock' },
-  { icon: BarChart2,       label: 'Rapports',     route: 'reports' },
-  { icon: Users,           label: 'Clients',      route: 'customers' },
-  { icon: Receipt,         label: 'Dépenses',     route: 'expenses' },
-  { icon: FileText,        label: 'Notes',        route: 'notes' },
+  { icon: Package,         label: 'Stock',          route: 'stock' },
+  { icon: BarChart2,       label: 'Rapports',       route: 'reports' },
+  { icon: Users,           label: 'Clients',        route: 'customers' },
+  { icon: Receipt,         label: 'Dépenses',       route: 'expenses' },
+  { icon: FileText,        label: 'Notes',          route: 'notes' },
 ]
 
 function getLocale(): string {
   if (typeof window === 'undefined') return 'fr'
   return window.location.pathname.split('/')[1] || 'fr'
+}
+
+// Vérifie la connectivité réelle via un HEAD request (navigator.onLine
+// est non fiable sur Android Capacitor WebView).
+async function checkRealConnectivity(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/health', {
+      method: 'HEAD',
+      cache: 'no-store',
+      signal: AbortSignal.timeout(3000),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
 }
 
 export default function AppError({
@@ -25,18 +41,33 @@ export default function AppError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  const router = useRouter()
   const [isOffline, setIsOffline] = useState(false)
+  const checkedRef = useRef(false)
 
   useEffect(() => {
-    setIsOffline(!navigator.onLine)
-    const onOnline = () => { setIsOffline(false); reset() }
-    window.addEventListener('online', onOnline)
-    return () => window.removeEventListener('online', onOnline)
+    if (checkedRef.current) return
+    checkedRef.current = true
+
+    // Vérification réelle (pas navigator.onLine qui ment sur Android)
+    checkRealConnectivity().then(online => {
+      setIsOffline(!online)
+    })
+
+    // Quand le réseau revient : re-vérifier puis reset l'erreur
+    const handleOnline = () => {
+      checkRealConnectivity().then(online => {
+        if (online) { setIsOffline(false); reset() }
+      })
+    }
+    window.addEventListener('online', handleOnline)
+    return () => window.removeEventListener('online', handleOnline)
   }, [reset])
 
+  // Navigation client-side (jamais window.location.href — évite l'erreur Android native)
   const navigate = (route: string) => {
     const locale = getLocale()
-    window.location.href = `/${locale}/${route}`
+    router.push(`/${locale}/${route}`)
   }
 
   if (isOffline) {
