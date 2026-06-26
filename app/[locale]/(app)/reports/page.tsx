@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
-import { Download, Receipt, TrendingDown, Banknote, Share2, X } from 'lucide-react'
+import { Download, Receipt, TrendingDown, Banknote, X } from 'lucide-react'
 import {
   PieChart, Pie, Cell,
   Tooltip, ResponsiveContainer,
@@ -752,27 +752,6 @@ export default function ReportsPage() {
               </div>
             </button>
 
-            {/* Partager — même chose, label différent */}
-            <button
-              className="flex items-center gap-4 w-full p-4 rounded-xl bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 active:opacity-70"
-              onClick={async () => {
-                const file = new File([pdfSheet.blob], pdfSheet.name, { type: 'application/pdf' })
-                try {
-                  await navigator.share({ files: [file], title: pdfSheet.name })
-                  closePdfSheet()
-                } catch (e: any) {
-                  if (e?.name !== 'AbortError') toast({ title: 'Partage non supporté sur cet appareil', variant: 'destructive' })
-                }
-              }}
-            >
-              <div className="h-10 w-10 flex items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50 flex-shrink-0">
-                <Share2 className="h-5 w-5" />
-              </div>
-              <div className="text-left">
-                <p className="font-semibold text-sm">Partager</p>
-                <p className="text-xs opacity-70">WhatsApp, Drive, Email…</p>
-              </div>
-            </button>
 
 
             <button onClick={closePdfSheet} className="w-full py-2 text-sm text-muted-foreground">
