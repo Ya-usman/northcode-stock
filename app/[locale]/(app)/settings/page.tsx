@@ -58,6 +58,9 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const [saleSoundEnabled, setSaleSoundEnabled] = useState(() =>
     typeof window !== 'undefined' ? localStorage.getItem('sale_sound_enabled') !== '0' : true
   )
+  const [saleVibrationEnabled, setSaleVibrationEnabled] = useState(() =>
+    typeof window !== 'undefined' ? localStorage.getItem('sale_vibration_enabled') !== '0' : true
+  )
 
   // ── Role permissions ────────────────────────────────────────────────────────
   const [activePermRole, setActivePermRole] = useState<ConfigurableRole>('cashier')
@@ -441,21 +444,38 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                         />
                       </div>
                       {notifyPushNewSale && (
-                        <div className="flex items-center justify-between py-1 pl-3 border-l-2 border-muted">
-                          <div>
-                            <Label className="cursor-pointer text-sm text-muted-foreground">Son &amp; vibration</Label>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              Désactiver pour alerte silencieuse uniquement
-                            </p>
+                        <>
+                          <div className="flex items-center justify-between py-1 pl-3 border-l-2 border-muted">
+                            <div>
+                              <Label className="cursor-pointer text-sm text-muted-foreground">Son</Label>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                Jouer un bip à chaque vente
+                              </p>
+                            </div>
+                            <Switch
+                              checked={saleSoundEnabled}
+                              onCheckedChange={v => {
+                                setSaleSoundEnabled(v)
+                                localStorage.setItem('sale_sound_enabled', v ? '1' : '0')
+                              }}
+                            />
                           </div>
-                          <Switch
-                            checked={saleSoundEnabled}
-                            onCheckedChange={v => {
-                              setSaleSoundEnabled(v)
-                              localStorage.setItem('sale_sound_enabled', v ? '1' : '0')
-                            }}
-                          />
-                        </div>
+                          <div className="flex items-center justify-between py-1 pl-3 border-l-2 border-muted">
+                            <div>
+                              <Label className="cursor-pointer text-sm text-muted-foreground">Vibration</Label>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                Vibrer à chaque vente
+                              </p>
+                            </div>
+                            <Switch
+                              checked={saleVibrationEnabled}
+                              onCheckedChange={v => {
+                                setSaleVibrationEnabled(v)
+                                localStorage.setItem('sale_vibration_enabled', v ? '1' : '0')
+                              }}
+                            />
+                          </div>
+                        </>
                       )}
                       <div className="flex items-center justify-between py-1">
                         <div>

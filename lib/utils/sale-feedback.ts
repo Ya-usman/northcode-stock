@@ -71,11 +71,16 @@ export async function triggerSaleFeedback() {
   if (typeof localStorage === 'undefined') return
 
   const alertEnabled = localStorage.getItem('notify_push_new_sale') !== '0'
+  if (!alertEnabled) return
+
   const soundEnabled = localStorage.getItem('sale_sound_enabled') !== '0'
+  const vibrationEnabled = localStorage.getItem('sale_vibration_enabled') !== '0'
 
-  if (!alertEnabled || !soundEnabled) return
+  if (!soundEnabled && !vibrationEnabled) return
 
-  const usedNative = await vibrateNative()
-  if (!usedNative) vibrateWeb()
-  playChime()
+  if (vibrationEnabled) {
+    const usedNative = await vibrateNative()
+    if (!usedNative) vibrateWeb()
+  }
+  if (soundEnabled) playChime()
 }
