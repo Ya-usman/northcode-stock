@@ -101,7 +101,7 @@ serve(async (req) => {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                from: Deno.env.get('RESEND_FROM_EMAIL') || 'alerts@stockshop-stock.ng',
+                from: `StockShop <${Deno.env.get('RESEND_FROM_EMAIL') || 'alerts@stockshop.tech'}>`,
                 to: userEmail.user.email,
                 subject: `🔴 Low Stock Alert — ${shop.name} (${products.length} items)`,
                 html: buildEmailHtml(shop.name, outOfStock, lowStock, shop.low_stock_threshold),

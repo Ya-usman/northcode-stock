@@ -132,7 +132,7 @@ serve(async (req) => {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                from: Deno.env.get('RESEND_FROM_EMAIL') || 'alerts@stockshop-stock.ng',
+                from: `StockShop <${Deno.env.get('RESEND_FROM_EMAIL') || 'alerts@stockshop.tech'}>`,
                 to: userData.user.email,
                 subject: `📊 Daily Report — ${shop.name} — ${salesCount} sales · ${formatNaira(totalRevenue)}`,
                 html: buildDailyEmailHtml(shop.name, dateStr, {
