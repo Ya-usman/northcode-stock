@@ -245,6 +245,7 @@ export interface ShopMember {
   role: UserRole
   is_active: boolean
   can_delete_sales: boolean
+  can_delete_products: boolean
   invited_by: string | null
   joined_at: string
   created_at: string

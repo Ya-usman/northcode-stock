@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
 import { motion } from 'framer-motion'
-import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, ChevronDown, ChevronUp, Upload } from 'lucide-react'
+import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, ChevronDown, ChevronUp, Upload, CheckSquare, Square, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -74,6 +74,15 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [archiving, setArchiving] = useState(false)
   const [deleteCatConfirmId, setDeleteCatConfirmId] = useState<string | null>(null)
 
+  // ── Suppression en masse ────────────────────────────────────────────────
+  const [canDeleteProducts, setCanDeleteProducts] = useState(false)
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false)
+  const [bulkDeleteAll, setBulkDeleteAll] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [bulkDeleteText, setBulkDeleteText] = useState('')
+
   const restockForm = useForm<RestockFormData>({ resolver: zodResolver(createRestockSchema({ restock_min_qty: t('errors.restock_min_qty') })) })
 
   useEffect(() => {
@@ -84,6 +93,28 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     window.addEventListener('offline', off)
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
   }, [])
+
+  // Vérifier si l'utilisateur peut supprimer des produits
+  useEffect(() => {
+    if (effectiveRole === 'owner' || effectiveRole === 'super_admin') {
+      setCanDeleteProducts(true)
+      return
+    }
+    if (!shop?.id || !profile?.id) return
+    ;(supabase as any)
+      .from('shop_members')
+      .select('can_delete_products')
+      .eq('shop_id', shop.id)
+      .eq('user_id', profile.id)
+      .single()
+      .then(({ data }: any) => setCanDeleteProducts(data?.can_delete_products ?? false))
+  }, [shop?.id, profile?.id, effectiveRole])
+
+  // Réinitialiser la sélection quand on change de boutique
+  useEffect(() => {
+    setSelectionMode(false)
+    setSelectedIds(new Set())
+  }, [shop?.id])
 
   const fetchProducts = async () => {
     if (!effectiveShopIds.length) return
@@ -364,18 +395,74 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     fetchProducts()
   }
 
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filtered.length && filtered.length > 0) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(filtered.map(p => p.id)))
+    }
+  }
+
+  const bulkDelete = async () => {
+    if (!shop?.id) return
+    const isAll = bulkDeleteAll
+    if (isAll && bulkDeleteText.trim().toUpperCase() !== 'SUPPRIMER') return
+    setBulkDeleting(true)
+    const payload = isAll
+      ? { shop_id: shop.id, all: true }
+      : { shop_id: shop.id, ids: Array.from(selectedIds) }
+    const res = await fetch('/api/products', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    setBulkDeleting(false)
+    const json = await res.json()
+    if (!res.ok) {
+      toast({ title: json.error || t('toast.error'), variant: 'destructive' })
+      return
+    }
+    const count = json.deleted ?? selectedIds.size
+    toast({
+      title: isAll ? 'Tous les produits ont été supprimés' : `${count} produit${count > 1 ? 's' : ''} supprimé${count > 1 ? 's' : ''}`,
+      variant: 'success',
+    })
+    setBulkDeleteDialog(false)
+    setBulkDeleteAll(false)
+    setBulkDeleteText('')
+    setSelectedIds(new Set())
+    setSelectionMode(false)
+    fetchProducts()
+  }
+
   const renderProductCard = (product: Product, idx: number) => {
     const threshold = product.low_stock_threshold || shop?.low_stock_threshold || 10
+    const isSelected = selectedIds.has(product.id)
     return (
       <motion.div
         key={product.id}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: idx * 0.02 }}
-        className="rounded-lg border bg-card shadow-sm p-4 space-y-2"
+        className={`rounded-lg border bg-card shadow-sm p-4 space-y-2 transition-colors ${
+          selectionMode ? 'cursor-pointer select-none' : ''
+        } ${isSelected ? 'border-blue-400 dark:border-blue-500 bg-blue-50/60 dark:bg-blue-950/25' : ''}`}
+        onClick={selectionMode ? () => setSelectedIds(prev => {
+          const next = new Set(prev)
+          next.has(product.id) ? next.delete(product.id) : next.add(product.id)
+          return next
+        }) : undefined}
       >
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-2.5 min-w-0 flex-1">
+            {selectionMode && (
+              <div className="flex-shrink-0 mt-0.5">
+                {isSelected
+                  ? <CheckSquare className="h-5 w-5 text-blue-500" />
+                  : <Square className="h-5 w-5 text-muted-foreground/50" />
+                }
+              </div>
+            )}
             {product.image_url && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -404,34 +491,46 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             <span className="text-xs text-muted-foreground">{t('products.cost_label')}: {formatNaira(product.buying_price)}</span>
           )}
         </div>
-        <div className="flex items-center justify-between">
-          <span className="text-sm">
-            <span className={`font-bold ${product.quantity === 0 ? 'text-red-500' : product.quantity <= threshold ? 'text-amber-500' : 'text-green-600'}`}>
-              {product.quantity}
-            </span>{' '}
-            <span className="text-muted-foreground text-xs">{product.unit}s</span>
-          </span>
-          <div className="flex gap-1">
-            <Button
-              variant="outline" size="sm" className="h-7 px-2 text-xs"
-              disabled={saving}
-              onClick={() => { setEditingProduct(null); setShowAddModal(false); setRestockProduct(product); restockForm.reset({ product_id: product.id, quantity: 1 }); setShowRestockModal(true) }}
-            >
-              <ArrowDown className="h-3 w-3 mr-1" />
-              {t('actions.restock')}
-            </Button>
-            {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin') && (
-              <Button variant="outline" size="sm" className="h-7 px-2" disabled={saving} onClick={() => { setShowAddModal(false); setShowRestockModal(false); setEditingProduct(product) }}>
-                <Edit2 className="h-3 w-3" />
+        {!selectionMode && (
+          <div className="flex items-center justify-between">
+            <span className="text-sm">
+              <span className={`font-bold ${product.quantity === 0 ? 'text-red-500' : product.quantity <= threshold ? 'text-amber-500' : 'text-green-600'}`}>
+                {product.quantity}
+              </span>{' '}
+              <span className="text-muted-foreground text-xs">{product.unit}s</span>
+            </span>
+            <div className="flex gap-1">
+              <Button
+                variant="outline" size="sm" className="h-7 px-2 text-xs"
+                disabled={saving}
+                onClick={() => { setEditingProduct(null); setShowAddModal(false); setRestockProduct(product); restockForm.reset({ product_id: product.id, quantity: 1 }); setShowRestockModal(true) }}
+              >
+                <ArrowDown className="h-3 w-3 mr-1" />
+                {t('actions.restock')}
               </Button>
-            )}
-            {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
-              <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-amber-600" disabled={saving} title={t('products.archive_label')} onClick={() => setArchiveConfirmProduct(product)}>
-                <Archive className="h-3 w-3" />
-              </Button>
-            )}
+              {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin') && (
+                <Button variant="outline" size="sm" className="h-7 px-2" disabled={saving} onClick={() => { setShowAddModal(false); setShowRestockModal(false); setEditingProduct(product) }}>
+                  <Edit2 className="h-3 w-3" />
+                </Button>
+              )}
+              {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
+                <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-amber-600" disabled={saving} title={t('products.archive_label')} onClick={() => setArchiveConfirmProduct(product)}>
+                  <Archive className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
+        )}
+        {selectionMode && (
+          <div className="flex items-center justify-between">
+            <span className="text-sm">
+              <span className={`font-bold ${product.quantity === 0 ? 'text-red-500' : product.quantity <= threshold ? 'text-amber-500' : 'text-green-600'}`}>
+                {product.quantity}
+              </span>{' '}
+              <span className="text-muted-foreground text-xs">{product.unit}s</span>
+            </span>
+          </div>
+        )}
       </motion.div>
     )
   }
@@ -504,6 +603,19 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             </div>
           </>
         )}
+        {canDeleteProducts && (
+          <Button
+            variant={selectionMode ? 'destructive' : 'outline'}
+            size="sm"
+            className="h-9 gap-1.5"
+            onClick={() => {
+              if (selectionMode) { setSelectionMode(false); setSelectedIds(new Set()) }
+              else setSelectionMode(true)
+            }}
+          >
+            {selectionMode ? <><Square className="h-3.5 w-3.5" /> Annuler</> : <><CheckSquare className="h-3.5 w-3.5" /> Sélectionner</>}
+          </Button>
+        )}
       </div>
 
       {/* Stats */}
@@ -512,6 +624,32 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         <span className="text-amber-600">{t('products.stats_low', { count: filtered.filter(p => p.quantity > 0 && p.quantity <= (p.low_stock_threshold || shop?.low_stock_threshold || 10)).length })}</span>
         <span className="text-red-500">{t('products.stats_out', { count: filtered.filter(p => p.quantity === 0).length })}</span>
       </div>
+
+      {/* Barre de sélection */}
+      {selectionMode && (
+        <div className="flex items-center justify-between rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 px-3 py-2">
+          <button
+            className="flex items-center gap-2 text-sm font-medium text-blue-700 dark:text-blue-400 hover:text-blue-800 transition-colors"
+            onClick={toggleSelectAll}
+          >
+            {selectedIds.size > 0 && selectedIds.size === filtered.length
+              ? <CheckSquare className="h-4 w-4" />
+              : <Square className="h-4 w-4" />
+            }
+            {selectedIds.size > 0 && selectedIds.size === filtered.length ? 'Tout désélectionner' : 'Tout sélectionner'}
+            <span className="text-xs font-normal text-blue-500">({filtered.length})</span>
+          </button>
+          {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && products.length > 0 && (
+            <button
+              onClick={() => { setBulkDeleteAll(true); setBulkDeleteText(''); setBulkDeleteDialog(true) }}
+              className="flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 transition-colors"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Supprimer tous les produits ({products.length})
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Product grid */}
       {loading ? (
@@ -745,6 +883,60 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         </PremiumDialogFooter>
       </PremiumDialog>
 
+      {/* Dialog de confirmation — suppression en masse */}
+      <PremiumDialog
+        open={bulkDeleteDialog}
+        onOpenChange={open => { if (!open) { setBulkDeleteDialog(false); setBulkDeleteAll(false); setBulkDeleteText('') } }}
+        category="Suppression définitive"
+        title={bulkDeleteAll ? `Supprimer tous les produits` : `Supprimer ${selectedIds.size} produit${selectedIds.size > 1 ? 's' : ''}`}
+        icon={<Trash2 className="h-4 w-4 text-destructive" />}
+      >
+        <PremiumDialogBody>
+          <div className="rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 p-3 space-y-2">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-red-700 dark:text-red-400">
+                <p className="font-semibold mb-1">
+                  {bulkDeleteAll
+                    ? `${products.length} produit${products.length > 1 ? 's' : ''} seront supprimés définitivement.`
+                    : `${selectedIds.size} produit${selectedIds.size > 1 ? 's' : ''} sélectionné${selectedIds.size > 1 ? 's seront supprimés' : ' sera supprimé'} définitivement.`
+                  }
+                </p>
+                <ul className="text-xs space-y-1 text-red-600 dark:text-red-400">
+                  <li>• Les données de ventes associées sont conservées.</li>
+                  <li>• Cette action est irréversible.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          {bulkDeleteAll && (
+            <div className="space-y-1.5 mt-2">
+              <Label className="text-sm">Tapez <span className="font-mono font-bold">SUPPRIMER</span> pour confirmer</Label>
+              <Input
+                value={bulkDeleteText}
+                onChange={e => setBulkDeleteText(e.target.value)}
+                placeholder="SUPPRIMER"
+                className="border-destructive/40 focus:border-destructive font-mono"
+              />
+            </div>
+          )}
+        </PremiumDialogBody>
+        <PremiumDialogFooter
+          onCancel={() => { setBulkDeleteDialog(false); setBulkDeleteAll(false); setBulkDeleteText('') }}
+          cancelLabel={t('actions.cancel')}
+        >
+          <Button
+            onClick={bulkDelete}
+            loading={bulkDeleting}
+            disabled={bulkDeleting || (bulkDeleteAll && bulkDeleteText.trim().toUpperCase() !== 'SUPPRIMER')}
+            className="flex-1 h-11 rounded-xl font-semibold bg-destructive hover:bg-destructive/90"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            {bulkDeleteAll ? 'Tout supprimer' : `Supprimer ${selectedIds.size} produit${selectedIds.size > 1 ? 's' : ''}`}
+          </Button>
+        </PremiumDialogFooter>
+      </PremiumDialog>
+
       {/* Restock Modal */}
       <PremiumDialog open={showRestockModal} onOpenChange={setShowRestockModal} category={t('products.restock_title')} title={restockProduct?.name || ''} icon={<ArrowDown className="h-4 w-4" />}>
         <form onSubmit={restockForm.handleSubmit(onRestock)}>
@@ -777,6 +969,32 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           </PremiumDialogFooter>
         </form>
       </PremiumDialog>
+      {/* Barre flottante de sélection */}
+      {selectionMode && selectedIds.size > 0 && (
+        <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm px-4">
+          <div className="flex items-center gap-2 rounded-2xl bg-card border shadow-xl px-4 py-3">
+            <span className="text-sm font-medium flex-1 text-foreground">
+              {selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              Vider
+            </Button>
+            <Button
+              size="sm"
+              className="h-8 gap-1.5 bg-destructive hover:bg-destructive/90 text-white text-xs"
+              onClick={() => { setBulkDeleteAll(false); setBulkDeleteDialog(true) }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Supprimer
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

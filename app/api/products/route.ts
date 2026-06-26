@@ -65,34 +65,87 @@ export async function PATCH(request: Request) {
   }
 }
 
-// DELETE /api/products?id=xxx&shop_id=xxx — permanent deletion (owner only, typed confirmation required)
+// DELETE /api/products
+// — Single:  ?id=xxx&shop_id=xxx           (owner/super_admin only, URL params)
+// — Bulk:    body { ids: string[], shop_id } (owner/super_admin ou can_delete_products)
+// — All:     body { all: true, shop_id }    (owner/super_admin ou can_delete_products)
 export async function DELETE(request: Request) {
   try {
     const { user, supabase } = await getAuthedUser()
     if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
     const { searchParams } = new URL(request.url)
-    const id = searchParams.get('id')
-    const shop_id = searchParams.get('shop_id')
-    if (!id || !shop_id) return NextResponse.json({ error: 'id et shop_id requis' }, { status: 400 })
-    const role = await checkShopRole(supabase, user.id, shop_id)
-    if (role !== 'owner' && role !== 'super_admin')
-      return NextResponse.json({ error: 'Seul le propriétaire peut supprimer définitivement' }, { status: 403 })
-    const admin = await createAdminClient()
-    // Freeze buying_price into historical sale_items before deletion
-    // so reports remain accurate even after product is removed
-    const { data: product } = await (admin as any)
-      .from('products').select('buying_price').eq('id', id).single()
-    if (product?.buying_price) {
-      await (admin as any).from('sale_items')
-        .update({ buying_price: Number(product.buying_price) })
-        .eq('product_id', id)
-        .eq('buying_price', 0)
+    const singleId = searchParams.get('id')
+    const singleShopId = searchParams.get('shop_id')
+
+    // ── Suppression unitaire (comportement existant) ───────────────────────
+    if (singleId && singleShopId) {
+      const role = await checkShopRole(supabase, user.id, singleShopId)
+      if (role !== 'owner' && role !== 'super_admin')
+        return NextResponse.json({ error: 'Seul le propriétaire peut supprimer définitivement' }, { status: 403 })
+      const admin = await createAdminClient()
+      const { data: product } = await (admin as any)
+        .from('products').select('buying_price').eq('id', singleId).single()
+      if (product?.buying_price) {
+        await (admin as any).from('sale_items')
+          .update({ buying_price: Number(product.buying_price) })
+          .eq('product_id', singleId).eq('buying_price', 0)
+      }
+      await (admin as any).from('products').update({ is_active: false }).eq('id', singleId)
+      const { error } = await (admin as any).from('products').delete().eq('id', singleId)
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+      return NextResponse.json({ ok: true })
     }
-    // Archive first to trigger any soft-delete hooks, then hard delete
-    await (admin as any).from('products').update({ is_active: false }).eq('id', id)
-    const { error } = await (admin as any).from('products').delete().eq('id', id)
+
+    // ── Suppression en masse (ids[] ou all:true) ───────────────────────────
+    let body: { shop_id?: string; ids?: string[]; all?: boolean } = {}
+    try { body = await request.json() } catch {}
+    if (!body.shop_id) return NextResponse.json({ error: 'shop_id requis' }, { status: 400 })
+
+    // Vérification des permissions
+    const role = await checkShopRole(supabase, user.id, body.shop_id)
+    if (!role) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    const isPrivileged = role === 'owner' || role === 'super_admin'
+    if (!isPrivileged) {
+      const { data: member } = await (supabase as any)
+        .from('shop_members')
+        .select('can_delete_products')
+        .eq('shop_id', body.shop_id)
+        .eq('user_id', user.id)
+        .single()
+      if (!member?.can_delete_products)
+        return NextResponse.json({ error: 'Permission insuffisante pour supprimer des produits' }, { status: 403 })
+    }
+
+    const admin = await createAdminClient()
+
+    // Résoudre les IDs à supprimer
+    let ids: string[] = body.ids ?? []
+    if (body.all) {
+      const { data: allProds } = await (admin as any)
+        .from('products').select('id').eq('shop_id', body.shop_id).eq('is_active', true)
+      ids = (allProds ?? []).map((p: any) => p.id)
+    }
+    if (!ids.length) return NextResponse.json({ ok: true, deleted: 0 })
+
+    // Geler les buying_price dans sale_items avant suppression (précision des rapports)
+    const { data: prodsWithPrice } = await (admin as any)
+      .from('products').select('id, buying_price').in('id', ids).gt('buying_price', 0)
+    if (prodsWithPrice?.length) {
+      await Promise.all(
+        prodsWithPrice.map((p: any) =>
+          (admin as any).from('sale_items')
+            .update({ buying_price: Number(p.buying_price) })
+            .eq('product_id', p.id).eq('buying_price', 0)
+        )
+      )
+    }
+
+    // Archive + suppression définitive
+    await (admin as any).from('products').update({ is_active: false }).in('id', ids)
+    const { error } = await (admin as any).from('products').delete().in('id', ids)
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, deleted: ids.length })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
