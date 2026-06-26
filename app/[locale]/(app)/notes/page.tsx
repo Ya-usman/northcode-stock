@@ -431,9 +431,9 @@ function NoteGrid({ notes, onEdit, onPin, onDelete, deleting, shopName, multiSho
               </button>
             </div>
 
-            {/* Pin badge */}
+            {/* Pin badge — desktop only (mobile shows PinOff button in actions) */}
             {note.pinned && (
-              <Pin className="absolute top-3 right-3 h-3 w-3 text-amber-500 group-hover:opacity-0 transition-opacity" />
+              <Pin className="hidden sm:block absolute top-3 right-3 h-3 w-3 text-amber-500 group-hover:opacity-0 transition-opacity" />
             )}
 
             {/* Title */}
