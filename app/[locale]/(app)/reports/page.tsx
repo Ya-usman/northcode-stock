@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
-import { Download, Receipt, TrendingDown, Banknote } from 'lucide-react'
+import { Download, Receipt, TrendingDown, Banknote, Share2, Printer, X } from 'lucide-react'
 import {
   PieChart, Pie, Cell,
   Tooltip, ResponsiveContainer,
@@ -40,7 +40,11 @@ export default function ReportsPage() {
   )
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
-  const [pendingPdf, setPendingPdf] = useState<{ blob: Blob; name: string } | null>(null)
+  const [pdfSheet, setPdfSheet] = useState<{ blob: Blob; url: string; name: string } | null>(null)
+
+  const closePdfSheet = () => {
+    if (pdfSheet) { URL.revokeObjectURL(pdfSheet.url); setPdfSheet(null) }
+  }
 
   const [revenueByMethod, setRevenueByMethod] = useState<{ name: string; value: number }[]>([])
   const [topProducts, setTopProducts] = useState<{ name: string; qty: number; revenue: number }[]>([])
@@ -340,40 +344,18 @@ export default function ReportsPage() {
   }
 
   const exportPDF = async () => {
-    const isAndroid = /Android/i.test(navigator.userAgent)
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-
-    // Mobile: second tap = blob is ready, trigger download from fresh user gesture
-    if (pendingPdf) {
-      const { blob, name } = pendingPdf
-      try {
-        await savePDF(blob, name)
-        setPendingPdf(null)
-        if (/Android/i.test(navigator.userAgent)) {
-          toast({ title: 'PDF ouvert — appuyez sur Télécharger dans le navigateur', variant: 'default' })
-        }
-      } catch (e: any) {
-        if (e?.name === 'AbortError') return // user dismissed share sheet — keep ready
-        setPendingPdf(null)
-        toast({ title: t('reports.error_pdf'), description: String(e), variant: 'destructive' })
-      }
-      return
-    }
-
-    if (!shop) {
-      toast({ title: t('reports.error_no_shop'), variant: 'destructive' })
-      return
-    }
+    if (!shop) { toast({ title: t('reports.error_no_shop'), variant: 'destructive' }); return }
     setExporting(true)
     try {
       const timeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('PDF generation timed out — please try again')), 45_000)
       )
       const { blob, fileName } = await Promise.race([generateReportPDFBlob(buildPdfParams()), timeout])
-      if (isAndroid || isIOS) {
-        // After multiple awaits, gesture context is lost on mobile.
-        // Store blob and let user tap again (fresh gesture) to trigger share/download.
-        setPendingPdf({ blob, name: fileName })
+      const isMobile = /Android|iPad|iPhone|iPod/i.test(navigator.userAgent)
+      if (isMobile) {
+        // On mobile, show action sheet — programmatic download/open is blocked in PWA
+        const url = URL.createObjectURL(blob)
+        setPdfSheet({ blob, url, name: fileName })
       } else {
         await savePDF(blob, fileName)
       }
@@ -403,23 +385,14 @@ export default function ReportsPage() {
             </SelectContent>
           </Select>
           <Button
-            variant={pendingPdf ? 'default' : 'outline'}
+            variant="outline"
             onClick={exportPDF}
             loading={exporting}
-            className={cn(
-              'gap-1.5 h-9 px-3 text-xs sm:text-sm',
-              pendingPdf && 'bg-green-600 hover:bg-green-700 text-white border-green-600'
-            )}
+            className="gap-1.5 h-9 px-3 text-xs sm:text-sm"
           >
             <Download className="h-3.5 w-3.5" />
-            {pendingPdf ? (
-              <span>Appuyez pour télécharger</span>
-            ) : (
-              <>
-                <span className="hidden sm:inline">{t('actions.download_pdf')}</span>
-                <span className="sm:hidden">PDF</span>
-              </>
-            )}
+            <span className="hidden sm:inline">{t('actions.download_pdf')}</span>
+            <span className="sm:hidden">PDF</span>
           </Button>
         </div>
 
@@ -728,6 +701,84 @@ export default function ReportsPage() {
             </Card>
           )}
         </>
+      )}
+
+      {/* PDF action sheet — mobile only */}
+      {pdfSheet && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col justify-end"
+          style={{ background: 'rgba(0,0,0,0.5)' }}
+          onClick={closePdfSheet}
+        >
+          <div
+            className="bg-background rounded-t-2xl p-5 space-y-2 pb-8"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="font-semibold text-base">Rapport PDF prêt</p>
+                <p className="text-xs text-muted-foreground truncate max-w-[240px]">{pdfSheet.name}</p>
+              </div>
+              <button onClick={closePdfSheet} className="h-8 w-8 flex items-center justify-center rounded-full bg-muted">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Download — real <a download> link, user taps directly → browser handles it */}
+            <a
+              href={pdfSheet.url}
+              download={pdfSheet.name}
+              onClick={closePdfSheet}
+              className="flex items-center gap-4 w-full p-4 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 active:opacity-70"
+            >
+              <div className="h-10 w-10 flex items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50 flex-shrink-0">
+                <Download className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">Télécharger</p>
+                <p className="text-xs opacity-70">Enregistrer dans les fichiers</p>
+              </div>
+            </a>
+
+            {/* Share — user tap is the gesture → navigator.share works */}
+            {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
+              <button
+                className="flex items-center gap-4 w-full p-4 rounded-xl bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 active:opacity-70"
+                onClick={async () => {
+                  const file = new File([pdfSheet.blob], pdfSheet.name, { type: 'application/pdf' })
+                  try {
+                    await navigator.share({ files: [file], title: pdfSheet.name })
+                    closePdfSheet()
+                  } catch (e: any) {
+                    if (e?.name !== 'AbortError') toast({ title: 'Erreur lors du partage', variant: 'destructive' })
+                  }
+                }}
+              >
+                <div className="h-10 w-10 flex items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50 flex-shrink-0">
+                  <Share2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">Partager</p>
+                  <p className="text-xs opacity-70">WhatsApp, Drive, Email…</p>
+                </div>
+              </button>
+            )}
+
+            {/* Print / Open in browser */}
+            <button
+              className="flex items-center gap-4 w-full p-4 rounded-xl bg-muted/60 text-foreground active:opacity-70"
+              onClick={() => { window.open(pdfSheet.url, '_blank') }}
+            >
+              <div className="h-10 w-10 flex items-center justify-center rounded-full bg-muted flex-shrink-0">
+                <Printer className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">Imprimer</p>
+                <p className="text-xs text-muted-foreground">Ouvrir dans le navigateur</p>
+              </div>
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )
