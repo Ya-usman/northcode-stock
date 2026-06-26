@@ -618,7 +618,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               else setSelectionMode(true)
             }}
           >
-            {selectionMode ? <><Square className="h-3.5 w-3.5" /> Annuler</> : <><CheckSquare className="h-3.5 w-3.5" /> Sélectionner</>}
+            {selectionMode ? <><Square className="h-3.5 w-3.5" /> Annuler</> : <><Trash2 className="h-3.5 w-3.5" /> Supprimer produit(s)</>}
           </Button>
         )}
       </div>
