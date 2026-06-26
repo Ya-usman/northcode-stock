@@ -41,6 +41,7 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
   const [pdfSheet, setPdfSheet] = useState<{ blob: Blob; url: string; name: string } | null>(null)
+  const [downloading, setDownloading] = useState(false)
 
   const closePdfSheet = () => {
     if (pdfSheet) { URL.revokeObjectURL(pdfSheet.url); setPdfSheet(null) }
@@ -724,37 +725,94 @@ export default function ReportsPage() {
               </button>
             </div>
 
-            {/* Primary: Share API — covers download, WhatsApp, Drive, email, print on Android */}
+            {/* Télécharger — POST blob → serveur → URL HTTPS réelle → Chrome télécharge */}
             <button
-              className="flex items-center gap-4 w-full p-4 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 active:opacity-70"
+              disabled={downloading}
+              className="flex items-center gap-4 w-full p-4 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 active:opacity-70 disabled:opacity-50"
               onClick={async () => {
-                const file = new File([pdfSheet.blob], pdfSheet.name, { type: 'application/pdf' })
+                setDownloading(true)
                 try {
-                  await navigator.share({ files: [file], title: pdfSheet.name })
+                  const base64 = await new Promise<string>((res, rej) => {
+                    const r = new FileReader()
+                    r.onload = () => res((r.result as string).split(',')[1])
+                    r.onerror = rej
+                    r.readAsDataURL(pdfSheet.blob)
+                  })
+                  const resp = await fetch('/api/pdf-download', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: base64, filename: pdfSheet.name }),
+                  })
+                  const { id } = await resp.json()
+                  // Vraie URL HTTPS + Content-Disposition: attachment → Chrome télécharge normalement
+                  window.location.href = `/api/pdf-download?id=${id}`
                   closePdfSheet()
-                } catch (e: any) {
-                  if (e?.name === 'AbortError') return
-                  // navigator.share failed — last resort: navigate to blob in same tab
-                  window.location.href = pdfSheet.url
-                  closePdfSheet()
+                } catch {
+                  toast({ title: 'Erreur de téléchargement', variant: 'destructive' })
+                } finally {
+                  setDownloading(false)
                 }
               }}
             >
               <div className="h-10 w-10 flex items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50 flex-shrink-0">
-                <Share2 className="h-5 w-5" />
+                {downloading ? <div className="h-5 w-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" /> : <Download className="h-5 w-5" />}
               </div>
               <div className="text-left">
-                <p className="font-semibold text-sm">Enregistrer / Partager</p>
-                <p className="text-xs opacity-70">Télécharger, WhatsApp, Drive, Email…</p>
+                <p className="font-semibold text-sm">{downloading ? 'Préparation…' : 'Télécharger'}</p>
+                <p className="text-xs opacity-70">Enregistrer dans les fichiers</p>
               </div>
             </button>
 
-            {/* Print: open in same tab (blob URL) → Chrome PDF viewer with print option */}
+            {/* Partager — navigator.share (WhatsApp, Drive, Email…) */}
+            {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
+              <button
+                className="flex items-center gap-4 w-full p-4 rounded-xl bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 active:opacity-70"
+                onClick={async () => {
+                  const file = new File([pdfSheet.blob], pdfSheet.name, { type: 'application/pdf' })
+                  try {
+                    await navigator.share({ files: [file], title: pdfSheet.name })
+                    closePdfSheet()
+                  } catch (e: any) {
+                    if (e?.name !== 'AbortError') toast({ title: 'Erreur lors du partage', variant: 'destructive' })
+                  }
+                }}
+              >
+                <div className="h-10 w-10 flex items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50 flex-shrink-0">
+                  <Share2 className="h-5 w-5" />
+                </div>
+                <div className="text-left">
+                  <p className="font-semibold text-sm">Partager</p>
+                  <p className="text-xs opacity-70">WhatsApp, Drive, Email…</p>
+                </div>
+              </button>
+            )}
+
+            {/* Imprimer — POST → serveur → URL HTTPS → visionneuse PDF */}
             <button
-              className="flex items-center gap-4 w-full p-4 rounded-xl bg-muted/60 text-foreground active:opacity-70"
-              onClick={() => {
-                // Keep sheet open so blob URL stays valid while user navigates
-                window.location.href = pdfSheet.url
+              disabled={downloading}
+              className="flex items-center gap-4 w-full p-4 rounded-xl bg-muted/60 text-foreground active:opacity-70 disabled:opacity-50"
+              onClick={async () => {
+                setDownloading(true)
+                try {
+                  const base64 = await new Promise<string>((res, rej) => {
+                    const r = new FileReader()
+                    r.onload = () => res((r.result as string).split(',')[1])
+                    r.onerror = rej
+                    r.readAsDataURL(pdfSheet.blob)
+                  })
+                  const resp = await fetch('/api/pdf-download', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: base64, filename: pdfSheet.name }),
+                  })
+                  const { id } = await resp.json()
+                  window.open(`/api/pdf-download?id=${id}`, '_blank')
+                  closePdfSheet()
+                } catch {
+                  toast({ title: 'Erreur', variant: 'destructive' })
+                } finally {
+                  setDownloading(false)
+                }
               }}
             >
               <div className="h-10 w-10 flex items-center justify-center rounded-full bg-muted flex-shrink-0">
@@ -762,7 +820,7 @@ export default function ReportsPage() {
               </div>
               <div className="text-left">
                 <p className="font-semibold text-sm">Imprimer</p>
-                <p className="text-xs text-muted-foreground">Ouvrir la visionneuse PDF pour imprimer</p>
+                <p className="text-xs text-muted-foreground">Ouvrir dans le navigateur pour imprimer</p>
               </div>
             </button>
 
