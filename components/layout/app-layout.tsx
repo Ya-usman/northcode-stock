@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { usePathname } from 'next/navigation'
+import { useEffect, useState, useRef } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext } from '@/lib/contexts/auth-context'
@@ -66,11 +66,40 @@ function LoadingSkeleton() {
 
 export function AppLayout({ children, locale }: { children: React.ReactNode; locale: string }) {
   const pathname = usePathname()
+  const router = useRouter()
   const { user, profile, shop, roleInActiveShop, loading, signOut } = useAuthContext()
   const title = usePageTitle(pathname, locale)
   const [productCount, setProductCount] = useState(0)
   const [teamCount, setTeamCount] = useState(0)
+  const [authRecovering, setAuthRecovering] = useState(true)
+  const recoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { toast } = useToast()
+
+  // ── Auth recovery: quand user devient null après loading, attendre 2s avant
+  // de rediriger — la race condition de token refresh peut causer un SIGNED_OUT
+  // temporaire que le client Supabase résout en relisant les cookies mis à jour.
+  useEffect(() => {
+    if (loading) {
+      setAuthRecovering(true)
+      return
+    }
+    if (user) {
+      setAuthRecovering(false)
+      if (recoveryTimerRef.current) clearTimeout(recoveryTimerRef.current)
+      return
+    }
+    // !user && !loading : vérifier si on a un cache avant de rediriger
+    const hasCachedAuth = typeof window !== 'undefined' && !!localStorage.getItem('auth_cache_v1')
+    if (hasCachedAuth) {
+      // Possible race condition — attendre que le client récupère la session
+      recoveryTimerRef.current = setTimeout(() => setAuthRecovering(false), 2000)
+    } else {
+      setAuthRecovering(false)
+    }
+    return () => {
+      if (recoveryTimerRef.current) clearTimeout(recoveryTimerRef.current)
+    }
+  }, [loading, user])
 
   // ── OFFLINE: preload data + auto-sync pending sales ───────────────────────
   useOfflinePreload()
@@ -150,13 +179,11 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
     })
   }, [shop?.id, profile?.role])
 
-  if (loading) return <LoadingSkeleton />
+  if (loading || authRecovering) return <LoadingSkeleton />
 
-  // Not authenticated — redirect to login
+  // Not authenticated — redirect via router (never window.location.href to avoid Android native error)
   if (!user) {
-    if (typeof window !== 'undefined') {
-      window.location.href = `/${locale}/login`
-    }
+    router.replace(`/${locale}/login`)
     return <LoadingSkeleton />
   }
 

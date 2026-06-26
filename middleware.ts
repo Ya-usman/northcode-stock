@@ -152,6 +152,22 @@ export async function middleware(request: NextRequest) {
 
   // Page protégée sans session → login
   if (!userId) {
+    // Avant de rediriger, vérifier si un cookie d'auth Supabase existe.
+    // Si oui, getSession() a échoué à cause d'une race condition de refresh token :
+    // la navigation rapide génère plusieurs requêtes middleware simultanées qui
+    // tentent toutes d'utiliser le même refresh token — seule la première réussit,
+    // les suivantes reçoivent "token already used" et retournent session:null.
+    // Dans ce cas on laisse passer : le client JS gère le refresh proprement.
+    // Si aucun cookie d'auth → vraie déconnexion → on redirige vers login.
+    const hasAuthCookie = request.cookies.getAll().some(c =>
+      c.name.startsWith('sb-') &&
+      c.name.includes('-auth-token') &&
+      !c.name.includes('verifier')
+    )
+    if (hasAuthCookie) {
+      const intlRes = intlMiddleware(request)
+      return mergeAuthCookies(intlRes || response, response)
+    }
     const loginUrl = new URL(`/${locale}/login`, request.url)
     loginUrl.searchParams.set('redirect', pathname)
     return mergeAuthCookies(NextResponse.redirect(loginUrl), response)
