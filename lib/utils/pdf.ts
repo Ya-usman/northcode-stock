@@ -744,19 +744,24 @@ export async function savePDF(blob: Blob, fileName: string): Promise<void> {
         } catch (e: any) {
           // Propagate AbortError so caller knows user dismissed
           if (e?.name === 'AbortError') throw e
-          // Other error: fall through to download
+          // Other error: fall through to open in viewer
         }
       }
     }
-    // Fallback: force download to Downloads folder via <a download>
+    // Fallback: open in new tab so user can tap Chrome's native Download button.
+    // a.click() on a blob URL is silently blocked in most Android PWAs.
     const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = fileName
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    const opened = window.open(url, '_blank')
+    if (!opened) {
+      // Popup blocked — last resort: anchor click
+      const a = document.createElement('a')
+      a.href = url
+      a.download = fileName
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 120_000)
     return
   }
 

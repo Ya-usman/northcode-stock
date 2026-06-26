@@ -349,6 +349,9 @@ export default function ReportsPage() {
       try {
         await savePDF(blob, name)
         setPendingPdf(null)
+        if (/Android/i.test(navigator.userAgent)) {
+          toast({ title: 'PDF ouvert — appuyez sur Télécharger dans le navigateur', variant: 'default' })
+        }
       } catch (e: any) {
         if (e?.name === 'AbortError') return // user dismissed share sheet — keep ready
         setPendingPdf(null)
