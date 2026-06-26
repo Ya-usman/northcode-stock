@@ -4,27 +4,31 @@ import { randomUUID } from 'crypto'
 
 const BUCKET = 'temp-pdfs'
 
-// POST { data: base64, filename } → { url: signedUrl }
+// POST { data: base64, filename, contentType? } → { url: signedUrl }
 // Uploads to Supabase Storage → returns real HTTPS signed URL with Content-Disposition: attachment
 // Works on ALL Android devices (Samsung, Chrome, PWA standalone mode)
+// Supports any file type: PDF, CSV, etc.
 export async function POST(req: NextRequest) {
   try {
-    const contentType = req.headers.get('content-type') ?? ''
-    let data: string, filename: string
+    const reqContentType = req.headers.get('content-type') ?? ''
+    let data: string, filename: string, mimeType: string
 
-    if (contentType.includes('application/x-www-form-urlencoded')) {
+    if (reqContentType.includes('application/x-www-form-urlencoded')) {
       const text = await req.text()
       const params = new URLSearchParams(text)
       data = params.get('data') ?? ''
-      filename = params.get('filename') ?? 'rapport.pdf'
+      filename = params.get('filename') ?? 'fichier.pdf'
+      mimeType = params.get('contentType') ?? 'application/pdf'
     } else {
       const body = await req.json()
       data = body.data ?? ''
-      filename = body.filename ?? 'rapport.pdf'
+      filename = body.filename ?? 'fichier.pdf'
+      mimeType = body.contentType ?? 'application/pdf'
     }
 
     if (!data) return NextResponse.json({ error: 'No data' }, { status: 400 })
 
+    const ext = mimeType.includes('csv') ? 'csv' : mimeType.includes('pdf') ? 'pdf' : 'bin'
     const buffer = Buffer.from(data, 'base64')
     const supabase = await createAdminClient() as any
 
@@ -34,11 +38,11 @@ export async function POST(req: NextRequest) {
       fileSizeLimit: 15 * 1024 * 1024,
     })
 
-    // Upload PDF with unique path
-    const path = `${randomUUID()}.pdf`
+    // Upload with unique path and correct content type
+    const path = `${randomUUID()}.${ext}`
     const { error: uploadError } = await supabase.storage
       .from(BUCKET)
-      .upload(path, buffer, { contentType: 'application/pdf', upsert: false })
+      .upload(path, buffer, { contentType: mimeType, upsert: false })
 
     if (uploadError) throw uploadError
 

@@ -717,70 +717,9 @@ export async function generateReportPDFBlob(params: ReportParams): Promise<{ blo
   return { blob: doc.output('blob'), fileName }
 }
 
-/**
- * Cross-platform PDF save.
- *
- * Android: après plusieurs await, le navigateur perd le "user gesture context"
- * et bloque le a.click() sur un blob URL. On utilise la Web Share API
- * (Android Chrome 75+) qui ne nécessite pas de contexte de geste actif.
- * Fallback : ouverture dans un nouvel onglet pour sauvegarde manuelle.
- *
- * iOS : nouvel onglet → visionneuse PDF native avec bouton partager/enregistrer.
- * Desktop : déclencheur <a download> standard.
- */
 export async function savePDF(blob: Blob, fileName: string): Promise<void> {
-  const ua = navigator.userAgent
-  const isIOS = /iPad|iPhone|iPod/.test(ua)
-  const isAndroid = /Android/i.test(ua)
-
-  if (isAndroid) {
-    // Try Web Share API first — best UX, shows native share sheet
-    if (typeof navigator.canShare === 'function') {
-      const file = new File([blob], fileName, { type: 'application/pdf' })
-      if (navigator.canShare({ files: [file] })) {
-        try {
-          await navigator.share({ files: [file], title: fileName })
-          return
-        } catch (e: any) {
-          // Propagate AbortError so caller knows user dismissed
-          if (e?.name === 'AbortError') throw e
-          // Other error: fall through to open in viewer
-        }
-      }
-    }
-    // Fallback: open in new tab so user can tap Chrome's native Download button.
-    // a.click() on a blob URL is silently blocked in most Android PWAs.
-    const url = URL.createObjectURL(blob)
-    const opened = window.open(url, '_blank')
-    if (!opened) {
-      // Popup blocked — last resort: anchor click
-      const a = document.createElement('a')
-      a.href = url
-      a.download = fileName
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-    }
-    setTimeout(() => URL.revokeObjectURL(url), 120_000)
-    return
-  }
-
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-
-  if (isIOS) {
-    // iOS: open in native PDF viewer (user can share/save from there)
-    a.target = '_blank'
-    a.rel = 'noopener noreferrer'
-  } else {
-    a.download = fileName
-  }
-
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  const { downloadFile } = await import('@/lib/utils/download')
+  await downloadFile(blob, fileName)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

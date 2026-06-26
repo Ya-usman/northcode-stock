@@ -724,48 +724,22 @@ export default function ReportsPage() {
               </button>
             </div>
 
-            {/* Télécharger — navigator.share en navigateur, URL Supabase signée en PWA Samsung */}
+            {/* Télécharger — même mécanisme que tous les autres exports de l'app */}
             <button
               disabled={downloading}
               className="flex items-center gap-4 w-full p-4 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 active:opacity-70 disabled:opacity-60"
               onClick={async () => {
-                // Navigateur : navigator.share fonctionne
-                const file = new File([pdfSheet.blob], pdfSheet.name, { type: 'application/pdf' })
-                if (typeof navigator.share === 'function') {
-                  try {
-                    await navigator.share({ files: [file], title: pdfSheet.name })
-                    closePdfSheet()
-                    return
-                  } catch (e: any) {
-                    if (e?.name === 'AbortError') return
-                    // navigator.share bloqué (PWA Samsung) → fallback Supabase
-                  }
-                }
-                // PWA / Samsung : upload vers Supabase Storage → vraie URL HTTPS signée
-                if (!navigator.onLine) {
-                  toast({ title: 'Pas de connexion', description: 'Connectez-vous à Internet pour télécharger le PDF.', variant: 'destructive' })
-                  return
-                }
                 setDownloading(true)
                 try {
-                  const base64 = await new Promise<string>((res, rej) => {
-                    const r = new FileReader()
-                    r.onload = () => res((r.result as string).split(',')[1])
-                    r.onerror = rej
-                    r.readAsDataURL(pdfSheet.blob)
-                  })
-                  const resp = await fetch('/api/pdf-download', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ data: base64, filename: pdfSheet.name }),
-                  })
-                  const json = await resp.json()
-                  if (json.error) throw new Error(json.error)
-                  // URL Supabase CDN → Content-Disposition: attachment → téléchargement natif
-                  window.location.href = json.url
+                  const { downloadFile } = await import('@/lib/utils/download')
+                  await downloadFile(pdfSheet.blob, pdfSheet.name)
                   closePdfSheet()
-                } catch (err) {
-                  toast({ title: 'Erreur de téléchargement', description: String(err), variant: 'destructive' })
+                } catch (err: any) {
+                  if (err?.name === 'OfflineError') {
+                    toast({ title: 'Pas de connexion', description: 'Connectez-vous pour télécharger.', variant: 'destructive' })
+                  } else if (err?.name !== 'AbortError') {
+                    toast({ title: 'Erreur de téléchargement', description: String(err), variant: 'destructive' })
+                  }
                 } finally {
                   setDownloading(false)
                 }

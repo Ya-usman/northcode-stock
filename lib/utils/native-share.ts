@@ -104,13 +104,7 @@ export async function downloadOrShareCSV(csvContent: string, fileName: string): 
     return
   }
 
-  // Web: anchor download
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = fileName
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  setTimeout(() => URL.revokeObjectURL(url), 10000)
+  // Web : délègue à downloadFile (blob URL sur navigateur, Supabase en PWA)
+  const { downloadFile } = await import('@/lib/utils/download')
+  await downloadFile(blob, fileName)
 }

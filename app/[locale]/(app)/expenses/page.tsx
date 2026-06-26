@@ -468,13 +468,17 @@ export default function ExpensesPage() {
         },
       })
     } catch (err: any) {
-      if (err?.name !== 'AbortError') toast({ title: err.message || 'Erreur export', variant: 'destructive' })
+      if (err?.name === 'OfflineError') {
+        toast({ title: 'Pas de connexion', description: 'Connectez-vous pour télécharger.', variant: 'destructive' })
+      } else if (err?.name !== 'AbortError') {
+        toast({ title: err.message || 'Erreur export', variant: 'destructive' })
+      }
     } finally {
       setExporting(false)
     }
   }
 
-  const exportCSV = () => {
+  const exportCSV = async () => {
     setExportMenuOpen(false)
     const header = [t('pdf_col_date'), t('pdf_col_desc'), t('pdf_col_cat'), t('pdf_col_payment'), t('pdf_col_amount')]
     const rows = filtered.map(e => [
@@ -487,12 +491,17 @@ export default function ExpensesPage() {
     rows.push(['', '', '', t('pdf_grand_total'), String(total)])
     const csv = [header, ...rows].map(r => r.join(';')).join('\n')
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href     = url
-    a.download = `Depenses-${shop?.name.replace(/\s+/g, '-')}-${monthFilter}.csv`
-    a.click()
-    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    const filename = `Depenses-${shop?.name.replace(/\s+/g, '-')}-${monthFilter}.csv`
+    try {
+      const { downloadFile } = await import('@/lib/utils/download')
+      await downloadFile(blob, filename)
+    } catch (err: any) {
+      if (err?.name === 'OfflineError') {
+        toast({ title: 'Pas de connexion', description: 'Connectez-vous pour télécharger.', variant: 'destructive' })
+      } else {
+        toast({ title: 'Erreur de téléchargement', variant: 'destructive' })
+      }
+    }
   }
 
   // ─── Render ──────────────────────────────────────────────────────────────
