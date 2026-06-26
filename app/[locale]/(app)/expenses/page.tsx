@@ -12,12 +12,13 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
-import { Plus, Pencil, Trash2, Receipt, RefreshCw, ChevronDown, ChevronUp, Target, FileDown, FileText, Table2, Camera, Paperclip, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, Receipt, RefreshCw, ChevronDown, ChevronUp, Target, FileDown, FileText, Table2, Camera, Paperclip, X, WifiOff, Clock } from 'lucide-react'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { NumericInput } from '@/components/ui/numeric-input'
 import { format, startOfMonth, endOfMonth, addMonths, addWeeks } from 'date-fns'
 import type { Expense, ExpenseBudget } from '@/lib/types/database'
 import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-cache'
+import { savePendingExpense, getPendingExpenses, type PendingExpense } from '@/lib/offline/db'
 import { CacheBanner } from '@/components/layout/cache-banner'
 import { cn } from '@/lib/utils/cn'
 import { generateExpensesReportPDF } from '@/lib/utils/pdf'
@@ -83,6 +84,7 @@ export default function ExpensesPage() {
 
   const [isOnline, setIsOnline]       = useState(true)
   const [cacheAge, setCacheAge]       = useState<number | null>(null)
+  const [pendingExpenses, setPendingExpenses] = useState<PendingExpense[]>([])
 
   // Expense modal state
   const [modalOpen, setModalOpen]     = useState(false)
@@ -105,12 +107,22 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     setIsOnline(navigator.onLine)
-    const on = () => setIsOnline(true)
+    const on = () => {
+      setIsOnline(true)
+      // Sync completes ~2s after back-online; refresh pending list to clear synced entries
+      if (shop?.id) setTimeout(() => getPendingExpenses(shop.id!).then(setPendingExpenses), 3000)
+    }
     const off = () => setIsOnline(false)
     window.addEventListener('online', on)
     window.addEventListener('offline', off)
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
-  }, [])
+  }, [shop?.id])
+
+  // Load pending (offline) expenses from IndexedDB on mount and after shop changes
+  useEffect(() => {
+    if (!shop?.id) return
+    getPendingExpenses(shop.id).then(setPendingExpenses)
+  }, [shop?.id])
 
   const withTimeout = useCallback((p: Promise<any>, ms = 8_000) =>
     Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Connexion trop lente — réessayez.')), ms))]),
@@ -280,6 +292,32 @@ export default function ExpensesPage() {
     if (!shop?.id || !amount || !description.trim()) return
     setSaving(true)
 
+    // ── Offline path: save to IndexedDB (non-recurring new expenses only) ──
+    if (!isOnline && !editing && !isRecurring) {
+      try {
+        await savePendingExpense({
+          local_id:       crypto.randomUUID(),
+          shop_id:        shop.id,
+          amount:         Number(amount),
+          description:    description.trim(),
+          date,
+          category,
+          payment_method: paymentMethod,
+          created_at:     new Date().toISOString(),
+          synced:         false,
+        })
+        const updated = await getPendingExpenses(shop.id)
+        setPendingExpenses(updated)
+        toast({ title: `${t('added')} · sera synchronisé à la reconnexion`, variant: 'success' })
+        setModalOpen(false)
+      } catch (err: any) {
+        toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+      } finally {
+        setSaving(false)
+      }
+      return
+    }
+
     let receipt_url = editing?.receipt_url ?? null
     if (receiptFile) {
       if (editing?.receipt_url) await deleteReceipt(editing.receipt_url)
@@ -414,12 +452,24 @@ export default function ExpensesPage() {
   // ─── Derived state ────────────────────────────────────────────────────────
 
   const filtered   = expenses.filter(e => categoryFilter === 'all' || (e.category || 'other') === categoryFilter)
+  const filteredPending = pendingExpenses.filter(p =>
+    p.date.slice(0, 7) === monthFilter &&
+    (categoryFilter === 'all' || p.category === categoryFilter)
+  )
   const total      = filtered.reduce((s, e) => s + Number(e.amount), 0)
+                   + filteredPending.reduce((s, p) => s + p.amount, 0)
   const monthLabel = new Date(monthFilter + '-01').toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
 
-  const activeCatIds = new Set(expenses.map(e => e.category || 'other'))
+  const activeCatIds = new Set([
+    ...expenses.map(e => e.category || 'other'),
+    ...filteredPending.map(p => p.category),
+  ])
   const catTotals    = Object.fromEntries(
-    EXPENSE_CATEGORIES.map(c => [c.id, expenses.filter(e => (e.category || 'other') === c.id).reduce((s, e) => s + Number(e.amount), 0)])
+    EXPENSE_CATEGORIES.map(c => [
+      c.id,
+      expenses.filter(e => (e.category || 'other') === c.id).reduce((s, e) => s + Number(e.amount), 0)
+      + filteredPending.filter(p => p.category === c.id).reduce((s, p) => s + p.amount, 0),
+    ])
   )
 
   // Categories to show in budget section: those with a budget OR with expenses this month
@@ -739,13 +789,46 @@ export default function ExpensesPage() {
       {/* ── Expense list ── */}
       {loading ? (
         <div className="space-y-2">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)}</div>
-      ) : filtered.length === 0 ? (
+      ) : filtered.length === 0 && filteredPending.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <Receipt className="h-10 w-10 mx-auto mb-3 opacity-30" />
           <p className="text-sm">{t('none')}</p>
         </div>
       ) : (
         <div className="space-y-2">
+          {/* Pending (offline) expenses — shown with amber badge until synced */}
+          {filteredPending.map(pexp => {
+            const cat = catFor(pexp.category)
+            return (
+              <Card key={pexp.local_id} className="border border-amber-300 dark:border-amber-700 shadow-sm bg-amber-50/60 dark:bg-amber-950/20">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className={cn('flex-shrink-0 h-9 w-9 rounded-xl flex items-center justify-center text-base', cat.color)}>
+                    {cat.icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-sm font-medium truncate">{pexp.description}</p>
+                      <span className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200">
+                        <WifiOff className="h-2.5 w-2.5" />
+                        hors ligne
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(pexp.date + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-base font-bold text-red-600 dark:text-red-400 flex-shrink-0">
+                    {fmt(pexp.amount)}
+                  </span>
+                  <div className="flex-shrink-0 h-8 w-8 flex items-center justify-center text-amber-500">
+                    <Clock className="h-4 w-4" aria-label="En attente de synchronisation" />
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
           {filtered.map(exp => {
             const cat = catFor(exp.category ?? 'other')
             const pm  = exp.payment_method
@@ -1009,15 +1092,21 @@ export default function ExpensesPage() {
             </div>
           )}
         </PremiumDialogBody>
+        {!isOnline && (editing || isRecurring) && (
+          <div className="mx-4 mb-3 flex items-center gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 text-xs text-amber-700 dark:text-amber-300">
+            <WifiOff className="h-4 w-4 flex-shrink-0" />
+            <span>{editing ? 'La modification nécessite une connexion internet.' : 'Les dépenses récurrentes nécessitent une connexion internet.'}</span>
+          </div>
+        )}
         <PremiumDialogFooter onCancel={() => setModalOpen(false)}>
           <Button
             onClick={handleSave}
             loading={saving}
-            disabled={!amount || !description.trim() || saving}
+            disabled={!amount || !description.trim() || saving || (!isOnline && (!!editing || isRecurring))}
             variant="stockshop"
             className="flex-1 h-11 rounded-xl font-semibold"
           >
-            {editing ? t('save') : t('add')}
+            {editing ? t('save') : !isOnline ? `${t('add')} (hors ligne)` : t('add')}
           </Button>
         </PremiumDialogFooter>
       </PremiumDialog>

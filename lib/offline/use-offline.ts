@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
-import { getPendingCount, getPendingMovementCount } from './db'
-import { syncPendingSales, syncPendingMovements, type SyncResult } from './sync'
+import { getPendingCount, getPendingMovementCount, getPendingExpenseCount } from './db'
+import { syncPendingSales, syncPendingMovements, syncPendingExpenses, type SyncResult } from './sync'
 
 // navigator.onLine is unreliable in Capacitor WebViews.
 // Do a real HEAD request to confirm actual connectivity.
@@ -33,11 +33,12 @@ export function useOffline() {
 
   const refreshPendingCount = useCallback(async () => {
     if (!shopId) return
-    const [sales, movements] = await Promise.all([
+    const [sales, movements, expenses] = await Promise.all([
       getPendingCount(shopId),
       getPendingMovementCount(shopId),
+      getPendingExpenseCount(shopId),
     ])
-    setPendingCount(sales + movements)
+    setPendingCount(sales + movements + expenses)
   }, [shopId])
 
   const sync = useCallback(async (): Promise<SyncResult | null> => {
@@ -48,6 +49,7 @@ export function useOffline() {
       const [salesResult] = await Promise.all([
         syncPendingSales(shopId),
         syncPendingMovements(shopId),
+        syncPendingExpenses(shopId),
       ])
       await refreshPendingCount()
       return salesResult

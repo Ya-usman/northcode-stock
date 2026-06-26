@@ -1,5 +1,9 @@
 import { createClient } from '@/lib/supabase/client'
-import { getPendingSales, markSaleSynced, markSaleError, getPendingMovements, markMovementSynced, markMovementError } from './db'
+import {
+  getPendingSales, markSaleSynced, markSaleError,
+  getPendingMovements, markMovementSynced, markMovementError,
+  getPendingExpenses, markExpenseSynced, markExpenseError,
+} from './db'
 
 // Register a Background Sync tag so the SW retries when connectivity is restored
 export async function registerBackgroundSync(): Promise<void> {
@@ -67,6 +71,43 @@ export interface SyncResult {
   synced: number
   failed: number
   errors: string[]
+}
+
+export async function syncPendingExpenses(shopId: string): Promise<SyncResult> {
+  const supabase = createClient() as any
+  const { data: { session }, error: refreshError } = await supabase.auth.refreshSession()
+  if (refreshError || !session) {
+    return { synced: 0, failed: 0, errors: ['Session expirée — reconnectez-vous pour synchroniser.'] }
+  }
+
+  const pending = await getPendingExpenses(shopId)
+  let synced = 0, failed = 0
+  const errors: string[] = []
+
+  for (const expense of pending) {
+    try {
+      const { error: insertError } = await supabase.from('expenses').insert({
+        shop_id:        expense.shop_id,
+        amount:         expense.amount,
+        description:    expense.description,
+        date:           expense.date,
+        category:       expense.category,
+        payment_method: expense.payment_method,
+        is_recurring:   false,
+        created_at:     expense.created_at,
+      })
+      if (insertError) throw new Error(insertError.message)
+      await markExpenseSynced(expense.local_id)
+      synced++
+    } catch (err: any) {
+      const msg: string = err.message || String(err)
+      await markExpenseError(expense.local_id, msg)
+      errors.push(msg)
+      failed++
+    }
+  }
+
+  return { synced, failed, errors }
 }
 
 export async function syncPendingSales(shopId: string): Promise<SyncResult> {

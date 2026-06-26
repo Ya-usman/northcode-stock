@@ -1,7 +1,7 @@
 import { openDB, type IDBPDatabase } from 'idb'
 
 const DB_NAME = 'stockshop-offline'
-const DB_VERSION = 4
+const DB_VERSION = 5
 
 export interface CachedProduct {
   id: string
@@ -44,6 +44,19 @@ export interface CachedCategory {
   name: string
   name_hausa: string | null
   cached_at: number
+}
+
+export interface PendingExpense {
+  local_id: string
+  shop_id: string
+  amount: number
+  description: string
+  date: string           // YYYY-MM-DD
+  category: string
+  payment_method: string
+  created_at: string     // ISO timestamp
+  synced: boolean
+  sync_error?: string
 }
 
 export interface PendingMovement {
@@ -122,6 +135,11 @@ function getDB() {
           const categories = db.createObjectStore('categories', { keyPath: 'id' })
           categories.createIndex('shop_id', 'shop_id')
         }
+        if (oldVersion < 5) {
+          const pexp = db.createObjectStore('pending_expenses', { keyPath: 'local_id' })
+          pexp.createIndex('shop_id', 'shop_id')
+          pexp.createIndex('synced', 'synced')
+        }
       },
     })
   }
@@ -185,11 +203,12 @@ export async function getPendingCount(shopId: string): Promise<number> {
 // Total unsynced across ALL shops — used to guard logout
 export async function getTotalPendingCount(): Promise<number> {
   const db = await getDB()
-  const [sales, movements] = await Promise.all([
+  const [sales, movements, expenses] = await Promise.all([
     db.getAllFromIndex('pending_sales', 'synced', false as any),
     db.getAllFromIndex('pending_movements', 'synced', false as any),
+    db.getAllFromIndex('pending_expenses', 'synced', false as any),
   ])
-  return sales.length + movements.length
+  return sales.length + movements.length + expenses.length
 }
 
 export async function markSaleSynced(localId: string): Promise<void> {
@@ -267,6 +286,35 @@ export async function cacheCategories(shopId: string, categories: Omit<CachedCat
 export async function getCachedCategories(shopId: string): Promise<CachedCategory[]> {
   const db = await getDB()
   return db.getAllFromIndex('categories', 'shop_id', shopId)
+}
+
+// ── Pending expenses ─────────────────────────────────────────────────────────
+
+export async function savePendingExpense(expense: PendingExpense): Promise<void> {
+  const db = await getDB()
+  await db.put('pending_expenses', expense)
+}
+
+export async function getPendingExpenses(shopId: string): Promise<PendingExpense[]> {
+  const db = await getDB()
+  const all = await db.getAllFromIndex('pending_expenses', 'shop_id', shopId)
+  return all.filter(e => !e.synced)
+}
+
+export async function getPendingExpenseCount(shopId: string): Promise<number> {
+  return (await getPendingExpenses(shopId)).length
+}
+
+export async function markExpenseSynced(localId: string): Promise<void> {
+  const db = await getDB()
+  const e = await db.get('pending_expenses', localId)
+  if (e) await db.put('pending_expenses', { ...e, synced: true, sync_error: undefined })
+}
+
+export async function markExpenseError(localId: string, error: string): Promise<void> {
+  const db = await getDB()
+  const e = await db.get('pending_expenses', localId)
+  if (e) await db.put('pending_expenses', { ...e, sync_error: error })
 }
 
 // Update product quantity in IndexedDB cache (optimistic update for offline restock)
