@@ -173,7 +173,9 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
     if (!shop?.id) return
     setSaving(true)
     const updates = {
-      name, city, state,
+      name: name.trim(),
+      city,
+      state,
       whatsapp: whatsapp || null,
       low_stock_threshold: threshold,
       tax_rate: taxRate,
@@ -185,14 +187,25 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       notify_push_new_sale: notifyPushNewSale,
       notify_push_new_expense: notifyPushNewExpense,
     }
-    const { error } = await supabase.from('shops').update(updates).eq('id', shop.id)
-    setSaving(false)
-    if (error) { toast({ title: error.message, variant: 'destructive' }); return }
-    // Update local state immediately so navigating away and back doesn't reset the form
-    setShop(prev => prev ? { ...prev, ...updates } : prev)
-    // Sync the global auth context so the new values persist across navigation
-    await refreshShop()
-    toast({ title: t('settings.saved'), variant: 'success' })
+    try {
+      const res = await fetch('/api/shops/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop_id: shop.id, ...updates }),
+      })
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error || 'Erreur', variant: 'destructive' }); return }
+      // Update local state immediately
+      setShop(prev => prev ? { ...prev, ...updates } : prev)
+      // Sync the global auth context
+      patchShop(shop.id, updates)
+      await refreshShop()
+      toast({ title: t('settings.saved'), variant: 'success' })
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur réseau', variant: 'destructive' })
+    } finally {
+      setSaving(false)
+    }
   }
 
   const compressImage = (file: File, maxSize = 800, quality = 0.75): Promise<Blob> =>
