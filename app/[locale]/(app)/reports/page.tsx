@@ -742,8 +742,10 @@ export default function ReportsPage() {
                   }
                 }
                 // PWA / Samsung : upload vers Supabase Storage → vraie URL HTTPS signée
-                // window.location.href sur une URL avec Content-Disposition: attachment
-                // déclenche le téléchargement sur TOUS les appareils Android
+                if (!navigator.onLine) {
+                  toast({ title: 'Pas de connexion', description: 'Connectez-vous à Internet pour télécharger le PDF.', variant: 'destructive' })
+                  return
+                }
                 setDownloading(true)
                 try {
                   const base64 = await new Promise<string>((res, rej) => {
