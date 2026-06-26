@@ -723,24 +723,40 @@ export default function ReportsPage() {
               </button>
             </div>
 
-            {/* Télécharger — navigator.share avec le blob déjà en mémoire, aucun serveur */}
+            {/* Télécharger — navigator.share dans le navigateur, form POST dans la PWA */}
             <button
               className="flex items-center gap-4 w-full p-4 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 active:opacity-70"
               onClick={async () => {
+                // Essai 1 : navigator.share (fonctionne dans le navigateur Chrome)
                 const file = new File([pdfSheet.blob], pdfSheet.name, { type: 'application/pdf' })
-                try {
-                  await navigator.share({ files: [file], title: pdfSheet.name })
-                  closePdfSheet()
-                } catch (e: any) {
-                  if (e?.name === 'AbortError') return
-                  // navigator.share non disponible — dernier recours blob URL
-                  const url = URL.createObjectURL(pdfSheet.blob)
-                  const a = document.createElement('a')
-                  a.href = url; a.download = pdfSheet.name
-                  document.body.appendChild(a); a.click(); document.body.removeChild(a)
-                  setTimeout(() => URL.revokeObjectURL(url), 30_000)
-                  closePdfSheet()
+                if (typeof navigator.share === 'function') {
+                  try {
+                    await navigator.share({ files: [file], title: pdfSheet.name })
+                    closePdfSheet()
+                    return
+                  } catch (e: any) {
+                    if (e?.name === 'AbortError') return
+                    // navigator.share bloqué (PWA standalone) → form POST
+                  }
                 }
+                // Essai 2 : form POST → Content-Disposition: attachment
+                // Fonctionne dans la PWA car c'est une vraie requête HTTP vers notre serveur
+                const base64 = await new Promise<string>((res, rej) => {
+                  const r = new FileReader()
+                  r.onload = () => res((r.result as string).split(',')[1])
+                  r.onerror = rej
+                  r.readAsDataURL(pdfSheet.blob)
+                })
+                const form = document.createElement('form')
+                form.method = 'POST'
+                form.action = '/api/pdf-download'
+                const d = document.createElement('input'); d.type = 'hidden'; d.name = 'data'; d.value = base64
+                const n = document.createElement('input'); n.type = 'hidden'; n.name = 'filename'; n.value = pdfSheet.name
+                form.append(d, n)
+                document.body.appendChild(form)
+                form.submit()
+                setTimeout(() => { try { document.body.removeChild(form) } catch {} }, 2000)
+                closePdfSheet()
               }}
             >
               <div className="h-10 w-10 flex items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50 flex-shrink-0">
@@ -748,7 +764,7 @@ export default function ReportsPage() {
               </div>
               <div className="text-left">
                 <p className="font-semibold text-sm">Télécharger</p>
-                <p className="text-xs opacity-70">Appuyez puis "Enregistrer dans les fichiers"</p>
+                <p className="text-xs opacity-70">Enregistrer dans les fichiers</p>
               </div>
             </button>
 
