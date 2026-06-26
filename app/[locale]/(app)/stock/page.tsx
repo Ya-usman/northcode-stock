@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
 import { motion } from 'framer-motion'
-import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, ChevronDown, ChevronUp, Upload, CheckSquare, Square, AlertTriangle } from 'lucide-react'
+import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, ChevronDown, ChevronUp, Upload, CheckSquare, Square, AlertTriangle, History } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -27,6 +27,7 @@ import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-
 import { CacheBanner } from '@/components/layout/cache-banner'
 import { savePendingMovement, updateCachedProductQuantity } from '@/lib/offline/db'
 import { registerBackgroundSync } from '@/lib/offline/sync'
+import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 
 
 function StockBadge({ quantity, threshold }: { quantity: number; threshold: number }) {
@@ -40,6 +41,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const t = useTranslations()
   const { profile, shop, roleInActiveShop, effectiveShopIds, userShops } = useAuth()
   const effectiveRole = roleInActiveShop ?? profile?.role
+  const { canAccess } = useRolePermissions()
   const isMultiShop = effectiveShopIds.length > 1
   const { fmt: formatNaira, symbol: currencySymbol } = useCurrency()
   const supabase = createClient()
@@ -75,13 +77,18 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [deleteCatConfirmId, setDeleteCatConfirmId] = useState<string | null>(null)
 
   // ── Suppression en masse ────────────────────────────────────────────────
-  const [canDeleteProducts, setCanDeleteProducts] = useState(false)
+  const canDeleteProducts = canAccess('delete_products')
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false)
   const [bulkDeleteAll, setBulkDeleteAll] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const [bulkDeleteText, setBulkDeleteText] = useState('')
+
+  // ── Journal de suppressions ─────────────────────────────────────────────
+  const [showJournal, setShowJournal] = useState(false)
+  const [auditLogs, setAuditLogs] = useState<any[]>([])
+  const [loadingJournal, setLoadingJournal] = useState(false)
 
   const restockForm = useForm<RestockFormData>({ resolver: zodResolver(createRestockSchema({ restock_min_qty: t('errors.restock_min_qty') })) })
 
@@ -93,22 +100,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     window.addEventListener('offline', off)
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
   }, [])
-
-  // Vérifier si l'utilisateur peut supprimer des produits
-  useEffect(() => {
-    if (effectiveRole === 'owner' || effectiveRole === 'super_admin') {
-      setCanDeleteProducts(true)
-      return
-    }
-    if (!shop?.id || !profile?.id) return
-    ;(supabase as any)
-      .from('shop_members')
-      .select('can_delete_products')
-      .eq('shop_id', shop.id)
-      .eq('user_id', profile.id)
-      .single()
-      .then(({ data }: any) => setCanDeleteProducts(data?.can_delete_products ?? false))
-  }, [shop?.id, profile?.id, effectiveRole])
 
   // Réinitialiser la sélection quand on change de boutique
   useEffect(() => {
@@ -435,6 +426,20 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     fetchProducts()
   }
 
+  const fetchAuditLogs = async () => {
+    if (!shop?.id) return
+    setLoadingJournal(true)
+    const { data } = await (supabase as any)
+      .from('audit_logs')
+      .select('*')
+      .eq('shop_id', shop.id)
+      .in('action', ['delete_product', 'bulk_delete_products', 'delete_all_products'])
+      .order('created_at', { ascending: false })
+      .limit(30)
+    setAuditLogs(data || [])
+    setLoadingJournal(false)
+  }
+
   const renderProductCard = (product: Product, idx: number) => {
     const threshold = product.low_stock_threshold || shop?.low_stock_threshold || 10
     const isSelected = selectedIds.has(product.id)
@@ -724,6 +729,63 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Journal de suppressions — owner only */}
+      {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
+        <div className="border border-dashed rounded-xl p-3 space-y-2">
+          <button
+            onClick={() => {
+              if (!showJournal) fetchAuditLogs()
+              setShowJournal(v => !v)
+            }}
+            className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-full"
+          >
+            <History className="h-4 w-4" />
+            Journal de suppressions
+            {showJournal ? <ChevronUp className="h-3.5 w-3.5 ml-auto" /> : <ChevronDown className="h-3.5 w-3.5 ml-auto" />}
+          </button>
+          {showJournal && (
+            <div className="space-y-1.5 pt-1">
+              {loadingJournal ? (
+                <p className="text-xs text-muted-foreground text-center py-3">Chargement...</p>
+              ) : auditLogs.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-3">Aucune suppression enregistrée.</p>
+              ) : (
+                auditLogs.map((log: any) => {
+                  const meta = log.metadata || {}
+                  const actor = meta.actor_name || log.actor_email || '—'
+                  const when = new Date(log.created_at).toLocaleString('fr-FR', {
+                    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+                  })
+                  let label = ''
+                  let detail = ''
+                  if (log.action === 'delete_product') {
+                    label = 'Produit supprimé'
+                    detail = meta.product_name || log.target_id || '—'
+                  } else if (log.action === 'bulk_delete_products') {
+                    label = 'Suppression en masse'
+                    const names = (meta.products_snapshot || []).map((p: any) => p.name).join(', ')
+                    detail = `${meta.count} produit${meta.count > 1 ? 's' : ''}${names ? ` · ${names}` : ''}`
+                  } else {
+                    label = 'Tous les produits supprimés'
+                    detail = `${meta.count} produit${meta.count > 1 ? 's' : ''}`
+                  }
+                  return (
+                    <div key={log.id} className="flex items-start gap-2.5 rounded-lg bg-muted/40 border px-3 py-2.5 text-xs">
+                      <Trash2 className="h-3.5 w-3.5 text-red-400 flex-shrink-0 mt-0.5" />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-foreground/80">{label}</p>
+                        <p className="text-muted-foreground truncate">{detail}</p>
+                        <p className="text-muted-foreground/70 mt-0.5">{actor} · {when}</p>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
             </div>
           )}
         </div>

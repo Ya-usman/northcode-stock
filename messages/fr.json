@@ -526,7 +526,8 @@
     "perm_reports": "Rapports",
     "perm_expenses": "Dépenses",
     "perm_notes": "Notes",
-    "perm_revenue_chart": "Revenus vs Dépenses & Résultat net"
+    "perm_revenue_chart": "Revenus vs Dépenses & Résultat net",
+    "perm_delete_products": "Supprimer des produits"
   },
   "movements": {
     "title": "Mouvements de stock",

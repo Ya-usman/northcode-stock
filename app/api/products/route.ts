@@ -67,8 +67,8 @@ export async function PATCH(request: Request) {
 
 // DELETE /api/products
 // — Single:  ?id=xxx&shop_id=xxx           (owner/super_admin only, URL params)
-// — Bulk:    body { ids: string[], shop_id } (owner/super_admin ou can_delete_products)
-// — All:     body { all: true, shop_id }    (owner/super_admin ou can_delete_products)
+// — Bulk:    body { ids: string[], shop_id } (owner/super_admin ou role delete_products)
+// — All:     body { all: true, shop_id }    (owner/super_admin ou role delete_products)
 export async function DELETE(request: Request) {
   try {
     const { user, supabase } = await getAuthedUser()
@@ -85,7 +85,7 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ error: 'Seul le propriétaire peut supprimer définitivement' }, { status: 403 })
       const admin = await createAdminClient()
       const { data: product } = await (admin as any)
-        .from('products').select('buying_price').eq('id', singleId).single()
+        .from('products').select('id, name, sku, quantity, buying_price, selling_price').eq('id', singleId).single()
       if (product?.buying_price) {
         await (admin as any).from('sale_items')
           .update({ buying_price: Number(product.buying_price) })
@@ -94,6 +94,25 @@ export async function DELETE(request: Request) {
       await (admin as any).from('products').update({ is_active: false }).eq('id', singleId)
       const { error } = await (admin as any).from('products').delete().eq('id', singleId)
       if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+      // Audit log
+      const { data: actorProfile } = await (admin as any).from('profiles').select('full_name').eq('id', user.id).single()
+      await (admin as any).from('audit_logs').insert({
+        shop_id: singleShopId,
+        actor_id: user.id,
+        actor_email: user.email,
+        action: 'delete_product',
+        target_id: singleId,
+        target_type: 'product',
+        metadata: {
+          actor_name: actorProfile?.full_name || user.email,
+          product_name: product?.name,
+          sku: product?.sku,
+          quantity: product?.quantity,
+          selling_price: product?.selling_price,
+        },
+      }).catch(() => {}) // non-blocking
+
       return NextResponse.json({ ok: true })
     }
 
@@ -107,13 +126,10 @@ export async function DELETE(request: Request) {
     if (!role) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     const isPrivileged = role === 'owner' || role === 'super_admin'
     if (!isPrivileged) {
-      const { data: member } = await (supabase as any)
-        .from('shop_members')
-        .select('can_delete_products')
-        .eq('shop_id', body.shop_id)
-        .eq('user_id', user.id)
-        .single()
-      if (!member?.can_delete_products)
+      const { data: shopData } = await (supabase as any)
+        .from('shops').select('role_permissions').eq('id', body.shop_id).single()
+      const canDelete = shopData?.role_permissions?.[role]?.delete_products ?? false
+      if (!canDelete)
         return NextResponse.json({ error: 'Permission insuffisante pour supprimer des produits' }, { status: 403 })
     }
 
@@ -129,15 +145,17 @@ export async function DELETE(request: Request) {
     if (!ids.length) return NextResponse.json({ ok: true, deleted: 0 })
 
     // Geler les buying_price dans sale_items avant suppression (précision des rapports)
-    const { data: prodsWithPrice } = await (admin as any)
-      .from('products').select('id, buying_price').in('id', ids).gt('buying_price', 0)
-    if (prodsWithPrice?.length) {
+    const { data: prodsWithDetails } = await (admin as any)
+      .from('products').select('id, name, sku, quantity, buying_price, selling_price').in('id', ids)
+    if (prodsWithDetails?.length) {
       await Promise.all(
-        prodsWithPrice.map((p: any) =>
-          (admin as any).from('sale_items')
-            .update({ buying_price: Number(p.buying_price) })
-            .eq('product_id', p.id).eq('buying_price', 0)
-        )
+        prodsWithDetails
+          .filter((p: any) => p.buying_price > 0)
+          .map((p: any) =>
+            (admin as any).from('sale_items')
+              .update({ buying_price: Number(p.buying_price) })
+              .eq('product_id', p.id).eq('buying_price', 0)
+          )
       )
     }
 
@@ -145,6 +163,27 @@ export async function DELETE(request: Request) {
     await (admin as any).from('products').update({ is_active: false }).in('id', ids)
     const { error } = await (admin as any).from('products').delete().in('id', ids)
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+    // Audit log
+    const { data: actorProfile } = await (admin as any).from('profiles').select('full_name').eq('id', user.id).single()
+    const action = body.all ? 'delete_all_products' : 'bulk_delete_products'
+    const snapshot = (prodsWithDetails ?? []).slice(0, 10).map((p: any) => ({
+      id: p.id, name: p.name, quantity: p.quantity,
+    }))
+    await (admin as any).from('audit_logs').insert({
+      shop_id: body.shop_id,
+      actor_id: user.id,
+      actor_email: user.email,
+      action,
+      target_id: null,
+      target_type: 'product',
+      metadata: {
+        actor_name: actorProfile?.full_name || user.email,
+        count: ids.length,
+        products_snapshot: snapshot,
+      },
+    }).catch(() => {}) // non-blocking
+
     return NextResponse.json({ ok: true, deleted: ids.length })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })

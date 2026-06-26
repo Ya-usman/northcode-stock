@@ -40,7 +40,6 @@ interface Member {
   shop_id: string
   role: UserRole
   is_active: boolean
-  can_delete_products: boolean
   joined_at: string
   profiles: {
     id: string
@@ -107,7 +106,7 @@ export default function TeamPage() {
       const results = await Promise.all(
         effectiveShopIds.map(sid =>
           supabase.from('shop_members')
-            .select('id, user_id, shop_id, role, is_active, can_delete_products, joined_at')
+            .select('id, user_id, shop_id, role, is_active, joined_at')
             .eq('shop_id', sid)
             .order('role')
         )
@@ -219,26 +218,6 @@ export default function TeamPage() {
       toast({ title: err.message, variant: 'destructive' })
     } finally {
       setDeleting(false)
-    }
-  }
-
-  const toggleDeleteProducts = async (member: Member) => {
-    const newValue = !member.can_delete_products
-    // Optimistic update
-    setMembers(prev => prev.map(m => m.id === member.id ? { ...m, can_delete_products: newValue } : m))
-    const { error } = await (supabase as any)
-      .from('shop_members').update({ can_delete_products: newValue }).eq('id', member.id)
-    if (error) {
-      // Revert on error
-      setMembers(prev => prev.map(m => m.id === member.id ? { ...m, can_delete_products: !newValue } : m))
-      toast({ title: error.message, variant: 'destructive' })
-    } else {
-      toast({
-        title: newValue
-          ? `${member.profiles?.full_name} peut maintenant supprimer des produits`
-          : `${member.profiles?.full_name} ne peut plus supprimer des produits`,
-        variant: newValue ? 'default' : 'default',
-      })
     }
   }
 
@@ -355,23 +334,6 @@ export default function TeamPage() {
                 <Trash2 className="h-3 w-3" />
               </Button>
             </div>
-            {/* Permission : supprimer des produits */}
-            <button
-              onClick={() => member.is_active && toggleDeleteProducts(member)}
-              disabled={!member.is_active}
-              title={member.can_delete_products ? 'Désactiver la suppression de produits' : 'Autoriser la suppression de produits'}
-              className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                member.can_delete_products
-                  ? 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-100'
-                  : 'bg-muted border-border text-muted-foreground hover:bg-accent'
-              }`}
-            >
-              <Trash2 className="h-3 w-3" />
-              Supprimer produits
-              <span className={`font-bold ml-0.5 ${member.can_delete_products ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>
-                {member.can_delete_products ? '· ON' : '· OFF'}
-              </span>
-            </button>
           </div>
         )}
       </div>
