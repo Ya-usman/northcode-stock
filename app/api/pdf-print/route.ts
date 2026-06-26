@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Single-request: POST base64 PDF → returns PDF with Content-Disposition: attachment
-// No server-side state → works on Vercel serverless with multiple instances
+// Single-request: POST base64 PDF → returns PDF inline (for viewing/printing in browser)
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
@@ -18,7 +17,7 @@ export async function POST(req: NextRequest) {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${filename}"; filename*=UTF-8''${safe}`,
+        'Content-Disposition': `inline; filename="${filename}"; filename*=UTF-8''${safe}`,
         'Content-Length': String(bytes.length),
       },
     })

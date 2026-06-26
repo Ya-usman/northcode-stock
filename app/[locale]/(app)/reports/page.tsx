@@ -725,7 +725,7 @@ export default function ReportsPage() {
               </button>
             </div>
 
-            {/* Télécharger — POST blob → serveur → URL HTTPS réelle → Chrome télécharge */}
+            {/* Télécharger — form POST → iframe caché → Content-Disposition: attachment → download natif */}
             <button
               disabled={downloading}
               className="flex items-center gap-4 w-full p-4 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 active:opacity-70 disabled:opacity-50"
@@ -738,15 +738,29 @@ export default function ReportsPage() {
                     r.onerror = rej
                     r.readAsDataURL(pdfSheet.blob)
                   })
-                  const resp = await fetch('/api/pdf-download', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ data: base64, filename: pdfSheet.name }),
-                  })
-                  const { id } = await resp.json()
-                  // Vraie URL HTTPS + Content-Disposition: attachment → Chrome télécharge normalement
-                  window.location.href = `/api/pdf-download?id=${id}`
+                  // iframe caché = target du form → Chrome reçoit attachment response → télécharge
+                  const frameId = 'pdf-dl-frame'
+                  let iframe = document.getElementById(frameId) as HTMLIFrameElement | null
+                  if (!iframe) {
+                    iframe = document.createElement('iframe')
+                    iframe.id = frameId
+                    iframe.name = frameId
+                    iframe.style.cssText = 'position:fixed;top:-200px;left:-200px;width:1px;height:1px;opacity:0'
+                    document.body.appendChild(iframe)
+                  }
+                  const form = document.createElement('form')
+                  form.method = 'POST'
+                  form.action = '/api/pdf-download'
+                  form.target = frameId
+                  form.enctype = 'multipart/form-data'
+                  const d = document.createElement('input'); d.type = 'hidden'; d.name = 'data'; d.value = base64
+                  const n = document.createElement('input'); n.type = 'hidden'; n.name = 'filename'; n.value = pdfSheet.name
+                  form.append(d, n)
+                  document.body.appendChild(form)
+                  form.submit()
+                  setTimeout(() => { try { document.body.removeChild(form) } catch {} }, 3000)
                   closePdfSheet()
+                  toast({ title: 'Téléchargement lancé', description: 'Vérifiez la barre de notifications' })
                 } catch {
                   toast({ title: 'Erreur de téléchargement', variant: 'destructive' })
                 } finally {
@@ -787,7 +801,7 @@ export default function ReportsPage() {
               </button>
             )}
 
-            {/* Imprimer — POST → serveur → URL HTTPS → visionneuse PDF */}
+            {/* Imprimer — même mécanisme mais dans un nouvel onglet via form target=_blank */}
             <button
               disabled={downloading}
               className="flex items-center gap-4 w-full p-4 rounded-xl bg-muted/60 text-foreground active:opacity-70 disabled:opacity-50"
@@ -800,13 +814,17 @@ export default function ReportsPage() {
                     r.onerror = rej
                     r.readAsDataURL(pdfSheet.blob)
                   })
-                  const resp = await fetch('/api/pdf-download', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ data: base64, filename: pdfSheet.name }),
-                  })
-                  const { id } = await resp.json()
-                  window.open(`/api/pdf-download?id=${id}`, '_blank')
+                  const form = document.createElement('form')
+                  form.method = 'POST'
+                  form.action = '/api/pdf-print'
+                  form.target = '_blank'
+                  form.enctype = 'multipart/form-data'
+                  const d = document.createElement('input'); d.type = 'hidden'; d.name = 'data'; d.value = base64
+                  const n = document.createElement('input'); n.type = 'hidden'; n.name = 'filename'; n.value = pdfSheet.name
+                  form.append(d, n)
+                  document.body.appendChild(form)
+                  form.submit()
+                  setTimeout(() => { try { document.body.removeChild(form) } catch {} }, 3000)
                   closePdfSheet()
                 } catch {
                   toast({ title: 'Erreur', variant: 'destructive' })
