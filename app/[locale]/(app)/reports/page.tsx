@@ -711,10 +711,10 @@ export default function ReportsPage() {
           onClick={closePdfSheet}
         >
           <div
-            className="bg-background rounded-t-2xl p-5 space-y-2 pb-8"
+            className="bg-background rounded-t-2xl p-5 space-y-3 pb-10"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-1">
               <div>
                 <p className="font-semibold text-base">Rapport PDF prêt</p>
                 <p className="text-xs text-muted-foreground truncate max-w-[240px]">{pdfSheet.name}</p>
@@ -724,58 +724,50 @@ export default function ReportsPage() {
               </button>
             </div>
 
-            {/* Download — real <a download> link, user taps directly → browser handles it */}
-            <a
-              href={pdfSheet.url}
-              download={pdfSheet.name}
-              onClick={closePdfSheet}
+            {/* Primary: Share API — covers download, WhatsApp, Drive, email, print on Android */}
+            <button
               className="flex items-center gap-4 w-full p-4 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 active:opacity-70"
+              onClick={async () => {
+                const file = new File([pdfSheet.blob], pdfSheet.name, { type: 'application/pdf' })
+                try {
+                  await navigator.share({ files: [file], title: pdfSheet.name })
+                  closePdfSheet()
+                } catch (e: any) {
+                  if (e?.name === 'AbortError') return
+                  // navigator.share failed — last resort: navigate to blob in same tab
+                  window.location.href = pdfSheet.url
+                  closePdfSheet()
+                }
+              }}
             >
               <div className="h-10 w-10 flex items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50 flex-shrink-0">
-                <Download className="h-5 w-5" />
+                <Share2 className="h-5 w-5" />
               </div>
-              <div>
-                <p className="font-semibold text-sm">Télécharger</p>
-                <p className="text-xs opacity-70">Enregistrer dans les fichiers</p>
+              <div className="text-left">
+                <p className="font-semibold text-sm">Enregistrer / Partager</p>
+                <p className="text-xs opacity-70">Télécharger, WhatsApp, Drive, Email…</p>
               </div>
-            </a>
+            </button>
 
-            {/* Share — user tap is the gesture → navigator.share works */}
-            {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
-              <button
-                className="flex items-center gap-4 w-full p-4 rounded-xl bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 active:opacity-70"
-                onClick={async () => {
-                  const file = new File([pdfSheet.blob], pdfSheet.name, { type: 'application/pdf' })
-                  try {
-                    await navigator.share({ files: [file], title: pdfSheet.name })
-                    closePdfSheet()
-                  } catch (e: any) {
-                    if (e?.name !== 'AbortError') toast({ title: 'Erreur lors du partage', variant: 'destructive' })
-                  }
-                }}
-              >
-                <div className="h-10 w-10 flex items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50 flex-shrink-0">
-                  <Share2 className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="font-semibold text-sm">Partager</p>
-                  <p className="text-xs opacity-70">WhatsApp, Drive, Email…</p>
-                </div>
-              </button>
-            )}
-
-            {/* Print / Open in browser */}
+            {/* Print: open in same tab (blob URL) → Chrome PDF viewer with print option */}
             <button
               className="flex items-center gap-4 w-full p-4 rounded-xl bg-muted/60 text-foreground active:opacity-70"
-              onClick={() => { window.open(pdfSheet.url, '_blank') }}
+              onClick={() => {
+                // Keep sheet open so blob URL stays valid while user navigates
+                window.location.href = pdfSheet.url
+              }}
             >
               <div className="h-10 w-10 flex items-center justify-center rounded-full bg-muted flex-shrink-0">
                 <Printer className="h-5 w-5" />
               </div>
-              <div>
+              <div className="text-left">
                 <p className="font-semibold text-sm">Imprimer</p>
-                <p className="text-xs text-muted-foreground">Ouvrir dans le navigateur</p>
+                <p className="text-xs text-muted-foreground">Ouvrir la visionneuse PDF pour imprimer</p>
               </div>
+            </button>
+
+            <button onClick={closePdfSheet} className="w-full py-2 text-sm text-muted-foreground">
+              Annuler
             </button>
           </div>
         </div>
