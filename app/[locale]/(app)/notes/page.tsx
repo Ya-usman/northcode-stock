@@ -286,6 +286,9 @@ export default function NotesPage() {
               placeholder="Titre (optionnel)"
               value={title}
               onChange={e => setTitle(e.target.value)}
+              autoCorrect="on"
+              autoCapitalize="sentences"
+              spellCheck={true}
               className="font-medium"
             />
 
@@ -296,6 +299,9 @@ export default function NotesPage() {
               defaultValue={editing?.content ?? ''}
               onInput={e => { contentValueRef.current = (e.target as HTMLTextAreaElement).value }}
               rows={6}
+              autoCorrect="on"
+              autoCapitalize="sentences"
+              spellCheck={true}
               className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
 
