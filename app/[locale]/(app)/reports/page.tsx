@@ -725,83 +725,58 @@ export default function ReportsPage() {
               </button>
             </div>
 
-            {/* Télécharger — form POST → iframe caché → Content-Disposition: attachment → download natif */}
+            {/* Télécharger — navigator.share avec le blob déjà en mémoire, aucun serveur */}
             <button
-              disabled={downloading}
-              className="flex items-center gap-4 w-full p-4 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 active:opacity-70 disabled:opacity-50"
+              className="flex items-center gap-4 w-full p-4 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 active:opacity-70"
               onClick={async () => {
-                setDownloading(true)
+                const file = new File([pdfSheet.blob], pdfSheet.name, { type: 'application/pdf' })
                 try {
-                  const base64 = await new Promise<string>((res, rej) => {
-                    const r = new FileReader()
-                    r.onload = () => res((r.result as string).split(',')[1])
-                    r.onerror = rej
-                    r.readAsDataURL(pdfSheet.blob)
-                  })
-                  // iframe caché = target du form → Chrome reçoit attachment response → télécharge
-                  const frameId = 'pdf-dl-frame'
-                  let iframe = document.getElementById(frameId) as HTMLIFrameElement | null
-                  if (!iframe) {
-                    iframe = document.createElement('iframe')
-                    iframe.id = frameId
-                    iframe.name = frameId
-                    iframe.style.cssText = 'position:fixed;top:-200px;left:-200px;width:1px;height:1px;opacity:0'
-                    document.body.appendChild(iframe)
-                  }
-                  const form = document.createElement('form')
-                  form.method = 'POST'
-                  form.action = '/api/pdf-download'
-                  form.target = frameId
-                  form.enctype = 'multipart/form-data'
-                  const d = document.createElement('input'); d.type = 'hidden'; d.name = 'data'; d.value = base64
-                  const n = document.createElement('input'); n.type = 'hidden'; n.name = 'filename'; n.value = pdfSheet.name
-                  form.append(d, n)
-                  document.body.appendChild(form)
-                  form.submit()
-                  setTimeout(() => { try { document.body.removeChild(form) } catch {} }, 3000)
+                  await navigator.share({ files: [file], title: pdfSheet.name })
                   closePdfSheet()
-                  toast({ title: 'Téléchargement lancé', description: 'Vérifiez la barre de notifications' })
-                } catch {
-                  toast({ title: 'Erreur de téléchargement', variant: 'destructive' })
-                } finally {
-                  setDownloading(false)
+                } catch (e: any) {
+                  if (e?.name === 'AbortError') return
+                  // navigator.share non disponible — dernier recours blob URL
+                  const url = URL.createObjectURL(pdfSheet.blob)
+                  const a = document.createElement('a')
+                  a.href = url; a.download = pdfSheet.name
+                  document.body.appendChild(a); a.click(); document.body.removeChild(a)
+                  setTimeout(() => URL.revokeObjectURL(url), 30_000)
+                  closePdfSheet()
                 }
               }}
             >
               <div className="h-10 w-10 flex items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50 flex-shrink-0">
-                {downloading ? <div className="h-5 w-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" /> : <Download className="h-5 w-5" />}
+                <Download className="h-5 w-5" />
               </div>
               <div className="text-left">
-                <p className="font-semibold text-sm">{downloading ? 'Préparation…' : 'Télécharger'}</p>
-                <p className="text-xs opacity-70">Enregistrer dans les fichiers</p>
+                <p className="font-semibold text-sm">Télécharger</p>
+                <p className="text-xs opacity-70">Appuyez puis "Enregistrer dans les fichiers"</p>
               </div>
             </button>
 
-            {/* Partager — navigator.share (WhatsApp, Drive, Email…) */}
-            {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
-              <button
-                className="flex items-center gap-4 w-full p-4 rounded-xl bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 active:opacity-70"
-                onClick={async () => {
-                  const file = new File([pdfSheet.blob], pdfSheet.name, { type: 'application/pdf' })
-                  try {
-                    await navigator.share({ files: [file], title: pdfSheet.name })
-                    closePdfSheet()
-                  } catch (e: any) {
-                    if (e?.name !== 'AbortError') toast({ title: 'Erreur lors du partage', variant: 'destructive' })
-                  }
-                }}
-              >
-                <div className="h-10 w-10 flex items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50 flex-shrink-0">
-                  <Share2 className="h-5 w-5" />
-                </div>
-                <div className="text-left">
-                  <p className="font-semibold text-sm">Partager</p>
-                  <p className="text-xs opacity-70">WhatsApp, Drive, Email…</p>
-                </div>
-              </button>
-            )}
+            {/* Partager — même chose, label différent */}
+            <button
+              className="flex items-center gap-4 w-full p-4 rounded-xl bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 active:opacity-70"
+              onClick={async () => {
+                const file = new File([pdfSheet.blob], pdfSheet.name, { type: 'application/pdf' })
+                try {
+                  await navigator.share({ files: [file], title: pdfSheet.name })
+                  closePdfSheet()
+                } catch (e: any) {
+                  if (e?.name !== 'AbortError') toast({ title: 'Partage non supporté sur cet appareil', variant: 'destructive' })
+                }
+              }}
+            >
+              <div className="h-10 w-10 flex items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50 flex-shrink-0">
+                <Share2 className="h-5 w-5" />
+              </div>
+              <div className="text-left">
+                <p className="font-semibold text-sm">Partager</p>
+                <p className="text-xs opacity-70">WhatsApp, Drive, Email…</p>
+              </div>
+            </button>
 
-            {/* Imprimer — même mécanisme mais dans un nouvel onglet via form target=_blank */}
+            {/* Imprimer — fetch JSON → blob → navigate same tab (Chrome PDF viewer) */}
             <button
               disabled={downloading}
               className="flex items-center gap-4 w-full p-4 rounded-xl bg-muted/60 text-foreground active:opacity-70 disabled:opacity-50"
@@ -809,22 +784,18 @@ export default function ReportsPage() {
                 setDownloading(true)
                 try {
                   const base64 = await new Promise<string>((res, rej) => {
-                    const r = new FileReader()
-                    r.onload = () => res((r.result as string).split(',')[1])
-                    r.onerror = rej
-                    r.readAsDataURL(pdfSheet.blob)
+                    const r = new FileReader(); r.onload = () => res((r.result as string).split(',')[1]); r.onerror = rej; r.readAsDataURL(pdfSheet.blob)
                   })
-                  const form = document.createElement('form')
-                  form.method = 'POST'
-                  form.action = '/api/pdf-print'
-                  form.target = '_blank'
-                  form.enctype = 'multipart/form-data'
-                  const d = document.createElement('input'); d.type = 'hidden'; d.name = 'data'; d.value = base64
-                  const n = document.createElement('input'); n.type = 'hidden'; n.name = 'filename'; n.value = pdfSheet.name
-                  form.append(d, n)
-                  document.body.appendChild(form)
-                  form.submit()
-                  setTimeout(() => { try { document.body.removeChild(form) } catch {} }, 3000)
+                  const resp = await fetch('/api/pdf-download', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: base64, filename: pdfSheet.name, disposition: 'inline' }),
+                  })
+                  if (!resp.ok) throw new Error('server error')
+                  const blob = await resp.blob()
+                  const url = URL.createObjectURL(blob)
+                  window.open(url, '_blank') || (window.location.href = url)
+                  setTimeout(() => URL.revokeObjectURL(url), 120_000)
                   closePdfSheet()
                 } catch {
                   toast({ title: 'Erreur', variant: 'destructive' })
@@ -834,7 +805,7 @@ export default function ReportsPage() {
               }}
             >
               <div className="h-10 w-10 flex items-center justify-center rounded-full bg-muted flex-shrink-0">
-                <Printer className="h-5 w-5" />
+                {downloading ? <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <Printer className="h-5 w-5" />}
               </div>
               <div className="text-left">
                 <p className="font-semibold text-sm">Imprimer</p>

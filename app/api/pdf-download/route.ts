@@ -1,28 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Single-request: POST base64 PDF → returns PDF with Content-Disposition: attachment
-// No server-side state → works on Vercel serverless with multiple instances
+// POST { data: base64, filename } → PDF inline (used by Imprimer button)
 export async function POST(req: NextRequest) {
   try {
-    const formData = await req.formData()
-    const data = formData.get('data') as string
-    const filename = (formData.get('filename') as string) || 'rapport.pdf'
+    const { data, filename = 'rapport.pdf', disposition = 'attachment' } = await req.json()
     if (!data) return NextResponse.json({ error: 'No data' }, { status: 400 })
-
-    const binary = atob(data)
-    const bytes = new Uint8Array(binary.length)
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-
-    const safe = encodeURIComponent(filename)
-    return new NextResponse(bytes.buffer as ArrayBuffer, {
+    const buffer = Buffer.from(data as string, 'base64')
+    const safe = encodeURIComponent(String(filename))
+    return new Response(buffer, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${filename}"; filename*=UTF-8''${safe}`,
-        'Content-Length': String(bytes.length),
+        'Content-Disposition': `${disposition}; filename="${filename}"; filename*=UTF-8''${safe}`,
+        'Content-Length': String(buffer.length),
       },
     })
-  } catch {
-    return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+  } catch (err) {
+    console.error('[pdf-download]', err)
+    return NextResponse.json({ error: String(err) }, { status: 500 })
   }
 }
