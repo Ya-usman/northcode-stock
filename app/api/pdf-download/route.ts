@@ -21,12 +21,16 @@ export async function POST(req: NextRequest) {
     if (!data) return NextResponse.json({ error: 'No data' }, { status: 400 })
 
     const buffer = Buffer.from(data, 'base64')
-    const safe = encodeURIComponent(String(filename))
+    const name = String(filename)
+    // filename= doit être ASCII (≤255) — on remplace les caractères hors Latin-1 par _
+    const asciiName = name.replace(/[^\x20-\x7E]/g, '_')
+    // filename*= accepte UTF-8 encodé RFC 5987
+    const utf8Name = encodeURIComponent(name)
     return new Response(buffer, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${filename}"; filename*=UTF-8''${safe}`,
+        'Content-Disposition': `attachment; filename="${asciiName}"; filename*=UTF-8''${utf8Name}`,
         'Content-Length': String(buffer.length),
       },
     })
