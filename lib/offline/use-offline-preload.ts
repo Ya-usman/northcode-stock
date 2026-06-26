@@ -6,7 +6,7 @@ import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { cacheProducts, cacheCustomers, cacheExpenses, cacheCategories } from './db'
 
 const DATA_TTL  = 60 * 60 * 1000   // données IndexedDB : refresh toutes les heures
-const PAGES_TTL = 20 * 60 * 1000   // pages SW : refresh toutes les 20 min (était 4h)
+const PAGES_TTL = 20 * 60 * 1000   // pages SW : re-fetch toutes les 20 min
 
 // Toutes les routes navigables — TOUTE route accessible via la nav doit être listée.
 // Une route absente du cache SW déclenchait ERR_INTERNET_DISCONNECTED hors ligne.
@@ -48,6 +48,8 @@ function markDone(key: string): void {
 }
 
 // Précharge une page : HTML (navigation dure) + payload RSC (navigation client).
+// On utilise r.url (URL absolue) comme clé de cache pour correspondre exactement
+// à ce que Workbox/le SW stocke lors des vraies navigations.
 async function prefetchPage(url: string): Promise<void> {
   const [htmlCache, rscCache] = await Promise.all([
     caches.open('next-pages'),
@@ -55,13 +57,13 @@ async function prefetchPage(url: string): Promise<void> {
   ])
   await Promise.allSettled([
     fetch(url, { cache: 'no-store' }).then(r => {
-      if (r.ok) htmlCache.put(url, r)
+      if (r.ok) htmlCache.put(r.url, r)
     }),
     fetch(url, {
       cache: 'no-store',
       headers: { RSC: '1', 'Next-Router-Prefetch': '1' },
     }).then(r => {
-      if (r.ok) rscCache.put(url, r)
+      if (r.ok) rscCache.put(r.url, r)
     }),
   ])
 }
@@ -185,8 +187,10 @@ export function useOfflinePreload() {
       }
     }
 
-    // Délai court pour ne pas concurrencer le rendu initial
-    const timer = setTimeout(preload, 1000)
+    // Premier lancement : démarrer immédiatement pour peupler le cache SW avant
+    // que l'utilisateur ne navigue. Lancements suivants : délai de 1s.
+    const isFirstRun = !localStorage.getItem(`pc_pages_${getLocale()}`)
+    const timer = setTimeout(preload, isFirstRun ? 0 : 1000)
 
     // Re-précharger les pages toutes les 20 min dans la même session
     const interval = setInterval(() => prefetchPages(), PAGES_TTL)
