@@ -20,6 +20,11 @@ export interface MovementSyncResult {
 }
 
 export async function syncPendingMovements(shopId: string): Promise<MovementSyncResult> {
+  // Rafraîchir le token avant les appels API — même raison que syncPendingSales
+  const supabaseCheck = createClient() as any
+  const { data: { session } } = await supabaseCheck.auth.refreshSession()
+  if (!session) return { synced: 0, failed: 0, errors: ['Session expirée.'] }
+
   const pending = await getPendingMovements(shopId)
   let synced = 0
   let failed = 0
@@ -67,10 +72,13 @@ export interface SyncResult {
 export async function syncPendingSales(shopId: string): Promise<SyncResult> {
   const supabase = createClient() as any
 
-  // Ensure the session is fresh before syncing — it may have expired while offline
-  const { error: sessionError } = await supabase.auth.getSession()
-  if (sessionError) {
-    return { synced: 0, failed: 0, errors: [] }
+  // Rafraîchir le token avant de syncer — le JWT expire après ~1h hors ligne.
+  // refreshSession() utilise le refresh token (valide 7+ jours) pour obtenir
+  // un nouvel access token. getSession() ne fait que lire le localStorage
+  // et ne détecte pas l'expiration.
+  const { data: { session }, error: refreshError } = await supabase.auth.refreshSession()
+  if (refreshError || !session) {
+    return { synced: 0, failed: 0, errors: ['Session expirée — reconnectez-vous pour synchroniser.'] }
   }
 
   const pending = await getPendingSales(shopId)

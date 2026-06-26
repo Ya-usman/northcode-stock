@@ -9,26 +9,28 @@ const withPWA = require('next-pwa')({
   // Exclude heavy chunks from pre-cache (loaded on demand)
   buildExcludes: [/chunks\/.*zxing.*/i, /chunks\/.*pdf.*/i, /middleware-manifest\.json$/],
   runtimeCaching: [
-    // Next.js App Router RSC payloads — cache so offline navigation works
+    // RSC payloads (client-side navigation) — StaleWhileRevalidate :
+    // sert le cache instantanément, met à jour en arrière-plan.
+    // Élimine le délai réseau sur 3G et les erreurs offline pour les pages déjà visitées.
     {
       urlPattern: ({ request, url }) =>
         request.headers.get('RSC') === '1' ||
         url.searchParams.has('_rsc'),
-      handler: 'NetworkFirst',
+      handler: 'StaleWhileRevalidate',
       options: {
         cacheName: 'next-rsc',
-        expiration: { maxEntries: 100, maxAgeSeconds: 24 * 60 * 60 },
-        networkTimeoutSeconds: 2,
+        expiration: { maxEntries: 120, maxAgeSeconds: 24 * 60 * 60 },
       },
     },
-    // Next.js page HTML — NetworkFirst, 1s timeout so SW serves cache quickly when offline
+    // Page HTML (navigation complète) — StaleWhileRevalidate :
+    // cache → instant, réseau → mise à jour silencieuse.
+    // Supprime la page /offline pour toute page déjà visitée, même hors connexion.
     {
       urlPattern: ({ request }) => request.mode === 'navigate',
-      handler: 'NetworkFirst',
+      handler: 'StaleWhileRevalidate',
       options: {
         cacheName: 'next-pages',
-        expiration: { maxEntries: 60, maxAgeSeconds: 24 * 60 * 60 },
-        networkTimeoutSeconds: 1,
+        expiration: { maxEntries: 80, maxAgeSeconds: 24 * 60 * 60 },
       },
     },
     // Internal API routes (health, push, etc.)
