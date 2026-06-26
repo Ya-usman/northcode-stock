@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
-import { Download, Receipt, TrendingDown, Banknote, X } from 'lucide-react'
+import { Download, Receipt, TrendingDown, Banknote, X, Loader2 } from 'lucide-react'
 import {
   PieChart, Pie, Cell,
   Tooltip, ResponsiveContainer,
@@ -41,6 +41,7 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
   const [pdfSheet, setPdfSheet] = useState<{ blob: Blob; url: string; name: string } | null>(null)
+  const [downloading, setDownloading] = useState(false)
   const closePdfSheet = () => {
     if (pdfSheet) { URL.revokeObjectURL(pdfSheet.url); setPdfSheet(null) }
   }
@@ -723,11 +724,12 @@ export default function ReportsPage() {
               </button>
             </div>
 
-            {/* Télécharger — navigator.share dans le navigateur, form POST dans la PWA */}
+            {/* Télécharger — navigator.share en navigateur, URL Supabase signée en PWA Samsung */}
             <button
-              className="flex items-center gap-4 w-full p-4 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 active:opacity-70"
+              disabled={downloading}
+              className="flex items-center gap-4 w-full p-4 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 active:opacity-70 disabled:opacity-60"
               onClick={async () => {
-                // Essai 1 : navigator.share (fonctionne dans le navigateur Chrome)
+                // Navigateur : navigator.share fonctionne
                 const file = new File([pdfSheet.blob], pdfSheet.name, { type: 'application/pdf' })
                 if (typeof navigator.share === 'function') {
                   try {
@@ -736,34 +738,42 @@ export default function ReportsPage() {
                     return
                   } catch (e: any) {
                     if (e?.name === 'AbortError') return
-                    // navigator.share bloqué (PWA standalone) → form POST
+                    // navigator.share bloqué (PWA Samsung) → fallback Supabase
                   }
                 }
-                // Essai 2 : form POST → Content-Disposition: attachment
-                // Fonctionne dans la PWA car c'est une vraie requête HTTP vers notre serveur
-                const base64 = await new Promise<string>((res, rej) => {
-                  const r = new FileReader()
-                  r.onload = () => res((r.result as string).split(',')[1])
-                  r.onerror = rej
-                  r.readAsDataURL(pdfSheet.blob)
-                })
-                const form = document.createElement('form')
-                form.method = 'POST'
-                form.action = '/api/pdf-download'
-                const d = document.createElement('input'); d.type = 'hidden'; d.name = 'data'; d.value = base64
-                const n = document.createElement('input'); n.type = 'hidden'; n.name = 'filename'; n.value = pdfSheet.name
-                form.append(d, n)
-                document.body.appendChild(form)
-                form.submit()
-                setTimeout(() => { try { document.body.removeChild(form) } catch {} }, 2000)
-                closePdfSheet()
+                // PWA / Samsung : upload vers Supabase Storage → vraie URL HTTPS signée
+                // window.location.href sur une URL avec Content-Disposition: attachment
+                // déclenche le téléchargement sur TOUS les appareils Android
+                setDownloading(true)
+                try {
+                  const base64 = await new Promise<string>((res, rej) => {
+                    const r = new FileReader()
+                    r.onload = () => res((r.result as string).split(',')[1])
+                    r.onerror = rej
+                    r.readAsDataURL(pdfSheet.blob)
+                  })
+                  const resp = await fetch('/api/pdf-download', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: base64, filename: pdfSheet.name }),
+                  })
+                  const json = await resp.json()
+                  if (json.error) throw new Error(json.error)
+                  // URL Supabase CDN → Content-Disposition: attachment → téléchargement natif
+                  window.location.href = json.url
+                  closePdfSheet()
+                } catch (err) {
+                  toast({ title: 'Erreur de téléchargement', description: String(err), variant: 'destructive' })
+                } finally {
+                  setDownloading(false)
+                }
               }}
             >
               <div className="h-10 w-10 flex items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50 flex-shrink-0">
-                <Download className="h-5 w-5" />
+                {downloading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
               </div>
               <div className="text-left">
-                <p className="font-semibold text-sm">Télécharger</p>
+                <p className="font-semibold text-sm">{downloading ? 'Préparation…' : 'Télécharger'}</p>
                 <p className="text-xs opacity-70">Enregistrer dans les fichiers</p>
               </div>
             </button>
