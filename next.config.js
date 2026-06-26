@@ -22,15 +22,18 @@ const withPWA = require('next-pwa')({
         expiration: { maxEntries: 120, maxAgeSeconds: 24 * 60 * 60 },
       },
     },
-    // Page HTML (navigation complète) — StaleWhileRevalidate :
-    // cache → instant, réseau → mise à jour silencieuse.
-    // Supprime la page /offline pour toute page déjà visitée, même hors connexion.
+    // Page HTML (navigation complète) — NetworkFirst :
+    // Essaie le réseau (timeout 3s), puis le cache, puis la page /offline.
+    // CRITIQUE : NetworkFirst déclenche setCatchHandler quand réseau + cache échouent
+    // → affiche la page /offline au lieu de ERR_INTERNET_DISCONNECTED.
+    // StaleWhileRevalidate retournait undefined silencieusement → bug Samsung PWA.
     {
       urlPattern: ({ request }) => request.mode === 'navigate',
-      handler: 'StaleWhileRevalidate',
+      handler: 'NetworkFirst',
       options: {
         cacheName: 'next-pages',
-        expiration: { maxEntries: 80, maxAgeSeconds: 24 * 60 * 60 },
+        networkTimeoutSeconds: 3,
+        expiration: { maxEntries: 100, maxAgeSeconds: 24 * 60 * 60 },
       },
     },
     // Internal API routes (health, push, etc.)
