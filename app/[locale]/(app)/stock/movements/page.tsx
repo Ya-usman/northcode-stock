@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils/cn'
+import { normalize } from '@/lib/utils/normalize'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
@@ -109,8 +110,8 @@ export default function StockMovementsPage() {
 
     let list = Array.from(map.values())
     if (search.trim()) {
-      const q = search.toLowerCase()
-      list = list.filter(p => p.product_name.toLowerCase().includes(q))
+      const q = normalize(search)
+      list = list.filter(p => normalize(p.product_name).includes(q))
     }
     return list.sort((a, b) => {
       const aDate = a.restocks[0]?.created_at ?? ''

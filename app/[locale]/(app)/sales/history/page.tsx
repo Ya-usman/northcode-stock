@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { printPDFNative, downloadOrShareCSV, isCapacitor } from '@/lib/utils/native-share'
+import { normalize } from '@/lib/utils/normalize'
 import { format, startOfDay, endOfDay, subDays, startOfWeek, startOfMonth } from 'date-fns'
 import type { Sale } from '@/lib/types/database'
 import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-cache'
@@ -229,10 +230,10 @@ export default function SalesHistoryPage() {
 
   const filteredRepayments = repayments.filter(p => {
     if (!search) return true
-    const q = search.toLowerCase()
+    const q = normalize(search)
     return (
-      p.sales?.customers?.name?.toLowerCase().includes(q) ||
-      p.sales?.sale_number?.toLowerCase().includes(q)
+      normalize(p.sales?.customers?.name ?? '').includes(q) ||
+      normalize(p.sales?.sale_number ?? '').includes(q)
     )
   })
 
@@ -245,10 +246,10 @@ export default function SalesHistoryPage() {
 
   const filtered = sales.filter(s => {
     if (!search) return true
-    const q = search.toLowerCase()
+    const q = normalize(search)
     return (
-      s.sale_number?.toLowerCase().includes(q) ||
-      (s as any).customers?.name?.toLowerCase().includes(q)
+      normalize(s.sale_number ?? '').includes(q) ||
+      normalize((s as any).customers?.name ?? '').includes(q)
     )
   })
 

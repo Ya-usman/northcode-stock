@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
+import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
 import { motion } from 'framer-motion'
 import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, ChevronDown, ChevronUp, Upload, CheckSquare, Square, AlertTriangle, History } from 'lucide-react'
@@ -152,9 +153,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const filtered = products
     .filter(p => {
       if (search) {
-        const q = search.toLowerCase()
-        if (!p.name.toLowerCase().includes(q) &&
-          !p.name_hausa?.toLowerCase().includes(q)) return false
+        const q = normalize(search)
+        if (!normalize(p.name).includes(q) &&
+          !normalize(p.name_hausa ?? '').includes(q)) return false
       }
       if (categoryFilter !== 'all' && p.category_id !== categoryFilter) return false
       const threshold = p.low_stock_threshold || shop?.low_stock_threshold || 10

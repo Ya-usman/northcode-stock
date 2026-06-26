@@ -6,6 +6,7 @@ import { Plus, Trash2, Tag, Search, RotateCcw, ChevronDown, ChevronRight, Packag
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { useCurrency } from '@/lib/hooks/use-currency'
+import { normalize } from '@/lib/utils/normalize'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -228,7 +229,7 @@ export default function CategoriesPage() {
 
   const effectiveRole = roleInActiveShop ?? profile?.role
   const canEdit = effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin'
-  const filtered = categories.filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
+  const filtered = categories.filter(c => normalize(c.name).includes(normalize(search)))
 
   // Products without any category
   const uncategorized = products.filter(p => !p.category_id)

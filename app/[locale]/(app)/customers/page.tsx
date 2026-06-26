@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
+import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
 import { Search, Plus, Edit2, Trash2, Phone, MapPin, Store, User } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -101,8 +102,8 @@ export default function CustomersPage() {
 
   const filtered = customers.filter(c => {
     if (!search) return true
-    const q = search.toLowerCase()
-    return c.name.toLowerCase().includes(q) || c.phone?.includes(q) || c.city?.toLowerCase().includes(q)
+    const q = normalize(search)
+    return normalize(c.name).includes(q) || c.phone?.includes(q) || normalize(c.city ?? '').includes(q)
   })
 
   const withTimeout = (p: Promise<any>, ms = 8_000) =>

@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import { cn } from '@/lib/utils/cn'
 import { Plus, Pin, Pencil, Trash2, Store, Search, PinOff } from 'lucide-react'
+import { normalize } from '@/lib/utils/normalize'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
@@ -192,7 +193,7 @@ export default function NotesPage() {
   const filtered = notes.filter(n => {
     if (!search) return true
     const q = search.toLowerCase()
-    return (n.title ?? '').toLowerCase().includes(q) || n.content.toLowerCase().includes(q)
+    return normalize(n.title ?? '').includes(normalize(q)) || normalize(n.content).includes(normalize(q))
   })
 
   const pinned_notes  = filtered.filter(n => n.pinned)

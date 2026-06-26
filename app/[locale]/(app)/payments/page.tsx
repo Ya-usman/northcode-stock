@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { generateDebtReceiptPDFBlob } from '@/lib/utils/pdf'
 import { sharePDFNative, printPDFNative, isCapacitor } from '@/lib/utils/native-share'
+import { normalize } from '@/lib/utils/normalize'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -258,11 +259,11 @@ export default function DettesPage() {
 
   const filteredDebtors = useMemo(() => {
     if (!search.trim()) return debtors
-    const q = search.toLowerCase()
+    const q = normalize(search)
     return debtors.filter(d =>
-      d.customer.name.toLowerCase().includes(q) ||
+      normalize(d.customer.name).includes(q) ||
       d.customer.phone?.includes(q) ||
-      d.customer.city?.toLowerCase().includes(q)
+      normalize(d.customer.city ?? '').includes(q)
     )
   }, [debtors, search])
 

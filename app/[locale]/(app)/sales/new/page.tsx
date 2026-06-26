@@ -10,6 +10,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { cn } from '@/lib/utils/cn'
+import { normalize } from '@/lib/utils/normalize'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -179,11 +180,11 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       list = list.filter(p => p.category_id === categoryFilter)
     }
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
+      const q = normalize(searchQuery)
       list = list.filter(p =>
-        p.name.toLowerCase().includes(q) ||
-        p.name_hausa?.toLowerCase().includes(q) ||
-        p.sku?.toLowerCase().includes(q)
+        normalize(p.name).includes(q) ||
+        normalize(p.name_hausa ?? '').includes(q) ||
+        normalize(p.sku ?? '').includes(q)
       )
     }
     setFilteredProducts(list)
@@ -404,7 +405,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
   const filteredCustomers = customerName
     ? customers.filter(c =>
-        c.name.toLowerCase().includes(customerName.toLowerCase()) ||
+        normalize(c.name).includes(normalize(customerName)) ||
         c.phone?.includes(customerName)
       )
     : customers
