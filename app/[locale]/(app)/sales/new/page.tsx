@@ -5,7 +5,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, Plus, Minus, Trash2, CheckCircle, MessageCircle, Printer, Share2,
-  Scan, X, User, Store, ChevronDown, Clock, PauseCircle, PlayCircle,
+  Scan, X, User, Store, ChevronDown, Clock, PauseCircle, PlayCircle, Edit2,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -987,16 +987,18 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                       <button
                         type="button"
                         onClick={() => { setPriceModalItem(item); setPriceModalInput(String(item.unit_price)) }}
-                        className="flex items-center gap-1 text-left group shrink-0"
+                        className="flex flex-col items-start gap-0.5 text-left group shrink-0"
                       >
-                        <span className="text-xs text-muted-foreground group-hover:text-blue-600 transition-colors whitespace-nowrap">
+                        <span className="text-xs font-medium text-muted-foreground group-hover:text-blue-600 transition-colors whitespace-nowrap">
                           {formatNaira(item.unit_price)}
+                          {item.unit_price !== item.product.selling_price && (
+                            <span className="ml-1 text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 px-1 rounded font-medium">modifié</span>
+                          )}
                         </span>
-                        {item.unit_price !== item.product.selling_price ? (
-                          <span className="text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 px-1 rounded font-medium">✎</span>
-                        ) : (
-                          <span className="text-[10px] text-muted-foreground/40 group-hover:text-blue-500 transition-colors">✎</span>
-                        )}
+                        <span className="flex items-center gap-0.5 text-[10px] text-blue-400/70 group-hover:text-blue-600 transition-colors">
+                          <Edit2 className="h-2.5 w-2.5" />
+                          modifier
+                        </span>
                       </button>
                       <div className="flex-1" />
                       {/* Quantity controls */}
