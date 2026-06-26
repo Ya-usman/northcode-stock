@@ -39,8 +39,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
   const [whatsapp, setWhatsapp] = useState('')
-  const [threshold, setThreshold] = useState(10)
-  const [taxRate, setTaxRate] = useState(0)
+  const [threshold, setThreshold] = useState<string>('10')
+  const [taxRate, setTaxRate] = useState<string>('0')
   const [notifyWaLowStock, setNotifyWaLowStock] = useState(true)
   const [notifyWaDaily, setNotifyWaDaily] = useState(true)
   const [notifyWaEachSale, setNotifyWaEachSale] = useState(false)
@@ -98,8 +98,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       setCity(shopData.city)
       setState(shopData.state)
       setWhatsapp(shopData.whatsapp || '')
-      setThreshold(shopData.low_stock_threshold)
-      setTaxRate(shopData.tax_rate)
+      setThreshold(String(shopData.low_stock_threshold))
+      setTaxRate(String(shopData.tax_rate))
       setNotifyWaLowStock(shopData.notify_whatsapp_low_stock)
       setNotifyWaDaily(shopData.notify_whatsapp_daily)
       setNotifyWaEachSale(shopData.notify_whatsapp_each_sale)
@@ -177,8 +177,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       city,
       state,
       whatsapp: whatsapp || null,
-      low_stock_threshold: threshold,
-      tax_rate: taxRate,
+      low_stock_threshold: Math.max(1, Number(threshold) || 1),
+      tax_rate: Math.max(0, Number(taxRate) || 0),
       notify_whatsapp_low_stock: notifyWaLowStock,
       notify_whatsapp_daily: notifyWaDaily,
       notify_whatsapp_each_sale: notifyWaEachSale,
@@ -357,13 +357,13 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <Label>{t('settings.low_stock_threshold')}</Label>
-                  <Input type="number" min={1} value={threshold} onChange={e => setThreshold(Number(e.target.value))} />
+                  <Input type="number" min={1} value={threshold} onChange={e => setThreshold(e.target.value)} />
                   <p className="text-xs text-muted-foreground">{t('settings.stock_alert_hint')}</p>
                 </div>
                 <div className="space-y-1">
                   <Label>{t('settings.tax_rate')}</Label>
                   <div className="relative">
-                    <Input type="number" min={0} max={100} step={0.5} value={taxRate} onChange={e => setTaxRate(Number(e.target.value))} className="pr-8" />
+                    <Input type="number" min={0} max={100} step={0.5} value={taxRate} onChange={e => setTaxRate(e.target.value)} className="pr-8" />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
                   </div>
                   <p className="text-xs text-muted-foreground">{t('settings.tax_hint')}</p>
