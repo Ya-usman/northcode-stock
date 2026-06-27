@@ -9,7 +9,7 @@ const config: CapacitorConfig = {
     // Ex: url: 'https://stockshop.vercel.app'
     // Pour tester en local, commenter la ligne url et décommenter :
     // url: 'http://192.168.x.x:3000',  // IP locale de ta machine
-    url: 'https://northcode-stock.vercel.app',
+    url: 'https://stockshop.tech',
     cleartext: false,
     androidScheme: 'https',
   },
