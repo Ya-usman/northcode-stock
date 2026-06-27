@@ -26,15 +26,41 @@ export async function POST(request: Request) {
     let userId: string | undefined
 
     if (access_token) {
-      // Invite flow: validate the fresh JWT with Supabase servers (not stale cookies)
+      // Invite flow: validate the JWT with Supabase servers (not stale cookies)
       const { data: { user }, error: getUserError } = await admin.auth.getUser(access_token)
-      if (getUserError || !user) {
+
+      if (user && !getUserError) {
+        userId = user.id
+      } else if (getUserError?.message === 'User from sub claim in JWT does not exist') {
+        // The JWT signature IS valid (GoTrue verified it), but the user was hard-deleted
+        // and re-invited, creating a new UUID. Fall back to finding them by email.
+        // This is safe because GoTrue already confirmed the token is authentic.
+        console.log('[set-password] user deleted/recreated, falling back to email lookup')
+        try {
+          const payload = JSON.parse(Buffer.from(access_token.split('.')[1], 'base64url').toString('utf-8'))
+          const email = payload.email as string | undefined
+          if (!email) throw new Error('no email in JWT')
+
+          const { data: { users } } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
+          const currentUser = (users ?? []).find((u: any) => u.email === email)
+          if (!currentUser) throw new Error('not found by email')
+          userId = currentUser.id
+          console.log('[set-password] found user by email:', email, '->', userId)
+        } catch {
+          return NextResponse.json(
+            { error: 'Compte introuvable. Redemandez une invitation.' },
+            { status: 401 }
+          )
+        }
+      } else {
+        // Invalid JWT, expired, or other error
+        console.error('[set-password] getUser error:', getUserError?.message)
         return NextResponse.json(
           { error: 'Lien invalide ou expiré. Demandez un nouveau lien.' },
           { status: 401 }
         )
       }
-      userId = user.id
+      userId = userId!
     } else {
       // Forgot-password flow: read session from request cookies
       const supabase = await createClient()
