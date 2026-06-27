@@ -45,6 +45,18 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
     const refreshToken = hashParams.get('refresh_token')
     const type = hashParams.get('type')
 
+    // 2. Implicit flow — invite sends hash tokens (#access_token=…&type=invite).
+    // We do NOT call setSession() because it acquires a cross-tab Web Lock
+    // that can block indefinitely when the user has another tab open (dashboard).
+    // Instead, store the raw token and show the form immediately — the server
+    // validates the token via admin.auth.getUser() in /api/auth/set-password.
+    if (accessToken && refreshToken) {
+      if (type === 'invite') setIsInvite(true)
+      window.history.replaceState(null, '', window.location.pathname)
+      done(() => { setAccessToken(accessToken); setSessionReady(true) })
+      return
+    }
+
     // Safety net: never spin forever — show a clear message after 12s
     const timeout = setTimeout(() => {
       done(() => setError('La vérification a pris trop de temps. Retournez dans votre email et cliquez à nouveau sur le lien.'))
@@ -52,26 +64,11 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
 
     const fail = () => done(() => setError('Lien invalide ou expiré. Demandez un nouveau lien de réinitialisation.'))
 
-    // 1. PKCE flow (?code= in URL)
+    // 1. PKCE flow (?code= in URL) — forgot-password goes through /auth/callback
+    // which exchanges the code server-side and stores the session in cookies.
+    // If for some reason a ?code= lands here directly, exchange it client-side.
     if (code) {
       supabase.auth.exchangeCodeForSession(code)
-        .then(({ data: { session }, error }) => {
-          clearTimeout(timeout)
-          if (session && !error) {
-            window.history.replaceState(null, '', window.location.pathname)
-            done(() => { setAccessToken(session.access_token); setIsInvite(true); setSessionReady(true) })
-          } else {
-            fail()
-          }
-        })
-        .catch(() => { clearTimeout(timeout); fail() })
-      return () => clearTimeout(timeout)
-    }
-
-    // 2. Implicit flow — hash tokens (#access_token=…)
-    if (accessToken && refreshToken) {
-      if (type === 'invite') setIsInvite(true)
-      supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
         .then(({ data: { session }, error }) => {
           clearTimeout(timeout)
           if (session && !error) {
@@ -85,7 +82,7 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
       return () => clearTimeout(timeout)
     }
 
-    // 3. Existing session — forgot-password flow (server exchanged code via /auth/callback)
+    // 3. Existing cookie session — forgot-password after /auth/callback redirect.
     supabase.auth.getSession()
       .then(({ data: { session } }) => {
         clearTimeout(timeout)
@@ -118,7 +115,10 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
       const res = await fetch('/api/auth/set-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
+        // For invite flow: send the raw hash token so the server can validate
+        // it via admin.auth.getUser(token) — avoids relying on stale cookies.
+        // For forgot-password: no token, server reads from cookie session.
+        body: JSON.stringify(accessToken ? { password, access_token: accessToken } : { password }),
       })
       const data = await res.json()
 
