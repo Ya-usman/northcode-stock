@@ -1,60 +1,41 @@
 import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 
 // POST /api/auth/set-password
-// Decodes the JWT payload locally (no network call), then updates the
-// password via admin.auth.admin.updateUserById (service role key).
-// Avoids admin.auth.getUser(token) which GoTrue rejects for invited
-// users before email confirmation.
+// Reads the authenticated session from server-side cookies (set by /auth/callback)
+// instead of trusting a client-provided JWT. Cookies are signed by Supabase and
+// cannot be forged, so no JWT signature verification is needed. Works for both
+// the forgot-password flow and the invite flow.
 export async function POST(request: Request) {
   try {
-    const { password, access_token } = await request.json()
+    const { password } = await request.json()
 
-    if (!password || !access_token) {
+    if (!password) {
       return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 })
     }
     if (password.length < 8) {
       return NextResponse.json({ error: 'Mot de passe trop court' }, { status: 400 })
     }
 
-    // Decode JWT payload to get user_id without a network call.
-    // admin.auth.getUser(token) makes a /auth/v1/user request that GoTrue
-    // rejects for invited users not yet confirmed. Instead we decode the JWT
-    // manually and verify via admin.auth.admin.getUserById (service role key).
-    let userId: string
-    try {
-      const parts = access_token.split('.')
-      if (parts.length !== 3) throw new Error('malformed')
-      const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf-8'))
-      if (!payload.sub) throw new Error('no sub')
-      if (payload.aud !== 'authenticated') throw new Error('wrong audience')
-      if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
-        return NextResponse.json(
-          { error: 'Session expirée. Cliquez à nouveau sur le lien dans votre email.' },
-          { status: 401 }
-        )
-      }
-      userId = payload.sub as string
-    } catch (decodeErr: any) {
+    // Read session from request cookies — no client-provided token needed.
+    // getSession() deserialises the cookie set by /auth/callback; it does NOT
+    // make a network call to Supabase, so it works even for invited users
+    // whose GoTrue state hasn't been fully confirmed yet.
+    const supabase = await createClient()
+    const { data: { session } } = await supabase.auth.getSession()
+    const userId = session?.user?.id
+
+    if (!userId) {
       return NextResponse.json(
-        { error: 'Lien invalide ou expiré. Demandez un nouveau lien.' },
+        { error: 'Session invalide ou expirée. Cliquez à nouveau sur le lien dans votre email.' },
         { status: 401 }
       )
     }
 
     const admin = await createAdminClient() as any
 
-    // Verify user actually exists in auth.users (service role — no JWT auth needed)
-    const { data: { user }, error: getUserError } = await admin.auth.admin.getUserById(userId)
-    if (getUserError || !user) {
-      return NextResponse.json(
-        { error: 'Lien invalide ou expiré. Demandez un nouveau lien.' },
-        { status: 401 }
-      )
-    }
-
-    // Set password + confirm email in one admin call
-    const { error: updateError } = await admin.auth.admin.updateUserById(user.id, {
+    // Update password + confirm email via service role key (no user-state restrictions)
+    const { error: updateError } = await admin.auth.admin.updateUserById(userId, {
       password,
       email_confirm: true,
     })

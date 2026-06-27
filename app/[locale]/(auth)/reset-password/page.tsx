@@ -114,21 +114,11 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
 
     setLoading(true)
     try {
-      // Get the freshest access token available
-      const { data: { session: currentSession } } = await supabase.auth.getSession()
-      const token = currentSession?.access_token ?? accessToken
-
-      if (!token) {
-        setError('Session expirée. Demandez un nouveau lien.')
-        setLoading(false)
-        return
-      }
-
-      // Use server-side admin API to avoid client-side JWT issues
+      // Server reads the session from its own cookies — no token sent from client
       const res = await fetch('/api/auth/set-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password, access_token: token }),
+        body: JSON.stringify({ password }),
       })
       const data = await res.json()
 
