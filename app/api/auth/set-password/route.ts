@@ -18,12 +18,24 @@ export async function POST(request: Request) {
     }
 
     // Read session from request cookies — no client-provided token needed.
-    // getSession() deserialises the cookie set by /auth/callback; it does NOT
-    // make a network call to Supabase, so it works even for invited users
-    // whose GoTrue state hasn't been fully confirmed yet.
     const supabase = await createClient()
-    const { data: { session } } = await supabase.auth.getSession()
-    const userId = session?.user?.id
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+
+    // Also try getUser() which validates the token with GoTrue servers
+    const { data: { user: validatedUser }, error: getUserError } = await supabase.auth.getUser()
+
+    const userId = validatedUser?.id ?? session?.user?.id
+
+    console.log('[set-password]', {
+      hasSession: !!session,
+      sessionUserId: session?.user?.id,
+      sessionUserEmail: session?.user?.email,
+      validatedUserId: validatedUser?.id,
+      validatedUserEmail: validatedUser?.email,
+      sessionError: sessionError?.message,
+      getUserError: getUserError?.message,
+      finalUserId: userId,
+    })
 
     if (!userId) {
       return NextResponse.json(
@@ -40,6 +52,7 @@ export async function POST(request: Request) {
       email_confirm: true,
     })
     if (updateError) {
+      console.error('[set-password] updateUserById error:', updateError.message, 'userId:', userId)
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
