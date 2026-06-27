@@ -2,7 +2,11 @@
   "crons": [
     {
       "path": "/api/cron/morning-check",
-      "schedule": "0 6 * * *"
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/low-stock-alert",
+      "schedule": "0 7 * * *"
     }
   ]
 }
