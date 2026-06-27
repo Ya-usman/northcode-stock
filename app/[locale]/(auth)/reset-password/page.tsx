@@ -32,6 +32,13 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
 
     const searchParams = new URLSearchParams(window.location.search)
     const code = searchParams.get('code')
+
+    // invite=true is set by /auth/callback after server-side PKCE exchange
+    if (searchParams.get('invite') === 'true') {
+      setIsInvite(true)
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+
     const hash = window.location.hash
     const hashParams = new URLSearchParams(hash.replace('#', ''))
     const accessToken = hashParams.get('access_token')

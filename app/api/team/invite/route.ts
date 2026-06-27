@@ -71,15 +71,13 @@ export async function POST(request: Request) {
     // Read caller's locale from cookie so the invite link lands on the right language
     const locale = (request.headers.get('cookie') ?? '').match(/NEXT_LOCALE=([^;]+)/)?.[1] ?? 'fr'
 
-    // Invite user via Supabase Auth Admin.
-    // inviteUserByEmail uses OTP/magic-link (implicit flow): after clicking the
-    // email link, Supabase appends tokens as a URL hash (#access_token=…&type=invite).
-    // IMPORTANT: we redirect DIRECTLY to reset-password, bypassing the /auth/callback
-    // server route. A server-side 302 redirect drops the hash fragment, so the
-    // client never receives the tokens. Going directly keeps the hash intact.
-    // reset-password/page.tsx reads #access_token and calls setSession() client-side.
+    // Route the invite through /auth/callback so the PKCE code is exchanged
+    // server-side (fast, reliable) instead of client-side (hangs on mobile).
+    // The callback sets the session in cookies, then redirects to reset-password.
+    // ?invite=true tells reset-password to show "Définir votre mot de passe".
+    const next = encodeURIComponent(`/${locale}/reset-password?invite=true`)
     const { data: { user }, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/${locale}/reset-password`,
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?next=${next}`,
       data: { full_name, role, shop_id },
     })
 
