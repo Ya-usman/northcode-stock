@@ -15,10 +15,12 @@ export function SWUpdater() {
     // Check for a new SW on every app open
     navigator.serviceWorker.ready.then(reg => reg.update()).catch(() => {})
 
-    // When a new SW takes over (skipWaiting activated), reload immediately
+    // When a new SW takes over (skipWaiting activated), reload to apply it.
+    // Guard: never reload while offline — that would trigger a hard navigate
+    // with no network, causing ERR_INTERNET_DISCONNECTED on Android WebView.
     let reloading = false
     const onControllerChange = () => {
-      if (!reloading) {
+      if (!reloading && navigator.onLine) {
         reloading = true
         window.location.reload()
       }

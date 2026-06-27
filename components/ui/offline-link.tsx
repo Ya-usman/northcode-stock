@@ -1,12 +1,9 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import type { ComponentProps } from 'react'
 
-// Tracks online state at module level — updated by browser events.
-// navigator.onLine is unreliable on Capacitor Android WebView,
-// so we use the real HEAD-request check from useOffline() as the source
-// of truth for sync decisions. Here we only use this for navigation guards.
 let _isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true
 if (typeof window !== 'undefined') {
   window.addEventListener('online',  () => { _isOnline = true  })
@@ -18,28 +15,35 @@ type OfflineLinkProps = ComponentProps<typeof Link>
 /**
  * Drop-in replacement for Next.js Link.
  *
- * Navigation strategy:
- * - ALWAYS uses Next.js client-side RSC navigation (never window.location.href).
- * - RSC fetches are subresource requests (not top-level navigations), so
- *   they CANNOT trigger the Android WebView "Web page not available" native
- *   error screen — they fail gracefully through React's error boundary instead.
- * - The SW's StaleWhileRevalidate strategy serves RSC payloads from cache
- *   instantly, even offline, for any page that has been prefetched.
+ * When offline, intercepts the click, cancels the default <a> navigation and
+ * uses router.push() instead. This guarantees the navigation stays SPA (RSC fetch)
+ * and never falls back to a hard WebView navigation — which would bypass the SW
+ * and trigger ERR_INTERNET_DISCONNECTED on Android when the page isn't cached.
  *
- * Why we removed window.location.href when offline:
- *   Hard navigation (window.location.href) is a top-level WebView navigation.
- *   When the SW has no cache entry for the URL AND the network is offline,
- *   Android WebView shows its native error page — bypassing both the SW
- *   fallback (/offline) and React's error boundary entirely.
+ * If the RSC fetch fails offline, React's error boundary (error.tsx) catches it
+ * and shows the in-app offline UI instead of the native browser error page.
  */
 export function OfflineLink({ href, onClick, children, ...props }: OfflineLinkProps) {
+  const router = useRouter()
+
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    onClick?.(e)
+    if (e.defaultPrevented) return
+
+    if (!_isOnline) {
+      // Prevent any <a> default that could fall back to a hard navigate,
+      // then push client-side — RSC errors land in error.tsx, not the WebView.
+      e.preventDefault()
+      const target = typeof href === 'string' ? href : (href as any)?.pathname ?? '/'
+      router.push(target)
+    }
+  }
+
   return (
-    <Link href={href} onClick={onClick} {...props}>
+    <Link href={href} onClick={handleClick} {...props}>
       {children}
     </Link>
   )
 }
 
-// Export the online tracker so other modules can read it without subscribing
-// to events (useful for quick synchronous checks in event handlers).
 export { _isOnline as isOnlineFast }
