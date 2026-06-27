@@ -10,13 +10,20 @@ export function SWUpdater() {
       navigator.serviceWorker.ready.then(reg => reg.update()).catch(() => {})
     }
 
-    // Check on mount (in case the inline script ran before SW was ready)
+    // Check on mount
     triggerUpdate()
 
     // Re-check every time the device comes back online.
-    // Critical: if the user was offline when the app opened, the inline script
-    // skipped the update. When they reconnect, we trigger it here.
     window.addEventListener('online', triggerUpdate)
+
+    // Re-check every 30 s for the first 3 minutes after mount.
+    // Handles the case where the Vercel build finished after the first
+    // reg.update() call (e.g. deploy in progress when app opened).
+    let checks = 0
+    const interval = setInterval(() => {
+      if (++checks >= 6) clearInterval(interval) // stop after 3 min
+      if (navigator.onLine) triggerUpdate()
+    }, 30_000)
 
     // When a new SW takes over (skipWaiting activated), reload to apply it.
     // Guard: never reload while offline — hard navigate with no network
@@ -32,6 +39,7 @@ export function SWUpdater() {
 
     return () => {
       window.removeEventListener('online', triggerUpdate)
+      clearInterval(interval)
       navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange)
     }
   }, [])
