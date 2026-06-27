@@ -24,56 +24,62 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
   const [isInvite, setIsInvite] = useState(false)
+  const [accessToken, setAccessToken] = useState<string | null>(null)
 
   useEffect(() => {
-    // 1. PKCE flow: some Supabase project configs use ?code= instead of hash tokens
     const searchParams = new URLSearchParams(window.location.search)
     const code = searchParams.get('code')
+    const hash = window.location.hash
+    const hashParams = new URLSearchParams(hash.replace('#', ''))
+    const accessToken = hashParams.get('access_token')
+    const refreshToken = hashParams.get('refresh_token')
+    const type = hashParams.get('type')
+
+    // 1. PKCE flow (?code= in URL) — sign out first to clear any stale session
     if (code) {
       window.history.replaceState(null, '', window.location.pathname)
-      supabase.auth.exchangeCodeForSession(code)
-        .then(({ data: { session }, error }) => {
-          if (session && !error) {
-            setIsInvite(true)
-            setSessionReady(true)
-          } else {
-            setError('Lien invalide ou expiré. Demandez un nouveau lien de réinitialisation.')
-          }
-        })
+      supabase.auth.signOut({ scope: 'local' }).then(() => {
+        supabase.auth.exchangeCodeForSession(code)
+          .then(({ data: { session }, error }) => {
+            if (session && !error) {
+              setAccessToken(session.access_token)
+              setIsInvite(true)
+              setSessionReady(true)
+            } else {
+              setError('Lien invalide ou expiré. Demandez un nouveau lien de réinitialisation.')
+            }
+          })
+      })
       return
     }
 
-    // 2. Implicit / OTP flow: tokens are in the URL hash (#access_token=…&type=invite)
-    //    redirectTo points here directly so the hash is never lost in a server redirect.
-    const hash = window.location.hash
-    const params = new URLSearchParams(hash.replace('#', ''))
-    const accessToken = params.get('access_token')
-    const refreshToken = params.get('refresh_token')
-    const type = params.get('type')
-
-    if (type === 'invite') setIsInvite(true)
-
+    // 2. Implicit flow (hash tokens) — sign out first to clear any stale session
     if (accessToken && refreshToken) {
-      supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
-        .then(({ data: { session }, error }) => {
-          if (session && !error) {
-            setSessionReady(true)
-            window.history.replaceState(null, '', window.location.pathname)
-          } else {
-            setError('Lien invalide ou expiré. Demandez un nouveau lien de réinitialisation.')
-          }
-        })
-    } else {
-      // 3. Existing session (e.g., forgot-password flow via /auth/callback which does PKCE
-      //    exchange server-side and sets cookies before redirecting here)
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
-          setSessionReady(true)
-        } else {
-          setError('Lien invalide ou expiré. Demandez un nouveau lien de réinitialisation.')
-        }
+      if (type === 'invite') setIsInvite(true)
+      supabase.auth.signOut({ scope: 'local' }).then(() => {
+        supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+          .then(({ data: { session }, error }) => {
+            if (session && !error) {
+              setAccessToken(session.access_token)
+              setSessionReady(true)
+              window.history.replaceState(null, '', window.location.pathname)
+            } else {
+              setError('Lien invalide ou expiré. Demandez un nouveau lien de réinitialisation.')
+            }
+          })
       })
+      return
     }
+
+    // 3. Existing session — used by forgot-password flow (server set cookies via /auth/callback)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setAccessToken(session.access_token)
+        setSessionReady(true)
+      } else {
+        setError('Lien invalide ou expiré. Demandez un nouveau lien de réinitialisation.')
+      }
+    })
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -91,12 +97,30 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
 
     setLoading(true)
     try {
-      const { error: updateError } = await supabase.auth.updateUser({ password })
-      if (updateError) {
-        setError(updateError.message)
+      // Get the freshest access token available
+      const { data: { session: currentSession } } = await supabase.auth.getSession()
+      const token = currentSession?.access_token ?? accessToken
+
+      if (!token) {
+        setError('Session expirée. Demandez un nouveau lien.')
         setLoading(false)
         return
       }
+
+      // Use server-side admin API to avoid client-side JWT issues
+      const res = await fetch('/api/auth/set-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password, access_token: token }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || 'Une erreur est survenue')
+        setLoading(false)
+        return
+      }
+
       await supabase.auth.signOut()
       setDone(true)
       setTimeout(() => router.push(`/${locale}/login`), 2500)
