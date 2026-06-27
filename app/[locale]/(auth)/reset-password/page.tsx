@@ -26,6 +26,25 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
   const [isInvite, setIsInvite] = useState(false)
 
   useEffect(() => {
+    // 1. PKCE flow: some Supabase project configs use ?code= instead of hash tokens
+    const searchParams = new URLSearchParams(window.location.search)
+    const code = searchParams.get('code')
+    if (code) {
+      window.history.replaceState(null, '', window.location.pathname)
+      supabase.auth.exchangeCodeForSession(code)
+        .then(({ data: { session }, error }) => {
+          if (session && !error) {
+            setIsInvite(true)
+            setSessionReady(true)
+          } else {
+            setError('Lien invalide ou expiré. Demandez un nouveau lien de réinitialisation.')
+          }
+        })
+      return
+    }
+
+    // 2. Implicit / OTP flow: tokens are in the URL hash (#access_token=…&type=invite)
+    //    redirectTo points here directly so the hash is never lost in a server redirect.
     const hash = window.location.hash
     const params = new URLSearchParams(hash.replace('#', ''))
     const accessToken = params.get('access_token')
@@ -45,6 +64,8 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
           }
         })
     } else {
+      // 3. Existing session (e.g., forgot-password flow via /auth/callback which does PKCE
+      //    exchange server-side and sets cookies before redirecting here)
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session) {
           setSessionReady(true)
