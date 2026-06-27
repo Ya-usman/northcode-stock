@@ -18,24 +18,11 @@ export async function POST(request: Request) {
     }
 
     // Read session from request cookies — no client-provided token needed.
+    // Invite flow: client calls setSession(hash tokens) before submitting, so
+    // the cookie is always fresh (the invited user's real UUID, not a stale one).
     const supabase = await createClient()
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-
-    // Also try getUser() which validates the token with GoTrue servers
-    const { data: { user: validatedUser }, error: getUserError } = await supabase.auth.getUser()
-
-    const userId = validatedUser?.id ?? session?.user?.id
-
-    console.log('[set-password]', {
-      hasSession: !!session,
-      sessionUserId: session?.user?.id,
-      sessionUserEmail: session?.user?.email,
-      validatedUserId: validatedUser?.id,
-      validatedUserEmail: validatedUser?.email,
-      sessionError: sessionError?.message,
-      getUserError: getUserError?.message,
-      finalUserId: userId,
-    })
+    const { data: { session } } = await supabase.auth.getSession()
+    const userId = session?.user?.id
 
     if (!userId) {
       return NextResponse.json(
@@ -52,7 +39,6 @@ export async function POST(request: Request) {
       email_confirm: true,
     })
     if (updateError) {
-      console.error('[set-password] updateUserById error:', updateError.message, 'userId:', userId)
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 

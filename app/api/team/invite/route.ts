@@ -71,13 +71,16 @@ export async function POST(request: Request) {
     // Read caller's locale from cookie so the invite link lands on the right language
     const locale = (request.headers.get('cookie') ?? '').match(/NEXT_LOCALE=([^;]+)/)?.[1] ?? 'fr'
 
-    // Route the invite through /auth/callback so the PKCE code is exchanged
-    // server-side (fast, reliable) instead of client-side (hangs on mobile).
-    // The callback sets the session in cookies, then redirects to reset-password.
-    // ?invite=true tells reset-password to show "Définir votre mot de passe".
-    const next = encodeURIComponent(`/${locale}/reset-password?invite=true`)
+    // Supabase invite uses IMPLICIT flow (hash tokens: #access_token=…&type=invite),
+    // NOT PKCE. The server auth/callback never sees hash tokens (they aren't sent
+    // in HTTP requests), so routing through /auth/callback is pointless — it always
+    // falls through without setting a new session, leaving a stale cookie.
+    //
+    // Route DIRECTLY to reset-password. The client reads #access_token and calls
+    // setSession() which is synchronous (writes to document.cookie, no network call),
+    // replacing any stale session. type=invite in the hash sets the "invite" UI.
     const { data: { user }, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?next=${next}`,
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/${locale}/reset-password`,
       data: { full_name, role, shop_id },
     })
 
