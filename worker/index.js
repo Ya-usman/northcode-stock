@@ -4,6 +4,18 @@
 // with the self.fallback (ignoreSearch:true) catching failures — this is
 // the only correct way to serve /offline from the Workbox precache.
 
+// Cache /offline during install so it is always available under the exact
+// key that caches.match('/offline') looks for — both with the new SW
+// (self.fallback uses ignoreSearch:true → finds Workbox precache entry) and
+// as an insurance entry in 'next-pages' if the precache failed for any reason.
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open('next-pages')
+      .then(cache => cache.add('/offline'))
+      .catch(() => {}) // Never let this fail the SW install
+  )
+})
+
 self.addEventListener('push', (event) => {
   const data = event.data?.json() ?? {}
   const title = data.title || 'StockShop'
