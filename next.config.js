@@ -6,17 +6,21 @@ const withPWA = require('next-pwa')({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === 'development',
-  // Exclude heavy chunks from pre-cache to speed up SW installation.
-  // Code-split numbered chunks (e.g. 4785-abc.js) are numerous and large;
-  // they're already covered by the runtimeCaching CacheFirst rule for
-  // /_next/static/.* — so excluding them here doesn't break offline use,
-  // it just means they're cached on-demand rather than at install time.
-  // Faster install = new SW activates before the user goes offline.
+  // Exclude ALL JS and CSS from the Workbox precache.
+  //
+  // WHY: Workbox uses addAll() for precaching — if ANY file returns an error,
+  // the entire SW install fails silently. With hundreds of JS chunks, even a
+  // single CDN hiccup kills the install, the old SW stays, and controllerchange
+  // never fires. This was preventing users from ever getting the new SW.
+  //
+  // The runtimeCaching CacheFirst rule for /_next/static/.* already handles
+  // JS and CSS — they get cached the first time they're fetched online.
+  // After one online session, full offline use works identically.
+  // SW installation is now instant (nothing to download during precache).
   buildExcludes: [
-    /chunks\/.*zxing.*/i,
-    /chunks\/.*pdf.*/i,
     /middleware-manifest\.json$/,
-    /chunks\/\d[0-9a-f-]*\.js$/,
+    /\.js$/,
+    /\.css$/,
   ],
   runtimeCaching: [
     // RSC payloads (client-side navigation) — StaleWhileRevalidate :
