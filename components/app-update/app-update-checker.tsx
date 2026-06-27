@@ -53,21 +53,24 @@ export function AppUpdateChecker() {
 
         <div className="px-6 py-5 space-y-3">
           <p className="text-sm text-muted-foreground text-center">
-            Cette mise à jour contient des améliorations importantes. Veuillez mettre à jour l'application pour continuer.
+            Cette mise à jour contient des améliorations importantes. Nous recommandons de mettre à jour dès que possible.
           </p>
 
           <Button
             className="w-full h-11 bg-stockshop-blue hover:bg-stockshop-blue-light text-white font-semibold"
             onClick={() => {
-              // market:// ouvre directement l'app Play Store sur Android
-              window.open(
-                storeUrl.replace('https://play.google.com/store/apps/', 'market://'),
-                '_system'
-              )
+              window.open(storeUrl, '_system')
             }}
           >
             Mettre à jour
           </Button>
+
+          <button
+            className="w-full py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => setNeedsUpdate(false)}
+          >
+            Plus tard
+          </button>
         </div>
       </div>
     </div>
