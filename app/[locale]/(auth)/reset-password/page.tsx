@@ -27,6 +27,9 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
   const [accessToken, setAccessToken] = useState<string | null>(null)
 
   useEffect(() => {
+    let settled = false
+    const done = (fn: () => void) => { if (settled) return; settled = true; fn() }
+
     const searchParams = new URLSearchParams(window.location.search)
     const code = searchParams.get('code')
     const hash = window.location.hash
@@ -35,52 +38,58 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
     const refreshToken = hashParams.get('refresh_token')
     const type = hashParams.get('type')
 
+    // Safety net: never spin forever — show a clear message after 12s
+    const timeout = setTimeout(() => {
+      done(() => setError('La vérification a pris trop de temps. Retournez dans votre email et cliquez à nouveau sur le lien.'))
+    }, 12000)
+
+    const fail = () => done(() => setError('Lien invalide ou expiré. Demandez un nouveau lien de réinitialisation.'))
+
     // 1. PKCE flow (?code= in URL)
-    // Do NOT signOut before exchangeCodeForSession — signOut clears the PKCE
-    // code verifier from localStorage, making the exchange fail silently.
-    // exchangeCodeForSession itself overwrites any existing session.
     if (code) {
-      window.history.replaceState(null, '', window.location.pathname)
       supabase.auth.exchangeCodeForSession(code)
         .then(({ data: { session }, error }) => {
+          clearTimeout(timeout)
           if (session && !error) {
-            setAccessToken(session.access_token)
-            setIsInvite(true)
-            setSessionReady(true)
+            window.history.replaceState(null, '', window.location.pathname)
+            done(() => { setAccessToken(session.access_token); setIsInvite(true); setSessionReady(true) })
           } else {
-            setError('Lien invalide ou expiré. Demandez un nouveau lien de réinitialisation.')
+            fail()
           }
         })
-      return
+        .catch(() => { clearTimeout(timeout); fail() })
+      return () => clearTimeout(timeout)
     }
 
-    // 2. Implicit flow (hash tokens) — sign out first to clear any stale session
+    // 2. Implicit flow — hash tokens (#access_token=…)
     if (accessToken && refreshToken) {
       if (type === 'invite') setIsInvite(true)
-      supabase.auth.signOut({ scope: 'local' }).then(() => {
-        supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
-          .then(({ data: { session }, error }) => {
-            if (session && !error) {
-              setAccessToken(session.access_token)
-              setSessionReady(true)
-              window.history.replaceState(null, '', window.location.pathname)
-            } else {
-              setError('Lien invalide ou expiré. Demandez un nouveau lien de réinitialisation.')
-            }
-          })
-      })
-      return
+      supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+        .then(({ data: { session }, error }) => {
+          clearTimeout(timeout)
+          if (session && !error) {
+            window.history.replaceState(null, '', window.location.pathname)
+            done(() => { setAccessToken(session.access_token); setSessionReady(true) })
+          } else {
+            fail()
+          }
+        })
+        .catch(() => { clearTimeout(timeout); fail() })
+      return () => clearTimeout(timeout)
     }
 
-    // 3. Existing session — used by forgot-password flow (server set cookies via /auth/callback)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setAccessToken(session.access_token)
-        setSessionReady(true)
-      } else {
-        setError('Lien invalide ou expiré. Demandez un nouveau lien de réinitialisation.')
-      }
-    })
+    // 3. Existing session — forgot-password flow (server exchanged code via /auth/callback)
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        clearTimeout(timeout)
+        if (session) {
+          done(() => { setAccessToken(session.access_token); setSessionReady(true) })
+        } else {
+          fail()
+        }
+      })
+      .catch(() => { clearTimeout(timeout); fail() })
+    return () => clearTimeout(timeout)
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
