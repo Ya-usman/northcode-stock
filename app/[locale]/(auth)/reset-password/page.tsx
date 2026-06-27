@@ -35,21 +35,22 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
     const refreshToken = hashParams.get('refresh_token')
     const type = hashParams.get('type')
 
-    // 1. PKCE flow (?code= in URL) — sign out first to clear any stale session
+    // 1. PKCE flow (?code= in URL)
+    // Do NOT signOut before exchangeCodeForSession — signOut clears the PKCE
+    // code verifier from localStorage, making the exchange fail silently.
+    // exchangeCodeForSession itself overwrites any existing session.
     if (code) {
       window.history.replaceState(null, '', window.location.pathname)
-      supabase.auth.signOut({ scope: 'local' }).then(() => {
-        supabase.auth.exchangeCodeForSession(code)
-          .then(({ data: { session }, error }) => {
-            if (session && !error) {
-              setAccessToken(session.access_token)
-              setIsInvite(true)
-              setSessionReady(true)
-            } else {
-              setError('Lien invalide ou expiré. Demandez un nouveau lien de réinitialisation.')
-            }
-          })
-      })
+      supabase.auth.exchangeCodeForSession(code)
+        .then(({ data: { session }, error }) => {
+          if (session && !error) {
+            setAccessToken(session.access_token)
+            setIsInvite(true)
+            setSessionReady(true)
+          } else {
+            setError('Lien invalide ou expiré. Demandez un nouveau lien de réinitialisation.')
+          }
+        })
       return
     }
 
