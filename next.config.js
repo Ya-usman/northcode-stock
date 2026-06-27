@@ -6,22 +6,24 @@ const withPWA = require('next-pwa')({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === 'development',
-  // Exclude ALL JS and CSS from the Workbox precache.
+  // Exclude EVERYTHING from the Workbox precache (radical fix).
   //
-  // WHY: Workbox uses addAll() for precaching — if ANY file returns an error,
-  // the entire SW install fails silently. With hundreds of JS chunks, even a
-  // single CDN hiccup kills the install, the old SW stays, and controllerchange
-  // never fires. This was preventing users from ever getting the new SW.
+  // WHY: Workbox's addAll() is all-or-nothing — if ANY single file fails
+  // (CDN hiccup, 404, timeout), the entire SW install is aborted silently.
+  // The old SW stays in control forever. No controllerchange. No reload.
+  // With hundreds of files (JS chunks, CSS, fonts, images, JSON manifests),
+  // even one transient error is enough to block users from ever getting
+  // the new SW.
   //
-  // The runtimeCaching CacheFirst rule for /_next/static/.* already handles
-  // JS and CSS — they get cached the first time they're fetched online.
-  // After one online session, full offline use works identically.
-  // SW installation is now instant (nothing to download during precache).
-  buildExcludes: [
-    /middleware-manifest\.json$/,
-    /\.js$/,
-    /\.css$/,
-  ],
+  // SAFE because runtimeCaching already covers everything:
+  //   • /_next/static/.* → CacheFirst (JS, CSS, fonts, images)
+  //   • navigate requests  → NetworkFirst (pages + /offline fallback)
+  //   • RSC payloads       → StaleWhileRevalidate
+  // Files are cached on first use instead of at install time.
+  // After one online session the app works fully offline — identical UX.
+  // SW installation is now instantaneous (precache list is empty).
+  buildExcludes: [/.*/],
+  publicExcludes: ['**/*'],
   runtimeCaching: [
     // RSC payloads (client-side navigation) — StaleWhileRevalidate :
     // sert le cache instantanément, met à jour en arrière-plan.
