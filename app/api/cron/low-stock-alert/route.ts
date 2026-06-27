@@ -100,7 +100,7 @@ export async function GET(request: Request) {
       }
 
       // --- EMAIL ALERT ---
-      if (shop.notify_email_low_stock && shop.owner_id) {
+      if (shop.notify_email_low_stock && shop.owner_id && /^[0-9a-f-]{36}$/.test(shop.owner_id)) {
         const { data: ownerData } = await admin.auth.admin.getUserById(shop.owner_id)
         const ownerEmail = ownerData?.user?.email
 

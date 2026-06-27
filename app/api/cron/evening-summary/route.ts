@@ -81,6 +81,7 @@ export async function GET(request: Request) {
       const totalExpenses = (expenses ?? []).reduce((s: number, e: any) => s + Number(e.amount), 0)
 
       // Get owner email
+      if (!shop.owner_id) { results[shop.name] = 'no_owner_id'; continue }
       const { data: ownerData } = await admin.auth.admin.getUserById(shop.owner_id)
       const ownerEmail = ownerData?.user?.email
       if (!ownerEmail) { results[shop.name] = 'no_email'; continue }
