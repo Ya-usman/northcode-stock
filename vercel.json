@@ -5,6 +5,10 @@
       "schedule": "0 7 * * *"
     },
     {
+      "path": "/api/cron/evening-summary",
+      "schedule": "0 17 * * *"
+    },
+    {
       "path": "/api/cron/low-stock-alert",
       "schedule": "0 7 * * *"
     }
