@@ -6,8 +6,18 @@ const withPWA = require('next-pwa')({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === 'development',
-  // Exclude heavy chunks from pre-cache (loaded on demand)
-  buildExcludes: [/chunks\/.*zxing.*/i, /chunks\/.*pdf.*/i, /middleware-manifest\.json$/],
+  // Exclude heavy chunks from pre-cache to speed up SW installation.
+  // Code-split numbered chunks (e.g. 4785-abc.js) are numerous and large;
+  // they're already covered by the runtimeCaching CacheFirst rule for
+  // /_next/static/.* — so excluding them here doesn't break offline use,
+  // it just means they're cached on-demand rather than at install time.
+  // Faster install = new SW activates before the user goes offline.
+  buildExcludes: [
+    /chunks\/.*zxing.*/i,
+    /chunks\/.*pdf.*/i,
+    /middleware-manifest\.json$/,
+    /chunks\/\d[0-9a-f-]*\.js$/,
+  ],
   runtimeCaching: [
     // RSC payloads (client-side navigation) — StaleWhileRevalidate :
     // sert le cache instantanément, met à jour en arrière-plan.
@@ -68,7 +78,7 @@ const withPWA = require('next-pwa')({
       handler: 'CacheFirst',
       options: {
         cacheName: 'next-static',
-        expiration: { maxEntries: 80, maxAgeSeconds: 30 * 24 * 60 * 60 },
+        expiration: { maxEntries: 300, maxAgeSeconds: 30 * 24 * 60 * 60 },
       },
     },
     {

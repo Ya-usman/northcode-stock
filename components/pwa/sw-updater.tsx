@@ -2,22 +2,25 @@
 
 import { useEffect } from 'react'
 
-/**
- * Forces the service worker to update on every app launch and reloads the page
- * when a new SW takes control. Without this, next-pwa's skipWaiting installs the
- * new SW but the old one stays active for the current page session — meaning the
- * offline cache fix never kicks in until the user manually refreshes.
- */
 export function SWUpdater() {
   useEffect(() => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return
 
-    // Check for a new SW on every app open
-    navigator.serviceWorker.ready.then(reg => reg.update()).catch(() => {})
+    function triggerUpdate() {
+      navigator.serviceWorker.ready.then(reg => reg.update()).catch(() => {})
+    }
+
+    // Check on mount (in case the inline script ran before SW was ready)
+    triggerUpdate()
+
+    // Re-check every time the device comes back online.
+    // Critical: if the user was offline when the app opened, the inline script
+    // skipped the update. When they reconnect, we trigger it here.
+    window.addEventListener('online', triggerUpdate)
 
     // When a new SW takes over (skipWaiting activated), reload to apply it.
-    // Guard: never reload while offline — that would trigger a hard navigate
-    // with no network, causing ERR_INTERNET_DISCONNECTED on Android WebView.
+    // Guard: never reload while offline — hard navigate with no network
+    // would trigger ERR_INTERNET_DISCONNECTED on Android WebView.
     let reloading = false
     const onControllerChange = () => {
       if (!reloading && navigator.onLine) {
@@ -26,7 +29,9 @@ export function SWUpdater() {
       }
     }
     navigator.serviceWorker.addEventListener('controllerchange', onControllerChange)
+
     return () => {
+      window.removeEventListener('online', triggerUpdate)
       navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange)
     }
   }, [])

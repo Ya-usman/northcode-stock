@@ -40,6 +40,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-title" content="StockShop" />
         {/* Dark mode anti-flash: runs before first paint, sets html class + background */}
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('theme');var d=t==='dark'||(t===null&&window.matchMedia('(prefers-color-scheme:dark)').matches);if(d){var r=document.documentElement;r.classList.add('dark');r.style.backgroundColor='#091524';r.style.colorScheme='dark'}}catch(e){}})()` }} />
+        {/* SW update bootstrap: fires immediately when Chrome parses HTML, before any JS chunk.
+            The old SW returns fresh HTML via NetworkFirst when online — so this script always
+            runs on online sessions, even when old SW is still serving old JS bundles.
+            This breaks the cycle: old SW → old JS → no reg.update() → SW never updates. */}
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{if('serviceWorker' in navigator&&navigator.onLine){navigator.serviceWorker.ready.then(function(r){r.update()}).catch(function(){})}}catch(e){}})()` }} />
       </head>
       <body className="bg-background">
         <SWUpdater />
