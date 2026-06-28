@@ -17,21 +17,37 @@
       --fg-strong:   #1e293b;
       --icon-bg:     #dbeafe;
       --pending-fg:  #92400e;
+      /* retry btn */
+      --retry-bg:    #073e8a;
+      --retry-fg:    #ffffff;
+      --retry-border: #073e8a;
+      /* no-data info row */
+      --info-bg:     #eff6ff;
+      --info-border: #bfdbfe;
+      --info-fg:     #1d4ed8;
     }
 
     /* ── Palette dark (= app globals.css .dark, navy-blue base) ── */
     @media (prefers-color-scheme: dark) {
       :root {
-        --bg:          #091524;   /* --background  215 60% 9%  */
+        --bg:          #091524;
         --bg-page:     #091524;
-        --card:        #101e30;   /* --card        215 35% 13% */
-        --border:      #263040;   /* --border      215 25% 20% */
+        --card:        #101e30;
+        --border:      #263040;
         --border-sub:  #1a2a3c;
-        --fg:          #f0f0f0;   /* --foreground  0 0% 94%    */
-        --fg-muted:    #8a9ab0;   /* --muted-fg    240 5% 60%  */
+        --fg:          #f0f0f0;
+        --fg-muted:    #8a9ab0;
         --fg-strong:   #e2eaf4;
         --icon-bg:     #0f2d50;
         --pending-fg:  #fbbf24;
+        /* retry btn — outlined style en dark */
+        --retry-bg:    transparent;
+        --retry-fg:    #93c5fd;
+        --retry-border: #263040;
+        /* no-data info row */
+        --info-bg:     #0f2240;
+        --info-border: #1e3a5f;
+        --info-fg:     #93c5fd;
       }
     }
 
@@ -62,11 +78,11 @@
 
     .retry-btn {
       display: flex; align-items: center; gap: 5px;
-      background: var(--card);
-      border: 1px solid var(--border);
+      background: var(--retry-bg);
+      border: 1px solid var(--retry-border);
       border-radius: 10px; padding: 8px 14px;
       font-size: 12px; font-weight: 600;
-      color: var(--fg-muted);
+      color: var(--retry-fg);
       cursor: pointer;
       transition: opacity .15s;
     }
@@ -92,6 +108,18 @@
     .status-row .dot.amber { background: #f59e0b; }
     .status-row strong { color: var(--fg-strong); }
     .status-row.pending { color: var(--pending-fg); }
+
+    .info-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 16px;
+      font-size: 12px; font-weight: 500;
+      color: var(--info-fg);
+      background: var(--info-bg);
+      border: 1px solid var(--info-border);
+      border-radius: 14px;
+      margin: 8px 20px 16px;
+    }
+    .info-row .info-icon { font-size: 14px; flex-shrink: 0; }
 
     /* Primary CTA */
     .primary-cta {
@@ -191,10 +219,11 @@
       <div class="dot amber"></div>
       <strong id="pendingText"></strong>
     </div>
-    <div class="status-row" id="noDataRow">
-      <div class="dot"></div>
-      <span>Connectez-vous en ligne pour charger les données</span>
-    </div>
+  </div>
+
+  <div class="info-row" id="noDataRow">
+    <span class="info-icon">ℹ️</span>
+    <span>Connectez-vous en ligne pour charger les données</span>
   </div>
 
   <button class="primary-cta" onclick="go('sales/new')">
@@ -283,6 +312,14 @@
     }
 
     showSyncStatus();
+    // Cacher la status-bar si elle est vide (aucune ligne visible)
+    var bar = document.getElementById('statusBar');
+    if (bar) {
+      var rows = bar.querySelectorAll('.status-row');
+      var anyVisible = false;
+      rows.forEach(function(r) { if (r.style.display !== 'none') anyVisible = true; });
+      if (!anyVisible) bar.style.display = 'none';
+    }
 
     window.addEventListener('online', function() {
       fetch(BASE + '/api/health', { method: 'HEAD', cache: 'no-store' })
