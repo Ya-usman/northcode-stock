@@ -39,7 +39,7 @@ const withPWA = require('next-pwa')({
       },
     },
     // Page HTML (navigation complète) — NetworkFirst :
-    // Essaie le réseau (timeout 3s), puis le cache, puis la page /offline.
+    // Essaie le réseau (timeout 1s), puis le cache, puis la page /offline.
     // CRITIQUE : NetworkFirst déclenche setCatchHandler quand réseau + cache échouent
     // → affiche la page /offline au lieu de ERR_INTERNET_DISCONNECTED.
     // StaleWhileRevalidate retournait undefined silencieusement → bug Samsung PWA.
@@ -48,7 +48,7 @@ const withPWA = require('next-pwa')({
       handler: 'NetworkFirst',
       options: {
         cacheName: 'next-pages',
-        networkTimeoutSeconds: 3,
+        networkTimeoutSeconds: 1,
         expiration: { maxEntries: 100, maxAgeSeconds: 24 * 60 * 60 },
       },
     },
@@ -59,7 +59,7 @@ const withPWA = require('next-pwa')({
       options: {
         cacheName: 'api-routes',
         expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 },
-        networkTimeoutSeconds: 5,
+        networkTimeoutSeconds: 3,
       },
     },
     {
@@ -68,7 +68,7 @@ const withPWA = require('next-pwa')({
       options: {
         cacheName: 'supabase-api',
         expiration: { maxEntries: 200, maxAgeSeconds: 24 * 60 * 60 },
-        networkTimeoutSeconds: 10,
+        networkTimeoutSeconds: 5,
       },
     },
     {
