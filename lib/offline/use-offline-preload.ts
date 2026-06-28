@@ -20,11 +20,9 @@ const CRITICAL_ROUTES = [
 const SECONDARY_ROUTES = [
   'expenses',
   'sales/history',
-  'stock/movements',
   'payments',
   'reports',
   'notes',
-  'categories',
 ]
 
 function getLocale(): string {
