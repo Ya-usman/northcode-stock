@@ -77,16 +77,37 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
 
   const onLogin = async (data: LoginData) => {
     setError('')
+    // Effacer uniquement les caches auth — PAS les caches SW (pages/assets/RSC)
     localStorage.removeItem('auth_cache_v1')
     localStorage.removeItem('active_shop_id')
     localStorage.removeItem('dashboard_cache_v1')
     localStorage.removeItem('dashboard_shop_filter')
-    if ('caches' in window) {
-      const keys = await caches.keys()
-      await Promise.all(keys.map(k => caches.delete(k)))
+
+    // Jusqu'à 3 tentatives (cold start Supabase peut prendre 4-8s)
+    let authData: any = null
+    let lastError: any = null
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { data: d, error: e } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      })
+      if (!e) { authData = d; break }
+      lastError = e
+      const isNetworkError = !e.status || e.status === 0 || e.message?.toLowerCase().includes('fetch') || e.message?.toLowerCase().includes('network') || e.message?.toLowerCase().includes('failed')
+      // Mauvais identifiants → inutile de réessayer
+      if (!isNetworkError) break
+      // Erreur réseau → attendre 3s puis réessayer
+      if (attempt < 2) await new Promise(r => setTimeout(r, 3000))
     }
-    const { data: authData, error } = await supabase.auth.signInWithPassword({ email: data.email, password: data.password })
-    if (error) { setError(t('invalid_credentials')); return }
+
+    if (!authData) {
+      const isNetworkError = !lastError?.status || lastError?.status === 0 || lastError?.message?.toLowerCase().includes('fetch') || lastError?.message?.toLowerCase().includes('network') || lastError?.message?.toLowerCase().includes('failed')
+      setError(isNetworkError
+        ? (locale === 'ha' ? 'Matsalar hanyar sadarwa. Da fatan a sake gwadawa.' : 'Problème de connexion. Vérifiez votre réseau et réessayez.')
+        : t('invalid_credentials'))
+      return
+    }
+
     localStorage.setItem('auth_remember_me', data.rememberMe ? '1' : '0')
     sessionStorage.setItem('session_alive', '1')
     await fetch('/api/auth/set-role', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
