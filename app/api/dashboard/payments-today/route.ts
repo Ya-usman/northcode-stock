@@ -39,14 +39,17 @@ export async function GET(request: Request) {
     const admin = await createAdminClient() as any
 
     // Fetch all payments in the full window (week or today)
+    // Exclure les paiements liés à des ventes annulées (sale_status = 'cancelled')
     const queryStart = weekStart || start
     const { data: paymentsRaw } = await admin
       .from('payments')
-      .select('amount, paid_at, sales!inner(shop_id)')
+      .select('amount, paid_at, sales!inner(shop_id, sale_status)')
       .gte('paid_at', queryStart)
       .lte('paid_at', end)
 
-    const payments = (paymentsRaw || []).filter((p: any) => shopIds.includes(p.sales?.shop_id))
+    const payments = (paymentsRaw || []).filter((p: any) =>
+      shopIds.includes(p.sales?.shop_id) && p.sales?.sale_status !== 'cancelled'
+    )
 
     // Today total
     const todayTotal = payments

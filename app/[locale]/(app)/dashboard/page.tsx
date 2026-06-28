@@ -130,14 +130,16 @@ export default function DashboardPage() {
 
     const shopKey = `${profile?.id}:${shopIds.join(',')}`
 
-    // ── Serve cache immediately — before any guard so unlock is always instant ──
-    const cached = readDashCache(shopKey)
-    if (cached) {
-      applyDashData(cached.todaySalesCount, cached.todayRevenue, cached.outstandingDebt,
-        cached.recentSales, cached.repaymentItems ?? [], cached.revenueData, cached.topProducts, cached.lowStock, cached.outOfStock,
-        cached.monthExpenses ?? 0, cached.monthRevenue ?? 0)
-
-      setFirstLoad(false)
+    // ── Serve cache immediately — sauf sur refresh manuel (quiet=true) où on
+    // veut impérativement les données fraîches sans afficher du stale d'abord ──
+    if (!quiet) {
+      const cached = readDashCache(shopKey)
+      if (cached) {
+        applyDashData(cached.todaySalesCount, cached.todayRevenue, cached.outstandingDebt,
+          cached.recentSales, cached.repaymentItems ?? [], cached.revenueData, cached.topProducts, cached.lowStock, cached.outOfStock,
+          cached.monthExpenses ?? 0, cached.monthRevenue ?? 0)
+        setFirstLoad(false)
+      }
     }
 
     // Don't fetch from network when offline
