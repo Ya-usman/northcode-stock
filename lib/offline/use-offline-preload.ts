@@ -4,6 +4,7 @@ import { useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { cacheProducts, cacheCustomers, cacheExpenses, cacheCategories } from './db'
+import { setPageCache } from './page-cache'
 
 const DATA_TTL  = 60 * 60 * 1000   // données IndexedDB : refresh toutes les heures
 const PAGES_TTL = 20 * 60 * 1000   // pages SW : re-fetch toutes les 20 min
@@ -191,6 +192,17 @@ export function useOfflinePreload() {
               }
             }
             markDone(dataKey)
+
+            // Alimenter le page-cache de la page Stock pour qu'elle affiche
+            // les produits hors ligne sans jamais avoir été ouverte en ligne.
+            // La page Stock lit pc_stock_* via getPageCache() comme fallback.
+            try {
+              setPageCache(`stock_${shopIds.join(',')}`, {
+                prods: products || [],
+                cats: categories || [],
+                sups: [],
+              })
+            } catch {}
           } finally {
             dataRunning.current = false
           }
