@@ -110,9 +110,10 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
 
     localStorage.setItem('auth_remember_me', data.rememberMe ? '1' : '0')
     sessionStorage.setItem('session_alive', '1')
-    await fetch('/api/auth/set-role', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
-    const { data: profileData } = await supabase.from('profiles').select('locale').eq('id', authData.user.id).single()
-    const preferredLocale = (profileData as any)?.locale || document.cookie.match(/NEXT_LOCALE=([^;]+)/)?.[1] || localStorage.getItem('NEXT_LOCALE') || locale
+    // Fire-and-forget — ne pas bloquer la navigation sur le cold start Vercel
+    fetch('/api/auth/set-role', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => {})
+    // Utiliser la locale déjà connue — l'auth context la synchro depuis la DB en arrière-plan
+    const preferredLocale = document.cookie.match(/NEXT_LOCALE=([^;]+)/)?.[1] || localStorage.getItem('NEXT_LOCALE') || locale
     localStorage.setItem('NEXT_LOCALE', preferredLocale)
     setLocaleCookie(preferredLocale)
     router.replace(`/${preferredLocale}/dashboard`)
