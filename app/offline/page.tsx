@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   WifiOff, RefreshCw, ShoppingCart, LayoutDashboard,
   Package, Users, Receipt, BarChart2, Clock, Banknote,
 } from 'lucide-react'
 import { getTotalPendingCount } from '@/lib/offline/db'
+import { cn } from '@/lib/utils/cn'
 
 function getLocale(): string {
   if (typeof document === 'undefined') return 'fr'
@@ -61,35 +63,48 @@ const GRID_ITEMS = [
   { icon: BarChart2,       label: 'Rapports',         route: 'reports' },
 ]
 
+function getCachedSlugs(): Set<string> {
+  try {
+    return new Set(
+      Object.keys(localStorage)
+        .filter(k => k.startsWith('pc_route_'))
+        .map(k => k.replace('pc_route_', ''))
+    )
+  } catch { return new Set() }
+}
+
 export default function OfflinePage() {
+  const router = useRouter()
   const [lastSync, setLastSync] = useState<Date | null>(null)
   const [pendingCount, setPendingCount] = useState(0)
   const [retrying, setRetrying] = useState(false)
+  const [cachedSlugs, setCachedSlugs] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     setLastSync(getLastSyncTime())
     getTotalPendingCount().then(setPendingCount).catch(() => {})
+    setCachedSlugs(getCachedSlugs())
   }, [])
 
   useEffect(() => {
     const handleOnline = () => {
       checkRealConnectivity().then(online => {
-        if (online) window.location.href = `/${getLocale()}/dashboard`
+        if (online) router.push(`/${getLocale()}/dashboard`)
       })
     }
     window.addEventListener('online', handleOnline)
     return () => window.removeEventListener('online', handleOnline)
   }, [])
 
-  const navigate = (route: string) => {
-    window.location.href = `/${getLocale()}/${route}`
-  }
+  const navigate = useCallback((route: string) => {
+    router.push(`/${getLocale()}/${route}`)
+  }, [router])
 
   const retry = async () => {
     setRetrying(true)
     const online = await checkRealConnectivity()
     if (online) {
-      window.location.href = `/${getLocale()}/dashboard`
+      router.push(`/${getLocale()}/dashboard`)
     } else {
       setRetrying(false)
     }
@@ -166,18 +181,26 @@ export default function OfflinePage() {
 
       {/* Grid */}
       <div className="px-5 grid grid-cols-2 gap-3 flex-1">
-        {GRID_ITEMS.map(({ icon: Icon, label, route }) => (
-          <button
-            key={route}
-            onClick={() => navigate(route)}
-            className="flex flex-col items-center justify-center gap-2.5 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-5 shadow-sm active:scale-95 transition-transform"
-          >
-            <div className="h-10 w-10 flex items-center justify-center rounded-full bg-blue-50 dark:bg-blue-950/40">
-              <Icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            </div>
-            <span className="text-sm font-medium text-gray-800 dark:text-gray-200 text-center leading-tight">{label}</span>
-          </button>
-        ))}
+        {GRID_ITEMS.map(({ icon: Icon, label, route }) => {
+          const available = cachedSlugs.size === 0 || cachedSlugs.has(route)
+          return (
+            <button
+              key={route}
+              onClick={() => available && navigate(route)}
+              disabled={!available}
+              title={!available ? 'Non disponible hors ligne' : undefined}
+              className={cn(
+                'flex flex-col items-center justify-center gap-2.5 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-5 shadow-sm transition-transform',
+                available ? 'active:scale-95' : 'opacity-35 cursor-not-allowed'
+              )}
+            >
+              <div className="h-10 w-10 flex items-center justify-center rounded-full bg-blue-50 dark:bg-blue-950/40">
+                <Icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <span className="text-sm font-medium text-gray-800 dark:text-gray-200 text-center leading-tight">{label}</span>
+            </button>
+          )
+        })}
       </div>
 
       <p className="text-center text-xs text-gray-400 py-6">
