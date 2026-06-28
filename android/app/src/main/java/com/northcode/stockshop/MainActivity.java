@@ -25,10 +25,6 @@ public class MainActivity extends BridgeActivity {
     // Après : le SW est actif → on lui laisse servir les navigations offline.
     private boolean appHasLoaded = false;
 
-    // Vrai pendant qu'on tente de rediriger vers la page /offline React.
-    // Évite une boucle infinie si cette page aussi échoue.
-    private boolean handlingOfflineError = false;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -64,24 +60,25 @@ public class MainActivity extends BridgeActivity {
                 @Override
                 public void onPageFinished(WebView view, String url) {
                     super.onPageFinished(view, url);
-                    handlingOfflineError = false;
                     if (url != null && url.contains("stockshop.tech")) {
                         appHasLoaded = true;
                     }
                 }
 
                 /**
-                 * Stratégie à 3 niveaux pour les erreurs offline main-frame :
+                 * Stratégie à 2 niveaux pour les erreurs offline main-frame :
                  *
                  * 1. Cold start (!appHasLoaded) : recharge l'URL →
-                 *    shouldInterceptRequest la sert avec offline-native.html.
+                 *    shouldInterceptRequest la sert avec offline-native.html depuis assets.
+                 *    Pas d'appel à super → évite la page native Android.
                  *
-                 * 2. Mid-session, première erreur : redirige vers /fr/offline
-                 *    (page React servie par le SW depuis son cache).
-                 *    Pas d'appel à super → évite la page native "not available".
+                 * 2. Mid-session : charge directement offline-native.html depuis
+                 *    file:// (assets). Toujours disponible, aucun réseau ni SW requis.
+                 *    Pas d'appel à super → remplace immédiatement la page native.
                  *
-                 * 3. Mid-session, /offline aussi en échec : charge
-                 *    offline-native.html depuis file:// en dernier recours.
+                 * NOTE : /fr/offline (React) n'est pas tentée — elle nécessite le SW
+                 * et génère elle-même un onReceivedError si le SW ne peut pas la servir,
+                 * ce qui provoque "Webpage not available" en cascade.
                  */
                 @Override
                 public void onReceivedError(WebView view,
@@ -106,28 +103,11 @@ public class MainActivity extends BridgeActivity {
                         return;
                     }
 
-                    if (handlingOfflineError) {
-                        // /offline React a aussi échoué → dernier recours
-                        handlingOfflineError = false;
-                        view.post(() -> view.loadUrl("file:///android_asset/offline-native.html"));
-                        return;
-                    }
-
-                    // Mid-session : rediriger vers la page /offline React
-                    // (le SW la sert depuis next-pages ou le precache)
-                    handlingOfflineError = true;
-                    final String locale = extractLocale(request.getUrl().getPath());
-                    view.post(() -> view.loadUrl(
-                        "https://stockshop.tech/" + locale + "/offline"));
+                    // Mid-session : fallback assets — toujours disponible
+                    view.post(() -> view.loadUrl("file:///android_asset/offline-native.html"));
                 }
             }
         );
-    }
-
-    private String extractLocale(String path) {
-        if (path == null || path.length() < 2) return "fr";
-        String[] parts = path.split("/");
-        return parts.length > 1 && !parts[1].isEmpty() ? parts[1] : "fr";
     }
 
     private boolean isNetworkAvailable() {

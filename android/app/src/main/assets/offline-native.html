@@ -115,14 +115,15 @@
 
   <div class="offline-message">
     <div class="offline-icon">📵</div>
-    <p class="offline-title">Démarrage hors ligne</p>
-    <p class="offline-desc">
-      Ouvrez l'application en ligne au moins une fois pour activer
-      le mode hors ligne complet.
+    <p class="offline-title" id="mainTitle">Hors connexion</p>
+    <p class="offline-desc" id="mainDesc">
+      Cette page n'est pas disponible sans connexion.
+      Revenez en arrière ou reconnectez-vous.
     </p>
     <p class="offline-desc-alt" id="hasCacheMsg" style="display:none">
-      Vos données sont en cache. Reconnectez-vous pour accéder à l'application.
+      Vos données sont en cache. Utilisez le bouton Retour pour continuer.
     </p>
+    <button class="retry-btn" onclick="history.back()" style="margin-top:8px;background:#334155;border-color:#334155">← Retour</button>
   </div>
 
   <div class="footer">StockShop · Mode hors ligne</div>
@@ -141,10 +142,19 @@
         .catch(function() { btn.textContent = '↺ Réessayer'; });
     }
 
-    // Indiquer si des données sont en cache (localStorage stockshop.tech)
+    // Depuis file:// on n'a pas accès au localStorage de stockshop.tech —
+    // on adapte le message selon qu'on détecte une session active via cookies.
     try {
-      var keys = Object.keys(localStorage).filter(function(k) { return k.startsWith('pc_data_'); });
-      if (keys.length) document.getElementById('hasCacheMsg').style.display = 'block';
+      var hasCookie = document.cookie.indexOf('sb-') !== -1 || document.cookie.indexOf('NEXT_LOCALE') !== -1;
+      if (!hasCookie) {
+        // Probablement cold start sans session connue
+        document.getElementById('mainTitle').textContent = 'Démarrage hors ligne';
+        document.getElementById('mainDesc').textContent =
+          'Ouvrez l\'application en ligne au moins une fois pour activer le mode hors ligne complet.';
+        document.querySelector('[onclick="history.back()"]').style.display = 'none';
+      } else {
+        document.getElementById('hasCacheMsg').style.display = 'block';
+      }
     } catch(e) {}
 
     // Rediriger automatiquement dès que la connexion revient
