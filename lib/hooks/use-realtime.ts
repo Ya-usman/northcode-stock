@@ -9,6 +9,7 @@ const supabase = createClient()
 
 interface RealtimeHandlers {
   onNewSale?: (sale: Sale) => void
+  onSaleCancelled?: (sale: Sale) => void
   onProductUpdate?: (product: Product) => void
   onPaymentUpdate?: (payload: any) => void
 }
@@ -34,6 +35,21 @@ export function useDashboardRealtime(shopId: string | null, handlers: RealtimeHa
         },
         (payload) => {
           handlersRef.current.onNewSale?.(payload.new as Sale)
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'sales',
+          filter: `shop_id=eq.${shopId}`,
+        },
+        (payload) => {
+          const updated = payload.new as Sale
+          if ((updated as any).sale_status === 'cancelled') {
+            handlersRef.current.onSaleCancelled?.(updated)
+          }
         }
       )
       .on(

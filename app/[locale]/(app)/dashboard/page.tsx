@@ -390,8 +390,6 @@ export default function DashboardPage() {
   useDashboardRealtime(shop?.id || null, {
     onNewSale: (sale) => {
       if (shopIds.includes(sale.shop_id || '')) {
-        // Cashier only counts their own sales; owner/viewer counts all
-        // Cashier only counts their own sales; owner/viewer counts all
         const isOwnSale = !isCashierView || sale.cashier_id === profile?.id
         if (isOwnSale) {
           setRecentSales(prev => [sale, ...prev])
@@ -400,6 +398,15 @@ export default function DashboardPage() {
         }
         toast({ title: `Nouvelle vente: ${formatNaira(sale.total)}`, description: `#${sale.sale_number}`, variant: 'success' })
       }
+    },
+    onSaleCancelled: (sale) => {
+      if (!shopIds.includes((sale as any).shop_id || '')) return
+      // Retirer la vente des stats en temps réel
+      setRecentSales(prev => prev.filter(s => s.id !== sale.id))
+      setTodaySalesCount(prev => Math.max(0, prev - 1))
+      setTodayRevenue(prev => Math.max(0, prev - Number((sale as any).amount_paid ?? 0)))
+      // Invalider le cache dashboard pour que le prochain chargement soit propre
+      try { localStorage.removeItem('dashboard_cache_v1') } catch {}
     },
     onPaymentUpdate: async (payment: any) => {
       try {
