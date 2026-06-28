@@ -3,8 +3,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { Capacitor } from '@capacitor/core'
-import { SplashScreen } from '@capacitor/splash-screen'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { Sidebar } from './sidebar'
@@ -79,16 +77,6 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   const recoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { toast } = useToast()
 
-  // Masquer le splash screen natif dès que l'auth est résolue.
-  // launchAutoHide=false dans capacitor.config.ts : le splash reste visible
-  // pendant tout le chargement initial (Vercel cold start + SW + JS bundles),
-  // évitant la page blanche entre splash et premier rendu React.
-  useEffect(() => {
-    if (!loading && !authRecovering && Capacitor.isNativePlatform()) {
-      SplashScreen.hide({ fadeOutDuration: 200 }).catch(() => {})
-    }
-  }, [loading, authRecovering])
-
   // ── Auth recovery: quand user devient null après loading, attendre 2s avant
   // de rediriger — la race condition de token refresh peut causer un SIGNED_OUT
   // temporaire que le client Supabase résout en relisant les cookies mis à jour.
@@ -119,18 +107,6 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   useOfflinePreload()
   const { pendingCount, syncing, sync } = useOffline()
   const { isOffline, cacheAgeMs } = useOfflineRoutes()
-
-  // Toast une seule fois par session quand les pages sont mises en cache
-  useEffect(() => {
-    const onReady = () => {
-      toast({
-        title: 'Mode hors ligne activé',
-        description: 'Vos données et pages sont en cache. Vous pouvez utiliser l\'app sans connexion.',
-      })
-    }
-    window.addEventListener('offline-cache-ready', onReady)
-    return () => window.removeEventListener('offline-cache-ready', onReady)
-  }, [toast])
 
   const handleSignOut = async () => {
     const result = await signOut()

@@ -4,7 +4,6 @@ import { useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { cacheProducts, cacheCustomers, cacheExpenses, cacheCategories } from './db'
-import { setPageCache } from './page-cache'
 
 const DATA_TTL  = 60 * 60 * 1000   // données IndexedDB : refresh toutes les heures
 const PAGES_TTL = 20 * 60 * 1000   // pages SW : re-fetch toutes les 20 min
@@ -50,20 +49,28 @@ async function prefetchPage(url: string): Promise<void> {
     caches.open('next-pages'),
     caches.open('next-rsc'),
   ])
-  await Promise.allSettled([
+  const results = await Promise.allSettled([
     fetch(url, { cache: 'no-store' }).then(r => {
       if (r.ok) htmlCache.put(r.url, r)
+      return r.ok
     }),
     fetch(url, {
       cache: 'no-store',
       headers: { RSC: '1', 'Next-Router-Prefetch': '1' },
     }).then(r => {
       if (r.ok) rscCache.put(r.url, r)
+      return r.ok
     }),
   ])
-  // Note : pc_route_* N'EST PAS positionné ici.
-  // Seul useOfflinePreload le pose — uniquement pour les routes avec données cachées.
-  // Ceci garantit que les onglets sans données restent grisés offline.
+  // Marquer la route comme disponible hors ligne si au moins un cache a réussi
+  const ok = results.some(r => r.status === 'fulfilled' && r.value === true)
+  if (ok) {
+    try {
+      // Extraire le slug de route depuis l'URL (ex: /fr/sales/new → sales/new)
+      const slug = url.replace(/^\/[a-z]{2}\//, '')
+      localStorage.setItem(`pc_route_${slug}`, String(Date.now()))
+    } catch {}
+  }
 }
 
 async function prefetchAllPages(locale: string): Promise<void> {
@@ -110,12 +117,6 @@ export function useOfflinePreload() {
       ])
 
       markDone(pagesKey)
-      // Notifier l'UI que le cache hors ligne est prêt (une seule fois par session)
-      if (typeof window !== 'undefined'
-          && !sessionStorage.getItem('offline_ready_notified')) {
-        sessionStorage.setItem('offline_ready_notified', '1')
-        window.dispatchEvent(new CustomEvent('offline-cache-ready'))
-      }
     } catch {
       // Silencieux — hors ligne ou réseau indisponible
     } finally {
@@ -184,52 +185,6 @@ export function useOfflinePreload() {
               }
             }
             markDone(dataKey)
-
-            // Alimenter les page-caches des pages qui lisent via getPageCache()
-            // et non depuis IndexedDB. Sans ça, les pages sont vides hors ligne
-            // si elles n'ont jamais été ouvertes en ligne.
-            const cacheShopKey = shopIds.join(',')
-            const currentMonth = new Date().toISOString().slice(0, 7) // 'yyyy-MM'
-            try {
-              // Stock — lit pc_stock_* (prods + cats + sups)
-              setPageCache(`stock_${cacheShopKey}`, {
-                prods: products || [],
-                cats: categories || [],
-                sups: [],
-              })
-              // Clients — lit pc_customers_*
-              setPageCache(`customers_${cacheShopKey}`, customers || [])
-              // Dépenses — clé inclut le mois courant (filtre par défaut)
-              setPageCache(
-                `expenses_${cacheShopKey}_${currentMonth}`,
-                (expenses || []).filter((e: any) => e.date?.startsWith(currentMonth))
-              )
-            } catch {}
-
-            // Dettes clients pour la page Paiements (appel API dédié)
-            try {
-              const debtsRes = await fetch(
-                `/api/payments/debts?shop_ids=${shopIds.join(',')}`,
-                { cache: 'no-store', credentials: 'include' }
-              )
-              if (debtsRes.ok) {
-                const debtsData = await debtsRes.json()
-                setPageCache(`debtors_${cacheShopKey}`, debtsData.debtors || [])
-              }
-            } catch {}
-
-            // Marquer uniquement les routes qui ont des données en cache offline.
-            // Les routes sans données (rapports, historique, mouvements…) restent
-            // grisées dans le BottomNav pour indiquer qu'elles seront vides offline.
-            try {
-              const now = String(Date.now())
-              localStorage.setItem(`pc_route_dashboard`, now)
-              localStorage.setItem(`pc_route_sales/new`, now)
-              localStorage.setItem(`pc_route_stock`, now)
-              localStorage.setItem(`pc_route_customers`, now)
-              localStorage.setItem(`pc_route_expenses`, now)
-              localStorage.setItem(`pc_route_payments`, now)
-            } catch {}
           } finally {
             dataRunning.current = false
           }

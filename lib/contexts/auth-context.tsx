@@ -59,7 +59,6 @@ const CACHE_KEY = 'auth_cache_v1'
 
 interface AuthCache {
   userId: string
-  user: User
   profile: Profile
   userShops: Shop[]
   memberships: MemberRow[]
@@ -77,23 +76,9 @@ function readCache(userId: string): AuthCache | null {
   } catch { return null }
 }
 
-// Lit le cache sans connaître le userId — utilisé quand getSession() échoue offline
-// (token expiré → Supabase ne peut pas rafraîchir sans réseau → session = null).
-// TTL étendu à 7 jours pour couvrir les sessions longues sans connexion.
-function readCacheOffline(): AuthCache | null {
+function writeCache(userId: string, profile: Profile, userShops: Shop[], memberships: MemberRow[]) {
   try {
-    const raw = localStorage.getItem(CACHE_KEY)
-    if (!raw) return null
-    const c: AuthCache = JSON.parse(raw)
-    if (!c.user || !c.userId || !c.profile) return null
-    if (Date.now() - c.savedAt > 7 * 86400000) return null
-    return c
-  } catch { return null }
-}
-
-function writeCache(userId: string, user: User, profile: Profile, userShops: Shop[], memberships: MemberRow[]) {
-  try {
-    const c: AuthCache = { userId, user, profile, userShops, memberships, savedAt: Date.now() }
+    const c: AuthCache = { userId, profile, userShops, memberships, savedAt: Date.now() }
     localStorage.setItem(CACHE_KEY, JSON.stringify(c))
   } catch { /* storage full — ignore */ }
 }
@@ -212,8 +197,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const memberRole = rows.find(m => m.shops?.id === activeShop?.id)?.role
     const roleInActiveShop = resolveRoleInShop(memberRole, profile, activeShop?.id ?? '')
 
-    // Persist to cache so next reload is instant (inclut user pour restauration offline)
-    if (profile && !skipCache) writeCache(user.id, user, profile, userShops, rows)
+    // Persist to cache so next reload is instant
+    if (profile && !skipCache) writeCache(user.id, profile, userShops, rows)
 
     // Sync locale from DB → browser only on fresh data (not cache).
     // Skipping on cache prevents overwriting a locale the user just changed
@@ -246,22 +231,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (cancelled) return
 
       if (!session?.user) {
-        // Pas de session : token expiré et impossible de le rafraîchir (offline).
-        // Essayer de restaurer l'état depuis le cache pour éviter le redirect login.
-        if (typeof navigator !== 'undefined' && !navigator.onLine) {
-          const offlineCache = readCacheOffline()
-          if (offlineCache) {
-            applyUserData(
-              offlineCache.user,
-              offlineCache.profile,
-              offlineCache.userShops,
-              offlineCache.memberships,
-              activeShopIdRef.current,
-              true, // skipCache=true — ne pas réécrire le cache ni appeler /api/auth/set-role
-            )
-            return
-          }
-        }
         setState(s => ({ ...s, loading: false }))
         return
       }
@@ -503,7 +472,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState(prev => {
       if (!prev.profile || !prev.user) return prev
       const updated = { ...prev.profile, locale }
-      writeCache(prev.user.id, prev.user, updated, prev.userShops, memberships)
+      writeCache(prev.user.id, updated, prev.userShops, memberships)
       return { ...prev, profile: updated }
     })
     // Persist to DB (best-effort — cache is already updated)
