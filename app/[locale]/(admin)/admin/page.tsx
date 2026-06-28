@@ -39,8 +39,8 @@ async function getData(supabase: any) {
     supabase.from('profiles').select('id, full_name, shop_id, last_seen, is_active').eq('role', 'owner'),
     supabase.from('products').select('id', { count: 'exact', head: true }).eq('is_active', true),
     supabase.from('customers').select('id', { count: 'exact', head: true }).is('deleted_at', null),
-    supabase.from('sales').select('id', { count: 'exact', head: true }).gte('created_at', startToday),
-    supabase.from('sales').select('id', { count: 'exact', head: true }).gte('created_at', start7d),
+    supabase.from('sales').select('id', { count: 'exact', head: true }).eq('sale_status', 'active').gte('created_at', startToday),
+    supabase.from('sales').select('id', { count: 'exact', head: true }).eq('sale_status', 'active').gte('created_at', start7d),
   ])
 
   return {

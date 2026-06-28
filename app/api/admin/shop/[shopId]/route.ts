@@ -31,7 +31,7 @@ export async function GET(_req: Request, { params }: { params: { shopId: string 
       admin.from('shop_members').select('user_id, role, is_active, profiles(full_name, last_seen)').eq('shop_id', shopId),
       admin.from('products').select('id', { count: 'exact', head: false }).eq('shop_id', shopId).eq('is_active', true),
       admin.from('customers').select('id', { count: 'exact', head: false }).eq('shop_id', shopId).is('deleted_at', null),
-      admin.from('sales').select('id, total_amount, created_at').eq('shop_id', shopId).order('created_at', { ascending: false }).limit(30),
+      admin.from('sales').select('id, total_amount, created_at').eq('shop_id', shopId).eq('sale_status', 'active').order('created_at', { ascending: false }).limit(30),
       admin.from('subscriptions').select('*').eq('shop_id', shopId).order('created_at', { ascending: false }),
       admin.from('deleted_records_log').select('id, table_name, deleted_at').eq('shop_id', shopId).order('deleted_at', { ascending: false }).limit(20),
       admin.from('products').select('id', { count: 'exact', head: true }).eq('shop_id', shopId).eq('is_active', false),
