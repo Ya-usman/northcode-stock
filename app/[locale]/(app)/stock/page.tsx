@@ -25,7 +25,7 @@ import { ProductForm } from '@/components/stock/product-form'
 import { ImportProductsModal } from '@/components/stock/import-products-modal'
 import { BulkAddModal } from '@/components/stock/bulk-add-modal'
 import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-cache'
-import { CacheBanner } from '@/components/layout/cache-banner'
+
 import { savePendingMovement, updateCachedProductQuantity } from '@/lib/offline/db'
 import { registerBackgroundSync } from '@/lib/offline/sync'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
@@ -53,7 +53,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [loading, setLoading] = useState(true)
   const [isOnline, setIsOnline] = useState(true)
-  const [cacheAge, setCacheAge] = useState<number | null>(null)
   const [{ search, categoryFilter, statusFilter, showArchived }, setFilter] = usePersistedFilters(
     'stock', shop?.id, { search: '', categoryFilter: 'all', statusFilter: 'all', showArchived: false }
   )
@@ -116,7 +115,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       setProducts(cached.prods as unknown as Product[])
       setCategories(cached.cats as Category[])
       setSuppliers(cached.sups as Supplier[])
-      setCacheAge(getPageCacheAge(cacheKey))
       setLoading(false)
     }
     if (!navigator.onLine) return
@@ -140,7 +138,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       setCategories((cats || []) as Category[])
       setSuppliers((sups || []) as Supplier[])
       setPageCache(cacheKey, { prods: prods || [], cats: cats || [], sups: sups || [] })
-      setCacheAge(null)
     } catch {
       // cache already applied if available
     } finally {
@@ -552,7 +549,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
   return (
     <div className="space-y-4">
-      <CacheBanner ageMs={cacheAge} isOnline={isOnline} />
       {/* Controls */}
       <div className="flex flex-wrap gap-2">
         <div className="relative flex-1 min-w-[180px]">

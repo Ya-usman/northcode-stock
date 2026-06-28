@@ -20,7 +20,7 @@ import type { Sale, Product, RevenueDataPoint, TopProduct } from '@/lib/types/da
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { cn } from '@/lib/utils/cn'
 import { PlanStatusBanner } from '@/components/dashboard/plan-status-banner'
-import { CacheBanner } from '@/components/layout/cache-banner'
+
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 
 const supabase = createClient() as any
@@ -87,10 +87,6 @@ export default function DashboardPage() {
   const [firstLoad, setFirstLoad] = useState(!mountCache && shopIds.length > 0)
   const [refreshing, setRefreshing] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
-  const [cacheAge, setCacheAge] = useState<number | null>(() => {
-    if (!mountCache) return null
-    return Date.now() - mountCache.savedAt
-  })
 
   const [todayRevenue, setTodayRevenue] = useState(mountCache?.todayRevenue ?? 0)
   const [todaySalesCount, setTodaySalesCount] = useState(mountCache?.todaySalesCount ?? 0)
@@ -140,7 +136,7 @@ export default function DashboardPage() {
       applyDashData(cached.todaySalesCount, cached.todayRevenue, cached.outstandingDebt,
         cached.recentSales, cached.repaymentItems ?? [], cached.revenueData, cached.topProducts, cached.lowStock, cached.outOfStock,
         cached.monthExpenses ?? 0, cached.monthRevenue ?? 0)
-      setCacheAge(Date.now() - cached.savedAt)
+
       setFirstLoad(false)
     }
 
@@ -342,7 +338,6 @@ export default function DashboardPage() {
         outstandingDebt: debt, recentSales: salesArr, repaymentItems,
         revenueData: revData, topProducts: tops, lowStock: lowSt, outOfStock: outOf,
         monthExpenses: expensesTotal, monthRevenue: monthRevenueTotal })
-      setCacheAge(null)
 
     } finally {
       loadingRef.current = false
@@ -462,7 +457,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-4">
-      <CacheBanner ageMs={cacheAge} isOnline={isOnline} />
       {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>

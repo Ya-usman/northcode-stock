@@ -19,7 +19,7 @@ import { format, startOfMonth, endOfMonth, addMonths, addWeeks } from 'date-fns'
 import type { Expense, ExpenseBudget } from '@/lib/types/database'
 import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-cache'
 import { savePendingExpense, getPendingExpenses, type PendingExpense } from '@/lib/offline/db'
-import { CacheBanner } from '@/components/layout/cache-banner'
+
 import { cn } from '@/lib/utils/cn'
 import { generateExpensesReportPDF } from '@/lib/utils/pdf'
 
@@ -83,7 +83,6 @@ export default function ExpensesPage() {
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
 
   const [isOnline, setIsOnline]       = useState(true)
-  const [cacheAge, setCacheAge]       = useState<number | null>(null)
   const [pendingExpenses, setPendingExpenses] = useState<PendingExpense[]>([])
 
   // Expense modal state
@@ -136,7 +135,6 @@ export default function ExpensesPage() {
     const cached = getPageCache<Expense[]>(cacheKey)
     if (cached) {
       setExpenses(cached)
-      setCacheAge(getPageCacheAge(cacheKey))
       setLoading(false)
     } else {
       setLoading(true)
@@ -168,7 +166,6 @@ export default function ExpensesPage() {
       setExpenses((expData || []) as Expense[])
       setTemplates((tplData || []) as Expense[])
       setPageCache(cacheKey, expData || [])
-      setCacheAge(null)
     } catch (err: any) {
       toast({ title: err.message || 'Erreur chargement', variant: 'destructive' })
     } finally {
@@ -558,8 +555,6 @@ export default function ExpensesPage() {
 
   return (
     <div className="space-y-4 max-w-2xl">
-      <CacheBanner ageMs={cacheAge} isOnline={isOnline} />
-
       {/* Header */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <input
