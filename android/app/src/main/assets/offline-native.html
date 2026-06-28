@@ -185,6 +185,58 @@
       padding: 20px;
     }
 
+    /* Loading spinner sur la carte */
+    .card.loading, .primary-cta.loading {
+      pointer-events: none;
+      opacity: 0.6;
+    }
+    .card.loading .card-icon::after,
+    .primary-cta.loading .cta-icon::after {
+      content: '';
+      display: block;
+      width: 20px; height: 20px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      position: absolute;
+    }
+    .card.loading .card-icon {
+      position: relative;
+      overflow: hidden;
+    }
+    .card.loading .card-icon::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: var(--icon-bg);
+      border-radius: 50%;
+      z-index: 1;
+    }
+    .card.loading .card-icon::after {
+      position: absolute;
+      z-index: 2;
+      border-color: var(--fg-muted) transparent transparent transparent;
+      border-width: 2px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Bannière erreur navigation */
+    .nav-error {
+      display: none;
+      align-items: center; gap: 10px;
+      margin: 0 20px 14px;
+      padding: 11px 16px;
+      background: #fff1f2;
+      border: 1px solid #fecdd3;
+      border-radius: 14px;
+      font-size: 12px; font-weight: 500;
+      color: #be123c;
+    }
+    .nav-error.visible { display: flex; }
+    @media (prefers-color-scheme: dark) {
+      .nav-error { background: #2d0a14; border-color: #7f1d1d; color: #fca5a5; }
+    }
+
     @media (prefers-color-scheme: dark) {
       .brand-logo { filter: brightness(0) invert(1); }
       .primary-cta { background: #1a4fa8; box-shadow: 0 4px 20px rgba(26,79,168,.4); }
@@ -221,12 +273,17 @@
     </div>
   </div>
 
+  <div class="nav-error" id="navError">
+    <span>⚠️</span>
+    <span id="navErrorText">Cette page n'est pas disponible hors ligne</span>
+  </div>
+
   <div class="info-row" id="noDataRow">
     <span class="info-icon">ℹ️</span>
     <span>Connectez-vous en ligne pour charger les données</span>
   </div>
 
-  <button class="primary-cta" onclick="go('sales/new')">
+  <button class="primary-cta" onclick="go('sales/new', this)">
     <div class="cta-icon">🛒</div>
     <div>
       <div class="cta-title">Nouvelle vente</div>
@@ -235,27 +292,27 @@
   </button>
 
   <div class="grid">
-    <button class="card" onclick="go('dashboard')">
+    <button class="card" onclick="go('dashboard', this)">
       <div class="card-icon">📊</div>
       <div class="card-label">Tableau de bord</div>
     </button>
-    <button class="card" onclick="go('stock')">
+    <button class="card" onclick="go('stock', this)">
       <div class="card-icon">📦</div>
       <div class="card-label">Stock</div>
     </button>
-    <button class="card" onclick="go('customers')">
+    <button class="card" onclick="go('customers', this)">
       <div class="card-icon">👥</div>
       <div class="card-label">Clients</div>
     </button>
-    <button class="card" onclick="go('payments')">
+    <button class="card" onclick="go('payments', this)">
       <div class="card-icon">💰</div>
       <div class="card-label">Dette</div>
     </button>
-    <button class="card" onclick="go('expenses')">
+    <button class="card" onclick="go('expenses', this)">
       <div class="card-icon">🧾</div>
       <div class="card-label">Dépenses</div>
     </button>
-    <button class="card" onclick="go('reports')">
+    <button class="card" onclick="go('reports', this)">
       <div class="card-icon">📈</div>
       <div class="card-label">Rapports</div>
     </button>
@@ -274,7 +331,17 @@
       } catch(e) { return 'fr'; }
     }
 
-    function go(route) {
+    var LABELS = {
+      'sales/new': 'Nouvelle vente', 'dashboard': 'Tableau de bord',
+      'stock': 'Stock', 'customers': 'Clients',
+      'payments': 'Dette', 'expenses': 'Dépenses', 'reports': 'Rapports'
+    };
+
+    function go(route, btn) {
+      // Marquer la navigation en cours (détection d'échec au retour)
+      try { sessionStorage.setItem('nav_attempt', JSON.stringify({ route: route, ts: Date.now() })); } catch(e) {}
+      // Spinner sur le bouton cliqué
+      if (btn) btn.classList.add('loading');
       window.location.href = BASE + '/' + getLocale() + '/' + route;
     }
 
@@ -310,6 +377,27 @@
         }
       } catch(e) {}
     }
+
+    // Détecter un échec de navigation (retour sur cette page après un clic)
+    (function() {
+      try {
+        var raw = sessionStorage.getItem('nav_attempt');
+        if (!raw) return;
+        var attempt = JSON.parse(raw);
+        sessionStorage.removeItem('nav_attempt');
+        // Si le retour est survenu dans les 8 secondes → navigation échouée
+        if (Date.now() - attempt.ts < 8000) {
+          var label = LABELS[attempt.route] || attempt.route;
+          document.getElementById('navErrorText').textContent =
+            '"' + label + '" n\'est pas disponible hors ligne — visitez cette page en ligne d\'abord';
+          document.getElementById('navError').classList.add('visible');
+          // Masquer après 5s
+          setTimeout(function() {
+            document.getElementById('navError').classList.remove('visible');
+          }, 5000);
+        }
+      } catch(e) {}
+    })();
 
     showSyncStatus();
     // Cacher la status-bar si elle est vide (aucune ligne visible)
