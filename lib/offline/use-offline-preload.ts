@@ -117,6 +117,12 @@ export function useOfflinePreload() {
       ])
 
       markDone(pagesKey)
+      // Notifier l'UI que le cache hors ligne est prêt (une seule fois par session)
+      if (typeof window !== 'undefined'
+          && !sessionStorage.getItem('offline_ready_notified')) {
+        sessionStorage.setItem('offline_ready_notified', '1')
+        window.dispatchEvent(new CustomEvent('offline-cache-ready'))
+      }
     } catch {
       // Silencieux — hors ligne ou réseau indisponible
     } finally {

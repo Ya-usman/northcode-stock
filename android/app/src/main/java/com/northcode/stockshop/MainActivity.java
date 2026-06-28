@@ -1,22 +1,26 @@
 package com.northcode.stockshop;
 
+import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkInfo;
+import android.os.Build;
 import android.os.Bundle;
-import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
 
+import java.io.IOException;
+import java.io.InputStream;
+
 public class MainActivity extends BridgeActivity {
 
-    private static final String OFFLINE_FALLBACK_URL =
-        "https://stockshop.tech/__offline_fallback__";
-
-    private boolean retryScheduled = false;
-    // True dès que l'app a réussi à charger une page stockshop.tech.
-    // Quand true, le SW est actif et gère les erreurs de navigation —
-    // on ne montre plus offline-native.html pour les erreurs mid-session.
+    // True dès qu'une page stockshop.tech a été chargée avec succès.
+    // Une fois true, le SW est actif — on le laisse gérer l'offline.
     private boolean appHasLoaded = false;
 
     @Override
@@ -27,47 +31,57 @@ public class MainActivity extends BridgeActivity {
             new BridgeWebViewClient(getBridge()) {
 
                 @Override
+                public WebResourceResponse shouldInterceptRequest(
+                        WebView view, WebResourceRequest request) {
+
+                    // Cold start hors ligne : servir offline-native.html
+                    // directement depuis les assets AVANT que la requête réseau
+                    // parte. Évite totalement la page native "Webpage not available".
+                    // Condition stricte : main frame + hôte stockshop.tech +
+                    // hors ligne + app pas encore chargée (SW pas actif).
+                    if (!appHasLoaded
+                            && request.isForMainFrame()
+                            && "stockshop.tech".equals(request.getUrl().getHost())
+                            && !isNetworkAvailable()) {
+                        try {
+                            InputStream stream = getAssets().open("offline-native.html");
+                            return new WebResourceResponse(
+                                "text/html", "UTF-8", stream);
+                        } catch (IOException e) {
+                            // Laisse passer — onReceivedError prendra le relais
+                        }
+                    }
+                    return super.shouldInterceptRequest(view, request);
+                }
+
+                @Override
                 public void onPageFinished(WebView view, String url) {
                     super.onPageFinished(view, url);
-                    if (url != null && url.contains("stockshop.tech")
+                    // Marquer l'app comme chargée dès la 1ère page stockshop.tech.
+                    // À partir de là le SW est actif et gère tout lui-même.
+                    if (url != null
+                            && url.contains("stockshop.tech")
                             && !url.contains("__offline_fallback__")) {
                         appHasLoaded = true;
                     }
                 }
-
-                @Override
-                public void onReceivedError(WebView view,
-                                            WebResourceRequest request,
-                                            WebResourceError error) {
-                    super.onReceivedError(view, request, error);
-                    if (!request.isForMainFrame()) return;
-
-                    String url = request.getUrl().toString();
-
-                    // Fallback ultime pour /__offline_fallback__ échoué
-                    if (url.contains("__offline_fallback__")) {
-                        retryScheduled = false;
-                        if (!appHasLoaded) {
-                            view.loadUrl("file:///android_asset/offline-native.html");
-                        }
-                        return;
-                    }
-
-                    // Mid-session : le SW est actif et sert le fallback /offline.
-                    // On laisse le SW et React gérer l'erreur — pas d'interférence.
-                    if (appHasLoaded) return;
-
-                    // Cold start sans connexion : le SW n'est pas encore actif.
-                    // On attend 800ms puis on tente /__offline_fallback__.
-                    if (!retryScheduled) {
-                        retryScheduled = true;
-                        view.postDelayed(() -> {
-                            retryScheduled = false;
-                            view.loadUrl(OFFLINE_FALLBACK_URL);
-                        }, 800);
-                    }
-                }
             }
         );
+    }
+
+    private boolean isNetworkAvailable() {
+        ConnectivityManager cm =
+            (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (cm == null) return false;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Network net = cm.getActiveNetwork();
+            if (net == null) return false;
+            NetworkCapabilities cap = cm.getNetworkCapabilities(net);
+            return cap != null
+                && cap.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+        } else {
+            NetworkInfo info = cm.getActiveNetworkInfo();
+            return info != null && info.isConnected();
+        }
     }
 }
