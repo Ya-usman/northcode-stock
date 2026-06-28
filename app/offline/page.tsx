@@ -100,12 +100,12 @@ export default function OfflinePage() {
 
       {/* Header */}
       <div className="flex items-center gap-3 px-5 pt-8 pb-3">
-        <div className="flex items-center justify-center bg-white dark:bg-gray-900 rounded-xl p-2 shadow-sm border border-gray-100 dark:border-gray-800">
-          <img src="/logo-offline.png" alt="StockShop" width={36} height={36} style={{ display: 'block' }} />
-        </div>
         <div>
-          <p className="font-bold text-gray-900 dark:text-gray-100 text-base leading-tight">StockShop</p>
-          <div className="flex items-center gap-1.5 mt-0.5">
+          <div className="flex items-center gap-2">
+            <img src="/logo-icon-t.png" alt="StockShop" className="h-8 w-8 dark:brightness-0 dark:invert" />
+            <p className="font-bold text-gray-900 dark:text-gray-100 text-base leading-tight">StockShop</p>
+          </div>
+          <div className="flex items-center gap-1.5 mt-1 ml-0.5">
             <WifiOff className="h-3 w-3 text-red-500" />
             <span className="text-xs text-red-500 font-medium">Hors connexion</span>
           </div>
