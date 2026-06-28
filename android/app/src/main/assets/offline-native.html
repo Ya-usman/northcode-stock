@@ -5,49 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <title>Hors connexion — StockShop</title>
   <style>
-    /* ── Palette light (= app globals.css :root) ── */
     :root {
-      --bg:          #ffffff;
       --bg-page:     #f1f5f9;
-      --card:        #ffffff;
-      --border:      #dde6f0;
-      --border-sub:  #eef2f7;
       --fg:          #0c1322;
       --fg-muted:    #64748b;
-      --fg-strong:   #1e293b;
-      --icon-bg:     #dbeafe;
-      --pending-fg:  #92400e;
-      /* retry btn */
       --retry-bg:    #073e8a;
       --retry-fg:    #ffffff;
       --retry-border: #073e8a;
-      /* no-data info row */
-      --info-bg:     #eff6ff;
-      --info-border: #bfdbfe;
-      --info-fg:     #1d4ed8;
     }
 
-    /* ── Palette dark (= app globals.css .dark, navy-blue base) ── */
     @media (prefers-color-scheme: dark) {
       :root {
-        --bg:          #091524;
         --bg-page:     #091524;
-        --card:        #101e30;
-        --border:      #263040;
-        --border-sub:  #1a2a3c;
         --fg:          #f0f0f0;
         --fg-muted:    #8a9ab0;
-        --fg-strong:   #e2eaf4;
-        --icon-bg:     #0f2d50;
-        --pending-fg:  #fbbf24;
-        /* retry btn — outlined style en dark */
         --retry-bg:    transparent;
         --retry-fg:    #93c5fd;
         --retry-border: #263040;
-        /* no-data info row */
-        --info-bg:     #0f2240;
-        --info-border: #1e3a5f;
-        --info-fg:     #93c5fd;
       }
     }
 
@@ -88,96 +62,6 @@
     }
     .retry-btn:active { opacity: 0.7; }
 
-    /* Status bar */
-    .status-bar {
-      margin: 8px 20px 16px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      overflow: hidden;
-    }
-    .status-row {
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px 16px;
-      font-size: 12px;
-      color: var(--fg-muted);
-      border-bottom: 1px solid var(--border-sub);
-    }
-    .status-row:last-child { border-bottom: none; }
-    .status-row .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
-    .status-row .dot.amber { background: #f59e0b; }
-    .status-row strong { color: var(--fg-strong); }
-    .status-row.pending { color: var(--pending-fg); }
-
-    .info-row {
-      display: flex; align-items: center; gap: 10px;
-      padding: 11px 16px;
-      font-size: 12px; font-weight: 500;
-      color: var(--info-fg);
-      background: var(--info-bg);
-      border: 1px solid var(--info-border);
-      border-radius: 14px;
-      margin: 8px 20px 16px;
-    }
-    .info-row .info-icon { font-size: 14px; flex-shrink: 0; }
-
-    /* Primary CTA */
-    .primary-cta {
-      margin: 0 20px 12px;
-      display: flex; align-items: center; gap: 16px;
-      background: #073e8a;
-      border-radius: 16px;
-      padding: 16px 20px;
-      cursor: pointer;
-      border: none;
-      width: calc(100% - 40px);
-      text-align: left;
-      box-shadow: 0 4px 16px rgba(7,62,138,.35);
-      transition: opacity .15s, transform .1s;
-    }
-    .primary-cta:active { transform: scale(0.98); opacity: .9; }
-    .cta-icon {
-      width: 48px; height: 48px; flex-shrink: 0;
-      background: rgba(255,255,255,0.15);
-      border-radius: 12px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px;
-    }
-    .cta-title { font-size: 16px; font-weight: 700; color: #fff; }
-    .cta-sub { font-size: 12px; color: #93c5fd; margin-top: 2px; }
-
-    /* Grid */
-    .grid {
-      padding: 0 20px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      flex: 1;
-    }
-    .card {
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 10px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 20px 10px;
-      cursor: pointer;
-      transition: opacity .15s, transform .1s;
-    }
-    .card:active { transform: scale(0.96); opacity: .8; }
-    .card-icon {
-      width: 42px; height: 42px;
-      border-radius: 50%;
-      background: var(--icon-bg);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px;
-    }
-    .card-label {
-      font-size: 13px; font-weight: 600;
-      color: var(--fg); text-align: center; line-height: 1.3;
-    }
-
     .footer {
       text-align: center;
       font-size: 11px;
@@ -185,86 +69,28 @@
       padding: 20px;
     }
 
-    /* Loading spinner sur la carte */
-    .card.loading, .primary-cta.loading {
-      pointer-events: none;
-      opacity: 0.6;
+    .offline-message {
+      flex: 1;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 0 32px 40px;
+      text-align: center;
+      gap: 12px;
     }
-    .card.loading .card-icon::after,
-    .primary-cta.loading .cta-icon::after {
-      content: '';
-      display: block;
-      width: 20px; height: 20px;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin .7s linear infinite;
-      position: absolute;
+    .offline-icon { font-size: 48px; }
+    .offline-title {
+      font-size: 18px; font-weight: 700;
+      color: var(--fg);
     }
-    .card.loading .card-icon {
-      position: relative;
-      overflow: hidden;
+    .offline-desc {
+      font-size: 14px; color: var(--fg-muted); line-height: 1.5;
     }
-    .card.loading .card-icon::before {
-      content: '';
-      position: absolute; inset: 0;
-      background: var(--icon-bg);
-      border-radius: 50%;
-      z-index: 1;
+    .offline-desc-alt {
+      font-size: 13px; color: #22c55e; font-weight: 500;
     }
-    .card.loading .card-icon::after {
-      position: absolute;
-      z-index: 2;
-      border-color: var(--fg-muted) transparent transparent transparent;
-      border-width: 2px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* Bannière erreur navigation */
-    .nav-error {
-      display: none;
-      align-items: center; gap: 10px;
-      margin: 0 20px 14px;
-      padding: 11px 16px;
-      background: #fff1f2;
-      border: 1px solid #fecdd3;
-      border-radius: 14px;
-      font-size: 12px; font-weight: 500;
-      color: #be123c;
-    }
-    .nav-error.visible { display: flex; }
-    @media (prefers-color-scheme: dark) {
-      .nav-error { background: #2d0a14; border-color: #7f1d1d; color: #fca5a5; }
-    }
-
-    /* État d'attente SW — boutons désactivés jusqu'à ce que le SW soit prêt */
-    .nav-locked .card,
-    .nav-locked .primary-cta {
-      opacity: 0.45;
-      pointer-events: none;
-      cursor: default;
-    }
-    .sw-waiting {
-      display: flex; align-items: center; gap: 8px;
-      margin: 0 20px 12px;
-      padding: 9px 14px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      font-size: 12px; color: var(--fg-muted);
-    }
-    .sw-waiting .spinner {
-      width: 14px; height: 14px; flex-shrink: 0;
-      border: 2px solid var(--border);
-      border-top-color: #3b82f6;
-      border-radius: 50%;
-      animation: spin .7s linear infinite;
-    }
-    .sw-waiting.ready { display: none; }
 
     @media (prefers-color-scheme: dark) {
       .brand-logo { filter: brightness(0) invert(1); }
-      .primary-cta { background: #1a4fa8; box-shadow: 0 4px 20px rgba(26,79,168,.4); }
     }
   </style>
 </head>
@@ -287,114 +113,22 @@
     <button class="retry-btn" onclick="retry()">↺ Réessayer</button>
   </div>
 
-  <div class="status-bar" id="statusBar">
-    <div class="status-row" id="syncRow" style="display:none">
-      <div class="dot"></div>
-      <span>Données synchronisées <strong id="syncTime"></strong></span>
-    </div>
-    <div class="status-row pending" id="pendingRow" style="display:none">
-      <div class="dot amber"></div>
-      <strong id="pendingText"></strong>
-    </div>
+  <div class="offline-message">
+    <div class="offline-icon">📵</div>
+    <p class="offline-title">Démarrage hors ligne</p>
+    <p class="offline-desc">
+      Ouvrez l'application en ligne au moins une fois pour activer
+      le mode hors ligne complet.
+    </p>
+    <p class="offline-desc-alt" id="hasCacheMsg" style="display:none">
+      Vos données sont en cache. Reconnectez-vous pour accéder à l'application.
+    </p>
   </div>
 
-  <div class="nav-error" id="navError">
-    <span>⚠️</span>
-    <span id="navErrorText">Cette page n'est pas disponible hors ligne</span>
-  </div>
-
-  <div class="info-row" id="noDataRow">
-    <span class="info-icon">ℹ️</span>
-    <span>Connectez-vous en ligne pour charger les données</span>
-  </div>
-
-  <div class="sw-waiting" id="swWaiting">
-    <div class="spinner"></div>
-    <span>Préparation du mode hors ligne…</span>
-  </div>
-
-  <button class="primary-cta" onclick="go('sales/new', this)">
-    <div class="cta-icon">🛒</div>
-    <div>
-      <div class="cta-title">Nouvelle vente</div>
-      <div class="cta-sub">Enregistrée localement si hors ligne</div>
-    </div>
-  </button>
-
-  <div class="grid">
-    <button class="card" onclick="go('dashboard', this)">
-      <div class="card-icon">📊</div>
-      <div class="card-label">Tableau de bord</div>
-    </button>
-    <button class="card" onclick="go('stock', this)">
-      <div class="card-icon">📦</div>
-      <div class="card-label">Stock</div>
-    </button>
-    <button class="card" onclick="go('customers', this)">
-      <div class="card-icon">👥</div>
-      <div class="card-label">Clients</div>
-    </button>
-    <button class="card" onclick="go('payments', this)">
-      <div class="card-icon">💰</div>
-      <div class="card-label">Dette</div>
-    </button>
-    <button class="card" onclick="go('expenses', this)">
-      <div class="card-icon">🧾</div>
-      <div class="card-label">Dépenses</div>
-    </button>
-    <button class="card" onclick="go('reports', this)">
-      <div class="card-icon">📈</div>
-      <div class="card-label">Rapports</div>
-    </button>
-  </div>
-
-  <div class="footer">Les données affichées proviennent du cache local</div>
+  <div class="footer">StockShop · Mode hors ligne</div>
 
   <script>
     var BASE = 'https://stockshop.tech';
-
-    function getLocale() {
-      try {
-        var m = document.cookie.match(/NEXT_LOCALE=([^;]+)/);
-        if (m) return m[1];
-        return localStorage.getItem('NEXT_LOCALE') || 'fr';
-      } catch(e) { return 'fr'; }
-    }
-
-    var LABELS = {
-      'sales/new': 'Nouvelle vente', 'dashboard': 'Tableau de bord',
-      'stock': 'Stock', 'customers': 'Clients',
-      'payments': 'Dette', 'expenses': 'Dépenses', 'reports': 'Rapports'
-    };
-
-    // ── Verrouillage SW ──────────────────────────────────────────────
-    // Les boutons restent désactivés jusqu'à ce que le Service Worker
-    // soit en état "activated". Sans ça, les clics déclenchent une
-    // navigation réseau directe (SW pas encore réveillé) → erreur.
-    document.body.classList.add('nav-locked');
-
-    function unlockNav() {
-      document.body.classList.remove('nav-locked');
-      document.getElementById('swWaiting').classList.add('ready');
-    }
-
-    if ('serviceWorker' in navigator) {
-      // Timeout de sécurité : active les boutons après 4s même si le SW
-      // ne répond pas (ex : première utilisation sans connexion).
-      var swTimeout = setTimeout(unlockNav, 4000);
-      navigator.serviceWorker.ready
-        .then(function() { clearTimeout(swTimeout); unlockNav(); })
-        .catch(function() { clearTimeout(swTimeout); unlockNav(); });
-    } else {
-      unlockNav();
-    }
-    // ────────────────────────────────────────────────────────────────
-
-    function go(route, btn) {
-      try { sessionStorage.setItem('nav_attempt', JSON.stringify({ route: route, ts: Date.now() })); } catch(e) {}
-      if (btn) btn.classList.add('loading');
-      window.location.href = BASE + '/' + getLocale() + '/' + route;
-    }
 
     function retry() {
       var btn = document.querySelector('.retry-btn');
@@ -407,53 +141,13 @@
         .catch(function() { btn.textContent = '↺ Réessayer'; });
     }
 
-    function showSyncStatus() {
-      try {
-        var keys = Object.keys(localStorage).filter(function(k) { return k.startsWith('pc_data_'); });
-        if (!keys.length) return;
-        var ts = Math.max.apply(null, keys.map(function(k) { return Number(localStorage.getItem(k)) || 0; }));
-        if (ts <= 0) return;
-        var d = new Date(ts);
-        var diff = Date.now() - ts;
-        var min = Math.floor(diff / 60000);
-        var label = min < 1 ? "à l'instant"
-          : min < 60 ? 'il y a ' + min + ' min'
-          : "aujourd'hui à " + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-        document.getElementById('syncTime').textContent = label;
-        document.getElementById('syncRow').style.display = 'flex';
-        document.getElementById('noDataRow').style.display = 'none';
-      } catch(e) {}
-    }
+    // Indiquer si des données sont en cache (localStorage stockshop.tech)
+    try {
+      var keys = Object.keys(localStorage).filter(function(k) { return k.startsWith('pc_data_'); });
+      if (keys.length) document.getElementById('hasCacheMsg').style.display = 'block';
+    } catch(e) {}
 
-    // Détecter un échec de navigation (retour sur cette page après un clic)
-    (function() {
-      try {
-        var raw = sessionStorage.getItem('nav_attempt');
-        if (!raw) return;
-        var attempt = JSON.parse(raw);
-        sessionStorage.removeItem('nav_attempt');
-        if (Date.now() - attempt.ts < 8000) {
-          var label = LABELS[attempt.route] || attempt.route;
-          document.getElementById('navErrorText').textContent =
-            '"' + label + '" n\'est pas disponible hors ligne — visitez cette page en ligne d\'abord';
-          document.getElementById('navError').classList.add('visible');
-          setTimeout(function() {
-            document.getElementById('navError').classList.remove('visible');
-          }, 5000);
-        }
-      } catch(e) {}
-    })();
-
-    showSyncStatus();
-    var bar = document.getElementById('statusBar');
-    if (bar) {
-      var anyVisible = false;
-      bar.querySelectorAll('.status-row').forEach(function(r) {
-        if (r.style.display !== 'none') anyVisible = true;
-      });
-      if (!anyVisible) bar.style.display = 'none';
-    }
-
+    // Rediriger automatiquement dès que la connexion revient
     window.addEventListener('online', function() {
       fetch(BASE + '/api/health', { method: 'HEAD', cache: 'no-store' })
         .then(function(r) { if (r.ok) window.location.href = BASE; })

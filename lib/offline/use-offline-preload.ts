@@ -8,19 +8,20 @@ import { cacheProducts, cacheCustomers, cacheExpenses, cacheCategories } from '.
 const DATA_TTL  = 60 * 60 * 1000   // données IndexedDB : refresh toutes les heures
 const PAGES_TTL = 20 * 60 * 1000   // pages SW : re-fetch toutes les 20 min
 
-// Toutes les routes navigables — TOUTE route accessible via la nav doit être listée.
-// Une route absente du cache SW déclenchait ERR_INTERNET_DISCONNECTED hors ligne.
-const APP_ROUTES = [
-  // Critiques — cœur du métier, doivent fonctionner sans réseau
+// Routes critiques : préchargées en priorité, séquentiellement.
+const CRITICAL_ROUTES = [
   'dashboard',
   'sales/new',
-  'sales/history',
   'stock',
-  'stock/movements',
   'customers',
-  'payments',
   'expenses',
-  // Optionnels — utiles mais pas bloquants
+]
+
+// Routes secondaires : préchargées après, en parallèle.
+const SECONDARY_ROUTES = [
+  'sales/history',
+  'stock/movements',
+  'payments',
   'reports',
   'notes',
   'categories',
@@ -50,23 +51,39 @@ async function prefetchPage(url: string): Promise<void> {
     caches.open('next-pages'),
     caches.open('next-rsc'),
   ])
-  await Promise.allSettled([
+  const results = await Promise.allSettled([
     fetch(url, { cache: 'no-store' }).then(r => {
       if (r.ok) htmlCache.put(r.url, r)
+      return r.ok
     }),
     fetch(url, {
       cache: 'no-store',
       headers: { RSC: '1', 'Next-Router-Prefetch': '1' },
     }).then(r => {
       if (r.ok) rscCache.put(r.url, r)
+      return r.ok
     }),
   ])
+  // Marquer la route comme disponible hors ligne si au moins un cache a réussi
+  const ok = results.some(r => r.status === 'fulfilled' && r.value === true)
+  if (ok) {
+    try {
+      // Extraire le slug de route depuis l'URL (ex: /fr/sales/new → sales/new)
+      const slug = url.replace(/^\/[a-z]{2}\//, '')
+      localStorage.setItem(`pc_route_${slug}`, String(Date.now()))
+    } catch {}
+  }
 }
 
 async function prefetchAllPages(locale: string): Promise<void> {
   if (!('caches' in window)) return
+  // Critiques d'abord, une par une pour garantir leur présence en cache
+  for (const r of CRITICAL_ROUTES) {
+    await prefetchPage(`/${locale}/${r}`).catch(() => {})
+  }
+  // Secondaires en parallèle, erreurs silencieuses
   await Promise.allSettled(
-    APP_ROUTES.map(r => prefetchPage(`/${locale}/${r}`))
+    SECONDARY_ROUTES.map(r => prefetchPage(`/${locale}/${r}`))
   )
 }
 

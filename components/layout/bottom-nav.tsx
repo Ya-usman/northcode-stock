@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils/cn'
 import type { UserRole } from '@/lib/types/database'
 import { isBetaPeriod } from '@/lib/saas/plans'
 import { useRolePermissions, type PermFeature } from '@/lib/hooks/use-role-permissions'
+import { useOfflineRoutes } from '@/lib/offline/use-offline-routes'
 
 const SUPER_ADMIN_EMAILS = (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim())
 
@@ -30,6 +31,7 @@ export function BottomNav({ locale, role, onSignOut, userEmail = '' }: BottomNav
   const pathname = usePathname()
   const [moreOpen, setMoreOpen] = useState(false)
   const { canAccess } = useRolePermissions()
+  const { isOffline, isAvailable } = useOfflineRoutes()
 
   const allItems = [
     { href: `/${locale}/dashboard`,       icon: LayoutDashboard, label: t('dashboard'),    roles: ['super_admin', 'owner', 'manager', 'viewer', 'cashier', 'stock_manager'], primary: true },
@@ -61,15 +63,19 @@ export function BottomNav({ locale, role, onSignOut, userEmail = '' }: BottomNav
           {primaryItems.map((item) => {
             const Icon = item.icon
             const isActive = pathname.startsWith(item.href)
+            const available = isAvailable(item.href)
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={available ? item.href : '#'}
                 prefetch={true}
-                onClick={() => setMoreOpen(false)}
+                onClick={(e) => { if (!available) e.preventDefault(); else setMoreOpen(false) }}
+                aria-disabled={!available}
+                title={!available && isOffline ? 'Non disponible hors ligne' : undefined}
                 className={cn(
                   'relative flex flex-1 flex-col items-center justify-center gap-0.5 text-xs transition-colors tap-target',
-                  isActive ? 'text-stockshop-blue dark:text-blue-400' : 'text-muted-foreground hover:text-foreground'
+                  isActive ? 'text-stockshop-blue dark:text-blue-400' : 'text-muted-foreground hover:text-foreground',
+                  !available && 'opacity-35 pointer-events-none'
                 )}
               >
                 <Icon className={cn('h-5 w-5', isActive && 'text-stockshop-blue dark:text-blue-400')} strokeWidth={isActive ? 2.5 : 2} />
@@ -113,17 +119,21 @@ export function BottomNav({ locale, role, onSignOut, userEmail = '' }: BottomNav
                 {moreItems.map((item) => {
                   const Icon = item.icon
                   const isActive = pathname.startsWith(item.href)
+                  const available = isAvailable(item.href)
                   return (
                     <Link
                       key={item.href}
-                      href={item.href}
+                      href={available ? item.href : '#'}
                       prefetch={true}
-                      onClick={() => setMoreOpen(false)}
+                      onClick={(e) => { if (!available) e.preventDefault(); else setMoreOpen(false) }}
+                      aria-disabled={!available}
+                      title={!available && isOffline ? 'Non disponible hors ligne' : undefined}
                       className={cn(
                         'flex flex-col items-center gap-1.5 rounded-xl p-3 transition-colors',
                         isActive
                           ? 'bg-blue-50 dark:bg-blue-950 text-stockshop-blue dark:text-blue-400'
-                          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                          : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                        !available && 'opacity-35 pointer-events-none'
                       )}
                     >
                       <Icon className="h-5 w-5" strokeWidth={isActive ? 2.5 : 2} />
