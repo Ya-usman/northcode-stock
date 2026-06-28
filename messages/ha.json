@@ -423,13 +423,13 @@
     "error_no_shop": "Ba a sami kantin ba",
     "error_pdf": "PDF ya kasa samarwa",
     "outstanding_debt": "Bashin da ke ci gaba",
-    "cash_in_register": "Kuɗin da ke akwati",
+    "cash_in_register": "Sayarwa (ciki har da bashi)",
     "full_inventory": "Cikakken jerin kaya",
     "col_stock": "Kaya",
     "col_buying_price": "Farashin siye",
     "col_selling_price": "Farashin sayarwa",
     "col_sold_qty": "Yakai",
-    "encaisse": "An Karɓa"
+    "encaisse": "Jimlar Sayarwa"
   },
   "team": {
     "title": "Ma'aikata",

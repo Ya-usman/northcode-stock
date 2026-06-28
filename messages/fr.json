@@ -424,13 +424,13 @@
     "error_no_shop": "Boutique introuvable",
     "error_pdf": "Échec de génération du PDF",
     "outstanding_debt": "Dettes en cours",
-    "cash_in_register": "Argent en caisse",
+    "cash_in_register": "Ventes actives (dont crédit)",
     "full_inventory": "Inventaire complet",
     "col_stock": "Stock",
     "col_buying_price": "Prix achat",
     "col_selling_price": "Prix vente",
     "col_sold_qty": "Vendus",
-    "encaisse": "Encaissé"
+    "encaisse": "Chiffre d'affaires"
   },
   "team": {
     "title": "Équipe",
