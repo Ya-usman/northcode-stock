@@ -94,7 +94,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
     const preferredLocale = (profileData as any)?.locale || document.cookie.match(/NEXT_LOCALE=([^;]+)/)?.[1] || localStorage.getItem('NEXT_LOCALE') || locale
     localStorage.setItem('NEXT_LOCALE', preferredLocale)
     setLocaleCookie(preferredLocale)
-    router.push(`/${preferredLocale}/dashboard`)
+    router.replace(`/${preferredLocale}/dashboard`)
   }
 
   const signInWithOAuthNative = async (provider: 'google' | 'apple') => {
