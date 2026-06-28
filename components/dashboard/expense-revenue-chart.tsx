@@ -13,6 +13,7 @@ import { useCurrency } from '@/lib/hooks/use-currency'
 import { chartTickFormatter } from '@/lib/utils/currency'
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns'
 import { cn } from '@/lib/utils/cn'
+import { getPageCache, setPageCache } from '@/lib/offline/page-cache'
 
 const supabase = createClient() as any
 
@@ -34,6 +35,13 @@ export function ExpenseRevenueChart() {
 
   useEffect(() => {
     if (!effectiveShopIds.length) return
+
+    const cacheKey = `expense_revenue_trend_${effectiveShopIds.join(',')}`
+    const cached = getPageCache<MonthData[]>(cacheKey)
+    if (cached) {
+      setData(cached)
+      setLoading(false)
+    }
 
     const fetchTrend = async () => {
       const today = new Date()
@@ -80,11 +88,14 @@ export function ExpenseRevenueChart() {
         if (expByMonth[key] !== undefined) expByMonth[key] += Number(e.amount)
       })
 
-      setData(months.map(m => ({
+      const result = months.map(m => ({
         month:    m.label,
         revenue:  revByMonth[m.key],
         expenses: expByMonth[m.key],
-      })))
+      }))
+
+      setData(result)
+      setPageCache(cacheKey, result)
       setLoading(false)
     }
 
