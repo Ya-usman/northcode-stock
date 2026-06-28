@@ -24,6 +24,10 @@ const withPWA = require('next-pwa')({
   // SW installation is now instantaneous (precache list is empty).
   buildExcludes: [/.*/],
   publicExcludes: ['**/*'],
+  // Précache /offline explicitement — setCatchHandler en a besoin pour servir
+  // la page offline quand un réseau + cache échouent en même temps.
+  // buildExcludes vide tout le reste, mais additionalManifestEntries est manuel.
+  additionalManifestEntries: [{ url: '/offline', revision: 'v3' }],
   runtimeCaching: [
     // RSC payloads (client-side navigation) — StaleWhileRevalidate :
     // sert le cache instantanément, met à jour en arrière-plan.
