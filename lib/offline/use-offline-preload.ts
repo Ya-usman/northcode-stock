@@ -11,24 +11,19 @@ const PAGES_TTL = 20 * 60 * 1000   // pages SW : re-fetch toutes les 20 min
 // Toutes les routes navigables — TOUTE route accessible via la nav doit être listée.
 // Une route absente du cache SW déclenchait ERR_INTERNET_DISCONNECTED hors ligne.
 const APP_ROUTES = [
-  'login',           // page d'ouverture de la PWA (start_url)
+  // Critiques — cœur du métier, doivent fonctionner sans réseau
   'dashboard',
   'sales/new',
   'sales/history',
   'stock',
   'stock/movements',
   'customers',
-  'suppliers',
   'payments',
-  'reports',
-  'categories',
-  'team',
-  'shops',
-  'billing',
-  'settings',
   'expenses',
-  'help',
+  // Optionnels — utiles mais pas bloquants
+  'reports',
   'notes',
+  'categories',
 ]
 
 function getLocale(): string {
