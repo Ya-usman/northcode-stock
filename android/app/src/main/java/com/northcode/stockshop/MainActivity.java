@@ -7,6 +7,7 @@ import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
 import android.os.Build;
 import android.os.Bundle;
+import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
@@ -19,10 +20,6 @@ import java.io.InputStream;
 
 public class MainActivity extends BridgeActivity {
 
-    // True dès qu'une page stockshop.tech a été chargée avec succès.
-    // Une fois true, le SW est actif — on le laisse gérer l'offline.
-    private boolean appHasLoaded = false;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -30,39 +27,44 @@ public class MainActivity extends BridgeActivity {
         getBridge().getWebView().setWebViewClient(
             new BridgeWebViewClient(getBridge()) {
 
+                /**
+                 * Intercepte TOUTE navigation main-frame vers stockshop.tech hors ligne.
+                 * Sert offline-native.html directement depuis les assets — aucune requête
+                 * réseau ne part, donc "Webpage not available" est impossible.
+                 * Couvre cold start ET navigations mid-session (ex. Dashboard → Stock).
+                 */
                 @Override
                 public WebResourceResponse shouldInterceptRequest(
                         WebView view, WebResourceRequest request) {
 
-                    // Cold start hors ligne : servir offline-native.html
-                    // directement depuis les assets AVANT que la requête réseau
-                    // parte. Évite totalement la page native "Webpage not available".
-                    // Condition stricte : main frame + hôte stockshop.tech +
-                    // hors ligne + app pas encore chargée (SW pas actif).
-                    if (!appHasLoaded
-                            && request.isForMainFrame()
+                    if (request.isForMainFrame()
                             && "stockshop.tech".equals(request.getUrl().getHost())
                             && !isNetworkAvailable()) {
                         try {
                             InputStream stream = getAssets().open("offline-native.html");
-                            return new WebResourceResponse(
-                                "text/html", "UTF-8", stream);
-                        } catch (IOException e) {
-                            // Laisse passer — onReceivedError prendra le relais
-                        }
+                            return new WebResourceResponse("text/html", "UTF-8", stream);
+                        } catch (IOException ignored) {}
                     }
                     return super.shouldInterceptRequest(view, request);
                 }
 
+                /**
+                 * Race condition : la connexion peut tomber entre shouldInterceptRequest
+                 * et l'envoi réel de la requête réseau. Si onReceivedError s'affiche
+                 * quand même, on recharge l'URL — shouldInterceptRequest l'interceptera.
+                 */
                 @Override
-                public void onPageFinished(WebView view, String url) {
-                    super.onPageFinished(view, url);
-                    // Marquer l'app comme chargée dès la 1ère page stockshop.tech.
-                    // À partir de là le SW est actif et gère tout lui-même.
-                    if (url != null
-                            && url.contains("stockshop.tech")
-                            && !url.contains("__offline_fallback__")) {
-                        appHasLoaded = true;
+                public void onReceivedError(WebView view,
+                                            WebResourceRequest request,
+                                            WebResourceError error) {
+                    super.onReceivedError(view, request, error);
+                    if (!request.isForMainFrame()) return;
+                    String host = request.getUrl().getHost();
+                    if (host != null
+                            && host.equals("stockshop.tech")
+                            && !isNetworkAvailable()) {
+                        final String url = request.getUrl().toString();
+                        view.post(() -> view.loadUrl(url));
                     }
                 }
             }
