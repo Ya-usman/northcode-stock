@@ -14,11 +14,11 @@ const CRITICAL_ROUTES = [
   'sales/new',
   'stock',
   'customers',
-  'expenses',
 ]
 
 // Routes secondaires : préchargées après, en parallèle.
 const SECONDARY_ROUTES = [
+  'expenses',
   'sales/history',
   'stock/movements',
   'payments',
