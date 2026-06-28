@@ -237,6 +237,31 @@
       .nav-error { background: #2d0a14; border-color: #7f1d1d; color: #fca5a5; }
     }
 
+    /* État d'attente SW — boutons désactivés jusqu'à ce que le SW soit prêt */
+    .nav-locked .card,
+    .nav-locked .primary-cta {
+      opacity: 0.45;
+      pointer-events: none;
+      cursor: default;
+    }
+    .sw-waiting {
+      display: flex; align-items: center; gap: 8px;
+      margin: 0 20px 12px;
+      padding: 9px 14px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 12px; color: var(--fg-muted);
+    }
+    .sw-waiting .spinner {
+      width: 14px; height: 14px; flex-shrink: 0;
+      border: 2px solid var(--border);
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    .sw-waiting.ready { display: none; }
+
     @media (prefers-color-scheme: dark) {
       .brand-logo { filter: brightness(0) invert(1); }
       .primary-cta { background: #1a4fa8; box-shadow: 0 4px 20px rgba(26,79,168,.4); }
@@ -281,6 +306,11 @@
   <div class="info-row" id="noDataRow">
     <span class="info-icon">ℹ️</span>
     <span>Connectez-vous en ligne pour charger les données</span>
+  </div>
+
+  <div class="sw-waiting" id="swWaiting">
+    <div class="spinner"></div>
+    <span>Préparation du mode hors ligne…</span>
   </div>
 
   <button class="primary-cta" onclick="go('sales/new', this)">
@@ -337,10 +367,31 @@
       'payments': 'Dette', 'expenses': 'Dépenses', 'reports': 'Rapports'
     };
 
+    // ── Verrouillage SW ──────────────────────────────────────────────
+    // Les boutons restent désactivés jusqu'à ce que le Service Worker
+    // soit en état "activated". Sans ça, les clics déclenchent une
+    // navigation réseau directe (SW pas encore réveillé) → erreur.
+    document.body.classList.add('nav-locked');
+
+    function unlockNav() {
+      document.body.classList.remove('nav-locked');
+      document.getElementById('swWaiting').classList.add('ready');
+    }
+
+    if ('serviceWorker' in navigator) {
+      // Timeout de sécurité : active les boutons après 4s même si le SW
+      // ne répond pas (ex : première utilisation sans connexion).
+      var swTimeout = setTimeout(unlockNav, 4000);
+      navigator.serviceWorker.ready
+        .then(function() { clearTimeout(swTimeout); unlockNav(); })
+        .catch(function() { clearTimeout(swTimeout); unlockNav(); });
+    } else {
+      unlockNav();
+    }
+    // ────────────────────────────────────────────────────────────────
+
     function go(route, btn) {
-      // Marquer la navigation en cours (détection d'échec au retour)
       try { sessionStorage.setItem('nav_attempt', JSON.stringify({ route: route, ts: Date.now() })); } catch(e) {}
-      // Spinner sur le bouton cliqué
       if (btn) btn.classList.add('loading');
       window.location.href = BASE + '/' + getLocale() + '/' + route;
     }
@@ -356,25 +407,21 @@
         .catch(function() { btn.textContent = '↺ Réessayer'; });
     }
 
-    // Afficher la dernière sync depuis localStorage
     function showSyncStatus() {
       try {
         var keys = Object.keys(localStorage).filter(function(k) { return k.startsWith('pc_data_'); });
-        if (keys.length) {
-          var ts = Math.max.apply(null, keys.map(function(k) { return Number(localStorage.getItem(k)) || 0; }));
-          if (ts > 0) {
-            var d = new Date(ts);
-            var diff = Date.now() - ts;
-            var min = Math.floor(diff / 60000);
-            var h = Math.floor(diff / 3600000);
-            var label = min < 1 ? "à l'instant"
-              : min < 60 ? 'il y a ' + min + ' min'
-              : "aujourd'hui à " + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-            document.getElementById('syncTime').textContent = label;
-            document.getElementById('syncRow').style.display = 'flex';
-            document.getElementById('noDataRow').style.display = 'none';
-          }
-        }
+        if (!keys.length) return;
+        var ts = Math.max.apply(null, keys.map(function(k) { return Number(localStorage.getItem(k)) || 0; }));
+        if (ts <= 0) return;
+        var d = new Date(ts);
+        var diff = Date.now() - ts;
+        var min = Math.floor(diff / 60000);
+        var label = min < 1 ? "à l'instant"
+          : min < 60 ? 'il y a ' + min + ' min'
+          : "aujourd'hui à " + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        document.getElementById('syncTime').textContent = label;
+        document.getElementById('syncRow').style.display = 'flex';
+        document.getElementById('noDataRow').style.display = 'none';
       } catch(e) {}
     }
 
@@ -385,13 +432,11 @@
         if (!raw) return;
         var attempt = JSON.parse(raw);
         sessionStorage.removeItem('nav_attempt');
-        // Si le retour est survenu dans les 8 secondes → navigation échouée
         if (Date.now() - attempt.ts < 8000) {
           var label = LABELS[attempt.route] || attempt.route;
           document.getElementById('navErrorText').textContent =
             '"' + label + '" n\'est pas disponible hors ligne — visitez cette page en ligne d\'abord';
           document.getElementById('navError').classList.add('visible');
-          // Masquer après 5s
           setTimeout(function() {
             document.getElementById('navError').classList.remove('visible');
           }, 5000);
@@ -400,12 +445,12 @@
     })();
 
     showSyncStatus();
-    // Cacher la status-bar si elle est vide (aucune ligne visible)
     var bar = document.getElementById('statusBar');
     if (bar) {
-      var rows = bar.querySelectorAll('.status-row');
       var anyVisible = false;
-      rows.forEach(function(r) { if (r.style.display !== 'none') anyVisible = true; });
+      bar.querySelectorAll('.status-row').forEach(function(r) {
+        if (r.style.display !== 'none') anyVisible = true;
+      });
       if (!anyVisible) bar.style.display = 'none';
     }
 
