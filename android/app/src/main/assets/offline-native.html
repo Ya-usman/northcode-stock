@@ -57,6 +57,25 @@
     .status-row strong { color: #374151; }
     .status-row.pending { color: #92400e; }
 
+    /* ── Dark mode ─────────────────────────────────────────────────── */
+    @media (prefers-color-scheme: dark) {
+      body { background: #030712; }
+      .brand-name { color: #f9fafb; }
+      .retry-btn { background: #111827; border-color: #374151; color: #9ca3af; }
+      .retry-btn:active { background: #1f2937; }
+      .status-bar { background: #111827; border-color: #1f2937; }
+      .status-row { color: #9ca3af; border-bottom-color: #1f2937; }
+      .status-row strong { color: #e5e7eb; }
+      .status-row.pending { color: #fbbf24; }
+      .status-row .dot { background: #374151; }
+      .card { background: #111827; border-color: #1f2937; }
+      .card:active { background: #1f2937; }
+      .card-icon { background: #1e3a5f; }
+      .card-label { color: #e5e7eb; }
+      .footer { color: #4b5563; }
+      .brand-logo { filter: brightness(0) invert(1); }
+    }
+
     /* Primary CTA */
     .primary-cta {
       margin: 0 20px 12px;
