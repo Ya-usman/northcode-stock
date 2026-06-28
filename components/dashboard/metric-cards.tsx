@@ -47,6 +47,7 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
       title: isCashier ? t('my_sales_today') : t('today_revenue'),
       value: role === 'viewer' ? '—' : compact(todayRevenue),
       subValue: role !== 'viewer' ? fmt(todayRevenue) : undefined,
+      label: role !== 'viewer' ? t('cash_received_label') : undefined,
       icon: TrendingUp,
       color: 'text-green-600',
       bg: 'bg-green-50',
@@ -130,6 +131,9 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
                     </p>
                     {card.subValue && (
                       <p className="text-[10px] text-muted-foreground truncate">{card.subValue}</p>
+                    )}
+                    {(card as any).label && (
+                      <p className="text-[10px] text-muted-foreground truncate">{(card as any).label}</p>
                     )}
                   </div>
                   <div className={`flex-shrink-0 rounded-lg p-2 ${card.bg}`}>
