@@ -50,28 +50,20 @@ async function prefetchPage(url: string): Promise<void> {
     caches.open('next-pages'),
     caches.open('next-rsc'),
   ])
-  const results = await Promise.allSettled([
+  await Promise.allSettled([
     fetch(url, { cache: 'no-store' }).then(r => {
       if (r.ok) htmlCache.put(r.url, r)
-      return r.ok
     }),
     fetch(url, {
       cache: 'no-store',
       headers: { RSC: '1', 'Next-Router-Prefetch': '1' },
     }).then(r => {
       if (r.ok) rscCache.put(r.url, r)
-      return r.ok
     }),
   ])
-  // Marquer la route comme disponible hors ligne si au moins un cache a réussi
-  const ok = results.some(r => r.status === 'fulfilled' && r.value === true)
-  if (ok) {
-    try {
-      // Extraire le slug de route depuis l'URL (ex: /fr/sales/new → sales/new)
-      const slug = url.replace(/^\/[a-z]{2}\//, '')
-      localStorage.setItem(`pc_route_${slug}`, String(Date.now()))
-    } catch {}
-  }
+  // Note : pc_route_* N'EST PAS positionné ici.
+  // Seul useOfflinePreload le pose — uniquement pour les routes avec données cachées.
+  // Ceci garantit que les onglets sans données restent grisés offline.
 }
 
 async function prefetchAllPages(locale: string): Promise<void> {
@@ -224,6 +216,19 @@ export function useOfflinePreload() {
                 const debtsData = await debtsRes.json()
                 setPageCache(`debtors_${cacheShopKey}`, debtsData.debtors || [])
               }
+            } catch {}
+
+            // Marquer uniquement les routes qui ont des données en cache offline.
+            // Les routes sans données (rapports, historique, mouvements…) restent
+            // grisées dans le BottomNav pour indiquer qu'elles seront vides offline.
+            try {
+              const now = String(Date.now())
+              localStorage.setItem(`pc_route_dashboard`, now)
+              localStorage.setItem(`pc_route_sales/new`, now)
+              localStorage.setItem(`pc_route_stock`, now)
+              localStorage.setItem(`pc_route_customers`, now)
+              localStorage.setItem(`pc_route_expenses`, now)
+              localStorage.setItem(`pc_route_payments`, now)
             } catch {}
           } finally {
             dataRunning.current = false
