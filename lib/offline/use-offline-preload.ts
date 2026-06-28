@@ -193,15 +193,25 @@ export function useOfflinePreload() {
             }
             markDone(dataKey)
 
-            // Alimenter le page-cache de la page Stock pour qu'elle affiche
-            // les produits hors ligne sans jamais avoir été ouverte en ligne.
-            // La page Stock lit pc_stock_* via getPageCache() comme fallback.
+            // Alimenter les page-caches des pages qui lisent via getPageCache()
+            // et non depuis IndexedDB. Sans ça, les pages sont vides hors ligne
+            // si elles n'ont jamais été ouvertes en ligne.
+            const cacheShopKey = shopIds.join(',')
+            const currentMonth = new Date().toISOString().slice(0, 7) // 'yyyy-MM'
             try {
-              setPageCache(`stock_${shopIds.join(',')}`, {
+              // Stock — lit pc_stock_* (prods + cats + sups)
+              setPageCache(`stock_${cacheShopKey}`, {
                 prods: products || [],
                 cats: categories || [],
                 sups: [],
               })
+              // Clients — lit pc_customers_*
+              setPageCache(`customers_${cacheShopKey}`, customers || [])
+              // Dépenses — clé inclut le mois courant (filtre par défaut)
+              setPageCache(
+                `expenses_${cacheShopKey}_${currentMonth}`,
+                (expenses || []).filter((e: any) => e.date?.startsWith(currentMonth))
+              )
             } catch {}
           } finally {
             dataRunning.current = false
