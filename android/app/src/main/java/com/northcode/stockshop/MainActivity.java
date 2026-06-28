@@ -20,6 +20,15 @@ import java.io.InputStream;
 
 public class MainActivity extends BridgeActivity {
 
+    // True dès qu'une page stockshop.tech a chargé avec succès.
+    // Avant : le SW n'est pas encore actif → shouldInterceptRequest gère tout.
+    // Après : le SW est actif → on lui laisse servir les navigations offline.
+    private boolean appHasLoaded = false;
+
+    // Vrai pendant qu'on tente de rediriger vers la page /offline React.
+    // Évite une boucle infinie si cette page aussi échoue.
+    private boolean handlingOfflineError = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -28,16 +37,20 @@ public class MainActivity extends BridgeActivity {
             new BridgeWebViewClient(getBridge()) {
 
                 /**
-                 * Intercepte TOUTE navigation main-frame vers stockshop.tech hors ligne.
-                 * Sert offline-native.html directement depuis les assets — aucune requête
-                 * réseau ne part, donc "Webpage not available" est impossible.
-                 * Couvre cold start ET navigations mid-session (ex. Dashboard → Stock).
+                 * Cold start hors ligne uniquement (!appHasLoaded).
+                 * Sert offline-native.html depuis les assets AVANT que la requête
+                 * réseau parte → impossible de voir "Webpage not available".
+                 *
+                 * Mid-session (appHasLoaded=true) : on passe la main au SW.
+                 * Le SW sert les pages depuis next-pages ou retourne /offline.
+                 * Si le SW échoue → onReceivedError gère.
                  */
                 @Override
                 public WebResourceResponse shouldInterceptRequest(
                         WebView view, WebResourceRequest request) {
 
-                    if (request.isForMainFrame()
+                    if (!appHasLoaded
+                            && request.isForMainFrame()
                             && "stockshop.tech".equals(request.getUrl().getHost())
                             && !isNetworkAvailable()) {
                         try {
@@ -48,27 +61,73 @@ public class MainActivity extends BridgeActivity {
                     return super.shouldInterceptRequest(view, request);
                 }
 
+                @Override
+                public void onPageFinished(WebView view, String url) {
+                    super.onPageFinished(view, url);
+                    handlingOfflineError = false;
+                    if (url != null && url.contains("stockshop.tech")) {
+                        appHasLoaded = true;
+                    }
+                }
+
                 /**
-                 * Race condition : la connexion peut tomber entre shouldInterceptRequest
-                 * et l'envoi réel de la requête réseau. Si onReceivedError s'affiche
-                 * quand même, on recharge l'URL — shouldInterceptRequest l'interceptera.
+                 * Stratégie à 3 niveaux pour les erreurs offline main-frame :
+                 *
+                 * 1. Cold start (!appHasLoaded) : recharge l'URL →
+                 *    shouldInterceptRequest la sert avec offline-native.html.
+                 *
+                 * 2. Mid-session, première erreur : redirige vers /fr/offline
+                 *    (page React servie par le SW depuis son cache).
+                 *    Pas d'appel à super → évite la page native "not available".
+                 *
+                 * 3. Mid-session, /offline aussi en échec : charge
+                 *    offline-native.html depuis file:// en dernier recours.
                  */
                 @Override
                 public void onReceivedError(WebView view,
                                             WebResourceRequest request,
                                             WebResourceError error) {
-                    super.onReceivedError(view, request, error);
-                    if (!request.isForMainFrame()) return;
+
+                    if (!request.isForMainFrame()) {
+                        super.onReceivedError(view, request, error);
+                        return;
+                    }
+
                     String host = request.getUrl().getHost();
-                    if (host != null
-                            && host.equals("stockshop.tech")
-                            && !isNetworkAvailable()) {
+                    if (host == null || !host.equals("stockshop.tech") || isNetworkAvailable()) {
+                        super.onReceivedError(view, request, error);
+                        return;
+                    }
+
+                    if (!appHasLoaded) {
+                        // Cold start : recharger pour que shouldInterceptRequest intercepte
                         final String url = request.getUrl().toString();
                         view.post(() -> view.loadUrl(url));
+                        return;
                     }
+
+                    if (handlingOfflineError) {
+                        // /offline React a aussi échoué → dernier recours
+                        handlingOfflineError = false;
+                        view.post(() -> view.loadUrl("file:///android_asset/offline-native.html"));
+                        return;
+                    }
+
+                    // Mid-session : rediriger vers la page /offline React
+                    // (le SW la sert depuis next-pages ou le precache)
+                    handlingOfflineError = true;
+                    final String locale = extractLocale(request.getUrl().getPath());
+                    view.post(() -> view.loadUrl(
+                        "https://stockshop.tech/" + locale + "/offline"));
                 }
             }
         );
+    }
+
+    private String extractLocale(String path) {
+        if (path == null || path.length() < 2) return "fr";
+        String[] parts = path.split("/");
+        return parts.length > 1 && !parts[1].isEmpty() ? parts[1] : "fr";
     }
 
     private boolean isNetworkAvailable() {

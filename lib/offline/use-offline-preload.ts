@@ -213,6 +213,18 @@ export function useOfflinePreload() {
                 (expenses || []).filter((e: any) => e.date?.startsWith(currentMonth))
               )
             } catch {}
+
+            // Dettes clients pour la page Paiements (appel API dédié)
+            try {
+              const debtsRes = await fetch(
+                `/api/payments/debts?shop_ids=${shopIds.join(',')}`,
+                { cache: 'no-store', credentials: 'include' }
+              )
+              if (debtsRes.ok) {
+                const debtsData = await debtsRes.json()
+                setPageCache(`debtors_${cacheShopKey}`, debtsData.debtors || [])
+              }
+            } catch {}
           } finally {
             dataRunning.current = false
           }
