@@ -46,16 +46,16 @@ const withPWA = require('next-pwa')({
       },
     },
     // Page HTML (navigation complète) — NetworkFirst :
-    // Essaie le réseau (timeout 1s), puis le cache, puis la page /offline.
-    // CRITIQUE : NetworkFirst déclenche setCatchHandler quand réseau + cache échouent
-    // → affiche la page /offline au lieu de ERR_INTERNET_DISCONNECTED.
-    // StaleWhileRevalidate retournait undefined silencieusement → bug Samsung PWA.
+    // Essaie le réseau (timeout 5s), puis le cache, puis la page /offline.
+    // 5s au lieu de 1s : couvre les cold starts Vercel (3-8s) sans tomber
+    // prématurément sur le cache. Quand le cache est chaud (sessions suivantes),
+    // le réseau répond en < 500ms de toute façon — pas de pénalité perceptible.
     {
       urlPattern: ({ request }) => request.mode === 'navigate',
       handler: 'NetworkFirst',
       options: {
         cacheName: 'next-pages',
-        networkTimeoutSeconds: 1,
+        networkTimeoutSeconds: 5,
         expiration: { maxEntries: 100, maxAgeSeconds: 24 * 60 * 60 },
       },
     },

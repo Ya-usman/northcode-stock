@@ -503,7 +503,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState(prev => {
       if (!prev.profile || !prev.user) return prev
       const updated = { ...prev.profile, locale }
-      writeCache(prev.user.id, updated, prev.userShops, memberships)
+      writeCache(prev.user.id, prev.user, updated, prev.userShops, memberships)
       return { ...prev, profile: updated }
     })
     // Persist to DB (best-effort — cache is already updated)
