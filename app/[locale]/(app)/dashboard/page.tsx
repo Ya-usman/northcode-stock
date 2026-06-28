@@ -219,10 +219,10 @@ export default function DashboardPage() {
           .lte('quantity', shop?.low_stock_threshold || 10)
           .order('quantity', { ascending: true }),
 
-        // Today's debt repayments (payments on OLD sales only)
+        // Today's debt repayments — exclure les paiements sur ventes annulées
         supabase
           .from('payments')
-          .select('id, sale_id, amount, paid_at, method, sales!inner(shop_id, sale_number, created_at, total, balance, payment_method, customers(name))')
+          .select('id, sale_id, amount, paid_at, method, sales!inner(shop_id, sale_number, created_at, total, balance, payment_method, customers(name), sale_status)')
           .gte('paid_at', todayStart)
           .lte('paid_at', todayEnd)
           .order('paid_at', { ascending: false }),
@@ -267,10 +267,11 @@ export default function DashboardPage() {
       // Cashier's own sale IDs (already filtered by cashier_id above)
       const cashierSaleIds = new Set(salesArr.map((s: any) => s.id))
 
-      // Build repayment feed items — cashier sees only repayments on their own sales
+      // Build repayment feed items — exclure les paiements sur ventes annulées
       const repaymentItems: RepaymentFeedItem[] = (todayPaymentsRaw || [])
         .filter((p: any) => {
           if (!shopIds.includes(p.sales?.shop_id)) return false
+          if (p.sales?.sale_status === 'cancelled') return false
           if (isCashier) return cashierSaleIds.has(p.sale_id)
           return true
         })
@@ -403,21 +404,21 @@ export default function DashboardPage() {
     },
     onSaleCancelled: (sale) => {
       if (!shopIds.includes((sale as any).shop_id || '')) return
-      // Retirer la vente des stats en temps réel
       setRecentSales(prev => prev.filter(s => s.id !== sale.id))
+      setRepaymentFeed(prev => prev.filter(r => r.sale_id !== sale.id))
       setTodaySalesCount(prev => Math.max(0, prev - 1))
       setTodayRevenue(prev => Math.max(0, prev - Number((sale as any).amount_paid ?? 0)))
-      // Invalider le cache dashboard pour que le prochain chargement soit propre
       try { localStorage.removeItem('dashboard_cache_v1') } catch {}
     },
     onPaymentUpdate: async (payment: any) => {
       try {
         const { data: sale } = await supabase
           .from('sales')
-          .select('shop_id, created_at, total, balance, customers(name)')
+          .select('shop_id, created_at, total, balance, sale_status, customers(name)')
           .eq('id', payment.sale_id)
           .single()
         if (!sale || !shopIds.includes(sale.shop_id)) return
+        if ((sale as any).sale_status === 'cancelled') return
         const item: RepaymentFeedItem = {
           type: 'repayment',
           id: payment.id,
