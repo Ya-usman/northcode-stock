@@ -29,9 +29,11 @@ const withPWA = require('next-pwa')({
   // buildExcludes vide tout le reste, mais additionalManifestEntries est manuel.
   additionalManifestEntries: [{ url: '/offline', revision: 'v3' }],
   runtimeCaching: [
-    // RSC payloads (client-side navigation) — StaleWhileRevalidate :
-    // sert le cache instantanément, met à jour en arrière-plan.
-    // Élimine le délai réseau sur 3G et les erreurs offline pour les pages déjà visitées.
+    // RSC payloads (client-side navigation) — StaleWhileRevalidate.
+    // matchOptions.ignoreSearch: true est critique — Next.js ajoute un param
+    // ?_rsc=<id> dynamique à chaque requête RSC. Sans ignoreSearch, le cache
+    // ne trouve jamais les entrées du prefetch (stockées sans ce param) et
+    // tombe en cache miss → réseau échoue → navigation dure → onReceivedError.
     {
       urlPattern: ({ request, url }) =>
         request.headers.get('RSC') === '1' ||
@@ -40,6 +42,7 @@ const withPWA = require('next-pwa')({
       options: {
         cacheName: 'next-rsc',
         expiration: { maxEntries: 120, maxAgeSeconds: 24 * 60 * 60 },
+        matchOptions: { ignoreSearch: true },
       },
     },
     // Page HTML (navigation complète) — NetworkFirst :
