@@ -1,7 +1,7 @@
 {
   "name": "StockShop",
   "short_name": "StockShop",
-  "description": "Gérez votre boutique facilement avec StockShop",
+  "description": "Ventes, stock, crédits, dépenses et rapports — tout pour gérer votre business",
   "start_url": "/en/login",
   "scope": "/",
   "display": "standalone",

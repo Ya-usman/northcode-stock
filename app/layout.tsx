@@ -5,7 +5,7 @@ import { SWUpdater } from '@/components/pwa/sw-updater'
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://northcode-stock.vercel.app'),
   title: 'StockShop',
-  description: 'Smart inventory management for your boutique',
+  description: 'Ventes, stock, crédits, dépenses et rapports — tout pour gérer votre business',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -16,8 +16,8 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     siteName: 'StockShop',
-    title: 'StockShop — Gestion de stock intelligente',
-    description: 'Gérez votre boutique facilement avec StockShop',
+    title: 'StockShop — Pilotez votre boutique',
+    description: 'Ventes, stock, crédits, dépenses et rapports — tout pour gérer votre business',
   },
 }
 

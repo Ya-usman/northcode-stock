@@ -211,7 +211,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
             <img src="/logo-login-t.png" alt="StockShop" className="h-36 w-auto object-contain" style={{ filter: 'brightness(0) invert(1) drop-shadow(0 8px 24px rgba(0,0,0,0.55))' }} />
           </Link>
           <p className="text-blue-200 text-sm mt-2">
-            {locale === 'ha' ? 'Lissafin kaya mai wayo' : 'Smart inventory management'}
+            {locale === 'ha' ? 'Sayarwa · Kaya · Bashi · Rahotanni' : 'Ventes · Stock · Crédits · Rapports'}
           </p>
         </div>
 
