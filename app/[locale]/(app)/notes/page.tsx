@@ -132,6 +132,9 @@ export default function NotesPage() {
     const currentTitle   = titleRef.current?.value ?? ''
     if (!currentContent.trim() && !currentTitle.trim()) return
     setSaving(true)
+    // Rafraîchir le token avant d'écrire — évite que auth.uid() retourne null
+    // côté base si le JWT a expiré (→ "violates row-level security policy").
+    await supabase.auth.refreshSession().catch(() => {})
     const payload = {
       shop_id: noteShop,
       owner_id: profile!.id,
