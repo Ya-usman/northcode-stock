@@ -57,12 +57,12 @@ export default function NotesPage() {
   const [deleting, setDeleting] = useState<string | null>(null)
 
   // Form state
-  const [title, setTitle]     = useState('')
   const [color, setColor]     = useState('default')
   const [pinned, setPinned]   = useState(false)
   const [noteShop, setNoteShop] = useState(shop?.id ?? '')
-  const contentRef = useRef<HTMLTextAreaElement>(null)
-  // Uncontrolled content — avoids Android IME interference (suggestions + onChange bugs)
+  const titleRef    = useRef<HTMLInputElement>(null)
+  const contentRef  = useRef<HTMLTextAreaElement>(null)
+  // Both title and content are uncontrolled — avoids Android IME re-render interrupting suggestions
   const contentValueRef = useRef('')
 
   const effectiveShopIds = userShops.map(s => s.id)
@@ -95,13 +95,13 @@ export default function NotesPage() {
 
   const openCreate = () => {
     setEditing(null)
-    setTitle('')
     contentValueRef.current = ''
     setColor('default')
     setPinned(false)
     setNoteShop(shop?.id ?? effectiveShopIds[0] ?? '')
     setModalOpen(true)
     setTimeout(() => {
+      if (titleRef.current) titleRef.current.value = ''
       if (contentRef.current) {
         contentRef.current.value = ''
         contentRef.current.focus()
@@ -111,7 +111,6 @@ export default function NotesPage() {
 
   const openEdit = (note: Note) => {
     setEditing(note)
-    setTitle(note.title ?? '')
     contentValueRef.current = note.content
     setColor(note.color)
     setPinned(note.pinned)
@@ -120,6 +119,7 @@ export default function NotesPage() {
     // Pré-chauffe la session Supabase pendant que l'utilisateur édite
     supabase.auth.getSession().catch(() => {})
     setTimeout(() => {
+      if (titleRef.current) titleRef.current.value = note.title ?? ''
       if (contentRef.current) contentRef.current.value = note.content
     }, 50)
   }
@@ -127,14 +127,15 @@ export default function NotesPage() {
   const closeModal = () => { setModalOpen(false); setEditing(null) }
 
   const save = async () => {
-    // Read directly from DOM ref — bypasses Android IME/onChange sync issues
+    // Read directly from DOM refs — bypasses Android IME/onChange sync issues
     const currentContent = contentRef.current?.value ?? contentValueRef.current
-    if (!currentContent.trim() && !title.trim()) return
+    const currentTitle   = titleRef.current?.value ?? ''
+    if (!currentContent.trim() && !currentTitle.trim()) return
     setSaving(true)
     const payload = {
       shop_id: noteShop,
       owner_id: profile!.id,
-      title: title.trim() || null,
+      title: currentTitle.trim() || null,
       content: currentContent.trim(),
       color,
       pinned,
@@ -282,11 +283,12 @@ export default function NotesPage() {
       <PremiumDialog open={modalOpen} onOpenChange={v => { if (!v) closeModal() }} title={editing ? 'Modifier la note' : 'Nouvelle note'}>
         <PremiumDialogBody>
           <div className="space-y-3">
-            {/* Title */}
+            {/* Title — uncontrolled to prevent re-render from killing Android IME suggestions */}
             <Input
+              ref={titleRef}
               placeholder="Titre (optionnel)"
-              value={title}
-              onChange={e => setTitle(e.target.value)}
+              defaultValue=""
+              inputMode="text"
               autoCorrect="on"
               autoCapitalize="sentences"
               spellCheck={true}
@@ -300,6 +302,7 @@ export default function NotesPage() {
               defaultValue={editing?.content ?? ''}
               onInput={e => { contentValueRef.current = (e.target as HTMLTextAreaElement).value }}
               rows={6}
+              inputMode="text"
               autoCorrect="on"
               autoCapitalize="sentences"
               spellCheck={true}
