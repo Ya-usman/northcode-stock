@@ -28,6 +28,7 @@ export function useOffline() {
   )
   const [pendingCount, setPendingCount] = useState(0)
   const [syncing, setSyncing] = useState(false)
+  const [lastSyncResult, setLastSyncResult] = useState<SyncResult | null>(null)
   const shopId = shop?.id
   const syncingRef = useRef(false)
 
@@ -46,13 +47,19 @@ export function useOffline() {
     syncingRef.current = true
     setSyncing(true)
     try {
-      const [salesResult] = await Promise.all([
+      const [salesResult, movResult, expResult] = await Promise.all([
         syncPendingSales(shopId),
         syncPendingMovements(shopId),
         syncPendingExpenses(shopId),
       ])
+      const combined: SyncResult = {
+        synced: salesResult.synced + movResult.synced + expResult.synced,
+        failed: salesResult.failed + movResult.failed + expResult.failed,
+        errors: [...salesResult.errors, ...movResult.errors, ...expResult.errors],
+      }
+      setLastSyncResult(combined)
       await refreshPendingCount()
-      return salesResult
+      return combined
     } finally {
       syncingRef.current = false
       setSyncing(false)
@@ -101,5 +108,5 @@ export function useOffline() {
     refreshPendingCount()
   }, [refreshPendingCount])
 
-  return { isOnline, pendingCount, syncing, sync, refreshPendingCount }
+  return { isOnline, pendingCount, syncing, sync, refreshPendingCount, lastSyncResult }
 }
