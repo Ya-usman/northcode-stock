@@ -124,6 +124,21 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
     }
   }
 
+  // ── WAKE: quand l'app revient au premier plan après background Android,
+  // le client Supabase peut être figé sur une connexion TCP morte.
+  // refreshSession() force un vrai appel réseau qui "déblocage" le client
+  // avant que l'utilisateur tente d'écrire (même mécanisme que sync.ts).
+  useEffect(() => {
+    if (!user?.id) return
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        supabase.auth.refreshSession().catch(() => {})
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [user?.id])
+
   // ── REALTIME: notifier l'admin quand un caissier fait une vente ────────────
   useEffect(() => {
     const isAdmin = profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'super_admin'
