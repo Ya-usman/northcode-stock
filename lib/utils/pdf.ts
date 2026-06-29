@@ -718,6 +718,24 @@ export async function generateReportPDFBlob(params: ReportParams): Promise<{ blo
 }
 
 export async function savePDF(blob: Blob, fileName: string): Promise<void> {
+  const { isCapacitor } = await import('@/lib/utils/native-share')
+
+  // Capacitor natif : écrit dans le cache + partage natif. Évite le fetch
+  // réseau qui plante sur Android avec une erreur non-JSON.
+  if (isCapacitor()) {
+    const { Filesystem, Directory } = await import('@capacitor/filesystem')
+    const { Share } = await import('@capacitor/share')
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve((reader.result as string).split(',')[1])
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+    const result = await Filesystem.writeFile({ path: fileName, data: base64, directory: Directory.Cache })
+    await Share.share({ title: fileName, url: result.uri, dialogTitle: fileName })
+    return
+  }
+
   const { downloadFile } = await import('@/lib/utils/download')
   await downloadFile(blob, fileName)
 }
