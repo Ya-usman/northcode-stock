@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/server'
-import { getAuthedUser } from '@/lib/api/shop-auth'
+import { createAdminClient, createClient } from '@/lib/supabase/server'
 
 export async function POST(request: Request) {
   try {
-    const { user } = await getAuthedUser()
+    const supabase = await createClient() as any
+    const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
     const { rows, shop_id } = await request.json()
@@ -12,11 +12,18 @@ export async function POST(request: Request) {
     if (!Array.isArray(rows) || rows.length === 0) return NextResponse.json({ error: 'Aucune ligne à importer' }, { status: 400 })
     if (rows.length > 500) return NextResponse.json({ error: 'Maximum 500 produits par import' }, { status: 400 })
 
-    const admin = createAdminClient() as any
+    // Verify user is an active member with write access to this shop
+    const { data: memberRow } = await supabase
+      .from('shop_members')
+      .select('role')
+      .eq('shop_id', shop_id)
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .single()
+    if (!memberRow || !['owner', 'manager', 'stock_manager'].includes(memberRow.role))
+      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
 
-    // Verify user owns/belongs to this shop
-    const { data: shopData } = await admin.from('shops').select('id').eq('id', shop_id).single()
-    if (!shopData) return NextResponse.json({ error: 'Boutique introuvable' }, { status: 403 })
+    const admin = createAdminClient() as any
 
     const errors: { line: number; error: string }[] = []
     const toInsert: any[] = []

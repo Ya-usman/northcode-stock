@@ -31,12 +31,8 @@ export async function POST(request: Request) {
       .eq('is_active', true)
       .single()
 
-    let callerRole = memberRow?.role
-    if (!callerRole) {
-      const { data: profile } = await supabase.from('profiles').select('role, shop_id').eq('id', user.id).single()
-      if ((profile as any)?.shop_id === shop_id) callerRole = (profile as any)?.role
-    }
-    if (!callerRole || !['owner', 'super_admin', 'cashier'].includes(callerRole)) {
+    const callerRole = memberRow?.role
+    if (!callerRole || !['owner', 'manager', 'super_admin', 'cashier'].includes(callerRole)) {
       return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
     }
 

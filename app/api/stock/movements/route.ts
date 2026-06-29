@@ -10,13 +10,13 @@ export async function GET(request: Request) {
     const shopIds = shopIdsParam.split(',').map(s => s.trim()).filter(Boolean)
 
     const supabase = await createClient() as any
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session?.user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
     // Verify shop access
     const { data: members } = await supabase
       .from('shop_members').select('shop_id, role')
-      .in('shop_id', shopIds).eq('user_id', session.user.id).eq('is_active', true)
+      .in('shop_id', shopIds).eq('user_id', user.id).eq('is_active', true)
     const allowedIds = (members || []).map((m: any) => m.shop_id)
     if (!allowedIds.length) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 

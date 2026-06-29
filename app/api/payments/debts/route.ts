@@ -29,16 +29,6 @@ export async function GET(request: Request) {
 
     const accessibleShopIds = (memberRows || []).map((m: any) => m.shop_id)
 
-    // Fallback: profile primary shop
-    if (accessibleShopIds.length < shopIds.length) {
-      const { data: profile } = await supabase.from('profiles').select('role, shop_id').eq('id', user.id).single()
-      for (const sid of shopIds) {
-        if (!accessibleShopIds.includes(sid) && (profile as any)?.shop_id === sid) {
-          accessibleShopIds.push(sid)
-        }
-      }
-    }
-
     const allowedIds = shopIds.filter(id => accessibleShopIds.includes(id))
     if (!allowedIds.length) return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
 

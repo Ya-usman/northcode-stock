@@ -45,7 +45,7 @@ export async function POST(request: Request) {
       .eq('is_active', true)
       .single()
 
-    if (!callerMember || !['owner', 'super_admin'].includes(callerMember.role)) {
+    if (!callerMember || !['owner', 'manager', 'super_admin'].includes(callerMember.role)) {
       return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
     }
 
