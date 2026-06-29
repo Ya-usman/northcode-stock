@@ -351,13 +351,15 @@ export default function ReportsPage() {
         setTimeout(() => reject(new Error('PDF generation timed out — please try again')), 45_000)
       )
       const { blob, fileName } = await Promise.race([generateReportPDFBlob(buildPdfParams()), timeout])
+      const { isCapacitor } = await import('@/lib/utils/native-share')
       const isMobile = /Android|iPad|iPhone|iPod/i.test(navigator.userAgent)
-      if (isMobile) {
-        // On mobile, show action sheet — programmatic download/open is blocked in PWA
+      if (isCapacitor() || !isMobile) {
+        // Capacitor natif ou desktop : savePDF gère directement Filesystem+Share
+        await savePDF(blob, fileName)
+      } else {
+        // PWA mobile : action sheet pour contourner les restrictions de téléchargement
         const url = URL.createObjectURL(blob)
         setPdfSheet({ blob, url, name: fileName })
-      } else {
-        await savePDF(blob, fileName)
       }
     } catch (err) {
       console.error('[exportPDF]', err)
@@ -731,8 +733,7 @@ export default function ReportsPage() {
               onClick={async () => {
                 setDownloading(true)
                 try {
-                  const { downloadFile } = await import('@/lib/utils/download')
-                  await downloadFile(pdfSheet.blob, pdfSheet.name)
+                  await savePDF(pdfSheet.blob, pdfSheet.name)
                   closePdfSheet()
                 } catch (err: any) {
                   if (err?.name === 'OfflineError') {
