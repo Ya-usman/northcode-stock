@@ -111,7 +111,7 @@ export default function SuppliersPage() {
     return normalize(s.name).includes(q) || normalize(s.city ?? '').includes(q)
   })
 
-  const withTimeout = (p: Promise<any>, ms = 8_000) =>
+  const withTimeout = (p: Promise<any>, ms = 15_000) =>
     Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Connexion trop lente — réessayez.')), ms))])
 
   const onSubmit = async (data: SupplierFormData) => {

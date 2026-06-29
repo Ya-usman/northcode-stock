@@ -153,14 +153,14 @@ export default function NotesPage() {
       if (editing) {
         const { error } = await withTimeout(
           supabase.from('notes').update(payload).eq('id', editing.id),
-          8_000
+          15_000
         )
         if (error) throw new Error(error.message)
         toast({ title: 'Note modifiée', variant: 'success' })
       } else {
         const { error } = await withTimeout(
           supabase.from('notes').insert(payload),
-          8_000
+          15_000
         )
         if (error) throw new Error(error.message)
         toast({ title: 'Note créée', variant: 'success' })

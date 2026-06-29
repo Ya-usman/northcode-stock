@@ -124,7 +124,7 @@ export default function ExpensesPage() {
     getPendingExpenses(shop.id).then(setPendingExpenses)
   }, [shop?.id])
 
-  const withTimeout = useCallback((p: Promise<any>, ms = 8_000) =>
+  const withTimeout = useCallback((p: Promise<any>, ms = 15_000) =>
     Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Connexion trop lente — réessayez.')), ms))]),
   [])
 

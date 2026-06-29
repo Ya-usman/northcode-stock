@@ -139,7 +139,7 @@ export default function TeamPage() {
 
   useEffect(() => { fetchMembers() }, [effectiveShopIds.join(',')])
 
-  const withTimeout = (p: Promise<any>, ms = 8_000) =>
+  const withTimeout = (p: Promise<any>, ms = 15_000) =>
     Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Connexion trop lente — réessayez.')), ms))])
 
   const changeRole = async (member: Member, newRole: UserRole) => {
