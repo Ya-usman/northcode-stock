@@ -31,26 +31,28 @@ export async function GET(request: Request) {
     return (shopMap[p.shop_id]?.country || 'NG') === country
   })
 
-  const headers = ['Date', 'Boutique', 'Ville', 'Pays', 'Devise', 'Plan', 'Montant', 'Statut', 'Référence Paystack', 'Début', 'Expiration']
+  const q = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`
+
+  const headers = ['Date', 'Boutique', 'Ville', 'Pays', 'Devise', 'Plan', 'Montant', 'Statut', 'Référence', 'Début', 'Expiration']
   const csvRows = rows.map((p: any) => {
     const shop = shopMap[p.shop_id] || {}
     const fmt = (d: string) => d ? new Date(d).toLocaleDateString('fr-FR') : ''
     return [
-      fmt(p.created_at),
-      `"${(shop.name || '').replace(/"/g, '""')}"`,
-      `"${(shop.city || '').replace(/"/g, '""')}"`,
-      shop.country || 'NG',
-      shop.currency || '₦',
-      p.plan || '',
-      p.amount || 0,
-      p.status || '',
-      p.paystack_reference || '',
-      fmt(p.starts_at),
-      fmt(p.expires_at),
+      q(fmt(p.created_at)),
+      q(shop.name || ''),
+      q(shop.city || ''),
+      q(shop.country || 'NG'),
+      q(shop.currency || '₦'),
+      q(p.plan || ''),
+      q(p.amount || 0),
+      q(p.status || ''),
+      q(p.paystack_reference || ''),
+      q(fmt(p.starts_at)),
+      q(fmt(p.expires_at)),
     ].join(',')
   })
 
-  const csv = [headers.join(','), ...csvRows].join('\n')
+  const csv = '﻿' + [headers.map(h => `"${h}"`).join(','), ...csvRows].join('\n')
   const date = new Date().toISOString().slice(0, 10)
   return new NextResponse(csv, {
     headers: {

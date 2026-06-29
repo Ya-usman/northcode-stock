@@ -30,6 +30,7 @@ export async function GET(request: Request) {
   for (const s of subs || []) revenueByShop[s.shop_id] = (revenueByShop[s.shop_id] || 0) + Number(s.amount)
 
   const fmt = (d: string | null) => d ? new Date(d).toLocaleDateString('fr-FR') : ''
+  const q = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`
 
   const headers = ['Nom', 'Ville', 'Pays', 'Devise', 'Plan', 'Statut', 'Trial expire', 'Plan expire', 'Revenue total', 'Propriétaire', 'Dernière connexion', 'WhatsApp', 'Créée le']
   const rows = (shops || []).map((s: any) => {
@@ -39,23 +40,23 @@ export async function GET(request: Request) {
     const isSuspended = owner?.is_active === false
     const status = isSuspended ? 'Suspendu' : subscribed ? 'Payant' : trialDays >= 0 ? 'Trial' : 'Expiré'
     return [
-      `"${(s.name || '').replace(/"/g, '""')}"`,
-      `"${(s.city || '').replace(/"/g, '""')}"`,
-      s.country || 'NG',
-      s.currency || '₦',
-      s.plan || '',
-      status,
-      fmt(s.trial_ends_at),
-      fmt(s.plan_expires_at),
-      revenueByShop[s.id] || 0,
-      `"${(owner?.full_name || '').replace(/"/g, '""')}"`,
-      fmt(owner?.last_seen),
-      s.whatsapp || '',
-      fmt(s.created_at),
+      q(s.name || ''),
+      q(s.city || ''),
+      q(s.country || 'NG'),
+      q(s.currency || '₦'),
+      q(s.plan || ''),
+      q(status),
+      q(fmt(s.trial_ends_at)),
+      q(fmt(s.plan_expires_at)),
+      q(revenueByShop[s.id] || 0),
+      q(owner?.full_name || ''),
+      q(fmt(owner?.last_seen)),
+      q(s.whatsapp || ''),
+      q(fmt(s.created_at)),
     ].join(',')
   })
 
-  const csv = [headers.join(','), ...rows].join('\n')
+  const csv = '﻿' + [headers.map(h => `"${h}"`).join(','), ...rows].join('\n')
   const date = new Date().toISOString().slice(0, 10)
   return new NextResponse(csv, {
     headers: {

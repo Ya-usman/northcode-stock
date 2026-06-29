@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { printPDFNative, downloadOrShareCSV, isCapacitor } from '@/lib/utils/native-share'
+import { getCountry } from '@/lib/saas/countries'
 import { normalize } from '@/lib/utils/normalize'
 import { format, startOfDay, endOfDay, subDays, startOfWeek, startOfMonth } from 'date-fns'
 import type { Sale } from '@/lib/types/database'
@@ -251,16 +252,22 @@ export default function SalesHistoryPage() {
   })
 
   const exportCSV = async () => {
+    const pmLabels = Object.fromEntries(
+      getCountry(shop?.country).paymentMethods.map(m => [m.id, m.label])
+    )
+    const translateMethod = (method: string) =>
+      pmLabels[method] ?? (method ? t(`payment.${method}` as any, { defaultValue: method }) : '')
+
     const rows = [
-      [t('sales.sale_number'), t('sales.date'), t('sales.customer'), t('sales.total'), t('payment.amount_paid'), t('payment.balance'), t('payment.method'), t('status.paid'), t('status.active')],
+      [t('sales.sale_number'), t('sales.date'), t('sales.customer'), t('sales.total'), t('payment.amount_paid'), t('payment.balance'), t('sales.col_payment_method'), t('sales.col_payment_status'), t('sales.col_sale_status')],
       ...filtered.map(s => [
         s.sale_number,
         format(new Date(s.created_at), 'dd/MM/yyyy HH:mm'),
         (s as any).customers?.name || t('sales.walk_in'),
         s.total, s.amount_paid, s.balance,
-        s.payment_method,
-        s.payment_status ? t(`status.${s.payment_status}`) : s.payment_status,
-        s.sale_status ? t(`status.${s.sale_status}`) : (s.sale_status || t('status.active')),
+        translateMethod(s.payment_method),
+        s.payment_status ? t(`status.${s.payment_status}` as any, { defaultValue: s.payment_status }) : '',
+        s.sale_status ? t(`status.${s.sale_status}` as any, { defaultValue: s.sale_status }) : t('status.active'),
       ]),
     ]
     const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
