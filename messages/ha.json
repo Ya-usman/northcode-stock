@@ -105,6 +105,9 @@
     "export_pdf": "Fitar da PDF",
     "download_pdf": "Saukar da PDF",
     "export_csv": "Fitar da CSV",
+    "csv_sales": "sayarwa",
+    "csv_expenses": "kashe-kashe",
+    "csv_stock": "kaya",
     "save": "Ajiye",
     "saving": "Ana ajiyewa…",
     "cancel": "Soke",
@@ -143,6 +146,7 @@
     "pending": "Yana jira",
     "partial": "An Biya Wani ɓangare",
     "active": "Mai aiki",
+    "cancelled": "An soke",
     "inactive": "Ba mai aiki",
     "all": "Dukkan"
   },
@@ -1009,6 +1013,7 @@
     "pdf_grand_total": "JIMILLAR DUKA",
     "pdf_generated_by": "An kirkiro ta StockShop",
     "pdf_page": "Shafi",
-    "pdf_of": "daga"
+    "pdf_of": "daga",
+    "csv_filename_prefix": "kashe-kashe"
   }
 }

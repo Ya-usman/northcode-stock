@@ -105,6 +105,9 @@
     "export_pdf": "Exporter en PDF",
     "download_pdf": "Télécharger le PDF",
     "export_csv": "Exporter en CSV",
+    "csv_sales": "ventes",
+    "csv_expenses": "depenses",
+    "csv_stock": "stock",
     "save": "Enregistrer",
     "saving": "Enregistrement…",
     "cancel": "Annuler",
@@ -143,6 +146,7 @@
     "pending": "En attente",
     "partial": "Partiel",
     "active": "Actif",
+    "cancelled": "Annulé",
     "inactive": "Inactif",
     "all": "Tous"
   },
@@ -1010,6 +1014,7 @@
     "pdf_grand_total": "TOTAL GENERAL",
     "pdf_generated_by": "Genere par StockShop",
     "pdf_page": "Page",
-    "pdf_of": "sur"
+    "pdf_of": "sur",
+    "csv_filename_prefix": "depenses"
   }
 }

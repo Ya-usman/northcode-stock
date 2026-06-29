@@ -538,7 +538,7 @@ export default function ExpensesPage() {
     rows.push(['', '', '', t('pdf_grand_total'), String(total)])
     const csv = [header, ...rows].map(r => r.join(';')).join('\n')
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
-    const filename = `Depenses-${shop?.name.replace(/\s+/g, '-')}-${monthFilter}.csv`
+    const filename = `${t('csv_filename_prefix')}-${shop?.name.replace(/\s+/g, '-')}-${monthFilter}.csv`
     try {
       const { downloadFile } = await import('@/lib/utils/download')
       await downloadFile(blob, filename)

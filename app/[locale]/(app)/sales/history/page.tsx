@@ -258,12 +258,13 @@ export default function SalesHistoryPage() {
         format(new Date(s.created_at), 'dd/MM/yyyy HH:mm'),
         (s as any).customers?.name || t('sales.walk_in'),
         s.total, s.amount_paid, s.balance,
-        s.payment_method, s.payment_status,
-        s.sale_status || 'active',
+        s.payment_method,
+        s.payment_status ? t(`status.${s.payment_status}`) : s.payment_status,
+        s.sale_status ? t(`status.${s.sale_status}`) : (s.sale_status || t('status.active')),
       ]),
     ]
     const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
-    await downloadOrShareCSV(csv, `ventes-${dateFilter}-${Date.now()}.csv`)
+    await downloadOrShareCSV(csv, `${t('actions.csv_sales')}-${dateFilter}-${Date.now()}.csv`)
   }
 
   const exportPDF = async () => {

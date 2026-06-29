@@ -28,6 +28,7 @@ import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-
 
 import { savePendingMovement, updateCachedProductQuantity } from '@/lib/offline/db'
 import { registerBackgroundSync } from '@/lib/offline/sync'
+import { downloadOrShareCSV } from '@/lib/utils/native-share'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 
 
@@ -340,21 +341,29 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     }
   }
 
-  const exportCSV = () => {
+  const exportCSV = async () => {
     const rows = [
-      ['Name', 'Hausa Name', 'Category', 'Buying Price', 'Selling Price', 'Quantity', 'Unit', 'Status'],
+      [
+        t('products.name'), t('products.name_hausa'), t('products.category'),
+        t('products.buying_price'), t('products.selling_price'),
+        t('products.quantity'), t('products.unit'), t('products.pdf_col_status'),
+      ],
       ...filtered.map(p => {
         const threshold = p.low_stock_threshold || shop?.low_stock_threshold || 10
-        const status = p.quantity === 0 ? 'Out of Stock' : p.quantity <= threshold ? 'Low Stock' : 'In Stock'
-        return [p.name, p.name_hausa || '', (p as any).categories?.name || '', p.buying_price, p.selling_price, p.quantity, p.unit, status]
+        const status = p.quantity === 0
+          ? t('status.out_of_stock')
+          : p.quantity <= threshold ? t('status.low_stock') : t('status.in_stock')
+        return [
+          `"${(p.name || '').replace(/"/g, '""')}"`,
+          `"${(p.name_hausa || '').replace(/"/g, '""')}"`,
+          `"${((p as any).categories?.name || '').replace(/"/g, '""')}"`,
+          p.buying_price, p.selling_price, p.quantity, p.unit,
+          `"${status}"`,
+        ]
       })
     ]
     const csv = rows.map(r => r.join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `stock-${Date.now()}.csv`
-    a.click()
+    await downloadOrShareCSV(csv, `${t('actions.csv_stock')}-${shop?.name?.replace(/\s+/g, '-') || 'export'}-${Date.now()}.csv`)
   }
 
   const catInputRef = useRef<HTMLInputElement>(null)
