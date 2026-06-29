@@ -20,7 +20,6 @@ import { triggerSaleFeedback, unlockAudio } from '@/lib/utils/sale-feedback'
 import { useOfflinePreload } from '@/lib/offline/use-offline-preload'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useOfflineRoutes } from '@/lib/offline/use-offline-routes'
-import { SyncBanner } from './sync-banner'
 import { CacheBanner } from './cache-banner'
 
 const supabase = createClient()
@@ -105,7 +104,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
 
   // ── OFFLINE: preload data + auto-sync pending sales ───────────────────────
   useOfflinePreload()
-  const { pendingCount, syncing, sync } = useOffline()
+  const { pendingCount } = useOffline()
   const { isOffline, cacheAgeMs } = useOfflineRoutes()
 
   const handleSignOut = async () => {
@@ -254,7 +253,6 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         )}
 
         <main className="flex-1 p-4 sm:p-6 pb-24 sm:pb-6 overflow-x-hidden">
-          <SyncBanner pendingCount={pendingCount} syncing={syncing} onSync={sync} />
           <CacheBanner ageMs={cacheAgeMs} isOnline={!isOffline} />
           {children}
         </main>
