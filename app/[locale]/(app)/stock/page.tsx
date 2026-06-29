@@ -152,8 +152,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     .filter(p => {
       if (search) {
         const q = normalize(search)
-        if (!normalize(p.name).includes(q) &&
-          !normalize(p.name_hausa ?? '').includes(q)) return false
+        if (!normalize(p.name).includes(q)) return false
       }
       if (categoryFilter !== 'all' && p.category_id !== categoryFilter) return false
       const threshold = p.low_stock_threshold || shop?.low_stock_threshold || 10
@@ -173,7 +172,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         body: JSON.stringify({
           shop_id: shop.id,
           name: data.name,
-          name_hausa: data.name_hausa || null,
           category_id: data.category_id || null,
           supplier_id: data.supplier_id || null,
           buying_price: data.buying_price ?? 0,
@@ -222,7 +220,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           id: editingProduct.id,
           shop_id: editingProduct.shop_id,
           name: data.name,
-          name_hausa: data.name_hausa || null,
           category_id: data.category_id || null,
           supplier_id: data.supplier_id || null,
           buying_price: data.buying_price ?? 0,
@@ -344,7 +341,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const exportCSV = async () => {
     const rows = [
       [
-        t('products.name'), t('products.name_hausa'), t('products.category'),
+        t('products.name'), t('products.category'),
         t('products.buying_price'), t('products.selling_price'),
         t('products.quantity'), t('products.unit'), t('products.pdf_col_status'),
       ],
@@ -355,7 +352,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           : p.quantity <= threshold ? t('status.low_stock') : t('status.in_stock')
         return [
           `"${(p.name || '').replace(/"/g, '""')}"`,
-          `"${(p.name_hausa || '').replace(/"/g, '""')}"`,
           `"${((p as any).categories?.name || '').replace(/"/g, '""')}"`,
           p.buying_price, p.selling_price, p.quantity, p.unit,
           `"${status}"`,
@@ -487,9 +483,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             )}
             <div className="min-w-0 flex-1">
               <p className="font-medium text-sm truncate">{product.name}</p>
-              {product.name_hausa && (
-                <p className="text-xs text-muted-foreground truncate">{product.name_hausa}</p>
-              )}
               {product.sku && (
                 <p className="text-[10px] font-mono text-muted-foreground truncate">{product.sku}</p>
               )}
@@ -715,7 +708,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 <div key={product.id} className="flex items-center justify-between gap-2 rounded-lg bg-muted/40 border px-3 py-2">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-muted-foreground truncate">{product.name}</p>
-                    {product.name_hausa && <p className="text-xs text-muted-foreground/60 truncate">{product.name_hausa}</p>}
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <Button
@@ -828,7 +820,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       <PremiumDialog open={!!editingProduct} onOpenChange={open => !open && setEditingProduct(null)} category={t('nav.stock')} title={t('products.edit_title')} icon={<Edit2 className="h-4 w-4" />} maxWidth="max-w-lg">
         {editingProduct && (
           <ProductForm key={editingProduct.id} {...productFormProps} isEdit
-            defaultValues={{ name: editingProduct.name, name_hausa: editingProduct.name_hausa || '', category_id: editingProduct.category_id || '', supplier_id: editingProduct.supplier_id || '', buying_price: editingProduct.buying_price, selling_price: editingProduct.selling_price, quantity: editingProduct.quantity, unit: editingProduct.unit, low_stock_threshold: editingProduct.low_stock_threshold || undefined, sku: editingProduct.sku || '', image_url: editingProduct.image_url || '' }}
+            defaultValues={{ name: editingProduct.name, category_id: editingProduct.category_id || '', supplier_id: editingProduct.supplier_id || '', buying_price: editingProduct.buying_price, selling_price: editingProduct.selling_price, quantity: editingProduct.quantity, unit: editingProduct.unit, low_stock_threshold: editingProduct.low_stock_threshold || undefined, sku: editingProduct.sku || '', image_url: editingProduct.image_url || '' }}
             onSubmit={onEditProduct} onCancel={() => setEditingProduct(null)}
           />
         )}

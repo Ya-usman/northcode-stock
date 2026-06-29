@@ -185,7 +185,6 @@
   "products": {
     "title": "Stock",
     "name": "Product Name",
-    "name_hausa": "Hausa Name",
     "sku": "SKU / Barcode",
     "category": "Category",
     "supplier": "Supplier",
@@ -1016,5 +1015,34 @@
     "pdf_page": "Page",
     "pdf_of": "of",
     "csv_filename_prefix": "expenses"
+  },
+  "import": {
+    "title": "Import Products",
+    "step1_title": "1 · Download the CSV template",
+    "step1_desc": "Fill it in Excel or Google Sheets, then save as CSV.",
+    "step1_required": "* = required field",
+    "download_template": "Download template",
+    "step2_title": "2 · Upload your CSV file",
+    "drop_hint": "Click to choose a .csv file",
+    "rows_detected": "{count} row(s) detected",
+    "preview_title": "Preview",
+    "preview_more": "+ {count} more…",
+    "importing": "Importing…",
+    "import_btn": "Import {count} product(s)",
+    "close": "Close",
+    "success": "{count} product(s) imported successfully",
+    "errors_title": "{count} row(s) skipped",
+    "line_error": "Row {line}: {error}",
+    "template_filename": "products-template.csv",
+    "col_name": "Product Name *",
+    "col_selling_price": "Selling Price *",
+    "col_buying_price": "Buying Price",
+    "col_quantity": "Quantity",
+    "col_unit": "Unit (piece, kg, litre…)",
+    "col_sku": "SKU / Barcode",
+    "col_threshold": "Low Stock Threshold",
+    "ex_name1": "Coca Cola 50cl",
+    "ex_name2": "Sugar 1kg",
+    "ex_name3": "Vegetable Oil 1L"
   }
 }

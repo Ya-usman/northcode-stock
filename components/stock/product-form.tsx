@@ -62,7 +62,6 @@ export function ProductForm({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
-      name_hausa: '',
       unit: 'piece',
       category_id: '',
       supplier_id: '',

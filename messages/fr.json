@@ -185,7 +185,6 @@
   "products": {
     "title": "Stock",
     "name": "Nom du produit",
-    "name_hausa": "Nom en haoussa",
     "sku": "SKU / Code-barres",
     "category": "Catégorie",
     "supplier": "Fournisseur",
@@ -1016,5 +1015,34 @@
     "pdf_page": "Page",
     "pdf_of": "sur",
     "csv_filename_prefix": "depenses"
+  },
+  "import": {
+    "title": "Importer des produits",
+    "step1_title": "1 · Télécharger le modèle CSV",
+    "step1_desc": "Remplissez le fichier dans Excel ou Google Sheets, puis enregistrez-le en CSV.",
+    "step1_required": "* = champ obligatoire",
+    "download_template": "Télécharger le modèle",
+    "step2_title": "2 · Charger votre fichier CSV",
+    "drop_hint": "Cliquer pour choisir un fichier .csv",
+    "rows_detected": "{count} ligne(s) détectée(s)",
+    "preview_title": "Aperçu",
+    "preview_more": "+ {count} autres…",
+    "importing": "Import en cours…",
+    "import_btn": "Importer {count} produit(s)",
+    "close": "Fermer",
+    "success": "{count} produit(s) importé(s) avec succès",
+    "errors_title": "{count} ligne(s) ignorée(s)",
+    "line_error": "Ligne {line} : {error}",
+    "template_filename": "modele-produits.csv",
+    "col_name": "Nom du produit *",
+    "col_selling_price": "Prix de vente *",
+    "col_buying_price": "Prix d'achat",
+    "col_quantity": "Quantité",
+    "col_unit": "Unité (piece, kg, litre…)",
+    "col_sku": "SKU / Code-barres",
+    "col_threshold": "Seuil stock faible",
+    "ex_name1": "Coca Cola 50cl",
+    "ex_name2": "Sucre 1kg",
+    "ex_name3": "Huile Végétale 1L"
   }
 }

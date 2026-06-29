@@ -184,7 +184,6 @@
   "products": {
     "title": "Kaya",
     "name": "Sunan Kaya",
-    "name_hausa": "Sunan Hausa",
     "sku": "SKU / Lambar Barcode",
     "category": "Nau'i",
     "supplier": "Mai Samar",
@@ -1015,5 +1014,34 @@
     "pdf_page": "Shafi",
     "pdf_of": "daga",
     "csv_filename_prefix": "kashe-kashe"
+  },
+  "import": {
+    "title": "Shigo da Kayayyaki",
+    "step1_title": "1 · Saukar da samfurin CSV",
+    "step1_desc": "Cika shi a Excel ko Google Sheets, sannan adana a matsayin CSV.",
+    "step1_required": "* = filin da ake bukata",
+    "download_template": "Saukar da samfuri",
+    "step2_title": "2 · Loda fayil ɗin CSV",
+    "drop_hint": "Danna don zaɓar fayil .csv",
+    "rows_detected": "An gano layuka {count}",
+    "preview_title": "Duba",
+    "preview_more": "+ {count} ƙari…",
+    "importing": "Ana shigowa…",
+    "import_btn": "Shigo da kaya {count}",
+    "close": "Rufe",
+    "success": "An shigo da kaya {count} cikin nasara",
+    "errors_title": "An tsallake layuka {count}",
+    "line_error": "Layi {line}: {error}",
+    "template_filename": "samfurin-kaya.csv",
+    "col_name": "Suna *",
+    "col_selling_price": "Farashin Siyarwa *",
+    "col_buying_price": "Farashin Saya",
+    "col_quantity": "Yawa",
+    "col_unit": "Naúi (piece, kg, litre…)",
+    "col_sku": "Lambar Kaya",
+    "col_threshold": "Ƙananan Hannun Kaya",
+    "ex_name1": "Coca Cola 50cl",
+    "ex_name2": "Sukari 1kg",
+    "ex_name3": "Man Ci 1L"
   }
 }

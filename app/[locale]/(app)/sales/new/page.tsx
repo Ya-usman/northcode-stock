@@ -183,7 +183,6 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       const q = normalize(searchQuery)
       list = list.filter(p =>
         normalize(p.name).includes(q) ||
-        normalize(p.name_hausa ?? '').includes(q) ||
         normalize(p.sku ?? '').includes(q)
       )
     }
@@ -928,7 +927,6 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                     )}
                     <p className="text-sm font-medium truncate flex-1 text-foreground">{product.name}</p>
                   </div>
-                  {product.name_hausa && <p className="text-xs text-muted-foreground truncate w-full">{product.name_hausa}</p>}
                   {product.sku && <p className="text-[10px] text-muted-foreground font-mono">{product.sku}</p>}
                   <div className="flex items-center justify-between w-full mt-1">
                     <span className="text-sm font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(product.selling_price)}</span>
