@@ -731,8 +731,11 @@ export async function savePDF(blob: Blob, fileName: string): Promise<void> {
       reader.onerror = reject
       reader.readAsDataURL(blob)
     })
-    const result = await Filesystem.writeFile({ path: fileName, data: base64, directory: Directory.Cache })
-    await Share.share({ title: fileName, url: result.uri, dialogTitle: fileName })
+    // Les slashes dans le nom (ex: dates "01/06-30/06") sont interprétés
+    // comme des sous-répertoires par Filesystem → on les remplace par des tirets.
+    const safeName = fileName.replace(/[/\\:*?"<>|]/g, '-')
+    const result = await Filesystem.writeFile({ path: safeName, data: base64, directory: Directory.Cache })
+    await Share.share({ title: safeName, url: result.uri, dialogTitle: safeName })
     return
   }
 

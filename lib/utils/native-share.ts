@@ -34,9 +34,10 @@ export async function sharePDFNative(blob: Blob, fileName: string, title: string
 
     const base64 = await blobToBase64(blob)
 
-    // Write to cache directory
+    // Sanitize: / and special chars → dash (Filesystem treats / as directory separator)
+    const safeName = fileName.replace(/[/\\:*?"<>|]/g, '-')
     const writeResult = await Filesystem.writeFile({
-      path: fileName,
+      path: safeName,
       data: base64,
       directory: Directory.Cache,
     })
@@ -95,12 +96,13 @@ export async function downloadOrShareCSV(csvContent: string, fileName: string): 
     const { Filesystem, Directory } = await import('@capacitor/filesystem')
     const { Share } = await import('@capacitor/share')
     const base64 = await blobToBase64(blob)
+    const safeName = fileName.replace(/[/\\:*?"<>|]/g, '-')
     const result = await Filesystem.writeFile({
-      path: fileName,
+      path: safeName,
       data: base64,
       directory: Directory.Cache,
     })
-    await Share.share({ title: fileName, url: result.uri, dialogTitle: fileName })
+    await Share.share({ title: safeName, url: result.uri, dialogTitle: safeName })
     return
   }
 
