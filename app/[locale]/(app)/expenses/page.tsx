@@ -22,6 +22,7 @@ import { savePendingExpense, getPendingExpenses, type PendingExpense } from '@/l
 
 import { cn } from '@/lib/utils/cn'
 import { generateExpensesReportPDF } from '@/lib/utils/pdf'
+import { downloadOrShareCSV } from '@/lib/utils/native-share'
 
 const supabase = createClient() as any
 
@@ -537,17 +538,11 @@ export default function ExpensesPage() {
     ])
     rows.push(['', '', '', t('pdf_grand_total'), String(total)])
     const csv = [header, ...rows].map(r => r.join(';')).join('\n')
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
     const filename = `${t('csv_filename_prefix')}-${shop?.name.replace(/\s+/g, '-')}-${monthFilter}.csv`
     try {
-      const { downloadFile } = await import('@/lib/utils/download')
-      await downloadFile(blob, filename)
+      await downloadOrShareCSV(csv, filename)
     } catch (err: any) {
-      if (err?.name === 'OfflineError') {
-        toast({ title: 'Pas de connexion', description: 'Connectez-vous pour télécharger.', variant: 'destructive' })
-      } else {
-        toast({ title: 'Erreur de téléchargement', variant: 'destructive' })
-      }
+      toast({ title: 'Erreur de téléchargement', variant: 'destructive' })
     }
   }
 
