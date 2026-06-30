@@ -27,7 +27,7 @@ const PUBLIC_PATHS = ['/', '/login', '/register', '/forgot-password', '/reset-pa
 // NOTE: /expenses n'est PAS ici — son accès est contrôlé dynamiquement par
 // role_permissions (configurable par l'owner dans Paramètres), pas codé en dur.
 const ROLE_ACCESS: Record<string, string[]> = {
-  '/team':     ['owner', 'manager', 'super_admin'],
+  '/team':     ['owner', 'manager', 'shop_manager', 'super_admin'],
   '/settings': ['owner', 'manager', 'super_admin'],
   '/billing':  ['owner', 'super_admin'],
   '/shops':    ['owner', 'super_admin'],

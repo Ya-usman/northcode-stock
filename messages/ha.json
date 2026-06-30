@@ -179,6 +179,8 @@
   },
   "roles": {
     "owner": "Maigida",
+    "shop_manager": "Manager",
+    "manager": "Wakilin Shago",
     "cashier": "Mai Sayarwa",
     "stock_manager": "Mai Kaya",
     "viewer": "Mai Kallo"

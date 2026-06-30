@@ -85,6 +85,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   ]
 
   const ROLE_LABELS: Record<ConfigurableRole, string> = {
+    shop_manager:  t('roles.shop_manager'),
     manager:       t('roles.manager'),
     cashier:       t('settings.role_cashier'),
     viewer:        t('settings.role_viewer'),
@@ -116,6 +117,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       const stored = (shopData as any).role_permissions as Partial<AllPerms> | null
       if (stored) {
         setPermissions({
+          shop_manager:  { ...DEFAULT_PERMISSIONS.shop_manager,  ...(stored.shop_manager  ?? {}) },
           manager:       { ...DEFAULT_PERMISSIONS.manager,       ...(stored.manager       ?? {}) },
           cashier:       { ...DEFAULT_PERMISSIONS.cashier,       ...(stored.cashier       ?? {}) },
           viewer:        { ...DEFAULT_PERMISSIONS.viewer,        ...(stored.viewer        ?? {}) },
@@ -597,7 +599,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
           <CardContent className="space-y-4">
             {/* Role tabs */}
             <div className="flex gap-2 flex-wrap">
-              {(['manager', 'cashier', 'viewer', 'stock_manager'] as ConfigurableRole[]).map(r => (
+              {(['shop_manager', 'manager', 'cashier', 'viewer', 'stock_manager'] as ConfigurableRole[]).map(r => (
                 <button
                   key={r}
                   onClick={() => setActivePermRole(r)}

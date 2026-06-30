@@ -179,6 +179,7 @@
   },
   "roles": {
     "owner": "Propriétaire",
+    "shop_manager": "Manager",
     "manager": "Responsable",
     "cashier": "Caissier",
     "stock_manager": "Gestionnaire de stock",

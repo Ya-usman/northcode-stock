@@ -28,6 +28,7 @@ const supabase = createClient() as any
 
 const ROLE_COLORS: Record<string, string> = {
   owner:         'bg-stockshop-blue dark:bg-blue-500 text-white',
+  shop_manager:  'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300',
   manager:       'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300',
   cashier:       'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
   stock_manager: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
@@ -37,6 +38,7 @@ const ROLE_COLORS: Record<string, string> = {
 
 const ROLE_AVATAR_COLORS: Record<string, string> = {
   owner:         'bg-blue-600 dark:bg-blue-500',
+  shop_manager:  'bg-indigo-600 dark:bg-indigo-500',
   manager:       'bg-violet-600 dark:bg-violet-500',
   cashier:       'bg-green-600 dark:bg-green-500',
   stock_manager: 'bg-amber-600 dark:bg-amber-500',
@@ -445,6 +447,7 @@ export default function TeamPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="shop_manager">{t('roles.shop_manager')}</SelectItem>
                 <SelectItem value="manager">{t('roles.manager')}</SelectItem>
                 <SelectItem value="cashier">{t('roles.cashier')}</SelectItem>
                 <SelectItem value="stock_manager">{t('roles.stock_manager')}</SelectItem>
@@ -681,6 +684,7 @@ export default function TeamPage() {
             <Select value={inviteRole} onValueChange={v => setInviteRole(v as UserRole)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
+                <SelectItem value="shop_manager">{t('roles.shop_manager')}</SelectItem>
                 <SelectItem value="manager">{t('roles.manager')}</SelectItem>
                 <SelectItem value="cashier">{t('roles.cashier')}</SelectItem>
                 <SelectItem value="stock_manager">{t('roles.stock_manager')}</SelectItem>

@@ -5,12 +5,27 @@ export type PermFeature =
   | 'stock' | 'movements' | 'categories' | 'suppliers' | 'reports'
   | 'revenue_chart' | 'notes' | 'expenses' | 'delete_products'
 
-export type ConfigurableRole = 'manager' | 'cashier' | 'viewer' | 'stock_manager'
+export type ConfigurableRole = 'manager' | 'shop_manager' | 'cashier' | 'viewer' | 'stock_manager'
 
 export type RolePerms = Record<PermFeature, boolean>
 export type AllPerms = Record<ConfigurableRole, RolePerms>
 
 export const DEFAULT_PERMISSIONS: AllPerms = {
+  shop_manager: {
+    new_sale: true,
+    sales_history: true,
+    payments: true,
+    customers: true,
+    stock: true,
+    movements: true,
+    categories: true,
+    suppliers: true,
+    reports: true,
+    revenue_chart: false,
+    notes: true,
+    expenses: true,
+    delete_products: false,
+  },
   manager: {
     new_sale: true,
     sales_history: true,
@@ -90,6 +105,7 @@ export function useRolePermissions() {
 
   // Merged permissions (defaults + stored overrides) for all configurable roles
   const permissions: AllPerms = {
+    shop_manager:  { ...DEFAULT_PERMISSIONS.shop_manager,  ...(stored?.shop_manager  ?? {}) },
     manager:       { ...DEFAULT_PERMISSIONS.manager,       ...(stored?.manager       ?? {}) },
     cashier:       { ...DEFAULT_PERMISSIONS.cashier,       ...(stored?.cashier       ?? {}) },
     viewer:        { ...DEFAULT_PERMISSIONS.viewer,        ...(stored?.viewer        ?? {}) },

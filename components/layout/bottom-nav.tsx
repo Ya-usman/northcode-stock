@@ -24,7 +24,7 @@ interface BottomNavProps {
   userEmail?: string
 }
 
-const ALL_NON_OWNER = ['super_admin', 'owner', 'manager', 'cashier', 'viewer', 'stock_manager']
+const ALL_NON_OWNER = ['super_admin', 'owner', 'manager', 'shop_manager', 'cashier', 'viewer', 'stock_manager']
 
 export function BottomNav({ locale, role, onSignOut, userEmail = '' }: BottomNavProps) {
   const t = useTranslations('nav')
@@ -34,7 +34,7 @@ export function BottomNav({ locale, role, onSignOut, userEmail = '' }: BottomNav
   const { isOffline, isAvailable } = useOfflineRoutes()
 
   const allItems = [
-    { href: `/${locale}/dashboard`,       icon: LayoutDashboard, label: t('dashboard'),    roles: ['super_admin', 'owner', 'manager', 'viewer', 'cashier', 'stock_manager'], primary: true },
+    { href: `/${locale}/dashboard`,       icon: LayoutDashboard, label: t('dashboard'),    roles: ['super_admin', 'owner', 'manager', 'shop_manager', 'viewer', 'cashier', 'stock_manager'], primary: true },
     { href: `/${locale}/sales/new`,       icon: ShoppingCart,    label: t('new_sale'),      roles: ALL_NON_OWNER, feature: 'new_sale' as PermFeature,       primary: true },
     { href: `/${locale}/stock`,           icon: Package,         label: t('stock'),         roles: ALL_NON_OWNER, feature: 'stock' as PermFeature,           primary: true },
     { href: `/${locale}/reports`,         icon: BarChart2,       label: t('reports'),       roles: ALL_NON_OWNER, feature: 'reports' as PermFeature,         primary: true },
@@ -46,7 +46,7 @@ export function BottomNav({ locale, role, onSignOut, userEmail = '' }: BottomNav
     { href: `/${locale}/suppliers`,       icon: Truck,           label: t('suppliers'),     roles: ALL_NON_OWNER, feature: 'suppliers' as PermFeature,       primary: false },
     { href: `/${locale}/notes`,    icon: NotebookPen, label: t('notes'),    roles: ALL_NON_OWNER, feature: 'notes' as PermFeature,    primary: false },
     { href: `/${locale}/expenses`, icon: Receipt,     label: t('expenses'), roles: ALL_NON_OWNER, feature: 'expenses' as PermFeature, primary: false },
-    { href: `/${locale}/team`,            icon: Users,           label: t('team'),          roles: ['owner', 'manager'],                                     primary: false },
+    { href: `/${locale}/team`,            icon: Users,           label: t('team'),          roles: ['owner', 'manager', 'shop_manager'],                  primary: false },
     { href: `/${locale}/shops`,           icon: Store,           label: t('shops'),         roles: ['owner'],                                                primary: false },
     { href: `/${locale}/billing`,         icon: Zap,             label: t('billing'),       roles: ['owner'],                                                primary: false },
     { href: `/${locale}/settings`,        icon: Settings,        label: t('settings'),      roles: ['owner', 'manager'],                                     primary: false },
