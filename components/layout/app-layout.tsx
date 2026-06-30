@@ -15,6 +15,7 @@ import { TrialBanner } from '@/components/saas/trial-banner'
 import { UpgradeWall } from '@/components/saas/upgrade-wall'
 import { PlanLimitAlert } from '@/components/saas/plan-limit-alert'
 import { GracePeriodBanner } from '@/components/saas/grace-period-banner'
+import { WhatsNewModal, type Announcement } from '@/components/saas/whats-new-modal'
 import { getTrialDaysLeft, hasActiveSubscription, isAccessAllowed, getGraceDaysLeft, isBetaPeriod } from '@/lib/saas/plans'
 import { useToast } from '@/components/ui/use-toast'
 import { triggerSaleFeedback, unlockAudio } from '@/lib/utils/sale-feedback'
@@ -75,6 +76,8 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   const [productCount, setProductCount] = useState(0)
   const [teamCount, setTeamCount] = useState(0)
   const [authRecovering, setAuthRecovering] = useState(true)
+  const [announcements, setAnnouncements] = useState<Announcement[]>([])
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false)
   const recoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { toast } = useToast()
 
@@ -103,6 +106,35 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
       if (recoveryTimerRef.current) clearTimeout(recoveryTimerRef.current)
     }
   }, [loading, user])
+
+  // ── ANNOUNCEMENTS: fetch & show modal if unread ──────────────────────────
+  useEffect(() => {
+    if (!profile?.id) return
+    supabase
+      .from('announcements' as any)
+      .select('*')
+      .eq('is_active', true)
+      .order('published_at', { ascending: false })
+      .limit(10)
+      .then(({ data }: { data: any }) => {
+        if (!data?.length) return
+        setAnnouncements(data as Announcement[])
+        const lastSeen = profile.last_seen_announcement_at
+          ? new Date(profile.last_seen_announcement_at)
+          : null
+        const latestAt = new Date((data[0] as Announcement).published_at)
+        if (!lastSeen || latestAt > lastSeen) setWhatsNewOpen(true)
+      })
+  }, [profile?.id])
+
+  const handleCloseWhatsNew = async () => {
+    setWhatsNewOpen(false)
+    if (!profile?.id) return
+    await (supabase
+      .from('profiles') as any)
+      .update({ last_seen_announcement_at: new Date().toISOString() })
+      .eq('id', profile.id)
+  }
 
   // ── OFFLINE: preload data + auto-sync pending sales ───────────────────────
   useOfflinePreload()
@@ -238,6 +270,8 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
     )
   }
 
+  const hasUnreadAnnouncement = announcements.length > 0 && whatsNewOpen
+
   const trialDaysLeft  = getTrialDaysLeft(shop?.trial_ends_at ?? null)
   const graceDaysLeft  = getGraceDaysLeft(shop?.plan ?? null, shop?.plan_expires_at ?? null)
   const subscribed     = hasActiveSubscription(shop?.plan ?? null, shop?.plan_expires_at ?? null)
@@ -255,7 +289,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         <UpgradeWall locale={locale} shopName={shop?.name} />
       )}
 
-      <Sidebar locale={locale} role={roleInActiveShop ?? profile.role} profile={profile} shop={shop} onSignOut={handleSignOut} userEmail={user.email ?? ''} />
+      <Sidebar locale={locale} role={roleInActiveShop ?? profile.role} profile={profile} shop={shop} onSignOut={handleSignOut} userEmail={user.email ?? ''} hasUnreadAnnouncement={hasUnreadAnnouncement} onOpenWhatsNew={() => setWhatsNewOpen(true)} />
 
       <div className="sm:pl-64 flex flex-col min-h-screen">
         {showTrialBanner && <TrialBanner daysLeft={trialDaysLeft} locale={locale} />}
@@ -278,7 +312,11 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         </main>
       </div>
 
-      <BottomNav locale={locale} role={roleInActiveShop ?? profile.role} onSignOut={handleSignOut} userEmail={user.email ?? ''} />
+      <BottomNav locale={locale} role={roleInActiveShop ?? profile.role} onSignOut={handleSignOut} userEmail={user.email ?? ''} hasUnreadAnnouncement={hasUnreadAnnouncement} />
+
+      {whatsNewOpen && announcements.length > 0 && (
+        <WhatsNewModal announcements={announcements} onClose={handleCloseWhatsNew} />
+      )}
     </div>
   )
 }

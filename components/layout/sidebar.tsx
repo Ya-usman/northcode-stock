@@ -26,11 +26,13 @@ interface SidebarProps {
   shop: Shop | null
   onSignOut: () => void
   userEmail?: string
+  hasUnreadAnnouncement?: boolean
+  onOpenWhatsNew?: () => void
 }
 
 const ALL_NON_OWNER = ['owner', 'super_admin', 'manager', 'shop_manager', 'cashier', 'viewer', 'stock_manager']
 
-export function Sidebar({ locale, role, profile, shop, onSignOut, userEmail = '' }: SidebarProps) {
+export function Sidebar({ locale, role, profile, shop, onSignOut, userEmail = '', hasUnreadAnnouncement = false, onOpenWhatsNew }: SidebarProps) {
   const t = useTranslations('nav')
   const pathname = usePathname()
   const { userShops, switchShop, dashboardShopFilter, setDashboardShopFilter } = useAuthContext()
@@ -187,11 +189,14 @@ export function Sidebar({ locale, role, profile, shop, onSignOut, userEmail = ''
               {visibleItems.map(item => {
                 const Icon = item.icon
                 const isActive = pathname.startsWith(item.href)
+                const isHelp = item.href.endsWith('/help')
+                const showBadge = isHelp && hasUnreadAnnouncement
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
                     prefetch={true}
+                    onClick={isHelp && onOpenWhatsNew ? (e) => { e.preventDefault(); onOpenWhatsNew() } : undefined}
                     className={cn(
                       'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors tap-target',
                       isActive
@@ -199,9 +204,17 @@ export function Sidebar({ locale, role, profile, shop, onSignOut, userEmail = ''
                         : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                     )}
                   >
-                    <Icon className="h-4 w-4 flex-shrink-0" />
+                    <div className="relative flex-shrink-0">
+                      <Icon className="h-4 w-4" />
+                      {showBadge && (
+                        <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-500 ring-1 ring-card" />
+                      )}
+                    </div>
                     {item.label}
-                    {isActive && <ChevronRight className="ml-auto h-3 w-3" />}
+                    {showBadge && !isActive && (
+                      <span className="ml-auto text-[10px] font-semibold text-red-500">Nouveau</span>
+                    )}
+                    {isActive && !showBadge && <ChevronRight className="ml-auto h-3 w-3" />}
                   </Link>
                 )
               })}

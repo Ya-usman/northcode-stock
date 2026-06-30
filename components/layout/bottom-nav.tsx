@@ -22,11 +22,12 @@ interface BottomNavProps {
   role: UserRole
   onSignOut?: () => void
   userEmail?: string
+  hasUnreadAnnouncement?: boolean
 }
 
 const ALL_NON_OWNER = ['super_admin', 'owner', 'manager', 'shop_manager', 'cashier', 'viewer', 'stock_manager']
 
-export function BottomNav({ locale, role, onSignOut, userEmail = '' }: BottomNavProps) {
+export function BottomNav({ locale, role, onSignOut, userEmail = '', hasUnreadAnnouncement = false }: BottomNavProps) {
   const t = useTranslations('nav')
   const pathname = usePathname()
   const [moreOpen, setMoreOpen] = useState(false)
@@ -121,6 +122,8 @@ export function BottomNav({ locale, role, onSignOut, userEmail = '' }: BottomNav
                   const Icon = item.icon
                   const isActive = pathname.startsWith(item.href)
                   const available = isAvailable(item.href)
+                  const isHelp = item.href.endsWith('/help')
+                  const showBadge = isHelp && hasUnreadAnnouncement
                   return (
                     <Link
                       key={item.href}
@@ -137,7 +140,12 @@ export function BottomNav({ locale, role, onSignOut, userEmail = '' }: BottomNav
                         !available && 'opacity-35 pointer-events-none'
                       )}
                     >
-                      <Icon className="h-5 w-5" strokeWidth={isActive ? 2.5 : 2} />
+                      <div className="relative">
+                        <Icon className="h-5 w-5" strokeWidth={isActive ? 2.5 : 2} />
+                        {showBadge && (
+                          <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-1 ring-card" />
+                        )}
+                      </div>
                       <span className="text-[10px] font-medium leading-none text-center">{item.label}</span>
                     </Link>
                   )

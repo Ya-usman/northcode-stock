@@ -44,6 +44,8 @@ export interface Profile {
   created_at: string
   locale: string | null
   country: string | null
+  plan_grace_ends_at: string | null
+  last_seen_announcement_at: string | null
 }
 
 export interface Expense {
