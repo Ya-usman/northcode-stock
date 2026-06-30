@@ -370,18 +370,6 @@ export default function NotesPage() {
             </div>
           </div>
         </PremiumDialogBody>
-        {editing && (
-          <div className="px-5 pb-2 flex justify-start">
-            <button
-              onClick={async e => { closeModal(); await deleteNote(editing.id, e as any) }}
-              disabled={deleting === editing.id}
-              className="flex items-center gap-1.5 text-sm text-red-500 hover:text-red-600 transition-colors"
-            >
-              <Trash2 className="h-4 w-4" />
-              Supprimer la note
-            </button>
-          </div>
-        )}
         <PremiumDialogFooter
           onCancel={closeModal}
           onConfirm={save}
