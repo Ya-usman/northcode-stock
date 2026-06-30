@@ -30,7 +30,7 @@ export async function POST(request: Request) {
       if ((profile as any)?.shop_id === shop_id) callerRole = (profile as any)?.role
     }
 
-    if (!callerRole || !['owner', 'super_admin'].includes(callerRole)) {
+    if (!callerRole || !['owner', 'manager', 'shop_manager', 'super_admin'].includes(callerRole)) {
       return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
     }
 
@@ -39,6 +39,20 @@ export async function POST(request: Request) {
     }
 
     const admin = await createAdminClient()
+
+    // Managers (manager/shop_manager) can only act on subordinate roles —
+    // never on the owner or on peer managers. Only owner/super_admin bypass this.
+    if (!['owner', 'super_admin'].includes(callerRole)) {
+      const { data: targetMember } = await (admin as any)
+        .from('shop_members')
+        .select('role')
+        .eq('user_id', employee_id)
+        .eq('shop_id', shop_id)
+        .single()
+      if (!targetMember || !['cashier', 'stock_manager', 'viewer'].includes(targetMember.role)) {
+        return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+      }
+    }
 
     // Update shop_members.is_active for this shop
     const { error: memberError } = await (admin as any)

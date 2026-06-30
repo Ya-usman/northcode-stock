@@ -97,6 +97,13 @@ export default function TeamPage() {
   const [deleting, setDeleting] = useState(false)
 
   const isOwner = myProfile?.role === 'owner' || myProfile?.role === 'manager' || myProfile?.role === 'shop_manager' || myProfile?.role === 'super_admin'
+  // True owners (and super_admin) manage everyone. Managers (manager/shop_manager) only
+  // manage subordinate roles — they never see the owner and can't touch peer managers.
+  const isFullOwner = myProfile?.role === 'owner' || myProfile?.role === 'super_admin'
+  const isSubManager = myProfile?.role === 'manager' || myProfile?.role === 'shop_manager'
+  const SUBORDINATE_ROLES: UserRole[] = ['cashier', 'stock_manager', 'viewer']
+  const canManageMember = (member: Member) =>
+    isFullOwner || (isSubManager && SUBORDINATE_ROLES.includes(member.role))
 
   useEffect(() => {
     if (dashboardShopFilter) {
@@ -301,9 +308,10 @@ export default function TeamPage() {
     }
   }
 
-  const displayedMembers = viewShopId
+  const displayedMembers = (viewShopId
     ? members.filter(m => m.shop_id === viewShopId)
     : members
+  ).filter(m => !(isSubManager && m.role === 'owner'))
 
   const activeCount = displayedMembers.filter(m => m.is_active).length
   const pendingCount = displayedMembers.filter(m => m.authStatus && !m.authStatus.email_confirmed_at).length
@@ -435,8 +443,8 @@ export default function TeamPage() {
           )}
         </div>
 
-        {/* Actions (owners/managers only, non-owner members) */}
-        {!isMe && member.role !== 'owner' && isOwner && (
+        {/* Actions (owners manage everyone; managers only manage subordinate roles) */}
+        {!isMe && member.role !== 'owner' && isOwner && canManageMember(member) && (
           <div className="flex items-center gap-2 px-3.5 pb-3 pt-0 border-t border-border/50 mt-0 pt-2.5">
             <Select
               value={member.role}
@@ -447,8 +455,8 @@ export default function TeamPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="shop_manager">{t('roles.shop_manager')}</SelectItem>
-                <SelectItem value="manager">{t('roles.manager')}</SelectItem>
+                {isFullOwner && <SelectItem value="shop_manager">{t('roles.shop_manager')}</SelectItem>}
+                {isFullOwner && <SelectItem value="manager">{t('roles.manager')}</SelectItem>}
                 <SelectItem value="cashier">{t('roles.cashier')}</SelectItem>
                 <SelectItem value="stock_manager">{t('roles.stock_manager')}</SelectItem>
                 <SelectItem value="viewer">{t('roles.viewer')}</SelectItem>
@@ -684,8 +692,8 @@ export default function TeamPage() {
             <Select value={inviteRole} onValueChange={v => setInviteRole(v as UserRole)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="shop_manager">{t('roles.shop_manager')}</SelectItem>
-                <SelectItem value="manager">{t('roles.manager')}</SelectItem>
+                {isFullOwner && <SelectItem value="shop_manager">{t('roles.shop_manager')}</SelectItem>}
+                {isFullOwner && <SelectItem value="manager">{t('roles.manager')}</SelectItem>}
                 <SelectItem value="cashier">{t('roles.cashier')}</SelectItem>
                 <SelectItem value="stock_manager">{t('roles.stock_manager')}</SelectItem>
                 <SelectItem value="viewer">{t('roles.viewer')}</SelectItem>

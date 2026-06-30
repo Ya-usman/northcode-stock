@@ -32,7 +32,7 @@ export async function POST(request: Request) {
       .single()
 
     const callerRole = callerMember?.role
-    if (!callerRole || !['owner', 'super_admin'].includes(callerRole)) {
+    if (!callerRole || !['owner', 'manager', 'shop_manager', 'super_admin'].includes(callerRole)) {
       return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
     }
 
@@ -42,6 +42,20 @@ export async function POST(request: Request) {
     }
 
     const admin = createAdminClient() as any
+
+    // Managers (manager/shop_manager) can only delete subordinate roles —
+    // never the owner or peer managers. Only owner/super_admin bypass this.
+    if (!['owner', 'super_admin'].includes(callerRole)) {
+      const { data: targetMember } = await admin
+        .from('shop_members')
+        .select('role')
+        .eq('user_id', employee_id)
+        .eq('shop_id', shop_id)
+        .single()
+      if (!targetMember || !['cashier', 'stock_manager', 'viewer'].includes(targetMember.role)) {
+        return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+      }
+    }
 
     // 1. Deactivate membership for this shop (soft delete — preserves sales attribution)
     await admin.from('shop_members')
