@@ -959,7 +959,16 @@ export default function ExpensesPage() {
                 <button
                   key={c.id}
                   type="button"
-                  onClick={() => setCategory(c.id)}
+                  onClick={() => {
+                    // Pre-fill the description with the category name, but only if
+                    // it's still empty or untouched (equal to the previous category's
+                    // default label) — never overwrite text the user typed themselves.
+                    const previousDefault = t(`cat_${category}` as any)
+                    if (!description.trim() || description === previousDefault) {
+                      setDescription(t(`cat_${c.id}` as any))
+                    }
+                    setCategory(c.id)
+                  }}
                   title={t(`cat_${c.id}` as any)}
                   className={cn(
                     'flex flex-col items-center gap-1 rounded-xl border-2 px-1 py-2 text-[10px] transition-all leading-tight',
