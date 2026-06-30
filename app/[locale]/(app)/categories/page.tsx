@@ -235,11 +235,7 @@ export default function CategoriesPage() {
   const uncategorized = products.filter(p => !p.category_id)
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-xl font-bold">{t('categories.title')}</h1>
-        <p className="text-sm text-muted-foreground mt-1">{t('categories.subtitle')}</p>
-      </div>
+    <div className="space-y-4">
 
       {/* Search + Add row */}
       <div className="flex gap-2">
