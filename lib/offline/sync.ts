@@ -167,8 +167,9 @@ export async function syncPendingSales(shopId: string): Promise<SyncResult> {
           total: sale.total,
           payment_method: dbPaymentMethod,
           payment_status: sale.payment_status,
-          amount_paid: 0,
-          // balance is GENERATED (total - amount_paid); amount_paid is updated by the after_payment_insert trigger
+          // Set amount_paid directly so balance = total - amount_paid is correct from the start.
+          // We still insert a payment record below for the audit trail; the trigger will no-op or re-confirm.
+          amount_paid: dbPaymentMethod === 'credit' ? 0 : sale.payment_amount,
           notes: sale.notes,
           sale_status: 'active',
           created_at: sale.created_at,
