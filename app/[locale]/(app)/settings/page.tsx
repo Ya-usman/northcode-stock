@@ -104,7 +104,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       setState(shopData.state)
       setCountry((shopData.country as CountryCode) || 'NG')
       setCurrency(shopData.currency || COUNTRIES[(shopData.country as CountryCode) || 'NG']?.currencySymbol || '₦')
-      setWhatsapp(shopData.whatsapp || '')
+      setWhatsapp(shopData.whatsapp || COUNTRIES[(shopData.country as CountryCode) || 'NG']?.phonePrefix.replace('+', '') || '')
       setThreshold(String(shopData.low_stock_threshold))
       setTaxRate(String(shopData.tax_rate))
 
@@ -364,6 +364,11 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                     value={country}
                     onChange={e => {
                       const code = e.target.value as CountryCode
+                      const oldPrefix = COUNTRIES[country]?.phonePrefix.replace('+', '') || ''
+                      // Only swap the dial code prefix if the field is still untouched (empty or just the previous prefix)
+                      if (!whatsapp || whatsapp === oldPrefix) {
+                        setWhatsapp(COUNTRIES[code]?.phonePrefix.replace('+', '') || '')
+                      }
                       setCountry(code)
                       setCurrency(COUNTRIES[code]?.currencySymbol || '')
                     }}
