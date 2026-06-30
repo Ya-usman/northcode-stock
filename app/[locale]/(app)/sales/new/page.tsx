@@ -36,7 +36,7 @@ const BarcodeScanner = dynamic(
 import { useOffline } from '@/lib/offline/use-offline'
 import { triggerSaleFeedback, unlockAudio } from '@/lib/utils/sale-feedback'
 import { getCountry, getMethodType } from '@/lib/saas/countries'
-import { formatInputValue } from '@/lib/utils/currency'
+import { formatInputValue, formatCurrency } from '@/lib/utils/currency'
 import { checkAndNotifyLowStock, notifyNewSale } from '@/lib/push'
 
 interface Draft {
@@ -71,7 +71,10 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null)
   const [shopPickerOpen, setShopPickerOpen] = useState(false)
   const selectedShop = userShops.find(s => s.id === (selectedShopId || shop?.id)) || shop
-  const { fmt: formatNaira, symbol } = useCurrency()
+  const { fmt: _fmtGlobal, symbol: _globalSymbol } = useCurrency()
+  // Always derive symbol from selectedShop so prices stay in sync with the shop picker
+  const symbol = selectedShop?.currency || _globalSymbol
+  const formatNaira = (amount: number | string | null | undefined) => formatCurrency(amount, symbol)
   const supabase = createClient()
   const { toast } = useToast()
   const searchRef = useRef<HTMLInputElement>(null)
