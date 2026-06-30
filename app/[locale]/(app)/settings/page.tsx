@@ -30,7 +30,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const pathname = usePathname()
   const { isDark, setIsDark } = useTheme()
 
-  const isOwner = profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'super_admin'
+  const isOwner = profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'shop_manager' || profile?.role === 'super_admin'
 
   const [shop, setShop] = useState<Shop | null>(shopData)
   const [saving, setSaving] = useState(false)
@@ -506,7 +506,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                         <div>
                           <Label className="cursor-pointer">Alerte nouvelle dépense</Label>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            Recevoir une alerte quand un manager ou caissier ajoute une dépense
+                            Recevoir une alerte quand un Responsable ou Caissier ajoute une dépense
                           </p>
                         </div>
                         <Switch

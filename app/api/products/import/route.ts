@@ -20,7 +20,7 @@ export async function POST(request: Request) {
       .eq('user_id', user.id)
       .eq('is_active', true)
       .single()
-    if (!memberRow || !['owner', 'manager', 'stock_manager'].includes(memberRow.role))
+    if (!memberRow || !['owner', 'manager', 'shop_manager', 'stock_manager'].includes(memberRow.role))
       return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
 
     const admin = createAdminClient() as any

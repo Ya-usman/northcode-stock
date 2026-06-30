@@ -22,7 +22,7 @@ export async function PATCH(request: Request) {
       .eq('is_active', true)
       .single()
 
-    if (!callerMember || !['owner', 'manager', 'super_admin'].includes(callerMember.role)) {
+    if (!callerMember || !['owner', 'manager', 'shop_manager', 'super_admin'].includes(callerMember.role)) {
       return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
     }
 

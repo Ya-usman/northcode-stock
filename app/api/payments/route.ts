@@ -32,7 +32,7 @@ export async function POST(request: Request) {
       .single()
 
     const callerRole = memberRow?.role
-    if (!callerRole || !['owner', 'manager', 'super_admin', 'cashier'].includes(callerRole)) {
+    if (!callerRole || !['owner', 'manager', 'shop_manager', 'super_admin', 'cashier'].includes(callerRole)) {
       return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
     }
 

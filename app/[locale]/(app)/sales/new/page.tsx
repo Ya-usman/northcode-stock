@@ -67,7 +67,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const t = useTranslations()
   const locale = useLocale()
   const { profile, shop, userShops } = useAuth()
-  const isOwner = profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'super_admin'
+  const isOwner = profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'shop_manager' || profile?.role === 'super_admin'
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null)
   const [shopPickerOpen, setShopPickerOpen] = useState(false)
   const selectedShop = userShops.find(s => s.id === (selectedShopId || shop?.id)) || shop

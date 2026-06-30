@@ -35,7 +35,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
     }
 
-    const isOwnerOrAdmin = member.role === 'owner' || member.role === 'manager' || member.role === 'super_admin'
+    const isOwnerOrAdmin = member.role === 'owner' || member.role === 'manager' || member.role === 'shop_manager' || member.role === 'super_admin'
     if (!isOwnerOrAdmin && !member.can_delete_sales) {
       return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
     }

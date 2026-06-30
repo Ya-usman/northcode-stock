@@ -108,7 +108,7 @@ export default function SalesHistoryPage() {
   }, [])
 
   const effectiveRole = roleInActiveShop ?? profile?.role
-  const isOwner = effectiveRole === 'owner' || effectiveRole === 'manager' || effectiveRole === 'super_admin'
+  const isOwner = effectiveRole === 'owner' || effectiveRole === 'manager' || effectiveRole === 'shop_manager' || effectiveRole === 'super_admin'
   const isCashier = effectiveRole === 'cashier'
 
   const getDateBounds = () => {
