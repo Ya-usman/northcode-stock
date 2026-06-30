@@ -12,7 +12,8 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
-import { Plus, Pencil, Trash2, Receipt, RefreshCw, ChevronDown, ChevronUp, Target, FileDown, FileText, Table2, Camera, Paperclip, X, WifiOff, Clock } from 'lucide-react'
+import { Plus, Pencil, Trash2, Receipt, RefreshCw, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Target, FileDown, FileText, Table2, Camera, Paperclip, X, WifiOff, Clock } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { NumericInput } from '@/components/ui/numeric-input'
 import { format, startOfMonth, endOfMonth, addMonths, addWeeks } from 'date-fns'
@@ -552,12 +553,48 @@ export default function ExpensesPage() {
     <div className="space-y-4 max-w-2xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <input
-          type="month"
-          value={monthFilter}
-          onChange={e => setFilter({ monthFilter: e.target.value })}
-          className="rounded-lg border px-3 py-1.5 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-stockshop-blue"
-        />
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9"
+            onClick={() => setFilter({ monthFilter: format(addMonths(new Date(monthFilter + '-01'), -1), 'yyyy-MM') })}
+            aria-label="Mois précédent"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Select
+            value={monthFilter}
+            onValueChange={v => setFilter({ monthFilter: v })}
+          >
+            <SelectTrigger className="h-9 w-[160px]">
+              <SelectValue>
+                {new Date(monthFilter + '-01').toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {Array.from({ length: 12 }, (_, i) => {
+                const d = addMonths(new Date(), -i)
+                const val = format(d, 'yyyy-MM')
+                return (
+                  <SelectItem key={val} value={val}>
+                    {d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                  </SelectItem>
+                )
+              })}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9"
+            onClick={() => setFilter({ monthFilter: format(addMonths(new Date(monthFilter + '-01'), 1), 'yyyy-MM') })}
+            aria-label="Mois suivant"
+            disabled={monthFilter >= format(new Date(), 'yyyy-MM')}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
         <div className="flex items-center gap-2">
           {/* Export dropdown */}
           {expenses.length > 0 && (
