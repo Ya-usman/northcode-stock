@@ -24,12 +24,13 @@ const PUBLIC_PATHS = ['/', '/login', '/register', '/forgot-password', '/reset-pa
 // Les autres pages (stock, sales, customers…) sont accessibles à tous les membres
 // authentifiés — les permissions granulaires sont gérées par le système de
 // permissions par rôle (nav + RLS Supabase).
+// NOTE: /expenses n'est PAS ici — son accès est contrôlé dynamiquement par
+// role_permissions (configurable par l'owner dans Paramètres), pas codé en dur.
 const ROLE_ACCESS: Record<string, string[]> = {
   '/team':     ['owner', 'manager', 'super_admin'],
   '/settings': ['owner', 'manager', 'super_admin'],
   '/billing':  ['owner', 'super_admin'],
   '/shops':    ['owner', 'super_admin'],
-  '/expenses': ['owner', 'manager', 'super_admin'],
 }
 
 const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean)
