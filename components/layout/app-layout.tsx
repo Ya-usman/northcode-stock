@@ -14,7 +14,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { TrialBanner } from '@/components/saas/trial-banner'
 import { UpgradeWall } from '@/components/saas/upgrade-wall'
 import { PlanLimitAlert } from '@/components/saas/plan-limit-alert'
-import { getTrialDaysLeft, hasActiveSubscription, isAccessAllowed, isBetaPeriod } from '@/lib/saas/plans'
+import { GracePeriodBanner } from '@/components/saas/grace-period-banner'
+import { getTrialDaysLeft, hasActiveSubscription, isAccessAllowed, getGraceDaysLeft, isBetaPeriod } from '@/lib/saas/plans'
 import { useToast } from '@/components/ui/use-toast'
 import { triggerSaleFeedback, unlockAudio } from '@/lib/utils/sale-feedback'
 import { useOfflinePreload } from '@/lib/offline/use-offline-preload'
@@ -236,12 +237,14 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
     )
   }
 
-  const trialDaysLeft = getTrialDaysLeft(shop?.trial_ends_at ?? null)
-  const subscribed = hasActiveSubscription(shop?.plan ?? null, shop?.plan_expires_at ?? null)
-  // Don't show upgrade wall if shop hasn't loaded yet
-  const accessAllowed = !shop || isAccessAllowed(shop.plan ?? null, shop.trial_ends_at ?? null, shop.plan_expires_at ?? null)
-  const showTrialBanner = !subscribed && accessAllowed && trialDaysLeft <= 7 && profile.role === 'owner'
-  const isBillingPage = pathname.includes('/billing')
+  const trialDaysLeft  = getTrialDaysLeft(shop?.trial_ends_at ?? null)
+  const graceDaysLeft  = getGraceDaysLeft(shop?.plan ?? null, shop?.plan_expires_at ?? null)
+  const subscribed     = hasActiveSubscription(shop?.plan ?? null, shop?.plan_expires_at ?? null)
+  const accessAllowed  = !shop || isAccessAllowed(shop.plan ?? null, shop.trial_ends_at ?? null, shop.plan_expires_at ?? null)
+  const inGracePeriod  = graceDaysLeft > 0
+  const showTrialBanner   = !subscribed && !inGracePeriod && accessAllowed && trialDaysLeft <= 7 && profile.role === 'owner'
+  const showGraceBanner   = inGracePeriod && profile.role === 'owner'
+  const isBillingPage  = pathname.includes('/billing')
 
   return (
     <div className="min-h-screen bg-background">
@@ -255,6 +258,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
 
       <div className="sm:pl-64 flex flex-col min-h-screen">
         {showTrialBanner && <TrialBanner daysLeft={trialDaysLeft} locale={locale} />}
+        {showGraceBanner && !isBillingPage && <GracePeriodBanner daysLeft={graceDaysLeft} locale={locale} />}
 
         <Header title={title} shop={shop} locale={locale} onSignOut={handleSignOut} />
 

@@ -128,14 +128,31 @@ export function hasActiveSubscription(planId: string | null, planExpiresAt: stri
   return new Date(planExpiresAt) > new Date()
 }
 
+/** Grace period after a paid plan expires before the upgrade wall appears */
+export const GRACE_PERIOD_DAYS = 7
+
+/** Days remaining in the grace period after plan expiry (-1 if not in grace / not applicable) */
+export function getGraceDaysLeft(
+  planId: string | null,
+  planExpiresAt: string | null,
+): number {
+  if (!planExpiresAt || !planId || planId === 'trial' || planId === 'free') return -1
+  const expiry = new Date(planExpiresAt)
+  if (expiry > new Date()) return -1 // still active, not in grace
+  const graceEnd = new Date(expiry.getTime() + GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000)
+  const diff = Math.ceil((graceEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+  return diff > 0 ? diff : -1
+}
+
 /** Returns true if shop can still use the app */
 export function isAccessAllowed(
   planId: string | null,
   trialEndsAt: string | null,
   planExpiresAt: string | null,
 ): boolean {
-  // Each user has their own 1-month trial from registration — no global beta exemption
   if (hasActiveSubscription(planId, planExpiresAt)) return true
+  // 7-day grace period after a paid plan expires
+  if (getGraceDaysLeft(planId, planExpiresAt) > 0) return true
   return getTrialDaysLeft(trialEndsAt) >= 0
 }
 

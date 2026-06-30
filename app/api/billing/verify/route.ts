@@ -4,6 +4,7 @@ import { PLANS } from '@/lib/saas/plans'
 import { getPeriodDays, type BillingPeriod } from '@/lib/saas/countries'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { fetchWithTimeout } from '@/lib/api/fetch'
+import { enforceOwnerPlanLimits } from '@/lib/saas/enforce-limits'
 
 // inline=1 → appelé depuis le callback PaystackPop (client-side fetch) → retourne JSON
 // inline absent → appelé depuis le redirect navigateur Paystack → retourne redirect
@@ -137,6 +138,13 @@ export async function GET(request: NextRequest) {
       metadata: { plan_id, billing_period, amount: data.data.amount / 100 },
       ip: getClientIp(request),
     })
+
+    // Enforce plan limits after every plan change (handles both downgrades
+    // that suspend excess shops/members and upgrades that reactivate them).
+    // Runs after the audit log so it never blocks the payment confirmation.
+    if (owner_id) {
+      enforceOwnerPlanLimits(supabase, owner_id).catch(() => {})
+    }
 
     return reply(inline, locale, baseUrl, true)
   } catch (err: any) {

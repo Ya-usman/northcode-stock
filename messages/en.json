@@ -755,7 +755,18 @@
     "team_limit_warning": "You have {count}/{limit} team members.",
     "upgrade_to_plan": "Upgrade to {plan} — {price}/month",
     "unlimited_products": "Unlimited products",
-    "up_to_products": "Up to {count} products"
+    "up_to_products": "Up to {count} products",
+    "grace_title": "Subscription expired — Grace period",
+    "grace_days_left_one": "{days} day left before your shops are suspended.",
+    "grace_days_left": "{days} days left before your shops are suspended.",
+    "grace_renew": "Renew now",
+    "downgrade_title": "Plan updated",
+    "downgrade_shops_suspended": "{count} shop(s) suspended (most recent ones)",
+    "downgrade_members_suspended": "{count} employee(s) deactivated (most recent ones)",
+    "downgrade_shops_reactivated": "{count} shop(s) reactivated",
+    "downgrade_members_reactivated": "{count} employee(s) reactivated",
+    "downgrade_info": "Suspended shops and employees are preserved. Upgrade to a higher plan to recover them.",
+    "upgrade_to_recover": "Upgrade to recover"
   },
   "landing": {
     "nav": {

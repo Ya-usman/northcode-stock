@@ -608,7 +608,18 @@
     "team_limit_warning": "Kana da mambobi {count}/{limit}.",
     "upgrade_to_plan": "Inganta zuwa {plan} — {price}/wata",
     "unlimited_products": "Kayan da ba su iyaka",
-    "up_to_products": "Har kaya {count}"
+    "up_to_products": "Har kaya {count}",
+    "grace_title": "Kuɗin shiga ya ƙare — Lokacin jinkai",
+    "grace_days_left_one": "Rana {days} ya rage kafin a dakatar da kantunan ku.",
+    "grace_days_left": "Kwanaki {days} ya rage kafin a dakatar da kantunan ku.",
+    "grace_renew": "Sabunta yanzu",
+    "downgrade_title": "An sabunta shiri",
+    "downgrade_shops_suspended": "An dakatar da kantuna {count} (na baya-bayan nan)",
+    "downgrade_members_suspended": "An kashe ma'aikata {count} (na baya-bayan nan)",
+    "downgrade_shops_reactivated": "An sake kunna kantuna {count}",
+    "downgrade_members_reactivated": "An sake kunna ma'aikata {count}",
+    "downgrade_info": "Kantuna da ma'aikata da aka dakatar ana adana su. Ɗaga zuwa tsari mafi girma don dawo da su.",
+    "upgrade_to_recover": "Ɗaga don dawo"
   },
   "error_page": {
     "title": "Wani abu ya faru",

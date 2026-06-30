@@ -755,7 +755,18 @@
     "team_limit_warning": "Vous avez {count}/{limit} membres d'équipe.",
     "upgrade_to_plan": "Passer au plan {plan} — {price}/mois",
     "unlimited_products": "Produits illimités",
-    "up_to_products": "Jusqu'à {count} produits"
+    "up_to_products": "Jusqu'à {count} produits",
+    "grace_title": "Abonnement expiré — Période de grâce",
+    "grace_days_left_one": "Il vous reste {days} jour avant la suspension de vos boutiques.",
+    "grace_days_left": "Il vous reste {days} jours avant la suspension de vos boutiques.",
+    "grace_renew": "Renouveler maintenant",
+    "downgrade_title": "Mise à jour du plan",
+    "downgrade_shops_suspended": "{count} boutique(s) suspendues (les plus récentes)",
+    "downgrade_members_suspended": "{count} employé(s) désactivés (les plus récents)",
+    "downgrade_shops_reactivated": "{count} boutique(s) réactivée(s)",
+    "downgrade_members_reactivated": "{count} employé(s) réactivés",
+    "downgrade_info": "Les boutiques et employés suspendus restent conservés. Passez à un plan supérieur pour les récupérer.",
+    "upgrade_to_recover": "Upgrader pour récupérer"
   },
   "landing": {
     "nav": {

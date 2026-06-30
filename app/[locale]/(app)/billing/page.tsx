@@ -12,6 +12,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import { CheckCircle2, Clock, Crown, Sparkles, Building2, ShieldCheck, Mail } from 'lucide-react'
 import { PlanUsageCard } from '@/components/saas/plan-usage-card'
+import { DowngradeNotice } from '@/components/saas/downgrade-notice'
 import { cn } from '@/lib/utils/cn'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Script from 'next/script'
@@ -30,6 +31,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [usageStats, setUsageStats] = useState({ products: 0, team: 0, shops: 0 })
+  const [enforcement, setEnforcement] = useState<{ suspended_shops: number; suspended_members: number; reactivated_shops: number; reactivated_members: number } | null>(null)
   const period: BillingPeriod = 'monthly'
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -58,14 +60,35 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
 
   useEffect(() => {
     const success = searchParams.get('success')
+    const checked = searchParams.get('checked')
     const error = searchParams.get('error')
-    if (success === '1') {
+    if (success === '1' && !checked) {
       toast({ title: t('payment_success'), description: t('payment_success_desc'), variant: 'success' })
-      // Full reload so the browser picks up the new plan_ok_until cookie set by
-      // /api/billing/verify → /api/auth/set-role before this redirect landed.
-      // router.replace() would keep the same pathname (billing→billing) and skip
-      // the cookie refresh, leaving the middleware in a redirect loop.
-      setTimeout(() => { window.location.replace(`/${locale}/billing`) }, 1200)
+      // After verify, the enforce-limits call runs fire-and-forget server-side.
+      // We wait briefly then reload so the new plan + any suspensions are visible.
+      setTimeout(() => { window.location.replace(`/${locale}/billing?checked=1`) }, 2000)
+    } else if (success === '1' && checked && user?.id) {
+      // Check audit_logs for a recent enforcement event (last 3 minutes)
+      const since = new Date(Date.now() - 3 * 60 * 1000).toISOString()
+      supabase
+        .from('audit_logs')
+        .select('metadata')
+        .eq('actor_id', user.id)
+        .eq('action', 'billing.limit_enforced')
+        .gte('created_at', since)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then(({ data }: { data: any }) => {
+          if (data?.metadata) {
+            setEnforcement({
+              suspended_shops: data.metadata.suspended_shops ?? 0,
+              suspended_members: data.metadata.suspended_members ?? 0,
+              reactivated_shops: data.metadata.reactivated_shops ?? 0,
+              reactivated_members: data.metadata.reactivated_members ?? 0,
+            })
+          }
+        })
     } else if (error) {
       const messages: Record<string, string> = {
         payment_failed: t('err_failed'),
@@ -250,6 +273,17 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
             )}
           </div>
         </div>
+
+        {/* Downgrade / reactivation notice after plan change */}
+        {enforcement && (
+          <DowngradeNotice
+            locale={locale}
+            suspendedShops={enforcement.suspended_shops}
+            suspendedMembers={enforcement.suspended_members}
+            reactivatedShops={enforcement.reactivated_shops}
+            reactivatedMembers={enforcement.reactivated_members}
+          />
+        )}
 
         {/* Plan usage stats */}
         {shop && (

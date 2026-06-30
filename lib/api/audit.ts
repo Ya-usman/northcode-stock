@@ -7,6 +7,7 @@ export type AuditAction =
   | 'permissions.update'
   | 'billing.subscribe'
   | 'billing.verify'
+  | 'billing.limit_enforced'
   | 'account.register'
   | 'account.delete'
   | 'sale.cancel'
