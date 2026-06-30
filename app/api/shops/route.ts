@@ -4,7 +4,7 @@ import { getPlan, hasActiveSubscription } from '@/lib/saas/plans'
 
 export async function POST(request: Request) {
   try {
-    const { name, city } = await request.json()
+    const { name, city, country: requestCountry } = await request.json()
 
     if (!name?.trim()) {
       return NextResponse.json({ error: 'Nom requis' }, { status: 400 })
@@ -23,16 +23,24 @@ export async function POST(request: Request) {
       .eq('id', user.id)
       .single()
 
-    let country = (profile as any)?.country ?? null
-    let currency = 'NGN'
+    const { getCountry } = await import('@/lib/saas/countries')
 
-    if (!country && profile?.shop_id) {
+    // If the owner explicitly chose a country, use it; otherwise inherit from profile/primary shop
+    let country: string
+    let currency: string
+    if (requestCountry) {
+      country = requestCountry
+      currency = getCountry(requestCountry).currencySymbol
+    } else if ((profile as any)?.country) {
+      country = (profile as any).country
+      currency = getCountry(country).currencySymbol
+    } else if (profile?.shop_id) {
       const { data: primaryShop } = await supabase.from('shops').select('currency, country').eq('id', profile.shop_id).single()
       country = (primaryShop as any)?.country ?? 'NG'
-      currency = (primaryShop as any)?.currency ?? 'NGN'
+      currency = (primaryShop as any)?.currency ?? '₦'
     } else {
-      const { getCountry } = await import('@/lib/saas/countries')
-      currency = getCountry(country).currencySymbol
+      country = 'NG'
+      currency = '₦'
     }
 
     // Read plan from owner profile (owner-level billing)
@@ -91,6 +99,7 @@ export async function POST(request: Request) {
       trial_ends_at: newShopTrial,
       currency,
       country,
+      billing_country: country,
       low_stock_threshold: 10,
       tax_rate: 0,
     } as any).select().single()

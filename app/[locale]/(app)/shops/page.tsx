@@ -12,6 +12,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import { Plus, Store, Users, CheckCircle2, Trash2, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
 import type { Shop } from '@/lib/types/database'
 
 const supabase = createClient()
@@ -23,6 +24,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const [newCity, setNewCity] = useState('')
+  const [newCountry, setNewCountry] = useState<CountryCode>('NG')
   const [loading, setLoading] = useState(false)
   const [memberCounts, setMemberCounts] = useState<Record<string, number>>({})
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
@@ -46,7 +48,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
       const res = await fetch('/api/shops', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newName.trim(), city: newCity.trim() }),
+        body: JSON.stringify({ name: newName.trim(), city: newCity.trim(), country: newCountry }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || t('errors.generic'))
@@ -58,6 +60,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
       setCreating(false)
       setNewName('')
       setNewCity('')
+      setNewCountry('NG')
     } catch (err: any) {
       toast({ title: err?.message ?? t('errors.generic'), variant: 'destructive' })
     } finally {
@@ -107,7 +110,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
       {/* Create dialog */}
       <PremiumDialog
         open={creating}
-        onOpenChange={open => { if (!open) { setCreating(false); setNewName(''); setNewCity('') } }}
+        onOpenChange={open => { if (!open) { setCreating(false); setNewName(''); setNewCity(''); setNewCountry('NG') } }}
         category={t('nav.shops')}
         title={t('shops.new_form_title')}
         icon={<Store className="h-4 w-4" />}
@@ -131,6 +134,20 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
               onChange={e => setNewCity(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleCreate()}
             />
+          </div>
+          <div className="space-y-1">
+            <Label>Pays</Label>
+            <select
+              value={newCountry}
+              onChange={e => setNewCountry(e.target.value as CountryCode)}
+              className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            >
+              {Object.values(COUNTRIES).map(c => (
+                <option key={c.code} value={c.code}>
+                  {c.flag} {c.name} · {c.currencySymbol}
+                </option>
+              ))}
+            </select>
           </div>
         </PremiumDialogBody>
         <PremiumDialogFooter
@@ -181,6 +198,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
                     </Badge>
                   </div>
                   <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                    {shop.country && <span>{COUNTRIES[shop.country as CountryCode]?.flag ?? '🌐'}</span>}
                     {shop.city && <span className="truncate">{shop.city}</span>}
                     <span className="flex items-center gap-1 flex-shrink-0">
                       <Users className="h-3 w-3" />
