@@ -146,7 +146,7 @@ function ScreenRow({ block }: { block: ScreenBlock }) {
   return (
     <div className={cn('flex gap-5 items-start', block.reverse ? 'flex-row-reverse' : 'flex-row',
       'max-sm:flex-col')}>
-      <div className="shrink-0 w-[160px] max-sm:w-full">
+      <div className="shrink-0 w-[220px] max-sm:w-full">
         <Image
           src={`/manual/${block.image}`}
           alt={block.alt}
@@ -536,7 +536,7 @@ export default function HelpPage() {
   const [tab, setTab] = useState<Tab>('faq')
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4">
+    <div className="max-w-5xl mx-auto space-y-4">
       {/* Header */}
       <div className="rounded-xl border bg-card p-5 shadow-sm">
         <h1 className="font-bold text-lg mb-1">Aide & Documentation</h1>
