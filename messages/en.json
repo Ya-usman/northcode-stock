@@ -179,12 +179,12 @@
     "saving": "Saving…"
   },
   "roles": {
-    "owner": "Owner (Maigida)",
+    "owner": "Owner",
     "shop_manager": "Manager",
-    "manager": "Responsable (Mai Shago)",
-    "cashier": "Cashier (Mai Sayarwa)",
-    "stock_manager": "Stock Manager (Mai Kaya)",
-    "viewer": "Viewer (Mai Kallo)"
+    "manager": "Responsable",
+    "cashier": "Cashier",
+    "stock_manager": "Stock Manager",
+    "viewer": "Viewer"
   },
   "products": {
     "title": "Stock",
