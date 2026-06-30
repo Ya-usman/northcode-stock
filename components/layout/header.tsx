@@ -8,6 +8,8 @@ import {
 import { usePathname } from 'next/navigation'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { useTheme } from '@/lib/hooks/use-theme'
+import { useCurrency } from '@/lib/hooks/use-currency'
+import { getCountry } from '@/lib/saas/countries'
 import type { Shop } from '@/lib/types/database'
 
 const LOCALE_FLAGS: Record<string, string> = {
@@ -25,8 +27,10 @@ interface HeaderProps {
 
 export function Header({ title, locale, onSignOut }: HeaderProps) {
   const pathname = usePathname()
-  const { updateLocale } = useAuthContext()
+  const { shop, updateLocale } = useAuthContext()
   const { isDark, toggle } = useTheme()
+  const { symbol } = useCurrency()
+  const countryFlag = getCountry(shop?.country).flag
 
   const switchLanguage = (newLocale: string) => {
     const newPath = pathname.replace(`/${locale}`, `/${newLocale}`)
@@ -42,6 +46,14 @@ export function Header({ title, locale, onSignOut }: HeaderProps) {
       <h1 className="flex-1 font-semibold text-base text-foreground truncate">{title}</h1>
 
       <div className="flex items-center gap-1">
+        {/* Currency badge */}
+        {shop && (
+          <div className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-md bg-muted text-xs font-medium text-muted-foreground select-none">
+            <span>{countryFlag}</span>
+            <span>{symbol}</span>
+          </div>
+        )}
+
         {/* Dark / Light toggle */}
         <Button variant="ghost" size="icon" onClick={toggle} className="h-8 w-8 text-muted-foreground hover:text-foreground">
           {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}

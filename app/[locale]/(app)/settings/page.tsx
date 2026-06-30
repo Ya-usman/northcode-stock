@@ -353,7 +353,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
               {/* Country + Currency */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <Label>Pays</Label>
+                  <Label>Pays d'opération</Label>
                   <select
                     value={country}
                     onChange={e => {
@@ -369,21 +369,16 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                       </option>
                     ))}
                   </select>
+                  <p className="text-xs text-muted-foreground">Affichage et devise de l'app</p>
                 </div>
                 <div className="space-y-1">
                   <Label>Devise</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={currency}
-                      onChange={e => setCurrency(e.target.value)}
-                      placeholder="₦"
-                      className="flex-1"
-                    />
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {COUNTRIES[country]?.currency || ''}
-                    </span>
+                  <div className="flex h-10 items-center gap-2 rounded-md border border-input bg-muted px-3">
+                    <span className="text-lg">{COUNTRIES[country]?.flag || '🌐'}</span>
+                    <span className="font-semibold text-foreground">{currency}</span>
+                    <span className="text-xs text-muted-foreground ml-1">{COUNTRIES[country]?.currency || ''}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">Modifiable si nécessaire</p>
+                  <p className="text-xs text-muted-foreground">Automatique selon le pays</p>
                 </div>
               </div>
             </CardContent>

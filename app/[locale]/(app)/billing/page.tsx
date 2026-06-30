@@ -96,7 +96,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   const isSubscribed = hasActiveSubscription(shop?.plan ?? null, shop?.plan_expires_at ?? null)
   const isTrialActive = !isSubscribed && trialDaysLeft >= 0
 
-  const country = getCountry(shop?.country)
+  const country = getCountry(shop?.billing_country || shop?.country)
   const isNigeria = country.code === 'NG'
   const isStripe = country.gateway === 'stripe'
   const gatewayLabel =

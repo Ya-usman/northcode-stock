@@ -6,17 +6,14 @@ import { getCountry } from '@/lib/saas/countries'
 
 /**
  * Returns a fmt() function bound to the current shop's currency.
- * Symbol is always derived from the countries config (never the DB snapshot)
- * so any config update is immediately reflected across all shops.
+ * shop.currency (set in settings) is the source of truth.
+ * Falls back to the country config symbol, then ₦.
  * Usage: const { fmt, symbol } = useCurrency()
  *        fmt(1500) → "₦1,500" or "1 500 F CFA"
  */
 export function useCurrency() {
   const { shop } = useAuthContext()
-  // Derive symbol from live config; fall back to stored shop.currency then ₦
-  const symbol = shop
-    ? getCountry(shop.country).currencySymbol
-    : '₦'
+  const symbol = shop?.currency || getCountry(shop?.country).currencySymbol || '₦'
 
   const fmt = (amount: number | string | null | undefined) =>
     formatCurrency(amount, symbol)

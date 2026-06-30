@@ -39,6 +39,7 @@ export async function POST(request: Request) {
       city: city?.trim() || '',
       state: '',
       country: country || 'NG',
+      billing_country: country || 'NG',
       currency: currency || '₦',
       owner_id: userId,
       plan: 'trial',
