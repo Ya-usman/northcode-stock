@@ -484,7 +484,7 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="space-y-4 max-w-4xl mx-auto">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>

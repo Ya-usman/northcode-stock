@@ -393,7 +393,7 @@ export default function DettesPage() {
 
   // ── Render ───────────────────────────────────────────────
   return (
-    <div className="space-y-4 max-w-4xl mx-auto">
+    <div className="space-y-4">
 
       {/* Summary */}
       <Card className="border-0 shadow-sm bg-stockshop-blue text-white">
