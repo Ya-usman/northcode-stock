@@ -12,11 +12,12 @@ export function formatNaira(amount: number | string | null | undefined): string 
 export function formatCurrency(amount: number | string | null | undefined, symbol: string): string {
   const num = Number(amount ?? 0)
   const isCFA = symbol.includes('CFA') || symbol === 'FCFA'
-  const formatted = num.toLocaleString(isCFA ? 'fr-FR' : 'en-NG', {
+  const formatted = num.toLocaleString(isCFA ? 'fr-FR' : 'en-US', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   })
-  return isCFA ? `${formatted} ${symbol.includes('F CFA') ? 'F CFA' : 'FCFA'}` : `₦${formatted}`
+  if (isCFA) return `${formatted} ${symbol.includes('F CFA') ? 'F CFA' : 'FCFA'}`
+  return `${symbol}${formatted}`
 }
 
 /**
@@ -41,11 +42,11 @@ export function formatNairaCompact(amount: number, symbol = '₦'): string {
   const isCFA = symbol.includes('CFA')
   if (amount >= 1_000_000) {
     const v = (amount / 1_000_000).toFixed(1)
-    return isCFA ? `${v}M ${symbol}` : `₦${v}M`
+    return isCFA ? `${v}M ${symbol}` : `${symbol}${v}M`
   }
   if (amount >= 1_000) {
     const v = (amount / 1_000).toFixed(1)
-    return isCFA ? `${v}K ${symbol}` : `₦${v}K`
+    return isCFA ? `${v}K ${symbol}` : `${symbol}${v}K`
   }
   return formatCurrency(amount, symbol)
 }
@@ -65,7 +66,7 @@ export function formatAdminRevenue(ngn: number, cfa: number): string {
  * Parse Naira string back to number
  */
 export function parseNaira(value: string): number {
-  return parseFloat(value.replace(/[₦,\s]/g, '')) || 0
+  return parseFloat(value.replace(/[₦$€£¥₣,\s]/g, '').replace(/[^\d.-]/g, '')) || 0
 }
 
 /**
