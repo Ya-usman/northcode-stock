@@ -536,7 +536,7 @@ export default function HelpPage() {
   const [tab, setTab] = useState<Tab>('faq')
 
   return (
-    <div className="max-w-2xl mx-auto space-y-4">
+    <div className="max-w-4xl mx-auto space-y-4">
       {/* Header */}
       <div className="rounded-xl border bg-card p-5 shadow-sm">
         <h1 className="font-bold text-lg mb-1">Aide & Documentation</h1>
