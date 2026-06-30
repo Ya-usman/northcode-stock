@@ -306,7 +306,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   if (loading) return <div className="space-y-4">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-32 rounded-lg" />)}</div>
 
   return (
-    <div className="space-y-4 max-w-2xl">
+    <div className="space-y-4 max-w-2xl mx-auto">
 
       {/* Owner-only sections: shop info, business settings, notifications */}
       {isOwner && (
