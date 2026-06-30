@@ -521,10 +521,6 @@ function ManualContent() {
         </div>
       ))}
 
-      {/* Footer */}
-      <div className="text-center text-xs text-muted-foreground py-4">
-        Manuel d'utilisation StockShop · Version 1.0 · 2026 · <strong className="text-stockshop-blue dark:text-blue-400">NorthCode</strong>
-      </div>
     </div>
   )
 }
