@@ -12,9 +12,16 @@ export const BILLING_PERIODS: Record<BillingPeriod, { months: number; days: numb
   annual:    { months: 12, days: 365, discount: 0.25, label: 'Annuel',      badge: '-25%' },
 }
 
-export function getPeriodPrice(baseMonthlyPrice: number, period: BillingPeriod): number {
+export function getPeriodPrice(
+  baseMonthlyPrice: number,
+  period: BillingPeriod,
+  overrides?: PeriodPriceOverrides,
+): number {
+  if (period === 'monthly') return baseMonthlyPrice
+  if (period === 'quarterly' && overrides?.quarterly != null) return overrides.quarterly
+  if (period === 'annual'    && overrides?.annual    != null) return overrides.annual
   const cfg = BILLING_PERIODS[period]
-  return Math.floor(baseMonthlyPrice * cfg.months * (1 - cfg.discount))
+  return Math.ceil(baseMonthlyPrice * cfg.months * (1 - cfg.discount))
 }
 
 export function getPeriodDays(period: BillingPeriod): number {
@@ -31,6 +38,11 @@ export interface PaymentMethod {
   type: PaymentMethodType
 }
 
+export interface PeriodPriceOverrides {
+  quarterly?: number
+  annual?: number
+}
+
 export interface CountryConfig {
   code: CountryCode
   name: string
@@ -43,6 +55,12 @@ export interface CountryConfig {
     starter: number
     pro: number
     business: number
+  }
+  /** Explicit per-period prices — takes priority over the formula */
+  periodPrices?: {
+    starter?: PeriodPriceOverrides
+    pro?: PeriodPriceOverrides
+    business?: PeriodPriceOverrides
   }
   phonePrefix: string
   cityPlaceholder: string
@@ -61,6 +79,11 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'NG', name: 'Nigeria', flag: '🇳🇬', flagColor: '#008751',
     currency: 'NGN', currencySymbol: '₦', gateway: 'paystack',
     prices: { starter: 4999, pro: 9999, business: 19999 },
+    periodPrices: {
+      starter:  { quarterly: 13999, annual: 44999  },
+      pro:      { quarterly: 27999, annual: 99999  },
+      business: { quarterly: 54999, annual: 199999 },
+    },
     phonePrefix: '+234', cityPlaceholder: 'Lagos, Kano, Abuja…',
     paymentMethods: [
       { id: 'cash',       label: 'Cash',         icon: '💵', type: 'cash' },

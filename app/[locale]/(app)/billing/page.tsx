@@ -234,7 +234,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   }
 
   const formatPrice = (planId: PlanId, forPeriod = period) =>
-    formatAmount(getPeriodPrice(country.prices[planId], forPeriod))
+    formatAmount(getPeriodPrice(country.prices[planId], forPeriod, country.periodPrices?.[planId]))
 
   const periodLabel = {
     monthly:   t('checkout_total_monthly'),
@@ -459,8 +459,9 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                   </span>
                 </div>
                 {period !== 'monthly' && (() => {
-                  const monthly = getPeriodPrice(country.prices[checkoutPlan], 'monthly')
-                  const total   = getPeriodPrice(country.prices[checkoutPlan], period)
+                  const overrides = country.periodPrices?.[checkoutPlan]
+                  const monthly = getPeriodPrice(country.prices[checkoutPlan], 'monthly', overrides)
+                  const total   = getPeriodPrice(country.prices[checkoutPlan], period,   overrides)
                   const months  = BILLING_PERIODS[period].months
                   const saved   = monthly * months - total
                   return saved > 0 ? (
