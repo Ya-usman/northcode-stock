@@ -25,7 +25,8 @@
     "section_management": "Gestion",
     "expenses": "Dépenses",
     "more": "Plus",
-    "notes": "Notes"
+    "notes": "Notes",
+    "help": "Aide"
   },
   "auth": {
     "login": "Se connecter",

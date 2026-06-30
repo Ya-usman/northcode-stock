@@ -25,7 +25,8 @@
     "section_management": "Management",
     "expenses": "Expenses",
     "more": "More",
-    "notes": "Notes"
+    "notes": "Notes",
+    "help": "Help"
   },
   "auth": {
     "login": "Log In",

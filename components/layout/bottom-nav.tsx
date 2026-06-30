@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl'
 import {
   LayoutDashboard, ShoppingCart, Package, BarChart2, Settings,
   MoreHorizontal, History, CreditCard, Users, Truck, Zap,
-  X, LogOut, Store, Tag, ArrowLeftRight, Receipt, ShieldCheck, NotebookPen,
+  X, LogOut, Store, Tag, ArrowLeftRight, Receipt, ShieldCheck, NotebookPen, BookOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import type { UserRole } from '@/lib/types/database'
@@ -50,6 +50,7 @@ export function BottomNav({ locale, role, onSignOut, userEmail = '' }: BottomNav
     { href: `/${locale}/shops`,           icon: Store,           label: t('shops'),         roles: ['owner'],                                                primary: false },
     { href: `/${locale}/billing`,         icon: Zap,             label: t('billing'),       roles: ['owner'],                                                primary: false },
     { href: `/${locale}/settings`,        icon: Settings,        label: t('settings'),      roles: ['owner', 'manager'],                                     primary: false },
+    { href: `/${locale}/help`,            icon: BookOpen,        label: t('help'),          roles: ALL_NON_OWNER,                                                primary: false },
   ].filter(item => item.roles.includes(role) && (!item.feature || canAccess(item.feature)))
 
   const primaryItems = allItems.filter(i => i.primary)
