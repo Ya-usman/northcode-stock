@@ -8,8 +8,8 @@ export type BillingPeriod = 'monthly' | 'quarterly' | 'annual'
 
 export const BILLING_PERIODS: Record<BillingPeriod, { months: number; days: number; discount: number; label: string; badge?: string }> = {
   monthly:   { months: 1,  days: 31,  discount: 0,    label: 'Mensuel' },
-  quarterly: { months: 3,  days: 92,  discount: 0.10, label: 'Trimestriel', badge: '-10%' },
-  annual:    { months: 12, days: 365, discount: 0.25, label: 'Annuel',      badge: '-25%' },
+  quarterly: { months: 3,  days: 92,  discount: 0.08, label: 'Trimestriel', badge: '-8%' },
+  annual:    { months: 12, days: 365, discount: 0.20, label: 'Annuel',      badge: '-20%' },
 }
 
 export function getPeriodPrice(
@@ -71,6 +71,20 @@ export function getMethodType(methodId: string, country: CountryConfig): Payment
   return country.paymentMethods.find(m => m.id === methodId)?.type ?? 'cash'
 }
 
+// Shared periodPrices for XOF/XAF countries at 4999/7999/14999 F CFA/mois (-8% / -20%)
+const FCFA_PERIOD_PRICES = {
+  starter:  { quarterly: 13999,  annual: 47999  },
+  pro:      { quarterly: 21999,  annual: 76999  },
+  business: { quarterly: 41999,  annual: 143999 },
+}
+
+// Shared periodPrices for EUR/USD/CAD countries at 14.99/19.99/29.99/mo (-8% / -20%)
+const INTL_PERIOD_PRICES = {
+  starter:  { quarterly: 41.99,  annual: 143.99 },
+  pro:      { quarterly: 54.99,  annual: 191.99 },
+  business: { quarterly: 82.99,  annual: 287.99 },
+}
+
 export const COUNTRIES: Record<CountryCode, CountryConfig> = {
 
   // ── Afrique de l'Ouest — zone FCFA (XOF / XAF) ──────────────────────────
@@ -80,7 +94,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     currency: 'NGN', currencySymbol: '₦', gateway: 'paystack',
     prices: { starter: 4999, pro: 9999, business: 19999 },
     periodPrices: {
-      starter:  { quarterly: 13999, annual: 44999  },
+      starter:  { quarterly: 13999, annual: 47999  },
       pro:      { quarterly: 27999, annual: 99999  },
       business: { quarterly: 54999, annual: 199999 },
     },
@@ -100,6 +114,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'CM', name: 'Cameroun', flag: '🇨🇲', flagColor: '#CE1126',
     currency: 'XAF', currencySymbol: 'F CFA', gateway: 'notchpay',
     prices: { starter: 4999, pro: 7999, business: 14999 },
+    periodPrices: FCFA_PERIOD_PRICES,
     phonePrefix: '+237', cityPlaceholder: 'Douala, Yaoundé, Bafoussam…',
     paymentMethods: [
       { id: 'cash',         label: 'Espèces',      icon: '💵', type: 'cash' },
@@ -114,6 +129,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'CI', name: "Côte d'Ivoire", flag: '🇨🇮', flagColor: '#F77F00',
     currency: 'XOF', currencySymbol: 'F CFA', gateway: 'flutterwave',
     prices: { starter: 4999, pro: 7999, business: 14999 },
+    periodPrices: FCFA_PERIOD_PRICES,
     phonePrefix: '+225', cityPlaceholder: 'Abidjan, Bouaké, San-Pédro…',
     paymentMethods: [
       { id: 'cash',         label: 'Espèces',      icon: '💵', type: 'cash' },
@@ -130,6 +146,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'ML', name: 'Mali', flag: '🇲🇱', flagColor: '#FCD116',
     currency: 'XOF', currencySymbol: 'F CFA', gateway: 'flutterwave',
     prices: { starter: 4999, pro: 7999, business: 14999 },
+    periodPrices: FCFA_PERIOD_PRICES,
     phonePrefix: '+223', cityPlaceholder: 'Bamako, Sikasso, Ségou…',
     paymentMethods: [
       { id: 'cash',         label: 'Espèces',      icon: '💵', type: 'cash' },
@@ -145,6 +162,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'NE', name: 'Niger', flag: '🇳🇪', flagColor: '#E05206',
     currency: 'XOF', currencySymbol: 'F CFA', gateway: 'flutterwave',
     prices: { starter: 4999, pro: 7999, business: 14999 },
+    periodPrices: FCFA_PERIOD_PRICES,
     phonePrefix: '+227', cityPlaceholder: 'Niamey, Zinder, Maradi…',
     paymentMethods: [
       { id: 'cash',         label: 'Espèces',      icon: '💵', type: 'cash' },
@@ -161,6 +179,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'SN', name: 'Sénégal', flag: '🇸🇳', flagColor: '#00853F',
     currency: 'XOF', currencySymbol: 'F CFA', gateway: 'flutterwave',
     prices: { starter: 4999, pro: 7999, business: 14999 },
+    periodPrices: FCFA_PERIOD_PRICES,
     phonePrefix: '+221', cityPlaceholder: 'Dakar, Thiès, Saint-Louis…',
     paymentMethods: [
       { id: 'cash',         label: 'Espèces',      icon: '💵', type: 'cash' },
@@ -176,6 +195,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'BJ', name: 'Bénin', flag: '🇧🇯', flagColor: '#008751',
     currency: 'XOF', currencySymbol: 'F CFA', gateway: 'flutterwave',
     prices: { starter: 4999, pro: 7999, business: 14999 },
+    periodPrices: FCFA_PERIOD_PRICES,
     phonePrefix: '+229', cityPlaceholder: 'Cotonou, Porto-Novo, Parakou…',
     paymentMethods: [
       { id: 'cash',       label: 'Espèces',    icon: '💵', type: 'cash' },
@@ -191,6 +211,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'TG', name: 'Togo', flag: '🇹🇬', flagColor: '#D21034',
     currency: 'XOF', currencySymbol: 'F CFA', gateway: 'flutterwave',
     prices: { starter: 4999, pro: 7999, business: 14999 },
+    periodPrices: FCFA_PERIOD_PRICES,
     phonePrefix: '+228', cityPlaceholder: 'Lomé, Sokodé, Kara…',
     paymentMethods: [
       { id: 'cash',     label: 'Espèces',  icon: '💵', type: 'cash' },
@@ -205,6 +226,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'BF', name: 'Burkina Faso', flag: '🇧🇫', flagColor: '#EF2B2D',
     currency: 'XOF', currencySymbol: 'F CFA', gateway: 'flutterwave',
     prices: { starter: 4999, pro: 7999, business: 14999 },
+    periodPrices: FCFA_PERIOD_PRICES,
     phonePrefix: '+226', cityPlaceholder: 'Ouagadougou, Bobo-Dioulasso, Koudougou…',
     paymentMethods: [
       { id: 'cash',         label: 'Espèces',      icon: '💵', type: 'cash' },
@@ -222,6 +244,11 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'GH', name: 'Ghana', flag: '🇬🇭', flagColor: '#006B3F',
     currency: 'GHS', currencySymbol: 'GH₵', gateway: 'flutterwave',
     prices: { starter: 129, pro: 199, business: 379 },
+    periodPrices: {
+      starter:  { quarterly: 359.99,  annual: 1239.99  },
+      pro:      { quarterly: 549.99,  annual: 1909.99  },
+      business: { quarterly: 1049.99, annual: 3639.99  },
+    },
     phonePrefix: '+233', cityPlaceholder: 'Accra, Kumasi, Tamale…',
     paymentMethods: [
       { id: 'cash',        label: 'Cash',         icon: '💵', type: 'cash' },
@@ -237,6 +264,11 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'GN', name: 'Guinée', flag: '🇬🇳', flagColor: '#CE1126',
     currency: 'GNF', currencySymbol: 'FG', gateway: 'flutterwave',
     prices: { starter: 70000, pro: 115000, business: 215000 },
+    periodPrices: {
+      starter:  { quarterly: 193999,  annual: 671999   },
+      pro:      { quarterly: 317999,  annual: 1099999  },
+      business: { quarterly: 594999,  annual: 2059999  },
+    },
     phonePrefix: '+224', cityPlaceholder: 'Conakry, Kankan, Labé…',
     paymentMethods: [
       { id: 'cash',         label: 'Espèces',      icon: '💵', type: 'cash' },
@@ -251,6 +283,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'GW', name: 'Guinée-Bissau', flag: '🇬🇼', flagColor: '#009E49',
     currency: 'XOF', currencySymbol: 'F CFA', gateway: 'flutterwave',
     prices: { starter: 4999, pro: 7999, business: 14999 },
+    periodPrices: FCFA_PERIOD_PRICES,
     phonePrefix: '+245', cityPlaceholder: 'Bissau, Bafatá, Gabú…',
     paymentMethods: [
       { id: 'cash',         label: 'Espèces',      icon: '💵', type: 'cash' },
@@ -264,6 +297,11 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'GM', name: 'Gambie', flag: '🇬🇲', flagColor: '#3A7728',
     currency: 'GMD', currencySymbol: 'D', gateway: 'flutterwave',
     prices: { starter: 549, pro: 899, business: 1699 },
+    periodPrices: {
+      starter:  { quarterly: 1519,  annual: 5279  },
+      pro:      { quarterly: 2499,  annual: 8649  },
+      business: { quarterly: 4699,  annual: 16319 },
+    },
     phonePrefix: '+220', cityPlaceholder: 'Banjul, Serrekunda, Brikama…',
     paymentMethods: [
       { id: 'cash',     label: 'Cash',         icon: '💵', type: 'cash' },
@@ -277,6 +315,11 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'SL', name: 'Sierra Leone', flag: '🇸🇱', flagColor: '#1EB53A',
     currency: 'SLE', currencySymbol: 'Le', gateway: 'flutterwave',
     prices: { starter: 189, pro: 299, business: 569 },
+    periodPrices: {
+      starter:  { quarterly: 529,  annual: 1819 },
+      pro:      { quarterly: 829,  annual: 2879 },
+      business: { quarterly: 1579, annual: 5469 },
+    },
     phonePrefix: '+232', cityPlaceholder: 'Freetown, Bo, Kenema…',
     paymentMethods: [
       { id: 'cash',         label: 'Cash',         icon: '💵', type: 'cash' },
@@ -290,6 +333,11 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'LR', name: 'Libéria', flag: '🇱🇷', flagColor: '#BF0A30',
     currency: 'LRD', currencySymbol: 'L$', gateway: 'flutterwave',
     prices: { starter: 1599, pro: 2599, business: 4899 },
+    periodPrices: {
+      starter:  { quarterly: 4449,  annual: 15399 },
+      pro:      { quarterly: 7199,  annual: 24999 },
+      business: { quarterly: 13599, annual: 46999 },
+    },
     phonePrefix: '+231', cityPlaceholder: 'Monrovia, Gbarnga, Kakata…',
     paymentMethods: [
       { id: 'cash',         label: 'Cash',         icon: '💵', type: 'cash' },
@@ -304,6 +352,11 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'CV', name: 'Cap-Vert', flag: '🇨🇻', flagColor: '#003893',
     currency: 'CVE', currencySymbol: 'Esc', gateway: 'stripe',
     prices: { starter: 849, pro: 1349, business: 2499 },
+    periodPrices: {
+      starter:  { quarterly: 2349,  annual: 8199  },
+      pro:      { quarterly: 3749,  annual: 12999 },
+      business: { quarterly: 6899,  annual: 23999 },
+    },
     phonePrefix: '+238', cityPlaceholder: 'Praia, Mindelo, Santa Maria…',
     paymentMethods: [
       { id: 'cash',     label: 'Espèces',        icon: '💵', type: 'cash' },
@@ -317,6 +370,11 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'MR', name: 'Mauritanie', flag: '🇲🇷', flagColor: '#006233',
     currency: 'MRU', currencySymbol: 'UM', gateway: 'flutterwave',
     prices: { starter: 319, pro: 499, business: 949 },
+    periodPrices: {
+      starter:  { quarterly: 889,  annual: 3069 },
+      pro:      { quarterly: 1389, annual: 4799 },
+      business: { quarterly: 2629, annual: 9119 },
+    },
     phonePrefix: '+222', cityPlaceholder: 'Nouakchott, Nouadhibou, Rosso…',
     paymentMethods: [
       { id: 'cash',     label: 'Espèces', icon: '💵', type: 'cash' },
@@ -331,6 +389,11 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'CD', name: 'Congo RDC', flag: '🇨🇩', flagColor: '#007FFF',
     currency: 'CDF', currencySymbol: 'FC', gateway: 'flutterwave',
     prices: { starter: 23999, pro: 37999, business: 69999 },
+    periodPrices: {
+      starter:  { quarterly: 65999,  annual: 229999 },
+      pro:      { quarterly: 104999, annual: 364999 },
+      business: { quarterly: 192999, annual: 671999 },
+    },
     phonePrefix: '+243', cityPlaceholder: 'Kinshasa, Lubumbashi, Goma…',
     paymentMethods: [
       { id: 'cash',         label: 'Espèces',      icon: '💵', type: 'cash' },
@@ -346,6 +409,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'CG', name: 'Congo-Brazzaville', flag: '🇨🇬', flagColor: '#009543',
     currency: 'XAF', currencySymbol: 'F CFA', gateway: 'flutterwave',
     prices: { starter: 4999, pro: 7999, business: 14999 },
+    periodPrices: FCFA_PERIOD_PRICES,
     phonePrefix: '+242', cityPlaceholder: 'Brazzaville, Pointe-Noire, Dolisie…',
     paymentMethods: [
       { id: 'cash',         label: 'Espèces',      icon: '💵', type: 'cash' },
@@ -360,6 +424,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'GA', name: 'Gabon', flag: '🇬🇦', flagColor: '#009E60',
     currency: 'XAF', currencySymbol: 'F CFA', gateway: 'flutterwave',
     prices: { starter: 4999, pro: 7999, business: 14999 },
+    periodPrices: FCFA_PERIOD_PRICES,
     phonePrefix: '+241', cityPlaceholder: 'Libreville, Port-Gentil, Franceville…',
     paymentMethods: [
       { id: 'cash',         label: 'Espèces',      icon: '💵', type: 'cash' },
@@ -374,6 +439,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'GQ', name: 'Guinée Équatoriale', flag: '🇬🇶', flagColor: '#3E9A00',
     currency: 'XAF', currencySymbol: 'F CFA', gateway: 'flutterwave',
     prices: { starter: 4999, pro: 7999, business: 14999 },
+    periodPrices: FCFA_PERIOD_PRICES,
     phonePrefix: '+240', cityPlaceholder: 'Malabo, Bata, Mongomo…',
     paymentMethods: [
       { id: 'cash',     label: 'Espèces',  icon: '💵', type: 'cash' },
@@ -387,6 +453,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'CF', name: 'Centrafrique', flag: '🇨🇫', flagColor: '#003082',
     currency: 'XAF', currencySymbol: 'F CFA', gateway: 'flutterwave',
     prices: { starter: 4999, pro: 7999, business: 14999 },
+    periodPrices: FCFA_PERIOD_PRICES,
     phonePrefix: '+236', cityPlaceholder: 'Bangui, Bimbo, Berbérati…',
     paymentMethods: [
       { id: 'cash',         label: 'Espèces',      icon: '💵', type: 'cash' },
@@ -401,6 +468,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'TD', name: 'Tchad', flag: '🇹🇩', flagColor: '#002664',
     currency: 'XAF', currencySymbol: 'F CFA', gateway: 'flutterwave',
     prices: { starter: 4999, pro: 7999, business: 14999 },
+    periodPrices: FCFA_PERIOD_PRICES,
     phonePrefix: '+235', cityPlaceholder: "N'Djamena, Moundou, Sarh…",
     paymentMethods: [
       { id: 'cash',         label: 'Espèces',      icon: '💵', type: 'cash' },
@@ -417,6 +485,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'EU', name: 'Europe', flag: '🇪🇺', flagColor: '#003399',
     currency: 'EUR', currencySymbol: '€', gateway: 'stripe',
     prices: { starter: 14.99, pro: 19.99, business: 29.99 },
+    periodPrices: INTL_PERIOD_PRICES,
     phonePrefix: '+', cityPlaceholder: 'Paris, Berlin, Madrid…',
     paymentMethods: [
       { id: 'cash',     label: 'Espèces',        icon: '💵', type: 'cash' },
@@ -431,6 +500,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'US', name: 'United States', flag: '🇺🇸', flagColor: '#B22234',
     currency: 'USD', currencySymbol: '$', gateway: 'stripe',
     prices: { starter: 14.99, pro: 19.99, business: 29.99 },
+    periodPrices: INTL_PERIOD_PRICES,
     phonePrefix: '+1', cityPlaceholder: 'New York, Los Angeles, Chicago…',
     paymentMethods: [
       { id: 'cash',     label: 'Cash',           icon: '💵', type: 'cash' },
@@ -447,6 +517,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     code: 'CA', name: 'Canada', flag: '🇨🇦', flagColor: '#FF0000',
     currency: 'CAD', currencySymbol: 'CA$', gateway: 'stripe',
     prices: { starter: 14.99, pro: 19.99, business: 29.99 },
+    periodPrices: INTL_PERIOD_PRICES,
     phonePrefix: '+1', cityPlaceholder: 'Toronto, Montréal, Vancouver…',
     paymentMethods: [
       { id: 'cash',      label: 'Cash',           icon: '💵', type: 'cash' },
