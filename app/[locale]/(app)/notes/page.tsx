@@ -184,17 +184,25 @@ export default function NotesPage() {
 
   const togglePin = async (note: Note, e: React.MouseEvent) => {
     e.stopPropagation()
-    await supabase.from('notes').update({ pinned: !note.pinned }).eq('id', note.id)
-    fetchNotes()
+    await Promise.race([supabase.auth.refreshSession(), new Promise(r => setTimeout(r, 3_000))]).catch(() => {})
+    const { error } = await supabase.from('notes').update({ pinned: !note.pinned }).eq('id', note.id)
+    if (!error) fetchNotes()
   }
 
   const deleteNote = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
     setDeleting(id)
-    await supabase.from('notes').delete().eq('id', id)
-    setNotes(prev => prev.filter(n => n.id !== id))
-    setDeleting(null)
-    toast({ title: 'Note supprimée', variant: 'success' })
+    try {
+      await Promise.race([supabase.auth.refreshSession(), new Promise(r => setTimeout(r, 3_000))]).catch(() => {})
+      const { error } = await supabase.from('notes').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+      setNotes(prev => prev.filter(n => n.id !== id))
+      toast({ title: 'Note supprimée', variant: 'success' })
+    } catch {
+      toast({ title: 'Erreur — réessayez', variant: 'destructive' })
+    } finally {
+      setDeleting(null)
+    }
   }
 
   const filtered = notes.filter(n => {

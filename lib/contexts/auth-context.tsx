@@ -457,7 +457,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     updateLastSeen()
     const interval = setInterval(updateLastSeen, 3 * 60 * 1000)
-    const onVisible = () => { if (document.visibilityState === 'visible') updateLastSeen() }
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      updateLastSeen()
+      // Rafraîchir le JWT silencieusement (expire après 1h en arrière-plan).
+      // .catch() : si hors-ligne, ça échoue silencieusement sans bloquer quoi que ce soit.
+      supabase.auth.refreshSession().catch(() => {})
+    }
     document.addEventListener('visibilitychange', onVisible)
     return () => {
       clearInterval(interval)
