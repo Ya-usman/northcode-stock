@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Users, Plus, Copy, CheckCheck, TrendingUp, DollarSign, Edit2, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Users, Plus, Copy, CheckCheck, TrendingUp, DollarSign, Edit2, ToggleLeft, ToggleRight, PlusCircle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -139,6 +139,7 @@ function CopyButton({ text }: { text: string }) {
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([])
   const [commissions, setCommissions] = useState<Commission[]>([])
+  const [shops, setShops] = useState<{ id: string; name: string; city: string | null }[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editAgent, setEditAgent] = useState<Agent | null>(null)
@@ -147,16 +148,33 @@ export default function AgentsPage() {
   const [markingIds, setMarkingIds] = useState<string[]>([])
   const [selectedCommissions, setSelectedCommissions] = useState<string[]>([])
 
+  // Commission manuelle
+  const [showCommissionForm, setShowCommissionForm] = useState(false)
+  const [commissionForm, setCommissionForm] = useState({
+    agent_id: '',
+    shop_id: '',
+    subscription_amount: '',
+    commission_amount: '',
+    plan_id: 'manual',
+    billing_period: 'monthly',
+    notes: '',
+  })
+  const [savingCommission, setSavingCommission] = useState(false)
+  const [commissionError, setCommissionError] = useState('')
+
   const loadData = useCallback(async () => {
     setLoading(true)
-    const [agentsRes, commissionsRes] = await Promise.all([
+    const [agentsRes, commissionsRes, shopsRes] = await Promise.all([
       fetch('/api/admin/agents'),
       fetch('/api/admin/agents/commissions'),
+      fetch('/api/admin/agents/shops'),
     ])
     const agentsData = await agentsRes.json()
     const commissionsData = await commissionsRes.json()
+    const shopsData = shopsRes.ok ? await shopsRes.json() : { shops: [] }
     setAgents(agentsData.agents || [])
     setCommissions(commissionsData.commissions || [])
+    setShops(shopsData.shops || [])
     setLoading(false)
   }, [])
 
@@ -197,6 +215,32 @@ export default function AgentsPage() {
     setMarkingIds([])
     setSelectedCommissions([])
     await loadData()
+  }
+
+  const handleCreateCommission = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSavingCommission(true)
+    setCommissionError('')
+    try {
+      const res = await fetch('/api/admin/agents/commissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...commissionForm,
+          subscription_amount: Number(commissionForm.subscription_amount),
+          commission_amount: Number(commissionForm.commission_amount),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setShowCommissionForm(false)
+      setCommissionForm({ agent_id: '', shop_id: '', subscription_amount: '', commission_amount: '', plan_id: 'manual', billing_period: 'monthly', notes: '' })
+      await loadData()
+    } catch (err: any) {
+      setCommissionError(err.message)
+    } finally {
+      setSavingCommission(false)
+    }
   }
 
   const filteredCommissions = commissions.filter(c => {
@@ -320,6 +364,140 @@ export default function AgentsPage() {
         )}
       </div>
 
+      {/* Commission manuelle — formulaire */}
+      {showCommissionForm && (
+        <div className="bg-card rounded-xl border p-5 space-y-4">
+          <h2 className="font-semibold text-sm flex items-center gap-2">
+            <PlusCircle className="h-4 w-4 text-amber-400" />
+            Créer une commission manuellement
+          </h2>
+          <form onSubmit={handleCreateCommission} className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Agent *</Label>
+                <select
+                  required
+                  value={commissionForm.agent_id}
+                  onChange={e => {
+                    const agent = agents.find(a => a.id === e.target.value)
+                    const amount = Number(commissionForm.subscription_amount)
+                    setCommissionForm(f => ({
+                      ...f,
+                      agent_id: e.target.value,
+                      commission_amount: agent && amount ? String(Math.round(amount * agent.commission_rate / 100)) : f.commission_amount,
+                    }))
+                  }}
+                  className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary"
+                >
+                  <option value="">— Sélectionner un agent —</option>
+                  {agents.filter(a => a.is_active).map(a => (
+                    <option key={a.id} value={a.id}>{a.name} ({a.commission_rate}%)</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <Label>Boutique *</Label>
+                <select
+                  required
+                  value={commissionForm.shop_id}
+                  onChange={e => setCommissionForm(f => ({ ...f, shop_id: e.target.value }))}
+                  className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary"
+                >
+                  <option value="">— Sélectionner une boutique —</option>
+                  {shops.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}{s.city ? ` (${s.city})` : ''}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <Label>Montant abonnement *</Label>
+                <Input
+                  required type="number" min={0}
+                  value={commissionForm.subscription_amount}
+                  onChange={e => {
+                    const amount = Number(e.target.value)
+                    const agent = agents.find(a => a.id === commissionForm.agent_id)
+                    setCommissionForm(f => ({
+                      ...f,
+                      subscription_amount: e.target.value,
+                      commission_amount: agent && amount ? String(Math.round(amount * agent.commission_rate / 100)) : f.commission_amount,
+                    }))
+                  }}
+                  placeholder="ex: 9500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label>Commission (calculée auto)</Label>
+                <Input
+                  required type="number" min={0}
+                  value={commissionForm.commission_amount}
+                  onChange={e => setCommissionForm(f => ({ ...f, commission_amount: e.target.value }))}
+                  placeholder="ex: 950"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label>Plan</Label>
+                <select
+                  value={commissionForm.plan_id}
+                  onChange={e => setCommissionForm(f => ({ ...f, plan_id: e.target.value }))}
+                  className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary"
+                >
+                  <option value="manual">Manuel</option>
+                  <option value="starter">Starter</option>
+                  <option value="pro">Pro</option>
+                  <option value="business">Business</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <Label>Période</Label>
+                <select
+                  value={commissionForm.billing_period}
+                  onChange={e => setCommissionForm(f => ({ ...f, billing_period: e.target.value }))}
+                  className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary"
+                >
+                  <option value="monthly">Mensuel</option>
+                  <option value="quarterly">Trimestriel</option>
+                  <option value="annual">Annuel</option>
+                  <option value="manual">Manuel</option>
+                </select>
+              </div>
+
+              <div className="space-y-1 sm:col-span-2">
+                <Label>Notes internes</Label>
+                <Input
+                  value={commissionForm.notes}
+                  onChange={e => setCommissionForm(f => ({ ...f, notes: e.target.value }))}
+                  placeholder="Raison, contexte..."
+                />
+              </div>
+            </div>
+
+            {commissionError && <p className="text-sm text-destructive">{commissionError}</p>}
+
+            <div className="flex gap-2 justify-end">
+              <Button type="button" variant="outline" onClick={() => setShowCommissionForm(false)}>
+                Annuler
+              </Button>
+              <Button
+                type="submit"
+                disabled={savingCommission}
+                className="bg-amber-600 hover:bg-amber-700 text-white gap-2"
+              >
+                {savingCommission
+                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Création…</>
+                  : <><PlusCircle className="h-3.5 w-3.5" />Créer la commission</>
+                }
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* Commissions */}
       <div className="bg-card rounded-xl border overflow-hidden">
         <div className="px-5 py-3 border-b flex items-center gap-3 flex-wrap">
@@ -341,6 +519,15 @@ export default function AgentsPage() {
               <option value="pending">En attente</option>
               <option value="paid">Payées</option>
             </select>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowCommissionForm(v => !v)}
+              className="h-7 text-xs gap-1.5 border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+            >
+              <PlusCircle className="h-3 w-3" />
+              Commission manuelle
+            </Button>
             {selectedCommissions.length > 0 && (
               <Button
                 size="sm"

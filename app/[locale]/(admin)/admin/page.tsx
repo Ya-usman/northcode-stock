@@ -5,7 +5,7 @@ import { getTrialDaysLeft, hasActiveSubscription, PLANS } from '@/lib/saas/plans
 import { formatAdminRevenue, formatCurrency } from '@/lib/utils/currency'
 import {
   TrendingUp, ShoppingBag, Users, AlertTriangle, DollarSign,
-  ArrowUpRight, Package, Activity, Clock, UserCheck,
+  ArrowUpRight, Package, Activity, Clock, UserCheck, TrendingDown,
 } from 'lucide-react'
 import { COUNTRIES } from '@/lib/saas/countries'
 import { RevenueChart } from '@/components/admin/revenue-chart'
@@ -32,7 +32,7 @@ async function getData(supabase: any) {
     { count: salesToday },
     { count: sales7d },
   ] = await Promise.all([
-    supabase.from('shops').select('id, name, plan, trial_ends_at, plan_expires_at, created_at, currency, country').order('created_at', { ascending: false }),
+    supabase.from('shops').select('id, name, plan, trial_ends_at, plan_expires_at, created_at, currency, country').is('deleted_at', null).order('created_at', { ascending: false }),
     supabase.from('subscriptions').select('id, shop_id, plan, amount, status, paystack_reference, starts_at, created_at').order('created_at', { ascending: false }),
     supabase.from('subscriptions').select('shop_id, amount').eq('status', 'active').gte('created_at', startOfMonth),
     supabase.from('subscriptions').select('shop_id, amount').eq('status', 'active').gte('created_at', startOfLastMonth).lte('created_at', endOfLastMonth),
@@ -119,8 +119,14 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
     return !hasActiveSubscription(s.plan, s.plan_expires_at) && days < 0
   }).length
   const suspended = shops.filter((s: any) => ownersByShop[s.id]?.is_active === false).length
-  const newShopsThisMonth = shops.filter((s: any) => {
-    return new Date(s.created_at) >= new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+  const startOfThisMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+  const startOfLastMonthDate = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1)
+  const endOfLastMonthDate = new Date(new Date().getFullYear(), new Date().getMonth(), 0, 23, 59, 59)
+
+  const newShopsThisMonth = shops.filter((s: any) => new Date(s.created_at) >= startOfThisMonth).length
+  const newShopsLastMonth = shops.filter((s: any) => {
+    const d = new Date(s.created_at)
+    return d >= startOfLastMonthDate && d <= endOfLastMonthDate
   }).length
 
   const inactiveShops = shops.filter((s: any) => {
@@ -208,6 +214,66 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
           )}
         </div>
       )}
+
+      {/* Comparatif ce mois vs mois précédent */}
+      {(() => {
+        const pctShops = newShopsLastMonth > 0
+          ? Math.round(((newShopsThisMonth - newShopsLastMonth) / newShopsLastMonth) * 100)
+          : newShopsThisMonth > 0 ? 100 : 0
+        const pctPayments = lastMonthSubs.length > 0
+          ? Math.round(((thisMonthSubs.length - lastMonthSubs.length) / lastMonthSubs.length) * 100)
+          : thisMonthSubs.length > 0 ? 100 : 0
+
+        const rows = [
+          {
+            label: 'Revenue',
+            current: formatAdminRevenue(thisMonthNGN, thisMonthCFA),
+            prev: formatAdminRevenue(lastMonthNGN, lastMonthCFA),
+            pct: revenueGrowth,
+          },
+          {
+            label: 'Paiements reçus',
+            current: `${thisMonthSubs.length}`,
+            prev: `${lastMonthSubs.length}`,
+            pct: pctPayments,
+          },
+          {
+            label: 'Nouvelles boutiques',
+            current: `${newShopsThisMonth}`,
+            prev: `${newShopsLastMonth}`,
+            pct: pctShops,
+          },
+        ]
+
+        return (
+          <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-border">
+              <h2 className="text-sm font-semibold text-foreground">Ce mois vs mois précédent</h2>
+            </div>
+            <div className="grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border/50">
+              {rows.map(row => {
+                const up = row.pct >= 0
+                const Icon = up ? TrendingUp : TrendingDown
+                return (
+                  <div key={row.label} className="px-5 py-4">
+                    <p className="text-xs text-muted-foreground mb-2">{row.label}</p>
+                    <div className="flex items-end justify-between gap-2">
+                      <div>
+                        <p className="text-xl font-bold text-foreground leading-tight">{row.current}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">vs {row.prev} le mois dernier</p>
+                      </div>
+                      <div className={`flex items-center gap-1 text-sm font-semibold ${up ? 'text-green-400' : 'text-red-400'}`}>
+                        <Icon className="h-4 w-4" />
+                        {up ? '+' : ''}{row.pct}%
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* KPI cards — finances */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

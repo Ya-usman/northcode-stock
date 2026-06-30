@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getPlan, getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
 import { formatNaira } from '@/lib/utils/currency'
@@ -12,6 +13,7 @@ import {
 import {
   ShieldOff, ShieldCheck, Clock, CreditCard, Search,
   ChevronDown, ChevronUp, ExternalLink, Activity, MoreVertical,
+  CheckSquare, Square, X, Loader2,
 } from 'lucide-react'
 import { ShopRestorePanel } from '@/components/admin/shop-restore-panel'
 import {
@@ -224,6 +226,7 @@ function PaymentHistory({ shop }: { shop: Shop }) {
 
 export function AdminShopsTable({ shops, locale }: Props) {
   const { toast } = useToast()
+  const router = useRouter()
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'subscribed' | 'trial' | 'expired'>('all')
   const [country, setCountry] = useState<string>('all')
@@ -237,6 +240,48 @@ export function AdminShopsTable({ shops, locale }: Props) {
   }>({ open: false, action: 'suspend', shop: null })
   const [extendDays, setExtendDays] = useState('30')
   const [grantPlan, setGrantPlan] = useState('starter')
+
+  // Bulk selection
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkConfirm, setBulkConfirm] = useState<{ open: boolean; action: ActionType } | null>(null)
+  const [bulkLoading, setBulkLoading] = useState(false)
+  const [bulkExtendDays, setBulkExtendDays] = useState('30')
+  const [bulkGrantPlan, setBulkGrantPlan] = useState('starter')
+
+  const toggleSelect = (id: string) =>
+    setSelected(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
+  const toggleAll = () =>
+    setSelected(prev => prev.size === filtered.length ? new Set() : new Set(filtered.map(s => s.id)))
+
+  const doBulkAction = async () => {
+    if (!bulkConfirm) return
+    setBulkLoading(true)
+    setBulkConfirm(null)
+    const ids = Array.from(selected)
+    let success = 0
+    let fail = 0
+    await Promise.all(ids.map(async shopId => {
+      try {
+        const res = await fetch('/api/admin/shop-action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: bulkConfirm.action,
+            shop_id: shopId,
+            days: bulkConfirm.action === 'extend' ? Number(bulkExtendDays)
+              : bulkConfirm.action === 'grant_plan' ? bulkGrantPlan
+              : undefined,
+          }),
+        })
+        if (res.ok) success++; else fail++
+      } catch { fail++ }
+    }))
+    setBulkLoading(false)
+    setSelected(new Set())
+    if (fail === 0) toast({ title: `✅ Action appliquée à ${success} boutique(s)`, variant: 'success' })
+    else toast({ title: `${success} réussis, ${fail} échoués`, variant: 'destructive' })
+    router.refresh()
+  }
 
   const filtered = shops.filter(shop => {
     const subscribed = hasActiveSubscription(shop.plan, shop.plan_expires_at)
@@ -274,8 +319,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       toast({ title: data.message, variant: 'success' })
-      // Reload page to reflect changes
-      window.location.reload()
+      router.refresh()
     } catch (err: any) {
       toast({ title: err.message, variant: 'destructive' })
     } finally {
@@ -336,11 +380,65 @@ export function AdminShopsTable({ shops, locale }: Props) {
           </div>
         </div>
 
+        {/* Bulk action bar */}
+        {selected.size > 0 && (
+          <div className="mx-4 mb-2 flex items-center gap-2 flex-wrap bg-blue-950/40 border border-blue-500/30 rounded-xl px-4 py-2.5">
+            <span className="text-sm font-semibold text-blue-300 mr-1">
+              {selected.size} boutique{selected.size > 1 ? 's' : ''} sélectionnée{selected.size > 1 ? 's' : ''}
+            </span>
+            {bulkLoading && <Loader2 className="h-4 w-4 animate-spin text-blue-400" />}
+            <div className="flex flex-wrap gap-1.5 ml-auto">
+              <button
+                onClick={() => setBulkConfirm({ open: true, action: 'suspend' })}
+                disabled={bulkLoading}
+                className="h-7 px-3 rounded-lg text-xs font-medium bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors border border-red-500/30"
+              >
+                Suspendre
+              </button>
+              <button
+                onClick={() => setBulkConfirm({ open: true, action: 'reactivate' })}
+                disabled={bulkLoading}
+                className="h-7 px-3 rounded-lg text-xs font-medium bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors border border-green-500/30"
+              >
+                Réactiver
+              </button>
+              <button
+                onClick={() => setBulkConfirm({ open: true, action: 'extend' })}
+                disabled={bulkLoading}
+                className="h-7 px-3 rounded-lg text-xs font-medium bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition-colors border border-amber-500/30"
+              >
+                Prolonger
+              </button>
+              <button
+                onClick={() => setBulkConfirm({ open: true, action: 'grant_plan' })}
+                disabled={bulkLoading}
+                className="h-7 px-3 rounded-lg text-xs font-medium bg-violet-500/20 text-violet-400 hover:bg-violet-500/30 transition-colors border border-violet-500/30"
+              >
+                Attribuer plan
+              </button>
+              <button
+                onClick={() => setSelected(new Set())}
+                className="h-7 px-2 rounded-lg text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Desktop table */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
+                <th className="pl-4 pr-1 py-3 w-8">
+                  <button onClick={toggleAll} className="text-muted-foreground hover:text-foreground transition-colors">
+                    {selected.size === filtered.length && filtered.length > 0
+                      ? <CheckSquare className="h-4 w-4 text-blue-400" />
+                      : <Square className="h-4 w-4" />
+                    }
+                  </button>
+                </th>
                 {COLUMNS.map(col => (
                   <th key={col.key} className="text-left px-5 py-3 text-foreground/70 font-semibold text-xs uppercase tracking-wide whitespace-nowrap">
                     {col.label}
@@ -375,8 +473,18 @@ export function AdminShopsTable({ shops, locale }: Props) {
                   <>
                     <tr
                       key={shop.id}
-                      className={`border-b border-border/50 transition-colors ${isSuspended ? 'opacity-50' : 'hover:bg-muted/30'}`}
+                      className={`border-b border-border/50 transition-colors ${isSuspended ? 'opacity-50' : 'hover:bg-muted/30'} ${selected.has(shop.id) ? 'bg-blue-950/20' : ''}`}
                     >
+                      {/* Checkbox */}
+                      <td className="pl-4 pr-1 py-3 w-8">
+                        <button onClick={() => toggleSelect(shop.id)} className="text-muted-foreground hover:text-foreground transition-colors">
+                          {selected.has(shop.id)
+                            ? <CheckSquare className="h-4 w-4 text-blue-400" />
+                            : <Square className="h-4 w-4" />
+                          }
+                        </button>
+                      </td>
+
                       {/* Shop + owner */}
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-2">
@@ -438,7 +546,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
                     {/* Expanded row */}
                     {isExpanded && (
                       <tr key={`${shop.id}-expanded`} className="border-b border-border/50 bg-muted/20">
-                        <td colSpan={COLUMNS.length} className="px-8 py-4">
+                        <td colSpan={COLUMNS.length + 1} className="px-8 py-4">
                           <PaymentHistory shop={shop} />
                         </td>
                       </tr>
@@ -473,11 +581,18 @@ export function AdminShopsTable({ shops, locale }: Props) {
             }
 
             return (
-              <div key={shop.id} className={isSuspended ? 'opacity-50' : ''}>
+              <div key={shop.id} className={`${isSuspended ? 'opacity-50' : ''} ${selected.has(shop.id) ? 'bg-blue-950/20' : ''}`}>
                 <div className="px-4 py-3.5 space-y-2">
                   {/* Top row: name + status */}
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
+                    <div className="flex items-start gap-2 min-w-0 flex-1">
+                      <button onClick={() => toggleSelect(shop.id)} className="mt-0.5 text-muted-foreground hover:text-foreground transition-colors flex-shrink-0">
+                        {selected.has(shop.id)
+                          ? <CheckSquare className="h-4 w-4 text-blue-400" />
+                          : <Square className="h-4 w-4" />
+                        }
+                      </button>
+                      <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-semibold text-foreground text-sm">{shop.name}</p>
                         {isSuspended && (
@@ -485,6 +600,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">{shop.owner?.full_name || '—'}</p>
+                      </div>
                     </div>
                     <StatusBadge isSuspended={!!isSuspended} subscribed={subscribed} trialDays={trialDays} />
                   </div>
@@ -533,36 +649,90 @@ export function AdminShopsTable({ shops, locale }: Props) {
         </div>
       </div>
 
+      {/* Bulk confirm dialog */}
+      <Dialog open={!!bulkConfirm?.open} onOpenChange={v => !v && setBulkConfirm(null)}>
+        <DialogContent className="bg-card border-border text-foreground max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">
+              {bulkConfirm?.action === 'suspend' && '⚠️ Suspendre'}
+              {bulkConfirm?.action === 'reactivate' && '✅ Réactiver'}
+              {bulkConfirm?.action === 'extend' && '⏱️ Prolonger'}
+              {bulkConfirm?.action === 'grant_plan' && '🎁 Attribuer un plan'}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-muted-foreground text-sm">
+            Action sur <strong className="text-foreground">{selected.size} boutique{selected.size > 1 ? 's' : ''}</strong>.
+          </p>
+          {bulkConfirm?.action === 'extend' && (
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Jours à ajouter</label>
+              <input
+                type="number" min={1} max={365}
+                value={bulkExtendDays}
+                onChange={e => setBulkExtendDays(e.target.value)}
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:border-stockshop-blue"
+              />
+            </div>
+          )}
+          {bulkConfirm?.action === 'grant_plan' && (
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Plan à attribuer</label>
+              <select
+                value={bulkGrantPlan}
+                onChange={e => setBulkGrantPlan(e.target.value)}
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:border-stockshop-blue"
+              >
+                <option value="starter">Starter</option>
+                <option value="pro">Pro</option>
+                <option value="business">Business</option>
+              </select>
+            </div>
+          )}
+          <DialogFooter className="gap-2 mt-2">
+            <Button variant="outline" size="sm" onClick={() => setBulkConfirm(null)} className="border-border text-foreground hover:bg-accent">
+              Annuler
+            </Button>
+            <Button
+              size="sm"
+              onClick={doBulkAction}
+              className={bulkConfirm?.action === 'suspend' ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-stockshop-blue hover:bg-stockshop-blue-light text-white'}
+            >
+              Confirmer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Confirm dialog */}
       <Dialog open={confirmDialog.open} onOpenChange={open => setConfirmDialog(d => ({ ...d, open }))}>
         <DialogContent className="bg-card border-border text-foreground max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-foreground">
-              {confirmDialog.action === 'suspend' && '⚠️ Suspend shop'}
-              {confirmDialog.action === 'reactivate' && '✅ Reactivate shop'}
-              {confirmDialog.action === 'extend' && '⏱️ Extend access'}
-              {confirmDialog.action === 'grant_plan' && '🎁 Grant plan'}
+              {confirmDialog.action === 'suspend' && '⚠️ Suspendre la boutique'}
+              {confirmDialog.action === 'reactivate' && '✅ Réactiver la boutique'}
+              {confirmDialog.action === 'extend' && '⏱️ Prolonger l\'accès'}
+              {confirmDialog.action === 'grant_plan' && '🎁 Attribuer un plan'}
             </DialogTitle>
           </DialogHeader>
 
           <p className="text-muted-foreground text-sm">
             {confirmDialog.action === 'suspend' && (
-              <>Suspend <strong className="text-foreground">{confirmDialog.shop?.name}</strong>? Their account will be locked immediately.</>
+              <><strong className="text-red-400">{confirmDialog.shop?.name}</strong> sera suspendue immédiatement. L'accès de tous les membres sera bloqué.</>
             )}
             {confirmDialog.action === 'reactivate' && (
-              <>Reactivate <strong className="text-foreground">{confirmDialog.shop?.name}</strong>? They will get 30 days of trial access.</>
+              <><strong className="text-foreground">{confirmDialog.shop?.name}</strong> sera réactivée avec 30 jours d'essai.</>
             )}
             {confirmDialog.action === 'extend' && (
-              <>Extend access for <strong className="text-foreground">{confirmDialog.shop?.name}</strong>.</>
+              <>Prolonger l'accès de <strong className="text-foreground">{confirmDialog.shop?.name}</strong>.</>
             )}
             {confirmDialog.action === 'grant_plan' && (
-              <>Grant a paid plan to <strong className="text-foreground">{confirmDialog.shop?.name}</strong> for 31 days.</>
+              <>Attribuer un plan payant à <strong className="text-foreground">{confirmDialog.shop?.name}</strong> pour 31 jours.</>
             )}
           </p>
 
           {confirmDialog.action === 'extend' && (
             <div className="mt-2">
-              <label className="text-xs text-muted-foreground mb-1 block">Number of days to add</label>
+              <label className="text-xs text-muted-foreground mb-1 block">Nombre de jours à ajouter</label>
               <input
                 type="number"
                 min={1}
@@ -576,15 +746,15 @@ export function AdminShopsTable({ shops, locale }: Props) {
 
           {confirmDialog.action === 'grant_plan' && (
             <div className="mt-2">
-              <label className="text-xs text-muted-foreground mb-1 block">Plan to grant</label>
+              <label className="text-xs text-muted-foreground mb-1 block">Plan à attribuer</label>
               <select
                 value={grantPlan}
                 onChange={e => setGrantPlan(e.target.value)}
                 className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:border-stockshop-blue"
               >
-                <option value="starter">Starter — ₦4,500/mo</option>
-                <option value="pro">Pro — ₦9,500/mo</option>
-                <option value="business">Business — ₦19,500/mo</option>
+                <option value="starter">Starter — ₦4,500/mois</option>
+                <option value="pro">Pro — ₦9,500/mois</option>
+                <option value="business">Business — ₦19,500/mois</option>
               </select>
             </div>
           )}
@@ -592,20 +762,20 @@ export function AdminShopsTable({ shops, locale }: Props) {
           <DialogFooter className="gap-2 mt-2">
             <Button variant="outline" size="sm" onClick={() => setConfirmDialog(d => ({ ...d, open: false }))}
               className="border-border text-foreground hover:bg-accent">
-              Cancel
+              Annuler
             </Button>
             <Button
               size="sm"
               onClick={doAction}
               className={
                 confirmDialog.action === 'suspend'
-                  ? 'bg-red-600 hover:bg-red-700'
+                  ? 'bg-red-600 hover:bg-red-700 text-white'
                   : confirmDialog.action === 'reactivate'
-                  ? 'bg-green-600 hover:bg-green-700'
-                  : 'bg-stockshop-blue hover:bg-stockshop-blue-light'
+                  ? 'bg-green-600 hover:bg-green-700 text-white'
+                  : 'bg-stockshop-blue hover:bg-stockshop-blue-light text-white'
               }
             >
-              Confirm
+              Confirmer
             </Button>
           </DialogFooter>
         </DialogContent>

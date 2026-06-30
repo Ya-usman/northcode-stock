@@ -5,6 +5,9 @@ import { RotateCcw, Package, Users, ChevronDown, ChevronUp, AlertTriangle } from
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { formatNaira } from '@/lib/utils/currency'
+import { createClient } from '@/lib/supabase/client'
+
+const supabase = createClient() as any
 
 interface Props {
   shopId: string

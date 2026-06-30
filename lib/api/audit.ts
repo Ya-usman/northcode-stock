@@ -11,6 +11,14 @@ export type AuditAction =
   | 'account.delete'
   | 'sale.cancel'
   | 'sale.delete'
+  | 'admin.suspend_shop'
+  | 'admin.reactivate_shop'
+  | 'admin.extend_access'
+  | 'admin.grant_plan'
+  | 'admin.edit_shop'
+  | 'admin.restore_product'
+  | 'admin.restore_customer'
+  | 'admin.create_owner'
 
 interface AuditParams {
   action: AuditAction

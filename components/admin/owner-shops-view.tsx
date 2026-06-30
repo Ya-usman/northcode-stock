@@ -1,9 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronDown, ChevronRight, Store, Trash2, AlertTriangle } from 'lucide-react'
 import { hasActiveSubscription, getTrialDaysLeft } from '@/lib/saas/plans'
+import { getCountry } from '@/lib/saas/countries'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 
@@ -47,6 +49,7 @@ function ShopStatusBadge({ shop }: { shop: Shop }) {
 
 export function OwnerShopsView({ owners: initialOwners, locale }: Props) {
   const { toast } = useToast()
+  const router = useRouter()
   const [owners, setOwners] = useState(initialOwners)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
@@ -82,6 +85,7 @@ export function OwnerShopsView({ owners: initialOwners, locale }: Props) {
       setOwners(prev => prev.filter(o => o.id !== owner.id))
       setConfirmDeleteId(null)
       setConfirmText('')
+      router.refresh()
     } catch (err: any) {
       toast({ title: err.message, variant: 'destructive' })
     } finally {
@@ -114,7 +118,7 @@ export function OwnerShopsView({ owners: initialOwners, locale }: Props) {
           const isOpen = expanded.has(owner.id)
           const lastSeenDays = daysSince(owner.last_seen)
           const totalPaid = owner.shops.filter(s => hasActiveSubscription(s.plan, s.plan_expires_at)).length
-          const flag = owner.shops[0]?.country === 'CM' ? '🇨🇲' : owner.shops.length > 0 ? '🇳🇬' : ''
+          const flag = owner.shops[0]?.country ? getCountry(owner.shops[0].country).flag : ''
           const isConfirming = confirmDeleteId === owner.id
           const confirmLabel = owner.full_name || owner.email || owner.id
           const confirmValid = confirmText.trim().toLowerCase() === confirmLabel.trim().toLowerCase()
@@ -236,7 +240,7 @@ export function OwnerShopsView({ owners: initialOwners, locale }: Props) {
                   {owner.shops.length === 0 ? (
                     <p className="px-5 py-3 text-xs text-muted-foreground italic">Aucune boutique créée</p>
                   ) : owner.shops.map(shop => {
-                    const shopFlag = shop.country === 'CM' ? '🇨🇲' : '🇳🇬'
+                    const shopFlag = getCountry(shop.country).flag
                     return (
                       <Link
                         key={shop.id}

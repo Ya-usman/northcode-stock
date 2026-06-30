@@ -51,3 +51,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
+
+// DELETE /api/admin/assign-manager — révoquer l'accès d'un member (super_admin)
+export async function DELETE(request: Request) {
+  try {
+    const supabase = await createClient() as any
+    const { data: { user } } = await supabase.auth.getUser()
+    const isAdmin = user && SUPER_ADMIN_EMAILS.includes(user.email || '')
+    if (!isAdmin) {
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user?.id ?? '').single()
+      if (profile?.role !== 'super_admin') return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+    }
+
+    const { member_id } = await request.json()
+    if (!member_id) return NextResponse.json({ error: 'member_id requis' }, { status: 400 })
+
+    const admin = await createAdminClient() as any
+    const { error } = await admin.from('shop_members').update({ is_active: false }).eq('id', member_id)
+    if (error) throw error
+
+    return NextResponse.json({ success: true })
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}

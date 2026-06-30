@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { ShopsViewToggle } from '@/components/admin/shops-view-toggle'
 import { DeletedShopsPanel } from '@/components/admin/deleted-shops-panel'
+import { CreateOwnerModal } from '@/components/admin/create-owner-modal'
 
 export const dynamic = 'force-dynamic'
 
@@ -92,14 +93,17 @@ export default async function AdminShopsPage({ params: { locale } }: { params: {
 
   return (
     <div className="space-y-4 max-w-7xl">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Boutiques</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          {(shops || []).length} boutiques · {ownersList.filter(o => o.id !== '__no_owner__').length} propriétaires · tous pays
-          {enrichedDeletedShops.length > 0 && (
-            <span className="ml-2 text-red-400">· {enrichedDeletedShops.length} supprimée{enrichedDeletedShops.length > 1 ? 's' : ''}</span>
-          )}
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Boutiques</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            {(shops || []).length} boutiques · {ownersList.filter(o => o.id !== '__no_owner__').length} propriétaires · tous pays
+            {enrichedDeletedShops.length > 0 && (
+              <span className="ml-2 text-red-400">· {enrichedDeletedShops.length} supprimée{enrichedDeletedShops.length > 1 ? 's' : ''}</span>
+            )}
+          </p>
+        </div>
+        <CreateOwnerModal />
       </div>
 
       {enrichedDeletedShops.length > 0 && (

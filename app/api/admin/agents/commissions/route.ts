@@ -38,6 +38,45 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ commissions: data })
 }
 
+// POST /api/admin/agents/commissions — créer une commission manuellement
+export async function POST(request: NextRequest) {
+  const user = await checkSuperAdmin()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const body = await request.json()
+  const { agent_id, shop_id, subscription_amount, commission_amount, plan_id, billing_period, notes } = body
+
+  if (!agent_id || !shop_id || !subscription_amount || !commission_amount) {
+    return NextResponse.json({ error: 'Champs requis manquants' }, { status: 400 })
+  }
+
+  const supabase = await createAdminClient() as any
+  const { data, error } = await supabase
+    .from('agent_commissions')
+    .insert({
+      agent_id,
+      shop_id,
+      subscription_amount: Number(subscription_amount),
+      commission_amount: Number(commission_amount),
+      plan_id: plan_id || 'manual',
+      billing_period: billing_period || 'manual',
+      status: 'pending',
+      notes: notes || null,
+    })
+    .select('id')
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Update agent total_earned
+  const { data: agent } = await supabase.from('agents').select('total_earned').eq('id', agent_id).single()
+  await supabase.from('agents').update({
+    total_earned: (Number(agent?.total_earned) || 0) + Number(commission_amount),
+  }).eq('id', agent_id)
+
+  return NextResponse.json({ success: true, id: data?.id })
+}
+
 // PATCH /api/admin/agents/commissions — marquer commissions comme payées
 export async function PATCH(request: NextRequest) {
   const user = await checkSuperAdmin()

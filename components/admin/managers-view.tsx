@@ -1,13 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { Plus, Store, UserCheck, Trash2, Shield, Crown, Mail, Search } from 'lucide-react'
 import { COUNTRIES } from '@/lib/saas/countries'
-
-const supabase = createClient()
 
 interface Manager {
   id: string
@@ -39,6 +37,7 @@ function shopCountryLabel(country?: string) {
 
 export function ManagersView({ shops: initialShops, managers: initialManagers }: Props) {
   const { toast } = useToast()
+  const router = useRouter()
   const [managers, setManagers] = useState(initialManagers)
   const [adding, setAdding] = useState(false)
   const [search, setSearch] = useState('')
@@ -79,7 +78,7 @@ export function ManagersView({ shops: initialShops, managers: initialManagers }:
       toast({ title: 'Responsable assigné !', variant: 'success' })
       setAdding(false)
       setForm({ email: '', shop_id: '' })
-      window.location.reload()
+      router.refresh()
     } catch (err: any) {
       toast({ title: err.message, variant: 'destructive' })
     } finally {
@@ -90,13 +89,16 @@ export function ManagersView({ shops: initialShops, managers: initialManagers }:
   const handleRevoke = async (member: Manager) => {
     setRevoking(member.id)
     try {
-      const { error } = await (supabase as any)
-        .from('shop_members')
-        .update({ is_active: false })
-        .eq('id', member.id)
-      if (error) throw new Error(error.message)
+      const res = await fetch('/api/admin/assign-manager', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ member_id: member.id }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error)
       toast({ title: 'Accès retiré', variant: 'success' })
       setManagers(prev => prev.filter(m => m.id !== member.id))
+      router.refresh()
     } catch (err: any) {
       toast({ title: err.message, variant: 'destructive' })
     } finally {

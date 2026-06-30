@@ -1,9 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { RotateCcw, Trash2, Store, ChevronDown, ChevronUp, AlertTriangle, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
+import { getCountry } from '@/lib/saas/countries'
 
 interface DeletedShop {
   id: string
@@ -27,6 +29,7 @@ function daysSince(date: string) {
 
 export function DeletedShopsPanel({ shops: initialShops }: Props) {
   const { toast } = useToast()
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [shops, setShops] = useState(initialShops)
   const [restoring, setRestoring] = useState<string | null>(null)
@@ -44,6 +47,7 @@ export function DeletedShopsPanel({ shops: initialShops }: Props) {
       if (!res.ok) throw new Error(json.error || 'Erreur')
       toast({ title: `✅ Boutique « ${shopName} » restaurée`, variant: 'success' })
       setShops(prev => prev.filter(s => s.id !== shopId))
+      router.refresh()
     } catch (err: any) {
       toast({ title: err.message, variant: 'destructive' })
     } finally {
@@ -61,6 +65,7 @@ export function DeletedShopsPanel({ shops: initialShops }: Props) {
       setShops(prev => prev.filter(s => s.id !== shopId))
       setConfirmPermanentId(null)
       setConfirmText('')
+      router.refresh()
     } catch (err: any) {
       toast({ title: err.message, variant: 'destructive' })
     } finally {
@@ -90,7 +95,7 @@ export function DeletedShopsPanel({ shops: initialShops }: Props) {
       {open && (
         <div className="border-t border-border/50 divide-y divide-border/40">
           {shops.map(shop => {
-            const flag = shop.country === 'CM' ? '🇨🇲' : '🇳🇬'
+            const flag = getCountry(shop.country).flag
             const days = daysSince(shop.deleted_at)
             const isConfirming = confirmPermanentId === shop.id
             const confirmValid = confirmText.trim().toLowerCase() === shop.name.trim().toLowerCase()

@@ -45,14 +45,6 @@ export default async function AdminLayout({
           <span className="font-bold text-sm text-white tracking-wide">StockShop</span>
           <span className="text-[9px] font-semibold text-stockshop-gold tracking-widest uppercase">Admin Panel</span>
         </div>
-        {/* Live dot */}
-        <div className="ml-auto flex items-center gap-1.5">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-400" />
-          </span>
-          <span className="text-[9px] text-green-400 font-semibold tracking-wide">LIVE</span>
-        </div>
       </div>
 
       {/* Mobile bottom nav */}

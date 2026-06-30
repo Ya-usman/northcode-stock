@@ -20,6 +20,7 @@ const ACTION_CONFIG: Record<string, { label: string; color: string; icon: React.
   'admin.edit_shop':       { label: 'Modif. boutique',   color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400', icon: Pencil },
   'admin.restore_product': { label: 'Produit restauré',  color: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400', icon: RotateCcw },
   'admin.restore_customer':{ label: 'Client restauré',   color: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400', icon: RotateCcw },
+  'admin.create_owner':    { label: 'Nouveau propriétaire', color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400', icon: UserPlus },
   'member.invite':         { label: 'Invitation',        color: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',     icon: UserPlus },
   'member.delete':         { label: 'Membre supprimé',   color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',     icon: Trash2 },
   'admin.notify':          { label: 'Notification',      color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400', icon: Bell },

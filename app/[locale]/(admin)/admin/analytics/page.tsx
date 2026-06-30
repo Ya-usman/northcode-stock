@@ -11,7 +11,7 @@ import { TrendingUp, Users, ShoppingBag, Activity } from 'lucide-react'
 
 async function getData(supabase: any) {
   const [{ data: shops }, { data: subs }, { data: owners }] = await Promise.all([
-    supabase.from('shops').select('id, name, plan, trial_ends_at, plan_expires_at, created_at, is_active, currency, country').order('created_at', { ascending: true }),
+    supabase.from('shops').select('id, name, plan, trial_ends_at, plan_expires_at, created_at, currency, country').is('deleted_at', null).order('created_at', { ascending: true }),
     supabase.from('subscriptions').select('id, shop_id, plan, amount, status, created_at').order('created_at', { ascending: false }),
     supabase.from('profiles').select('id, shop_id, last_seen').eq('role', 'owner'),
   ])
@@ -51,10 +51,12 @@ function computeHealthScore(shop: any, owner: any) {
   const lastSeen = owner?.last_seen ? new Date(owner.last_seen) : null
   const daysSince = lastSeen ? Math.floor((Date.now() - lastSeen.getTime()) / 86400000) : 999
   let score = 0
-  if (daysSince <= 7) score += 20
-  if (score >= 0) score += 0 // placeholder: sales checked separately
-  if (hasActiveSubscription(shop.plan, shop.plan_expires_at)) score += 30
-  else if (getTrialDaysLeft(shop.trial_ends_at) >= 0) score += 10
+  if (daysSince <= 7)       score += 30
+  else if (daysSince <= 14) score += 15
+  if (hasActiveSubscription(shop.plan, shop.plan_expires_at)) score += 40
+  else if (getTrialDaysLeft(shop.trial_ends_at) >= 0)         score += 10
+  if (daysSince <= 30)      score += 20
+  else if (daysSince <= 60) score += 10
   return Math.min(100, score)
 }
 
