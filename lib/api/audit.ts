@@ -11,6 +11,7 @@ export type AuditAction =
   | 'account.delete'
   | 'sale.cancel'
   | 'sale.delete'
+  | 'expense.delete'
   | 'admin.suspend_shop'
   | 'admin.reactivate_shop'
   | 'admin.extend_access'

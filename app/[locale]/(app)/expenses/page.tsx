@@ -81,8 +81,17 @@ export default function ExpensesPage() {
   const [savingBudget, setSavingBudget] = useState(false)
   const [deleting, setDeleting]       = useState<string | null>(null)
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; id: string | null; isTemplate: boolean }>({ open: false, id: null, isTemplate: false })
+
+  type DeleteLog = {
+    id: string
+    created_at: string
+    actor_email: string | null
+    metadata: { amount: number; category: string; description: string; date: string; is_recurring: boolean }
+  }
+  const [deleteLogs, setDeleteLogs] = useState<DeleteLog[]>([])
   const [showTemplates, setShowTemplates] = useState(true)
   const [showBudgets, setShowBudgets] = useState(true)
+  const [showDeleteLogs, setShowDeleteLogs] = useState(false)
   const [exporting, setExporting]     = useState(false)
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
 
@@ -189,6 +198,20 @@ export default function ExpensesPage() {
     setBudgets(map)
   }, [shop?.id])
 
+  const isOwnerOrAdmin = profile?.role === 'owner' || profile?.role === 'super_admin'
+
+  const fetchDeleteLogs = useCallback(async () => {
+    if (!shop?.id || !isOwnerOrAdmin || !navigator.onLine) return
+    const { data } = await supabase
+      .from('audit_logs')
+      .select('id, created_at, actor_email, metadata')
+      .eq('shop_id', shop.id)
+      .eq('action', 'expense.delete')
+      .order('created_at', { ascending: false })
+      .limit(50)
+    setDeleteLogs((data || []) as DeleteLog[])
+  }, [shop?.id, isOwnerOrAdmin])
+
   const generateDueRecurring = useCallback(async () => {
     if (!effectiveShopIds.length || !navigator.onLine) return
     const today = format(new Date(), 'yyyy-MM-dd')
@@ -238,6 +261,7 @@ export default function ExpensesPage() {
   useEffect(() => {
     fetchExpenses()
     fetchBudgets()
+    fetchDeleteLogs()
     generateDueRecurring()
   }, [shopIdsKey, monthFilter])
 
@@ -403,14 +427,20 @@ export default function ExpensesPage() {
 
   const confirmDelete = async () => {
     const { id } = deleteDialog
-    if (!id) return
+    if (!id || !shop?.id) return
     setDeleteDialog({ open: false, id: null, isTemplate: false })
     setDeleting(id)
     try {
-      const { error } = await withTimeout(supabase.from('expenses').delete().eq('id', id))
-      if (error) { toast({ title: error.message, variant: 'destructive' }); return }
+      const res = await withTimeout(fetch('/api/expenses/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expense_id: id, shop_id: shop.id }),
+      }))
+      const data = await (res as Response).json()
+      if (!(res as Response).ok) { toast({ title: data.error || 'Erreur', variant: 'destructive' }); return }
       toast({ title: t('deleted'), variant: 'success' })
       fetchExpenses()
+      fetchDeleteLogs()
     } catch (err: any) {
       toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
     } finally {
@@ -928,6 +958,53 @@ export default function ExpensesPage() {
             )
           })}
         </div>
+      )}
+
+      {/* ── Journal des suppressions (owner uniquement) ── */}
+      {isOwnerOrAdmin && (
+        <Card className="border-0 shadow-sm overflow-hidden">
+          <button
+            onClick={() => setShowDeleteLogs(v => !v)}
+            className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-muted/40 transition-colors"
+          >
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <AlertTriangle className="h-4 w-4" />
+              <span>{t('delete_journal')} {deleteLogs.length > 0 && `(${deleteLogs.length})`}</span>
+            </div>
+            {showDeleteLogs ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          </button>
+          {showDeleteLogs && (
+            <div className="border-t">
+              {deleteLogs.length === 0 ? (
+                <p className="text-center text-sm text-muted-foreground py-6">{t('delete_journal_empty')}</p>
+              ) : (
+                <div className="divide-y">
+                  {deleteLogs.map(log => {
+                    const cat = catFor(log.metadata?.category ?? 'other')
+                    const dateStr = new Date(log.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                    return (
+                      <div key={log.id} className="flex items-start gap-3 px-4 py-3">
+                        <span className={cn('flex-shrink-0 h-8 w-8 rounded-lg flex items-center justify-center text-base', cat.color)}>
+                          {cat.icon}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{log.metadata?.description}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {t('deleted_by')} <span className="font-medium text-foreground">{log.actor_email}</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground">{dateStr}</p>
+                        </div>
+                        <span className="text-sm font-semibold text-red-500 flex-shrink-0">
+                          -{fmt(Number(log.metadata?.amount))}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
       )}
 
       {/* ── Expense modal ── */}
