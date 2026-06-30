@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Save, Upload, Globe, Moon, Sun, ShoppingCart, History, CreditCard, Users, Package, ArrowLeftRight, Tag, Truck, BarChart2, ShieldCheck, Bell, Receipt, NotebookPen, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
+import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
 import { useToast } from '@/components/ui/use-toast'
 import { isPushSupported, subscribeToPush, unsubscribeFromPush, getPushPermission } from '@/lib/push'
 import { useTheme } from '@/lib/hooks/use-theme'
@@ -38,6 +39,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const [name, setName] = useState('')
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
+  const [country, setCountry] = useState<CountryCode>('NG')
+  const [currency, setCurrency] = useState('')
   const [whatsapp, setWhatsapp] = useState('')
   const [threshold, setThreshold] = useState<string>('10')
   const [taxRate, setTaxRate] = useState<string>('0')
@@ -98,6 +101,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       setName(shopData.name)
       setCity(shopData.city)
       setState(shopData.state)
+      setCountry((shopData.country as CountryCode) || 'NG')
+      setCurrency(shopData.currency || COUNTRIES[(shopData.country as CountryCode) || 'NG']?.currencySymbol || '₦')
       setWhatsapp(shopData.whatsapp || '')
       setThreshold(String(shopData.low_stock_threshold))
       setTaxRate(String(shopData.tax_rate))
@@ -175,6 +180,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       name: name.trim(),
       city,
       state,
+      country,
+      currency,
       whatsapp: whatsapp || null,
       low_stock_threshold: Math.max(1, Number(threshold) || 1),
       tax_rate: Math.max(0, Number(taxRate) || 0),
@@ -340,6 +347,43 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                 <div className="space-y-1">
                   <Label>{t('settings.state')}</Label>
                   <Input value={state} onChange={e => setState(e.target.value)} placeholder="Kano State" />
+                </div>
+              </div>
+
+              {/* Country + Currency */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label>Pays</Label>
+                  <select
+                    value={country}
+                    onChange={e => {
+                      const code = e.target.value as CountryCode
+                      setCountry(code)
+                      setCurrency(COUNTRIES[code]?.currencySymbol || '')
+                    }}
+                    className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  >
+                    {Object.values(COUNTRIES).map(c => (
+                      <option key={c.code} value={c.code}>
+                        {c.flag} {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Devise</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={currency}
+                      onChange={e => setCurrency(e.target.value)}
+                      placeholder="₦"
+                      className="flex-1"
+                    />
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {COUNTRIES[country]?.currency || ''}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Modifiable si nécessaire</p>
                 </div>
               </div>
             </CardContent>
