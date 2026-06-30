@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, MessageCircle, Mail, BookOpen, HelpCircle } from 'lucide-react'
+import { ChevronDown, ChevronUp, MessageCircle, Mail, BookOpen, HelpCircle, List } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import Image from 'next/image'
 
@@ -481,9 +481,12 @@ function ManualContent() {
     <div className="space-y-4">
       {/* Table des matières */}
       <div className="rounded-xl border bg-card p-5 shadow-sm">
-        <h2 className="font-semibold text-sm uppercase tracking-wide text-stockshop-blue dark:text-blue-400 mb-3">
-          📋 Table des matières
-        </h2>
+        <div className="flex items-center gap-2 mb-3">
+          <List className="h-4 w-4 text-stockshop-blue dark:text-blue-400" />
+          <h2 className="font-semibold text-sm uppercase tracking-wide text-stockshop-blue dark:text-blue-400">
+            Table des matières
+          </h2>
+        </div>
         <ol className="grid grid-cols-1 sm:grid-cols-2 gap-1">
           {TOC_ITEMS.map(item => (
             <li key={item.id}>
@@ -540,13 +543,13 @@ export default function HelpPage() {
         <p className="text-sm text-muted-foreground">FAQ rapide ou manuel complet illustré.</p>
 
         {/* Tab switcher */}
-        <div className="flex mt-4 rounded-lg border bg-muted p-1 gap-1">
+        <div className="flex mt-4 rounded-xl border bg-muted p-1 gap-1">
           <button
             onClick={() => setTab('faq')}
             className={cn(
-              'flex flex-1 items-center justify-center gap-2 rounded-md py-2 text-sm font-medium transition-colors',
+              'flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition-all duration-150',
               tab === 'faq'
-                ? 'bg-card text-stockshop-blue dark:text-blue-400 shadow-sm'
+                ? 'bg-stockshop-blue text-white shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
@@ -556,9 +559,9 @@ export default function HelpPage() {
           <button
             onClick={() => setTab('manual')}
             className={cn(
-              'flex flex-1 items-center justify-center gap-2 rounded-md py-2 text-sm font-medium transition-colors',
+              'flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition-all duration-150',
               tab === 'manual'
-                ? 'bg-card text-stockshop-blue dark:text-blue-400 shadow-sm'
+                ? 'bg-stockshop-blue text-white shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
