@@ -201,9 +201,13 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       if (!res.ok) { toast({ title: json.error || 'Erreur', variant: 'destructive' }); return }
       // Update local state immediately
       setShop(prev => prev ? { ...prev, ...updates } : prev)
-      // Sync the global auth context
+      // Sync the global auth context — patchShop is the source of truth here
+      // since it uses exactly what was saved. refreshShop() reads from a replica
+      // that may have lag, which would revert the currency/country back to the old value.
       patchShop(shop.id, updates)
-      await refreshShop()
+      // Non-blocking background refresh after a short delay to catch any other
+      // server-side changes (triggers, computed columns) without reverting patchShop.
+      setTimeout(() => refreshShop().catch(() => {}), 3000)
       toast({ title: t('settings.saved'), variant: 'success' })
     } catch (err: any) {
       toast({ title: err.message || 'Erreur réseau', variant: 'destructive' })
