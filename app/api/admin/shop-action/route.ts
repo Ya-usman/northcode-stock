@@ -1,6 +1,7 @@
 ﻿import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { createClient } from '@/lib/supabase/server'
+import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 
 const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean)
 
@@ -48,6 +49,7 @@ export async function POST(request: Request) {
             trial_ends_at: expiredAt,
           } as any).eq('id', owner_id)
         }
+        await writeAuditLog({ action: 'admin.suspend_shop', shop_id, actor_id: user.id, actor_email: user.email, target_id: shop_id, target_type: 'shop', ip: getClientIp(request) })
         return NextResponse.json({ success: true, message: 'Shop suspended' })
       }
 
@@ -67,6 +69,7 @@ export async function POST(request: Request) {
             trial_ends_at: newTrial,
           } as any).eq('id', owner_id)
         }
+        await writeAuditLog({ action: 'admin.reactivate_shop', shop_id, actor_id: user.id, actor_email: user.email, target_id: shop_id, target_type: 'shop', ip: getClientIp(request) })
         return NextResponse.json({ success: true, message: 'Shop reactivated' })
       }
 
@@ -98,6 +101,7 @@ export async function POST(request: Request) {
           await admin.from('shops').update({ trial_ends_at: newTrial } as any).eq('id', shop_id)
           if (owner_id) await admin.from('profiles').update({ trial_ends_at: newTrial } as any).eq('id', owner_id)
         }
+        await writeAuditLog({ action: 'admin.extend_access', shop_id, actor_id: user.id, actor_email: user.email, target_id: shop_id, target_type: 'shop', metadata: { days: daysToAdd }, ip: getClientIp(request) })
         return NextResponse.json({ success: true, message: `Extended by ${daysToAdd} days` })
       }
 
@@ -121,6 +125,7 @@ export async function POST(request: Request) {
             plan_expires_at: expires,
           } as any).eq('owner_id', owner_id).is('deleted_at', null)
         }
+        await writeAuditLog({ action: 'admin.grant_plan', shop_id, actor_id: user.id, actor_email: user.email, target_id: shop_id, target_type: 'shop', metadata: { plan: planId }, ip: getClientIp(request) })
         return NextResponse.json({ success: true, message: `Plan ${planId} granted` })
       }
 
@@ -135,6 +140,7 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
         }
         await admin.from('shops').update(updates).eq('id', shop_id)
+        await writeAuditLog({ action: 'admin.edit_shop', shop_id, actor_id: user.id, actor_email: user.email, target_id: shop_id, target_type: 'shop', metadata: updates, ip: getClientIp(request) })
         return NextResponse.json({ success: true, message: 'Boutique mise à jour' })
       }
 

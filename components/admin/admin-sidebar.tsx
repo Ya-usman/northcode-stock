@@ -3,8 +3,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  LayoutDashboard, ShoppingBag, CreditCard, Package, Users,
-  TrendingUp, LogOut, ChevronRight, ShieldCheck, Sun, Moon, UserCheck,
+  LayoutDashboard, ShoppingBag, CreditCard, Package,
+  TrendingUp, LogOut, ChevronRight, ShieldCheck, Sun, Moon, UserCheck, ScrollText,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { useTheme } from '@/lib/hooks/use-theme'
@@ -31,10 +31,15 @@ const navSections = (locale: string) => [
     section: 'Gestion',
     items: [
       { href: `/${locale}/admin/shops`,     label: 'Boutiques',      icon: ShoppingBag },
-      { href: `/${locale}/admin/managers`,  label: 'Responsables',   icon: Users },
       { href: `/${locale}/admin/stock`,     label: 'Stock',          icon: Package },
       { href: `/${locale}/admin/payments`,  label: 'Paiements',      icon: CreditCard },
       { href: `/${locale}/admin/agents`,    label: 'Agents terrain', icon: UserCheck },
+    ],
+  },
+  {
+    section: 'Système',
+    items: [
+      { href: `/${locale}/admin/audit`,     label: 'Journal d\'audit', icon: ScrollText },
     ],
   },
 ]
@@ -83,14 +88,6 @@ export function AdminSidebar({ locale, userEmail }: AdminSidebarProps) {
             <p className="text-xs font-bold text-stockshop-gold tracking-wide">ADMIN PANEL</p>
           </div>
           <div className="flex items-center gap-2">
-            {/* Live status */}
-            <div className="flex items-center gap-1">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-400" />
-              </span>
-              <span className="text-[8px] font-bold text-green-400 tracking-widest">LIVE</span>
-            </div>
             {/* Theme toggle */}
             <button
               onClick={toggle}

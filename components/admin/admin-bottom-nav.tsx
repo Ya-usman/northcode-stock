@@ -4,8 +4,8 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  LayoutDashboard, ShoppingBag, CreditCard, Package, Users,
-  TrendingUp, MoreHorizontal, X, LogOut, Sun, Moon, UserCheck,
+  LayoutDashboard, ShoppingBag, CreditCard, Package,
+  TrendingUp, MoreHorizontal, X, LogOut, Sun, Moon, UserCheck, ScrollText,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { useTheme } from '@/lib/hooks/use-theme'
@@ -20,16 +20,16 @@ export function AdminBottomNav({ locale }: AdminBottomNavProps) {
   const { isDark, toggle } = useTheme()
 
   const primaryItems = [
-    { href: `/${locale}/admin`,           label: 'Command Center', icon: LayoutDashboard },
-    { href: `/${locale}/admin/shops`,     label: 'Boutiques',      icon: ShoppingBag },
-    { href: `/${locale}/admin/managers`,  label: 'Responsables',   icon: Users },
-    { href: `/${locale}/admin/payments`,  label: 'Paiements',      icon: CreditCard },
+    { href: `/${locale}/admin`,           label: 'Dashboard',  icon: LayoutDashboard },
+    { href: `/${locale}/admin/shops`,     label: 'Boutiques',  icon: ShoppingBag },
+    { href: `/${locale}/admin/payments`,  label: 'Paiements',  icon: CreditCard },
+    { href: `/${locale}/admin/analytics`, label: 'Analytics',  icon: TrendingUp },
   ]
 
   const moreItems = [
-    { href: `/${locale}/admin/analytics`, label: 'Analytics',  icon: TrendingUp },
-    { href: `/${locale}/admin/stock`,     label: 'Stock',       icon: Package },
-    { href: `/${locale}/admin/agents`,    label: 'Agents',      icon: UserCheck },
+    { href: `/${locale}/admin/stock`,  label: 'Stock',   icon: Package },
+    { href: `/${locale}/admin/agents`, label: 'Agents',  icon: UserCheck },
+    { href: `/${locale}/admin/audit`,  label: 'Journal', icon: ScrollText },
   ]
 
   const isActive = (href: string) =>

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { RotateCcw, Package, Users, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
@@ -13,7 +12,6 @@ interface Props {
 }
 
 export function ShopRestorePanel({ shopId, shopName }: Props) {
-  const supabase = createClient() as any
   const { toast } = useToast()
 
   const [open, setOpen] = useState(false)
@@ -80,18 +78,28 @@ export function ShopRestorePanel({ shopId, shopName }: Props) {
 
   const reactivateProduct = async (productId: string) => {
     setRestoring(productId)
-    await supabase.from('products').update({ is_active: true }).eq('id', productId)
+    const res = await fetch('/api/admin/restore', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'reactivate_product', product_id: productId, shop_id: shopId }),
+    })
+    const json = await res.json()
     setRestoring(null)
-    toast({ title: '✅ Produit réactivé', variant: 'success' })
-    loadData()
+    if (!res.ok) toast({ title: json.error, variant: 'destructive' })
+    else { toast({ title: 'Produit réactivé', variant: 'success' }); loadData() }
   }
 
   const restoreCustomer = async (customerId: string) => {
     setRestoring(customerId)
-    await supabase.from('customers').update({ deleted_at: null }).eq('id', customerId)
+    const res = await fetch('/api/admin/restore', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'restore_customer', customer_id: customerId, shop_id: shopId }),
+    })
+    const json = await res.json()
     setRestoring(null)
-    toast({ title: '✅ Client restauré', variant: 'success' })
-    loadData()
+    if (!res.ok) toast({ title: json.error, variant: 'destructive' })
+    else { toast({ title: 'Client restauré', variant: 'success' }); loadData() }
   }
 
   const total = deletedProducts.length + archivedProducts.length + deletedCustomers.length
