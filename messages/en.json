@@ -955,6 +955,7 @@
     "date": "Date",
     "save": "Save",
     "delete_confirm": "Delete this expense?",
+    "delete_warning": "This action is irreversible.",
     "added": "Expense added",
     "updated": "Expense updated",
     "deleted": "Expense deleted",

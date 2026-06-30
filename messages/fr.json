@@ -955,6 +955,7 @@
     "date": "Date",
     "save": "Enregistrer",
     "delete_confirm": "Supprimer cette dépense ?",
+    "delete_warning": "Cette action est irréversible.",
     "added": "Dépense ajoutée",
     "updated": "Dépense modifiée",
     "deleted": "Dépense supprimée",

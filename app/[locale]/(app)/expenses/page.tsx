@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
-import { Plus, Pencil, Trash2, Receipt, RefreshCw, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Target, FileDown, FileText, Table2, Camera, Paperclip, X, WifiOff, Clock } from 'lucide-react'
+import { Plus, Pencil, Trash2, Receipt, RefreshCw, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Target, FileDown, FileText, Table2, Camera, Paperclip, X, WifiOff, Clock, AlertTriangle } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { NumericInput } from '@/components/ui/numeric-input'
@@ -71,6 +71,7 @@ export default function ExpensesPage() {
   const { toast } = useToast()
   const { fmt } = useCurrency()
   const t = useTranslations('expenses')
+  const tA = useTranslations('actions')
 
   const [expenses, setExpenses]       = useState<Expense[]>([])
   const [templates, setTemplates]     = useState<Expense[]>([])
@@ -79,6 +80,7 @@ export default function ExpensesPage() {
   const [saving, setSaving]           = useState(false)
   const [savingBudget, setSavingBudget] = useState(false)
   const [deleting, setDeleting]       = useState<string | null>(null)
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; id: string | null; isTemplate: boolean }>({ open: false, id: null, isTemplate: false })
   const [showTemplates, setShowTemplates] = useState(true)
   const [showBudgets, setShowBudgets] = useState(true)
   const [exporting, setExporting]     = useState(false)
@@ -395,8 +397,14 @@ export default function ExpensesPage() {
     }
   }
 
-  const handleDelete = async (id: string, isTemplate = false) => {
-    if (!confirm(isTemplate ? t('recurring_delete_confirm') : t('delete_confirm'))) return
+  const handleDelete = (id: string, isTemplate = false) => {
+    setDeleteDialog({ open: true, id, isTemplate })
+  }
+
+  const confirmDelete = async () => {
+    const { id } = deleteDialog
+    if (!id) return
+    setDeleteDialog({ open: false, id: null, isTemplate: false })
     setDeleting(id)
     try {
       const { error } = await withTimeout(supabase.from('expenses').delete().eq('id', id))
@@ -1194,6 +1202,31 @@ export default function ExpensesPage() {
             {t('save')}
           </Button>
         </PremiumDialogFooter>
+      </PremiumDialog>
+
+      {/* ── Delete confirmation modal ── */}
+      <PremiumDialog
+        open={deleteDialog.open}
+        onOpenChange={open => { if (!open) setDeleteDialog({ open: false, id: null, isTemplate: false }) }}
+        category={t('category')}
+        title={t(deleteDialog.isTemplate ? 'recurring_delete_confirm' : 'delete_confirm')}
+        icon={<Trash2 className="h-4 w-4" />}
+      >
+        <PremiumDialogBody>
+          <div className="flex items-start gap-2 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 p-3">
+            <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-700 dark:text-red-400">{t('delete_warning')}</p>
+          </div>
+        </PremiumDialogBody>
+        <PremiumDialogFooter
+          onCancel={() => setDeleteDialog({ open: false, id: null, isTemplate: false })}
+          cancelLabel={tA('cancel')}
+          onConfirm={confirmDelete}
+          confirmLabel={tA('delete')}
+          confirmDisabled={deleting === deleteDialog.id}
+          confirmLoading={deleting === deleteDialog.id}
+          confirmDestructive
+        />
       </PremiumDialog>
     </div>
   )
