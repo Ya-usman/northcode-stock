@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useTranslations, useLocale } from 'next-intl'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { getPlan, getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
-import { getCountry, getPeriodPrice, type BillingPeriod } from '@/lib/saas/countries'
+import { getCountry, getPeriodPrice, BILLING_PERIODS, type BillingPeriod } from '@/lib/saas/countries'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
@@ -32,7 +32,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   const [loading, setLoading] = useState(false)
   const [usageStats, setUsageStats] = useState({ products: 0, team: 0, shops: 0 })
   const [enforcement, setEnforcement] = useState<{ suspended_shops: number; suspended_members: number; reactivated_shops: number; reactivated_members: number } | null>(null)
-  const period: BillingPeriod = 'monthly'
+  const [period, setPeriod] = useState<BillingPeriod>('monthly')
   const searchParams = useSearchParams()
   const router = useRouter()
 
@@ -225,14 +225,28 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
     { q: t('faq_4_q'), a: t('faq_4_a') },
   ]
 
-  const formatPrice = (planId: PlanId) => {
-    const price = getPeriodPrice(country.prices[planId], period)
-    if (country.currency === 'NGN') return `₦${price.toLocaleString('en-NG')}`
-    if (country.currency === 'EUR') return `${price.toLocaleString('fr-FR')} €`
-    if (country.currency === 'USD') return `$${price}`
-    if (country.currency === 'CAD') return `CA$${price}`
-    return `${price.toLocaleString('fr-FR')} ${country.currencySymbol}`
+  const formatAmount = (amount: number) => {
+    if (country.currency === 'NGN') return `₦${amount.toLocaleString('en-NG')}`
+    if (country.currency === 'EUR') return `${amount.toLocaleString('fr-FR')} €`
+    if (country.currency === 'USD') return `$${amount}`
+    if (country.currency === 'CAD') return `CA$${amount}`
+    return `${amount.toLocaleString('fr-FR')} ${country.currencySymbol}`
   }
+
+  const formatPrice = (planId: PlanId, forPeriod = period) =>
+    formatAmount(getPeriodPrice(country.prices[planId], forPeriod))
+
+  const periodLabel = {
+    monthly:   t('checkout_total_monthly'),
+    quarterly: t('checkout_total_quarterly'),
+    annual:    t('checkout_total_annual'),
+  }[period]
+
+  const periodSuffix = {
+    monthly:   t('per_month'),
+    quarterly: t('per_3months'),
+    annual:    t('per_year'),
+  }[period]
 
   const checkoutPlanDetails = checkoutPlan ? PLAN_DETAILS.find(p => p.id === checkoutPlan) : null
 
@@ -300,7 +314,41 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
 
         {/* Plans */}
         <div>
-          <h2 className="font-semibold mb-4">{isSubscribed ? t('change_plan') : t('choose_plan')}</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+            <h2 className="font-semibold">{isSubscribed ? t('change_plan') : t('choose_plan')}</h2>
+
+            {/* Period toggle */}
+            <div className="flex items-center gap-1 bg-muted rounded-xl p-1 self-start sm:self-auto">
+              {(Object.keys(BILLING_PERIODS) as BillingPeriod[]).map(p => {
+                const cfg = BILLING_PERIODS[p]
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setPeriod(p)}
+                    className={cn(
+                      'relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all',
+                      period === p
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    {cfg.label}
+                    {cfg.badge && (
+                      <span className={cn(
+                        'text-xs font-bold px-1.5 py-0.5 rounded-full',
+                        p === 'annual'
+                          ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400'
+                          : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400'
+                      )}>
+                        {cfg.badge}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {PLAN_DETAILS.map(({ id, popular, features }) => {
               const isCurrent = shop?.plan === id && isSubscribed
@@ -335,8 +383,13 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                       <span className="text-3xl font-extrabold text-stockshop-blue dark:text-blue-400">
                         {formatPrice(id)}
                       </span>
-                      <span className="text-muted-foreground text-sm">{t('per_month')}</span>
+                      <span className="text-muted-foreground text-sm">{periodSuffix}</span>
                     </div>
+                    {period !== 'monthly' && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {t('per_month_equiv', { price: formatPrice(id, 'monthly') })}
+                      </p>
+                    )}
                   </div>
 
                   <ul className="space-y-2.5 mb-6">
@@ -398,11 +451,24 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
           <>
             <PremiumDialogBody>
               {/* Price banner */}
-              <div className="flex items-center justify-between rounded-xl bg-stockshop-blue/8 dark:bg-blue-950/30 border border-stockshop-blue/20 px-4 py-3">
-                <span className="text-sm font-medium text-muted-foreground">Total mensuel</span>
-                <span className="text-2xl font-extrabold text-stockshop-blue dark:text-blue-400">
-                  {formatPrice(checkoutPlan)}
-                </span>
+              <div className="rounded-xl bg-stockshop-blue/8 dark:bg-blue-950/30 border border-stockshop-blue/20 px-4 py-3 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-muted-foreground">{periodLabel}</span>
+                  <span className="text-2xl font-extrabold text-stockshop-blue dark:text-blue-400">
+                    {formatPrice(checkoutPlan)}
+                  </span>
+                </div>
+                {period !== 'monthly' && (() => {
+                  const monthly = getPeriodPrice(country.prices[checkoutPlan], 'monthly')
+                  const total   = getPeriodPrice(country.prices[checkoutPlan], period)
+                  const months  = BILLING_PERIODS[period].months
+                  const saved   = monthly * months - total
+                  return saved > 0 ? (
+                    <p className="text-xs text-green-600 dark:text-green-400 font-medium text-right">
+                      {t('period_save', { amount: formatAmount(saved) })}
+                    </p>
+                  ) : null
+                })()}
               </div>
 
               {/* Key features (top 3) */}
