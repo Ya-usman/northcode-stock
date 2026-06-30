@@ -646,8 +646,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
           onClick={saveSettings}
           loading={saving}
           variant="stockshop"
-          className="w-full h-12"
-          size="lg"
+          className="w-full"
+          size="sm"
         >
           <Save className="mr-2 h-4 w-4" />
           {t('actions.save')}
