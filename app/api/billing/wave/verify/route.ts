@@ -30,11 +30,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL(`/${locale}/billing?error=payment_failed`, baseUrl))
     }
 
-    // client_reference: "{shop_id}|{plan_id}|{billing_period}|{tx_ref}"
+    // client_reference: "{shop_id}|{plan_id}|{billing_period}|{tx_ref}|{auto_renew}"
     const parts = (data.client_reference || '').split('|')
     const shop_id = parts[0]
     const plan_id = parts[1]
     const billing_period = (parts[2] || 'monthly') as BillingPeriod
+    const auto_renew = parts[4] === '1'
 
     if (!shop_id || !plan_id) {
       return NextResponse.redirect(new URL(`/${locale}/billing?error=invalid_meta`, baseUrl))
@@ -83,6 +84,9 @@ export async function GET(request: NextRequest) {
       starts_at: new Date().toISOString(),
       expires_at: plan_expires_at,
       status: 'active',
+      auto_renew,
+      gateway: 'wave',
+      gateway_email: data.client_phone ?? null,
     } as any)
 
     await writeAuditLog({

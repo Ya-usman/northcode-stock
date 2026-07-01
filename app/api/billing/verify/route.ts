@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       return reply(inline, locale, baseUrl, false, 'payment_failed')
     }
 
-    const { shop_id, plan_id, billing_period = 'monthly' } = data.data.metadata
+    const { shop_id, plan_id, billing_period = 'monthly', auto_renew = false } = data.data.metadata
     const plan = PLANS[plan_id as keyof typeof PLANS]
 
     if (!plan || plan.id === 'trial') {
@@ -95,6 +95,10 @@ export async function GET(request: NextRequest) {
       } as any).eq('id', shop_id)
     }
 
+    const auth = data.data.authorization
+    const gatewayEmail = data.data.customer?.email ?? null
+    const canAutoCharge = auto_renew && auth?.reusable === true
+
     await supabase.from('subscriptions').insert({
       shop_id,
       plan: plan_id,
@@ -104,6 +108,11 @@ export async function GET(request: NextRequest) {
       starts_at: new Date().toISOString(),
       expires_at: plan_expires_at,
       status: 'active',
+      auto_renew: !!auto_renew,
+      gateway: 'paystack',
+      gateway_authorization: canAutoCharge ? auth.authorization_code : null,
+      gateway_email: gatewayEmail,
+      gateway_last4: auth?.last4 ?? null,
     } as any)
 
     // Créer une commission pour l'agent qui a parrainé cette boutique

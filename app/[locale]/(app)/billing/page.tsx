@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
-import { CheckCircle2, Clock, Crown, Sparkles, Building2, ShieldCheck, Mail } from 'lucide-react'
+import { CheckCircle2, Clock, Crown, Sparkles, Building2, ShieldCheck, Mail, RefreshCw } from 'lucide-react'
 import { PlanUsageCard } from '@/components/saas/plan-usage-card'
 import { DowngradeNotice } from '@/components/saas/downgrade-notice'
 import { cn } from '@/lib/utils/cn'
@@ -39,6 +39,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   // Custom checkout modal state
   const [checkoutPlan, setCheckoutPlan] = useState<PlanId | null>(null)
   const [selectedMethod, setSelectedMethod] = useState<string>('')
+  const [autoRenew, setAutoRenew] = useState(false)
 
   const PLAN_DETAILS = [
     {
@@ -141,6 +142,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   const closeCheckout = () => {
     setCheckoutPlan(null)
     setSelectedMethod('')
+    setAutoRenew(false)
   }
 
   const handlePay = useCallback(async () => {
@@ -157,6 +159,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
           locale,
           billing_period: period,
           payment_method: selectedMethod,
+          auto_renew: autoRenew,
         }),
       })
       const data = await res.json()
@@ -562,6 +565,41 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                     <span>Paiement sécurisé · {gatewayLabel}</span>
                   </div>
                 </div>
+              )}
+
+              {/* Auto-renew toggle */}
+              {!isStripe && (
+                <button
+                  type="button"
+                  onClick={() => setAutoRenew(v => !v)}
+                  className={cn(
+                    'w-full flex items-center gap-3 rounded-2xl border-2 px-4 py-3 text-left transition-all',
+                    autoRenew
+                      ? 'border-green-500 bg-green-50 dark:bg-green-950/30'
+                      : 'border-border bg-card hover:border-muted-foreground/30'
+                  )}
+                >
+                  <RefreshCw className={cn('h-4 w-4 shrink-0', autoRenew ? 'text-green-600' : 'text-muted-foreground')} />
+                  <div className="flex-1 min-w-0">
+                    <p className={cn('text-sm font-semibold', autoRenew ? 'text-green-700 dark:text-green-400' : 'text-foreground')}>
+                      Renouvellement automatique
+                    </p>
+                    <p className="text-xs text-muted-foreground leading-tight mt-0.5">
+                      {isNigeria
+                        ? 'Votre carte sera débitée automatiquement avant l\'échéance'
+                        : 'Vous recevrez un email de rappel 3 jours avant l\'échéance'}
+                    </p>
+                  </div>
+                  <div className={cn(
+                    'h-5 w-9 rounded-full transition-colors shrink-0 relative',
+                    autoRenew ? 'bg-green-500' : 'bg-muted'
+                  )}>
+                    <span className={cn(
+                      'absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform',
+                      autoRenew ? 'translate-x-4' : 'translate-x-0.5'
+                    )} />
+                  </div>
+                </button>
               )}
             </PremiumDialogBody>
 

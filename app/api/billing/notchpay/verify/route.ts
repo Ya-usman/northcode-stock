@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     }
 
     const meta = data.transaction?.meta || data.payment?.meta || {}
-    const { shop_id, plan_id, billing_period = 'monthly' } = meta
+    const { shop_id, plan_id, billing_period = 'monthly', auto_renew = false } = meta
 
     if (!shop_id || !plan_id) {
       return NextResponse.redirect(new URL(`/${locale}/billing?error=invalid_meta`, baseUrl))
@@ -86,6 +86,9 @@ export async function GET(request: NextRequest) {
       starts_at: new Date().toISOString(),
       expires_at: plan_expires_at,
       status: 'active',
+      auto_renew: !!auto_renew,
+      gateway: 'notchpay',
+      gateway_email: data.transaction?.customer?.email ?? data.payment?.customer?.email ?? null,
     } as any)
 
     await writeAuditLog({

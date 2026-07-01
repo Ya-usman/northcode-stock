@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL(`/${locale}/billing?error=payment_failed`, baseUrl))
     }
 
-    const { shop_id, plan_id, billing_period = 'monthly' } = data.data?.meta || {}
+    const { shop_id, plan_id, billing_period = 'monthly', auto_renew = false } = data.data?.meta || {}
 
     if (!shop_id || !plan_id) {
       return NextResponse.redirect(new URL(`/${locale}/billing?error=invalid_meta`, baseUrl))
@@ -78,6 +78,9 @@ export async function GET(request: NextRequest) {
       } as any).eq('id', shop_id)
     }
 
+    const cardToken = data.data?.card?.token ?? null
+    const last4 = data.data?.card?.last_4digits ?? null
+
     await supabase.from('subscriptions').insert({
       shop_id,
       plan: plan_id,
@@ -87,6 +90,11 @@ export async function GET(request: NextRequest) {
       starts_at: new Date().toISOString(),
       expires_at: plan_expires_at,
       status: 'active',
+      auto_renew: !!auto_renew,
+      gateway: 'flutterwave',
+      gateway_authorization: auto_renew && cardToken ? cardToken : null,
+      gateway_email: data.data?.customer?.email ?? null,
+      gateway_last4: last4,
     } as any)
 
     await writeAuditLog({

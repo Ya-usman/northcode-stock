@@ -13,6 +13,7 @@ const subscribeSchema = z.object({
   locale: z.string().max(5).optional(),
   billing_period: billingPeriodEnum.default('monthly'),
   payment_method: z.string().max(50).default(''),
+  auto_renew: z.boolean().default(false),
 })
 
 // Map our internal payment method IDs to Paystack channels
@@ -57,7 +58,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     const validated = validateBody(subscribeSchema, body)
     if ('error' in validated) return validated.error
-    const { plan_id, shop_id, email, locale, billing_period, payment_method } = validated.data
+    const { plan_id, shop_id, email, locale, billing_period, payment_method, auto_renew } = validated.data
 
     const period = billing_period as BillingPeriod
     const supabase = await createAdminClient()
@@ -87,7 +88,7 @@ export async function POST(request: Request) {
           email,
           amount: amount * 100,
           callback_url: `${baseUrl}/api/billing/verify?locale=${locale}`,
-          metadata: { shop_id, plan_id, locale, billing_period: period, gateway: 'paystack' },
+          metadata: { shop_id, plan_id, locale, billing_period: period, gateway: 'paystack', auto_renew },
           channels,
         }),
       })
@@ -121,7 +122,7 @@ export async function POST(request: Request) {
           currency: country.currency,
           callback: `${baseUrl}/api/billing/notchpay/verify?locale=${locale}`,
           description: `Abonnement StockShop Plan ${plan_id}`,
-          meta: { shop_id, plan_id, locale, billing_period: period },
+          meta: { shop_id, plan_id, locale, billing_period: period, auto_renew },
         }),
       })
       const data = await res.json()
@@ -145,7 +146,7 @@ export async function POST(request: Request) {
           currency: country.currency,
           success_url: `${baseUrl}/api/billing/wave/verify?locale=${locale}`,
           error_url: `${baseUrl}/${locale}/billing?error=payment_failed`,
-          client_reference: `${shop_id}|${plan_id}|${period}|${tx_ref}`,
+          client_reference: `${shop_id}|${plan_id}|${period}|${tx_ref}|${auto_renew ? '1' : '0'}`,
         }),
       })
       const data = await res.json()
@@ -172,7 +173,7 @@ export async function POST(request: Request) {
           currency: country.currency,
           redirect_url: `${baseUrl}/api/billing/flutterwave/verify?locale=${locale}`,
           customer: { email },
-          meta: { shop_id, plan_id, locale, billing_period: period },
+          meta: { shop_id, plan_id, locale, billing_period: period, auto_renew },
           customizations: {
             title: 'StockShop',
             description: `Abonnement Plan ${plan_id}`,
