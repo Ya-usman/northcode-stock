@@ -143,22 +143,15 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
       .eq('id', profile.id)
   }
 
-  // ── CRISP: setup widget (hide bubble, listen events) ─────────────────────
+  // ── CRISP: setup event listeners (CSS hides the widget, body.crisp-open shows it)
   useEffect(() => {
     const c = (window as any).$crisp
     if (!c) return
-    // Queue commands — exécutés quand Crisp charge (ou immédiatement si déjà chargé)
-    c.push(['do', 'chat:hide'])
     c.push(['on', 'message:received', () => setCrispUnread(n => n + 1)])
     c.push(['on', 'chat:opened', () => setCrispUnread(0)])
     c.push(['on', 'chat:closed', () => {
-      ;(window as any).$crisp?.push(['do', 'chat:hide'])
+      document.body.classList.remove('crisp-open')
     }])
-    // CRISP_READY_TRIGGER = backup pour s'assurer que chat:hide s'applique
-    // même si la queue a été traitée avant que le DOM Crisp soit prêt
-    ;(window as any).CRISP_READY_TRIGGER = () => {
-      ;(window as any).$crisp?.push(['do', 'chat:hide'])
-    }
   }, [])
 
   // ── CRISP: identify user once profile is loaded ──────────────────────────
@@ -181,7 +174,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   const handleOpenChat = () => {
     const $crisp = (window as any).$crisp
     if ($crisp) {
-      $crisp.push(['do', 'chat:show'])
+      document.body.classList.add('crisp-open')
       $crisp.push(['do', 'chat:open'])
       setCrispUnread(0)
     }

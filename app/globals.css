@@ -119,6 +119,10 @@ html {
   }
 }
 
+/* Hide Crisp default launcher — shown only when we open it programmatically */
+.crisp-client { display: none !important; }
+body.crisp-open .crisp-client { display: block !important; }
+
 /* Hausa font support */
 .font-hausa {
   font-family: 'Noto Sans', system-ui, sans-serif;
