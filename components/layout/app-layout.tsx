@@ -143,11 +143,11 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
       .eq('id', profile.id)
   }
 
-  // ── CRISP: cacher le widget via MutationObserver (plus fiable que CSS/chat:hide)
+  // ── CRISP: cacher le widget — observer ciblé pour ne pas bloquer le scroll
   useEffect(() => {
     const getCrispEl = () =>
-      document.getElementById('crisp-chatbox') ||
-      document.querySelector('.crisp-client') as HTMLElement | null
+      (document.getElementById('crisp-chatbox') ||
+      document.querySelector('.crisp-client')) as HTMLElement | null
 
     const forceHide = () => {
       if (document.body.classList.contains('crisp-open')) return
@@ -155,10 +155,30 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
       if (el) el.style.setProperty('display', 'none', 'important')
     }
 
-    const observer = new MutationObserver(forceHide)
-    observer.observe(document.body, { childList: true, subtree: true })
+    // Observer 1 : surveille uniquement les enfants directs de body
+    // (là où Crisp injecte son conteneur) — pas subtree
+    const bodyObserver = new MutationObserver(forceHide)
+    bodyObserver.observe(document.body, { childList: true })
+
+    // Observer 2 : surveille uniquement l'attribut style de l'élément Crisp
+    // (quand Crisp essaie de se rendre visible lui-même)
+    let elObserver: MutationObserver | null = null
+    const watchTimer = setInterval(() => {
+      const el = getCrispEl()
+      if (el) {
+        forceHide()
+        elObserver = new MutationObserver(forceHide)
+        elObserver.observe(el, { attributes: true, attributeFilter: ['style', 'class'] })
+        clearInterval(watchTimer)
+      }
+    }, 300)
+
     forceHide()
-    return () => observer.disconnect()
+    return () => {
+      bodyObserver.disconnect()
+      elObserver?.disconnect()
+      clearInterval(watchTimer)
+    }
   }, [])
 
   // ── CRISP: event listeners (attendre que Crisp soit pleinement initialisé)
