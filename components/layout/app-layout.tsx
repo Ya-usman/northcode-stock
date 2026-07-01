@@ -195,6 +195,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
     const $crisp = (window as any).$crisp
     if ($crisp) {
       document.body.classList.add('crisp-open')
+      $crisp.push(['do', 'chat:show'])
       $crisp.push(['do', 'chat:open'])
       setCrispUnread(0)
     }
