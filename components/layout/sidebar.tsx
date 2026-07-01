@@ -196,7 +196,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut, userEmail = ''
                     key={item.href}
                     href={item.href}
                     prefetch={true}
-                    onClick={isHelp && onOpenWhatsNew ? () => { onOpenWhatsNew() } : undefined}
+                    onClick={isHelp && hasUnreadAnnouncement && onOpenWhatsNew ? () => { onOpenWhatsNew() } : undefined}
                     className={cn(
                       'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors tap-target',
                       isActive
