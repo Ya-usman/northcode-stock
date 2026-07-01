@@ -58,22 +58,20 @@ export function Header({ title, locale, crispUnread = 0, onOpenChat }: HeaderPro
 
         {/* Crisp chat button */}
         {onOpenChat && (
-          <div className="relative">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onOpenChat}
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              aria-label="Support chat"
-            >
-              <MessageCircle className="h-4 w-4" />
-            </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onOpenChat}
+            className="relative h-8 w-8 text-muted-foreground hover:text-foreground overflow-visible"
+            aria-label="Support chat"
+          >
+            <MessageCircle className="h-5 w-5" />
             {crispUnread > 0 && (
-              <span className="pointer-events-none absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white leading-none">
+              <span className="pointer-events-none absolute top-0.5 right-0.5 flex min-w-[16px] h-4 px-1 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white leading-none ring-2 ring-card">
                 {crispUnread > 9 ? '9+' : crispUnread}
               </span>
             )}
-          </div>
+          </Button>
         )}
 
         {/* Dark / Light toggle */}
