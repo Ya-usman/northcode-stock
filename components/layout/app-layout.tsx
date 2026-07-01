@@ -23,6 +23,7 @@ import { useOfflinePreload } from '@/lib/offline/use-offline-preload'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useOfflineRoutes } from '@/lib/offline/use-offline-routes'
 import { CacheBanner } from './cache-banner'
+import Script from 'next/script'
 
 const supabase = createClient()
 
@@ -140,6 +141,23 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
       .update({ last_seen_announcement_at: new Date().toISOString() })
       .eq('id', profile.id)
   }
+
+  // ── CRISP: identify user once profile is loaded ──────────────────────────
+  useEffect(() => {
+    if (!user?.email || !profile) return
+    const $crisp = (window as any).$crisp
+    if (!$crisp) return
+    $crisp.push(['set', 'user:email', [user.email]])
+    $crisp.push(['set', 'user:nickname', [profile.full_name]])
+    if (shop) {
+      $crisp.push(['set', 'session:data', [[
+        ['boutique', shop.name],
+        ['plan', shop.plan ?? 'trial'],
+        ['pays', shop.country ?? ''],
+        ['role', profile.role],
+      ]]])
+    }
+  }, [user?.email, profile?.id, shop?.id])
 
   // ── OFFLINE: preload data + auto-sync pending sales ───────────────────────
   useOfflinePreload()
@@ -322,6 +340,14 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
       {whatsNewOpen && announcements.length > 0 && (
         <WhatsNewModal announcements={announcements} onClose={handleCloseWhatsNew} />
       )}
+
+      <Script
+        id="crisp-widget"
+        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{
+          __html: `window.$crisp=[];window.CRISP_WEBSITE_ID="42340430-3821-4a5b-b5ab-7953bd0edf95";(function(){var d=document,s=d.createElement("script");s.src="https://client.crisp.chat/l.js";s.async=1;d.getElementsByTagName("head")[0].appendChild(s);})();`,
+        }}
+      />
     </div>
   )
 }
