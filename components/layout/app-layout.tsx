@@ -158,8 +158,10 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
       }])
       $crisp.push(['on', 'chat:opened', () => setCrispUnread(0)])
       $crisp.push(['on', 'chat:closed', () => {
-        $crisp.push(['do', 'chat:hide'])
         document.body.classList.remove('crisp-open')
+        // setTimeout(0) : s'exécute après la logique interne de Crisp
+        // qui ré-affiche le launcher juste après la fermeture
+        setTimeout(() => $crisp.push(['do', 'chat:hide']), 0)
       }])
       return true
     }

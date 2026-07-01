@@ -119,11 +119,11 @@ html {
   }
 }
 
-/* Hide Crisp widget — shown only when we open it programmatically */
-#crisp-chatbox,
-.crisp-client { display: none !important; }
-body.crisp-open #crisp-chatbox,
-body.crisp-open .crisp-client { display: block !important; }
+/* Hide Crisp widget — higher specificity than Crisp's own CSS */
+html body #crisp-chatbox,
+html body .crisp-client { display: none !important; }
+html body.crisp-open #crisp-chatbox,
+html body.crisp-open .crisp-client { display: block !important; }
 
 /* Hausa font support */
 .font-hausa {
