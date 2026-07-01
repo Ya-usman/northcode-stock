@@ -119,11 +119,9 @@ html {
   }
 }
 
-/* Hide Crisp widget — higher specificity than Crisp's own CSS */
+/* Hide Crisp widget initially — le JS retire ce style au clic pour laisser Crisp gérer son propre display */
 html body #crisp-chatbox,
 html body .crisp-client { display: none !important; }
-html body.crisp-open #crisp-chatbox,
-html body.crisp-open .crisp-client { display: block !important; }
 
 /* Hausa font support */
 .font-hausa {

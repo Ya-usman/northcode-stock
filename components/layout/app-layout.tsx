@@ -194,6 +194,8 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
       $crisp.push(['on', 'chat:opened', () => setCrispUnread(0)])
       $crisp.push(['on', 'chat:closed', () => {
         document.body.classList.remove('crisp-open')
+        const el = document.getElementById('crisp-chatbox') || document.querySelector('.crisp-client')
+        if (el) (el as HTMLElement).style.setProperty('display', 'none', 'important')
       }])
       return true
     }
