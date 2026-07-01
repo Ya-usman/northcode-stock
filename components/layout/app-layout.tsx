@@ -188,7 +188,6 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
       const $crisp = (window as any).$crisp
       if (!$crisp || typeof $crisp.get !== 'function') return false
       $crisp.push(['on', 'message:received', () => {
-        document.body.classList.remove('crisp-open')
         const count = $crisp.get('chat:unread:count')
         setCrispUnread(typeof count === 'number' ? count : (n: number) => n + 1)
       }])
