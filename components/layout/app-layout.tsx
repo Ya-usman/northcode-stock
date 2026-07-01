@@ -143,15 +143,27 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
       .eq('id', profile.id)
   }
 
-  // ── CRISP: setup event listeners (CSS hides the widget, body.crisp-open shows it)
+  // ── CRISP: setup event listeners + suppress default notifications
   useEffect(() => {
     const c = (window as any).$crisp
     if (!c) return
-    c.push(['on', 'message:received', () => setCrispUnread(n => n + 1)])
+    // chat:hide = Crisp ne montre plus les popups/notifications de son côté
+    c.push(['do', 'chat:hide'])
+    c.push(['on', 'message:received', () => {
+      // Re-cacher au cas où Crisp se force à s'afficher sur nouveau message
+      ;(window as any).$crisp?.push(['do', 'chat:hide'])
+      document.body.classList.remove('crisp-open')
+      setCrispUnread(n => n + 1)
+    }])
     c.push(['on', 'chat:opened', () => setCrispUnread(0)])
     c.push(['on', 'chat:closed', () => {
+      ;(window as any).$crisp?.push(['do', 'chat:hide'])
       document.body.classList.remove('crisp-open')
     }])
+    // Backup : s'assure que chat:hide est appliqué quand Crisp est prêt
+    ;(window as any).CRISP_READY_TRIGGER = () => {
+      ;(window as any).$crisp?.push(['do', 'chat:hide'])
+    }
   }, [])
 
   // ── CRISP: identify user once profile is loaded ──────────────────────────
