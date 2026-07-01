@@ -134,10 +134,3 @@ input[type='number'] {
   -moz-appearance: textfield;
   appearance: textfield;
 }
-
-/* Push Crisp widget above bottom nav on mobile */
-@media (max-width: 639px) {
-  .crisp-client {
-    bottom: 68px !important;
-  }
-}

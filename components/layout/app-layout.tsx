@@ -80,6 +80,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [whatsNewOpen, setWhatsNewOpen] = useState(false)
   const [hasUnread, setHasUnread] = useState(false)
+  const [crispUnread, setCrispUnread] = useState(0)
   const recoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { toast } = useToast()
 
@@ -142,6 +143,22 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
       .eq('id', profile.id)
   }
 
+  // ── CRISP: setup widget (hide bubble, listen events) ─────────────────────
+  useEffect(() => {
+    const setup = () => {
+      const $crisp = (window as any).$crisp
+      if (!$crisp) return
+      $crisp.push(['do', 'chat:hide'])
+      $crisp.push(['on', 'message:received', () => setCrispUnread(n => n + 1)])
+      $crisp.push(['on', 'chat:opened', () => setCrispUnread(0)])
+    }
+    if ((window as any).$crisp) {
+      setup()
+    } else {
+      (window as any).CRISP_READY_TRIGGER = setup
+    }
+  }, [])
+
   // ── CRISP: identify user once profile is loaded ──────────────────────────
   useEffect(() => {
     if (!user?.email || !profile) return
@@ -158,6 +175,14 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
       ]]])
     }
   }, [user?.email, profile?.id, shop?.id])
+
+  const handleOpenChat = () => {
+    const $crisp = (window as any).$crisp
+    if ($crisp) {
+      $crisp.push(['do', 'chat:open'])
+      setCrispUnread(0)
+    }
+  }
 
   // ── OFFLINE: preload data + auto-sync pending sales ───────────────────────
   useOfflinePreload()
@@ -318,7 +343,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         {showTrialBanner && <TrialBanner daysLeft={trialDaysLeft} locale={locale} />}
         {showGraceBanner && !isBillingPage && <GracePeriodBanner daysLeft={graceDaysLeft} locale={locale} />}
 
-        <Header title={title} shop={shop} locale={locale} onSignOut={handleSignOut} />
+        <Header title={title} shop={shop} locale={locale} onSignOut={handleSignOut} crispUnread={crispUnread} onOpenChat={handleOpenChat} />
 
         {profile.role === 'owner' && accessAllowed && !isBillingPage && (
           <PlanLimitAlert

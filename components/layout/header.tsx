@@ -1,6 +1,6 @@
 'use client'
 
-import { LogOut, Sun, Moon } from 'lucide-react'
+import { LogOut, Sun, Moon, MessageCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -23,9 +23,11 @@ interface HeaderProps {
   shop: Shop | null
   locale: string
   onSignOut: () => void
+  crispUnread?: number
+  onOpenChat?: () => void
 }
 
-export function Header({ title, locale, onSignOut }: HeaderProps) {
+export function Header({ title, locale, onSignOut, crispUnread = 0, onOpenChat }: HeaderProps) {
   const pathname = usePathname()
   const { shop, updateLocale } = useAuthContext()
   const { isDark, toggle } = useTheme()
@@ -52,6 +54,24 @@ export function Header({ title, locale, onSignOut }: HeaderProps) {
             <span>{countryFlag}</span>
             <span>{symbol}</span>
           </div>
+        )}
+
+        {/* Crisp chat button */}
+        {onOpenChat && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onOpenChat}
+            className="relative h-8 w-8 text-muted-foreground hover:text-foreground"
+            aria-label="Support chat"
+          >
+            <MessageCircle className="h-4 w-4" />
+            {crispUnread > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white leading-none">
+                {crispUnread > 9 ? '9+' : crispUnread}
+              </span>
+            )}
+          </Button>
         )}
 
         {/* Dark / Light toggle */}
