@@ -86,17 +86,16 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
   const [activeTab, setActiveTab] = useState<'sales' | 'repayments'>('sales')
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null)
 
-  // Sales tab: fully paid non-credit sales
+  // Sales tab: fully paid sales — payment_status is set correctly at INSERT time
   const salesItems = items.filter(i =>
     i.type === 'sale' &&
-    Number((i as Sale).balance) === 0 &&
-    (i as Sale).payment_method !== 'credit'
+    (i as Sale).payment_status === 'paid'
   ) as (Sale & { type: 'sale' })[]
 
-  // Debts tab: credit/partial sales + repayments
+  // Debts tab: unpaid or partial sales
   const debtSaleItems = items.filter(i =>
     i.type === 'sale' &&
-    ((i as Sale).payment_method === 'credit' || Number((i as Sale).balance) > 0)
+    (i as Sale).payment_status !== 'paid'
   ) as (Sale & { type: 'sale' })[]
 
   const repaymentItems = items.filter(i => i.type === 'repayment') as RepaymentFeedItem[]
