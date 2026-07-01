@@ -78,6 +78,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   const [authRecovering, setAuthRecovering] = useState(true)
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [whatsNewOpen, setWhatsNewOpen] = useState(false)
+  const [hasUnread, setHasUnread] = useState(false)
   const recoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { toast } = useToast()
 
@@ -123,12 +124,16 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
           ? new Date(profile.last_seen_announcement_at)
           : null
         const latestAt = new Date((data[0] as Announcement).published_at)
-        if (!lastSeen || latestAt > lastSeen) setWhatsNewOpen(true)
+        if (!lastSeen || latestAt > lastSeen) {
+          setWhatsNewOpen(true)
+          setHasUnread(true)
+        }
       })
   }, [profile?.id])
 
   const handleCloseWhatsNew = async () => {
     setWhatsNewOpen(false)
+    setHasUnread(false)
     if (!profile?.id) return
     await (supabase
       .from('profiles') as any)
@@ -270,7 +275,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
     )
   }
 
-  const hasUnreadAnnouncement = announcements.length > 0 && whatsNewOpen
+  const hasUnreadAnnouncement = hasUnread
 
   const trialDaysLeft  = getTrialDaysLeft(shop?.trial_ends_at ?? null)
   const graceDaysLeft  = getGraceDaysLeft(shop?.plan ?? null, shop?.plan_expires_at ?? null)
