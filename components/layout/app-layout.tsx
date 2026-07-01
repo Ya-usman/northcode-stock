@@ -151,12 +151,11 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
       $crisp.push(['do', 'chat:hide'])
       $crisp.push(['on', 'message:received', () => setCrispUnread(n => n + 1)])
       $crisp.push(['on', 'chat:opened', () => setCrispUnread(0)])
+      $crisp.push(['on', 'chat:closed', () => $crisp.push(['do', 'chat:hide'])])
     }
-    if ((window as any).$crisp) {
-      setup()
-    } else {
-      (window as any).CRISP_READY_TRIGGER = setup
-    }
+    // $crisp est initialisé comme [] par le script inline, donc toujours truthy
+    // On utilise CRISP_READY_TRIGGER pour être sûr que Crisp est bien chargé
+    ;(window as any).CRISP_READY_TRIGGER = setup
   }, [])
 
   // ── CRISP: identify user once profile is loaded ──────────────────────────
@@ -179,6 +178,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   const handleOpenChat = () => {
     const $crisp = (window as any).$crisp
     if ($crisp) {
+      $crisp.push(['do', 'chat:show'])
       $crisp.push(['do', 'chat:open'])
       setCrispUnread(0)
     }
