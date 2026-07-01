@@ -143,15 +143,31 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
       .eq('id', profile.id)
   }
 
-  // ── CRISP: attendre que Crisp soit pleinement initialisé (a .get()),
-  // puis enregistrer les event listeners sur le vrai objet Crisp
+  // ── CRISP: cacher le widget via MutationObserver (plus fiable que CSS/chat:hide)
+  useEffect(() => {
+    const getCrispEl = () =>
+      document.getElementById('crisp-chatbox') ||
+      document.querySelector('.crisp-client') as HTMLElement | null
+
+    const forceHide = () => {
+      if (document.body.classList.contains('crisp-open')) return
+      const el = getCrispEl()
+      if (el) el.style.setProperty('display', 'none', 'important')
+    }
+
+    const observer = new MutationObserver(forceHide)
+    observer.observe(document.body, { childList: true, subtree: true })
+    forceHide()
+    return () => observer.disconnect()
+  }, [])
+
+  // ── CRISP: event listeners (attendre que Crisp soit pleinement initialisé)
   useEffect(() => {
     let attempts = 0
     const register = () => {
       const $crisp = (window as any).$crisp
       if (!$crisp || typeof $crisp.get !== 'function') return false
       $crisp.push(['on', 'message:received', () => {
-        $crisp.push(['do', 'chat:hide'])
         document.body.classList.remove('crisp-open')
         const count = $crisp.get('chat:unread:count')
         setCrispUnread(typeof count === 'number' ? count : (n: number) => n + 1)
@@ -159,9 +175,6 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
       $crisp.push(['on', 'chat:opened', () => setCrispUnread(0)])
       $crisp.push(['on', 'chat:closed', () => {
         document.body.classList.remove('crisp-open')
-        // setTimeout(0) : s'exécute après la logique interne de Crisp
-        // qui ré-affiche le launcher juste après la fermeture
-        setTimeout(() => $crisp.push(['do', 'chat:hide']), 0)
       }])
       return true
     }
