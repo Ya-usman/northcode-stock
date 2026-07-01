@@ -143,26 +143,32 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
       .eq('id', profile.id)
   }
 
-  // ── CRISP: setup event listeners + suppress default notifications
+  // ── CRISP: attendre que Crisp soit pleinement initialisé (a .get()),
+  // puis enregistrer les event listeners sur le vrai objet Crisp
   useEffect(() => {
-    const c = (window as any).$crisp
-    if (!c) return
-    // chat:hide = Crisp ne montre plus les popups/notifications de son côté
-    c.push(['do', 'chat:hide'])
-    c.push(['on', 'message:received', () => {
-      // Re-cacher au cas où Crisp se force à s'afficher sur nouveau message
-      ;(window as any).$crisp?.push(['do', 'chat:hide'])
-      document.body.classList.remove('crisp-open')
-      setCrispUnread(n => n + 1)
-    }])
-    c.push(['on', 'chat:opened', () => setCrispUnread(0)])
-    c.push(['on', 'chat:closed', () => {
-      ;(window as any).$crisp?.push(['do', 'chat:hide'])
-      document.body.classList.remove('crisp-open')
-    }])
-    // Backup : s'assure que chat:hide est appliqué quand Crisp est prêt
-    ;(window as any).CRISP_READY_TRIGGER = () => {
-      ;(window as any).$crisp?.push(['do', 'chat:hide'])
+    let attempts = 0
+    const register = () => {
+      const $crisp = (window as any).$crisp
+      if (!$crisp || typeof $crisp.get !== 'function') return false
+      $crisp.push(['on', 'message:received', () => {
+        $crisp.push(['do', 'chat:hide'])
+        document.body.classList.remove('crisp-open')
+        const count = $crisp.get('chat:unread:count')
+        setCrispUnread(typeof count === 'number' ? count : (n: number) => n + 1)
+      }])
+      $crisp.push(['on', 'chat:opened', () => setCrispUnread(0)])
+      $crisp.push(['on', 'chat:closed', () => {
+        $crisp.push(['do', 'chat:hide'])
+        document.body.classList.remove('crisp-open')
+      }])
+      return true
+    }
+    if (!register()) {
+      const timer = setInterval(() => {
+        attempts++
+        if (register() || attempts >= 20) clearInterval(timer)
+      }, 500)
+      return () => clearInterval(timer)
     }
   }, [])
 
