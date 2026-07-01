@@ -127,12 +127,12 @@ const csp = [
   "default-src 'self'",
   // unsafe-eval: dev only (Next.js HMR). Removed in production.
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''} https://js.paystack.co https://client.crisp.chat`,
-  // Styles : app + inline (Next.js / Tailwind)
-  "style-src 'self' 'unsafe-inline'",
+  // Styles : app + inline (Next.js / Tailwind) + Crisp
+  "style-src 'self' 'unsafe-inline' https://client.crisp.chat",
   // Images : app + Supabase Storage + data URIs + Crisp avatars
   "img-src 'self' data: blob: https://*.supabase.co https://*.crisp.chat",
-  // Fonts
-  "font-src 'self' data:",
+  // Fonts : app + Crisp
+  "font-src 'self' data: https://client.crisp.chat",
   // Connexions réseau autorisées
   [
     "connect-src 'self'",
