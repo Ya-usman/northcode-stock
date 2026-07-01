@@ -1,6 +1,6 @@
 'use client'
 
-import { LogOut, Sun, Moon, MessageCircle } from 'lucide-react'
+import { Sun, Moon, MessageCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -22,12 +22,12 @@ interface HeaderProps {
   title: string
   shop: Shop | null
   locale: string
-  onSignOut: () => void
+  onSignOut?: () => void
   crispUnread?: number
   onOpenChat?: () => void
 }
 
-export function Header({ title, locale, onSignOut, crispUnread = 0, onOpenChat }: HeaderProps) {
+export function Header({ title, locale, crispUnread = 0, onOpenChat }: HeaderProps) {
   const pathname = usePathname()
   const { shop, updateLocale } = useAuthContext()
   const { isDark, toggle } = useTheme()
@@ -108,16 +108,6 @@ export function Header({ title, locale, onSignOut, crispUnread = 0, onOpenChat }
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Logout — mobile only */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onSignOut}
-          className="h-8 w-8 sm:hidden text-muted-foreground hover:text-destructive"
-          aria-label="Sign out"
-        >
-          <LogOut className="h-4 w-4" />
-        </Button>
       </div>
     </header>
   )
