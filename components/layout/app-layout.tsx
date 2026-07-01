@@ -145,17 +145,17 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
 
   // ── CRISP: setup widget (hide bubble, listen events) ─────────────────────
   useEffect(() => {
-    const setup = () => {
-      const $crisp = (window as any).$crisp
-      if (!$crisp) return
-      $crisp.push(['do', 'chat:hide'])
-      $crisp.push(['on', 'message:received', () => setCrispUnread(n => n + 1)])
-      $crisp.push(['on', 'chat:opened', () => setCrispUnread(0)])
-      $crisp.push(['on', 'chat:closed', () => $crisp.push(['do', 'chat:hide'])])
-    }
-    // $crisp est initialisé comme [] par le script inline, donc toujours truthy
-    // On utilise CRISP_READY_TRIGGER pour être sûr que Crisp est bien chargé
-    ;(window as any).CRISP_READY_TRIGGER = setup
+    // $crisp est initialisé comme [] avant le chargement de Crisp.
+    // Les push() sont mis en queue et exécutés au chargement — ou immédiatement
+    // si Crisp est déjà chargé. Les deux cas sont couverts.
+    const c = (window as any).$crisp
+    if (!c) return
+    c.push(['do', 'chat:hide'])
+    c.push(['on', 'message:received', () => setCrispUnread(n => n + 1)])
+    c.push(['on', 'chat:opened', () => setCrispUnread(0)])
+    c.push(['on', 'chat:closed', () => {
+      ;(window as any).$crisp?.push(['do', 'chat:hide'])
+    }])
   }, [])
 
   // ── CRISP: identify user once profile is loaded ──────────────────────────
