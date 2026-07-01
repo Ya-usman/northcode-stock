@@ -126,11 +126,11 @@ const isDev = process.env.NODE_ENV === 'development'
 const csp = [
   "default-src 'self'",
   // unsafe-eval: dev only (Next.js HMR). Removed in production.
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''} https://js.paystack.co`,
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''} https://js.paystack.co https://client.crisp.chat`,
   // Styles : app + inline (Next.js / Tailwind)
   "style-src 'self' 'unsafe-inline'",
-  // Images : app + Supabase Storage + data URIs
-  "img-src 'self' data: blob: https://*.supabase.co",
+  // Images : app + Supabase Storage + data URIs + Crisp avatars
+  "img-src 'self' data: blob: https://*.supabase.co https://*.crisp.chat",
   // Fonts
   "font-src 'self' data:",
   // Connexions réseau autorisées
@@ -142,6 +142,8 @@ const csp = [
     "https://api.flutterwave.com",
     "https://api.notchpay.co",
     "https://*.upstash.io",
+    "https://*.crisp.chat",
+    "wss://*.crisp.chat",
   ].join(' '),
   // Iframes : uniquement Paystack checkout
   "frame-src 'self' https://checkout.paystack.com https://checkout.flutterwave.com",
