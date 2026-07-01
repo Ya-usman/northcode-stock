@@ -598,11 +598,11 @@ export default function HelpPage() {
                 WhatsApp
               </a>
               <a
-                href="mailto:support@stockshop.africa"
+                href="mailto:support@stockshop.tech"
                 className="flex items-center gap-2 rounded-lg bg-white/10 text-white px-4 py-2 text-sm font-medium hover:bg-white/20 transition-colors"
               >
                 <Mail className="h-4 w-4" />
-                support@stockshop.africa
+                support@stockshop.tech
               </a>
             </div>
           </div>
