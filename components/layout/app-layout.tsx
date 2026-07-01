@@ -206,12 +206,14 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
 
   const handleOpenChat = () => {
     const $crisp = (window as any).$crisp
-    if ($crisp) {
-      document.body.classList.add('crisp-open')
-      $crisp.push(['do', 'chat:show'])
-      $crisp.push(['do', 'chat:open'])
-      setCrispUnread(0)
-    }
+    if (!$crisp) return
+    // Retirer le style inline posé par le MutationObserver avant d'ouvrir
+    const el = document.getElementById('crisp-chatbox') || document.querySelector('.crisp-client')
+    if (el) (el as HTMLElement).style.removeProperty('display')
+    document.body.classList.add('crisp-open')
+    $crisp.push(['do', 'chat:show'])
+    $crisp.push(['do', 'chat:open'])
+    setCrispUnread(0)
   }
 
   // ── OFFLINE: preload data + auto-sync pending sales ───────────────────────
