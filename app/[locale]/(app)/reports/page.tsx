@@ -19,7 +19,7 @@ import { useCurrency } from '@/lib/hooks/use-currency'
 import { useToast } from '@/components/ui/use-toast'
 import { generateReportPDFBlob, savePDF } from '@/lib/utils/pdf'
 import { cn } from '@/lib/utils/cn'
-import { format, startOfDay, endOfDay, startOfMonth, startOfWeek, startOfQuarter, startOfYear } from 'date-fns'
+import { format, subDays, startOfDay, endOfDay, startOfMonth, startOfWeek, startOfQuarter, startOfYear } from 'date-fns'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 
 const PIE_COLORS = ['#60a5fa', '#D4AF37', '#16A34A', '#DC2626', '#a78bfa']
@@ -63,6 +63,7 @@ export default function ReportsPage() {
     switch (dateFilter) {
       case 'today':    start = startOfDay(now); break
       case 'week':     start = startOfWeek(now, { weekStartsOn: 1 }); break
+      case 'last30':   start = startOfDay(subDays(now, 29)); break
       case 'month':    start = startOfMonth(now); break
       case 'quarter':  start = startOfQuarter(now); break
       case 'semester': start = new Date(now.getFullYear(), now.getMonth() < 6 ? 0 : 6, 1); break
@@ -74,6 +75,18 @@ export default function ReportsPage() {
       default:         start = startOfMonth(now)
     }
     return { start: start.toISOString(), end: end.toISOString() }
+  }
+
+  const getDateLabel = () => {
+    if (dateFilter === 'custom') {
+      return `${format(new Date(customStart), 'dd MMM yyyy')} – ${format(new Date(customEnd), 'dd MMM yyyy')}`
+    }
+    const { start, end } = getDateRange()
+    const s = new Date(start)
+    const e = new Date(end)
+    if (s.toDateString() === e.toDateString()) return format(s, 'dd MMM yyyy')
+    if (s.getFullYear() === e.getFullYear()) return `${format(s, 'dd MMM')} – ${format(e, 'dd MMM yyyy')}`
+    return `${format(s, 'dd MMM yyyy')} – ${format(e, 'dd MMM yyyy')}`
   }
 
   const fetchReports = async () => {
@@ -374,18 +387,22 @@ export default function ReportsPage() {
       {/* Controls */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
-          <Select value={dateFilter} onValueChange={v => setFilter({ dateFilter: v })}>
-            <SelectTrigger className="w-[150px] sm:w-[175px] text-xs sm:text-sm h-9"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="today">{t('reports.today')}</SelectItem>
-              <SelectItem value="week">{t('reports.this_week')}</SelectItem>
-              <SelectItem value="month">{t('reports.this_month')}</SelectItem>
-              <SelectItem value="quarter">{t('reports.this_quarter')}</SelectItem>
-              <SelectItem value="semester">{t('reports.this_semester')}</SelectItem>
-              <SelectItem value="year">{t('reports.this_year')}</SelectItem>
-              <SelectItem value="custom">Période personnalisée</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex flex-col gap-0.5">
+            <Select value={dateFilter} onValueChange={v => setFilter({ dateFilter: v })}>
+              <SelectTrigger className="w-[165px] sm:w-[190px] text-xs sm:text-sm h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">{t('reports.today')}</SelectItem>
+                <SelectItem value="week">{t('reports.this_week')}</SelectItem>
+                <SelectItem value="last30">30 derniers jours</SelectItem>
+                <SelectItem value="month">{t('reports.this_month')}</SelectItem>
+                <SelectItem value="quarter">{t('reports.this_quarter')}</SelectItem>
+                <SelectItem value="semester">{t('reports.this_semester')}</SelectItem>
+                <SelectItem value="year">{t('reports.this_year')}</SelectItem>
+                <SelectItem value="custom">Période personnalisée</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-muted-foreground px-1">{getDateLabel()}</p>
+          </div>
           <Button
             variant="outline"
             onClick={exportPDF}
