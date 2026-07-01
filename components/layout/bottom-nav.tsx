@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl'
 import {
   LayoutDashboard, ShoppingCart, Package, BarChart2, Settings,
   MoreHorizontal, History, CreditCard, Users, Truck, Zap,
-  X, LogOut, Store, Tag, ArrowLeftRight, Receipt, ShieldCheck, NotebookPen, BookOpen,
+  X, LogOut, Store, Tag, ArrowLeftRight, Receipt, ShieldCheck, NotebookPen, BookOpen, MessageCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import type { UserRole } from '@/lib/types/database'
@@ -23,11 +23,13 @@ interface BottomNavProps {
   onSignOut?: () => void
   userEmail?: string
   hasUnreadAnnouncement?: boolean
+  crispUnread?: number
+  onOpenChat?: () => void
 }
 
 const ALL_NON_OWNER = ['super_admin', 'owner', 'manager', 'shop_manager', 'cashier', 'viewer', 'stock_manager']
 
-export function BottomNav({ locale, role, onSignOut, userEmail = '', hasUnreadAnnouncement = false }: BottomNavProps) {
+export function BottomNav({ locale, role, onSignOut, userEmail = '', hasUnreadAnnouncement = false, crispUnread = 0, onOpenChat }: BottomNavProps) {
   const t = useTranslations('nav')
   const pathname = usePathname()
   const [moreOpen, setMoreOpen] = useState(false)
@@ -150,6 +152,24 @@ export function BottomNav({ locale, role, onSignOut, userEmail = '', hasUnreadAn
                     </Link>
                   )
                 })}
+
+                {/* Chat support */}
+                {onOpenChat && (
+                  <button
+                    onClick={() => { setMoreOpen(false); onOpenChat() }}
+                    className="relative flex flex-col items-center gap-1.5 rounded-xl p-3 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                  >
+                    <div className="relative">
+                      <MessageCircle className="h-5 w-5" />
+                      {crispUnread > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white leading-none">
+                          {crispUnread > 9 ? '9+' : crispUnread}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-medium leading-none text-center">Support</span>
+                  </button>
+                )}
 
                 {/* Admin Panel — super_admin uniquement */}
                 {/* Use <a> (hard nav) to avoid client/server auth race condition */}

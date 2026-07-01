@@ -145,17 +145,20 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
 
   // ── CRISP: setup widget (hide bubble, listen events) ─────────────────────
   useEffect(() => {
-    // $crisp est initialisé comme [] avant le chargement de Crisp.
-    // Les push() sont mis en queue et exécutés au chargement — ou immédiatement
-    // si Crisp est déjà chargé. Les deux cas sont couverts.
     const c = (window as any).$crisp
     if (!c) return
+    // Queue commands — exécutés quand Crisp charge (ou immédiatement si déjà chargé)
     c.push(['do', 'chat:hide'])
     c.push(['on', 'message:received', () => setCrispUnread(n => n + 1)])
     c.push(['on', 'chat:opened', () => setCrispUnread(0)])
     c.push(['on', 'chat:closed', () => {
       ;(window as any).$crisp?.push(['do', 'chat:hide'])
     }])
+    // CRISP_READY_TRIGGER = backup pour s'assurer que chat:hide s'applique
+    // même si la queue a été traitée avant que le DOM Crisp soit prêt
+    ;(window as any).CRISP_READY_TRIGGER = () => {
+      ;(window as any).$crisp?.push(['do', 'chat:hide'])
+    }
   }, [])
 
   // ── CRISP: identify user once profile is loaded ──────────────────────────
@@ -360,7 +363,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         </main>
       </div>
 
-      <BottomNav locale={locale} role={roleInActiveShop ?? profile.role} onSignOut={handleSignOut} userEmail={user.email ?? ''} hasUnreadAnnouncement={hasUnreadAnnouncement} />
+      <BottomNav locale={locale} role={roleInActiveShop ?? profile.role} onSignOut={handleSignOut} userEmail={user.email ?? ''} hasUnreadAnnouncement={hasUnreadAnnouncement} crispUnread={crispUnread} onOpenChat={handleOpenChat} />
 
       {whatsNewOpen && announcements.length > 0 && (
         <WhatsNewModal announcements={announcements} onClose={handleCloseWhatsNew} />
