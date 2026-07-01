@@ -378,7 +378,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         id="crisp-widget"
         strategy="afterInteractive"
         dangerouslySetInnerHTML={{
-          __html: `window.$crisp=[];window.CRISP_WEBSITE_ID="42340430-3821-4a5b-b5ab-7953bd0edf95";(function(){var d=document,s=d.createElement("script");s.src="https://client.crisp.chat/l.js";s.async=1;d.getElementsByTagName("head")[0].appendChild(s);})();`,
+          __html: `window.$crisp=[];window.CRISP_WEBSITE_ID="42340430-3821-4a5b-b5ab-7953bd0edf95";window.CRISP_READY_TRIGGER=function(){$crisp.push(["do","chat:hide"])};(function(){var d=document,s=d.createElement("script");s.src="https://client.crisp.chat/l.js";s.async=1;d.getElementsByTagName("head")[0].appendChild(s);})();`,
         }}
       />
     </div>

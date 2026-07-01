@@ -119,8 +119,10 @@ html {
   }
 }
 
-/* Hide Crisp default launcher — shown only when we open it programmatically */
+/* Hide Crisp widget — shown only when we open it programmatically */
+#crisp-chatbox,
 .crisp-client { display: none !important; }
+body.crisp-open #crisp-chatbox,
 body.crisp-open .crisp-client { display: block !important; }
 
 /* Hausa font support */
