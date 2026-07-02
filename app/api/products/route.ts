@@ -57,8 +57,11 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     if ('sku' in updates) updates.sku = updates.sku?.trim() || null
     const admin = await createAdminClient()
-    const { data, error } = await (admin as any).from('products').update(updates).eq('id', id).select().single()
+    // shop_id filter prevents modifying a product that belongs to a different shop
+    // even though the admin client bypasses RLS
+    const { data, error } = await (admin as any).from('products').update(updates).eq('id', id).eq('shop_id', shop_id).select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (!data) return NextResponse.json({ error: 'Produit introuvable dans cette boutique' }, { status: 404 })
     return NextResponse.json({ data })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
@@ -195,26 +198,51 @@ export async function PUT(request: Request) {
   try {
     const { user, supabase } = await getAuthedUser()
     if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-    const { product_id, shop_id, current_quantity, quantity_to_add, supplier_name, buying_price, notes, performed_by } = await request.json()
+    const { product_id, shop_id, quantity_to_add, supplier_name, buying_price, notes, performed_by } = await request.json()
     if (!product_id || !shop_id) return NextResponse.json({ error: 'product_id et shop_id requis' }, { status: 400 })
+    if (!Number.isFinite(Number(quantity_to_add)) || Number(quantity_to_add) <= 0)
+      return NextResponse.json({ error: 'Quantité invalide' }, { status: 400 })
     const role = await checkShopRole(supabase, user.id, shop_id)
     if (!role || !WRITE_ROLES.includes(role))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     const admin = await createAdminClient()
-    const { error: updateError } = await (admin as any).from('products')
-      .update({ quantity: current_quantity + quantity_to_add })
+
+    // Read current quantity from DB — never trust the client value to avoid
+    // lost-update race conditions when two restocks run concurrently or
+    // when an offline sync flushes a stale quantity.
+    const { data: product, error: fetchError } = await (admin as any)
+      .from('products')
+      .select('quantity, shop_id')
       .eq('id', product_id)
+      .eq('shop_id', shop_id)
+      .single()
+    if (fetchError || !product) return NextResponse.json({ error: 'Produit introuvable' }, { status: 404 })
+
+    const prevQty = Number(product.quantity)
+    const newQty  = prevQty + Number(quantity_to_add)
+
+    // Optimistic lock: if quantity changed between our read and this update,
+    // the .eq('quantity', prevQty) filter matches 0 rows → data is null → 409.
+    const { data: updated, error: updateError } = await (admin as any)
+      .from('products')
+      .update({ quantity: newQty })
+      .eq('id', product_id)
+      .eq('quantity', prevQty)
+      .select('id')
+      .single()
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 })
+    if (!updated) return NextResponse.json({ error: 'Conflit de synchronisation — réessayez.' }, { status: 409 })
+
     await (admin as any).from('stock_movements').insert({
       shop_id,
       product_id,
       type: 'in',
-      quantity: quantity_to_add,
+      quantity: Number(quantity_to_add),
       reason: supplier_name ? `Restock from ${supplier_name}` : 'Restock',
       notes: notes || null,
       performed_by,
-      previous_qty: current_quantity,
-      new_qty: current_quantity + quantity_to_add,
+      previous_qty: prevQty,
+      new_qty: newQty,
     })
     return NextResponse.json({ ok: true })
   } catch (e: any) {
