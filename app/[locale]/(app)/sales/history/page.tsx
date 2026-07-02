@@ -22,7 +22,7 @@ import { useCurrency } from '@/lib/hooks/use-currency'
 import { printPDFNative, downloadOrShareCSV, isCapacitor } from '@/lib/utils/native-share'
 import { getCountry } from '@/lib/saas/countries'
 import { normalize } from '@/lib/utils/normalize'
-import { format, startOfDay, endOfDay, subDays, subMonths, startOfWeek, startOfMonth } from 'date-fns'
+import { format, startOfDay, endOfDay, subDays, subMonths, startOfWeek, startOfMonth, startOfYear } from 'date-fns'
 import type { Sale } from '@/lib/types/database'
 import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-cache'
 
@@ -133,6 +133,7 @@ export default function SalesHistoryPage() {
       case 'month': start = startOfMonth(now); break
       case 'quarter': start = subMonths(now, 3); break
       case 'semester': start = subMonths(now, 6); break
+      case 'year': start = startOfYear(now); break
       case 'yesterday':
         start = startOfDay(subDays(now, 1))
         end   = endOfDay(subDays(now, 1))
@@ -568,6 +569,7 @@ export default function SalesHistoryPage() {
             <SelectItem value="month">{t('sales.filter_month')}</SelectItem>
             <SelectItem value="quarter">{t('sales.filter_quarter')}</SelectItem>
             <SelectItem value="semester">{t('sales.filter_semester')}</SelectItem>
+            <SelectItem value="year">{t('sales.filter_year')}</SelectItem>
             <SelectItem value="custom">{t('sales.filter_custom')}</SelectItem>
           </SelectContent>
         </Select>

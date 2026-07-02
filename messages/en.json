@@ -272,6 +272,7 @@
     "filter_yesterday": "Yesterday",
     "filter_quarter": "Quarter",
     "filter_semester": "Semester",
+    "filter_year": "Year",
     "filter_all": "All Sales",
     "filter_active": "Active",
     "filter_cancelled": "Cancelled",
