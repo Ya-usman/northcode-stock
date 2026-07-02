@@ -12,12 +12,11 @@ export async function GET(request: Request) {
     const shopIds = shopIdsParam.split(',').map(s => s.trim()).filter(Boolean)
     if (!shopIds.length) return NextResponse.json({ error: 'shop_ids requis' }, { status: 400 })
 
-    // Auth check — use getSession() to avoid network round-trip failures on expired tokens.
-    // The JWT is still Supabase-signed; membership check below ensures proper authorization.
+    // getUser() verifies the JWT with Supabase auth server — unlike getSession()
+    // which only parses the cookie without server-side validation.
     const supabase = await createClient() as any
-    const { data: { session } } = await supabase.auth.getSession()
-    const user = session?.user
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { data: { user }, error: authErr } = await supabase.auth.getUser()
+    if (authErr || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
     // Verify caller has access to all requested shops
     const { data: memberRows } = await supabase

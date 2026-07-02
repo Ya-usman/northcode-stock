@@ -43,10 +43,12 @@ export async function GET(request: NextRequest) {
     })
     const data = await res.json()
 
-    // Bank transfer payments may be "pending" when the callback fires — treat as success
-    // so the plan is activated immediately. Paystack webhook will confirm later.
+    // Accept only confirmed payments. Bank transfers fired with 'pending' status
+    // may never complete (cancelled/rejected transfer) — no rollback exists if
+    // we activate the plan immediately. The charge.success webhook confirms
+    // bank transfers when funds actually arrive, so we can wait safely.
     const txStatus = data.data?.status
-    if (!data.status || (txStatus !== 'success' && txStatus !== 'pending')) {
+    if (!data.status || txStatus !== 'success') {
       return reply(inline, locale, baseUrl, false, 'payment_failed')
     }
 

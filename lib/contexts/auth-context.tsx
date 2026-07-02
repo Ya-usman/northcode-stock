@@ -76,14 +76,18 @@ function readCache(userId: string): AuthCache | null {
   } catch { return null }
 }
 
-// Stale read — ignores TTL. Used to pre-fill UI instantly on page reload
-// even when cache is older than 24h. Background refresh always follows.
+// Stale read — relaxed TTL (7 days max). Used to pre-fill UI instantly on
+// page reload even when cache is older than 24h. Background refresh always
+// follows. The 7-day cap prevents showing a deactivated account or expired
+// plan indefinitely when the network is unreachable.
+const STALE_MAX_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
 function readCacheStale(userId: string): AuthCache | null {
   try {
     const raw = localStorage.getItem(CACHE_KEY)
     if (!raw) return null
     const c: AuthCache = JSON.parse(raw)
     if (c.userId !== userId) return null
+    if (Date.now() - c.savedAt > STALE_MAX_MS) return null
     return c
   } catch { return null }
 }
