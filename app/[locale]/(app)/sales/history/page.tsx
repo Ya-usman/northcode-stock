@@ -119,11 +119,15 @@ export default function SalesHistoryPage() {
       case 'today': start = startOfDay(now); break
       case 'week': start = startOfWeek(now, { weekStartsOn: 1 }); break
       case 'month': start = startOfMonth(now); break
+      case 'yesterday':
+        start = startOfDay(subDays(now, 1))
+        end   = endOfDay(subDays(now, 1))
+        break
       case 'custom':
-        start = customStart ? startOfDay(new Date(customStart)) : subDays(now, 30)
+        start = customStart ? startOfDay(new Date(customStart)) : startOfDay(subDays(now, 1))
         end   = customEnd   ? endOfDay(new Date(customEnd))     : endOfDay(now)
         break
-      default: start = subDays(now, 30)
+      default: start = startOfDay(now)
     }
     return { start, end }
   }
@@ -293,7 +297,9 @@ export default function SalesHistoryPage() {
         ? format(startOfMonth(now), 'MMMM yyyy')
         : dateFilter === 'custom' && customStart && customEnd
         ? `${format(new Date(customStart), 'dd/MM/yyyy')} – ${format(new Date(customEnd), 'dd/MM/yyyy')}`
-        : t('sales.filter_30days')
+        : dateFilter === 'yesterday'
+        ? format(subDays(new Date(), 1), 'dd/MM/yyyy')
+        : t('sales.filter_today')
       await generateSalesReportPDF({
         shopName: shop.name,
         period: periodLabel,
@@ -544,7 +550,7 @@ export default function SalesHistoryPage() {
             <SelectItem value="today">{t('sales.filter_today')}</SelectItem>
             <SelectItem value="week">{t('sales.filter_week')}</SelectItem>
             <SelectItem value="month">{t('sales.filter_month')}</SelectItem>
-            <SelectItem value="30days">{t('sales.filter_30days')}</SelectItem>
+            <SelectItem value="yesterday">{t('sales.filter_yesterday')}</SelectItem>
             <SelectItem value="custom">{t('sales.filter_custom')}</SelectItem>
           </SelectContent>
         </Select>

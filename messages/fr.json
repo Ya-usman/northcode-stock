@@ -268,7 +268,7 @@
     "filter_week": "Cette semaine",
     "filter_month": "Ce mois",
     "filter_custom": "Période personnalisée",
-    "filter_30days": "30 derniers jours",
+    "filter_yesterday": "Hier",
     "filter_all": "Toutes ventes",
     "filter_active": "Actives",
     "filter_cancelled": "Annulées",

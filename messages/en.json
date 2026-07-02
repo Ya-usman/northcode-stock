@@ -268,7 +268,7 @@
     "filter_week": "This Week",
     "filter_month": "This Month",
     "filter_custom": "Custom Range",
-    "filter_30days": "Last 30 Days",
+    "filter_yesterday": "Yesterday",
     "filter_all": "All Sales",
     "filter_active": "Active",
     "filter_cancelled": "Cancelled",
