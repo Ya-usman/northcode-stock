@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
@@ -275,7 +276,8 @@ export default function StockMovementsPage() {
         </div>
       )}
 
-      {/* Modal historique réappro */}
+      {/* Modal historique réappro — portal pour éviter le confinement overflow/sticky */}
+      {openProduct && createPortal(
       <AnimatePresence>
         {openProduct && (() => {
           const totalQty = openProduct.restocks.reduce((s, m) => s + m.quantity, 0)
@@ -420,7 +422,9 @@ export default function StockMovementsPage() {
             </motion.div>
           )
         })()}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body
+      )}
     </div>
   )
 }
