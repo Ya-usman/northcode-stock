@@ -40,14 +40,28 @@ export function PremiumDialog({
         onInteractOutside={(e) => e.preventDefault()}
       >
         <div className="flex flex-col flex-1 min-h-0 rounded-lg overflow-hidden">
-          {/* Blue header — sticky */}
-          <div className="flex-shrink-0 bg-stockshop-blue rounded-t-lg px-5 pt-5 pb-4 pr-12">
-            {category && (
-              <p className="text-xs font-medium text-blue-200 uppercase tracking-wider mb-1">{category}</p>
-            )}
-            <div className="flex items-center gap-2.5">
-              {icon && <span className="text-white/70 shrink-0">{icon}</span>}
-              <p className="text-white font-semibold text-base leading-tight">{title}</p>
+          {/* Gradient header — sticky */}
+          <div
+            className="flex-shrink-0 relative overflow-hidden rounded-t-lg px-5 pt-5 pb-4 pr-12"
+            style={{ background: 'linear-gradient(135deg, #073e8a 0%, #0d52b8 100%)' }}
+          >
+            {/* Decorative circles */}
+            <div className="absolute -top-6 -right-6 h-24 w-24 rounded-full bg-white/5" />
+            <div className="absolute -bottom-4 -left-4 h-16 w-16 rounded-full bg-white/5" />
+            <div className="relative">
+              {(icon || category) && (
+                <div className="flex items-center gap-2 mb-2">
+                  {icon && (
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15 text-white flex-shrink-0">
+                      {icon}
+                    </div>
+                  )}
+                  {category && (
+                    <span className="text-xs font-semibold text-blue-200 uppercase tracking-wider">{category}</span>
+                  )}
+                </div>
+              )}
+              <p className="text-lg font-bold text-white leading-tight">{title}</p>
             </div>
           </div>
           {/* Body — scrollable, footer stays pinned below */}

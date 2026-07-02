@@ -725,23 +725,40 @@ export default function ReportsPage() {
       {/* PDF action sheet — mobile only */}
       {pdfSheet && (
         <div
-          className="fixed inset-0 z-50 flex flex-col justify-end"
-          style={{ background: 'rgba(0,0,0,0.5)' }}
+          className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-sm"
           onClick={closePdfSheet}
         >
           <div
-            className="bg-background rounded-t-2xl p-5 space-y-3 pb-10"
+            className="bg-background rounded-t-2xl shadow-2xl overflow-hidden"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-1">
-              <div>
-                <p className="font-semibold text-base">Rapport PDF prêt</p>
-                <p className="text-xs text-muted-foreground truncate max-w-[240px]">{pdfSheet.name}</p>
+            {/* Gradient header */}
+            <div
+              className="relative overflow-hidden px-5 pt-5 pb-4"
+              style={{ background: 'linear-gradient(135deg, #073e8a 0%, #0d52b8 100%)' }}
+            >
+              <div className="absolute -top-6 -right-6 h-24 w-24 rounded-full bg-white/5" />
+              <div className="absolute -bottom-4 -left-4 h-16 w-16 rounded-full bg-white/5" />
+              <div className="relative flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15">
+                      <Download className="h-3.5 w-3.5 text-white" />
+                    </div>
+                    <span className="text-xs font-semibold text-blue-200 uppercase tracking-wider">Rapport</span>
+                  </div>
+                  <p className="text-lg font-bold text-white leading-tight">PDF prêt</p>
+                  <p className="text-xs text-blue-200/70 mt-0.5 truncate max-w-[240px]">{pdfSheet.name}</p>
+                </div>
+                <button
+                  onClick={closePdfSheet}
+                  className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-              <button onClick={closePdfSheet} className="h-8 w-8 flex items-center justify-center rounded-full bg-muted">
-                <X className="h-4 w-4" />
-              </button>
             </div>
+            <div className="p-5 space-y-3 pb-10">
 
             {/* Télécharger — même mécanisme que tous les autres exports de l'app */}
             <button
