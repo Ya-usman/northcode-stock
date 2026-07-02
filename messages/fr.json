@@ -269,6 +269,8 @@
     "filter_month": "Ce mois",
     "filter_custom": "Période personnalisée",
     "filter_yesterday": "Hier",
+    "filter_quarter": "Trimestre",
+    "filter_semester": "Semestre",
     "filter_all": "Toutes ventes",
     "filter_active": "Actives",
     "filter_cancelled": "Annulées",
