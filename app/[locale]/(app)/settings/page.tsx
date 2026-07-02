@@ -56,12 +56,14 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const [testingPush, setTestingPush] = useState(false)
   const [notifyPushNewSale, setNotifyPushNewSale] = useState(true)
   const [notifyPushNewExpense, setNotifyPushNewExpense] = useState(true)
-  const [saleSoundEnabled, setSaleSoundEnabled] = useState(() =>
-    typeof window !== 'undefined' ? localStorage.getItem('sale_sound_enabled') !== '0' : true
-  )
-  const [saleVibrationEnabled, setSaleVibrationEnabled] = useState(() =>
-    typeof window !== 'undefined' ? localStorage.getItem('sale_vibration_enabled') !== '0' : true
-  )
+  const [saleSoundEnabled, setSaleSoundEnabled] = useState(true)
+  const [saleVibrationEnabled, setSaleVibrationEnabled] = useState(true)
+
+  // Read from localStorage after mount to avoid SSR/client hydration mismatch
+  useEffect(() => {
+    setSaleSoundEnabled(localStorage.getItem('sale_sound_enabled') !== '0')
+    setSaleVibrationEnabled(localStorage.getItem('sale_vibration_enabled') !== '0')
+  }, [])
 
   // ── Role permissions ────────────────────────────────────────────────────────
   const [activePermRole, setActivePermRole] = useState<ConfigurableRole>('cashier')

@@ -22,10 +22,8 @@ async function checkRealConnectivity(): Promise<boolean> {
 
 export function useOffline() {
   const { shop } = useAuth()
-  // Use navigator.onLine as fast initial guess; real check updates it immediately
-  const [isOnline, setIsOnline] = useState(() =>
-    typeof navigator !== 'undefined' ? navigator.onLine : true
-  )
+  // Start true (matches server); real check in useEffect avoids SSR/client hydration mismatch
+  const [isOnline, setIsOnline] = useState(true)
   const [pendingCount, setPendingCount] = useState(0)
   const [syncing, setSyncing] = useState(false)
   const [lastSyncResult, setLastSyncResult] = useState<SyncResult | null>(null)
