@@ -183,8 +183,8 @@ export default function ReportsPage() {
       supabase
         .from('expenses').select('id, amount, description, date')
         .in('shop_id', effectiveShopIds)
-        .gte('date', start.slice(0, 10))
-        .lte('date', end.slice(0, 10))
+        .gte('date', format(new Date(start), 'yyyy-MM-dd'))
+        .lte('date', format(new Date(end), 'yyyy-MM-dd'))
         .order('date', { ascending: false }),
     ])
     const expensesList = (expensesRaw || []) as { id: string; amount: number; description: string; date: string }[]
