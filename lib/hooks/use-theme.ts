@@ -12,7 +12,12 @@ function getInitialTheme(): boolean {
 }
 
 export function useTheme() {
-  const [isDark, setIsDark] = useState(getInitialTheme)
+  const [isDark, setIsDark] = useState(false)
+
+  // Read real theme from localStorage after mount to avoid SSR/client hydration mismatch
+  useEffect(() => {
+    setIsDark(getInitialTheme())
+  }, [])
 
   // Applique la classe dark sur <html>
   useEffect(() => {
