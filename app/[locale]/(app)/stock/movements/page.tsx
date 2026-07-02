@@ -4,9 +4,12 @@ import { useState, useEffect, useMemo } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
-import { Search, Calendar, Package, ArrowRight, X, History } from 'lucide-react'
+import { useLocale } from 'next-intl'
+import { Search, Calendar, Package, ArrowRight, X, History, Lock, Zap } from 'lucide-react'
+import Link from 'next/link'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
+import { hasActiveSubscription, isBetaPeriod } from '@/lib/saas/plans'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -47,7 +50,9 @@ function fmtDate(d: string) {
 
 export default function StockMovementsPage() {
   const t = useTranslations('movements')
+  const locale = useLocale()
   const { effectiveShopIds, shop } = useAuth()
+  const isPremium = hasActiveSubscription(shop?.plan ?? null, shop?.plan_expires_at ?? null) || isBetaPeriod()
   const [{ search, dateFrom, dateTo }, setFilter] = usePersistedFilters(
     'movements', shop?.id, { search: '', dateFrom: '', dateTo: '' }
   )
@@ -55,6 +60,7 @@ export default function StockMovementsPage() {
   const [movements, setMovements] = useState<Movement[]>([])
   const [loading, setLoading] = useState(true)
   const [openProduct, setOpenProduct] = useState<ProductSummary | null>(null)
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
 
   useEffect(() => {
     if (!effectiveShopIds.length) return
@@ -204,7 +210,11 @@ export default function StockMovementsPage() {
               return (
                 <button
                   key={p.product_name}
-                  onClick={() => hasRestocks && setOpenProduct(p)}
+                  onClick={() => {
+                    if (!hasRestocks) return
+                    if (isPremium) setOpenProduct(p)
+                    else setUpgradeOpen(true)
+                  }}
                   className={cn(
                     'w-full transition-colors text-left',
                     hasRestocks ? 'hover:bg-muted/20 cursor-pointer' : 'cursor-default'
@@ -231,6 +241,7 @@ export default function StockMovementsPage() {
                         <div className="flex items-center gap-1.5 text-sm font-semibold text-green-600 tabular-nums">
                           +{restockTotal}
                           <span className="text-[10px] font-normal text-muted-foreground">{p.restocks.length}×</span>
+                          {!isPremium && <Lock className="h-3 w-3 text-amber-500 flex-shrink-0" />}
                         </div>
                       ) : <span className="text-muted-foreground text-sm">—</span>}
                     </div>
@@ -259,6 +270,7 @@ export default function StockMovementsPage() {
                         <div className="flex items-center gap-0.5 text-xs font-semibold text-green-600 tabular-nums">
                           +{restockTotal}
                           <span className="text-[10px] font-normal text-muted-foreground">{p.restocks.length}×</span>
+                          {!isPremium && <Lock className="h-2.5 w-2.5 text-amber-500 flex-shrink-0" />}
                         </div>
                       ) : <span className="text-muted-foreground text-xs">—</span>}
                     </div>
@@ -274,6 +286,69 @@ export default function StockMovementsPage() {
           </div>
         </div>
       )}
+
+      {/* Modal upgrade — historique réappro premium */}
+      <AnimatePresence>
+        {upgradeOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end justify-center sm:items-center p-4 bg-black/50"
+            onClick={() => setUpgradeOpen(false)}
+          >
+            <motion.div
+              initial={{ y: 40, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 40, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="bg-background rounded-2xl w-full max-w-sm shadow-xl overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header gradient */}
+              <div className="bg-gradient-to-br from-stockshop-blue to-[#1a4f9e] px-6 pt-6 pb-5 text-center">
+                <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white/20 mb-3">
+                  <Lock className="h-6 w-6 text-white" />
+                </div>
+                <h2 className="text-lg font-bold text-white">Fonctionnalité Premium</h2>
+                <p className="text-blue-200 text-sm mt-1">
+                  L&apos;historique de réapprovisionnement est réservé aux abonnés.
+                </p>
+              </div>
+
+              {/* Body */}
+              <div className="px-6 py-5 space-y-4">
+                <ul className="space-y-2 text-sm text-foreground/80">
+                  {[
+                    'Historique complet des réappros par produit',
+                    'Qui a réapprovisionné et quand',
+                    'Suivi de l\'évolution du stock',
+                  ].map(item => (
+                    <li key={item} className="flex items-start gap-2">
+                      <Zap className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+
+                <Link href={`/${locale}/billing`} className="block" onClick={() => setUpgradeOpen(false)}>
+                  <Button className="w-full h-11 bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-500 font-semibold gap-2">
+                    <Zap className="h-4 w-4" />
+                    Voir les offres
+                  </Button>
+                </Link>
+
+                <button
+                  onClick={() => setUpgradeOpen(false)}
+                  className="w-full py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Fermer
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Modal historique réappro */}
       <AnimatePresence>
