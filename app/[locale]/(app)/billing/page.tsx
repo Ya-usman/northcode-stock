@@ -15,7 +15,6 @@ import { PlanUsageCard } from '@/components/saas/plan-usage-card'
 import { DowngradeNotice } from '@/components/saas/downgrade-notice'
 import { cn } from '@/lib/utils/cn'
 import { useSearchParams, useRouter } from 'next/navigation'
-import Script from 'next/script'
 
 type PlanId = 'starter' | 'pro' | 'business'
 
@@ -175,46 +174,10 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
 
       closeCheckout()
 
-      if (isNigeria) {
-        const PaystackPop = (window as any).PaystackPop
-        if (!PaystackPop) { window.location.href = data.authorization_url; return }
-        const handler = PaystackPop.setup({
-          key: data.public_key,
-          email: user.email,
-          amount: data.amount_kobo,
-          ref: data.reference,
-          channels: data.channels,
-          metadata: { shop_id: shop.id, plan_id: checkoutPlan, billing_period: period },
-          onClose: () => {
-            setLoading(false)
-            toast({ title: t('payment_cancelled'), variant: 'destructive' })
-          },
-          callback: (response: { reference: string }) => {
-            fetch(`/api/billing/verify?reference=${response.reference}&locale=${locale}&inline=1`)
-              .then(async res => {
-                const json = await res.json().catch(() => ({}))
-                if (!res.ok || !json.ok) throw new Error(json.error || 'payment_failed')
-                toast({ title: t('payment_success'), description: t('payment_active'), variant: 'success' })
-                // Full reload: forces browser to re-read plan_ok_until cookie that
-                // verify route just set, preventing middleware redirect loop.
-                setTimeout(() => { window.location.replace(`/${locale}/billing`) }, 1200)
-              })
-              .catch((err) => {
-                const msg = err?.message
-                const descriptions: Record<string, string> = {
-                  payment_failed: t('err_failed'),
-                  invalid_plan: t('err_invalid_plan'),
-                  server: t('err_server'),
-                }
-                toast({ title: t('payment_error'), description: descriptions[msg] || t('err_failed'), variant: 'destructive' })
-                setLoading(false)
-              })
-          },
-        })
-        handler.openIframe()
-      } else {
-        window.location.href = data.authorization_url
-      }
+      // Always redirect to Paystack/gateway hosted page — more reliable than
+      // the PaystackPop inline popup which requires a <form> element and is
+      // prone to CSP/script-init failures.
+      window.location.href = data.authorization_url
     } catch (err: any) {
       toast({ title: err.message, variant: 'destructive' })
       setLoading(false)
@@ -255,7 +218,6 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
 
   return (
     <>
-      <Script src="https://js.paystack.co/v1/inline.js" strategy="afterInteractive" />
       <div className="max-w-4xl mx-auto space-y-6">
 
         {/* Current plan status */}
