@@ -9,8 +9,30 @@ export function NavigationProgress() {
   const [width, setWidth] = useState(0)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const doneRef = useRef(false)
+  // Prevents double-start when a <Link> click fires both the click handler
+  // and the history.pushState patch simultaneously.
+  const runningRef = useRef(false)
 
-  // Start bar immediately on any internal link click
+  const startBar = () => {
+    if (runningRef.current) return
+    runningRef.current = true
+    doneRef.current = false
+    setVisible(true)
+    setWidth(15)
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => !doneRef.current && setWidth(60), 80)
+    timerRef.current = setTimeout(() => !doneRef.current && setWidth(80), 400)
+    timerRef.current = setTimeout(() => {
+      if (!doneRef.current) {
+        doneRef.current = true
+        runningRef.current = false
+        setVisible(false)
+        setWidth(0)
+      }
+    }, 4000)
+  }
+
+  // Start bar on any internal <a> click
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       const link = (e.target as HTMLElement).closest('a')
@@ -18,37 +40,39 @@ export function NavigationProgress() {
       const href = link.getAttribute('href')
       if (!href || href.startsWith('http') || href.startsWith('#') || href.startsWith('mailto') || href.startsWith('blob:') || href.startsWith('data:')) return
       if (link.target === '_blank') return
-
-      // Ne pas démarrer si on est déjà sur cette page
       const targetPath = href.split('?')[0].split('#')[0]
       if (targetPath === window.location.pathname) return
-
-      doneRef.current = false
-      setVisible(true)
-      setWidth(15)
-
-      if (timerRef.current) clearTimeout(timerRef.current)
-      // Crawl to 80% while waiting for route change
-      timerRef.current = setTimeout(() => !doneRef.current && setWidth(60), 80)
-      timerRef.current = setTimeout(() => !doneRef.current && setWidth(80), 400)
-      // Safety valve: auto-hide after 4s if route never changed (e.g. middleware
-      // redirected back to the same page, keeping pathname identical)
-      timerRef.current = setTimeout(() => {
-        if (!doneRef.current) {
-          doneRef.current = true
-          setVisible(false)
-          setWidth(0)
-        }
-      }, 4000)
+      startBar()
     }
-
     document.addEventListener('click', handleClick, true)
     return () => document.removeEventListener('click', handleClick, true)
+  }, [])
+
+  // Also start bar on programmatic router.push() / router.replace() navigations.
+  // Next.js App Router uses history.pushState/replaceState internally.
+  useEffect(() => {
+    const origPush    = history.pushState.bind(history)
+    const origReplace = history.replaceState.bind(history)
+
+    history.pushState = (...args) => {
+      startBar()
+      return origPush(...args)
+    }
+    history.replaceState = (...args) => {
+      startBar()
+      return origReplace(...args)
+    }
+
+    return () => {
+      history.pushState    = origPush
+      history.replaceState = origReplace
+    }
   }, [])
 
   // Complete when route changes
   useEffect(() => {
     doneRef.current = true
+    runningRef.current = false
     if (!visible) return
     setWidth(100)
     if (timerRef.current) clearTimeout(timerRef.current)

@@ -1,11 +1,12 @@
 'use client'
 
 import { WifiOff, ShoppingCart, RefreshCw } from 'lucide-react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 
 export default function OfflinePage() {
   const params = useParams()
   const locale = (params?.locale as string) || 'fr'
+  const router = useRouter()
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-950 p-6 text-center">
@@ -27,7 +28,7 @@ export default function OfflinePage() {
 
       <div className="flex flex-col gap-3 w-full max-w-xs">
         <button
-          onClick={() => { window.location.href = `/${locale}/sales/new` }}
+          onClick={() => router.push(`/${locale}/sales/new`)}
           className="flex items-center justify-center gap-2 w-full rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-3 transition-colors"
         >
           <ShoppingCart className="h-4 w-4" />

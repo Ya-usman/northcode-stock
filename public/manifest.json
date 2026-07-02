@@ -2,7 +2,7 @@
   "name": "StockShop",
   "short_name": "StockShop",
   "description": "Ventes, stock, crédits, dépenses et rapports — tout pour gérer votre business",
-  "start_url": "/en/login",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
@@ -75,14 +75,14 @@
       "name": "New Sale",
       "short_name": "Sale",
       "description": "Record a new sale",
-      "url": "/en/sales/new",
+      "url": "/sales/new",
       "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
     },
     {
       "name": "View Stock",
       "short_name": "Stock",
       "description": "Check current stock levels",
-      "url": "/en/stock",
+      "url": "/stock",
       "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
     }
   ]
