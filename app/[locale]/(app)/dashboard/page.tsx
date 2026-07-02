@@ -106,6 +106,9 @@ export default function DashboardPage() {
 
   // Track in-flight request to avoid stale updates
   const loadingRef = useRef(false)
+  // Timestamp (ms) when the last API fetch started — realtime events older than this
+  // are already captured by the fetch and must not be double-counted.
+  const lastFetchStartRef = useRef<number>(0)
 
   const applyDashData = useCallback((
     salesCount: number, revenue: number, debt: number,
@@ -157,6 +160,7 @@ export default function DashboardPage() {
     // Don't start a new network fetch if one is already in flight
     if (loadingRef.current) return
     loadingRef.current = true
+    lastFetchStartRef.current = Date.now()
 
     const isCashier = (roleInActiveShop ?? profile?.role) === 'cashier'
     const cashierId = profile?.id
@@ -426,6 +430,11 @@ export default function DashboardPage() {
     },
     onPaymentUpdate: async (payment: any) => {
       try {
+        // Skip payments that were already captured by the last API fetch
+        // (race condition: realtime can deliver old events after a fetch completes)
+        const paymentMs = new Date(payment.paid_at || 0).getTime()
+        if (paymentMs < lastFetchStartRef.current) return
+
         const { data: sale } = await supabase
           .from('sales')
           .select('shop_id, created_at, total, balance, sale_status, customers(name)')
