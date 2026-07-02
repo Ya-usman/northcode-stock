@@ -19,7 +19,7 @@ import type { Customer } from '@/lib/types/database'
 import {
   ChevronDown, ChevronUp, Clock, CheckCircle2,
   History, User, RefreshCw, Banknote, Store,
-  Printer, Share2, Search,
+  Printer, Share2, Search, CalendarDays,
 } from 'lucide-react'
 import { DebtGauge } from '@/components/dashboard/recent-sales-feed'
 import { getCountry, getMethodType } from '@/lib/saas/countries'
@@ -74,6 +74,25 @@ interface FifoLine {
   sale: UnpaidSale
   applying: number
   fullyCovered: boolean
+}
+
+interface HistCustomerEntry {
+  customer: Customer
+  sales: {
+    id: string
+    sale_number: string
+    created_at: string
+    total: number
+    amount_paid: number
+    balance: number
+    payment_status: string
+    cashier_name: string | null
+    sale_items: { product_name: string; quantity: number; subtotal: number }[]
+  }[]
+  totalOwed: number
+  totalPaid: number
+  totalRemaining: number
+  isSolde: boolean
 }
 
 const STATUS_VARIANTS: Record<string, 'destructive' | 'warning' | 'success'> = {
@@ -223,6 +242,16 @@ export default function DettesPage() {
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null)
   const [loadingHistory, setLoadingHistory] = useState(false)
   const historyCache = useRef<Map<string, { sales: SaleRecord[]; payments: PaymentRecord[] }>>(new Map())
+
+  // ── Historique des dettes tab ────────────────────────────
+  const [activeTab, setActiveTab] = useState<'en-cours' | 'historique'>('en-cours')
+  const [histAll, setHistAll] = useState<HistCustomerEntry[]>([])
+  const [loadingHistAll, setLoadingHistAll] = useState(false)
+  const [histAllSearch, setHistAllSearch] = useState('')
+  const [histAllDateFrom, setHistAllDateFrom] = useState('')
+  const [histAllDateTo, setHistAllDateTo] = useState('')
+  const [histAllExpandedId, setHistAllExpandedId] = useState<string | null>(null)
+  const [histAllFetched, setHistAllFetched] = useState(false)
 
   // ── Fetch ────────────────────────────────────────────────
   const fetchDebtors = async (quiet = false) => {
@@ -391,6 +420,40 @@ export default function DettesPage() {
     }
   }
 
+  // ── Fetch all debt history ───────────────────────────────
+  const fetchHistAll = async (from = histAllDateFrom, to = histAllDateTo) => {
+    if (!effectiveShopIds.length) return
+    setLoadingHistAll(true)
+    try {
+      const params = new URLSearchParams({ shop_ids: effectiveShopIds.join(',') })
+      if (from) params.set('date_from', from)
+      if (to) params.set('date_to', to)
+      const res = await fetch(`/api/payments/history-all?${params}`)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setHistAll(data.customers || [])
+      setHistAllFetched(true)
+    } catch (e: any) {
+      toast({ title: e.message, variant: 'destructive' })
+    } finally {
+      setLoadingHistAll(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === 'historique' && !histAllFetched) fetchHistAll()
+  }, [activeTab, shopKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const filteredHistAll = useMemo(() => {
+    if (!histAllSearch.trim()) return histAll
+    const q = normalize(histAllSearch)
+    return histAll.filter(e =>
+      normalize(e.customer.name).includes(q) || e.customer.phone?.includes(q)
+    )
+  }, [histAll, histAllSearch])
+
+  const histAllSoldeCount = useMemo(() => histAll.filter(e => e.isSolde).length, [histAll])
+
   // ── Render ───────────────────────────────────────────────
   return (
     <div className="space-y-4">
@@ -411,57 +474,248 @@ export default function DettesPage() {
         </CardContent>
       </Card>
 
-      {/* Search */}
-      {!loading && debtors.length > 0 && (
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('actions.search')} className="pl-9 h-9" />
-        </div>
+      {/* Tab switcher */}
+      <div className="flex gap-1 p-1 bg-muted rounded-xl">
+        <button
+          onClick={() => setActiveTab('en-cours')}
+          className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition-all duration-200 ${
+            activeTab === 'en-cours'
+              ? 'bg-card text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Dettes en cours
+          {debtors.length > 0 && (
+            <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${activeTab === 'en-cours' ? 'bg-red-100 text-red-600' : 'bg-muted-foreground/20 text-muted-foreground'}`}>
+              {debtors.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('historique')}
+          className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition-all duration-200 ${
+            activeTab === 'historique'
+              ? 'bg-card text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Historique
+          {histAllFetched && histAll.length > 0 && (
+            <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${activeTab === 'historique' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400' : 'bg-muted-foreground/20 text-muted-foreground'}`}>
+              {histAll.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {activeTab === 'en-cours' && (
+        <>
+          {/* Search */}
+          {!loading && debtors.length > 0 && (
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('actions.search')} className="pl-9 h-9" />
+            </div>
+          )}
+
+          {/* Debtors list */}
+          {loading ? (
+            <div className="space-y-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-32" />)}</div>
+          ) : debtors.length === 0 ? (
+            <div className="flex h-48 flex-col items-center justify-center text-muted-foreground">
+              <CheckCircle2 className="h-12 w-12 mb-3 opacity-30" />
+              <p className="font-medium">{t('payments.no_debts')}</p>
+              <p className="text-sm mt-1 opacity-70">{t('payments.no_debts_detail')}</p>
+            </div>
+          ) : filteredDebtors.length === 0 ? (
+            <div className="flex h-24 items-center justify-center text-muted-foreground text-sm">
+              {t('customers.no_customers')}
+            </div>
+          ) : isMultiShop ? (
+            <div className="space-y-4">
+              {userShops.filter(s => effectiveShopIds.includes(s.id)).map(shopEntry => {
+                const shopDebtors = filteredDebtors.filter(d => d.customer.shop_id === shopEntry.id)
+                if (!shopDebtors.length) return null
+                const shopTotal = shopDebtors.reduce((s, d) => s + d.totalDebt, 0)
+                return (
+                  <div key={shopEntry.id} className="space-y-3">
+                    <div className="flex items-center gap-2 pt-1">
+                      <Store className="h-3.5 w-3.5 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
+                      <span className="text-xs font-semibold text-stockshop-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
+                      <span className="text-xs text-red-500 font-medium ml-1">{fmt(shopTotal)}</span>
+                      <div className="flex-1 h-px bg-border" />
+                    </div>
+                    {shopDebtors.map(({ customer, unpaidSales, totalDebt }) => (
+                      <DebtorCard key={customer.id} customer={customer} unpaidSales={unpaidSales} totalDebt={totalDebt}
+                        isExpanded={expandedId === customer.id} setExpandedId={setExpandedId}
+                        openRepayDialog={openRepayDialog} openHistory={openHistory} fmt={fmt} t={t} saving={saving} />
+                    ))}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredDebtors.map(({ customer, unpaidSales, totalDebt }) => (
+                <DebtorCard key={customer.id} customer={customer} unpaidSales={unpaidSales} totalDebt={totalDebt}
+                  isExpanded={expandedId === customer.id} setExpandedId={setExpandedId}
+                  openRepayDialog={openRepayDialog} openHistory={openHistory} fmt={fmt} t={t} />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
-      {/* Debtors list */}
-      {loading ? (
-        <div className="space-y-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-32" />)}</div>
-      ) : debtors.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center text-muted-foreground">
-          <CheckCircle2 className="h-12 w-12 mb-3 opacity-30" />
-          <p className="font-medium">{t('payments.no_debts')}</p>
-          <p className="text-sm mt-1 opacity-70">{t('payments.no_debts_detail')}</p>
-        </div>
-      ) : filteredDebtors.length === 0 ? (
-        <div className="flex h-24 items-center justify-center text-muted-foreground text-sm">
-          {t('customers.no_customers')}
-        </div>
-      ) : isMultiShop ? (
-        <div className="space-y-4">
-          {userShops.filter(s => effectiveShopIds.includes(s.id)).map(shopEntry => {
-            const shopDebtors = filteredDebtors.filter(d => d.customer.shop_id === shopEntry.id)
-            if (!shopDebtors.length) return null
-            const shopTotal = shopDebtors.reduce((s, d) => s + d.totalDebt, 0)
-            return (
-              <div key={shopEntry.id} className="space-y-3">
-                <div className="flex items-center gap-2 pt-1">
-                  <Store className="h-3.5 w-3.5 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
-                  <span className="text-xs font-semibold text-stockshop-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
-                  <span className="text-xs text-red-500 font-medium ml-1">{fmt(shopTotal)}</span>
-                  <div className="flex-1 h-px bg-border" />
-                </div>
-                {shopDebtors.map(({ customer, unpaidSales, totalDebt }) => (
-                  <DebtorCard key={customer.id} customer={customer} unpaidSales={unpaidSales} totalDebt={totalDebt}
-                    isExpanded={expandedId === customer.id} setExpandedId={setExpandedId}
-                    openRepayDialog={openRepayDialog} openHistory={openHistory} fmt={fmt} t={t} saving={saving} />
-                ))}
-              </div>
-            )
-          })}
-        </div>
-      ) : (
+      {activeTab === 'historique' && (
         <div className="space-y-3">
-          {filteredDebtors.map(({ customer, unpaidSales, totalDebt }) => (
-            <DebtorCard key={customer.id} customer={customer} unpaidSales={unpaidSales} totalDebt={totalDebt}
-              isExpanded={expandedId === customer.id} setExpandedId={setExpandedId}
-              openRepayDialog={openRepayDialog} openHistory={openHistory} fmt={fmt} t={t} />
-          ))}
+          {/* Filters */}
+          <div className="space-y-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={histAllSearch}
+                onChange={e => setHistAllSearch(e.target.value)}
+                placeholder="Rechercher par nom..."
+                className="pl-9 h-9"
+              />
+            </div>
+            <div className="flex gap-2 items-center">
+              <CalendarDays className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <input
+                type="date"
+                value={histAllDateFrom}
+                onChange={e => setHistAllDateFrom(e.target.value)}
+                className="flex-1 h-9 rounded-md border border-input bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <span className="text-muted-foreground text-sm">→</span>
+              <input
+                type="date"
+                value={histAllDateTo}
+                onChange={e => setHistAllDateTo(e.target.value)}
+                className="flex-1 h-9 rounded-md border border-input bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <Button
+                size="sm"
+                variant="stockshop"
+                className="h-9 px-3 text-xs flex-shrink-0"
+                onClick={() => { setHistAllFetched(false); fetchHistAll(histAllDateFrom, histAllDateTo) }}
+                disabled={loadingHistAll}
+              >
+                {loadingHistAll ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : 'Filtrer'}
+              </Button>
+            </div>
+          </div>
+
+          {/* Stats bar */}
+          {histAllFetched && histAll.length > 0 && (
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900 px-3 py-2.5 text-center">
+                <p className="text-lg font-bold text-green-600">{histAllSoldeCount}</p>
+                <p className="text-[11px] text-green-700 dark:text-green-400 font-medium">Soldés ✓</p>
+              </div>
+              <div className="rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900 px-3 py-2.5 text-center">
+                <p className="text-lg font-bold text-red-600">{histAll.length - histAllSoldeCount}</p>
+                <p className="text-[11px] text-red-700 dark:text-red-400 font-medium">En cours</p>
+              </div>
+            </div>
+          )}
+
+          {/* List */}
+          {loadingHistAll ? (
+            <div className="space-y-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28" />)}</div>
+          ) : !histAllFetched ? null : filteredHistAll.length === 0 ? (
+            <div className="flex h-32 flex-col items-center justify-center text-muted-foreground">
+              <History className="h-8 w-8 mb-2 opacity-30" />
+              <p className="text-sm">Aucun résultat</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredHistAll.map(entry => {
+                const isExpanded = histAllExpandedId === entry.customer.id
+                const pct = entry.totalOwed > 0 ? Math.min(100, (entry.totalPaid / entry.totalOwed) * 100) : 0
+                return (
+                  <Card key={entry.customer.id} className="border-0 shadow-sm overflow-hidden">
+                    <CardContent className="p-0">
+                      <button
+                        className="w-full p-4 text-left hover:bg-accent/50 transition-colors"
+                        onClick={() => setHistAllExpandedId(isExpanded ? null : entry.customer.id)}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className={`h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 ${entry.isSolde ? 'bg-green-100 dark:bg-green-950/40' : 'bg-red-100 dark:bg-red-950/40'}`}>
+                              {entry.isSolde
+                                ? <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                : <User className="h-4 w-4 text-red-600" />
+                              }
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-semibold text-sm truncate">{entry.customer.name}</p>
+                                <Badge
+                                  variant={entry.isSolde ? 'success' : 'destructive'}
+                                  className="text-[10px] px-1.5 flex-shrink-0"
+                                >
+                                  {entry.isSolde ? 'Soldé ✓' : 'En cours'}
+                                </Badge>
+                              </div>
+                              {entry.customer.phone && <p className="text-xs text-muted-foreground">{entry.customer.phone}</p>}
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className="text-xs text-muted-foreground">Total : {fmt(entry.totalOwed)}</p>
+                            {entry.isSolde
+                              ? <p className="text-xs text-green-600 font-semibold">Payé : {fmt(entry.totalPaid)}</p>
+                              : <p className="text-xs text-red-600 font-semibold">Restant : {fmt(entry.totalRemaining)}</p>
+                            }
+                          </div>
+                        </div>
+                        {/* Progress */}
+                        <div className="mt-2.5">
+                          <DebtGauge pct={pct} remaining={entry.isSolde ? undefined : entry.totalRemaining} fmt={fmt} t={t} />
+                        </div>
+                        <div className="flex items-center justify-between mt-1.5">
+                          <p className="text-[11px] text-muted-foreground">{entry.sales.length} facture{entry.sales.length > 1 ? 's' : ''}</p>
+                          <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                            {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                            {isExpanded ? 'Masquer' : 'Voir les factures'}
+                          </div>
+                        </div>
+                      </button>
+
+                      {isExpanded && (
+                        <div className="border-t bg-muted/40 px-4 py-3 space-y-2">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Factures</p>
+                          {entry.sales.map(sale => (
+                            <div key={sale.id} className="bg-card rounded-lg border p-3 space-y-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-mono text-stockshop-blue dark:text-blue-400 font-semibold text-sm">#{sale.sale_number}</span>
+                                <Badge variant={STATUS_VARIANTS[sale.payment_status] || ('outline' as any)} className="text-[10px]">
+                                  {sale.payment_status === 'paid' ? 'Payé ✓' : sale.payment_status === 'partial' ? 'Partiel' : 'Impayé'}
+                                </Badge>
+                              </div>
+                              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                <span>{format(new Date(sale.created_at), 'dd MMM yyyy', { locale: fr })}</span>
+                                <span>Total : {fmt(sale.total)}</span>
+                              </div>
+                              {sale.amount_paid > 0 && (
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-green-600">Payé : {fmt(sale.amount_paid)}</span>
+                                  {sale.balance > 0 && <span className="font-bold text-red-600">Restant : {fmt(sale.balance)}</span>}
+                                </div>
+                              )}
+                              {sale.cashier_name && (
+                                <p className="text-[11px] text-muted-foreground">{t('payments.sold_by')} : <strong>{sale.cashier_name}</strong></p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 
