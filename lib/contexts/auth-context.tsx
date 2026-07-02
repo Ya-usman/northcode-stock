@@ -163,17 +163,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading: true,
   })
   const [memberships, setMemberships] = useState<MemberRow[]>([])
-  const [activeShopId, setActiveShopId] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('active_shop_id')
-    return null
-  })
-  const [dashboardShopFilter, setDashboardShopFilterState] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('dashboard_shop_filter') ?? null
-    return null
-  })
+  const [activeShopId, setActiveShopId] = useState<string | null>(null)
+  const [dashboardShopFilter, setDashboardShopFilterState] = useState<string | null>(null)
 
   const activeShopIdRef = useRef(activeShopId)
   useEffect(() => { activeShopIdRef.current = activeShopId }, [activeShopId])
+
+  // Read persisted values from localStorage after mount to avoid SSR/client hydration mismatch
+  useEffect(() => {
+    const savedShop = localStorage.getItem('active_shop_id')
+    if (savedShop) setActiveShopId(savedShop)
+    const savedFilter = localStorage.getItem('dashboard_shop_filter')
+    if (savedFilter) setDashboardShopFilterState(savedFilter)
+  }, [])
 
   const applyUserData = useCallback((
     user: User,
