@@ -103,7 +103,7 @@ export default function SalesHistoryPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [salesOffset, setSalesOffset] = useState(0)
   const [hasMoreSales, setHasMoreSales] = useState(false)
-  const [periodStats, setPeriodStats] = useState<{ count: number; revenue: number; balance: number } | null>(null)
+  const [periodStats, setPeriodStats] = useState<{ count: number; ca: number; collected: number; balance: number } | null>(null)
   const [{ search, dateFilter, methodFilter, statusFilter, saleStatusFilter, customStart, customEnd }, setFilter] = usePersistedFilters(
     'sales_history', shop?.id,
     { search: '', dateFilter: 'today', methodFilter: 'all', statusFilter: 'all', saleStatusFilter: 'all' as 'all' | 'active' | 'cancelled', customStart: '', customEnd: '' }
@@ -178,7 +178,7 @@ export default function SalesHistoryPage() {
   const buildStatsQuery = (start: Date, end: Date) => {
     let q = supabase
       .from('sales')
-      .select('total, balance')
+      .select('total, amount_paid, balance')
       .in('shop_id', effectiveShopIds)
       .eq('sale_status', 'active')
       .gte('created_at', start.toISOString())
@@ -223,15 +223,16 @@ export default function SalesHistoryPage() {
       ])
       if (listResult.error) throw listResult.error
       const salesData = (listResult.data || []) as Sale[]
-      const statsRows = (statsResult.data || []) as Array<{ total: number; balance: number }>
+      const statsRows = (statsResult.data || []) as Array<{ total: number; amount_paid: number; balance: number }>
       setSales(salesData)
       setHasMoreSales(salesData.length === PAGE_SIZE)
       setCashierMap(await enrichCashiers(salesData))
       setPageCache(cacheKey, salesData)
       setPeriodStats({
-        count: statsRows.length,
-        revenue: statsRows.reduce((s, r) => s + Number(r.total), 0),
-        balance: statsRows.reduce((s, r) => s + Number(r.balance), 0),
+        count:     statsRows.length,
+        ca:        statsRows.reduce((s, r) => s + Number(r.total), 0),
+        collected: statsRows.reduce((s, r) => s + Number(r.amount_paid), 0),
+        balance:   statsRows.reduce((s, r) => s + Number(r.balance), 0),
       })
     } catch {
       // cache already applied if available
@@ -780,13 +781,17 @@ export default function SalesHistoryPage() {
 
       {/* ── Sales view ──────────────────────────────────────── */}
       {view === 'sales' && isOwner && periodStats !== null && (
-        <div className="flex gap-4 text-sm flex-wrap">
+        <div className="flex gap-x-4 gap-y-0.5 text-sm flex-wrap">
           <span className="text-muted-foreground">
             {periodStats.count} {t('sales.sales_count_label')} ·{' '}
-            <span className="font-semibold text-foreground">
-              {formatNaira(periodStats.revenue)}
-            </span>
+            <span className="font-semibold text-foreground">{formatNaira(periodStats.collected)}</span>
+            <span className="text-muted-foreground font-normal"> encaissé</span>
           </span>
+          {periodStats.ca !== periodStats.collected && (
+            <span className="text-muted-foreground text-xs self-center">
+              CA : {formatNaira(periodStats.ca)}
+            </span>
+          )}
           {periodStats.balance > 0 && (
             <span className="text-red-500">
               {t('sales.balance_summary')}: {formatNaira(periodStats.balance)}
