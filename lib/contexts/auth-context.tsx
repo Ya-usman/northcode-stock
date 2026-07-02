@@ -76,6 +76,18 @@ function readCache(userId: string): AuthCache | null {
   } catch { return null }
 }
 
+// Stale read — ignores TTL. Used to pre-fill UI instantly on page reload
+// even when cache is older than 24h. Background refresh always follows.
+function readCacheStale(userId: string): AuthCache | null {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY)
+    if (!raw) return null
+    const c: AuthCache = JSON.parse(raw)
+    if (c.userId !== userId) return null
+    return c
+  } catch { return null }
+}
+
 function writeCache(userId: string, profile: Profile, userShops: Shop[], memberships: MemberRow[]) {
   try {
     const c: AuthCache = { userId, profile, userShops, memberships, savedAt: Date.now() }
@@ -263,11 +275,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // ──────────────────────────────────────────────────────────────────
 
       // ── Step 1: serve from cache immediately (zero latency) ────────────
-      const cached = readCache(session.user.id)
+      // Use stale read (ignores 24h TTL) so even a day-old cache avoids the
+      // skeleton on page load. Fresh data always loads in background.
+      const cached = readCacheStale(session.user.id)
       if (cached) {
-        // Render instantly with cached data, then refresh in background
+        // Render instantly with cached data, then always refresh in background
         applyUserData(session.user, cached.profile, cached.userShops, cached.memberships, activeShopIdRef.current, true)
-        // Background refresh (no retry needed — cache already shown)
         fetchUserData(session.user.id).then(({ profile, userShops, memberships: rows }) => {
           if (!cancelled && profile) {
             applyUserData(session.user, profile, userShops, rows, activeShopIdRef.current)
@@ -276,7 +289,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      // ── Step 2: no cache — fetch with exponential backoff ─────────────
+      // ── Step 2: no cache at all — fetch with exponential backoff ──────
       let lastErr: unknown = null
       for (let attempt = 0; attempt < 8; attempt++) {
         if (cancelled) return
