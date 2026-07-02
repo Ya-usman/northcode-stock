@@ -106,6 +106,8 @@ export default function DashboardPage() {
 
   // Track in-flight request to avoid stale updates
   const loadingRef = useRef(false)
+  // Prevent rapid successive refreshes — 2s minimum between presses
+  const lastRefreshRef = useRef(0)
 
   const applyDashData = useCallback((
     salesCount: number, revenue: number, debt: number,
@@ -127,6 +129,9 @@ export default function DashboardPage() {
 
   const loadDashboard = useCallback(async (quiet = false) => {
     if (shopIds.length === 0) return
+
+    // On manual refresh: immediately clear skeleton so rapid presses can't re-show it
+    if (quiet) setFirstLoad(false)
 
     const shopKey = `${profile?.id}:${shopIds.join(',')}`
 
@@ -385,7 +390,12 @@ export default function DashboardPage() {
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [loadDashboard])
 
-  const handleRefresh = () => loadDashboard(true)
+  const handleRefresh = () => {
+    const now = Date.now()
+    if (now - lastRefreshRef.current < 2000) return
+    lastRefreshRef.current = now
+    loadDashboard(true)
+  }
 
   const isCashierView = (roleInActiveShop ?? profile?.role) === 'cashier'
   const { canAccess } = useRolePermissions()
