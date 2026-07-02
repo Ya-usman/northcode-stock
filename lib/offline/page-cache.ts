@@ -5,6 +5,12 @@ interface CacheEntry<T> {
   cached_at: number
 }
 
+// 7-day hard limit: prevents serving arbitrarily stale data (deactivated
+// members, outdated reports, old inventory) when the user is persistently offline.
+// Pages that implement stale-while-revalidate still show the cache instantly
+// on load and refresh silently in the background while online.
+const PAGE_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
+
 export function setPageCache<T>(key: string, data: T): void {
   try {
     const entry: CacheEntry<T> = { data, cached_at: Date.now() }
@@ -12,15 +18,18 @@ export function setPageCache<T>(key: string, data: T): void {
   } catch {}
 }
 
-export function getPageCache<T>(key: string): T | null {
+export function getPageCache<T>(key: string, maxAgeMs = PAGE_CACHE_MAX_AGE_MS): T | null {
   try {
     const raw = localStorage.getItem(`pc_${key}`)
     if (!raw) return null
     const entry = JSON.parse(raw) as CacheEntry<T> | T
-    // Support old format (no cached_at)
     if (entry && typeof entry === 'object' && 'cached_at' in entry && 'data' in entry) {
-      return (entry as CacheEntry<T>).data
+      const e = entry as CacheEntry<T>
+      // Reject entries older than maxAgeMs
+      if (Date.now() - e.cached_at > maxAgeMs) return null
+      return e.data
     }
+    // Old format (no cached_at) — return as-is; next write will use new format
     return entry as T
   } catch {
     return null

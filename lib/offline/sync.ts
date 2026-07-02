@@ -152,8 +152,12 @@ export async function syncPendingSales(shopId: string): Promise<SyncResult> {
         }
       }
 
-      // 'mixed' is not a valid payment_method in the DB; map to 'cash'
-      const dbPaymentMethod = sale.payment_method === 'mixed' ? 'cash' : sale.payment_method
+      // 'mixed' is not a valid payment_method in the DB; map to 'cash'.
+      // The offline PendingSale schema stores only a single payment_amount with no
+      // per-method breakdown, so the original cash/transfer split cannot be reconstructed
+      // here. A note is added to the payment record to flag this data loss.
+      const isMixedPayment = sale.payment_method === 'mixed'
+      const dbPaymentMethod = isMixedPayment ? 'cash' : sale.payment_method
 
       const { data: saleData, error: saleError } = await supabase
         .from('sales')
@@ -205,6 +209,8 @@ export async function syncPendingSales(shopId: string): Promise<SyncResult> {
           // Preserve original sale timestamp so the is_repayment heuristic
           // (paid_at > created_at + 5 min) doesn't fire for delayed syncs.
           paid_at: sale.created_at,
+          // Mixed payments lose their cash/transfer split in offline mode — document it.
+          notes: isMixedPayment ? 'Paiement mixte (sync offline — méthode enregistrée comme espèces, détail du split non disponible)' : null,
         })
       }
 
