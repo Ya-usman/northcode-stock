@@ -448,7 +448,7 @@ export default function SalesHistoryPage() {
                 </Badge>
               )}
               <Badge variant="outline" className="text-[10px] px-1.5 hidden sm:inline-flex">
-                {t(`payment.${sale.payment_method}` as any) || sale.payment_method}
+                {payMethodLabel(sale.payment_method ?? '')}
               </Badge>
             </div>
           </TableCell>
