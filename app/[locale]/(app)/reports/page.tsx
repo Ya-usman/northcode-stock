@@ -36,7 +36,7 @@ export default function ReportsPage() {
 
   const today = format(new Date(), 'yyyy-MM-dd')
   const [{ dateFilter, customStart, customEnd }, setFilter] = usePersistedFilters(
-    'reports', shop?.id, { dateFilter: 'month', customStart: today, customEnd: today }
+    'reports', shop?.id, { dateFilter: 'today', customStart: today, customEnd: today }
   )
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
@@ -58,12 +58,15 @@ export default function ReportsPage() {
 
   const getDateRange = () => {
     const now = new Date()
-    const end = endOfDay(now)
     let start: Date
+    let end = endOfDay(now)
     switch (dateFilter) {
-      case 'today':    start = startOfDay(now); break
+      case 'today':     start = startOfDay(now); break
+      case 'yesterday':
+        start = startOfDay(subDays(now, 1))
+        end   = endOfDay(subDays(now, 1))
+        break
       case 'week':     start = startOfWeek(now, { weekStartsOn: 1 }); break
-      case 'last30':   start = startOfDay(subDays(now, 29)); break
       case 'month':    start = startOfMonth(now); break
       case 'quarter':  start = startOfQuarter(now); break
       case 'semester': start = new Date(now.getFullYear(), now.getMonth() < 6 ? 0 : 6, 1); break
@@ -72,7 +75,7 @@ export default function ReportsPage() {
         start: startOfDay(new Date(customStart)).toISOString(),
         end: endOfDay(new Date(customEnd)).toISOString(),
       }
-      default:         start = startOfMonth(now)
+      default:         start = startOfDay(now)
     }
     return { start: start.toISOString(), end: end.toISOString() }
   }
@@ -392,8 +395,8 @@ export default function ReportsPage() {
               <SelectTrigger className="w-[165px] sm:w-[190px] text-xs sm:text-sm h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="today">{t('reports.today')}</SelectItem>
+                <SelectItem value="yesterday">{t('reports.yesterday')}</SelectItem>
                 <SelectItem value="week">{t('reports.this_week')}</SelectItem>
-                <SelectItem value="last30">30 derniers jours</SelectItem>
                 <SelectItem value="month">{t('reports.this_month')}</SelectItem>
                 <SelectItem value="quarter">{t('reports.this_quarter')}</SelectItem>
                 <SelectItem value="semester">{t('reports.this_semester')}</SelectItem>
