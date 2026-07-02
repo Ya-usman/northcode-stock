@@ -149,7 +149,7 @@ export function useOfflinePreload() {
             ] = await Promise.all([
               supabase
                 .from('products')
-                .select('id, shop_id, name, sku, selling_price, buying_price, quantity, category_id, is_active, tax_rate')
+                .select('id, shop_id, name, sku, selling_price, buying_price, quantity, category_id, is_active')
                 .in('shop_id', shopIds).eq('is_active', true).order('name'),
               supabase
                 .from('customers')
