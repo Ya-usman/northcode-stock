@@ -640,6 +640,16 @@ export default function SalesHistoryPage() {
         )}
       </div>
 
+      {/* Date range label */}
+      {dateFilter !== 'custom' && (() => {
+        const { start, end } = getDateBounds()
+        const fmt = (d: Date) => format(d, 'd MMM yyyy')
+        const startStr = fmt(start)
+        const endStr   = fmt(end)
+        const label = startStr === endStr ? startStr : `${startStr} – ${endStr}`
+        return <p className="text-xs text-muted-foreground -mt-1">{label}</p>
+      })()}
+
       {/* ── Repayments view ─────────────────────────────────── */}
       {view === 'repayments' && (() => {
         const repaymentTableHeader = (
