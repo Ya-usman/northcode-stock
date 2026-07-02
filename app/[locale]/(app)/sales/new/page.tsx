@@ -685,13 +685,18 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       })
       checkAndNotifyLowStock(selectedShop!.id, soldProductIds).catch(() => {})
     } catch (err: any) {
-      // If the online insert fails for any reason (timeout, network hiccup, DB lock),
-      // fall back to local save so the sale is never lost.
-      try {
-        await saveOffline('Connexion instable · vente sauvegardée localement et synchronisée automatiquement dès que la connexion est stable')
-      } catch {
-        // Only show the original error if even the offline save failed
-        toast({ title: err.message || t('errors.generic'), variant: 'destructive' })
+      if (sale) {
+        // The sale record was already written to the DB. Going offline here would create
+        // a duplicate — instead surface the real error so the user knows the sale is
+        // incomplete. They can see it in history to validate the payment or cancel it.
+        toast({ title: err.message || t('errors.generic'), variant: 'destructive', duration: 8000 })
+      } else {
+        // Sale was never created — safe to fall back to local save.
+        try {
+          await saveOffline('Connexion instable · vente sauvegardée localement et synchronisée automatiquement dès que la connexion est stable')
+        } catch {
+          toast({ title: err.message || t('errors.generic'), variant: 'destructive' })
+        }
       }
     } finally {
       setCompleting(false)

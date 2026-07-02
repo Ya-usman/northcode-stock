@@ -166,10 +166,12 @@ export async function syncPendingSales(shopId: string): Promise<SyncResult> {
           tax: sale.tax,
           total: sale.total,
           payment_method: dbPaymentMethod,
-          payment_status: sale.payment_status,
-          // Set amount_paid directly so balance = total - amount_paid is correct from the start.
-          // We still insert a payment record below for the audit trail; the trigger will no-op or re-confirm.
-          amount_paid: dbPaymentMethod === 'credit' ? 0 : sale.payment_amount,
+          payment_status: 'pending',
+          // Always start at 0; the after_payment_insert trigger increments amount_paid when the
+          // payment record is inserted below (same flow as the online path).
+          // Setting amount_paid directly AND inserting a payment record would fire the trigger
+          // and double-count: amount_paid = initial_value + payment_amount > total → balance < 0.
+          amount_paid: 0,
           notes: sale.notes,
           sale_status: 'active',
           created_at: sale.created_at,
