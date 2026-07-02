@@ -202,6 +202,9 @@ export async function syncPendingSales(shopId: string): Promise<SyncResult> {
           method: dbPaymentMethod,
           reference: sale.payment_reference,
           received_by: sale.cashier_id,
+          // Preserve original sale timestamp so the is_repayment heuristic
+          // (paid_at > created_at + 5 min) doesn't fire for delayed syncs.
+          paid_at: sale.created_at,
         })
       }
 
