@@ -71,6 +71,7 @@ export async function POST(request: Request) {
         reference: reference || null,
         notes: notes || null,
         received_by: user.id,
+        is_repayment: true,
       })
       if (payErr) throw payErr
 

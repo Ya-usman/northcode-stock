@@ -40,6 +40,14 @@ export default function SalesHistoryPage() {
   const { profile, shop, effectiveShopIds, userShops, roleInActiveShop } = useAuth()
   const isMultiShop = effectiveShopIds.length > 1
 
+  // Resolve a payment method ID to its human-readable label using the country config
+  const payMethodLabel = useMemo(() => {
+    const labels = Object.fromEntries(
+      getCountry(shop?.country).paymentMethods.map(m => [m.id, m.label])
+    )
+    return (method: string) => labels[method] ?? method
+  }, [shop?.country])
+
   // Collect all mobile-money method IDs across every shop the user has access to
   const mobileMoneyIds = useMemo(() => {
     const shops = userShops?.length ? userShops : (shop ? [shop] : [])
@@ -228,6 +236,7 @@ export default function SalesHistoryPage() {
       .from('payments')
       .select('id, amount, paid_at, method, sales!inner(shop_id, sale_number, created_at, customers(name))')
       .in('sales.shop_id', effectiveShopIds)
+      .eq('is_repayment', true)
       .gte('paid_at', start.toISOString())
       .lte('paid_at', end.toISOString())
       .order('paid_at', { ascending: false })
@@ -679,7 +688,7 @@ export default function SalesHistoryPage() {
             </TableCell>
             <TableCell>
               <Badge variant="outline" className="text-[10px] px-1.5 border-emerald-300 text-emerald-600 dark:text-emerald-400">
-                {t(`payment.${p.method}` as any) || p.method}
+                {payMethodLabel(p.method)}
               </Badge>
             </TableCell>
             <TableCell className="text-right font-semibold text-emerald-600 dark:text-emerald-400">
