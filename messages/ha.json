@@ -154,6 +154,7 @@
   "payment": {
     "method": "Hanyar Biya",
     "cash": "Tsabar Kuɗi",
+    "mobile_money": "Kuɗin Wayar Hannu",
     "transfer": "Canja-wuri na Banki",
     "credit": "Bashi",
     "paystack": "Paystack",

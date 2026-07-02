@@ -154,6 +154,7 @@
   "payment": {
     "method": "Payment Method",
     "cash": "Cash",
+    "mobile_money": "Mobile Money",
     "transfer": "Bank Transfer",
     "credit": "Credit (Debt)",
     "paystack": "Paystack",

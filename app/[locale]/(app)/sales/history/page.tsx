@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useState, useEffect, Fragment } from 'react'
+import { useState, useEffect, useMemo, Fragment } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
 import {
@@ -39,6 +39,18 @@ export default function SalesHistoryPage() {
   const t = useTranslations()
   const { profile, shop, effectiveShopIds, userShops, roleInActiveShop } = useAuth()
   const isMultiShop = effectiveShopIds.length > 1
+
+  // Collect all mobile-money method IDs across every shop the user has access to
+  const mobileMoneyIds = useMemo(() => {
+    const shops = userShops?.length ? userShops : (shop ? [shop] : [])
+    const ids = new Set<string>()
+    for (const s of shops) {
+      getCountry(s.country).paymentMethods
+        .filter(m => m.type === 'mobile_money')
+        .forEach(m => ids.add(m.id))
+    }
+    return Array.from(ids)
+  }, [userShops, shop])
 
   const receiptLabels = {
     receipt: t('receipt.receipt'),
@@ -145,7 +157,8 @@ export default function SalesHistoryPage() {
       .range(offset, offset + PAGE_SIZE - 1)
 
     if (isCashier) query = query.eq('cashier_id', profile!.id)
-    if (methodFilter !== 'all') query = query.eq('payment_method', methodFilter)
+    if (methodFilter === 'mobile_money') query = query.in('payment_method', mobileMoneyIds.length ? mobileMoneyIds : ['__none__'])
+    else if (methodFilter !== 'all') query = query.eq('payment_method', methodFilter)
     if (statusFilter !== 'all') query = query.eq('payment_status', statusFilter)
     if (saleStatusFilter !== 'all') query = query.eq('sale_status', saleStatusFilter)
     return query
@@ -584,6 +597,7 @@ export default function SalesHistoryPage() {
           <SelectContent>
             <SelectItem value="all">{t('sales.all_methods')}</SelectItem>
             <SelectItem value="cash">{t('payment.cash')}</SelectItem>
+            <SelectItem value="mobile_money">{t('payment.mobile_money')}</SelectItem>
             <SelectItem value="transfer">{t('payment.transfer')}</SelectItem>
             <SelectItem value="credit">{t('payment.credit')}</SelectItem>
             <SelectItem value="paystack">{t('payment.paystack')}</SelectItem>

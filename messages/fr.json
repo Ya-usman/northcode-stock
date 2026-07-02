@@ -154,6 +154,7 @@
   "payment": {
     "method": "Mode de paiement",
     "cash": "Espèces",
+    "mobile_money": "Mobile Money",
     "transfer": "Virement bancaire",
     "credit": "Crédit (dette)",
     "paystack": "Paystack",
