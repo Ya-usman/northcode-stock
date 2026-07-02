@@ -103,6 +103,7 @@ export default function SalesHistoryPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [salesOffset, setSalesOffset] = useState(0)
   const [hasMoreSales, setHasMoreSales] = useState(false)
+  const [periodStats, setPeriodStats] = useState<{ count: number; revenue: number; balance: number } | null>(null)
   const [{ search, dateFilter, methodFilter, statusFilter, saleStatusFilter, customStart, customEnd }, setFilter] = usePersistedFilters(
     'sales_history', shop?.id,
     { search: '', dateFilter: 'today', methodFilter: 'all', statusFilter: 'all', saleStatusFilter: 'all' as 'all' | 'active' | 'cancelled', customStart: '', customEnd: '' }
@@ -173,6 +174,22 @@ export default function SalesHistoryPage() {
     return query
   }
 
+  // Aggregate query for accurate period totals (not limited by page size)
+  const buildStatsQuery = (start: Date, end: Date) => {
+    let q = supabase
+      .from('sales')
+      .select('total, balance')
+      .in('shop_id', effectiveShopIds)
+      .eq('sale_status', 'active')
+      .gte('created_at', start.toISOString())
+      .lte('created_at', end.toISOString())
+    if (isCashier) q = q.eq('cashier_id', profile!.id)
+    if (methodFilter === 'mobile_money') q = q.in('payment_method', mobileMoneyIds.length ? mobileMoneyIds : ['__none__'])
+    else if (methodFilter !== 'all') q = q.eq('payment_method', methodFilter)
+    if (statusFilter !== 'all') q = q.eq('payment_status', statusFilter)
+    return q
+  }
+
   const enrichCashiers = async (salesData: Sale[], existingMap: Record<string, string> = {}) => {
     const ids = Array.from(new Set(salesData.map((s: any) => s.cashier_id).filter((id: string) => id && !existingMap[id]))) as string[]
     if (!ids.length) return existingMap
@@ -185,7 +202,8 @@ export default function SalesHistoryPage() {
   const fetchSales = async () => {
     if (!effectiveShopIds.length) return
     setSalesOffset(0)
-    const cacheKey = `sales_history_${effectiveShopIds.join(',')}`
+    const customSuffix = dateFilter === 'custom' ? `_${customStart}_${customEnd}` : ''
+    const cacheKey = `sales_history_v2_${effectiveShopIds.join(',')}_${dateFilter}${customSuffix}_${methodFilter}_${statusFilter}_${saleStatusFilter}`
     const cached = getPageCache<Sale[]>(cacheKey)
     if (cached) {
       setSales(cached)
@@ -199,13 +217,22 @@ export default function SalesHistoryPage() {
     if (!navigator.onLine) return
     try {
       const { start, end } = getDateBounds()
-      const { data, error } = await buildSalesQuery(start, end, 0)
-      if (error) throw error
-      const salesData = (data || []) as Sale[]
+      const [listResult, statsResult] = await Promise.all([
+        buildSalesQuery(start, end, 0),
+        buildStatsQuery(start, end),
+      ])
+      if (listResult.error) throw listResult.error
+      const salesData = (listResult.data || []) as Sale[]
+      const statsRows = (statsResult.data || []) as Array<{ total: number; balance: number }>
       setSales(salesData)
       setHasMoreSales(salesData.length === PAGE_SIZE)
       setCashierMap(await enrichCashiers(salesData))
       setPageCache(cacheKey, salesData)
+      setPeriodStats({
+        count: statsRows.length,
+        revenue: statsRows.reduce((s, r) => s + Number(r.total), 0),
+        balance: statsRows.reduce((s, r) => s + Number(r.balance), 0),
+      })
     } catch {
       // cache already applied if available
     } finally {
@@ -752,17 +779,19 @@ export default function SalesHistoryPage() {
       })()}
 
       {/* ── Sales view ──────────────────────────────────────── */}
-      {view === 'sales' && isOwner && (
+      {view === 'sales' && isOwner && periodStats !== null && (
         <div className="flex gap-4 text-sm flex-wrap">
           <span className="text-muted-foreground">
-            {filtered.filter(s => (s.sale_status || 'active') === 'active').length} {t('sales.sales_count_label')} ·{' '}
+            {periodStats.count} {t('sales.sales_count_label')} ·{' '}
             <span className="font-semibold text-foreground">
-              {formatNaira(filtered.filter(s => (s.sale_status || 'active') === 'active').reduce((s, sale) => s + Number(sale.total), 0))}
+              {formatNaira(periodStats.revenue)}
             </span>
           </span>
-          <span className="text-red-500">
-            {t('sales.balance_summary')}: {formatNaira(filtered.filter(s => (s.sale_status || 'active') === 'active').reduce((s, sale) => s + Number(sale.balance), 0))}
-          </span>
+          {periodStats.balance > 0 && (
+            <span className="text-red-500">
+              {t('sales.balance_summary')}: {formatNaira(periodStats.balance)}
+            </span>
+          )}
         </div>
       )}
 
