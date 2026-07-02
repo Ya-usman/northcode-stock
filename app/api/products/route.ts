@@ -55,11 +55,25 @@ export async function PATCH(request: Request) {
     const role = await checkShopRole(supabase, user.id, shop_id)
     if (!role || !WRITE_ROLES.includes(role))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
-    if ('sku' in updates) updates.sku = updates.sku?.trim() || null
+    // Whitelist of fields a WRITE_ROLES member may update via PATCH.
+    // Omitting a field from this set prevents privilege escalation (e.g. a
+    // cashier sending is_active:false to soft-delete a product, or clearing
+    // buying_price to distort profit reports).
+    const PATCHABLE = new Set([
+      'name', 'description', 'selling_price', 'buying_price', 'sku',
+      'category_id', 'unit', 'image_url', 'low_stock_threshold', 'barcode',
+      'supplier_name',
+    ])
+    const safeUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([k]) => PATCHABLE.has(k))
+    )
+    if (Object.keys(safeUpdates).length === 0)
+      return NextResponse.json({ error: 'Aucun champ valide à mettre à jour' }, { status: 400 })
+    if ('sku' in safeUpdates) safeUpdates.sku = (safeUpdates.sku as string)?.trim() || null
     const admin = await createAdminClient()
     // shop_id filter prevents modifying a product that belongs to a different shop
     // even though the admin client bypasses RLS
-    const { data, error } = await (admin as any).from('products').update(updates).eq('id', id).eq('shop_id', shop_id).select().single()
+    const { data, error } = await (admin as any).from('products').update(safeUpdates).eq('id', id).eq('shop_id', shop_id).select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
     if (!data) return NextResponse.json({ error: 'Produit introuvable dans cette boutique' }, { status: 404 })
     return NextResponse.json({ data })

@@ -135,9 +135,10 @@ export async function GET(request: Request) {
         ? '🌦️ PERTURBATION — StockShop Daily Check'
         : '☀️ All OK — StockShop Daily Check'
 
+    const recipients = ADMIN_EMAILS.length ? ADMIN_EMAILS : ['yahaya.dev@gmail.com']
     const { error: sendError } = await resend.emails.send({
       from: 'StockShop <onboarding@resend.dev>',
-      to: 'yahaya.dev@gmail.com',
+      to: recipients,
       subject: `${overallLabel} | ${format(new Date(), 'dd/MM/yyyy')}`,
       html,
     })

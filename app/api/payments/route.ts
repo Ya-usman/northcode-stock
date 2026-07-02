@@ -9,9 +9,8 @@ export async function POST(request: Request) {
 
   try {
     const supabase = await createClient() as any
-    const { data: { session } } = await supabase.auth.getSession()
-    const user = session?.user
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { data: { user }, error: authErr } = await supabase.auth.getUser()
+    if (authErr || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
     const { unpaid_sale_ids, amount, method, reference, notes, shop_id } = await request.json()
 
@@ -55,28 +54,34 @@ export async function POST(request: Request) {
     let remaining = Number(amount)
     const appliedTo: { sale_id: string; sale_number: string; amount: number }[] = []
 
+    // Pre-compute payment plan (no DB writes yet)
     for (const sale of sales) {
       if (remaining <= 0) break
       if (sale.sale_status === 'cancelled') continue
       const saleBalance = Number(sale.balance)
       if (saleBalance <= 0) continue
-
       const toApply = Math.min(remaining, saleBalance)
-
-      // Insert payment record — the DB trigger handles amount_paid + payment_status + total_debt
-      const { error: payErr } = await admin.from('payments').insert({
-        sale_id: sale.id,
-        amount: toApply,
-        method,
-        reference: reference || null,
-        notes: notes || null,
-        received_by: user.id,
-        is_repayment: true,
-      })
-      if (payErr) throw payErr
-
       appliedTo.push({ sale_id: sale.id, sale_number: sale.sale_number, amount: toApply })
       remaining -= toApply
+    }
+
+    // Batch INSERT — PostgreSQL treats a multi-row insert as a single atomic
+    // statement: if any row fails (trigger exception, constraint), all rows
+    // roll back. Avoids partial commits that were possible with the previous
+    // loop of individual inserts.
+    if (appliedTo.length > 0) {
+      const { error: batchErr } = await admin.from('payments').insert(
+        appliedTo.map(p => ({
+          sale_id: p.sale_id,
+          amount: p.amount,
+          method,
+          reference: reference || null,
+          notes: notes || null,
+          received_by: user.id,
+          is_repayment: true,
+        }))
+      )
+      if (batchErr) throw batchErr
     }
 
     return NextResponse.json({ success: true, applied: appliedTo, remaining })
