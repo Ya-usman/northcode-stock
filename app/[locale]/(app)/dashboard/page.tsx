@@ -133,10 +133,12 @@ export default function DashboardPage() {
 
     const shopKey = `${profile?.id}:${shopIds.join(',')}`
 
-    // ── Serve cache immediately — sauf sur refresh manuel (quiet=true) où on
-    // veut impérativement les données fraîches sans afficher du stale d'abord ──
+    // ── Serve cache immediately (stale-while-revalidate) ──────────────────
+    // On initial load: use stale read (ignores 10-min TTL) so any existing
+    // cache clears the skeleton instantly while fresh data loads in the background.
+    // On manual refresh (quiet=true): skip cache — user wants fresh data now.
     if (!quiet) {
-      const cached = readDashCache(shopKey)
+      const cached = readDashCacheStale(shopKey)
       if (cached) {
         applyDashData(cached.todaySalesCount, cached.todayRevenue, cached.outstandingDebt,
           cached.recentSales, cached.repaymentItems ?? [], cached.revenueData, cached.topProducts, cached.lowStock, cached.outOfStock,
@@ -362,10 +364,11 @@ export default function DashboardPage() {
     if (!authLoading && shopIds.length === 0) setFirstLoad(false)
   }, [authLoading, shopIds.length])
 
-  // Timeout de sécurité : skeleton jamais bloqué plus de 6 secondes
+  // Timeout de sécurité : skeleton jamais bloqué plus de 1.5 secondes
+  // After 1.5s the dashboard renders with zeros/empty while data loads in background.
   useEffect(() => {
     if (!firstLoad) return
-    const t = setTimeout(() => setFirstLoad(false), 6000)
+    const t = setTimeout(() => setFirstLoad(false), 1500)
     return () => clearTimeout(t)
   }, [firstLoad])
 
