@@ -333,16 +333,10 @@ export default function DashboardPage() {
       })
       const tops = Object.values(totals).sort((a, b) => b.revenue - a.revenue).slice(0, 5)
 
-      // Revenue = total cash received today.
-      // For cashier: sum amount_paid on their own sales only (already filtered by cashier_id).
-      // For owner/manager: use payments API (includes debt repayments, avoids double-counting).
-      const revenue = isCashier
-        ? salesArr.reduce((s: number, sale: any) => s + Number(sale.amount_paid), 0)
-        : paymentsApiOk
-          ? paymentsData.todayTotal
-          : (todayPaymentsRaw || [])
-              .filter((p: any) => shopIds.includes(p.sales?.shop_id))
-              .reduce((s: number, p: any) => s + Number(p.amount), 0)
+      // Revenue = sum of amount_paid on today's active sales (consistent with Reports page).
+      // Using salesArr (not payments table) avoids realtime/API race conditions and
+      // matches what the user expects: sales revenue, not total cash flow.
+      const revenue = salesArr.reduce((s: number, sale: any) => s + Number(sale.amount_paid), 0)
 
       applyDashData(salesCount, revenue, debt, salesArr, repaymentItems, revData, tops, lowSt, outOf, expensesTotal, monthRevenueTotal)
 
