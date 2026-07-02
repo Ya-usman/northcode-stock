@@ -277,89 +277,149 @@ export default function StockMovementsPage() {
 
       {/* Modal historique réappro */}
       <AnimatePresence>
-        {openProduct && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-end justify-center sm:items-center p-4 bg-black/50"
-            onClick={() => setOpenProduct(null)}
-          >
+        {openProduct && (() => {
+          const totalQty = openProduct.restocks.reduce((s, m) => s + m.quantity, 0)
+          return (
             <motion.div
-              initial={{ y: 40, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 40, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="bg-background rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col shadow-xl"
-              onClick={e => e.stopPropagation()}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-end justify-center sm:items-center p-4 bg-black/60 backdrop-blur-sm"
+              onClick={() => setOpenProduct(null)}
             >
-              {/* Header */}
-              <div className="p-5 border-b flex items-start justify-between">
-                <div>
-                  <h2 className="font-bold text-lg">{t('restock_history')}</h2>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <p className="text-sm text-muted-foreground">{openProduct.product_name}</p>
-                    {openProduct.product_unit && (
-                      <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">
-                        {openProduct.product_unit}
-                      </span>
-                    )}
+              <motion.div
+                initial={{ y: 60, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 60, opacity: 0 }}
+                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                className="bg-background rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl overflow-hidden"
+                onClick={e => e.stopPropagation()}
+              >
+                {/* Header gradient */}
+                <div
+                  className="relative overflow-hidden px-5 pt-5 pb-4"
+                  style={{ background: 'linear-gradient(135deg, #073e8a 0%, #0d52b8 100%)' }}
+                >
+                  {/* Decorative circles */}
+                  <div className="absolute -top-6 -right-6 h-24 w-24 rounded-full bg-white/5" />
+                  <div className="absolute -bottom-4 -left-4 h-16 w-16 rounded-full bg-white/5" />
+
+                  <div className="relative flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      {/* Icon + label */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15">
+                          <History className="h-3.5 w-3.5 text-white" />
+                        </div>
+                        <span className="text-xs font-semibold text-blue-200 uppercase tracking-wider">
+                          {t('restock_history')}
+                        </span>
+                      </div>
+                      {/* Product name */}
+                      <h2 className="text-lg font-bold text-white leading-tight truncate">
+                        {openProduct.product_name}
+                      </h2>
+                      {openProduct.product_unit && (
+                        <span className="inline-block mt-0.5 text-[10px] bg-white/15 text-blue-100 px-2 py-0.5 rounded-full">
+                          {openProduct.product_unit}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setOpenProduct(null)}
+                      className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {/* Stats bar */}
+                  <div className="relative mt-4 grid grid-cols-3 gap-2">
+                    {[
+                      { label: 'Réappros', value: openProduct.restocks.length },
+                      { label: 'Total ajouté', value: `+${totalQty}` },
+                      { label: 'Stock actuel', value: openProduct.current_qty ?? '—' },
+                    ].map(s => (
+                      <div key={s.label} className="bg-white/10 rounded-xl px-3 py-2 text-center">
+                        <p className="text-lg font-bold text-white tabular-nums">{s.value}</p>
+                        <p className="text-[10px] text-blue-200 mt-0.5">{s.label}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <button onClick={() => setOpenProduct(null)} className="text-muted-foreground hover:text-foreground p-1">
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
 
-              {/* Entries */}
-              <div className="overflow-y-auto flex-1 p-4 space-y-3">
-                {openProduct.restocks.map(m => (
-                  <div key={m.id} className="rounded-xl border bg-card px-4 py-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <span className="text-sm font-semibold truncate">
-                            {m.reason || t('restock_history')}
-                          </span>
-                          <Badge variant="success" className="text-[10px] px-1.5 py-0">
-                            {t('type_in')}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground mb-2">
-                          {fmtDate(m.created_at)}
-                          {m.performed_by_name && (
-                            <> · <span className="font-semibold text-foreground">{m.performed_by_name}</span></>
-                          )}
-                        </p>
-                        {(m.previous_qty != null || m.new_qty != null) && (
-                          <div className="flex items-center gap-1.5">
-                            <span className="bg-muted text-muted-foreground text-[11px] font-semibold px-2.5 py-0.5 rounded-full tabular-nums">
-                              {m.previous_qty ?? '—'}
-                            </span>
-                            <ArrowRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                            <span className="bg-muted text-foreground text-[11px] font-semibold px-2.5 py-0.5 rounded-full tabular-nums border border-border">
-                              {m.new_qty ?? '—'}
-                            </span>
+                {/* Timeline entries */}
+                <div className="overflow-y-auto flex-1 px-4 py-4">
+                  <div className="relative space-y-0">
+                    {openProduct.restocks.map((m, idx) => (
+                      <div key={m.id} className="relative flex gap-3">
+                        {/* Timeline line + dot */}
+                        <div className="flex flex-col items-center">
+                          <div className="h-8 w-8 rounded-full bg-green-50 dark:bg-green-950/40 border-2 border-green-500 flex items-center justify-center flex-shrink-0 z-10">
+                            <Package className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
                           </div>
-                        )}
-                      </div>
-                      <p className="text-xl font-bold text-green-600 tabular-nums flex-shrink-0">
-                        +{m.quantity}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                          {idx < openProduct.restocks.length - 1 && (
+                            <div className="w-0.5 flex-1 bg-border mt-1 mb-1 min-h-[16px]" />
+                          )}
+                        </div>
 
-              {/* Footer */}
-              <div className="p-4 border-t">
-                <Button variant="outline" className="w-full h-11 text-base" onClick={() => setOpenProduct(null)}>
-                  {t('close')}
-                </Button>
-              </div>
+                        {/* Card */}
+                        <div className={cn('flex-1 min-w-0', idx < openProduct.restocks.length - 1 ? 'pb-3' : 'pb-0')}>
+                          <div className="rounded-xl border bg-card shadow-sm px-4 py-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                {/* Reason */}
+                                <p className="text-sm font-semibold text-foreground truncate">
+                                  {m.reason || t('restock_history')}
+                                </p>
+                                {/* Date + performer */}
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  {fmtDate(m.created_at)}
+                                  {m.performed_by_name && (
+                                    <> · <span className="font-medium text-foreground/70">{m.performed_by_name}</span></>
+                                  )}
+                                </p>
+                                {/* Before → After */}
+                                {(m.previous_qty != null || m.new_qty != null) && (
+                                  <div className="flex items-center gap-1.5 mt-2">
+                                    <span className="bg-muted text-muted-foreground text-[11px] font-semibold px-2.5 py-0.5 rounded-full tabular-nums">
+                                      {m.previous_qty ?? '—'}
+                                    </span>
+                                    <ArrowRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                    <span className="bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400 text-[11px] font-semibold px-2.5 py-0.5 rounded-full tabular-nums border border-green-200 dark:border-green-800">
+                                      {m.new_qty ?? '—'}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              {/* Quantity badge */}
+                              <div className="flex-shrink-0 flex h-10 w-10 items-center justify-center rounded-full bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800">
+                                <span className="text-sm font-bold text-green-600 dark:text-green-400 tabular-nums leading-none">
+                                  +{m.quantity}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-4 pb-4 pt-2 border-t">
+                  <Button
+                    variant="outline"
+                    className="w-full h-11 font-medium"
+                    onClick={() => setOpenProduct(null)}
+                  >
+                    {t('close')}
+                  </Button>
+                </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
+          )
+        })()}
       </AnimatePresence>
     </div>
   )
