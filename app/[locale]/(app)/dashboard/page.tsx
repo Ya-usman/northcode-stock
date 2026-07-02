@@ -106,8 +106,6 @@ export default function DashboardPage() {
 
   // Track in-flight request to avoid stale updates
   const loadingRef = useRef(false)
-  // Prevent rapid successive refreshes — 2s minimum between presses
-  const lastRefreshRef = useRef(0)
 
   const applyDashData = useCallback((
     salesCount: number, revenue: number, debt: number,
@@ -391,9 +389,12 @@ export default function DashboardPage() {
   }, [loadDashboard])
 
   const handleRefresh = () => {
-    const now = Date.now()
-    if (now - lastRefreshRef.current < 2000) return
-    lastRefreshRef.current = now
+    if (loadingRef.current) {
+      // Fetch already in flight — show spinner so the user gets feedback;
+      // the in-flight fetch's finally block will clear it.
+      setRefreshing(true)
+      return
+    }
     loadDashboard(true)
   }
 

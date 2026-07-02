@@ -331,7 +331,9 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
     })
   }, [shop?.id, profile?.role])
 
-  if (loading || authRecovering) return <LoadingSkeleton />
+  // Show skeleton only while auth is unresolved AND user is not yet available.
+  // Once user is set (even briefly before authRecovering clears), render the app.
+  if (!user && (loading || authRecovering)) return <LoadingSkeleton />
 
   // Not authenticated — redirect via router (never window.location.href to avoid Android native error)
   if (!user) {
