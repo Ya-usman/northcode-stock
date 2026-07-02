@@ -548,9 +548,9 @@ export default function SalesHistoryPage() {
           <SelectTrigger className="w-[140px] h-9"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="today">{t('sales.filter_today')}</SelectItem>
+            <SelectItem value="yesterday">{t('sales.filter_yesterday')}</SelectItem>
             <SelectItem value="week">{t('sales.filter_week')}</SelectItem>
             <SelectItem value="month">{t('sales.filter_month')}</SelectItem>
-            <SelectItem value="yesterday">{t('sales.filter_yesterday')}</SelectItem>
             <SelectItem value="custom">{t('sales.filter_custom')}</SelectItem>
           </SelectContent>
         </Select>
