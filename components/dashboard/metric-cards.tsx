@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { TrendingUp, ShoppingCart, AlertTriangle, CreditCard, Receipt, Scale } from 'lucide-react'
+import { TrendingUp, ShoppingCart, AlertTriangle, CreditCard, Receipt, CalendarDays } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { useTranslations, useLocale } from 'next-intl'
 import { useCurrency } from '@/lib/hooks/use-currency'
@@ -93,20 +93,12 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
     },
     {
       title: t('net_result'),
-      value: compact(monthRevenue - monthExpenses),
-      subValue: fmt(monthRevenue - monthExpenses),
-      icon: Scale,
-      color: monthRevenue - monthExpenses > 0
-        ? 'text-green-600'
-        : monthRevenue - monthExpenses < 0
-          ? 'text-red-600'
-          : 'text-muted-foreground',
-      bg: monthRevenue - monthExpenses > 0
-        ? 'bg-green-50 dark:bg-green-950/30'
-        : monthRevenue - monthExpenses < 0
-          ? 'bg-red-50 dark:bg-red-950/30'
-          : 'bg-muted',
-      show: role === 'owner' || canRevenueChart,
+      value: role === 'viewer' ? '—' : compact(monthRevenue),
+      subValue: role !== 'viewer' ? fmt(monthRevenue) : undefined,
+      icon: CalendarDays,
+      color: 'text-violet-600 dark:text-violet-400',
+      bg: 'bg-violet-50 dark:bg-violet-950/30',
+      show: true,
     },
   ].filter(c => c.show)
 
