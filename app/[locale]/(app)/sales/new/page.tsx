@@ -540,6 +540,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     }
 
     // ── ONLINE PATH ──────────────────────────────────────────────────────────
+    let sale: any = null
     try {
       const db = supabase as any
 
@@ -596,7 +597,6 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           ),
         ])
 
-      let sale: any = null
       let lastError: any = null
       for (let attempt = 0; attempt < 5; attempt++) {
         const res = await withTimeout(
@@ -689,7 +689,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         // The sale record was already written to the DB. Going offline here would create
         // a duplicate — instead surface the real error so the user knows the sale is
         // incomplete. They can see it in history to validate the payment or cancel it.
-        toast({ title: err.message || t('errors.generic'), variant: 'destructive', duration: 8000 })
+        toast({ title: err.message || t('errors.generic'), variant: 'destructive' })
       } else {
         // Sale was never created — safe to fall back to local save.
         try {
