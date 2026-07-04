@@ -337,7 +337,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
           {t('no_account')}{' '}
           <Link href={`/${locale}/register`} className="text-white font-semibold hover:underline">{t('register_link')}</Link>
         </p>
-        <p className="text-center text-blue-200 text-xs mt-2">StockShop Manager · Built for Africa</p>
+        <p className="text-center text-blue-200 text-xs mt-2">StockShop · Made for African businesses</p>
       </motion.div>
     </div>
   )

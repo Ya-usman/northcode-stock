@@ -67,7 +67,7 @@ serve(async (req) => {
         })
       }
 
-      lines.push(``, `Please restock soon.`, `_StockShop Manager_`)
+      lines.push(``, `Please restock soon.`, `_StockShop · Made for African businesses_`)
 
       const message = lines.join('\n')
 
@@ -162,9 +162,9 @@ function buildEmailHtml(shopName: string, outOfStock: any[], lowStock: any[], th
         <strong>${p.name}</strong> ${p.name_hausa ? `(${p.name_hausa})` : ''}
         <span class="badge badge-low">${p.quantity} left (min: ${p.low_stock_threshold || threshold})</span>
       </div>`).join('')}` : ''}
-  <p style="margin-top:20px">Please log in to <strong>StockShop Manager</strong> to restock these items.</p>
+  <p style="margin-top:20px">Please log in to <strong>StockShop</strong> to restock these items.</p>
 </div>
-<div class="footer">StockShop Manager · Automated alert</div>
+<div class="footer">StockShop · Automated alert</div>
 </body>
 </html>`
 }

@@ -109,7 +109,7 @@ serve(async (req) => {
         `📦 *Stock Alerts:* ${lowStockCount ?? 0} item(s) low`,
         `💳 *Total Outstanding Debt:* ${formatNaira(totalDebt)}`,
         ``,
-        `_StockShop Manager_`,
+        `_StockShop · Made for African businesses_`,
       ].filter(Boolean).join('\n')
 
       // WhatsApp
@@ -200,6 +200,6 @@ ${data.topProduct ? `
   <div class="stat"><span>Low Stock Items</span><span style="color:#D97706">${data.lowStockCount}</span></div>
   <div class="stat"><span>Total Outstanding Debt</span><span style="color:#DC2626">${fmt(data.totalDebt)}</span></div>
 </div>
-<div class="footer">StockShop Manager · Automated daily report</div>
+<div class="footer">StockShop · Automated daily report</div>
 </body></html>`
 }
