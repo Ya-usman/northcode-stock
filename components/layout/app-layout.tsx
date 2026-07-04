@@ -272,20 +272,8 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
     setRetryingSync(false)
   }
 
-  // ── WAKE: quand l'app revient au premier plan après background Android,
-  // le client Supabase peut être figé sur une connexion TCP morte.
-  // refreshSession() force un vrai appel réseau qui "déblocage" le client
-  // avant que l'utilisateur tente d'écrire (même mécanisme que sync.ts).
-  useEffect(() => {
-    if (!user?.id) return
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') {
-        supabase.auth.refreshSession().catch(() => {})
-      }
-    }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [user?.id])
+  // visibilitychange refresh is handled exclusively in auth-context.tsx
+  // to avoid dual refreshSession() calls that can emit a spurious SIGNED_OUT.
 
   // ── REALTIME: notifier l'admin quand un caissier fait une vente ────────────
   useEffect(() => {
@@ -345,14 +333,16 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   }, [shop?.id, profile?.role])
 
   // Show skeleton only while auth is unresolved AND user is not yet available.
-  // Once user is set (even briefly before authRecovering clears), render the app.
-  if (!user && (loading || authRecovering)) return <LoadingSkeleton />
+  // Redirect to login when definitely unauthenticated — inside useEffect to avoid
+  // calling router.replace during render, which creates an infinite loop with the middleware.
+  useEffect(() => {
+    if (!loading && !authRecovering && !user) {
+      router.replace(`/${locale}/login`)
+    }
+  }, [loading, authRecovering, user, locale])
 
-  // Not authenticated — redirect via router (never window.location.href to avoid Android native error)
-  if (!user) {
-    router.replace(`/${locale}/login`)
-    return <LoadingSkeleton />
-  }
+  if (!user && (loading || authRecovering)) return <LoadingSkeleton />
+  if (!user) return <LoadingSkeleton />
 
   // Auth user exists but profile missing — registration was incomplete
   if (!profile) {

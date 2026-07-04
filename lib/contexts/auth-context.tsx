@@ -349,6 +349,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (event === 'INITIAL_SESSION') return
 
       if (event === 'SIGNED_OUT') {
+        // Guard against spurious SIGNED_OUT from concurrent refreshSession() calls.
+        // If the cookie is still valid, this is a false sign-out — re-read the session
+        // instead of clearing state, which would trigger a redirect loop.
+        const { data: { session: stillValid } } = await supabase.auth.getSession()
+        if (stillValid?.user) {
+          // Cookie is still alive — treat as TOKEN_REFRESHED, not a real sign-out
+          setState(prev => ({ ...prev, user: stillValid.user, loading: false }))
+          return
+        }
         clearCache()
         clearReadCaches() // read-only caches only — pending sales/movements are NEVER wiped here
         setState({ user: null, profile: null, userShops: [], activeShop: null, roleInActiveShop: null, loading: false })
