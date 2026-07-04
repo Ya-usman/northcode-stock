@@ -717,6 +717,7 @@
     "next": "Next →",
     "back": "← Back",
     "country_subtitle": "Determines the currency and payment method for your subscription",
+    "search_country": "Search for a country...",
     "phone": "Phone",
     "optional": "optional",
     "create_shop": "Create my shop",

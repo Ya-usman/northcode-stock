@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Eye, EyeOff, Store, User, Mail, Lock, MapPin, Sun, Moon } from 'lucide-react'
+import { Eye, EyeOff, Store, User, Mail, Lock, MapPin, Sun, Moon, Search, Check } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 
@@ -56,6 +56,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
   const [countdown, setCountdown] = useState(0)
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [country, setCountry] = useState<CountryCode | null>(null)
+  const [countrySearch, setCountrySearch] = useState('')
   const [emailSent, setEmailSent] = useState(false)
   const [sentToEmail, setSentToEmail] = useState('')
   const [resendLoading, setResendLoading] = useState(false)
@@ -378,31 +379,48 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                     <p className="text-xs text-muted-foreground mt-0.5">{t('country_subtitle')}</p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    {(Object.values(COUNTRIES)).map(c => {
-                      const selected = country === c.code
-                      return (
-                        <button
-                          key={c.code}
-                          type="button"
-                          onClick={() => setCountry(c.code)}
-                          className="flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all"
-                          style={selected
-                            ? { borderColor: c.flagColor, backgroundColor: `${c.flagColor}15` }
-                            : { borderColor: `${c.flagColor}55` }
-                          }
-                        >
-                          <span className="text-4xl">{c.flag}</span>
-                          <div className="text-center">
-                            <p className="font-semibold text-sm">{c.name}</p>
-                            <p className="text-xs text-muted-foreground">{c.currencySymbol}</p>
-                          </div>
-                          {selected && (
-                            <div className="h-2 w-2 rounded-full" style={{ backgroundColor: c.flagColor }} />
-                          )}
-                        </button>
+                  {/* Search */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <input
+                      type="text"
+                      placeholder={t('search_country')}
+                      value={countrySearch}
+                      onChange={e => setCountrySearch(e.target.value)}
+                      className="w-full rounded-xl border border-border bg-background pl-9 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-stockshop-blue/40 placeholder:text-muted-foreground"
+                    />
+                  </div>
+
+                  {/* Country list */}
+                  <div className="max-h-64 overflow-y-auto rounded-xl border border-border divide-y divide-border">
+                    {Object.values(COUNTRIES)
+                      .filter(c =>
+                        c.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
+                        c.currency.toLowerCase().includes(countrySearch.toLowerCase()) ||
+                        c.code.toLowerCase().includes(countrySearch.toLowerCase())
                       )
-                    })}
+                      .map(c => {
+                        const selected = country === c.code
+                        return (
+                          <button
+                            key={c.code}
+                            type="button"
+                            onClick={() => setCountry(c.code)}
+                            className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/60 ${
+                              selected ? 'bg-blue-50 dark:bg-blue-950/40' : ''
+                            }`}
+                          >
+                            <span className="text-2xl leading-none flex-shrink-0">{c.flag}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm font-medium truncate ${selected ? 'text-stockshop-blue dark:text-blue-400' : ''}`}>
+                                {c.name}
+                              </p>
+                              <p className="text-xs text-muted-foreground truncate">{c.currencySymbol} · {c.currency}</p>
+                            </div>
+                            {selected && <Check className="h-4 w-4 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />}
+                          </button>
+                        )
+                      })}
                   </div>
 
                   <div className="flex gap-2 pt-1">
