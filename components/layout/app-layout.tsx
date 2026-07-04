@@ -248,14 +248,25 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   const [signOutReason, setSignOutReason] = useState<'blocked' | 'sync_failed' | null>(null)
   const [forcingSignOut, setForcingSignOut] = useState(false)
   const [retryingSync, setRetryingSync] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
 
   const handleSignOut = useCallback(async () => {
-    const result = await signOut()
-    if (result === 'blocked' || result === 'sync_failed') {
-      setSignOutReason(result)
+    if (signingOut) return
+    setSigningOut(true)
+    try {
+      const result = await signOut()
+      if (result === 'blocked' || result === 'sync_failed') {
+        setSignOutReason(result)
+        setSignOutDialogOpen(true)
+      }
+    } catch {
+      // Unexpected error — show sync_failed dialog so user isn't stuck
+      setSignOutReason('sync_failed')
       setSignOutDialogOpen(true)
+    } finally {
+      setSigningOut(false)
     }
-  }, [signOut])
+  }, [signOut, signingOut])
 
   const handleForceSignOut = async () => {
     setForcingSignOut(true)
@@ -395,7 +406,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         <UpgradeWall locale={locale} shopName={shop?.name} />
       )}
 
-      <Sidebar locale={locale} role={roleInActiveShop ?? profile.role} profile={profile} shop={shop} onSignOut={handleSignOut} userEmail={user.email ?? ''} hasUnreadAnnouncement={hasUnreadAnnouncement} onOpenWhatsNew={() => setWhatsNewOpen(true)} />
+      <Sidebar locale={locale} role={roleInActiveShop ?? profile.role} profile={profile} shop={shop} onSignOut={handleSignOut} signingOut={signingOut} userEmail={user.email ?? ''} hasUnreadAnnouncement={hasUnreadAnnouncement} onOpenWhatsNew={() => setWhatsNewOpen(true)} />
 
       <div className="sm:pl-64 flex flex-col min-h-screen">
         {showTrialBanner && <TrialBanner daysLeft={trialDaysLeft} locale={locale} />}
@@ -418,7 +429,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         </main>
       </div>
 
-      <BottomNav locale={locale} role={roleInActiveShop ?? profile.role} onSignOut={handleSignOut} userEmail={user.email ?? ''} hasUnreadAnnouncement={hasUnreadAnnouncement} crispUnread={crispUnread} onOpenChat={handleOpenChat} />
+      <BottomNav locale={locale} role={roleInActiveShop ?? profile.role} onSignOut={handleSignOut} signingOut={signingOut} userEmail={user.email ?? ''} hasUnreadAnnouncement={hasUnreadAnnouncement} crispUnread={crispUnread} onOpenChat={handleOpenChat} />
 
       {/* Sign-out protection dialog */}
       <Dialog open={signOutDialogOpen} onOpenChange={open => { if (!open && !forcingSignOut) setSignOutDialogOpen(false) }}>

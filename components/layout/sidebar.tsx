@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import {
   LayoutDashboard, ShoppingCart, Package, BarChart2, Settings,
   Users, Truck, CreditCard, History, LogOut, ChevronRight, Zap,
-  Store, ChevronDown, Tag, Check, Layers, ArrowLeftRight, Receipt, ShieldCheck, NotebookPen, BookOpen,
+  Store, ChevronDown, Tag, Check, Layers, ArrowLeftRight, Receipt, ShieldCheck, NotebookPen, BookOpen, Loader2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -25,6 +25,7 @@ interface SidebarProps {
   profile: Profile
   shop: Shop | null
   onSignOut: () => void
+  signingOut?: boolean
   userEmail?: string
   hasUnreadAnnouncement?: boolean
   onOpenWhatsNew?: () => void
@@ -32,7 +33,7 @@ interface SidebarProps {
 
 const ALL_NON_OWNER = ['owner', 'super_admin', 'manager', 'shop_manager', 'cashier', 'viewer', 'stock_manager']
 
-export function Sidebar({ locale, role, profile, shop, onSignOut, userEmail = '', hasUnreadAnnouncement = false, onOpenWhatsNew }: SidebarProps) {
+export function Sidebar({ locale, role, profile, shop, onSignOut, signingOut = false, userEmail = '', hasUnreadAnnouncement = false, onOpenWhatsNew }: SidebarProps) {
   const t = useTranslations('nav')
   const pathname = usePathname()
   const { userShops, switchShop, dashboardShopFilter, setDashboardShopFilter } = useAuthContext()
@@ -255,10 +256,14 @@ export function Sidebar({ locale, role, profile, shop, onSignOut, userEmail = ''
             variant="ghost"
             size="icon"
             onClick={onSignOut}
+            disabled={signingOut}
             title="Log out"
             className="h-8 w-8 flex-shrink-0"
           >
-            <LogOut className="h-4 w-4" />
+            {signingOut
+              ? <Loader2 className="h-4 w-4 animate-spin" />
+              : <LogOut className="h-4 w-4" />
+            }
           </Button>
         </div>
       </div>

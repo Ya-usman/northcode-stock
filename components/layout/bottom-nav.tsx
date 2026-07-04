@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl'
 import {
   LayoutDashboard, ShoppingCart, Package, BarChart2, Settings,
   MoreHorizontal, History, CreditCard, Users, Truck, Zap,
-  X, LogOut, Store, Tag, ArrowLeftRight, Receipt, ShieldCheck, NotebookPen, BookOpen, MessageCircle,
+  X, LogOut, Store, Tag, ArrowLeftRight, Receipt, ShieldCheck, NotebookPen, BookOpen, MessageCircle, Loader2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import type { UserRole } from '@/lib/types/database'
@@ -21,6 +21,7 @@ interface BottomNavProps {
   locale: string
   role: UserRole
   onSignOut?: () => void
+  signingOut?: boolean
   userEmail?: string
   hasUnreadAnnouncement?: boolean
   crispUnread?: number
@@ -29,7 +30,7 @@ interface BottomNavProps {
 
 const ALL_NON_OWNER = ['super_admin', 'owner', 'manager', 'shop_manager', 'cashier', 'viewer', 'stock_manager']
 
-export function BottomNav({ locale, role, onSignOut, userEmail = '', hasUnreadAnnouncement = false, crispUnread = 0, onOpenChat }: BottomNavProps) {
+export function BottomNav({ locale, role, onSignOut, signingOut = false, userEmail = '', hasUnreadAnnouncement = false, crispUnread = 0, onOpenChat }: BottomNavProps) {
   const t = useTranslations('nav')
   const pathname = usePathname()
   const [moreOpen, setMoreOpen] = useState(false)
@@ -188,10 +189,14 @@ export function BottomNav({ locale, role, onSignOut, userEmail = '', hasUnreadAn
                 {onSignOut && (
                   <button
                     onClick={() => { setMoreOpen(false); onSignOut() }}
-                    className="flex flex-col items-center gap-1.5 rounded-xl p-3 text-red-500 hover:bg-red-50 transition-colors"
+                    disabled={signingOut}
+                    className="flex flex-col items-center gap-1.5 rounded-xl p-3 text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
                   >
-                    <LogOut className="h-5 w-5" />
-                    <span className="text-[10px] font-medium leading-none">{t('logout')}</span>
+                    {signingOut
+                      ? <Loader2 className="h-5 w-5 animate-spin" />
+                      : <LogOut className="h-5 w-5" />
+                    }
+                    <span className="text-[10px] font-medium leading-none">{signingOut ? '…' : t('logout')}</span>
                   </button>
                 )}
               </div>

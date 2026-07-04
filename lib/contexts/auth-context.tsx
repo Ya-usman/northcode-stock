@@ -524,33 +524,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     ;(supabase as any).from('profiles').update({ locale }).eq('id', state.user?.id ?? '').then(() => {})
   }, [state.user?.id, memberships])
 
-  // Returns null if sign-out is blocked (unsynced sales + offline).
-  // Returns a string error message if sync failed but user can retry.
-  // Returns 'ok' on success.
   const signOut = useCallback(async (force = false): Promise<'ok' | 'blocked' | 'sync_failed'> => {
     const savedLocale = getLocaleCookie() || localStorage.getItem('NEXT_LOCALE') || 'en'
     const shopId = state.activeShop?.id
 
     if (!force) {
-      // Check for unsynced pending data.
-      // If IndexedDB is unavailable, assume pending=1 to block logout and protect data.
       const { getTotalPendingCount } = await import('@/lib/offline/db')
       const pendingTotal = await getTotalPendingCount().catch(() => 1)
 
       if (pendingTotal > 0) {
-        if (!navigator.onLine) {
-          // Cannot sync — block logout to protect offline data
-          return 'blocked'
-        }
-        // Online: attempt sync before wiping
+        if (!navigator.onLine) return 'blocked'
+
+        // Sync with a hard 10s timeout so the button never hangs indefinitely
         try {
           const { syncPendingSales, syncPendingMovements, syncPendingExpenses } = await import('@/lib/offline/sync')
           if (shopId) {
-            const results = await Promise.all([
+            const timeout = new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('sync_timeout')), 10_000)
+            )
+            const sync = Promise.all([
               syncPendingSales(shopId),
               syncPendingMovements(shopId),
               syncPendingExpenses(shopId),
             ])
+            const results = await Promise.race([sync, timeout])
             const totalFailed = results.reduce((s, r) => s + r.failed, 0)
             if (totalFailed > 0) return 'sync_failed'
           }
@@ -560,12 +557,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // All clear (or force=true) — wipe caches and sign out
     localStorage.removeItem('active_shop_id')
     clearCache()
     clearReadCaches()
     await fetch('/api/auth/set-role', { method: 'DELETE' }).catch(() => {})
-    await Promise.all([supabase.auth.signOut(), deleteOfflineDb()])
+    await Promise.all([supabase.auth.signOut().catch(() => {}), deleteOfflineDb()])
     window.location.href = `/${savedLocale}/login`
     return 'ok'
   }, [state.activeShop?.id])
