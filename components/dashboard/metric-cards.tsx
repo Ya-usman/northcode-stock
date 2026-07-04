@@ -16,6 +16,7 @@ interface MetricCardsProps {
   role: string
   isCashier?: boolean
   canRevenueChart?: boolean
+  isLoading?: boolean
 }
 
 const container = {
@@ -27,7 +28,7 @@ const item = {
   show: { opacity: 1, y: 0 },
 }
 
-export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outstandingDebt, monthExpenses = 0, monthRevenue = 0, role, isCashier, canRevenueChart = false }: MetricCardsProps) {
+export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outstandingDebt, monthExpenses = 0, monthRevenue = 0, role, isCashier, canRevenueChart = false, isLoading = false }: MetricCardsProps) {
   const t = useTranslations('dashboard')
   const locale = useLocale()
   const { fmt, symbol } = useCurrency()
@@ -127,11 +128,13 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
                       {card.title}
                     </p>
                     <p className="text-xl font-bold text-foreground leading-none mb-0.5">
-                      {card.value}
+                      {isLoading
+                        ? <span className="inline-block h-6 w-20 rounded-md bg-muted animate-pulse" />
+                        : card.value}
                     </p>
-                    {card.subValue && (
-                      <p className="text-[10px] text-muted-foreground truncate">{card.subValue}</p>
-                    )}
+                    {isLoading
+                      ? <span className="inline-block h-3 w-14 rounded bg-muted animate-pulse mt-0.5" />
+                      : card.subValue && <p className="text-[10px] text-muted-foreground truncate">{card.subValue}</p>}
                     {(card as any).label && (
                       <p className="text-[10px] text-muted-foreground truncate">{(card as any).label}</p>
                     )}

@@ -88,17 +88,17 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
 
-  const [todayRevenue, setTodayRevenue] = useState(mountCache?.todayRevenue ?? 0)
-  const [todaySalesCount, setTodaySalesCount] = useState(mountCache?.todaySalesCount ?? 0)
+  const [todayRevenue, setTodayRevenue] = useState<number | null>(mountCache?.todayRevenue ?? null)
+  const [todaySalesCount, setTodaySalesCount] = useState<number | null>(mountCache?.todaySalesCount ?? null)
   const [repaymentFeed, setRepaymentFeed] = useState<RepaymentFeedItem[]>(mountCache?.repaymentItems ?? [])
-  const [outstandingDebt, setOutstandingDebt] = useState(mountCache?.outstandingDebt ?? 0)
+  const [outstandingDebt, setOutstandingDebt] = useState<number | null>(mountCache?.outstandingDebt ?? null)
   const [recentSales, setRecentSales] = useState<Sale[]>(mountCache?.recentSales ?? [])
   const [revenueData, setRevenueData] = useState<RevenueDataPoint[]>(mountCache?.revenueData ?? [])
   const [topProducts, setTopProducts] = useState<TopProduct[]>(mountCache?.topProducts ?? [])
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>(mountCache?.lowStock ?? [])
   const [outOfStockProducts, setOutOfStockProducts] = useState<Product[]>(mountCache?.outOfStock ?? [])
-  const [monthExpenses, setMonthExpenses] = useState(mountCache?.monthExpenses ?? 0)
-  const [monthRevenue, setMonthRevenue]   = useState(mountCache?.monthRevenue ?? 0)
+  const [monthExpenses, setMonthExpenses] = useState<number | null>(mountCache?.monthExpenses ?? null)
+  const [monthRevenue, setMonthRevenue]   = useState<number | null>(mountCache?.monthRevenue ?? null)
 
   const activeShopLabel = dashboardShopFilter
     ? userShops.find(s => s.id === dashboardShopFilter)?.name || t('nav.shops')
@@ -408,7 +408,7 @@ export default function DashboardPage() {
         const isOwnSale = !isCashierView || sale.cashier_id === profile?.id
         if (isOwnSale) {
           setRecentSales(prev => [sale, ...prev])
-          setTodaySalesCount(prev => prev + 1)
+          setTodaySalesCount(prev => (prev ?? 0) + 1)
           // Revenue is added by onPaymentUpdate when the payment record is inserted.
         }
         toast({ title: `Nouvelle vente: ${formatNaira(sale.total)}`, description: `#${sale.sale_number}`, variant: 'success' })
@@ -418,8 +418,8 @@ export default function DashboardPage() {
       if (!shopIds.includes((sale as any).shop_id || '')) return
       setRecentSales(prev => prev.filter(s => s.id !== sale.id))
       setRepaymentFeed(prev => prev.filter(r => r.sale_id !== sale.id))
-      setTodaySalesCount(prev => Math.max(0, prev - 1))
-      setTodayRevenue(prev => Math.max(0, prev - Number((sale as any).amount_paid ?? 0)))
+      setTodaySalesCount(prev => Math.max(0, (prev ?? 0) - 1))
+      setTodayRevenue(prev => Math.max(0, (prev ?? 0) - Number((sale as any).amount_paid ?? 0)))
       try { localStorage.removeItem('dashboard_cache_v1') } catch {}
     },
     onPaymentUpdate: async (payment: any) => {
@@ -449,7 +449,7 @@ export default function DashboardPage() {
         }
         setRepaymentFeed(prev => [item, ...prev])
         // All cash received today = revenue, including old-debt repayments
-        setTodayRevenue(prev => prev + Number(payment.amount))
+        setTodayRevenue(prev => (prev ?? 0) + Number(payment.amount))
         // Update the matching sale in recentSales so its balance/gauge reflects the payment
         setRecentSales(prev => prev.map((s: any) =>
           s.id === payment.sale_id
@@ -562,12 +562,13 @@ export default function DashboardPage() {
 
       {/* Metric cards */}
       <MetricCards
-        todayRevenue={todayRevenue}
-        todaySalesCount={todaySalesCount}
+        isLoading={todayRevenue === null}
+        todayRevenue={todayRevenue ?? 0}
+        todaySalesCount={todaySalesCount ?? 0}
         lowStockCount={lowStockProducts.length + outOfStockProducts.length}
-        outstandingDebt={outstandingDebt}
-        monthExpenses={monthExpenses}
-        monthRevenue={monthRevenue}
+        outstandingDebt={outstandingDebt ?? 0}
+        monthExpenses={monthExpenses ?? 0}
+        monthRevenue={monthRevenue ?? 0}
         role={profile?.role || 'viewer'}
         isCashier={isCashierView}
         canRevenueChart={canSeeRevenueChart}
