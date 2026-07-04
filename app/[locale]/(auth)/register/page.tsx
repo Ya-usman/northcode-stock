@@ -10,7 +10,7 @@ import { motion } from 'framer-motion'
 import { Eye, EyeOff, Store, User, Mail, Lock, MapPin, Sun, Moon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
-import { useAuthContext } from '@/lib/contexts/auth-context'
+
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -48,7 +48,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
   const tAuth = useTranslations('auth')
   const router = useRouter()
   const { isDark, toggle } = useTheme()
-  const { refreshShop } = useAuthContext()
+
   const supabase = createClient()
   const [showPwd, setShowPwd] = useState(false)
   const [showConfirmPwd, setShowConfirmPwd] = useState(false)
@@ -158,7 +158,6 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
     if (!country) return
     setError('')
     setCountdown(0)
-    let authUserId: string | null = null
     try {
       await supabase.auth.signOut()
       localStorage.clear()
@@ -167,38 +166,14 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
         await Promise.all(keys.map(k => caches.delete(k)))
       }
 
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-          data: { full_name: data.full_name },
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/${locale}/login&confirmed=1`,
-        },
-      })
-      if (signUpError) throw signUpError
-      if (!authData.user) throw new Error(t('account_error'))
-
-      if (!authData.user.identities || authData.user.identities.length === 0) {
-        await fetch('/api/cleanup-registration', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: authData.user.id }),
-        }).catch(() => {})
-        throw new Error(t('email_already_used'))
-      }
-
-      authUserId = authData.user.id
-
+      // Account + shop are created atomically on the backend.
+      // The confirmation email is only sent after everything succeeds,
+      // so a failed shop creation never leaves the user with a phantom email.
       const res = await fetch('/api/register', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(authData.session?.access_token
-            ? { Authorization: `Bearer ${authData.session.access_token}` }
-            : {}),
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: authData.user.id,
+          password: data.password,
           full_name: data.full_name,
           email: data.email,
           shop_name: data.shop_name,
@@ -213,28 +188,18 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
         throw new Error(err.error || t('account_error'))
       }
 
-      if (authData.session) {
-        await supabase.auth.refreshSession()
-        await fetch('/api/auth/set-role', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
-        localStorage.setItem('auth_remember_me', '1') // nouveau compte → mémorisé par défaut
-        sessionStorage.setItem('session_alive', '1')
-        // Pre-load auth context before navigating so dashboard never shows skeleton
-        await refreshShop()
-        router.push(`/${locale}/dashboard`)
-      } else {
-        authUserId = null
-        setSentToEmail(data.email)
-        setEmailSent(true)
-      }
-    } catch (err: any) {
-      if (authUserId) {
-        fetch('/api/cleanup-registration', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: authUserId }),
-        }).catch(() => {})
-      }
+      // Everything succeeded — now trigger the confirmation email.
+      await supabase.auth.resend({
+        type: 'signup',
+        email: data.email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/${locale}/login&confirmed=1`,
+        },
+      })
 
+      setSentToEmail(data.email)
+      setEmailSent(true)
+    } catch (err: any) {
       const msg: string = err.message || ''
       const secondsMatch = msg.match(/(\d+)\s*second/i)
       if (secondsMatch) {

@@ -7,7 +7,7 @@ import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { z } from 'zod'
 
 const registerSchema = z.object({
-  user_id: uuid,
+  password: z.string().min(6),
   full_name: shortText,
   email: emailSchema,
   shop_name: shortText,
@@ -25,11 +25,24 @@ export async function POST(request: Request) {
     const body = await request.json()
     const validated = validateBody(registerSchema, body)
     if ('error' in validated) return validated.error
-    const { user_id, full_name, email, shop_name, city, phone, country, referral_code } = validated.data
+    const { password, full_name, email, shop_name, city, phone, country, referral_code } = validated.data
 
     const supabase = await createAdminClient() as any
 
     const countryConfig = getCountry(country || 'NG')
+
+    // Create the auth user server-side so the confirmation email only goes out
+    // after shop + profile are successfully created (no orphan emails on failure).
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: false,
+      user_metadata: { full_name },
+    })
+    if (authError || !authData?.user) {
+      return NextResponse.json({ error: authError?.message || 'Erreur création compte' }, { status: 400 })
+    }
+    const user_id: string = authData.user.id
 
     // Validate referral code and get agent_id if provided
     let agentId: string | null = null
