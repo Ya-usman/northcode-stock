@@ -244,14 +244,15 @@ export default function DashboardPage() {
           .gte('date', startOfMonth(today).toISOString().slice(0, 10))
           .lte('date', endOfMonth(today).toISOString().slice(0, 10)) : Promise.resolve({ data: [] }),
 
-        // Month revenue (owner only) — sum of amount_paid on active sales this month
-        !isCashier ? supabase
+        // Month revenue — only the logged-in user's own sales this month
+        supabase
           .from('sales')
           .select('amount_paid')
           .in('shop_id', shopIds)
           .eq('sale_status', 'active')
+          .eq('cashier_id', cashierId)
           .gte('created_at', startOfMonth(today).toISOString())
-          .lte('created_at', endOfMonth(today).toISOString()) : Promise.resolve({ data: [] }),
+          .lte('created_at', endOfMonth(today).toISOString()),
       ])
 
       const paymentsApiOk = paymentsRes.ok
