@@ -215,28 +215,38 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
 
   const selectedCountry = country ? COUNTRIES[country] : null
 
-  const wrapperCls = "min-h-screen overflow-y-auto flex items-center justify-center bg-gradient-to-br from-stockshop-blue via-stockshop-blue-light to-blue-800 p-4 py-8"
+  const logoFilter = isDark
+    ? 'brightness(0) invert(1) drop-shadow(0 6px 20px rgba(0,0,0,0.5))'
+    : 'brightness(0) saturate(100%) invert(14%) sepia(90%) saturate(700%) hue-rotate(204deg) brightness(75%)'
+
+  const inputCls = 'dark:bg-[#060e1c] dark:border-[#1b2e48] dark:text-[#d8e8ff] dark:placeholder:text-[#2e4460]'
+
+  const wrapperCls = "min-h-screen overflow-y-auto flex items-center justify-center bg-[#edf2ff] dark:bg-[#040912] p-4 py-8 relative"
   const themeBtn = (
-    <button onClick={toggle} className="fixed top-4 right-4 z-50 flex h-9 w-9 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 text-white backdrop-blur-sm transition-colors">
+    <button onClick={toggle} className="fixed top-4 right-4 z-50 flex h-9 w-9 items-center justify-center rounded-full bg-black/10 dark:bg-white/10 hover:bg-black/15 dark:hover:bg-white/15 text-gray-700 dark:text-white backdrop-blur-sm transition-colors">
       {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
     </button>
   )
   const logoBlock = (
     <div className="flex flex-col items-center mb-6">
       <Link href={`/${locale}`} onClick={e => { if ((window as any).Capacitor?.isNativePlatform?.()) e.preventDefault() }}>
-        <img src="/logo-login-t.png" alt="StockShop" className="h-36 w-auto object-contain" style={{ filter: 'brightness(0) invert(1) drop-shadow(0 8px 24px rgba(0,0,0,0.55))' }} />
+        <img src="/logo-login-t.png" alt="StockShop" className="h-28 w-auto object-contain" style={{ filter: logoFilter }} />
       </Link>
-      <p className="text-blue-200 text-sm mt-2">{t('trial_note')}</p>
+      <p className="text-xs mt-2 italic text-[#5570a0] dark:text-[#4a88f5]">{t('trial_note')}</p>
     </div>
   )
+  const glowDiv = isDark ? (
+    <div className="fixed inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 80% 55% at 50% -5%, rgba(7,62,138,0.55) 0%, transparent 70%)' }} />
+  ) : null
 
   if (emailSent) {
     return (
       <div className={wrapperCls}>
+        {glowDiv}
         {themeBtn}
-        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="w-full max-w-sm">
+        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="w-full max-w-sm relative z-10">
           {logoBlock}
-          <div className="rounded-2xl bg-card dark:bg-[#0d2a5e] shadow-2xl overflow-hidden p-8 text-center space-y-4">
+          <div className="rounded-2xl bg-white dark:bg-[#0b1525] border border-[#dce7ff] dark:border-[#152034] shadow-[0_10px_40px_rgba(7,62,138,0.10)] dark:shadow-none overflow-hidden p-8 text-center space-y-4">
             <div className="text-6xl">📧</div>
             <div>
               <h2 className="text-xl font-bold">{t('email_sent_title')}</h2>
@@ -257,7 +267,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
               </Button>
               <Link
                 href={`/${locale}/login`}
-                className="block text-sm text-stockshop-blue dark:text-blue-400 hover:underline"
+                className="block text-sm text-[#073e8a] dark:text-[#4a88f5] hover:underline"
               >
                 {t('go_to_login')}
               </Link>
@@ -270,11 +280,13 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
 
   return (
     <div className={wrapperCls}>
+      {glowDiv}
       {themeBtn}
 
-      <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="w-full max-w-sm">
+      <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="w-full max-w-sm relative z-10">
+        {logoBlock}
 
-        <div className="rounded-2xl bg-card dark:bg-[#0d2a5e] shadow-2xl overflow-hidden">
+        <div className="rounded-2xl bg-white dark:bg-[#0b1525] border border-[#dce7ff] dark:border-[#152034] shadow-[0_10px_40px_rgba(7,62,138,0.10)] dark:shadow-none overflow-hidden">
           <div className="p-6">
             {/* Step indicator */}
             <div className="flex items-center gap-2 mb-5">
@@ -293,9 +305,9 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                   <div className="space-y-1.5">
                     <Label>{t('full_name')}</Label>
                     <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-gray-500" />
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-[#2e4460]" />
                       <Input {...register('full_name')} placeholder="Malam Usman"
-                        className="pl-9 dark:bg-white dark:text-gray-900 dark:placeholder:text-gray-400 dark:border-white/30" />
+                        className="pl-9 dark:bg-[#060e1c] dark:border-[#1b2e48] dark:text-[#d8e8ff] dark:placeholder:text-[#2e4460]" />
                     </div>
                     {errors.full_name && <p className="text-xs text-destructive">{errors.full_name.message}</p>}
                   </div>
@@ -303,9 +315,9 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                   <div className="space-y-1.5">
                     <Label>{t('email')}</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-gray-500" />
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-[#2e4460]" />
                       <Input {...register('email')} type="email" placeholder="vous@email.com"
-                        className="pl-9 dark:bg-white dark:text-gray-900 dark:placeholder:text-gray-400 dark:border-white/30" />
+                        className="pl-9 dark:bg-[#060e1c] dark:border-[#1b2e48] dark:text-[#d8e8ff] dark:placeholder:text-[#2e4460]" />
                     </div>
                     {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
                   </div>
@@ -313,15 +325,15 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                   <div className="space-y-1.5">
                     <Label>{t('password')}</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-gray-500" />
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-[#2e4460]" />
                       <Input
                         {...register('password')}
                         type={showPwd ? 'text' : 'password'}
                         placeholder={t('password_min')}
-                        className="pl-9 pr-10 dark:bg-white dark:text-gray-900 dark:placeholder:text-gray-400 dark:border-white/30"
+                        className="pl-9 pr-10 dark:bg-[#060e1c] dark:border-[#1b2e48] dark:text-[#d8e8ff] dark:placeholder:text-[#2e4460]"
                       />
                       <button type="button" onClick={() => setShowPwd(!showPwd)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-gray-500 hover:text-foreground dark:hover:text-gray-700">
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-[#2e4460] hover:text-foreground dark:hover:text-[#d8e8ff]">
                         {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
@@ -331,40 +343,41 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                   <div className="space-y-1.5">
                     <Label>{t('confirm_password')}</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-gray-500" />
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-[#2e4460]" />
                       <Input
                         {...register('confirm_password')}
                         type={showConfirmPwd ? 'text' : 'password'}
                         placeholder={t('confirm_password_placeholder')}
-                        className="pl-9 pr-10 dark:bg-white dark:text-gray-900 dark:placeholder:text-gray-400 dark:border-white/30"
+                        className="pl-9 pr-10 dark:bg-[#060e1c] dark:border-[#1b2e48] dark:text-[#d8e8ff] dark:placeholder:text-[#2e4460]"
                       />
                       <button type="button" onClick={() => setShowConfirmPwd(!showConfirmPwd)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-gray-500 hover:text-foreground dark:hover:text-gray-700">
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-[#2e4460] hover:text-foreground dark:hover:text-[#d8e8ff]">
                         {showConfirmPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
                     {errors.confirm_password && <p className="text-xs text-destructive">{errors.confirm_password.message}</p>}
                   </div>
 
-                  <Button type="button" onClick={goStep2} className="w-full bg-stockshop-blue hover:bg-stockshop-blue-light h-11 text-base">
+                  <Button type="button" onClick={goStep2} className="w-full h-11 text-base bg-[#073e8a] hover:bg-[#0d52b8]"
+                    style={isDark ? { background: 'linear-gradient(135deg, #1948cc 0%, #0d38a8 100%)', boxShadow: '0 4px 20px rgba(29,80,220,0.40)' } : {}}>
                     {t('next')}
                   </Button>
 
                   {/* Divider */}
                   <div className="flex items-center gap-3 pt-1">
-                    <div className="flex-1 h-px bg-border dark:bg-white/20" />
+                    <div className="flex-1 h-px bg-border dark:bg-[#152034]" />
                     <span className="text-xs text-muted-foreground">{tAuth('or_separator')}</span>
-                    <div className="flex-1 h-px bg-border dark:bg-white/20" />
+                    <div className="flex-1 h-px bg-border dark:bg-[#152034]" />
                   </div>
 
                   {/* OAuth côte à côte */}
                   <div className="flex gap-2">
                     <button type="button" onClick={signInWithGoogle}
-                      className="flex-1 flex items-center justify-center gap-2 h-10 rounded-xl border border-gray-200 dark:border-white/20 bg-white dark:bg-white/10 hover:bg-gray-50 dark:hover:bg-white/15 text-gray-700 dark:text-white font-medium text-sm transition-colors">
+                      className="flex-1 flex items-center justify-center gap-2 h-10 rounded-xl border border-[#dce7ff] dark:border-[#1b2e48] bg-[#f2f6ff] dark:bg-[#090f1e] hover:bg-[#e8f0ff] dark:hover:bg-[#0c1428] text-gray-700 dark:text-[#6080a8] font-medium text-sm transition-colors">
                       <GoogleIcon /> Google
                     </button>
                     <button type="button" onClick={signInWithApple}
-                      className="flex-1 flex items-center justify-center gap-2 h-10 rounded-xl border border-gray-200 dark:border-white/20 bg-white dark:bg-white/10 hover:bg-gray-50 dark:hover:bg-white/15 text-gray-700 dark:text-white font-medium text-sm transition-colors">
+                      className="flex-1 flex items-center justify-center gap-2 h-10 rounded-xl border border-[#dce7ff] dark:border-[#1b2e48] bg-[#f2f6ff] dark:bg-[#090f1e] hover:bg-[#e8f0ff] dark:hover:bg-[#0c1428] text-gray-700 dark:text-[#6080a8] font-medium text-sm transition-colors">
                       <AppleIcon /> Apple
                     </button>
                   </div>
@@ -387,7 +400,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                       placeholder={t('search_country')}
                       value={countrySearch}
                       onChange={e => setCountrySearch(e.target.value)}
-                      className="w-full rounded-xl border border-border bg-background pl-9 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-stockshop-blue/40 placeholder:text-muted-foreground"
+                      className="w-full rounded-xl border border-border bg-background dark:bg-[#060e1c] dark:border-[#1b2e48] dark:text-[#d8e8ff] dark:placeholder:text-[#2e4460] pl-9 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-stockshop-blue/40 placeholder:text-muted-foreground"
                     />
                   </div>
 
@@ -425,7 +438,8 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
 
                   <div className="flex gap-2 pt-1">
                     <Button type="button" variant="outline" onClick={() => setStep(1)} className="flex-1">{t('back')}</Button>
-                    <Button type="button" onClick={goStep3} disabled={!country} className="flex-1 bg-stockshop-blue">
+                    <Button type="button" onClick={goStep3} disabled={!country} className="flex-1 bg-[#073e8a] hover:bg-[#0d52b8]"
+                      style={isDark ? { background: 'linear-gradient(135deg, #1948cc 0%, #0d38a8 100%)', boxShadow: '0 4px 20px rgba(29,80,220,0.40)' } : {}}>
                       {t('next')}
                     </Button>
                   </div>
@@ -443,9 +457,9 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                   <div className="space-y-1.5">
                     <Label>{t('shop_name')}</Label>
                     <div className="relative">
-                      <Store className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-gray-500" />
+                      <Store className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-[#2e4460]" />
                       <Input {...register('shop_name')} placeholder="Boutique Alhaji Musa"
-                        className="pl-9 dark:bg-white dark:text-gray-900 dark:placeholder:text-gray-400 dark:border-white/30" />
+                        className="pl-9 dark:bg-[#060e1c] dark:border-[#1b2e48] dark:text-[#d8e8ff] dark:placeholder:text-[#2e4460]" />
                     </div>
                     {errors.shop_name && <p className="text-xs text-destructive">{errors.shop_name.message}</p>}
                   </div>
@@ -453,9 +467,9 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                   <div className="space-y-1.5">
                     <Label>{t('shop_city')}</Label>
                     <div className="relative">
-                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-gray-500" />
+                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-[#2e4460]" />
                       <Input {...register('city')} placeholder={selectedCountry.cityPlaceholder}
-                        className="pl-9 dark:bg-white dark:text-gray-900 dark:placeholder:text-gray-400 dark:border-white/30" />
+                        className="pl-9 dark:bg-[#060e1c] dark:border-[#1b2e48] dark:text-[#d8e8ff] dark:placeholder:text-[#2e4460]" />
                     </div>
                     {errors.city && <p className="text-xs text-destructive">{errors.city.message}</p>}
                   </div>
@@ -465,7 +479,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">{selectedCountry.phonePrefix}</span>
                       <Input {...register('phone')} placeholder="XXXXXXXXXX"
-                        className="pl-14 dark:bg-white dark:text-gray-900 dark:placeholder:text-gray-400 dark:border-white/30" />
+                        className="pl-14 dark:bg-[#060e1c] dark:border-[#1b2e48] dark:text-[#d8e8ff] dark:placeholder:text-[#2e4460]" />
                     </div>
                   </div>
 
@@ -476,7 +490,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                       onChange={e => checkReferralCode(e.target.value.toUpperCase())}
                       placeholder="ex: ALHAJI2025"
                       maxLength={20}
-                      className="font-mono uppercase dark:bg-white dark:text-gray-900 dark:placeholder:text-gray-400 dark:border-white/30"
+                      className="font-mono uppercase dark:bg-[#060e1c] dark:border-[#1b2e48] dark:text-[#d8e8ff] dark:placeholder:text-[#2e4460]"
                     />
                     {referralChecking && (
                       <p className="text-xs text-muted-foreground">Vérification...</p>
@@ -500,7 +514,8 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                       type="submit"
                       loading={isSubmitting}
                       disabled={isSubmitting || countdown > 0}
-                      className="flex-1 bg-stockshop-blue"
+                      className="flex-1 bg-[#073e8a] hover:bg-[#0d52b8]"
+                      style={isDark ? { background: 'linear-gradient(135deg, #1948cc 0%, #0d38a8 100%)', boxShadow: '0 4px 20px rgba(29,80,220,0.40)' } : {}}
                     >
                       {t('create_shop')}
                     </Button>
@@ -511,9 +526,9 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
           </div>
         </div>
 
-        <p className="text-center text-blue-200 text-sm mt-4">
+        <p className="text-center text-sm mt-4 text-[#607090] dark:text-[#3a5070]">
           {t('already_have_account')}{' '}
-          <Link href={`/${locale}/login`} className="text-white font-semibold hover:underline">
+          <Link href={`/${locale}/login`} className="text-[#073e8a] dark:text-[#4a88f5] font-semibold hover:underline">
             {t('login_link')}
           </Link>
         </p>
