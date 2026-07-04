@@ -67,7 +67,7 @@ function writeDashCache(data: Omit<DashCache, 'savedAt'>) {
 export default function DashboardPage() {
   const t = useTranslations()
   const locale = useLocale()
-  const { profile, shop, userShops, dashboardShopFilter, setDashboardShopFilter, roleInActiveShop, loading: authLoading } = useAuth()
+  const { profile, shop, userShops, dashboardShopFilter, setDashboardShopFilter, switchShop, roleInActiveShop, loading: authLoading } = useAuth()
   const { fmt: formatNaira } = useCurrency()
   const { toast } = useToast()
 
@@ -523,7 +523,7 @@ export default function DashboardPage() {
                     {userShops.map(s => (
                       <button
                         key={s.id}
-                        onClick={() => { setDashboardShopFilter(s.id); setShopPickerOpen(false) }}
+                        onClick={() => { setDashboardShopFilter(s.id); switchShop(s.id); setShopPickerOpen(false) }}
                         className={cn(
                           'w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors',
                           dashboardShopFilter === s.id ? 'bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400 font-medium' : 'hover:bg-accent text-foreground/80'
