@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 
 const COOKIE_OPTS = {
@@ -85,10 +86,21 @@ export async function POST(request: Request) {
   }
 }
 
-// DELETE — clear the role and plan cookies on sign-out
+// DELETE — clear role, plan, and Supabase session cookies on sign-out
 export async function DELETE() {
+  const cookieStore = cookies()
   const response = NextResponse.json({ success: true })
   response.cookies.set('user_role', '', { ...COOKIE_OPTS, maxAge: 0 })
   response.cookies.set('plan_ok_until', '', { ...COOKIE_OPTS, maxAge: 0 })
+
+  // Also clear the Supabase auth token cookie so the middleware stops treating
+  // the browser as authenticated after a client-side sign-out.
+  // The client-side auth.signOut() only clears localStorage — not HTTP cookies.
+  cookieStore.getAll().forEach(c => {
+    if (c.name.startsWith('sb-') && c.name.includes('-auth-token') && !c.name.includes('verifier')) {
+      response.cookies.set(c.name, '', { path: '/', maxAge: 0, sameSite: 'lax', secure: process.env.NODE_ENV === 'production' })
+    }
+  })
+
   return response
 }

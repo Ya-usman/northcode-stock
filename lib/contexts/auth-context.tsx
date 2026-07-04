@@ -561,13 +561,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Wipe local state synchronously, then fire network calls without awaiting —
-    // supabase.auth.signOut() and the set-role call can hang indefinitely on mobile;
-    // the local session is already cleared so redirecting to /login is safe.
     localStorage.removeItem('active_shop_id')
     clearCache()
     clearReadCaches()
-    fetch('/api/auth/set-role', { method: 'DELETE', signal: AbortSignal.timeout(5_000) }).catch(() => {})
+    // Await the set-role DELETE (fast — no Supabase network call inside) so the
+    // sb-*-auth-token cookie is cleared before the browser navigates.
+    // Without this, the middleware still sees a valid cookie and loops: /login → /dashboard.
+    await fetch('/api/auth/set-role', { method: 'DELETE', signal: AbortSignal.timeout(5_000) }).catch(() => {})
+    // Fire-and-forget: these make Supabase API calls that can hang on slow networks.
     supabase.auth.signOut().catch(() => {})
     deleteOfflineDb().catch(() => {})
     window.location.href = `/${savedLocale}/login`
