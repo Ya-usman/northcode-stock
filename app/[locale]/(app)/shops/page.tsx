@@ -18,7 +18,7 @@ import type { Shop } from '@/lib/types/database'
 const supabase = createClient()
 
 export default function ShopsPage({ params: { locale } }: { params: { locale: string } }) {
-  const { user, userShops, activeShop, switchShop, profile, refreshShop } = useAuthContext()
+  const { user, userShops, activeShop, switchShop, setDashboardShopFilter, profile, refreshShop } = useAuthContext()
   const { toast } = useToast()
   const t = useTranslations()
   const [creating, setCreating] = useState(false)
@@ -56,6 +56,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
 
       await refreshShop()
       switchShop((shop as Shop).id)
+      setDashboardShopFilter((shop as Shop).id)
       toast({ title: t('shops.created'), variant: 'success' })
       setCreating(false)
       setNewName('')
@@ -78,7 +79,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
       setConfirmDeleteId(null)
       if (activeShop?.id === shopId) {
         const next = userShops.find(s => s.id !== shopId)
-        if (next) switchShop(next.id)
+        if (next) { switchShop(next.id); setDashboardShopFilter(next.id) }
       }
       await refreshShop()
     } catch (err: any) {
@@ -211,7 +212,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => switchShop(shop.id)}
+                      onClick={() => { switchShop(shop.id); setDashboardShopFilter(shop.id) }}
                       className="gap-1.5 text-xs"
                     >
                       {t('shops.switch')}
