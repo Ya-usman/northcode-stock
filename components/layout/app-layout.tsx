@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
@@ -11,6 +11,8 @@ import { Header } from './header'
 import { NavigationProgress } from './navigation-progress'
 import { OfflineBanner } from '@/components/offline/offline-banner'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { TrialBanner } from '@/components/saas/trial-banner'
 import { UpgradeWall } from '@/components/saas/upgrade-wall'
 import { PlanLimitAlert } from '@/components/saas/plan-limit-alert'
@@ -242,21 +244,32 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   const { pendingCount } = useOffline()
   const { isOffline, cacheAgeMs } = useOfflineRoutes()
 
-  const handleSignOut = async () => {
+  const [signOutDialogOpen, setSignOutDialogOpen] = useState(false)
+  const [signOutReason, setSignOutReason] = useState<'blocked' | 'sync_failed' | null>(null)
+  const [forcingSignOut, setForcingSignOut] = useState(false)
+  const [retryingSync, setRetryingSync] = useState(false)
+
+  const handleSignOut = useCallback(async () => {
     const result = await signOut()
-    if (result === 'blocked') {
-      toast({
-        title: 'Ventes non synchronisées',
-        description: `${pendingCount} vente${pendingCount > 1 ? 's' : ''} en attente. Connectez-vous à internet avant de vous déconnecter.`,
-        variant: 'destructive',
-      })
-    } else if (result === 'sync_failed') {
-      toast({
-        title: 'Échec de synchronisation',
-        description: 'Certaines ventes n\'ont pas pu être envoyées. Réessayez dans quelques secondes.',
-        variant: 'destructive',
-      })
+    if (result === 'blocked' || result === 'sync_failed') {
+      setSignOutReason(result)
+      setSignOutDialogOpen(true)
     }
+  }, [signOut])
+
+  const handleForceSignOut = async () => {
+    setForcingSignOut(true)
+    await signOut(true)
+  }
+
+  const handleRetrySync = async () => {
+    setRetryingSync(true)
+    setSignOutDialogOpen(false)
+    const result = await signOut()
+    if (result === 'ok') return
+    setSignOutReason(result)
+    setSignOutDialogOpen(true)
+    setRetryingSync(false)
   }
 
   // ── WAKE: quand l'app revient au premier plan après background Android,
@@ -416,6 +429,47 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
       </div>
 
       <BottomNav locale={locale} role={roleInActiveShop ?? profile.role} onSignOut={handleSignOut} userEmail={user.email ?? ''} hasUnreadAnnouncement={hasUnreadAnnouncement} crispUnread={crispUnread} onOpenChat={handleOpenChat} />
+
+      {/* Sign-out protection dialog */}
+      <Dialog open={signOutDialogOpen} onOpenChange={open => { if (!open && !forcingSignOut) setSignOutDialogOpen(false) }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="text-xl">⚠️</span>
+              {signOutReason === 'blocked' ? 'Hors connexion' : 'Échec de synchronisation'}
+            </DialogTitle>
+            <DialogDescription className="pt-1 space-y-2">
+              <span className="block">
+                {signOutReason === 'blocked'
+                  ? `Vous avez ${pendingCount} opération${pendingCount > 1 ? 's' : ''} hors-ligne non synchronisée${pendingCount > 1 ? 's' : ''}. Connectez-vous à internet avant de vous déconnecter.`
+                  : `La synchronisation a échoué. ${pendingCount} opération${pendingCount > 1 ? 's' : ''} risque${pendingCount > 1 ? 'nt' : ''} d'être perdue${pendingCount > 1 ? 's' : ''} définitivement si vous vous déconnectez maintenant.`
+                }
+              </span>
+              <span className="block text-xs text-destructive font-medium">
+                Se déconnecter maintenant effacera définitivement les données non envoyées.
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            {signOutReason === 'sync_failed' && (
+              <Button onClick={handleRetrySync} disabled={retryingSync} className="w-full bg-stockshop-blue hover:bg-stockshop-blue-light">
+                {retryingSync ? 'Synchronisation…' : '🔄 Réessayer la synchronisation'}
+              </Button>
+            )}
+            <Button
+              variant="destructive"
+              onClick={handleForceSignOut}
+              disabled={forcingSignOut}
+              className="w-full"
+            >
+              {forcingSignOut ? 'Déconnexion…' : 'Se déconnecter quand même'}
+            </Button>
+            <Button variant="ghost" onClick={() => setSignOutDialogOpen(false)} disabled={forcingSignOut} className="w-full">
+              Annuler
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {whatsNewOpen && announcements.length > 0 && (
         <WhatsNewModal announcements={announcements} onClose={handleCloseWhatsNew} />

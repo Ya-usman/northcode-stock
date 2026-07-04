@@ -19,7 +19,7 @@ interface AuthState {
 interface AuthContextValue extends AuthState {
   shop: Shop | null
   isSuperAdmin: boolean
-  signOut: () => Promise<'ok' | 'blocked' | 'sync_failed'>
+  signOut: (force?: boolean) => Promise<'ok' | 'blocked' | 'sync_failed'>
   refreshShop: () => Promise<void>
   patchShop: (shopId: string, updates: Partial<Shop>) => void
   switchShop: (shopId: string) => void
@@ -507,33 +507,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Returns null if sign-out is blocked (unsynced sales + offline).
   // Returns a string error message if sync failed but user can retry.
   // Returns 'ok' on success.
-  const signOut = useCallback(async (): Promise<'ok' | 'blocked' | 'sync_failed'> => {
+  const signOut = useCallback(async (force = false): Promise<'ok' | 'blocked' | 'sync_failed'> => {
     const savedLocale = getLocaleCookie() || localStorage.getItem('NEXT_LOCALE') || 'en'
     const shopId = state.activeShop?.id
 
-    // Check for unsynced pending data
-    const { getTotalPendingCount } = await import('@/lib/offline/db')
-    const pendingTotal = await getTotalPendingCount().catch(() => 0)
+    if (!force) {
+      // Check for unsynced pending data.
+      // If IndexedDB is unavailable, assume pending=1 to block logout and protect data.
+      const { getTotalPendingCount } = await import('@/lib/offline/db')
+      const pendingTotal = await getTotalPendingCount().catch(() => 1)
 
-    if (pendingTotal > 0) {
-      if (!navigator.onLine) {
-        // Cannot sync — block logout to protect sales data
-        return 'blocked'
-      }
-      // Online: sync everything before wiping
-      try {
-        const { syncPendingSales, syncPendingMovements } = await import('@/lib/offline/sync')
-        if (shopId) {
-          const results = await Promise.all([syncPendingSales(shopId), syncPendingMovements(shopId)])
-          const totalFailed = results.reduce((s, r) => s + r.failed, 0)
-          if (totalFailed > 0) return 'sync_failed'
+      if (pendingTotal > 0) {
+        if (!navigator.onLine) {
+          // Cannot sync — block logout to protect offline data
+          return 'blocked'
         }
-      } catch {
-        return 'sync_failed'
+        // Online: attempt sync before wiping
+        try {
+          const { syncPendingSales, syncPendingMovements, syncPendingExpenses } = await import('@/lib/offline/sync')
+          if (shopId) {
+            const results = await Promise.all([
+              syncPendingSales(shopId),
+              syncPendingMovements(shopId),
+              syncPendingExpenses(shopId),
+            ])
+            const totalFailed = results.reduce((s, r) => s + r.failed, 0)
+            if (totalFailed > 0) return 'sync_failed'
+          }
+        } catch {
+          return 'sync_failed'
+        }
       }
     }
 
-    // All clear — wipe caches and sign out
+    // All clear (or force=true) — wipe caches and sign out
     localStorage.removeItem('active_shop_id')
     clearCache()
     clearReadCaches()
