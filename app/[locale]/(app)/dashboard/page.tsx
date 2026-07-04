@@ -14,7 +14,7 @@ import { StockAlerts } from '@/components/dashboard/stock-alerts'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
-import { RefreshCw, Store, ChevronDown, Check } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { format, subDays, startOfDay, endOfDay, startOfMonth, endOfMonth, parseISO } from 'date-fns'
 import type { Sale, Product, RevenueDataPoint, TopProduct } from '@/lib/types/database'
 import { useCurrency } from '@/lib/hooks/use-currency'
@@ -67,7 +67,7 @@ function writeDashCache(data: Omit<DashCache, 'savedAt'>) {
 export default function DashboardPage() {
   const t = useTranslations()
   const locale = useLocale()
-  const { profile, shop, userShops, dashboardShopFilter, setDashboardShopFilter, switchShop, roleInActiveShop, loading: authLoading } = useAuth()
+  const { profile, shop, userShops, dashboardShopFilter, roleInActiveShop, loading: authLoading } = useAuth()
   const { fmt: formatNaira } = useCurrency()
   const { toast } = useToast()
 
@@ -83,7 +83,6 @@ export default function DashboardPage() {
     return readDashCacheStale(`${profile.id}:${shopIds.join(',')}`)
   })
 
-  const [shopPickerOpen, setShopPickerOpen] = useState(false)
   const [firstLoad, setFirstLoad] = useState(!mountCache && shopIds.length > 0)
   const [refreshing, setRefreshing] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
@@ -100,9 +99,6 @@ export default function DashboardPage() {
   const [monthExpenses, setMonthExpenses] = useState<number | null>(mountCache?.monthExpenses ?? null)
   const [monthRevenue, setMonthRevenue]   = useState<number | null>(mountCache?.monthRevenue ?? null)
 
-  const activeShopLabel = dashboardShopFilter
-    ? userShops.find(s => s.id === dashboardShopFilter)?.name || t('nav.shops')
-    : userShops.length > 1 ? t('dashboard.all_shops') : (shop?.name || t('nav.shops'))
 
   // Track in-flight request to avoid stale updates
   const loadingRef = useRef(false)
@@ -494,49 +490,11 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Shop filter — visible si l'owner a plusieurs boutiques */}
-          {userShops.length > 1 && (
-            <div className="relative">
-              <button
-                onClick={() => setShopPickerOpen(o => !o)}
-                className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm font-medium shadow-sm hover:bg-accent transition-colors"
-              >
-                <Store className="h-4 w-4 text-stockshop-blue dark:text-blue-400" />
-                <span className="max-w-[140px] truncate">{activeShopLabel}</span>
-                <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform', shopPickerOpen && 'rotate-180')} />
-              </button>
-
-              {shopPickerOpen && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setShopPickerOpen(false)} />
-                  <div className="absolute right-0 top-full z-20 mt-1 w-52 rounded-xl border bg-card shadow-lg p-1.5">
-                    <button
-                      onClick={() => { setDashboardShopFilter(null); setShopPickerOpen(false) }}
-                      className={cn(
-                        'w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors',
-                        !dashboardShopFilter ? 'bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400 font-medium' : 'hover:bg-accent text-foreground/80'
-                      )}
-                    >
-                      <span>{t('dashboard.all_shops')}</span>
-                      {!dashboardShopFilter && <Check className="h-3.5 w-3.5" />}
-                    </button>
-                    {userShops.map(s => (
-                      <button
-                        key={s.id}
-                        onClick={() => { setDashboardShopFilter(s.id); switchShop(s.id); setShopPickerOpen(false) }}
-                        className={cn(
-                          'w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors',
-                          dashboardShopFilter === s.id ? 'bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400 font-medium' : 'hover:bg-accent text-foreground/80'
-                        )}
-                      >
-                        <span className="truncate">{s.name}</span>
-                        {dashboardShopFilter === s.id && <Check className="h-3.5 w-3.5" />}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+          {/* Mode indicator — "Toutes les boutiques" si le filtre est global */}
+          {userShops.length > 1 && !dashboardShopFilter && (
+            <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground select-none">
+              {t('dashboard.all_shops')}
+            </span>
           )}
 
           <Button

@@ -29,10 +29,11 @@ interface HeaderProps {
 
 export function Header({ title, locale, crispUnread = 0, onOpenChat }: HeaderProps) {
   const pathname = usePathname()
-  const { shop, updateLocale } = useAuthContext()
+  const { shop, userShops, updateLocale } = useAuthContext()
   const { isDark, toggle } = useTheme()
   const { symbol } = useCurrency()
   const countryFlag = getCountry(shop?.country).flag
+  const isMultiShop = userShops.length > 1
 
   const switchLanguage = (newLocale: string) => {
     const newPath = pathname.replace(`/${locale}`, `/${newLocale}`)
@@ -48,11 +49,14 @@ export function Header({ title, locale, crispUnread = 0, onOpenChat }: HeaderPro
       <h1 className="flex-1 font-semibold text-base text-foreground truncate">{title}</h1>
 
       <div className="flex items-center gap-1">
-        {/* Currency badge */}
+        {/* Shop / currency badge */}
         {shop && (
-          <div className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-md bg-muted text-xs font-medium text-muted-foreground select-none">
-            <span>{countryFlag}</span>
-            <span>{symbol}</span>
+          <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted text-xs font-medium text-muted-foreground select-none max-w-[160px]">
+            <span className="flex-shrink-0">{countryFlag}</span>
+            {isMultiShop
+              ? <span className="truncate">{shop.name}</span>
+              : <span>{symbol}</span>
+            }
           </div>
         )}
 
