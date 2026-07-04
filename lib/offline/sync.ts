@@ -119,7 +119,7 @@ export async function syncPendingSales(shopId: string): Promise<SyncResult> {
   // et ne détecte pas l'expiration.
   const { data: { session }, error: refreshError } = await supabase.auth.refreshSession()
   if (refreshError || !session) {
-    return { synced: 0, failed: 0, errors: ['Session expirée — reconnectez-vous pour synchroniser.'] }
+    return { synced: 0, failed: 1, errors: ['Session expirée — reconnectez-vous pour synchroniser.'] }
   }
 
   const pending = await getPendingSales(shopId)

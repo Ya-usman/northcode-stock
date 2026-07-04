@@ -29,6 +29,7 @@ export function useOffline() {
   const [lastSyncResult, setLastSyncResult] = useState<SyncResult | null>(null)
   const shopId = shop?.id
   const syncingRef = useRef(false)
+  const pendingCountRef = useRef(0)
 
   const refreshPendingCount = useCallback(async () => {
     if (!shopId) return
@@ -37,7 +38,9 @@ export function useOffline() {
       getPendingMovementCount(shopId),
       getPendingExpenseCount(shopId),
     ])
-    setPendingCount(sales + movements + expenses)
+    const total = sales + movements + expenses
+    setPendingCount(total)
+    pendingCountRef.current = total
   }, [shopId])
 
   const sync = useCallback(async (): Promise<SyncResult | null> => {
@@ -83,8 +86,8 @@ export function useOffline() {
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
 
-    // Re-check every 30s in case the device regained connectivity silently
-    const interval = setInterval(() => verifyAndSetOnline(), 30_000)
+    // Re-check every 30s — trigger sync only if there are pending operations
+    const interval = setInterval(() => verifyAndSetOnline(pendingCountRef.current > 0), 30_000)
 
     // Listen for Background Sync message from service worker
     const handleMessage = (event: MessageEvent) => {

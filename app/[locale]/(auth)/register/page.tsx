@@ -161,7 +161,9 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
     setCountdown(0)
     try {
       await supabase.auth.signOut()
+      const drafts = localStorage.getItem('nc_sale_drafts')
       localStorage.clear()
+      if (drafts) localStorage.setItem('nc_sale_drafts', drafts)
       if ('caches' in window) {
         const keys = await caches.keys()
         await Promise.all(keys.map(k => caches.delete(k)))
