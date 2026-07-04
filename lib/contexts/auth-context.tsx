@@ -392,6 +392,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [applyUserData])
 
+  // Proactive JWT refresh every 45 min — the access token expires after 60 min.
+  // Refreshing before expiry means reconnection sync never races against an expired token.
+  useEffect(() => {
+    if (!state.user?.id) return
+    const interval = setInterval(() => {
+      if (!navigator.onLine) return
+      supabase.auth.refreshSession().catch(() => {})
+    }, 45 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [state.user?.id])
+
   const setDashboardShopFilter = useCallback((id: string | null) => {
     setDashboardShopFilterState(id)
     if (id === null) localStorage.removeItem('dashboard_shop_filter')
