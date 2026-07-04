@@ -530,12 +530,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (!force) {
       const { getTotalPendingCount } = await import('@/lib/offline/db')
-      const pendingTotal = await getTotalPendingCount().catch(() => 1)
+      // Race with 3s hard timeout — if IDB never resolves, treat as pending=1
+      const pendingTotal = await Promise.race([
+        getTotalPendingCount().catch(() => 1),
+        new Promise<number>(resolve => setTimeout(() => resolve(1), 3_000)),
+      ])
 
       if (pendingTotal > 0) {
         if (!navigator.onLine) return 'blocked'
 
-        // Sync with a hard 10s timeout so the button never hangs indefinitely
+        // Sync with a hard 10s timeout so it never hangs on a slow network
         try {
           const { syncPendingSales, syncPendingMovements, syncPendingExpenses } = await import('@/lib/offline/sync')
           if (shopId) {
@@ -557,11 +561,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    // Wipe local state synchronously, then fire network calls without awaiting —
+    // supabase.auth.signOut() and the set-role call can hang indefinitely on mobile;
+    // the local session is already cleared so redirecting to /login is safe.
     localStorage.removeItem('active_shop_id')
     clearCache()
     clearReadCaches()
-    await fetch('/api/auth/set-role', { method: 'DELETE' }).catch(() => {})
-    await Promise.all([supabase.auth.signOut().catch(() => {}), deleteOfflineDb()])
+    fetch('/api/auth/set-role', { method: 'DELETE', signal: AbortSignal.timeout(5_000) }).catch(() => {})
+    supabase.auth.signOut().catch(() => {})
+    deleteOfflineDb().catch(() => {})
     window.location.href = `/${savedLocale}/login`
     return 'ok'
   }, [state.activeShop?.id])
