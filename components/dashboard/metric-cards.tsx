@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { TrendingUp, ShoppingCart, AlertTriangle, CreditCard, Receipt, CalendarDays } from 'lucide-react'
+import { TrendingUp, ShoppingCart, AlertTriangle, CreditCard, Receipt, CalendarDays, BarChart2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { useTranslations, useLocale } from 'next-intl'
 import { useCurrency } from '@/lib/hooks/use-currency'
@@ -13,6 +13,7 @@ interface MetricCardsProps {
   outstandingDebt: number
   monthExpenses?: number
   monthRevenue?: number
+  monthGlobalRevenue?: number
   role: string
   isCashier?: boolean
   canRevenueChart?: boolean
@@ -29,7 +30,7 @@ const item = {
   show: { opacity: 1, y: 0 },
 }
 
-export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outstandingDebt, monthExpenses = 0, monthRevenue = 0, role, isCashier, canRevenueChart = false, canSeeExpenses = false, isLoading = false }: MetricCardsProps) {
+export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outstandingDebt, monthExpenses = 0, monthRevenue = 0, monthGlobalRevenue = 0, role, isCashier, canRevenueChart = false, canSeeExpenses = false, isLoading = false }: MetricCardsProps) {
   const t = useTranslations('dashboard')
   const locale = useLocale()
   const { fmt, symbol } = useCurrency()
@@ -99,6 +100,15 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
       color: 'text-violet-600 dark:text-violet-400',
       bg: 'bg-violet-50 dark:bg-violet-950/30',
       show: true,
+    },
+    {
+      title: t('global_month_sales'),
+      value: compact(monthGlobalRevenue),
+      subValue: fmt(monthGlobalRevenue),
+      icon: BarChart2,
+      color: 'text-sky-600 dark:text-sky-400',
+      bg: 'bg-sky-50 dark:bg-sky-950/30',
+      show: canRevenueChart,
     },
   ].filter(c => c.show)
 

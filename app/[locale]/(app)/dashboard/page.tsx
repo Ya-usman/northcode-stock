@@ -33,7 +33,7 @@ interface DashCache {
   revenueData: RevenueDataPoint[]; topProducts: TopProduct[]
   lowStock: Product[]; outOfStock: Product[]
   recentSales: Sale[]; repaymentItems: RepaymentFeedItem[]
-  monthExpenses?: number; monthRevenue?: number
+  monthExpenses?: number; monthRevenue?: number; monthGlobalRevenue?: number
   savedAt: number
 }
 function readDashCache(shopKey: string): DashCache | null {
@@ -96,8 +96,9 @@ export default function DashboardPage() {
   const [topProducts, setTopProducts] = useState<TopProduct[]>(mountCache?.topProducts ?? [])
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>(mountCache?.lowStock ?? [])
   const [outOfStockProducts, setOutOfStockProducts] = useState<Product[]>(mountCache?.outOfStock ?? [])
-  const [monthExpenses, setMonthExpenses] = useState<number | null>(mountCache?.monthExpenses ?? null)
-  const [monthRevenue, setMonthRevenue]   = useState<number | null>(mountCache?.monthRevenue ?? null)
+  const [monthExpenses, setMonthExpenses]           = useState<number | null>(mountCache?.monthExpenses ?? null)
+  const [monthRevenue, setMonthRevenue]             = useState<number | null>(mountCache?.monthRevenue ?? null)
+  const [monthGlobalRevenue, setMonthGlobalRevenue] = useState<number | null>(mountCache?.monthGlobalRevenue ?? null)
 
 
   // Track in-flight request to avoid stale updates
@@ -109,7 +110,7 @@ export default function DashboardPage() {
   const applyDashData = useCallback((
     salesCount: number, revenue: number, debt: number,
     sales: Sale[], repayments: RepaymentFeedItem[], revData: RevenueDataPoint[], tops: TopProduct[],
-    low: Product[], out: Product[], expenses = 0, mRevenue = 0
+    low: Product[], out: Product[], expenses = 0, mRevenue = 0, mGlobalRevenue = 0
   ) => {
     setTodaySalesCount(salesCount)
     setTodayRevenue(revenue)
@@ -122,6 +123,7 @@ export default function DashboardPage() {
     setOutOfStockProducts(out)
     setMonthExpenses(expenses)
     setMonthRevenue(mRevenue)
+    setMonthGlobalRevenue(mGlobalRevenue)
   }, [])
 
   const loadDashboard = useCallback(async (quiet = false) => {
@@ -141,7 +143,7 @@ export default function DashboardPage() {
       if (cached) {
         applyDashData(cached.todaySalesCount, cached.todayRevenue, cached.outstandingDebt,
           cached.recentSales, cached.repaymentItems ?? [], cached.revenueData, cached.topProducts, cached.lowStock, cached.outOfStock,
-          cached.monthExpenses ?? 0, cached.monthRevenue ?? 0)
+          cached.monthExpenses ?? 0, cached.monthRevenue ?? 0, cached.monthGlobalRevenue ?? 0)
         setFirstLoad(false)
       }
     }
@@ -181,6 +183,7 @@ export default function DashboardPage() {
         paymentsRes,
         { data: expensesRaw },
         { data: monthSalesRaw },
+        { data: monthGlobalRaw },
       ] = await Promise.all([
         // Today's sales — cashier sees only their own; owner/viewer sees all
         (() => {
@@ -253,6 +256,15 @@ export default function DashboardPage() {
           .eq('cashier_id', cashierId)
           .gte('created_at', startOfMonth(today).toISOString())
           .lte('created_at', endOfMonth(today).toISOString()),
+
+        // Global month revenue (all cashiers) — for roles with revenue_chart access
+        supabase
+          .from('sales')
+          .select('amount_paid')
+          .in('shop_id', shopIds)
+          .eq('sale_status', 'active')
+          .gte('created_at', startOfMonth(today).toISOString())
+          .lte('created_at', endOfMonth(today).toISOString()),
       ])
 
       const paymentsApiOk = paymentsRes.ok
@@ -267,8 +279,9 @@ export default function DashboardPage() {
       const salesArr = (todaySales || []) as unknown as Sale[]
       const salesCount = salesArr.length
       const debt = (debtData || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0)
-      const expensesTotal    = (expensesRaw   || []).reduce((s: number, e: any) => s + Number(e.amount), 0)
-      const monthRevenueTotal = (monthSalesRaw || []).reduce((s: number, e: any) => s + Number(e.amount_paid), 0)
+      const expensesTotal         = (expensesRaw    || []).reduce((s: number, e: any) => s + Number(e.amount), 0)
+      const monthRevenueTotal     = (monthSalesRaw  || []).reduce((s: number, e: any) => s + Number(e.amount_paid), 0)
+      const monthGlobalRevenueTotal = (monthGlobalRaw || []).reduce((s: number, e: any) => s + Number(e.amount_paid), 0)
 
       // Cashier's own sale IDs (already filtered by cashier_id above)
       const cashierSaleIds = new Set(salesArr.map((s: any) => s.id))
@@ -335,12 +348,12 @@ export default function DashboardPage() {
       // matches what the user expects: sales revenue, not total cash flow.
       const revenue = salesArr.reduce((s: number, sale: any) => s + Number(sale.amount_paid), 0)
 
-      applyDashData(salesCount, revenue, debt, salesArr, repaymentItems, revData, tops, lowSt, outOf, expensesTotal, monthRevenueTotal)
+      applyDashData(salesCount, revenue, debt, salesArr, repaymentItems, revData, tops, lowSt, outOf, expensesTotal, monthRevenueTotal, monthGlobalRevenueTotal)
 
       writeDashCache({ shopKey, todaySalesCount: salesCount, todayRevenue: revenue,
         outstandingDebt: debt, recentSales: salesArr, repaymentItems,
         revenueData: revData, topProducts: tops, lowStock: lowSt, outOfStock: outOf,
-        monthExpenses: expensesTotal, monthRevenue: monthRevenueTotal })
+        monthExpenses: expensesTotal, monthRevenue: monthRevenueTotal, monthGlobalRevenue: monthGlobalRevenueTotal })
 
     } finally {
       loadingRef.current = false
@@ -529,6 +542,7 @@ export default function DashboardPage() {
         outstandingDebt={outstandingDebt ?? 0}
         monthExpenses={monthExpenses ?? 0}
         monthRevenue={monthRevenue ?? 0}
+        monthGlobalRevenue={monthGlobalRevenue ?? 0}
         role={profile?.role || 'viewer'}
         isCashier={isCashierView}
         canRevenueChart={canSeeRevenueChart}
