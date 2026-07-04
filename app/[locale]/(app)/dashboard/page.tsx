@@ -399,6 +399,7 @@ export default function DashboardPage() {
   const isCashierView = (roleInActiveShop ?? profile?.role) === 'cashier'
   const { canAccess } = useRolePermissions()
   const canSeeRevenueChart = canAccess('revenue_chart')
+  const canSeeExpenses = canAccess('expenses')
   useDashboardRealtime(shop?.id || null, {
     onNewSale: (sale) => {
       if (shopIds.includes(sale.shop_id || '')) {
@@ -531,6 +532,7 @@ export default function DashboardPage() {
         role={profile?.role || 'viewer'}
         isCashier={isCashierView}
         canRevenueChart={canSeeRevenueChart}
+        canSeeExpenses={canSeeExpenses}
       />
 
       {/* Stock alerts */}
