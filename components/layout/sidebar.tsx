@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import {
   LayoutDashboard, ShoppingCart, Package, BarChart2, Settings,
   Users, Truck, CreditCard, History, LogOut, ChevronRight, Zap,
-  Store, ChevronDown, Tag, Check, Layers, ArrowLeftRight, Receipt, ShieldCheck, NotebookPen, BookOpen, Loader2,
+  Store, ChevronDown, Tag, Check, Layers, ArrowLeftRight, Receipt, ShieldCheck, NotebookPen, BookOpen, Loader2, ClipboardList,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -68,6 +68,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut, signingOut = f
     {
       section: t('section_management'),
       items: [
+        { href: `/${locale}/caisse`, icon: ClipboardList, label: t('caisse'), roles: ['owner', 'super_admin', 'manager', 'shop_manager'] },
         { href: `/${locale}/reports`, icon: BarChart2, label: t('reports'), roles: ALL_NON_OWNER, feature: 'reports' as PermFeature },
         { href: `/${locale}/notes`,    icon: NotebookPen, label: t('notes'),    roles: ALL_NON_OWNER, feature: 'notes' as PermFeature },
         { href: `/${locale}/expenses`, icon: Receipt,     label: t('expenses'), roles: ALL_NON_OWNER, feature: 'expenses' as PermFeature },

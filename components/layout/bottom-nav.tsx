@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl'
 import {
   LayoutDashboard, ShoppingCart, Package, BarChart2, Settings,
   MoreHorizontal, History, CreditCard, Users, Truck, Zap,
-  X, LogOut, Store, Tag, ArrowLeftRight, Receipt, ShieldCheck, NotebookPen, BookOpen, MessageCircle, Loader2,
+  X, LogOut, Store, Tag, ArrowLeftRight, Receipt, ShieldCheck, NotebookPen, BookOpen, MessageCircle, Loader2, ClipboardList,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import type { UserRole } from '@/lib/types/database'
@@ -48,6 +48,7 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
     { href: `/${locale}/stock/movements`, icon: ArrowLeftRight,  label: t('movements'),     roles: ALL_NON_OWNER, feature: 'movements' as PermFeature,       primary: false },
     { href: `/${locale}/categories`,      icon: Tag,             label: t('categories'),    roles: ALL_NON_OWNER, feature: 'categories' as PermFeature,      primary: false },
     { href: `/${locale}/suppliers`,       icon: Truck,           label: t('suppliers'),     roles: ALL_NON_OWNER, feature: 'suppliers' as PermFeature,       primary: false },
+    { href: `/${locale}/caisse`,   icon: ClipboardList, label: t('caisse'), roles: ['super_admin', 'owner', 'manager', 'shop_manager'],                primary: false },
     { href: `/${locale}/notes`,    icon: NotebookPen, label: t('notes'),    roles: ALL_NON_OWNER, feature: 'notes' as PermFeature,    primary: false },
     { href: `/${locale}/expenses`, icon: Receipt,     label: t('expenses'), roles: ALL_NON_OWNER, feature: 'expenses' as PermFeature, primary: false },
     { href: `/${locale}/team`,            icon: Users,           label: t('team'),          roles: ['owner', 'manager', 'shop_manager'],                  primary: false },

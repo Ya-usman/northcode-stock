@@ -26,7 +26,8 @@
     "expenses": "Kashe Kuɗi",
     "more": "Ƙari",
     "notes": "Bayanan Kula",
-    "help": "Taimako"
+    "help": "Taimako",
+    "caisse": "Duba Kuɗin Kasuwanci"
   },
   "auth": {
     "login": "Shiga",
@@ -965,6 +966,23 @@
     "business_f4": "Cikakken tarihi",
     "business_f5": "Tallafi na musamman",
     "business_f6": "Tabbacin SLA"
+  },
+  "caisse": {
+    "title": "Duba Kuɗin Kasuwanci",
+    "today": "Yau",
+    "total_collected": "Jimlar Kuɗin da Aka Karɓa",
+    "total_sales": "Yawan Sayarwa",
+    "active_cashiers": "Masu Kula da Kuɗi",
+    "no_sales": "Babu sayarwa da aka yi a wannan rana",
+    "no_access": "Ba a ba ku izini ba",
+    "subtotal": "Jimillar",
+    "grand_total": "Jimlar Gaba ɗaya",
+    "col_cashier": "Mai Kula da Kuɗi",
+    "col_sales_count": "Sayarwa",
+    "col_total": "Jimla",
+    "sale_singular": "sayarwa",
+    "sales_plural": "sayarwa",
+    "unknown": "Ba a sani ba"
   },
   "expenses": {
     "title": "Kashe Kuɗi",

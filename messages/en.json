@@ -26,7 +26,8 @@
     "expenses": "Expenses",
     "more": "More",
     "notes": "Notes",
-    "help": "Help"
+    "help": "Help",
+    "caisse": "Cash Audit"
   },
   "auth": {
     "login": "Log In",
@@ -965,6 +966,23 @@
     "business_f4": "Full history",
     "business_f5": "Dedicated support",
     "business_f6": "SLA guarantee"
+  },
+  "caisse": {
+    "title": "Cash Audit",
+    "today": "Today",
+    "total_collected": "Total Collected",
+    "total_sales": "Sales Count",
+    "active_cashiers": "Active Cashiers",
+    "no_sales": "No sales recorded for this day",
+    "no_access": "Access not authorized",
+    "subtotal": "Subtotal",
+    "grand_total": "Grand Total",
+    "col_cashier": "Cashier",
+    "col_sales_count": "Sales",
+    "col_total": "Total",
+    "sale_singular": "sale",
+    "sales_plural": "sales",
+    "unknown": "Unknown"
   },
   "expenses": {
     "title": "Expenses",

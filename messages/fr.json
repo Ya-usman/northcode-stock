@@ -26,7 +26,8 @@
     "expenses": "Dépenses",
     "more": "Plus",
     "notes": "Notes",
-    "help": "Aide"
+    "help": "Aide",
+    "caisse": "Contrôle de caisse"
   },
   "auth": {
     "login": "Se connecter",
@@ -965,6 +966,23 @@
     "business_f4": "Historique complet",
     "business_f5": "Support dédié",
     "business_f6": "Garantie SLA"
+  },
+  "caisse": {
+    "title": "Contrôle de caisse",
+    "today": "Aujourd'hui",
+    "total_collected": "Total encaissé",
+    "total_sales": "Nb ventes",
+    "active_cashiers": "Caissiers actifs",
+    "no_sales": "Aucune vente enregistrée ce jour",
+    "no_access": "Accès non autorisé",
+    "subtotal": "Sous-total",
+    "grand_total": "Total général",
+    "col_cashier": "Caissier",
+    "col_sales_count": "Nb ventes",
+    "col_total": "Total",
+    "sale_singular": "vente",
+    "sales_plural": "ventes",
+    "unknown": "Inconnu"
   },
   "expenses": {
     "title": "Dépenses",
