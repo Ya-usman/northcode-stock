@@ -313,7 +313,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
 
                       <div className="flex items-center justify-between text-sm">
                         <label className="flex items-center gap-2 cursor-pointer">
-                          <input type="checkbox" className="rounded border-border accent-[#1948cc]" {...loginForm.register('rememberMe')} />
+                          <input type="checkbox" className="rounded accent-[#1948cc]" style={{ colorScheme: 'light' }} {...loginForm.register('rememberMe')} />
                           <span className="text-muted-foreground">{t('remember_me')}</span>
                         </label>
                         <button type="button" onClick={() => { setMode('forgot'); setError('') }}
