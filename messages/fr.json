@@ -75,7 +75,7 @@
     "qty_left": "{qty} restant(s)",
     "month_expenses": "Dépenses du mois",
     "net_result": "Mes encaissements du mois",
-    "global_month_sales": "Chiffre d'affaires du mois",
+    "global_month_sales": "Encaissements du mois",
     "monthly_trend": "Revenus vs Dépenses (6 mois)",
     "revenue_label": "Revenus",
     "expenses_label": "Dépenses"

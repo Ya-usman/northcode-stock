@@ -75,7 +75,7 @@
     "qty_left": "{qty} left",
     "month_expenses": "Month Expenses",
     "net_result": "My collections this month",
-    "global_month_sales": "Monthly revenue",
+    "global_month_sales": "Monthly collections",
     "monthly_trend": "Revenue vs Expenses (6 months)",
     "revenue_label": "Revenue",
     "expenses_label": "Expenses"
