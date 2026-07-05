@@ -232,11 +232,8 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
       <div className="min-h-screen flex">
 
         {/* ── Brand panel — desktop only ── */}
-        <div className="hidden lg:flex flex-col justify-center flex-1 px-14 py-14 relative z-10">
-          <Link href={`/${locale}`} onClick={e => { if ((window as any).Capacitor?.isNativePlatform?.()) e.preventDefault() }}>
-            <img src="/logo-login-t.png" alt="StockShop" className="h-16 w-auto object-contain" style={{ filter: logoFilter }} />
-          </Link>
-          <h1 className="mt-8 text-3xl font-bold tracking-tight leading-snug text-[#0f172a] dark:text-[#e2ecff]">
+        <div className="hidden lg:flex flex-col items-center justify-center flex-1 px-14 py-14 relative z-10 text-center">
+          <h1 className="text-3xl font-bold tracking-tight leading-snug text-[#0f172a] dark:text-[#e2ecff]">
             Manage smarter.<br />Sell faster.<br />Grow bigger.
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-[#607090] dark:text-[#5a7098]">
