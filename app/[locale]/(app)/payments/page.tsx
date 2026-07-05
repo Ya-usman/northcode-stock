@@ -220,8 +220,12 @@ export default function DettesPage() {
   const { fmt, symbol } = useCurrency()
   const { toast } = useToast()
 
-  const [debtors, setDebtors] = useState<CustomerDebt[]>([])
-  const [loading, setLoading] = useState(true)
+  const [debtors, setDebtors] = useState<CustomerDebt[]>(() =>
+    (getPageCache<any[]>(`debtors_${effectiveShopIds.join(',')}`) || []) as CustomerDebt[]
+  )
+  const [loading, setLoading] = useState(() =>
+    !getPageCache(`debtors_${effectiveShopIds.join(',')}`)
+  )
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [search, setSearch] = useState('')

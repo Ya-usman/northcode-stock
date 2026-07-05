@@ -72,8 +72,12 @@ export default function CustomersPage() {
   const supabase = createClient() as any
   const { toast } = useToast()
 
-  const [customers, setCustomers] = useState<Customer[]>([])
-  const [loading, setLoading] = useState(true)
+  const [customers, setCustomers] = useState<Customer[]>(() =>
+    getPageCache<Customer[]>(`customers_${effectiveShopIds.join(',')}`) || []
+  )
+  const [loading, setLoading] = useState(() =>
+    !getPageCache(`customers_${effectiveShopIds.join(',')}`)
+  )
   const [{ search }, setFilter] = usePersistedFilters('customers', shop?.id, { search: '' })
   const [showModal, setShowModal] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)

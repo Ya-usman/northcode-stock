@@ -121,9 +121,17 @@ export default function CategoriesPage() {
   const { toast } = useToast()
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const [categories, setCategories] = useState<Category[]>([])
-  const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
+  const [categories, setCategories] = useState<Category[]>(() => {
+    const c = getPageCache<{ categories: Category[]; products: Product[] }>(`categories_${effectiveShopIds.join(',')}`)
+    return c?.categories || []
+  })
+  const [products, setProducts] = useState<Product[]>(() => {
+    const c = getPageCache<{ categories: Category[]; products: Product[] }>(`categories_${effectiveShopIds.join(',')}`)
+    return c?.products || []
+  })
+  const [loading, setLoading] = useState(() =>
+    !getPageCache(`categories_${effectiveShopIds.join(',')}`)
+  )
   const [newName, setNewName] = useState('')
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
