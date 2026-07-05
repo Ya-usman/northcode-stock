@@ -83,21 +83,34 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
     localStorage.removeItem('dashboard_cache_v1')
     localStorage.removeItem('dashboard_shop_filter')
 
-    // Jusqu'à 3 tentatives (cold start Supabase peut prendre 4-8s)
+    // 2 tentatives max avec timeout 10s par tentative.
+    // Sans timeout, supabase.auth.signInWithPassword peut bloquer indéfiniment
+    // si Supabase est lent au démarrage (cold start) — le fetch API n'a pas de
+    // timeout intégré. On utilise AbortController pour forcer l'annulation.
+    const attemptLogin = (): Promise<{ data: any; error: any }> =>
+      new Promise((resolve) => {
+        const controller = new AbortController()
+        const tid = setTimeout(() => controller.abort(), 10_000)
+        supabase.auth.signInWithPassword({ email: data.email, password: data.password })
+          .then(res => { clearTimeout(tid); resolve(res) })
+          .catch(err => { clearTimeout(tid); resolve({ data: null, error: err }) })
+        // If abort fires before the promise resolves, treat as network error
+        controller.signal.addEventListener('abort', () =>
+          resolve({ data: null, error: { message: 'Request timeout', status: 0 } })
+        , { once: true })
+      })
+
     let authData: any = null
     let lastError: any = null
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const { data: d, error: e } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
-      })
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const { data: d, error: e } = await attemptLogin()
       if (!e) { authData = d; break }
       lastError = e
-      const isNetworkError = !e.status || e.status === 0 || e.message?.toLowerCase().includes('fetch') || e.message?.toLowerCase().includes('network') || e.message?.toLowerCase().includes('failed')
+      const isNetworkError = !e.status || e.status === 0 || e.message?.toLowerCase().includes('fetch') || e.message?.toLowerCase().includes('network') || e.message?.toLowerCase().includes('failed') || e.message?.toLowerCase().includes('timeout')
       // Mauvais identifiants → inutile de réessayer
       if (!isNetworkError) break
-      // Erreur réseau → attendre 3s puis réessayer
-      if (attempt < 2) await new Promise(r => setTimeout(r, 3000))
+      // Erreur réseau → attendre 2s puis une dernière tentative
+      if (attempt < 1) await new Promise(r => setTimeout(r, 2000))
     }
 
     if (!authData) {
