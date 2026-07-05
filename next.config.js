@@ -59,24 +59,18 @@ const withPWA = require('next-pwa')({
         expiration: { maxEntries: 100, maxAgeSeconds: 24 * 60 * 60 },
       },
     },
-    // Internal API routes (health, push, etc.)
+    // Internal API routes — NetworkOnly: app's localStorage cache handles offline display.
+    // NetworkFirst + short timeout was silently serving stale responses on slow networks.
     {
       urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
-      handler: 'NetworkFirst',
-      options: {
-        cacheName: 'api-routes',
-        expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 },
-        networkTimeoutSeconds: 3,
-      },
+      handler: 'NetworkOnly',
     },
+    // Supabase REST — NetworkOnly for the same reason: no SW-level caching of data.
+    // The app reads localStorage synchronously on mount (lazy useState init) so the
+    // user already sees cached data before the network request completes.
     {
       urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/.*/i,
-      handler: 'NetworkFirst',
-      options: {
-        cacheName: 'supabase-api',
-        expiration: { maxEntries: 200, maxAgeSeconds: 24 * 60 * 60 },
-        networkTimeoutSeconds: 5,
-      },
+      handler: 'NetworkOnly',
     },
     {
       urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/.*/i,
