@@ -49,11 +49,26 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const supabase = createClient()
   const { toast } = useToast()
 
-  const [products, setProducts] = useState<Product[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
-  const [suppliers, setSuppliers] = useState<Supplier[]>([])
-  const [loading, setLoading] = useState(true)
-  const [isOnline, setIsOnline] = useState(true)
+  // Lazy initializers: read localStorage cache synchronously on mount so the
+  // first render shows cached data instead of a skeleton flash.
+  const [products, setProducts] = useState<Product[]>(() => {
+    const c = getPageCache<{ prods: any[] }>(`stock_${effectiveShopIds.join(',')}`)
+    return (c?.prods || []) as Product[]
+  })
+  const [categories, setCategories] = useState<Category[]>(() => {
+    const c = getPageCache<{ cats: any[] }>(`stock_${effectiveShopIds.join(',')}`)
+    return (c?.cats || []) as Category[]
+  })
+  const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
+    const c = getPageCache<{ sups: any[] }>(`stock_${effectiveShopIds.join(',')}`)
+    return (c?.sups || []) as Supplier[]
+  })
+  const [loading, setLoading] = useState(() =>
+    !getPageCache(`stock_${effectiveShopIds.join(',')}`)
+  )
+  const [isOnline, setIsOnline] = useState(() =>
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  )
   const [{ search, categoryFilter, statusFilter, showArchived }, setFilter] = usePersistedFilters(
     'stock', shop?.id, { search: '', categoryFilter: 'all', statusFilter: 'all', showArchived: false }
   )

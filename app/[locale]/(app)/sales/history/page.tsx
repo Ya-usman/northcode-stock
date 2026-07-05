@@ -98,10 +98,8 @@ export default function SalesHistoryPage() {
   const SEARCH_LIMIT = 500
 
   const [view, setView] = useState<'sales' | 'repayments' | 'logs'>('sales')
-  const [sales, setSales] = useState<Sale[]>([])
   const [cashierMap, setCashierMap] = useState<Record<string, string>>({})
   const [repayments, setRepayments] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [salesOffset, setSalesOffset] = useState(0)
   const [hasMoreSales, setHasMoreSales] = useState(false)
@@ -110,6 +108,11 @@ export default function SalesHistoryPage() {
     'sales_history', shop?.id,
     { search: '', dateFilter: 'today', methodFilter: 'all', statusFilter: 'all', saleStatusFilter: 'all' as 'all' | 'active' | 'cancelled', customStart: '', customEnd: '' }
   )
+  // Lazy initializers: read cache synchronously so first render shows cached data, not a skeleton.
+  const _sfx = dateFilter === 'custom' ? `_${customStart}_${customEnd}` : ''
+  const _salesCacheKey = `sales_history_v2_${effectiveShopIds.join(',')}_${dateFilter}${_sfx}_${methodFilter}_${statusFilter}_${saleStatusFilter}`
+  const [sales, setSales] = useState<Sale[]>(() => getPageCache<Sale[]>(_salesCacheKey) || [])
+  const [loading, setLoading] = useState(() => !getPageCache(_salesCacheKey))
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   // Dialog state
@@ -119,7 +122,9 @@ export default function SalesHistoryPage() {
   const [validateMethod, setValidateMethod] = useState('cash')
   const [actionLoading, setActionLoading] = useState(false)
   const [exportingPDF, setExportingPDF] = useState(false)
-  const [isOnline, setIsOnline] = useState(true)
+  const [isOnline, setIsOnline] = useState(() =>
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  )
   const [logs, setLogs] = useState<any[]>([])
   const [loadingLogs, setLoadingLogs] = useState(false)
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -424,7 +429,7 @@ export default function SalesHistoryPage() {
     const onFocus = () => { if (document.visibilityState === 'visible') fetchSales() }
     document.addEventListener('visibilitychange', onFocus)
     return () => document.removeEventListener('visibilitychange', onFocus)
-  }, [shopKey, dateFilter, customStart, customEnd, methodFilter, statusFilter, saleStatusFilter])
+  }, [shopKey, dateFilter, customStart, customEnd, methodFilter, statusFilter, saleStatusFilter, view])
 
   const filtered = sales.filter(s => {
     if (!search) return true

@@ -73,10 +73,14 @@ export default function ExpensesPage() {
   const t = useTranslations('expenses')
   const tA = useTranslations('actions')
 
-  const [expenses, setExpenses]       = useState<Expense[]>([])
+  const [expenses, setExpenses]       = useState<Expense[]>(() =>
+    getPageCache<Expense[]>(`expenses_${effectiveShopIds.join(',')}_${monthFilter}`) || []
+  )
   const [templates, setTemplates]     = useState<Expense[]>([])
   const [budgets, setBudgets]         = useState<Record<string, number>>({})
-  const [loading, setLoading]         = useState(true)
+  const [loading, setLoading]         = useState(() =>
+    !getPageCache(`expenses_${effectiveShopIds.join(',')}_${monthFilter}`)
+  )
   const [saving, setSaving]           = useState(false)
   const [savingBudget, setSavingBudget] = useState(false)
   const [deleting, setDeleting]       = useState<string | null>(null)
@@ -95,7 +99,9 @@ export default function ExpensesPage() {
   const [exporting, setExporting]     = useState(false)
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
 
-  const [isOnline, setIsOnline]       = useState(true)
+  const [isOnline, setIsOnline]       = useState(() =>
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  )
   const [pendingExpenses, setPendingExpenses] = useState<PendingExpense[]>([])
 
   // Expense modal state
