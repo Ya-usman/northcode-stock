@@ -74,8 +74,8 @@
     "more_items": "+{count} more",
     "qty_left": "{qty} left",
     "month_expenses": "Month Expenses",
-    "net_result": "My sales this month",
-    "global_month_sales": "Total shop sales this month",
+    "net_result": "My collections this month",
+    "global_month_sales": "Monthly revenue",
     "monthly_trend": "Revenue vs Expenses (6 months)",
     "revenue_label": "Revenue",
     "expenses_label": "Expenses"
