@@ -982,7 +982,12 @@
     "col_total": "Jimla",
     "sale_singular": "sayarwa",
     "sales_plural": "sayarwa",
-    "unknown": "Ba a sani ba"
+    "unknown": "Ba a sani ba",
+    "section_sales": "Sayarwa",
+    "section_repayments": "Dawowar Biya",
+    "col_sales_total": "Jimlar Sayarwa",
+    "col_repayments_count": "Yawan Dawowar",
+    "col_repayments_total": "Jimlar Dawowar"
   },
   "expenses": {
     "title": "Kashe Kuɗi",

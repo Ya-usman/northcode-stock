@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   ChevronLeft, ChevronRight, ClipboardList, ShoppingCart,
-  TrendingUp, ChevronDown, ChevronUp, Table2, Users,
+  TrendingUp, ChevronDown, ChevronUp, Table2, Users, RotateCcw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { downloadOrShareCSV } from '@/lib/utils/native-share'
@@ -26,12 +26,24 @@ interface SaleRow {
   created_at: string
 }
 
+interface RepaymentRow {
+  id: string
+  sale_number: string
+  amount: number
+  paid_at: string
+  method: string
+}
+
 interface CashierSummary {
   cashierId: string
   name: string
   salesCount: number
+  salesTotal: number
+  repaymentsCount: number
+  repaymentsTotal: number
   total: number
   sales: SaleRow[]
+  repayments: RepaymentRow[]
 }
 
 const RANK_STYLES = [
@@ -61,36 +73,88 @@ export default function CaissePage() {
     if (!effectiveShopIds.length || !isAuthorized) { setLoading(false); return }
     setLoading(true)
     try {
-      const { data: salesData } = await supabase
-        .from('sales')
-        .select('id, sale_number, cashier_id, amount_paid, created_at')
-        .in('shop_id', effectiveShopIds)
-        .eq('sale_status', 'active')
-        .gte('created_at', startOfDay(selectedDate).toISOString())
-        .lte('created_at', endOfDay(selectedDate).toISOString())
-        .order('created_at', { ascending: false })
+      const dayStart = startOfDay(selectedDate).toISOString()
+      const dayEnd   = endOfDay(selectedDate).toISOString()
+
+      // Fetch sales + repayments in parallel
+      const [{ data: salesData }, { data: repaymentsRaw }] = await Promise.all([
+        supabase
+          .from('sales')
+          .select('id, sale_number, cashier_id, amount_paid, created_at')
+          .in('shop_id', effectiveShopIds)
+          .eq('sale_status', 'active')
+          .gte('created_at', dayStart)
+          .lte('created_at', dayEnd)
+          .order('created_at', { ascending: false }),
+
+        supabase
+          .from('payments')
+          .select('id, amount, received_by, paid_at, method, sales!inner(shop_id, sale_number, sale_status)')
+          .gte('paid_at', dayStart)
+          .lte('paid_at', dayEnd)
+          .order('paid_at', { ascending: false }),
+      ])
 
       const sales: SaleRow[] = salesData || []
-      const cashierIds = Array.from(new Set(sales.map(s => s.cashier_id).filter((id): id is string => !!id)))
+
+      // Filter repayments to this shop + non-cancelled sales
+      const repayments = (repaymentsRaw || []).filter((p: any) =>
+        effectiveShopIds.includes(p.sales?.shop_id) &&
+        p.sales?.sale_status !== 'cancelled'
+      )
+
+      // Collect all profile IDs to look up (sales cashiers + repayment receivers)
+      const saleIds = sales.map(s => s.cashier_id).filter((id): id is string => !!id)
+      const repayIds = repayments.map((p: any) => p.received_by).filter((id: any): id is string => !!id)
+      const allIds = Array.from(new Set([...saleIds, ...repayIds]))
 
       let profileMap: Record<string, string> = {}
-      if (cashierIds.length) {
+      if (allIds.length) {
         const { data: profilesData } = await supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', cashierIds)
+          .in('id', allIds)
         ;(profilesData || []).forEach((p: any) => { profileMap[p.id] = p.full_name })
       }
 
+      // Build grouped cashier summaries
       const grouped: Record<string, CashierSummary> = {}
-      for (const sale of sales) {
-        const cid = sale.cashier_id ?? 'unknown'
+
+      const ensure = (cid: string) => {
         if (!grouped[cid]) {
-          grouped[cid] = { cashierId: cid, name: profileMap[cid] ?? t('unknown'), salesCount: 0, total: 0, sales: [] }
+          grouped[cid] = {
+            cashierId: cid,
+            name: profileMap[cid] ?? t('unknown'),
+            salesCount: 0, salesTotal: 0,
+            repaymentsCount: 0, repaymentsTotal: 0,
+            total: 0,
+            sales: [], repayments: [],
+          }
         }
-        grouped[cid].salesCount++
-        grouped[cid].total += Number(sale.amount_paid)
-        grouped[cid].sales.push(sale)
+        return grouped[cid]
+      }
+
+      for (const sale of sales) {
+        const entry = ensure(sale.cashier_id ?? 'unknown')
+        entry.salesCount++
+        entry.salesTotal += Number(sale.amount_paid)
+        entry.total += Number(sale.amount_paid)
+        entry.sales.push(sale)
+      }
+
+      for (const p of repayments) {
+        const cid = (p.received_by as string | null) ?? 'unknown'
+        const entry = ensure(cid)
+        entry.repaymentsCount++
+        entry.repaymentsTotal += Number(p.amount)
+        entry.total += Number(p.amount)
+        entry.repayments.push({
+          id: p.id,
+          sale_number: p.sales?.sale_number ?? '?',
+          amount: Number(p.amount),
+          paid_at: p.paid_at,
+          method: p.method,
+        })
       }
 
       setCashierSummaries(Object.values(grouped).sort((a, b) => b.total - a.total))
@@ -101,8 +165,10 @@ export default function CaissePage() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  const grandTotal = cashierSummaries.reduce((s, c) => s + c.total, 0)
-  const grandCount = cashierSummaries.reduce((s, c) => s + c.salesCount, 0)
+  const grandTotal        = cashierSummaries.reduce((s, c) => s + c.total, 0)
+  const grandSalesTotal   = cashierSummaries.reduce((s, c) => s + c.salesTotal, 0)
+  const grandRepayTotal   = cashierSummaries.reduce((s, c) => s + c.repaymentsTotal, 0)
+  const grandSalesCount   = cashierSummaries.reduce((s, c) => s + c.salesCount, 0)
 
   const dateLabel = isToday(selectedDate)
     ? t('today')
@@ -110,9 +176,14 @@ export default function CaissePage() {
 
   const exportCSV = async () => {
     setExporting(true)
-    const header = [t('col_cashier'), t('col_sales_count'), t('col_total')]
-    const rows = cashierSummaries.map(c => [c.name, String(c.salesCount), String(c.total)])
-    rows.push([t('grand_total'), String(grandCount), String(grandTotal)])
+    const header = [t('col_cashier'), t('col_sales_count'), t('col_sales_total'), t('col_repayments_count'), t('col_repayments_total'), t('col_total')]
+    const rows = cashierSummaries.map(c => [
+      c.name,
+      String(c.salesCount), String(c.salesTotal),
+      String(c.repaymentsCount), String(c.repaymentsTotal),
+      String(c.total),
+    ])
+    rows.push([t('grand_total'), String(grandSalesCount), String(grandSalesTotal), '', String(grandRepayTotal), String(grandTotal)])
     const csv = [header, ...rows].map(r => r.join(';')).join('\n')
     try {
       await downloadOrShareCSV(csv, `caisse-${format(selectedDate, 'yyyy-MM-dd')}.csv`)
@@ -129,12 +200,14 @@ export default function CaissePage() {
     )
   }
 
+  const hasAny = cashierSummaries.length > 0
+
   return (
     <div className="space-y-4 max-w-2xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-lg font-bold">{t('title')}</h1>
-        {cashierSummaries.length > 0 && (
+        {hasAny && (
           <Button variant="outline" size="icon" className="h-9 w-9" onClick={exportCSV} disabled={exporting}>
             <Table2 className="h-4 w-4" />
           </Button>
@@ -163,7 +236,16 @@ export default function CaissePage() {
               <TrendingUp className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
               <p className="text-[10px] font-medium text-muted-foreground truncate">{t('total_collected')}</p>
             </div>
-            {loading ? <Skeleton className="h-6 w-full" /> : <p className="text-base font-bold leading-none">{fmt(grandTotal)}</p>}
+            {loading ? <Skeleton className="h-6 w-full" /> : (
+              <>
+                <p className="text-base font-bold leading-none">{fmt(grandTotal)}</p>
+                {grandRepayTotal > 0 && (
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {fmt(grandSalesTotal)} + {fmt(grandRepayTotal)} remb.
+                  </p>
+                )}
+              </>
+            )}
           </CardContent>
         </Card>
         <Card className="border-0 shadow-sm">
@@ -172,7 +254,7 @@ export default function CaissePage() {
               <ShoppingCart className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
               <p className="text-[10px] font-medium text-muted-foreground truncate">{t('total_sales')}</p>
             </div>
-            {loading ? <Skeleton className="h-6 w-12" /> : <p className="text-base font-bold leading-none">{grandCount}</p>}
+            {loading ? <Skeleton className="h-6 w-12" /> : <p className="text-base font-bold leading-none">{grandSalesCount}</p>}
           </CardContent>
         </Card>
         <Card className="border-0 shadow-sm">
@@ -191,14 +273,13 @@ export default function CaissePage() {
         <div className="space-y-2">
           {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)}
         </div>
-      ) : cashierSummaries.length === 0 ? (
+      ) : !hasAny ? (
         <div className="text-center py-16 text-muted-foreground">
           <ShoppingCart className="h-10 w-10 mx-auto mb-3 opacity-30" />
           <p className="text-sm">{t('no_sales')}</p>
         </div>
       ) : (
         <div className="space-y-2">
-          {/* Cashier rows */}
           {cashierSummaries.map((c, idx) => {
             const pct = grandTotal > 0 ? (c.total / grandTotal) * 100 : 0
             const isExpanded = expandedCashier === c.cashierId
@@ -224,13 +305,13 @@ export default function CaissePage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-stockshop-blue/70 transition-all duration-500"
-                          style={{ width: `${pct}%` }}
-                        />
+                        <div className="h-full rounded-full bg-stockshop-blue/70 transition-all duration-500"
+                          style={{ width: `${pct}%` }} />
                       </div>
-                      <span className="text-[10px] text-muted-foreground flex-shrink-0">
-                        {c.salesCount} {c.salesCount > 1 ? t('sales_plural') : t('sale_singular')} · {pct.toFixed(0)}%
+                      <span className="text-[10px] text-muted-foreground flex-shrink-0 leading-tight">
+                        {c.salesCount > 0 && `${c.salesCount} vte`}
+                        {c.repaymentsCount > 0 && `${c.salesCount > 0 ? ' · ' : ''}${c.repaymentsCount} remb.`}
+                        {' · '}{pct.toFixed(0)}%
                       </span>
                     </div>
                   </div>
@@ -242,16 +323,56 @@ export default function CaissePage() {
                 </button>
 
                 {isExpanded && (
-                  <div className="border-t divide-y">
-                    {c.sales.map(sale => (
-                      <div key={sale.id} className="flex items-center gap-3 px-4 py-2.5">
-                        <p className="text-xs text-muted-foreground flex-shrink-0 w-10 tabular-nums">
-                          {format(new Date(sale.created_at), 'HH:mm')}
-                        </p>
-                        <p className="text-xs text-muted-foreground flex-1 truncate">#{sale.sale_number}</p>
-                        <p className="text-sm font-semibold flex-shrink-0">{fmt(Number(sale.amount_paid))}</p>
-                      </div>
-                    ))}
+                  <div className="border-t">
+                    {/* Sales section */}
+                    {c.sales.length > 0 && (
+                      <>
+                        <div className="flex items-center gap-2 px-4 py-2 bg-muted/20">
+                          <ShoppingCart className="h-3.5 w-3.5 text-muted-foreground" />
+                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                            {t('section_sales')} · {fmt(c.salesTotal)}
+                          </p>
+                        </div>
+                        <div className="divide-y">
+                          {c.sales.map(sale => (
+                            <div key={sale.id} className="flex items-center gap-3 px-4 py-2.5">
+                              <p className="text-xs text-muted-foreground flex-shrink-0 w-10 tabular-nums">
+                                {format(new Date(sale.created_at), 'HH:mm')}
+                              </p>
+                              <p className="text-xs text-muted-foreground flex-1 truncate">#{sale.sale_number}</p>
+                              <p className="text-sm font-semibold flex-shrink-0">{fmt(Number(sale.amount_paid))}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+
+                    {/* Repayments section */}
+                    {c.repayments.length > 0 && (
+                      <>
+                        <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50/60 dark:bg-emerald-950/20">
+                          <RotateCcw className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                          <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">
+                            {t('section_repayments')} · {fmt(c.repaymentsTotal)}
+                          </p>
+                        </div>
+                        <div className="divide-y">
+                          {c.repayments.map(r => (
+                            <div key={r.id} className="flex items-center gap-3 px-4 py-2.5">
+                              <p className="text-xs text-muted-foreground flex-shrink-0 w-10 tabular-nums">
+                                {format(new Date(r.paid_at), 'HH:mm')}
+                              </p>
+                              <p className="text-xs text-muted-foreground flex-1 truncate">#{r.sale_number}</p>
+                              <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 flex-shrink-0">
+                                {fmt(r.amount)}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+
+                    {/* Cashier subtotal */}
                     <div className="flex items-center justify-between px-4 py-2.5 bg-muted/30">
                       <p className="text-xs font-medium text-muted-foreground">{t('subtotal')}</p>
                       <p className="text-sm font-bold">{fmt(c.total)}</p>
@@ -264,12 +385,20 @@ export default function CaissePage() {
 
           {/* Grand total */}
           <Card className="border-0 shadow-sm bg-stockshop-blue/5 dark:bg-blue-950/20">
-            <CardContent className="p-4 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-stockshop-blue dark:text-blue-400">
-                <TrendingUp className="h-4 w-4" />
-                <span className="text-sm font-semibold">{t('grand_total')}</span>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-stockshop-blue dark:text-blue-400">
+                  <TrendingUp className="h-4 w-4" />
+                  <span className="text-sm font-semibold">{t('grand_total')}</span>
+                </div>
+                <span className="text-lg font-bold text-stockshop-blue dark:text-blue-400">{fmt(grandTotal)}</span>
               </div>
-              <span className="text-lg font-bold text-stockshop-blue dark:text-blue-400">{fmt(grandTotal)}</span>
+              {grandRepayTotal > 0 && (
+                <div className="flex justify-end gap-4 mt-1">
+                  <span className="text-[11px] text-muted-foreground">{t('section_sales')} : {fmt(grandSalesTotal)}</span>
+                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400">{t('section_repayments')} : {fmt(grandRepayTotal)}</span>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

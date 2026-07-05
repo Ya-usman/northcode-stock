@@ -982,7 +982,12 @@
     "col_total": "Total",
     "sale_singular": "vente",
     "sales_plural": "ventes",
-    "unknown": "Inconnu"
+    "unknown": "Inconnu",
+    "section_sales": "Ventes",
+    "section_repayments": "Remboursements",
+    "col_sales_total": "Total ventes",
+    "col_repayments_count": "Nb remb.",
+    "col_repayments_total": "Total remb."
   },
   "expenses": {
     "title": "Dépenses",

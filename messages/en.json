@@ -982,7 +982,12 @@
     "col_total": "Total",
     "sale_singular": "sale",
     "sales_plural": "sales",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "section_sales": "Sales",
+    "section_repayments": "Repayments",
+    "col_sales_total": "Sales total",
+    "col_repayments_count": "Repayments #",
+    "col_repayments_total": "Repayments total"
   },
   "expenses": {
     "title": "Expenses",
