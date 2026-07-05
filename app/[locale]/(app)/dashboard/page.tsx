@@ -184,6 +184,7 @@ export default function DashboardPage() {
         { data: expensesRaw },
         { data: monthSalesRaw },
         { data: monthGlobalRaw },
+        { data: monthRepayRaw },
       ] = await Promise.all([
         // Today's sales — cashier sees only their own; owner/viewer sees all
         (() => {
@@ -265,6 +266,14 @@ export default function DashboardPage() {
           .eq('sale_status', 'active')
           .gte('created_at', startOfMonth(today).toISOString())
           .lte('created_at', endOfMonth(today).toISOString()),
+
+        // Repayments collected by this user this month (cross-month debts)
+        supabase
+          .from('payments')
+          .select('amount, sales!inner(shop_id, sale_status)')
+          .eq('received_by', cashierId)
+          .gte('paid_at', startOfMonth(today).toISOString())
+          .lte('paid_at', endOfMonth(today).toISOString()),
       ])
 
       const paymentsApiOk = paymentsRes.ok
@@ -280,7 +289,11 @@ export default function DashboardPage() {
       const salesCount = salesArr.length
       const debt = (debtData || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0)
       const expensesTotal         = (expensesRaw    || []).reduce((s: number, e: any) => s + Number(e.amount), 0)
-      const monthRevenueTotal     = (monthSalesRaw  || []).reduce((s: number, e: any) => s + Number(e.amount_paid), 0)
+      const monthSalesTotal   = (monthSalesRaw  || []).reduce((s: number, e: any) => s + Number(e.amount_paid), 0)
+      const monthRepayTotal   = (monthRepayRaw  || []).filter((p: any) =>
+        shopIds.includes(p.sales?.shop_id) && p.sales?.sale_status !== 'cancelled'
+      ).reduce((s: number, p: any) => s + Number(p.amount), 0)
+      const monthRevenueTotal       = monthSalesTotal + monthRepayTotal
       const monthGlobalRevenueTotal = (monthGlobalRaw || []).reduce((s: number, e: any) => s + Number(e.amount_paid), 0)
 
       // Cashier's own sale IDs (already filtered by cashier_id above)
