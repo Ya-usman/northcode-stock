@@ -232,11 +232,11 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
       <div className="min-h-screen flex">
 
         {/* ── Brand panel — desktop only ── */}
-        <div className="hidden lg:flex flex-col items-center justify-center flex-1 px-14 py-14 relative z-10 text-center">
-          <h1 className="text-3xl font-bold tracking-tight leading-snug text-[#0f172a] dark:text-[#e2ecff]">
+        <div className="hidden lg:flex flex-col items-center justify-center flex-1 px-8 py-12 relative z-10 text-center">
+          <h1 className="text-[26px] font-bold tracking-tight leading-snug text-[#0f172a] dark:text-[#e2ecff]">
             Manage smarter.<br />Sell faster.<br />Grow bigger.
           </h1>
-          <p className="mt-3 text-sm leading-relaxed text-[#607090] dark:text-[#5a7098]">
+          <p className="mt-2.5 text-[13px] leading-relaxed text-[#607090] dark:text-[#5a7098]">
             {locale === 'ha'
               ? 'Komai da kantin ku ke bukata — kaya, sayarwa, abokan ciniki da rahotanni.'
               : 'Tout ce dont votre boutique a besoin — stock, ventes, clients et rapports.'}
@@ -248,13 +248,13 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
               locale === 'ha' ? 'Rahotanni a lokaci gaskiya' : 'Rapports en temps réel',
               locale === 'ha' ? 'Hausa, Faransanci da Turanci' : 'Disponible en français, anglais et haoussa',
             ].map(f => (
-              <li key={f} className="flex items-center gap-3 text-sm text-[#5570a0] dark:text-[#6880a8]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#1948cc] dark:bg-[#1948cc] flex-shrink-0" />
+              <li key={f} className="flex items-center gap-3 text-[12.5px] text-[#5570a0] dark:text-[#6880a8]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#1948cc] dark:bg-[#073e8a] flex-shrink-0" />
                 {f}
               </li>
             ))}
           </ul>
-          <p className="mt-auto pt-10 text-xs text-[#8090b0] dark:text-[#2e4060]">
+          <p className="mt-auto pt-10 text-[10.5px] tracking-wide text-[#8090b0] dark:text-[#2e4060]">
             StockShop · Made for African businesses
           </p>
         </div>
