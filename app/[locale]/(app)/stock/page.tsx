@@ -25,6 +25,7 @@ import { ProductForm } from '@/components/stock/product-form'
 import { ImportProductsModal } from '@/components/stock/import-products-modal'
 import { BulkAddModal } from '@/components/stock/bulk-add-modal'
 import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-cache'
+import { useIsOnline } from '@/lib/offline/use-is-online'
 
 import { savePendingMovement, updateCachedProductQuantity } from '@/lib/offline/db'
 import { registerBackgroundSync } from '@/lib/offline/sync'
@@ -66,9 +67,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [loading, setLoading] = useState(() =>
     !getPageCache(`stock_${effectiveShopIds.join(',')}`)
   )
-  const [isOnline, setIsOnline] = useState(() =>
-    typeof navigator !== 'undefined' ? navigator.onLine : true
-  )
+  const isOnline = useIsOnline()
   const [{ search, categoryFilter, statusFilter, showArchived }, setFilter] = usePersistedFilters(
     'stock', shop?.id, { search: '', categoryFilter: 'all', statusFilter: 'all', showArchived: false }
   )
@@ -108,14 +107,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
   const restockForm = useForm<RestockFormData>({ resolver: zodResolver(createRestockSchema({ restock_min_qty: t('errors.restock_min_qty') })) })
 
-  useEffect(() => {
-    setIsOnline(navigator.onLine)
-    const on = () => setIsOnline(true)
-    const off = () => setIsOnline(false)
-    window.addEventListener('online', on)
-    window.addEventListener('offline', off)
-    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
-  }, [])
 
   // Réinitialiser la sélection quand on change de boutique
   useEffect(() => {

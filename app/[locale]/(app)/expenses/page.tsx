@@ -19,6 +19,7 @@ import { NumericInput } from '@/components/ui/numeric-input'
 import { format, startOfMonth, endOfMonth, addMonths, addWeeks } from 'date-fns'
 import type { Expense, ExpenseBudget } from '@/lib/types/database'
 import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-cache'
+import { useIsOnline } from '@/lib/offline/use-is-online'
 import { savePendingExpense, getPendingExpenses, type PendingExpense } from '@/lib/offline/db'
 
 import { cn } from '@/lib/utils/cn'
@@ -99,9 +100,7 @@ export default function ExpensesPage() {
   const [exporting, setExporting]     = useState(false)
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
 
-  const [isOnline, setIsOnline]       = useState(() =>
-    typeof navigator !== 'undefined' ? navigator.onLine : true
-  )
+  const isOnline = useIsOnline()
   const [pendingExpenses, setPendingExpenses] = useState<PendingExpense[]>([])
 
   // Expense modal state
@@ -124,16 +123,12 @@ export default function ExpensesPage() {
   const [budgetAmount, setBudgetAmount]       = useState('')
 
   useEffect(() => {
-    setIsOnline(navigator.onLine)
+    // Refresh pending expense list ~3s after coming back online (sync has likely completed by then)
     const on = () => {
-      setIsOnline(true)
-      // Sync completes ~2s after back-online; refresh pending list to clear synced entries
       if (shop?.id) setTimeout(() => getPendingExpenses(shop.id!).then(setPendingExpenses), 3000)
     }
-    const off = () => setIsOnline(false)
     window.addEventListener('online', on)
-    window.addEventListener('offline', off)
-    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
+    return () => window.removeEventListener('online', on)
   }, [shop?.id])
 
   // Load pending (offline) expenses from IndexedDB on mount and after shop changes

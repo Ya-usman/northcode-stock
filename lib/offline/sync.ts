@@ -4,6 +4,7 @@ import {
   getPendingMovements, markMovementSynced, markMovementError,
   getPendingExpenses, markExpenseSynced, markExpenseError,
 } from './db'
+import { clearPageCache, clearPageCacheByPrefix } from './page-cache'
 
 // Register a Background Sync tag so the SW retries when connectivity is restored
 export async function registerBackgroundSync(): Promise<void> {
@@ -64,6 +65,8 @@ export async function syncPendingMovements(shopId: string): Promise<MovementSync
     }
   }
 
+  if (synced > 0) clearPageCache(`stock_${shopId}`)
+
   return { synced, failed, errors }
 }
 
@@ -106,6 +109,8 @@ export async function syncPendingExpenses(shopId: string): Promise<SyncResult> {
       failed++
     }
   }
+
+  if (synced > 0) clearPageCacheByPrefix(`expenses_${shopId}`)
 
   return { synced, failed, errors }
 }
@@ -223,6 +228,12 @@ export async function syncPendingSales(shopId: string): Promise<SyncResult> {
       errors.push(msg)
       failed++
     }
+  }
+
+  if (synced > 0) {
+    clearPageCacheByPrefix('sales_history_v2_')
+    clearPageCache(`stock_${shopId}`)
+    clearPageCache(`debtors_${shopId}`)
   }
 
   return { synced, failed, errors }

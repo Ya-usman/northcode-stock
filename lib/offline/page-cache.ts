@@ -53,3 +53,16 @@ export function getPageCacheAge(key: string): number | null {
 export function clearPageCache(key: string): void {
   try { localStorage.removeItem(`pc_${key}`) } catch {}
 }
+
+/** Remove all page-cache entries whose key starts with `prefix`. */
+export function clearPageCacheByPrefix(prefix: string): void {
+  try {
+    const fullPrefix = `pc_${prefix}`
+    const keys: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k && k.startsWith(fullPrefix)) keys.push(k)
+    }
+    keys.forEach(k => localStorage.removeItem(k))
+  } catch {}
+}

@@ -26,6 +26,7 @@ import { normalize } from '@/lib/utils/normalize'
 import { format, startOfDay, endOfDay, subDays, subMonths, startOfWeek, startOfMonth, startOfYear } from 'date-fns'
 import type { Sale } from '@/lib/types/database'
 import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-cache'
+import { useIsOnline } from '@/lib/offline/use-is-online'
 
 
 const supabase = createClient() as any
@@ -122,9 +123,7 @@ export default function SalesHistoryPage() {
   const [validateMethod, setValidateMethod] = useState('cash')
   const [actionLoading, setActionLoading] = useState(false)
   const [exportingPDF, setExportingPDF] = useState(false)
-  const [isOnline, setIsOnline] = useState(() =>
-    typeof navigator !== 'undefined' ? navigator.onLine : true
-  )
+  const isOnline = useIsOnline()
   const [logs, setLogs] = useState<any[]>([])
   const [loadingLogs, setLoadingLogs] = useState(false)
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -143,14 +142,6 @@ export default function SalesHistoryPage() {
   const [editCustomers, setEditCustomers] = useState<any[]>([])
   const [editSaving, setEditSaving] = useState(false)
 
-  useEffect(() => {
-    setIsOnline(navigator.onLine)
-    const on = () => setIsOnline(true)
-    const off = () => setIsOnline(false)
-    window.addEventListener('online', on)
-    window.addEventListener('offline', off)
-    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
-  }, [])
 
   const effectiveRole = roleInActiveShop ?? profile?.role
   const isOwner = effectiveRole === 'owner' || effectiveRole === 'manager' || effectiveRole === 'shop_manager' || effectiveRole === 'super_admin'

@@ -27,6 +27,7 @@ import { sharePDFNative, printPDFNative, isCapacitor } from '@/lib/utils/native-
 import type { Product, Customer, CartItem, Sale, SaleItem, Category } from '@/lib/types/database'
 import dynamic from 'next/dynamic'
 import { cacheProducts, getCachedProducts, cacheCustomers, getCachedCustomers, savePendingSale } from '@/lib/offline/db'
+import { clearPageCache, clearPageCacheByPrefix } from '@/lib/offline/page-cache'
 import { registerBackgroundSync } from '@/lib/offline/sync'
 
 const BarcodeScanner = dynamic(
@@ -673,6 +674,10 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       resetForm()
       triggerSaleFeedback()
       toast({ title: t('sales.receipt_ready'), variant: 'success' })
+      // Invalidate related page caches so next visit to history/stock shows fresh data
+      clearPageCacheByPrefix('sales_history_v2_')
+      clearPageCache(`stock_${selectedShop?.id}`)
+      if (selectedCustomer) clearPageCache(`debtors_${selectedShop?.id}`)
 
       // Fire-and-forget: notify admin of new sale + check low stock
       const soldProductIds = cart.map(item => item.product.id)
