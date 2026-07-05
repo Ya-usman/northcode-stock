@@ -5,9 +5,20 @@ import { useState, useCallback, useEffect, useRef } from 'react'
  * - Filters survive navigation: leaving and returning to a page restores the
  *   last active filters — no reload or re-selection needed.
  * - Resets automatically when the active shop changes (different data context).
+ * - Resets when a new calendar day starts (stale date ranges won't carry over).
  * - Clears when the browser tab is closed (sessionStorage is tab-scoped).
  * - resetFilters() lets the user manually clear all filters back to defaults.
  */
+
+interface StoredEntry<T> {
+  filters: T
+  date: string // 'YYYY-MM-DD'
+}
+
+function today(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
 export function usePersistedFilters<T extends Record<string, unknown>>(
   pageKey: string,
   shopId: string | null | undefined,
@@ -23,8 +34,21 @@ export function usePersistedFilters<T extends Record<string, unknown>>(
     try {
       const raw = sessionStorage.getItem(key)
       if (!raw) return defaultsRef.current
-      // Merge with defaults so new filter fields added in code are picked up
-      return { ...defaultsRef.current, ...JSON.parse(raw) }
+      const parsed = JSON.parse(raw)
+
+      // New format: { filters, date } — reject if from a previous calendar day.
+      if (parsed && typeof parsed === 'object' && 'filters' in parsed && 'date' in parsed) {
+        const entry = parsed as StoredEntry<T>
+        if (entry.date !== today()) {
+          sessionStorage.removeItem(key)
+          return defaultsRef.current
+        }
+        return { ...defaultsRef.current, ...entry.filters }
+      }
+
+      // Old format (plain object, no date) — treat as expired and migrate.
+      sessionStorage.removeItem(key)
+      return defaultsRef.current
     } catch {
       return defaultsRef.current
     }
@@ -49,9 +73,13 @@ export function usePersistedFilters<T extends Record<string, unknown>>(
   const setFilter = useCallback((updates: Partial<T>) => {
     setFiltersState(prev => {
       const next = { ...prev, ...updates }
-      // Persist immediately so the filter survives navigating to another page and back.
       const key = makeKey(prevShopId.current)
-      if (key) { try { sessionStorage.setItem(key, JSON.stringify(next)) } catch {} }
+      if (key) {
+        try {
+          const entry: StoredEntry<T> = { filters: next, date: today() }
+          sessionStorage.setItem(key, JSON.stringify(entry))
+        } catch {}
+      }
       return next
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
