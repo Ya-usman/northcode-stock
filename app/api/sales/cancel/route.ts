@@ -1,6 +1,6 @@
 ﻿import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
-// supabase user client used for shop membership check (respects RLS)
+import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 
 export async function POST(request: Request) {
   try {
@@ -61,6 +61,17 @@ export async function POST(request: Request) {
     })
 
     if (rpcErr) throw rpcErr
+
+    await writeAuditLog({
+      action: 'sale.cancel',
+      shop_id: sale.shop_id,
+      actor_id: user.id,
+      actor_email: user.email,
+      target_id: sale_id,
+      target_type: 'sale',
+      metadata: { sale_number: sale.sale_number, reason: reason || null },
+      ip: getClientIp(request),
+    })
 
     return NextResponse.json({ success: true, message: `Vente #${sale.sale_number} annulée` })
   } catch (err: any) {

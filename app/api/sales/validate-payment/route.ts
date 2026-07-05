@@ -1,5 +1,6 @@
 ﻿import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 
 export async function POST(request: Request) {
   try {
@@ -18,7 +19,7 @@ export async function POST(request: Request) {
     // Verify caller has access to the sale's shop before the atomic RPC
     const { data: sale, error: saleErr } = await admin
       .from('sales')
-      .select('shop_id, sale_status')
+      .select('shop_id, sale_status, sale_number')
       .eq('id', sale_id)
       .single()
 
@@ -49,6 +50,18 @@ export async function POST(request: Request) {
 
     const row = Array.isArray(result) ? result[0] : result
     const newBalance = Number(row?.new_balance ?? 0)
+
+    await writeAuditLog({
+      action: 'sale.validate_payment',
+      shop_id: sale.shop_id,
+      actor_id: user.id,
+      actor_email: user.email,
+      target_id: sale_id,
+      target_type: 'sale',
+      metadata: { sale_number: sale.sale_number, amount: Number(amount), method },
+      ip: getClientIp(request),
+    })
+
     return NextResponse.json({ success: true, message: newBalance <= 0 ? 'Paiement complet' : `Solde restant: ${newBalance}` })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })

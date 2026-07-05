@@ -1,11 +1,11 @@
 ﻿'use client'
 
-import { useState, useEffect, useMemo, Fragment } from 'react'
+import { useState, useEffect, useMemo, Fragment, useRef } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
 import {
   Search, FileDown, FileText, ChevronDown, ChevronUp,
-  XCircle, CheckCircle2, Printer, Share2, Store, CornerDownLeft,
+  XCircle, CheckCircle2, Printer, Share2, Store, CornerDownLeft, Activity, Edit2, Trash2, Plus,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { useCurrency } from '@/lib/hooks/use-currency'
@@ -94,8 +95,9 @@ export default function SalesHistoryPage() {
   const { toast } = useToast()
 
   const PAGE_SIZE = 100
+  const SEARCH_LIMIT = 500
 
-  const [view, setView] = useState<'sales' | 'repayments'>('sales')
+  const [view, setView] = useState<'sales' | 'repayments' | 'logs'>('sales')
   const [sales, setSales] = useState<Sale[]>([])
   const [cashierMap, setCashierMap] = useState<Record<string, string>>({})
   const [repayments, setRepayments] = useState<any[]>([])
@@ -118,6 +120,23 @@ export default function SalesHistoryPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [exportingPDF, setExportingPDF] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
+  const [logs, setLogs] = useState<any[]>([])
+  const [loadingLogs, setLoadingLogs] = useState(false)
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isFirstSearchRender = useRef(true)
+
+  // Edit dialog state
+  type EditItem = { product_id: string | null; product_name: string; quantity: number; unit_price: number }
+  const [editDialog, setEditDialog] = useState<Sale | null>(null)
+  const [editItems, setEditItems] = useState<EditItem[]>([])
+  const [editCustomerId, setEditCustomerId] = useState<string | null>(null)
+  const [editCustomerQuery, setEditCustomerQuery] = useState('')
+  const [editPaymentMethod, setEditPaymentMethod] = useState('cash')
+  const [editNotes, setEditNotes] = useState('')
+  const [editProductQuery, setEditProductQuery] = useState('')
+  const [editProducts, setEditProducts] = useState<any[]>([])
+  const [editCustomers, setEditCustomers] = useState<any[]>([])
+  const [editSaving, setEditSaving] = useState(false)
 
   useEffect(() => {
     setIsOnline(navigator.onLine)
@@ -156,7 +175,7 @@ export default function SalesHistoryPage() {
     return { start, end }
   }
 
-  const buildSalesQuery = (start: Date, end: Date, offset: number) => {
+  const buildSalesQuery = (start: Date, end: Date, offset: number, searchMode = false) => {
     let query = supabase
       .from('sales')
       .select('*, customers(name, phone), sale_items(product_id, product_name, quantity, unit_price, subtotal, products(image_url))')
@@ -164,7 +183,12 @@ export default function SalesHistoryPage() {
       .gte('created_at', start.toISOString())
       .lte('created_at', end.toISOString())
       .order('created_at', { ascending: false })
-      .range(offset, offset + PAGE_SIZE - 1)
+
+    if (searchMode) {
+      query = query.limit(SEARCH_LIMIT)
+    } else {
+      query = query.range(offset, offset + PAGE_SIZE - 1)
+    }
 
     if (isCashier) query = query.eq('cashier_id', profile!.id)
     if (methodFilter === 'mobile_money') query = query.in('payment_method', mobileMoneyIds.length ? mobileMoneyIds : ['__none__'])
@@ -202,15 +226,20 @@ export default function SalesHistoryPage() {
   const fetchSales = async () => {
     if (!effectiveShopIds.length) return
     setSalesOffset(0)
+    const isSearchMode = search.trim().length > 0
     const customSuffix = dateFilter === 'custom' ? `_${customStart}_${customEnd}` : ''
     const cacheKey = `sales_history_v2_${effectiveShopIds.join(',')}_${dateFilter}${customSuffix}_${methodFilter}_${statusFilter}_${saleStatusFilter}`
-    const cached = getPageCache<Sale[]>(cacheKey)
-    if (cached) {
-      setSales(cached)
-      setHasMoreSales(false)
-      setLoading(false)
-      // Enrich cashier names in background — don't block render
-      enrichCashiers(cached).then(map => setCashierMap(map))
+    if (!isSearchMode) {
+      const cached = getPageCache<Sale[]>(cacheKey)
+      if (cached) {
+        setSales(cached)
+        setHasMoreSales(false)
+        setLoading(false)
+        // Enrich cashier names in background — don't block render
+        enrichCashiers(cached).then(map => setCashierMap(map))
+      } else {
+        setLoading(true)
+      }
     } else {
       setLoading(true)
     }
@@ -218,16 +247,16 @@ export default function SalesHistoryPage() {
     try {
       const { start, end } = getDateBounds()
       const [listResult, statsResult] = await Promise.all([
-        buildSalesQuery(start, end, 0),
+        buildSalesQuery(start, end, 0, isSearchMode),
         buildStatsQuery(start, end),
       ])
       if (listResult.error) throw listResult.error
       const salesData = (listResult.data || []) as Sale[]
       const statsRows = (statsResult.data || []) as Array<{ total: number; amount_paid: number; balance: number }>
       setSales(salesData)
-      setHasMoreSales(salesData.length === PAGE_SIZE)
+      setHasMoreSales(!isSearchMode && salesData.length === PAGE_SIZE)
       setCashierMap(await enrichCashiers(salesData))
-      setPageCache(cacheKey, salesData)
+      if (!isSearchMode) setPageCache(cacheKey, salesData)
       setPeriodStats({
         count:     statsRows.length,
         ca:        statsRows.reduce((s, r) => s + Number(r.total), 0),
@@ -276,12 +305,110 @@ export default function SalesHistoryPage() {
     setLoading(false)
   }
 
+  const openEditDialog = (sale: Sale) => {
+    const s = sale as any
+    setEditItems((s.sale_items || []).map((item: any) => ({
+      product_id: item.product_id || null,
+      product_name: item.product_name,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+    })))
+    setEditCustomerId(s.customer_id || null)
+    setEditCustomerQuery(s.customers?.name || '')
+    setEditPaymentMethod(s.payment_method || 'cash')
+    setEditNotes(s.notes || '')
+    setEditProductQuery('')
+    setEditProducts([])
+    setEditCustomers([])
+    setEditDialog(sale)
+  }
+
+  const searchEditProducts = async (q: string) => {
+    if (!q.trim() || !effectiveShopIds.length) { setEditProducts([]); return }
+    const { data } = await supabase
+      .from('products')
+      .select('id, name, selling_price, quantity')
+      .in('shop_id', effectiveShopIds)
+      .eq('is_active', true)
+      .ilike('name', `%${normalize(q)}%`)
+      .order('name').limit(8)
+    setEditProducts(data || [])
+  }
+
+  const searchEditCustomers = async (q: string) => {
+    if (!q.trim()) { setEditCustomers([]); return }
+    const { data } = await supabase
+      .from('customers')
+      .select('id, name, phone')
+      .in('shop_id', effectiveShopIds)
+      .ilike('name', `%${q}%`)
+      .limit(6)
+    setEditCustomers(data || [])
+  }
+
+  const doEdit = async () => {
+    if (!editDialog || editItems.length === 0) return
+    setEditSaving(true)
+    try {
+      const res = await fetch('/api/sales/edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sale_id: editDialog.id,
+          customer_id: editCustomerId,
+          payment_method: editPaymentMethod,
+          notes: editNotes,
+          items: editItems,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error)
+      toast({ title: json.message, variant: 'success' })
+      setEditDialog(null)
+      fetchSales()
+    } catch (err: any) {
+      toast({ title: err.message, variant: 'destructive' })
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  const fetchLogs = async () => {
+    if (!effectiveShopIds.length || !isOwner) return
+    setLoadingLogs(true)
+    const { start, end } = getDateBounds()
+    try {
+      const params = new URLSearchParams({
+        shop_ids: effectiveShopIds.join(','),
+        from: start.toISOString(),
+        to: end.toISOString(),
+      })
+      const res = await fetch(`/api/sales/logs?${params}`)
+      const json = await res.json()
+      setLogs(json.logs || [])
+    } catch {
+      // ignore
+    } finally {
+      setLoadingLogs(false)
+    }
+  }
+
   const shopKey = effectiveShopIds.join(',')
 
   useEffect(() => {
     if (view === 'sales') fetchSales()
-    else fetchRepayments()
+    else if (view === 'repayments') fetchRepayments()
+    else fetchLogs()
   }, [shopKey, dateFilter, customStart, customEnd, methodFilter, statusFilter, saleStatusFilter, view])
+
+  // Debounced re-fetch when search changes: skip first render (main effect handles it)
+  useEffect(() => {
+    if (isFirstSearchRender.current) { isFirstSearchRender.current = false; return }
+    if (view !== 'sales') return
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    searchTimerRef.current = setTimeout(() => { fetchSales() }, 350)
+    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current) }
+  }, [search])
 
   const filteredRepayments = repayments.filter(p => {
     if (!search) return true
@@ -304,7 +431,8 @@ export default function SalesHistoryPage() {
     const q = normalize(search)
     return (
       normalize(s.sale_number ?? '').includes(q) ||
-      normalize((s as any).customers?.name ?? '').includes(q)
+      normalize((s as any).customers?.name ?? '').includes(q) ||
+      normalize(cashierMap[(s as any).cashier_id] ?? '').includes(q)
     )
   })
 
@@ -520,6 +648,15 @@ export default function SalesHistoryPage() {
                   {canCancelThis && (
                     <Button
                       size="sm" variant="outline"
+                      className="gap-1.5 text-xs h-7 border-blue-300 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+                      onClick={() => openEditDialog(sale)}
+                    >
+                      <Edit2 className="h-3 w-3" /> {t('actions.edit')}
+                    </Button>
+                  )}
+                  {canCancelThis && (
+                    <Button
+                      size="sm" variant="outline"
                       className="gap-1.5 text-xs h-7 border-amber-300 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40"
                       onClick={() => { setDialog({ type: 'cancel', sale }); setCancelReason('') }}
                     >
@@ -573,6 +710,14 @@ export default function SalesHistoryPage() {
         >
           <CornerDownLeft className="h-3.5 w-3.5" /> {t('sales.repayments_tab')}
         </button>
+        {isOwner && (
+          <button
+            onClick={() => setView('logs')}
+            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${view === 'logs' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            <Activity className="h-3.5 w-3.5" /> {t('sales.logs_tab')}
+          </button>
+        )}
       </div>
 
       {/* Filters row */}
@@ -854,6 +999,258 @@ export default function SalesHistoryPage() {
           </Button>
         </div>
       )}
+
+      {/* ── Activity log view ───────────────────────────────── */}
+      {view === 'logs' && (
+        loadingLogs ? (
+          <div className="space-y-2">
+            {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16 rounded-lg" />)}
+          </div>
+        ) : logs.length === 0 ? (
+          <div className="rounded-lg border bg-card shadow-sm flex h-32 items-center justify-center text-muted-foreground text-sm">
+            {t('sales.no_logs')}
+          </div>
+        ) : (
+          <div className="rounded-lg border bg-card shadow-sm divide-y overflow-hidden">
+            {logs.map(log => {
+              const isCancel   = log.action === 'sale.cancel'
+              const isValidate = log.action === 'sale.validate_payment'
+              const isEdit     = log.action === 'sale.edit'
+              const saleNum = log.metadata?.sale_number || log.target_id
+              const iconCls = isCancel
+                ? 'bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400'
+                : isEdit
+                  ? 'bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400'
+                  : 'bg-green-100 dark:bg-green-950/50 text-green-600 dark:text-green-400'
+              const actionLabel = isCancel
+                ? t('sales.log_action_cancel')
+                : isEdit
+                  ? t('sales.log_action_edit')
+                  : t('sales.log_action_validate')
+              return (
+                <div key={log.id} className="flex items-start gap-3 p-3">
+                  <div className={`mt-0.5 flex-shrink-0 rounded-full p-1.5 ${iconCls}`}>
+                    {isCancel ? <XCircle className="h-3.5 w-3.5" /> : isEdit ? <Edit2 className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm leading-snug">
+                        <span className="font-medium">{log.actor_name}</span>{' '}
+                        <span className="text-muted-foreground">{actionLabel}</span>{' '}
+                        <span className="font-mono text-xs font-semibold text-stockshop-blue dark:text-blue-400">
+                          #{saleNum}
+                        </span>
+                      </p>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0 mt-0.5">
+                        {format(new Date(log.created_at), 'dd MMM · HH:mm')}
+                      </span>
+                    </div>
+                    {isCancel && log.metadata?.reason && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {t('sales.log_reason_label')} {log.metadata.reason}
+                      </p>
+                    )}
+                    {isValidate && log.metadata?.amount != null && (
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">
+                        +{formatNaira(log.metadata.amount)}
+                        {log.metadata.method ? ` · ${payMethodLabel(log.metadata.method)}` : ''}
+                      </p>
+                    )}
+                    {isEdit && log.metadata?.new_total != null && (
+                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
+                        {formatNaira(log.metadata.old_total)} → {formatNaira(log.metadata.new_total)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )
+      )}
+
+      {/* ── Edit sale dialog ───────────────────────────────── */}
+      <Dialog open={!!editDialog} onOpenChange={open => !open && setEditDialog(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit2 className="h-4 w-4" />
+              {t('sales.edit_sale_title')} <span className="font-mono text-stockshop-blue dark:text-blue-400">#{(editDialog as any)?.sale_number}</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          {editDialog && (() => {
+            const amountPaid = Number((editDialog as any).amount_paid || 0)
+            const editNewTotal = editItems.reduce((s, i) => s + i.quantity * i.unit_price, 0)
+            const overCollected = amountPaid > editNewTotal && editItems.length > 0
+
+            return (
+              <div className="space-y-4 py-2">
+                {/* Items */}
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {t('sales.edit_items_section')}
+                  </p>
+                  {editItems.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-2 text-sm">
+                      <span className="flex-1 truncate text-xs">{item.product_name}</span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          className="h-6 w-6 rounded border flex items-center justify-center text-muted-foreground hover:bg-muted"
+                          onClick={() => setEditItems(prev => prev.map((it, i) => i === idx && it.quantity > 1 ? { ...it, quantity: it.quantity - 1 } : it))}
+                        >−</button>
+                        <input
+                          type="number"
+                          min={1}
+                          value={item.quantity}
+                          onChange={e => setEditItems(prev => prev.map((it, i) => i === idx ? { ...it, quantity: Math.max(1, Number(e.target.value) || 1) } : it))}
+                          className="w-12 h-6 rounded border text-center text-xs bg-background"
+                        />
+                        <button
+                          type="button"
+                          className="h-6 w-6 rounded border flex items-center justify-center text-muted-foreground hover:bg-muted"
+                          onClick={() => setEditItems(prev => prev.map((it, i) => i === idx ? { ...it, quantity: it.quantity + 1 } : it))}
+                        >+</button>
+                      </div>
+                      <input
+                        type="number"
+                        min={0}
+                        value={item.unit_price}
+                        onChange={e => setEditItems(prev => prev.map((it, i) => i === idx ? { ...it, unit_price: Number(e.target.value) || 0 } : it))}
+                        className="w-24 h-6 rounded border text-right text-xs bg-background px-1"
+                      />
+                      <span className="w-20 text-right text-xs font-medium shrink-0">
+                        {formatNaira(item.quantity * item.unit_price)}
+                      </span>
+                      <button
+                        type="button"
+                        className="text-red-400 hover:text-red-600 flex-shrink-0"
+                        onClick={() => setEditItems(prev => prev.filter((_, i) => i !== idx))}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* Product search to add items */}
+                  <div className="relative mt-1">
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input
+                        value={editProductQuery}
+                        onChange={e => { setEditProductQuery(e.target.value); searchEditProducts(e.target.value) }}
+                        placeholder={t('sales.edit_product_search')}
+                        className="pl-8 h-8 text-xs"
+                      />
+                    </div>
+                    {editProducts.length > 0 && (
+                      <div className="absolute z-50 top-full mt-1 w-full rounded-lg border bg-popover shadow-lg overflow-hidden">
+                        {editProducts.map(p => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-muted text-left"
+                            onClick={() => {
+                              setEditItems(prev => {
+                                const existing = prev.findIndex(it => it.product_id === p.id)
+                                if (existing >= 0) return prev.map((it, i) => i === existing ? { ...it, quantity: it.quantity + 1 } : it)
+                                return [...prev, { product_id: p.id, product_name: p.name, quantity: 1, unit_price: p.selling_price }]
+                              })
+                              setEditProductQuery('')
+                              setEditProducts([])
+                            }}
+                          >
+                            <span className="truncate">{p.name}</span>
+                            <span className="text-muted-foreground ml-2 shrink-0">{formatNaira(p.selling_price)} · stock: {p.quantity}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* New total */}
+                <div className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold ${overCollected ? 'bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400' : 'bg-muted/50'}`}>
+                  <span>{t('sales.edit_new_total')}</span>
+                  <span>{formatNaira(editNewTotal)}</span>
+                </div>
+                {overCollected && (
+                  <p className="text-xs text-red-500">{t('sales.edit_amount_paid_warning')}</p>
+                )}
+
+                {/* Customer */}
+                <div className="space-y-1">
+                  <Label className="text-xs">{t('sales.edit_customer_section')}</Label>
+                  <div className="relative">
+                    <Input
+                      value={editCustomerQuery}
+                      onChange={e => {
+                        setEditCustomerQuery(e.target.value)
+                        if (!e.target.value) { setEditCustomerId(null); setEditCustomers([]) }
+                        else searchEditCustomers(e.target.value)
+                      }}
+                      placeholder={t('sales.edit_customer_placeholder')}
+                      className="h-8 text-xs"
+                    />
+                    {editCustomers.length > 0 && (
+                      <div className="absolute z-50 top-full mt-1 w-full rounded-lg border bg-popover shadow-lg overflow-hidden">
+                        {editCustomers.map(c => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-muted text-left"
+                            onClick={() => { setEditCustomerId(c.id); setEditCustomerQuery(c.name); setEditCustomers([]) }}
+                          >
+                            <span>{c.name}</span>
+                            {c.phone && <span className="text-muted-foreground">{c.phone}</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Payment method */}
+                <div className="space-y-1">
+                  <Label className="text-xs">{t('payment.method')}</Label>
+                  <Select value={editPaymentMethod} onValueChange={setEditPaymentMethod}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(shop?.country ? getCountry(shop.country).paymentMethods : []).map(m => (
+                        <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Notes */}
+                <div className="space-y-1">
+                  <Label className="text-xs">{t('sales.note_label')}</Label>
+                  <Input
+                    value={editNotes}
+                    onChange={e => setEditNotes(e.target.value)}
+                    placeholder={t('sales.edit_notes_placeholder')}
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+            )
+          })()}
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setEditDialog(null)}>{t('actions.cancel')}</Button>
+            <Button
+              onClick={doEdit}
+              disabled={editSaving || editItems.length === 0 || Number((editDialog as any)?.amount_paid || 0) > editItems.reduce((s, i) => s + i.quantity * i.unit_price, 0)}
+              loading={editSaving}
+              className="bg-blue-600 hover:bg-blue-700 text-white border-0"
+            >
+              {t('sales.edit_save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Action dialog */}
       <PremiumDialog

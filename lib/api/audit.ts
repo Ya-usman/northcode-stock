@@ -11,6 +11,8 @@ export type AuditAction =
   | 'account.register'
   | 'account.delete'
   | 'sale.cancel'
+  | 'sale.validate_payment'
+  | 'sale.edit'
   | 'sale.delete'
   | 'expense.delete'
   | 'admin.suspend_shop'
