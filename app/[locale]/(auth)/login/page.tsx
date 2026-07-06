@@ -235,7 +235,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
       <div className="flex mx-[90px] my-12 min-h-[calc(100vh-96px)]">
 
         {/* ── Brand panel — desktop only ── */}
-        <div className="hidden lg:flex flex-col flex-1 pl-8 pr-10 py-12 relative z-10">
+        <div className="hidden lg:flex flex-col flex-1 px-8 py-12 relative z-10">
           <div className="flex-1 flex flex-col justify-center">
             <h1 className="text-[26px] font-bold tracking-tight leading-snug text-[#0f172a] dark:text-[#e2ecff]">
               Manage smarter.<br />Sell faster.<br />Grow bigger.
