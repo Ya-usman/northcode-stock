@@ -266,9 +266,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const isResetFlow = window.location.pathname.includes('/reset-password')
 
       const isNativeApp = isCapacitor()
+      // PWA installée (standalone) = équivalent app native — ne pas déconnecter
+      // à l'ouverture même si sessionStorage est vide (comportement attendu d'une app).
+      const isStandalone =
+        window.matchMedia?.('(display-mode: standalone)').matches ||
+        (navigator as any).standalone === true
 
-      if (!remember && !isOAuth && !sessionAlive && !isResetFlow && !isNativeApp) {
-        await supabase.auth.signOut()
+      if (!remember && !isOAuth && !sessionAlive && !isResetFlow && !isNativeApp && !isStandalone) {
+        // Ne PAS await signOut() — la requête réseau peut bloquer indéfiniment sur un
+        // Supabase en cold start (tier gratuit), gelant l'app pendant 12s+.
+        // Le cache est effacé immédiatement côté client, empêchant tout accès aux
+        // pages protégées. La déconnexion serveur se termine en arrière-plan.
+        supabase.auth.signOut().catch(() => {})
         clearCache()
         if (!cancelled) setState(s => ({ ...s, loading: false }))
         const locale = getLocaleCookie() || localStorage.getItem('NEXT_LOCALE') || 'fr'

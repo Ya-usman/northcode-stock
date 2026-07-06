@@ -77,47 +77,65 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
 
   const onLogin = async (data: LoginData) => {
     setError('')
-    // Effacer uniquement les caches auth — PAS les caches SW (pages/assets/RSC)
-    // dashboard_cache_v1 intentionally NOT cleared: its key includes profile.id
-    // so a different user's data is never shown; keeping it avoids the skeleton
-    // flash that occurs when the dashboard mounts after auth resolves.
-    // clearReadCaches() in auth-context clears it properly on SIGNED_OUT.
-    localStorage.removeItem('auth_cache_v1')
+    // Ne PAS effacer auth_cache_v1 ici : readCacheStale() valide par userId,
+    // donc un cache d'un autre utilisateur est automatiquement rejeté.
+    // Garder le cache permet un rendu immédiat du dashboard après connexion
+    // (refresh en arrière-plan) au lieu de montrer le skeleton systématiquement.
     localStorage.removeItem('active_shop_id')
     localStorage.removeItem('dashboard_shop_filter')
 
-    // 2 tentatives max avec timeout 10s par tentative.
-    // Sans timeout, supabase.auth.signInWithPassword peut bloquer indéfiniment
-    // si Supabase est lent au démarrage (cold start) — le fetch API n'a pas de
-    // timeout intégré. On utilise AbortController pour forcer l'annulation.
-    const attemptLogin = (): Promise<{ data: any; error: any }> =>
-      new Promise((resolve) => {
-        const controller = new AbortController()
-        const tid = setTimeout(() => controller.abort(), 10_000)
-        supabase.auth.signInWithPassword({ email: data.email, password: data.password })
-          .then(res => { clearTimeout(tid); resolve(res) })
-          .catch(err => { clearTimeout(tid); resolve({ data: null, error: err }) })
-        // If abort fires before the promise resolves, treat as network error
-        controller.signal.addEventListener('abort', () =>
-          resolve({ data: null, error: { message: 'Request timeout', status: 0 } })
-        , { once: true })
-      })
+    // Timeout à 20s via Promise.race (sans AbortController qui ne s'applique pas
+    // à supabase.auth.signInWithPassword). Après le timeout, on vérifie getSession()
+    // car Supabase peut avoir stocké la session juste après l'expiration du délai
+    // (cold start Supabase free tier : 5-20s au démarrage).
+    const doSignIn = () =>
+      supabase.auth.signInWithPassword({ email: data.email, password: data.password })
 
     let authData: any = null
     let lastError: any = null
+
     for (let attempt = 0; attempt < 2; attempt++) {
-      const { data: d, error: e } = await attemptLogin()
-      if (!e) { authData = d; break }
-      lastError = e
-      const isNetworkError = !e.status || e.status === 0 || e.message?.toLowerCase().includes('fetch') || e.message?.toLowerCase().includes('network') || e.message?.toLowerCase().includes('failed') || e.message?.toLowerCase().includes('timeout')
-      // Mauvais identifiants → inutile de réessayer
+      let timedOut = false
+      let result: { data: any; error: any } | null = null
+
+      try {
+        result = await Promise.race([
+          doSignIn(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => { timedOut = true; reject(new Error('__timeout__')) }, 20_000)
+          ),
+        ])
+      } catch (err: any) {
+        if (timedOut) {
+          // Le timeout a gagné la course — Supabase a peut-être quand même stocké
+          // la session juste après. On vérifie avant d'afficher une erreur.
+          const { data: { session } } = await supabase.auth.getSession()
+          if (session) { authData = { session, user: session.user }; break }
+          lastError = { message: 'timeout', status: 0 }
+        } else {
+          lastError = err
+        }
+        const msg = (lastError?.message || '').toLowerCase()
+        const isNetworkError = !lastError?.status || lastError?.status === 0 ||
+          msg.includes('fetch') || msg.includes('network') || msg.includes('failed') || msg.includes('timeout')
+        if (!isNetworkError) break
+        if (attempt < 1) await new Promise(r => setTimeout(r, 2000))
+        continue
+      }
+
+      if (!result!.error) { authData = result!.data; break }
+      lastError = result!.error
+      const msg = (lastError.message || '').toLowerCase()
+      const isNetworkError = !lastError.status || lastError.status === 0 ||
+        msg.includes('fetch') || msg.includes('network') || msg.includes('failed')
       if (!isNetworkError) break
-      // Erreur réseau → attendre 2s puis une dernière tentative
       if (attempt < 1) await new Promise(r => setTimeout(r, 2000))
     }
 
     if (!authData) {
-      const isNetworkError = !lastError?.status || lastError?.status === 0 || lastError?.message?.toLowerCase().includes('fetch') || lastError?.message?.toLowerCase().includes('network') || lastError?.message?.toLowerCase().includes('failed')
+      const msg = (lastError?.message || '').toLowerCase()
+      const isNetworkError = !lastError?.status || lastError?.status === 0 ||
+        msg.includes('fetch') || msg.includes('network') || msg.includes('failed') || msg.includes('timeout')
       setError(isNetworkError
         ? (locale === 'ha' ? 'Matsalar hanyar sadarwa. Da fatan a sake gwadawa.' : 'Problème de connexion. Vérifiez votre réseau et réessayez.')
         : t('invalid_credentials'))
