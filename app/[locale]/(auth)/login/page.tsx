@@ -232,7 +232,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
         {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
       </button>
 
-      <div className="min-h-screen flex">
+      <div className="flex mx-[90px] my-12 min-h-[calc(100vh-96px)]">
 
         {/* ── Brand panel — desktop only ── */}
         <div className="hidden lg:flex flex-col flex-1 pl-8 pr-10 py-12 relative z-10">
