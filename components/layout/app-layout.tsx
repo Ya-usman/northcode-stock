@@ -363,11 +363,11 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
           <div className="text-4xl">⚠️</div>
           <h2 className="text-lg font-bold text-foreground">Configuration incomplète</h2>
           <p className="text-sm text-muted-foreground">
-            Votre profil n&apos;a pas pu être chargé. Veuillez vous déconnecter et recréer votre compte.
+            Votre profil n&apos;a pas pu être chargé. Vérifiez votre connexion et réessayez.
           </p>
           <div className="flex flex-col gap-2">
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => refreshShop().catch(() => window.location.reload())}
               className="w-full rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors"
             >
               Réessayer
