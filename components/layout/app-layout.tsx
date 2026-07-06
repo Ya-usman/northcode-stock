@@ -374,7 +374,9 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
             </button>
             <button
               onClick={async () => {
-                await supabase.auth.signOut()
+                try { localStorage.removeItem('auth_cache_v1') } catch {}
+                try { await fetch('/api/auth/set-role', { method: 'DELETE', signal: AbortSignal.timeout(4000) }) } catch {}
+                try { await supabase.auth.signOut() } catch {}
                 window.location.href = `/${locale}/login`
               }}
               className="w-full rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-white hover:bg-destructive/90 transition-colors"
