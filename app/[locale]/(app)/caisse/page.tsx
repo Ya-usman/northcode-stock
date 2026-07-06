@@ -5,6 +5,7 @@ import { format, startOfDay, endOfDay, addDays, isToday } from 'date-fns'
 import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext } from '@/lib/contexts/auth-context'
+import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -59,7 +60,8 @@ export default function CaissePage() {
   const { fmt } = useCurrency()
 
   const role = roleInActiveShop ?? profile?.role
-  const isAuthorized = role === 'owner' || role === 'super_admin' || role === 'manager' || role === 'shop_manager'
+  const { canAccess } = useRolePermissions()
+  const isAuthorized = (role === 'owner' || role === 'super_admin' || role === 'manager' || role === 'shop_manager') && canAccess('caisse')
 
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date())
   const [loading, setLoading] = useState(true)

@@ -563,7 +563,8 @@
     "perm_expenses": "Kashe Kuɗi",
     "perm_notes": "Bayanai",
     "perm_revenue_chart": "Kudaden Shiga vs Kashe Kuɗi & Riba Fâk",
-    "perm_delete_products": "Share Kayayyaki"
+    "perm_delete_products": "Share Kayayyaki",
+    "perm_caisse": "Duba Kuɗin Kasuwanci"
   },
   "movements": {
     "title": "Motsi na Kaya",

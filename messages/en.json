@@ -563,7 +563,8 @@
     "perm_expenses": "Expenses",
     "perm_notes": "Notes",
     "perm_revenue_chart": "Revenue vs Expenses & Net Result",
-    "perm_delete_products": "Delete products"
+    "perm_delete_products": "Delete products",
+    "perm_caisse": "Cash Audit"
   },
   "movements": {
     "title": "Stock Movements",
