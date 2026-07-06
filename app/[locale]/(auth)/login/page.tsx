@@ -268,7 +268,8 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
         <div className="hidden lg:block w-px self-stretch my-10 bg-[#d0dcf0] dark:bg-[#152034]" />
 
         {/* ── Form panel ── */}
-        <div className="flex-1 flex items-center justify-center relative z-10 overflow-y-auto">
+        <div className="flex-1 flex flex-col relative z-10 overflow-y-auto">
+          <div className="flex-1 flex items-center justify-center">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
@@ -402,12 +403,14 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
                 </motion.div>
               )}
             </AnimatePresence>
-
-            <p className="text-center text-sm mt-6 text-[#607090] dark:text-[#3a5070]">
-              {t('no_account')}{' '}
-              <Link href={`/${locale}/register`} className="text-[#073e8a] dark:text-[#4a88f5] font-semibold hover:underline">{t('register_link')}</Link>
-            </p>
           </motion.div>
+          </div>
+
+          {/* Register link — même hauteur que le footer du brand panel */}
+          <p className="text-center text-sm pb-12 text-[#607090] dark:text-[#3a5070]">
+            {t('no_account')}{' '}
+            <Link href={`/${locale}/register`} className="text-[#073e8a] dark:text-[#4a88f5] font-semibold hover:underline">{t('register_link')}</Link>
+          </p>
         </div>
 
       </div>
