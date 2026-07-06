@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
-import { cacheProducts, cacheCustomers, cacheExpenses, cacheCategories } from './db'
+import { cacheProducts, cacheCustomers } from './db'
 
 const DATA_TTL  = 60 * 60 * 1000   // données IndexedDB : refresh toutes les heures
 const PAGES_TTL = 20 * 60 * 1000   // pages SW : re-fetch toutes les 20 min
@@ -23,6 +23,11 @@ const SECONDARY_ROUTES = [
   'payments',
   'reports',
   'notes',
+  'categories',
+  'stock/movements',
+  'suppliers',
+  'team',
+  'caisse',
 ]
 
 function getLocale(): string {
@@ -144,8 +149,6 @@ export function useOfflinePreload() {
             const [
               { data: products },
               { data: customers },
-              { data: expenses },
-              { data: categories },
             ] = await Promise.all([
               supabase
                 .from('products')
@@ -154,15 +157,6 @@ export function useOfflinePreload() {
               supabase
                 .from('customers')
                 .select('id, shop_id, name, phone, total_debt')
-                .in('shop_id', shopIds).order('name'),
-              supabase
-                .from('expenses')
-                .select('id, shop_id, amount, description, date, category, payment_method, is_recurring')
-                .in('shop_id', shopIds).eq('is_recurring', false)
-                .order('date', { ascending: false }).limit(200),
-              supabase
-                .from('categories')
-                .select('id, shop_id, name, name_hausa')
                 .in('shop_id', shopIds).order('name'),
             ])
 
@@ -174,14 +168,6 @@ export function useOfflinePreload() {
               if (customers?.length) {
                 const batch = customers.filter((c: any) => c.shop_id === sid)
                 if (batch.length) await cacheCustomers(sid, batch)
-              }
-              if (expenses?.length) {
-                const batch = expenses.filter((e: any) => e.shop_id === sid)
-                if (batch.length) await cacheExpenses(sid, batch)
-              }
-              if (categories?.length) {
-                const batch = categories.filter((c: any) => c.shop_id === sid)
-                if (batch.length) await cacheCategories(sid, batch)
               }
             }
             markDone(dataKey)

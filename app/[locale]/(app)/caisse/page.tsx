@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
+import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -73,7 +74,14 @@ export default function CaissePage() {
 
   const fetchData = useCallback(async () => {
     if (!effectiveShopIds.length || !isAuthorized) { setLoading(false); return }
-    setLoading(true)
+    const cacheKey = `caisse_${shopIdsKey}_${format(selectedDate, 'yyyy-MM-dd')}`
+    const cached = getPageCache<CashierSummary[]>(cacheKey)
+    if (cached) {
+      setCashierSummaries(cached)
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
     try {
       const dayStart = startOfDay(selectedDate).toISOString()
       const dayEnd   = endOfDay(selectedDate).toISOString()
@@ -160,7 +168,9 @@ export default function CaissePage() {
         })
       }
 
-      setCashierSummaries(Object.values(grouped).sort((a, b) => b.total - a.total))
+      const summaries = Object.values(grouped).sort((a, b) => b.total - a.total)
+      setCashierSummaries(summaries)
+      setPageCache(`caisse_${shopIdsKey}_${format(selectedDate, 'yyyy-MM-dd')}`, summaries)
     } finally {
       setLoading(false)
     }

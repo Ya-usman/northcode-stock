@@ -249,13 +249,17 @@ export default function DettesPage() {
 
   // ── Historique des dettes tab ────────────────────────────
   const [activeTab, setActiveTab] = useState<'en-cours' | 'historique'>('en-cours')
-  const [histAll, setHistAll] = useState<HistCustomerEntry[]>([])
+  const [histAll, setHistAll] = useState<HistCustomerEntry[]>(() =>
+    getPageCache<HistCustomerEntry[]>(`payments_hist_${effectiveShopIds.join(',')}`) || []
+  )
   const [loadingHistAll, setLoadingHistAll] = useState(false)
   const [histAllSearch, setHistAllSearch] = useState('')
   const [histAllDateFrom, setHistAllDateFrom] = useState('')
   const [histAllDateTo, setHistAllDateTo] = useState('')
   const [histAllExpandedId, setHistAllExpandedId] = useState<string | null>(null)
-  const [histAllFetched, setHistAllFetched] = useState(false)
+  const [histAllFetched, setHistAllFetched] = useState(() =>
+    !!getPageCache(`payments_hist_${effectiveShopIds.join(',')}`)
+  )
 
   // ── Fetch ────────────────────────────────────────────────
   const fetchDebtors = async (quiet = false) => {
@@ -435,8 +439,10 @@ export default function DettesPage() {
       const res = await fetch(`/api/payments/history-all?${params}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      setHistAll(data.customers || [])
+      const customers = data.customers || []
+      setHistAll(customers)
       setHistAllFetched(true)
+      if (!from && !to) setPageCache(`payments_hist_${effectiveShopIds.join(',')}`, customers)
     } catch (e: any) {
       toast({ title: e.message, variant: 'destructive' })
     } finally {
