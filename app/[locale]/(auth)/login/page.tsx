@@ -217,7 +217,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
   const inputCls = 'dark:bg-[#060e1c] dark:border-[#1b2e48] dark:text-[#d8e8ff] dark:placeholder:text-[#2e4460]'
 
   return (
-    <div className="min-h-screen bg-[#edf2ff] dark:bg-[#040912] relative overflow-hidden">
+    <div className="min-h-screen bg-[#edf2ff] dark:bg-[#040912] relative overflow-y-auto lg:overflow-hidden flex flex-col lg:block">
       {/* Radial glow — dark only */}
       {isDark && (
         <div className="absolute inset-0 pointer-events-none"
@@ -232,7 +232,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
         {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
       </button>
 
-      <div className="flex mx-[90px] my-12 min-h-[calc(100vh-96px)]">
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 lg:flex-none lg:flex-row lg:items-stretch lg:justify-start lg:mx-[90px] lg:my-12 lg:min-h-[calc(100vh-96px)] lg:px-0 lg:py-0">
 
         {/* ── Brand panel — desktop only ── */}
         <div className="hidden lg:flex flex-col flex-1 py-12 relative z-10">
@@ -270,13 +270,13 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
         <div className="hidden lg:block w-px self-stretch my-10 bg-[#d0dcf0] dark:bg-[#152034]" />
 
         {/* ── Form panel ── */}
-        <div className="flex-1 flex flex-col relative z-10 overflow-y-auto">
-          <div className="flex-1 flex items-center justify-center">
+        <div className="flex-none w-full flex flex-col relative z-10 lg:flex-1 lg:overflow-y-auto">
+          <div className="flex items-center justify-center lg:flex-1">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="w-full max-w-sm mx-4 my-12"
+            className="w-full max-w-sm lg:mx-4 lg:my-12"
           >
 
             {/* Logo — toujours au-dessus du formulaire */}
@@ -289,7 +289,8 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
               </p>
             </div>
 
-            {/* Formulaire — flat, sans card */}
+            {/* Card sur mobile, flat sur desktop */}
+            <div className="rounded-2xl p-6 bg-white dark:bg-[#0b1525] border border-[#dce7ff] dark:border-[#152034] shadow-[0_10px_40px_rgba(7,62,138,0.10)] dark:shadow-none lg:!bg-transparent lg:rounded-none lg:border-0 lg:p-0 lg:shadow-none">
             <AnimatePresence mode="wait">
               {mode === 'login' ? (
                 <motion.div key="login" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
@@ -405,11 +406,12 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
                 </motion.div>
               )}
             </AnimatePresence>
+            </div>
           </motion.div>
           </div>
 
-          {/* Register link — même hauteur que le footer du brand panel */}
-          <p className="text-center text-sm pb-12 text-[#607090] dark:text-[#3a5070]">
+          {/* Register link */}
+          <p className="text-center text-sm pb-6 lg:pb-12 text-[#607090] dark:text-[#3a5070]">
             {t('no_account')}{' '}
             <Link href={`/${locale}/register`} className="text-[#073e8a] dark:text-[#4a88f5] font-semibold hover:underline">{t('register_link')}</Link>
           </p>
