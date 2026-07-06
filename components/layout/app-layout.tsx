@@ -74,7 +74,7 @@ function LoadingSkeleton() {
 export function AppLayout({ children, locale }: { children: React.ReactNode; locale: string }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { user, profile, shop, roleInActiveShop, loading, signOut } = useAuthContext()
+  const { user, profile, shop, roleInActiveShop, loading, signOut, refreshShop } = useAuthContext()
   const title = usePageTitle(pathname, locale)
   const [productCount, setProductCount] = useState(0)
   const [teamCount, setTeamCount] = useState(0)
