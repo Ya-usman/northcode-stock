@@ -235,33 +235,35 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
       <div className="flex mx-[90px] my-12 min-h-[calc(100vh-96px)]">
 
         {/* ── Brand panel — desktop only ── */}
-        <div className="hidden lg:flex flex-col items-center flex-1 py-12 relative z-10">
-          <div className="flex-1 flex flex-col justify-center px-8">
-            <h1 className="text-[26px] font-bold tracking-tight leading-snug text-[#0f172a] dark:text-[#e2ecff]">
-              Manage smarter.<br />Sell faster.<br />Grow bigger.
-            </h1>
-            <p className="mt-2.5 text-[13px] leading-relaxed text-[#607090] dark:text-[#5a7098]">
-              {locale === 'ha'
-                ? 'Komai da kantin ku ke bukata — kaya, sayarwa, abokan ciniki da rahotanni.'
-                : 'Tout ce dont votre boutique a besoin — stock, ventes, clients et rapports.'}
+        <div className="hidden lg:flex flex-col flex-1 py-12 relative z-10">
+          <div className="mx-auto flex-1 flex flex-col px-8">
+            <div className="flex-1 flex flex-col justify-center">
+              <h1 className="text-[26px] font-bold tracking-tight leading-snug text-[#0f172a] dark:text-[#e2ecff]">
+                Manage smarter.<br />Sell faster.<br />Grow bigger.
+              </h1>
+              <p className="mt-2.5 text-[13px] leading-relaxed text-[#607090] dark:text-[#5a7098]">
+                {locale === 'ha'
+                  ? 'Komai da kantin ku ke bukata — kaya, sayarwa, abokan ciniki da rahotanni.'
+                  : 'Tout ce dont votre boutique a besoin — stock, ventes, clients et rapports.'}
+              </p>
+              <ul className="mt-8 space-y-3">
+                {[
+                  locale === 'ha' ? 'Yana aiki babu intanet' : 'Fonctionne hors ligne, même sans réseau',
+                  locale === 'ha' ? 'Kantunan da kuɗaɗe masu yawa' : 'Multi-boutiques, multi-devises',
+                  locale === 'ha' ? 'Rahotanni a lokaci gaskiya' : 'Rapports en temps réel',
+                  locale === 'ha' ? 'Hausa, Faransanci da Turanci' : 'Disponible en français, anglais et haoussa',
+                ].map(f => (
+                  <li key={f} className="flex items-center gap-3 text-[12.5px] text-[#5570a0] dark:text-[#6880a8]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#1948cc] dark:bg-[#073e8a] flex-shrink-0" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <p className="text-[10.5px] tracking-wide text-[#8090b0] dark:text-[#2e4060]">
+              StockShop · Made for African businesses
             </p>
-            <ul className="mt-8 space-y-3">
-              {[
-                locale === 'ha' ? 'Yana aiki babu intanet' : 'Fonctionne hors ligne, même sans réseau',
-                locale === 'ha' ? 'Kantunan da kuɗaɗe masu yawa' : 'Multi-boutiques, multi-devises',
-                locale === 'ha' ? 'Rahotanni a lokaci gaskiya' : 'Rapports en temps réel',
-                locale === 'ha' ? 'Hausa, Faransanci da Turanci' : 'Disponible en français, anglais et haoussa',
-              ].map(f => (
-                <li key={f} className="flex items-center gap-3 text-[12.5px] text-[#5570a0] dark:text-[#6880a8]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#1948cc] dark:bg-[#073e8a] flex-shrink-0" />
-                  {f}
-                </li>
-              ))}
-            </ul>
           </div>
-          <p className="text-[10.5px] tracking-wide text-[#8090b0] dark:text-[#2e4060]">
-            StockShop · Made for African businesses
-          </p>
         </div>
 
         {/* Vertical divider */}
