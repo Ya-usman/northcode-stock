@@ -68,7 +68,7 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
         <div className="flex h-16 items-stretch">
           {primaryItems.map((item) => {
             const Icon = item.icon
-            const isActive = pathname.startsWith(item.href)
+            const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
             const available = isAvailable(item.href)
             return (
               <Link
@@ -124,7 +124,7 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
               <div className="grid grid-cols-4 gap-1">
                 {moreItems.map((item) => {
                   const Icon = item.icon
-                  const isActive = pathname.startsWith(item.href)
+                  const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
                   const available = isAvailable(item.href)
                   const isHelp = item.href.endsWith('/help')
                   const showBadge = isHelp && hasUnreadAnnouncement

@@ -190,7 +190,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut, signingOut = f
               )}
               {visibleItems.map(item => {
                 const Icon = item.icon
-                const isActive = pathname.startsWith(item.href)
+                const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
                 const isHelp = item.href.endsWith('/help')
                 const showBadge = isHelp && hasUnreadAnnouncement
                 return (

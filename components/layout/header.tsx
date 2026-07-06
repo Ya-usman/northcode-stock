@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { useTheme } from '@/lib/hooks/use-theme'
 import { useCurrency } from '@/lib/hooks/use-currency'
@@ -29,6 +29,7 @@ interface HeaderProps {
 
 export function Header({ title, locale, crispUnread = 0, onOpenChat }: HeaderProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const { shop, userShops, updateLocale } = useAuthContext()
   const { isDark, toggle } = useTheme()
   const { symbol } = useCurrency()
@@ -38,7 +39,7 @@ export function Header({ title, locale, crispUnread = 0, onOpenChat }: HeaderPro
   const switchLanguage = (newLocale: string) => {
     const newPath = pathname.replace(`/${locale}`, `/${newLocale}`)
     updateLocale(newLocale)
-    window.location.href = newPath
+    router.replace(newPath)
   }
 
   return (
