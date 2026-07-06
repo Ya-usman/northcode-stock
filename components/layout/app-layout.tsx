@@ -49,6 +49,7 @@ function usePageTitle(pathname: string, locale: string) {
     '/shops': t('shops.title'),
     '/notes': t('nav.notes'),
     '/expenses': t('nav.expenses'),
+    '/caisse': t('caisse.title'),
     '/help': t('nav.help'),
   }
   for (const [key, value] of Object.entries(map)) {
