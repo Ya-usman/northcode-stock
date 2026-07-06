@@ -78,9 +78,12 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
   const onLogin = async (data: LoginData) => {
     setError('')
     // Effacer uniquement les caches auth — PAS les caches SW (pages/assets/RSC)
+    // dashboard_cache_v1 intentionally NOT cleared: its key includes profile.id
+    // so a different user's data is never shown; keeping it avoids the skeleton
+    // flash that occurs when the dashboard mounts after auth resolves.
+    // clearReadCaches() in auth-context clears it properly on SIGNED_OUT.
     localStorage.removeItem('auth_cache_v1')
     localStorage.removeItem('active_shop_id')
-    localStorage.removeItem('dashboard_cache_v1')
     localStorage.removeItem('dashboard_shop_filter')
 
     // 2 tentatives max avec timeout 10s par tentative.
