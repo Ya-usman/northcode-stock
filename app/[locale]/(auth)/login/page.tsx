@@ -267,14 +267,14 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
         {/* Vertical divider */}
         <div className="hidden lg:block w-px self-stretch my-10 bg-[#d0dcf0] dark:bg-[#152034]" />
 
-        {/* ── Form panel ── */}
-        <div className="flex-1 flex flex-col relative z-10 overflow-y-auto">
+        {/* ── Form panel — largeur fixe sur desktop, centré entre brand et spacer ── */}
+        <div className="flex-1 lg:flex-none lg:w-96 flex flex-col relative z-10 overflow-y-auto">
           <div className="flex-1 flex items-center justify-center">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="w-full max-w-sm mx-4 my-12"
+            className="w-full max-w-sm mx-4 lg:max-w-none lg:mx-0 my-12"
           >
 
             {/* Logo — toujours au-dessus du formulaire */}
@@ -412,6 +412,9 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
             <Link href={`/${locale}/register`} className="text-[#073e8a] dark:text-[#4a88f5] font-semibold hover:underline">{t('register_link')}</Link>
           </p>
         </div>
+
+        {/* ── Spacer droit — miroire le brand panel pour centrer le formulaire ── */}
+        <div className="hidden lg:flex flex-1" />
 
       </div>
     </div>
