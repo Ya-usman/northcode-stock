@@ -233,6 +233,7 @@ export default function DashboardPage() {
         supabase
           .from('payments')
           .select('id, sale_id, amount, paid_at, method, sales!inner(shop_id, sale_number, created_at, total, balance, payment_method, customers(name), sale_status)')
+          .eq('is_repayment', true)
           .gte('paid_at', todayStart)
           .lte('paid_at', todayEnd)
           .order('paid_at', { ascending: false }),

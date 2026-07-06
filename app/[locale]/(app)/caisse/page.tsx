@@ -90,6 +90,7 @@ export default function CaissePage() {
         supabase
           .from('payments')
           .select('id, amount, received_by, paid_at, method, sales!inner(shop_id, sale_number, sale_status)')
+          .eq('is_repayment', true)
           .gte('paid_at', dayStart)
           .lte('paid_at', dayEnd)
           .order('paid_at', { ascending: false }),
