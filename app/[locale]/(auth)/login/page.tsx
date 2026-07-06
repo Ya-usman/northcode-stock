@@ -266,8 +266,8 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
         <div className="hidden lg:block w-px self-stretch my-10 bg-[#d0dcf0] dark:bg-[#152034]" />
 
         {/* ── Form side ── */}
-        <div className="flex-1 flex items-center justify-center p-6 lg:p-14 relative z-10 overflow-y-auto">
-          <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="w-full max-w-sm">
+        <div className="flex-1 flex items-center justify-center relative z-10 overflow-y-auto">
+          <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="w-full max-w-sm mx-4 my-12">
 
             {/* Logo above card — mobile h-28, desktop h-36 */}
             <div className="flex flex-col items-center mb-6 lg:mb-8">
