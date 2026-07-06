@@ -269,12 +269,12 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
 
         {/* ── Form panel ── */}
         <div className="flex-1 flex flex-col relative z-10 overflow-y-auto">
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center lg:justify-end">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="w-full max-w-sm mx-4 my-12"
+            className="w-full max-w-sm mx-4 lg:ml-0 lg:mr-8 my-12"
           >
 
             {/* Logo — toujours au-dessus du formulaire */}
