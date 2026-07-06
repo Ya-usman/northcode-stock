@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Eye, EyeOff, Mail, Lock, Sun, Moon } from 'lucide-react'
+import { Eye, EyeOff, Sun, Moon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { setLocaleCookie } from '@/lib/utils/cookies'
 import { Button } from '@/components/ui/button'
@@ -235,29 +235,31 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
       <div className="min-h-screen flex">
 
         {/* ── Brand panel — desktop only ── */}
-        <div className="hidden lg:flex flex-col items-center justify-center flex-1 pl-8 pr-10 py-12 relative z-10 text-center">
-          <h1 className="text-[26px] font-bold tracking-tight leading-snug text-[#0f172a] dark:text-[#e2ecff]">
-            Manage smarter.<br />Sell faster.<br />Grow bigger.
-          </h1>
-          <p className="mt-2.5 text-[13px] leading-relaxed text-[#607090] dark:text-[#5a7098]">
-            {locale === 'ha'
-              ? 'Komai da kantin ku ke bukata — kaya, sayarwa, abokan ciniki da rahotanni.'
-              : 'Tout ce dont votre boutique a besoin — stock, ventes, clients et rapports.'}
-          </p>
-          <ul className="mt-8 space-y-3">
-            {[
-              locale === 'ha' ? 'Yana aiki babu intanet' : 'Fonctionne hors ligne, même sans réseau',
-              locale === 'ha' ? 'Kantunan da kuɗaɗe masu yawa' : 'Multi-boutiques, multi-devises',
-              locale === 'ha' ? 'Rahotanni a lokaci gaskiya' : 'Rapports en temps réel',
-              locale === 'ha' ? 'Hausa, Faransanci da Turanci' : 'Disponible en français, anglais et haoussa',
-            ].map(f => (
-              <li key={f} className="flex items-center gap-3 text-[12.5px] text-[#5570a0] dark:text-[#6880a8]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#1948cc] dark:bg-[#073e8a] flex-shrink-0" />
-                {f}
-              </li>
-            ))}
-          </ul>
-          <p className="mt-auto pt-10 text-[10.5px] tracking-wide text-[#8090b0] dark:text-[#2e4060]">
+        <div className="hidden lg:flex flex-col flex-1 pl-8 pr-10 py-12 relative z-10">
+          <div className="flex-1 flex flex-col justify-center">
+            <h1 className="text-[26px] font-bold tracking-tight leading-snug text-[#0f172a] dark:text-[#e2ecff]">
+              Manage smarter.<br />Sell faster.<br />Grow bigger.
+            </h1>
+            <p className="mt-2.5 text-[13px] leading-relaxed text-[#607090] dark:text-[#5a7098]">
+              {locale === 'ha'
+                ? 'Komai da kantin ku ke bukata — kaya, sayarwa, abokan ciniki da rahotanni.'
+                : 'Tout ce dont votre boutique a besoin — stock, ventes, clients et rapports.'}
+            </p>
+            <ul className="mt-8 space-y-3">
+              {[
+                locale === 'ha' ? 'Yana aiki babu intanet' : 'Fonctionne hors ligne, même sans réseau',
+                locale === 'ha' ? 'Kantunan da kuɗaɗe masu yawa' : 'Multi-boutiques, multi-devises',
+                locale === 'ha' ? 'Rahotanni a lokaci gaskiya' : 'Rapports en temps réel',
+                locale === 'ha' ? 'Hausa, Faransanci da Turanci' : 'Disponible en français, anglais et haoussa',
+              ].map(f => (
+                <li key={f} className="flex items-center gap-3 text-[12.5px] text-[#5570a0] dark:text-[#6880a8]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#1948cc] dark:bg-[#073e8a] flex-shrink-0" />
+                  {f}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <p className="text-[10.5px] tracking-wide text-[#8090b0] dark:text-[#2e4060]">
             StockShop · Made for African businesses
           </p>
         </div>
@@ -265,143 +267,143 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
         {/* Vertical divider */}
         <div className="hidden lg:block w-px self-stretch my-10 bg-[#d0dcf0] dark:bg-[#152034]" />
 
-        {/* ── Form side ── */}
+        {/* ── Form panel ── */}
         <div className="flex-1 flex items-center justify-center relative z-10 overflow-y-auto">
-          <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="w-full max-w-sm mx-4 my-12">
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="w-full max-w-sm mx-4 my-12"
+          >
 
-            {/* Logo above card — mobile h-28, desktop h-36 */}
-            <div className="flex flex-col items-center mb-6 lg:mb-8">
+            {/* Logo — toujours au-dessus du formulaire */}
+            <div className="flex flex-col items-center mb-8">
               <Link href={`/${locale}`} onClick={e => { if ((window as any).Capacitor?.isNativePlatform?.()) e.preventDefault() }}>
                 <img src="/logo-login-t.png" alt="StockShop" className="h-28 lg:h-36 w-auto object-contain" style={{ filter: logoFilter }} />
               </Link>
-              <p className="text-xs mt-2 italic text-[#4a88f5] dark:text-[#4a88f5] text-[#5570a0]">
+              <p className="text-xs mt-2 italic text-[#5570a0] dark:text-[#4a88f5]">
                 Made for African businesses
               </p>
             </div>
 
-            <div className="rounded-2xl bg-white dark:bg-[#0b1525] border border-[#dce7ff] dark:border-[#152034] shadow-[0_10px_40px_rgba(7,62,138,0.10)] dark:shadow-none overflow-hidden">
-              <AnimatePresence mode="wait">
-                {mode === 'login' ? (
-                  <motion.div key="login" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="p-6">
-                    <h2 className="text-xl font-semibold mb-1">{t('welcome_back')}</h2>
-                    <p className="text-sm text-muted-foreground mb-5">
-                      {locale === 'ha' ? 'Shigar da imelinka da kalmar sirri' : 'Sign in to your account'}
-                    </p>
+            {/* Formulaire — flat, sans card */}
+            <AnimatePresence mode="wait">
+              {mode === 'login' ? (
+                <motion.div key="login" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
+                  <h2 className="text-2xl font-bold text-[#0f172a] dark:text-[#e2ecff] mb-1">{t('welcome_back')}</h2>
+                  <p className="text-sm text-[#607090] dark:text-[#5a7098] mb-6">
+                    {locale === 'ha' ? 'Shigar da imelinka da kalmar sirri' : 'Connectez-vous à votre compte'}
+                  </p>
 
-                    <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-3">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="email">{t('email')}</Label>
-                        <div className="relative">
-                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-[#2e4460]" />
-                          <Input id="email" type="email" autoComplete="email" placeholder="admin@stockshop.ng"
-                            className={`pl-9 ${inputCls}`}
-                            {...loginForm.register('email')} />
-                        </div>
-                        {loginForm.formState.errors.email && <p className="text-xs text-destructive">{loginForm.formState.errors.email.message}</p>}
-                      </div>
+                  <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="email" className="text-[#374155] dark:text-[#8ba0c0]">{t('email')}</Label>
+                      <Input id="email" type="email" autoComplete="email"
+                        placeholder={locale === 'ha' ? 'ku@misali.com' : 'vous@exemple.com'}
+                        className={inputCls}
+                        {...loginForm.register('email')} />
+                      {loginForm.formState.errors.email && <p className="text-xs text-destructive">{loginForm.formState.errors.email.message}</p>}
+                    </div>
 
-                      <div className="space-y-1.5">
-                        <Label htmlFor="password">{t('password')}</Label>
-                        <div className="relative">
-                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-[#2e4460]" />
-                          <Input id="password" type={showPwd ? 'text' : 'password'} autoComplete="current-password" placeholder="••••••••"
-                            className={`pl-9 pr-10 ${inputCls}`}
-                            {...loginForm.register('password')} />
-                          <button type="button" onClick={() => setShowPwd(!showPwd)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-[#2e4460] hover:text-foreground">
-                            {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between text-sm">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input type="checkbox" className="rounded accent-[#1948cc]" style={{ colorScheme: 'light' }} {...loginForm.register('rememberMe')} />
-                          <span className="text-muted-foreground">{t('remember_me')}</span>
-                        </label>
-                        <button type="button" onClick={() => { setMode('forgot'); setError('') }}
-                          className="text-[#073e8a] dark:text-[#4a88f5] hover:underline font-medium">
-                          {t('forgot_password')}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="password" className="text-[#374155] dark:text-[#8ba0c0]">{t('password')}</Label>
+                      <div className="relative">
+                        <Input id="password" type={showPwd ? 'text' : 'password'} autoComplete="current-password" placeholder="••••••••"
+                          className={`pr-10 ${inputCls}`}
+                          {...loginForm.register('password')} />
+                        <button type="button" onClick={() => setShowPwd(!showPwd)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-[#2e4460] hover:text-foreground">
+                          {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
                       </div>
+                    </div>
 
-                      {success && <p className="text-sm text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/40 rounded-md p-2 text-center">✓ {success}</p>}
+                    <div className="flex justify-end">
+                      <button type="button" onClick={() => { setMode('forgot'); setError('') }}
+                        className="text-sm text-[#073e8a] dark:text-[#4a88f5] hover:underline font-medium">
+                        {t('forgot_password')}
+                      </button>
+                    </div>
+
+                    <div>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" className="rounded accent-[#1948cc]" style={{ colorScheme: 'light' }} {...loginForm.register('rememberMe')} />
+                        <span className="text-sm text-[#607090] dark:text-[#5a7098]">{t('remember_me')}</span>
+                      </label>
+                    </div>
+
+                    {success && <p className="text-sm text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/40 rounded-md p-2 text-center">✓ {success}</p>}
+                    {error && <p className="text-sm text-destructive bg-red-50 dark:bg-red-950/40 rounded-md p-2 text-center">{error}</p>}
+
+                    <Button type="submit" className="w-full h-11 text-base mt-1 bg-[#073e8a] hover:bg-[#0d52b8]"
+                      style={isDark ? { background: 'linear-gradient(135deg, #1948cc 0%, #0d38a8 100%)', boxShadow: '0 4px 20px rgba(29,80,220,0.40)' } : {}}
+                      loading={loginForm.formState.isSubmitting}>
+                      {loginForm.formState.isSubmitting ? t('logging_in') : t('login')}
+                    </Button>
+
+                    <div className="flex items-center gap-3 pt-1">
+                      <div className="flex-1 h-px bg-[#d0dcf0] dark:bg-[#152034]" />
+                      <span className="text-xs text-[#8090b0] dark:text-[#3a5070]">{t('or_separator')}</span>
+                      <div className="flex-1 h-px bg-[#d0dcf0] dark:bg-[#152034]" />
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button type="button" onClick={signInWithGoogle}
+                        className="flex-1 flex items-center justify-center gap-2 h-10 rounded-xl border border-[#dce7ff] dark:border-[#1b2e48] bg-[#f2f6ff] dark:bg-[#090f1e] hover:bg-[#e8f0ff] dark:hover:bg-[#0c1428] text-gray-700 dark:text-[#6080a8] font-medium text-sm transition-colors">
+                        <GoogleIcon /> Google
+                      </button>
+                      <button type="button" onClick={signInWithApple}
+                        className="flex-1 flex items-center justify-center gap-2 h-10 rounded-xl border border-[#dce7ff] dark:border-[#1b2e48] bg-[#f2f6ff] dark:bg-[#090f1e] hover:bg-[#e8f0ff] dark:hover:bg-[#0c1428] text-gray-700 dark:text-[#6080a8] font-medium text-sm transition-colors">
+                        <AppleIcon /> Apple
+                      </button>
+                    </div>
+                  </form>
+                </motion.div>
+              ) : (
+                <motion.div key="forgot" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+                  <h2 className="text-2xl font-bold text-[#0f172a] dark:text-[#e2ecff] mb-1">{t('forgot_password')}</h2>
+                  <p className="text-sm text-[#607090] dark:text-[#5a7098] mb-6">
+                    {locale === 'ha' ? 'Shigar da imelinka don sake saita kalmar sirri' : 'Entrez votre e-mail pour réinitialiser votre mot de passe'}
+                  </p>
+
+                  {success ? (
+                    <div className="text-center py-4">
+                      <div className="text-5xl mb-3">📧</div>
+                      <p className="text-sm text-green-700 bg-green-50 dark:bg-green-950/40 dark:text-green-400 rounded-md p-3">{success}</p>
+                      <button onClick={() => { setMode('login'); setSuccess(''); forgotForm.reset() }}
+                        className="mt-4 text-sm text-[#073e8a] dark:text-[#4a88f5] hover:underline">
+                        {t('back_to_login')}
+                      </button>
+                    </div>
+                  ) : (
+                    <form onSubmit={forgotForm.handleSubmit(onForgot)} className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="reset-email" className="text-[#374155] dark:text-[#8ba0c0]">{t('email')}</Label>
+                        <Input id="reset-email" type="email"
+                          placeholder={locale === 'ha' ? 'ku@misali.com' : 'vous@exemple.com'}
+                          className={inputCls}
+                          {...forgotForm.register('email')} />
+                      </div>
+
                       {error && <p className="text-sm text-destructive bg-red-50 dark:bg-red-950/40 rounded-md p-2 text-center">{error}</p>}
 
-                      <Button type="submit" className="w-full h-11 text-base bg-[#073e8a] hover:bg-[#0d52b8]"
+                      <Button type="submit" className="w-full h-11 bg-[#073e8a] hover:bg-[#0d52b8]"
                         style={isDark ? { background: 'linear-gradient(135deg, #1948cc 0%, #0d38a8 100%)', boxShadow: '0 4px 20px rgba(29,80,220,0.40)' } : {}}
-                        loading={loginForm.formState.isSubmitting}>
-                        {loginForm.formState.isSubmitting ? t('logging_in') : t('login')}
+                        loading={forgotForm.formState.isSubmitting}>
+                        {t('send_reset_link')}
                       </Button>
 
-                      {/* Divider */}
-                      <div className="flex items-center gap-3 pt-1">
-                        <div className="flex-1 h-px bg-border dark:bg-[#152034]" />
-                        <span className="text-xs text-muted-foreground">{t('or_separator')}</span>
-                        <div className="flex-1 h-px bg-border dark:bg-[#152034]" />
-                      </div>
-
-                      {/* OAuth */}
-                      <div className="flex gap-2">
-                        <button type="button" onClick={signInWithGoogle}
-                          className="flex-1 flex items-center justify-center gap-2 h-10 rounded-xl border border-[#dce7ff] dark:border-[#1b2e48] bg-[#f2f6ff] dark:bg-[#090f1e] hover:bg-[#e8f0ff] dark:hover:bg-[#0c1428] text-gray-700 dark:text-[#6080a8] font-medium text-sm transition-colors">
-                          <GoogleIcon /> Google
-                        </button>
-                        <button type="button" onClick={signInWithApple}
-                          className="flex-1 flex items-center justify-center gap-2 h-10 rounded-xl border border-[#dce7ff] dark:border-[#1b2e48] bg-[#f2f6ff] dark:bg-[#090f1e] hover:bg-[#e8f0ff] dark:hover:bg-[#0c1428] text-gray-700 dark:text-[#6080a8] font-medium text-sm transition-colors">
-                          <AppleIcon /> Apple
-                        </button>
-                      </div>
+                      <button type="button" onClick={() => { setMode('login'); setError('') }}
+                        className="block w-full text-center text-sm text-[#8090b0] dark:text-[#3a5070] hover:text-foreground">
+                        ← {t('back_to_login')}
+                      </button>
                     </form>
-                  </motion.div>
-                ) : (
-                  <motion.div key="forgot" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="p-6">
-                    <h2 className="text-xl font-semibold mb-1">{t('forgot_password')}</h2>
-                    <p className="text-sm text-muted-foreground mb-5">
-                      {locale === 'ha' ? 'Shigar da imelinka don sake saita kalmar sirri' : 'Enter your email to reset your password'}
-                    </p>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-                    {success ? (
-                      <div className="text-center py-4">
-                        <div className="text-5xl mb-3">📧</div>
-                        <p className="text-sm text-green-700 bg-green-50 rounded-md p-3">{success}</p>
-                        <button onClick={() => { setMode('login'); setSuccess(''); forgotForm.reset() }}
-                          className="mt-4 text-sm text-[#073e8a] dark:text-[#4a88f5] hover:underline">
-                          {t('back_to_login')}
-                        </button>
-                      </div>
-                    ) : (
-                      <form onSubmit={forgotForm.handleSubmit(onForgot)} className="space-y-3">
-                        <div className="space-y-1.5">
-                          <Label htmlFor="reset-email">{t('email')}</Label>
-                          <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-[#2e4460]" />
-                            <Input id="reset-email" type="email" placeholder="your@email.com"
-                              className={`pl-9 ${inputCls}`}
-                              {...forgotForm.register('email')} />
-                          </div>
-                        </div>
-
-                        {error && <p className="text-sm text-destructive bg-red-50 dark:bg-red-950/40 rounded-md p-2 text-center">{error}</p>}
-
-                        <Button type="submit" className="w-full h-11 bg-[#073e8a] hover:bg-[#0d52b8]"
-                          style={isDark ? { background: 'linear-gradient(135deg, #1948cc 0%, #0d38a8 100%)', boxShadow: '0 4px 20px rgba(29,80,220,0.40)' } : {}}
-                          loading={forgotForm.formState.isSubmitting}>
-                          {t('send_reset_link')}
-                        </Button>
-
-                        <button type="button" onClick={() => { setMode('login'); setError('') }}
-                          className="block w-full text-center text-sm text-muted-foreground hover:text-foreground">
-                          ← {t('back_to_login')}
-                        </button>
-                      </form>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            <p className="text-center text-sm mt-4 text-[#607090] dark:text-[#3a5070]">
+            <p className="text-center text-sm mt-6 text-[#607090] dark:text-[#3a5070]">
               {t('no_account')}{' '}
               <Link href={`/${locale}/register`} className="text-[#073e8a] dark:text-[#4a88f5] font-semibold hover:underline">{t('register_link')}</Link>
             </p>
