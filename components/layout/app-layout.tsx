@@ -344,16 +344,18 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
     })
   }, [shop?.id, profile?.role])
 
-  // Show skeleton only while auth is unresolved AND user is not yet available.
-  // Redirect to login when definitely unauthenticated — inside useEffect to avoid
-  // calling router.replace during render, which creates an infinite loop with the middleware.
+  // Redirect to login only when auth is definitively resolved with no user.
+  // User can be known (session found) while profile is still loading — do NOT
+  // redirect in that case; the skeleton below covers it.
   useEffect(() => {
     if (!loading && !authRecovering && !user) {
       router.replace(`/${locale}/login`)
     }
   }, [loading, authRecovering, user, locale])
 
-  if (!user && (loading || authRecovering)) return <LoadingSkeleton />
+  // Show skeleton while the profile hasn't loaded yet (covers both the initial
+  // load and the case where user is set but profile fetch is still in-flight).
+  if (!profile && (loading || authRecovering)) return <LoadingSkeleton />
   if (!user) return <LoadingSkeleton />
 
   // Auth user exists but profile missing — registration was incomplete

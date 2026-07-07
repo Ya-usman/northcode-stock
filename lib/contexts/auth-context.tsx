@@ -285,6 +285,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
       sessionStorage.setItem('session_alive', '1')
+
+      // Marquer immédiatement l'utilisateur comme authentifié dans le state.
+      // Sans ça, si le profil met >12s à charger (cold start Supabase free tier),
+      // le timer de sécurité fire avec user:null → AppLayout redirige vers login,
+      // même si la session est parfaitement valide.
+      // Le profil est chargé juste après — le skeleton s'affiche jusqu'à là.
+      if (!cancelled) setState(s => ({ ...s, user: session.user }))
       // ──────────────────────────────────────────────────────────────────
 
       // ── Step 1: serve from cache immediately (zero latency) ────────────
