@@ -273,6 +273,7 @@ export default function DashboardPage() {
         supabase
           .from('payments')
           .select('amount, sales!inner(shop_id, sale_status)')
+          .eq('is_repayment', true)
           .eq('received_by', cashierId)
           .gte('paid_at', startOfMonth(today).toISOString())
           .lte('paid_at', endOfMonth(today).toISOString()),
@@ -281,6 +282,7 @@ export default function DashboardPage() {
         supabase
           .from('payments')
           .select('amount, sales!inner(shop_id, sale_status)')
+          .eq('is_repayment', true)
           .gte('paid_at', startOfMonth(today).toISOString())
           .lte('paid_at', endOfMonth(today).toISOString()),
       ])
