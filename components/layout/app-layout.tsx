@@ -353,8 +353,9 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
     }
   }, [loading, authRecovering, user, locale])
 
-  // Show skeleton while the profile hasn't loaded yet (covers both the initial
-  // load and the case where user is set but profile fetch is still in-flight).
+  // Skeleton pendant le chargement initial.
+  // !profile && : si le cache a déjà fourni user+profile (loading=false), on ne
+  // réaffiche pas le skeleton même si authRecovering est encore true un instant.
   if (!profile && (loading || authRecovering)) return <LoadingSkeleton />
   if (!user) return <LoadingSkeleton />
 

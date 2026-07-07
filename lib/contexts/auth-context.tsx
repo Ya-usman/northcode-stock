@@ -273,13 +273,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         (navigator as any).standalone === true
 
       if (!remember && !isOAuth && !sessionAlive && !isResetFlow && !isNativeApp && !isStandalone) {
-        // Ne PAS await signOut() — la requête réseau peut bloquer indéfiniment sur un
-        // Supabase en cold start (tier gratuit), gelant l'app pendant 12s+.
-        // Le cache est effacé immédiatement côté client, empêchant tout accès aux
-        // pages protégées. La déconnexion serveur se termine en arrière-plan.
+        // Marquer cancelled AVANT le signOut fire-and-forget : sans ça, l'événement
+        // SIGNED_OUT arrive dans onAuthStateChange et efface le cache avant que la
+        // page se démonte, causant un skeleton de 12s au prochain refresh.
+        cancelled = true
         supabase.auth.signOut().catch(() => {})
         clearCache()
-        if (!cancelled) setState(s => ({ ...s, loading: false }))
+        setState(s => ({ ...s, loading: false }))
         const locale = getLocaleCookie() || localStorage.getItem('NEXT_LOCALE') || 'fr'
         window.location.replace(`/${locale}/login`)
         return
