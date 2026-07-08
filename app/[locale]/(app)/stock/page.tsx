@@ -31,6 +31,7 @@ import { savePendingMovement, updateCachedProductQuantity } from '@/lib/offline/
 import { registerBackgroundSync } from '@/lib/offline/sync'
 import { downloadOrShareCSV } from '@/lib/utils/native-share'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
+import { useStockRealtime } from '@/lib/hooks/use-realtime'
 
 
 function StockBadge({ quantity, threshold }: { quantity: number; threshold: number }) {
@@ -161,6 +162,23 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [effectiveShopIds.join(',')])
+
+  // Live stock updates (quantity, price, archive status) for the active shop.
+  // Realtime payloads are raw rows without the categories(name)/suppliers(name)
+  // joins from the initial fetch, so we merge onto the existing record instead
+  // of replacing it outright — keeps joined display fields intact.
+  useStockRealtime(shop?.id || null, (product) => {
+    const isActive = (product as any).is_active !== false
+    const upsert = (list: Product[]) => {
+      const idx = list.findIndex(p => p.id === product.id)
+      if (idx === -1) return [...list, product as Product]
+      const next = [...list]
+      next[idx] = { ...next[idx], ...product }
+      return next
+    }
+    setProducts(prev => isActive ? upsert(prev) : prev.filter(p => p.id !== product.id))
+    setArchivedProducts(prev => isActive ? prev.filter(p => p.id !== product.id) : upsert(prev))
+  })
 
   const filtered = products
     .filter(p => {

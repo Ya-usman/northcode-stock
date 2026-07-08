@@ -86,11 +86,16 @@ export function useDashboardRealtime(shopId: string | null, handlers: RealtimeHa
 }
 
 export function useStockRealtime(shopId: string | null, onUpdate: (product: Product) => void) {
+  const onUpdateRef = useRef(onUpdate)
+  // Keep the callback ref current on every render so it never goes stale,
+  // without resubscribing the channel when the caller passes a new inline function.
+  onUpdateRef.current = onUpdate
+
   useEffect(() => {
     if (!shopId) return
 
     const channel = supabase
-      .channel('stock-live')
+      .channel(`stock-live-${shopId}`)
       .on(
         'postgres_changes',
         {
@@ -100,7 +105,7 @@ export function useStockRealtime(shopId: string | null, onUpdate: (product: Prod
           filter: `shop_id=eq.${shopId}`,
         },
         (payload) => {
-          onUpdate(payload.new as Product)
+          onUpdateRef.current(payload.new as Product)
         }
       )
       .subscribe()
@@ -108,5 +113,5 @@ export function useStockRealtime(shopId: string | null, onUpdate: (product: Prod
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [shopId, onUpdate])
+  }, [shopId])
 }
