@@ -545,6 +545,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = useCallback(async (force = false): Promise<'ok' | 'blocked' | 'sync_failed'> => {
     const savedLocale = getLocaleCookie() || localStorage.getItem('NEXT_LOCALE') || 'en'
     const shopId = state.activeShop?.id
+    console.info('[sign-out] start', { force, online: navigator.onLine })
 
     if (!force) {
       const { getTotalPendingCount } = await import('@/lib/offline/db')
@@ -553,9 +554,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         getTotalPendingCount().catch(() => 1),
         new Promise<number>(resolve => setTimeout(() => resolve(1), 3_000)),
       ])
+      console.info('[sign-out] pendingTotal', pendingTotal)
 
       if (pendingTotal > 0) {
-        if (!navigator.onLine) return 'blocked'
+        if (!navigator.onLine) { console.info('[sign-out] blocked: offline with pending ops'); return 'blocked' }
 
         // Sync with a hard 10s timeout so it never hangs on a slow network
         try {
@@ -571,9 +573,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             ])
             const results = await Promise.race([sync, timeout])
             const totalFailed = results.reduce((s, r) => s + r.failed, 0)
+            console.info('[sign-out] sync results', results)
             if (totalFailed > 0) return 'sync_failed'
           }
-        } catch {
+        } catch (e) {
+          console.info('[sign-out] sync threw', e)
           return 'sync_failed'
         }
       }
@@ -585,10 +589,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Await the set-role DELETE (fast — no Supabase network call inside) so the
     // sb-*-auth-token cookie is cleared before the browser navigates.
     // Without this, the middleware still sees a valid cookie and loops: /login → /dashboard.
-    await fetch('/api/auth/set-role', { method: 'DELETE', signal: AbortSignal.timeout(5_000) }).catch(() => {})
+    const deleteResult = await fetch('/api/auth/set-role', { method: 'DELETE', signal: AbortSignal.timeout(5_000) })
+      .then(r => ({ ok: r.ok, status: r.status }))
+      .catch(e => ({ ok: false, status: 0, error: String(e) }))
+    console.info('[sign-out] set-role DELETE result', deleteResult)
     // Fire-and-forget: these make Supabase API calls that can hang on slow networks.
     supabase.auth.signOut().catch(() => {})
     deleteOfflineDb().catch(() => {})
+    console.info('[sign-out] navigating to login', `/${savedLocale}/login`)
     window.location.href = `/${savedLocale}/login`
     return 'ok'
   }, [state.activeShop?.id])
