@@ -105,6 +105,14 @@ export default function SuppliersPage() {
 
   useEffect(() => { fetchSuppliers() }, [effectiveShopIds.join(',')])
 
+  // Refresh when the user comes back to this tab — catches suppliers added
+  // or edited by other team members while this page sat in the background.
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchSuppliers() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [effectiveShopIds.join(',')])
+
   const filtered = suppliers.filter(s => {
     if (!search) return true
     const q = normalize(search)

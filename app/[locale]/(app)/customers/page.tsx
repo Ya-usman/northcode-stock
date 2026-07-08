@@ -104,6 +104,14 @@ export default function CustomersPage() {
 
   useEffect(() => { fetchCustomers() }, [effectiveShopIds.join(',')])
 
+  // Refresh when the user comes back to this tab — catches customers/debts
+  // added or edited by other team members while this page sat in the background.
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchCustomers() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [effectiveShopIds.join(',')])
+
   const filtered = customers.filter(c => {
     if (!search) return true
     const q = normalize(search)

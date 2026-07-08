@@ -154,6 +154,14 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
   useEffect(() => { fetchProducts() }, [effectiveShopIds.join(',')])
 
+  // Refresh when the user comes back to this tab — catches stock changes
+  // made by other team members while this page sat in the background.
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchProducts() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [effectiveShopIds.join(',')])
+
   const filtered = products
     .filter(p => {
       if (search) {

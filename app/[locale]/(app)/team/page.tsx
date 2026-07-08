@@ -184,6 +184,14 @@ export default function TeamPage() {
 
   useEffect(() => { fetchMembers() }, [effectiveShopIds.join(',')])
 
+  // Refresh when the user comes back to this tab — catches team changes
+  // (new invites, role/status changes) made while this page sat in the background.
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchMembers() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [fetchMembers])
+
   const changeRole = async (member: Member, newRole: UserRole) => {
     if (member.user_id === myProfile?.id) {
       toast({ title: t('toast.cannot_edit_own_role'), variant: 'destructive' })
