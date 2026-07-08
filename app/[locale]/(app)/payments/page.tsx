@@ -291,6 +291,13 @@ export default function DettesPage() {
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [shopKey])
+  // Refresh on reconnect — debts/repayments are money-critical like the
+  // dashboard, so a stale debt total right after coming back online is risky.
+  useEffect(() => {
+    const onOnline = () => fetchDebtors(true)
+    window.addEventListener('online', onOnline)
+    return () => window.removeEventListener('online', onOnline)
+  }, [shopKey])
 
   const totalOutstanding = debtors.reduce((s, d) => s + d.totalDebt, 0)
 
