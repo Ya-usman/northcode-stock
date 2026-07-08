@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils/cn'
 import { ChevronDown } from 'lucide-react'
 import type { Sale } from '@/lib/types/database'
+import { getPaymentMethodLabel } from '@/lib/saas/countries'
 
 export interface RepaymentFeedItem {
   type: 'repayment'
@@ -72,11 +73,11 @@ export function DebtGauge({ pct, remaining, fmt, t }: {
 
 function methodLabel(method: string, t: any): string {
   const key = `payment.${method}` as any
-  const result = t(key)
-  if (result && result !== key) return result
-  // fallback for unknown methods
-  if (method === 'payment.pos' || method === 'pos') return 'Terminal POS'
-  return method
+  if (t.has(key)) return t(key)
+  // Brand-specific mobile money methods (Orange Money, Wave, MTN MoMo…) are
+  // defined per-country in lib/saas/countries.ts, not in messages/*.json —
+  // their label is the same across locales, so look it up there instead.
+  return getPaymentMethodLabel(method) ?? method
 }
 
 export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {

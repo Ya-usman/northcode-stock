@@ -406,7 +406,6 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
 
   return (
     <div className="min-h-screen bg-background">
-      <OfflineBanner />
       <NavigationProgress />
       {!accessAllowed && !isBillingPage && (
         <UpgradeWall locale={locale} shopName={shop?.name} />
@@ -415,6 +414,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
       <Sidebar locale={locale} role={roleInActiveShop ?? profile.role} profile={profile} shop={shop} onSignOut={handleSignOut} signingOut={signingOut} userEmail={user.email ?? ''} hasUnreadAnnouncement={hasUnreadAnnouncement} onOpenWhatsNew={() => setWhatsNewOpen(true)} />
 
       <div className="sm:pl-64 flex flex-col min-h-screen">
+        <OfflineBanner />
         {showTrialBanner && <TrialBanner daysLeft={trialDaysLeft} locale={locale} />}
         {showGraceBanner && !isBillingPage && <GracePeriodBanner daysLeft={graceDaysLeft} locale={locale} />}
 

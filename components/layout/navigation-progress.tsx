@@ -54,6 +54,13 @@ export function NavigationProgress() {
     const origPush    = history.pushState.bind(history)
     const origReplace = history.replaceState.bind(history)
 
+    // Next's App Router itself calls history.pushState/replaceState from inside
+    // a useInsertionEffect (HistoryUpdater), which triggers a harmless dev-only
+    // "useInsertionEffect must not schedule updates" warning here. Deferring
+    // this call (setTimeout/queueMicrotask) was tried and reverted: it runs
+    // after the "complete on pathname change" effect below has already reset
+    // runningRef, so it restarts the bar for a navigation that already
+    // finished — a real double-load bug, worse than the console warning.
     history.pushState = (...args) => {
       startBar()
       return origPush(...args)
@@ -84,18 +91,19 @@ export function NavigationProgress() {
 
   if (!visible && width === 0) return null
 
+  const widthTransition = width === 100
+    ? 'width 200ms ease-out'
+    : width <= 15
+    ? 'width 100ms ease-out'
+    : 'width 300ms ease-in-out'
+
   return (
     <div
       className="fixed top-0 left-0 z-[9999] h-[3px] bg-blue-500 shadow-sm shadow-blue-400/50"
       style={{
         width: `${width}%`,
-        transition: width === 100
-          ? 'width 200ms ease-out'
-          : width <= 15
-          ? 'width 100ms ease-out'
-          : 'width 300ms ease-in-out',
         opacity: visible ? 1 : 0,
-        transitionProperty: 'width, opacity',
+        transition: `${widthTransition}, opacity 200ms ease-out`,
       }}
     />
   )

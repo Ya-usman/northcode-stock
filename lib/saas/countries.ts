@@ -71,6 +71,23 @@ export function getMethodType(methodId: string, country: CountryConfig): Payment
   return country.paymentMethods.find(m => m.id === methodId)?.type ?? 'cash'
 }
 
+// Flattened id → label map built lazily from every country's paymentMethods.
+// Brand names (Orange Money, Wave, MTN MoMo…) are the same across locales,
+// so this is the single source of truth instead of duplicating them in
+// messages/*.json for every language.
+let _methodLabelMap: Map<string, string> | null = null
+export function getPaymentMethodLabel(methodId: string): string | undefined {
+  if (!_methodLabelMap) {
+    _methodLabelMap = new Map()
+    for (const country of Object.values(COUNTRIES)) {
+      for (const m of country.paymentMethods) {
+        if (!_methodLabelMap.has(m.id)) _methodLabelMap.set(m.id, m.label)
+      }
+    }
+  }
+  return _methodLabelMap.get(methodId)
+}
+
 // Shared periodPrices for XOF/XAF countries at 4999/7999/14999 F CFA/mois (-8% / -20%)
 const FCFA_PERIOD_PRICES = {
   starter:  { quarterly: 13999,  annual: 47999  },

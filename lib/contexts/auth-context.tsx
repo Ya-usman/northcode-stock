@@ -84,19 +84,21 @@ const STALE_MAX_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
 function readCacheStale(userId: string): AuthCache | null {
   try {
     const raw = localStorage.getItem(CACHE_KEY)
-    if (!raw) return null
+    if (!raw) { console.warn('[auth-cache] miss: no key in localStorage'); return null }
     const c: AuthCache = JSON.parse(raw)
-    if (c.userId !== userId) return null
-    if (Date.now() - c.savedAt > STALE_MAX_MS) return null
+    if (c.userId !== userId) { console.warn('[auth-cache] miss: userId mismatch', { cached: c.userId, current: userId }); return null }
+    if (Date.now() - c.savedAt > STALE_MAX_MS) { console.warn('[auth-cache] miss: older than 7 days', { ageMs: Date.now() - c.savedAt }); return null }
+    console.info('[auth-cache] hit', { ageMs: Date.now() - c.savedAt })
     return c
-  } catch { return null }
+  } catch (e) { console.warn('[auth-cache] miss: read/parse error', e); return null }
 }
 
 function writeCache(userId: string, profile: Profile, userShops: Shop[], memberships: MemberRow[]) {
   try {
     const c: AuthCache = { userId, profile, userShops, memberships, savedAt: Date.now() }
     localStorage.setItem(CACHE_KEY, JSON.stringify(c))
-  } catch { /* storage full — ignore */ }
+    console.info('[auth-cache] write ok')
+  } catch (e) { console.warn('[auth-cache] write FAILED (storage full or serialization error)', e) }
 }
 
 function clearCache() {
