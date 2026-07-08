@@ -376,6 +376,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setState(prev => ({ ...prev, user: stillValid.user, loading: false }))
           return
         }
+        // The access token may have simply expired while the tab/PWA sat in the
+        // background (the 45-min proactive refresh setInterval doesn't run while
+        // suspended) — try one explicit refresh before treating this as a real
+        // sign-out, so a stale token self-heals instead of wiping the whole auth
+        // state and stranding the UI on the skeleton until a manual reload.
+        const { data: { session: refreshed } } = await supabase.auth.refreshSession().catch(() => ({ data: { session: null } }))
+        if (refreshed?.user) {
+          setState(prev => ({ ...prev, user: refreshed.user, loading: false }))
+          return
+        }
         clearCache()
         clearReadCaches() // read-only caches only — pending sales/movements are NEVER wiped here
         setState({ user: null, profile: null, userShops: [], activeShop: null, roleInActiveShop: null, loading: false })
