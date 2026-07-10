@@ -559,22 +559,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (!force) {
       const { getTotalPendingCount } = await import('@/lib/offline/db')
-      // Race with 3s hard timeout — if IDB never resolves, treat as pending=1
+      // Race with a generous timeout — if IDB never resolves, treat as pending=1
+      // (fail-safe: don't risk silently discarding unsynced data). 8s (not 3s)
+      // gives IndexedDB room to respond right after a tab/app resumes from the
+      // background, where browsers throttle these subsystems and a slow-but-
+      // legitimate read was being misread as "there's pending data" every time.
       const pendingTotal = await Promise.race([
         getTotalPendingCount().catch(() => 1),
-        new Promise<number>(resolve => setTimeout(() => resolve(1), 3_000)),
+        new Promise<number>(resolve => setTimeout(() => resolve(1), 8_000)),
       ])
       console.info('[sign-out] pendingTotal', pendingTotal)
 
       if (pendingTotal > 0) {
         if (!navigator.onLine) { console.info('[sign-out] blocked: offline with pending ops'); return 'blocked' }
 
-        // Sync with a hard 10s timeout so it never hangs on a slow network
+        // Sync with a generous timeout so it never hangs forever on a slow network,
+        // but 20s (not 10s) gives refreshSession() + the sequential per-item inserts
+        // enough room right after a background resume, where the network/session
+        // refresh is often slower than during normal active use.
         try {
           const { syncPendingSales, syncPendingMovements, syncPendingExpenses } = await import('@/lib/offline/sync')
           if (shopId) {
             const timeout = new Promise<never>((_, reject) =>
-              setTimeout(() => reject(new Error('sync_timeout')), 10_000)
+              setTimeout(() => reject(new Error('sync_timeout')), 20_000)
             )
             const sync = Promise.all([
               syncPendingSales(shopId),
