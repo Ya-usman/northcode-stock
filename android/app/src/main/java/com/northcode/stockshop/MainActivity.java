@@ -17,6 +17,12 @@ public class MainActivity extends BridgeActivity {
     private static final String OFFLINE_FALLBACK_URL =
         "https://stockshop.tech/__offline_fallback__";
 
+    // Délais croissants entre chaque tentative de /__offline_fallback__ — sur
+    // un appareil lent, le SW peut mettre plus de 800ms à s'activer ; un seul
+    // essai fixe abandonnait alors prématurément vers la page native bundlée.
+    private static final long[] RETRY_DELAYS_MS = {300, 800, 2000};
+
+    private int retryAttempt = 0;
     private boolean retryScheduled = false;
 
     @Override
@@ -26,6 +32,14 @@ public class MainActivity extends BridgeActivity {
         getBridge().getWebView().setWebViewClient(
             new BridgeWebViewClient(getBridge()) {
                 @Override
+                public void onPageFinished(WebView view, String url) {
+                    super.onPageFinished(view, url);
+                    // Un chargement réussi (app, fallback ou page native) repart à zéro.
+                    retryAttempt = 0;
+                    retryScheduled = false;
+                }
+
+                @Override
                 public void onReceivedError(WebView view,
                                             WebResourceRequest request,
                                             WebResourceError error) {
@@ -33,24 +47,25 @@ public class MainActivity extends BridgeActivity {
                     if (!request.isForMainFrame()) return;
 
                     String url = request.getUrl().toString();
+                    boolean isFallbackUrl = url.contains("__offline_fallback__");
 
-                    // Le SW n'a pas pu servir /__offline_fallback__ non plus
-                    // (SW jamais activé = app jamais utilisée en ligne)
-                    // → dernier recours : page native bundlée dans l'APK
-                    if (url.contains("__offline_fallback__")) {
+                    // Toutes les tentatives épuisées : le SW n'est toujours pas prêt
+                    // → dernier recours, page native bundlée dans l'APK.
+                    if (isFallbackUrl && retryAttempt >= RETRY_DELAYS_MS.length) {
                         retryScheduled = false;
+                        retryAttempt = 0;
                         view.loadUrl("file:///android_asset/offline-native.html");
                         return;
                     }
 
                     if (!retryScheduled) {
                         retryScheduled = true;
-                        // Attendre 800ms que le SW s'active, puis charger
-                        // /__offline_fallback__ que le SW sert depuis le cache.
+                        long delay = RETRY_DELAYS_MS[Math.min(retryAttempt, RETRY_DELAYS_MS.length - 1)];
+                        retryAttempt++;
                         view.postDelayed(() -> {
                             retryScheduled = false;
                             view.loadUrl(OFFLINE_FALLBACK_URL);
-                        }, 800);
+                        }, delay);
                     }
                 }
             }
