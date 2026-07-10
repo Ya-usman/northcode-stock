@@ -205,7 +205,7 @@ export async function syncPendingSales(shopId: string): Promise<SyncResult> {
       }
 
       if (dbPaymentMethod !== 'credit' && sale.payment_amount > 0) {
-        await supabase.from('payments').insert({
+        const { error: paymentError } = await supabase.from('payments').insert({
           sale_id: saleData.id,
           amount: sale.payment_amount,
           method: dbPaymentMethod,
@@ -217,6 +217,18 @@ export async function syncPendingSales(shopId: string): Promise<SyncResult> {
           // Mixed payments lose their cash/transfer split in offline mode — document it.
           notes: isMixedPayment ? 'Paiement mixte (sync offline — méthode enregistrée comme espèces, détail du split non disponible)' : null,
         })
+        if (paymentError) {
+          // Don't throw here: the sale + items already exist online, so retrying
+          // this sale on the next sync pass would re-insert it as a duplicate.
+          // payment_status was already set to 'pending' at sale creation above,
+          // so this safely surfaces as a debt to reconcile instead of hiding it.
+          // Count it under `failed` (even though the sale itself did sync) so the
+          // offline banner actually shows this to the user instead of a silent
+          // success checkmark hiding an unconfirmed payment.
+          console.error('[sync] Sale synced but payment record failed', sale.local_id, paymentError)
+          errors.push(`Vente #${sale.local_id} synchronisée mais paiement non confirmé : ${paymentError.message}`)
+          failed++
+        }
       }
 
       await markSaleSynced(sale.local_id)

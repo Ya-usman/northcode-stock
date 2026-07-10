@@ -627,20 +627,38 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       )
       if (itemsError) throw itemsError
 
+      // payment_status was already set optimistically on the sale insert above
+      // (based on what the cashier entered, before we know this insert will
+      // succeed). If it fails — e.g. a network drop right at this moment —
+      // correct the sale back to 'pending' instead of silently leaving it
+      // marked "paid" with 0 actually recorded (a hidden, unexplained debt).
+      let paymentRecordFailed = false
       if (splitPayment) {
         const amt1 = Math.min(Number(amountPaid) || 0, totalToCollect)
         const amt2 = totalToCollect - amt1
         const recs: any[] = []
         if (amt1 > 0) recs.push({ sale_id: sale.id, amount: amt1, method: paymentMethod, reference: null, received_by: profile!.id })
         if (amt2 > 0) recs.push({ sale_id: sale.id, amount: amt2, method: splitMethod2, reference: null, received_by: profile!.id })
-        if (recs.length > 0) await db.from('payments').insert(recs)
+        if (recs.length > 0) {
+          const { error: paymentError } = await db.from('payments').insert(recs)
+          if (paymentError) paymentRecordFailed = true
+        }
       } else if (methodType !== 'credit' && paid > 0) {
-        await db.from('payments').insert({
+        const { error: paymentError } = await db.from('payments').insert({
           sale_id: sale.id,
           amount: paid,
           method: paymentMethod,
           reference: methodType === 'transfer' ? transferRef : null,
           received_by: profile!.id,
+        })
+        if (paymentError) paymentRecordFailed = true
+      }
+
+      if (paymentRecordFailed) {
+        await db.from('sales').update({ payment_status: 'pending' }).eq('id', sale.id)
+        toast({
+          title: 'Vente enregistrée, mais le paiement n\'a pas pu être confirmé (réseau) — vérifiez la dette du client',
+          variant: 'destructive',
         })
       }
 
