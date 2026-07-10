@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     const { data: { user }, error: authErr } = await supabase.auth.getUser()
     if (authErr || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
-    const { unpaid_sale_ids, amount, method, reference, notes, shop_id } = await request.json()
+    const { unpaid_sale_ids, amount, method, reference, notes, shop_id, client_request_id } = await request.json()
 
     if (!unpaid_sale_ids?.length || !amount || !method || !shop_id) {
       return NextResponse.json({ error: 'Champs manquants' }, { status: 400 })
@@ -36,6 +36,26 @@ export async function POST(request: Request) {
     }
 
     const admin = await createAdminClient() as any
+
+    // Idempotency check: if the client retried this exact repayment attempt
+    // (e.g. the first response was lost to a timeout but the insert below
+    // already landed), return what was already applied instead of double-
+    // applying the repayment to the customer's debt.
+    if (client_request_id) {
+      const { data: existingPayments } = await admin
+        .from('payments')
+        .select('sale_id, amount, sales(sale_number)')
+        .like('client_request_id', `${client_request_id}:%`)
+      if (existingPayments && existingPayments.length > 0) {
+        const applied = existingPayments.map((p: any) => ({
+          sale_id: p.sale_id,
+          sale_number: p.sales?.sale_number,
+          amount: Number(p.amount),
+        }))
+        const appliedTotal = applied.reduce((s: number, a: any) => s + a.amount, 0)
+        return NextResponse.json({ success: true, applied, remaining: Math.max(0, Number(amount) - appliedTotal) })
+      }
+    }
 
     // Fetch all unpaid sales sorted oldest first (FIFO)
     const { data: salesRaw, error: salesErr } = await admin
@@ -79,6 +99,10 @@ export async function POST(request: Request) {
           notes: notes || null,
           received_by: user.id,
           is_repayment: true,
+          // Composite: one client_request_id can span several rows (FIFO across
+          // multiple sales) — unique per (repayment attempt, sale), not just
+          // per attempt, since the whole batch shares one client_request_id.
+          client_request_id: client_request_id ? `${client_request_id}:${p.sale_id}` : null,
         }))
       )
       if (batchErr) throw batchErr

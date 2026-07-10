@@ -164,33 +164,76 @@ export async function syncPendingSales(shopId: string): Promise<SyncResult> {
       const isMixedPayment = sale.payment_method === 'mixed'
       const dbPaymentMethod = isMixedPayment ? 'cash' : sale.payment_method
 
-      const { data: saleData, error: saleError } = await supabase
+      // local_id is stable across sync retries (it's the IndexedDB keyPath,
+      // generated once when the sale was first saved offline) — reuse it as
+      // the server-side idempotency key. This protects against the sync
+      // running from two different JS contexts at once (e.g. the service
+      // worker's Background Sync firing while the app is also open and
+      // syncing itself), which an in-memory lock alone can't prevent since
+      // they don't share memory.
+      let saleAlreadyExisted = false
+      const { data: alreadyCreated } = await supabase
         .from('sales')
-        .insert({
-          shop_id: sale.shop_id,
-          cashier_id: sale.cashier_id,
-          customer_id: customerId,
-          subtotal: sale.subtotal,
-          discount: sale.discount,
-          tax: sale.tax,
-          total: sale.total,
-          payment_method: dbPaymentMethod,
-          payment_status: 'pending',
-          // Always start at 0; the after_payment_insert trigger increments amount_paid when the
-          // payment record is inserted below (same flow as the online path).
-          // Setting amount_paid directly AND inserting a payment record would fire the trigger
-          // and double-count: amount_paid = initial_value + payment_amount > total → balance < 0.
-          amount_paid: 0,
-          notes: sale.notes,
-          sale_status: 'active',
-          created_at: sale.created_at,
-        })
         .select('id')
-        .single()
+        .eq('client_request_id', sale.local_id)
+        .maybeSingle()
 
-      if (saleError || !saleData) throw new Error(saleError?.message || 'Failed to insert sale')
+      let saleData: { id: string } | null = alreadyCreated
+      if (alreadyCreated) {
+        saleAlreadyExisted = true
+      } else {
+        const { data: inserted, error: saleError } = await supabase
+          .from('sales')
+          .insert({
+            shop_id: sale.shop_id,
+            cashier_id: sale.cashier_id,
+            customer_id: customerId,
+            subtotal: sale.subtotal,
+            discount: sale.discount,
+            tax: sale.tax,
+            total: sale.total,
+            payment_method: dbPaymentMethod,
+            payment_status: 'pending',
+            // Always start at 0; the after_payment_insert trigger increments amount_paid when the
+            // payment record is inserted below (same flow as the online path).
+            // Setting amount_paid directly AND inserting a payment record would fire the trigger
+            // and double-count: amount_paid = initial_value + payment_amount > total → balance < 0.
+            amount_paid: 0,
+            notes: sale.notes,
+            sale_status: 'active',
+            created_at: sale.created_at,
+            client_request_id: sale.local_id,
+          })
+          .select('id')
+          .single()
 
-      if (sale.items.length > 0) {
+        if (saleError?.code === '23505' && saleError.message?.includes('client_request_id')) {
+          const { data: raced } = await supabase.from('sales').select('id').eq('client_request_id', sale.local_id).maybeSingle()
+          saleData = raced ?? null
+          saleAlreadyExisted = Boolean(raced)
+        } else if (saleError || !inserted) {
+          throw new Error(saleError?.message || 'Failed to insert sale')
+        } else {
+          saleData = inserted
+        }
+      }
+
+      if (!saleData) throw new Error('Failed to insert sale')
+
+      // If the sale already existed (idempotent retry), its items/payment were
+      // presumably already inserted by the earlier successful attempt.
+      let itemsAlreadyExist = false
+      let paymentAlreadyExists = false
+      if (saleAlreadyExisted) {
+        const [{ count: itemsCount }, { count: paymentsCount }] = await Promise.all([
+          supabase.from('sale_items').select('id', { count: 'exact', head: true }).eq('sale_id', saleData.id),
+          supabase.from('payments').select('id', { count: 'exact', head: true }).eq('sale_id', saleData.id),
+        ])
+        itemsAlreadyExist = Boolean(itemsCount)
+        paymentAlreadyExists = Boolean(paymentsCount)
+      }
+
+      if (sale.items.length > 0 && !itemsAlreadyExist) {
         const { error: itemsError } = await supabase
           .from('sale_items')
           .insert(sale.items.map(item => ({
@@ -204,7 +247,7 @@ export async function syncPendingSales(shopId: string): Promise<SyncResult> {
         if (itemsError) throw new Error(itemsError.message)
       }
 
-      if (dbPaymentMethod !== 'credit' && sale.payment_amount > 0) {
+      if (dbPaymentMethod !== 'credit' && sale.payment_amount > 0 && !paymentAlreadyExists) {
         const { error: paymentError } = await supabase.from('payments').insert({
           sale_id: saleData.id,
           amount: sale.payment_amount,
@@ -249,4 +292,42 @@ export async function syncPendingSales(shopId: string): Promise<SyncResult> {
   }
 
   return { synced, failed, errors }
+}
+
+export interface CombinedSyncResult {
+  synced: number
+  failed: number
+  errors: string[]
+}
+
+// Module-level (process-wide) lock. syncPendingSales/Movements/Expenses read
+// still-unsynced items from IndexedDB and only mark them synced at the very
+// end of each iteration — if two callers run this concurrently (this app has
+// several independent triggers: the OfflineBanner button, the auto-sync-on-
+// reconnect hook mounted in multiple components at once, and the sign-out
+// flow), both can read the SAME pending item before either marks it synced,
+// inserting it twice server-side. Every caller must go through this single
+// function so concurrent triggers join the same in-flight sync instead of
+// each starting their own pass over the same pending queue.
+let globalSyncPromise: Promise<CombinedSyncResult> | null = null
+
+export async function syncAllPending(shopId: string): Promise<CombinedSyncResult> {
+  if (globalSyncPromise) return globalSyncPromise
+  globalSyncPromise = (async () => {
+    try {
+      const [salesResult, movResult, expResult] = await Promise.all([
+        syncPendingSales(shopId),
+        syncPendingMovements(shopId),
+        syncPendingExpenses(shopId),
+      ])
+      return {
+        synced: salesResult.synced + movResult.synced + expResult.synced,
+        failed: salesResult.failed + movResult.failed + expResult.failed,
+        errors: [...salesResult.errors, ...movResult.errors, ...expResult.errors],
+      }
+    } finally {
+      globalSyncPromise = null
+    }
+  })()
+  return globalSyncPromise
 }

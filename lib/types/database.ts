@@ -143,6 +143,9 @@ export interface Sale {
   paystack_reference: string | null
   notes: string | null
   created_at: string
+  // Idempotency key — same value reused across retries of the same checkout
+  // attempt so a duplicate insert is rejected instead of creating a second sale.
+  client_request_id?: string | null
   // Cancellation
   sale_status: SaleStatus
   cancelled_by: string | null

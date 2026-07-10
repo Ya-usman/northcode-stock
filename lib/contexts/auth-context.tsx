@@ -578,20 +578,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // enough room right after a background resume, where the network/session
         // refresh is often slower than during normal active use.
         try {
-          const { syncPendingSales, syncPendingMovements, syncPendingExpenses } = await import('@/lib/offline/sync')
+          // syncAllPending() is a process-wide shared lock — using it here too
+          // (instead of calling syncPendingSales/etc. directly) means this sign-out
+          // sync joins any sync already in flight from useOffline() elsewhere
+          // instead of racing it and inserting the same pending sale twice.
+          const { syncAllPending } = await import('@/lib/offline/sync')
           if (shopId) {
             const timeout = new Promise<never>((_, reject) =>
               setTimeout(() => reject(new Error('sync_timeout')), 20_000)
             )
-            const sync = Promise.all([
-              syncPendingSales(shopId),
-              syncPendingMovements(shopId),
-              syncPendingExpenses(shopId),
-            ])
-            const results = await Promise.race([sync, timeout])
-            const totalFailed = results.reduce((s, r) => s + r.failed, 0)
-            console.info('[sign-out] sync results', results)
-            if (totalFailed > 0) return 'sync_failed'
+            const result = await Promise.race([syncAllPending(shopId), timeout])
+            console.info('[sign-out] sync results', result)
+            if (result.failed > 0) return 'sync_failed'
           }
         } catch (e) {
           console.info('[sign-out] sync threw', e)

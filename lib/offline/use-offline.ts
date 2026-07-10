@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { getPendingCount, getPendingMovementCount, getPendingExpenseCount } from './db'
-import { syncPendingSales, syncPendingMovements, syncPendingExpenses, type SyncResult } from './sync'
+import { syncAllPending, type SyncResult } from './sync'
 
 // navigator.onLine is unreliable in Capacitor WebViews.
 // Do a real HEAD request to confirm actual connectivity.
@@ -28,7 +28,6 @@ export function useOffline() {
   const [syncing, setSyncing] = useState(false)
   const [lastSyncResult, setLastSyncResult] = useState<SyncResult | null>(null)
   const shopId = shop?.id
-  const syncingRef = useRef(false)
   const pendingCountRef = useRef(0)
 
   const refreshPendingCount = useCallback(async () => {
@@ -44,25 +43,18 @@ export function useOffline() {
   }, [shopId])
 
   const sync = useCallback(async (): Promise<SyncResult | null> => {
-    if (!shopId || syncingRef.current) return null
-    syncingRef.current = true
+    if (!shopId) return null
     setSyncing(true)
     try {
-      const [salesResult, movResult, expResult] = await Promise.all([
-        syncPendingSales(shopId),
-        syncPendingMovements(shopId),
-        syncPendingExpenses(shopId),
-      ])
-      const combined: SyncResult = {
-        synced: salesResult.synced + movResult.synced + expResult.synced,
-        failed: salesResult.failed + movResult.failed + expResult.failed,
-        errors: [...salesResult.errors, ...movResult.errors, ...expResult.errors],
-      }
+      // syncAllPending() is shared process-wide — concurrent callers (this hook
+      // is mounted independently in several components at once) join the same
+      // in-flight sync instead of each starting their own pass over the same
+      // pending queue, which used to insert offline sales more than once.
+      const combined = await syncAllPending(shopId)
       setLastSyncResult(combined)
       await refreshPendingCount()
       return combined
     } finally {
-      syncingRef.current = false
       setSyncing(false)
     }
   }, [shopId, refreshPendingCount])

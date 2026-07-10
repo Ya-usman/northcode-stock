@@ -319,6 +319,12 @@ export default function DettesPage() {
   )
   const remaining = repayDebtor ? Math.max(0, repayDebtor.totalDebt - amount) : 0
 
+  // Idempotency key for the current repayment attempt — generated once and
+  // reused across retries (including a manual re-click after an apparent
+  // failure), same pattern as sales/new. Reset when opening the dialog for a
+  // (possibly different) repayment.
+  const repayIdRef = useRef<string | null>(null)
+
   // ── Open repay dialog ────────────────────────────────────
   const openRepayDialog = (debtor: CustomerDebt) => {
     setHistoryDebtor(null)
@@ -327,6 +333,7 @@ export default function DettesPage() {
     setRepayMethod('cash')
     setRepayRef('')
     setRepayNotes('')
+    repayIdRef.current = null
   }
 
   // ── Record repayment ─────────────────────────────────────
@@ -341,6 +348,7 @@ export default function DettesPage() {
     }
     setSaving(true)
     try {
+      const clientRequestId = repayIdRef.current ?? (repayIdRef.current = crypto.randomUUID())
       const res = await fetch('/api/payments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -351,10 +359,12 @@ export default function DettesPage() {
           reference: repayRef || null,
           notes: repayNotes || null,
           shop_id: shop!.id,
+          client_request_id: clientRequestId,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
+      repayIdRef.current = null // this attempt succeeded — any further action is a new one
       toast({ title: t('toast.payment_recorded'), variant: 'success' })
       historyCache.current.delete(repayDebtor.customer.id)
 
