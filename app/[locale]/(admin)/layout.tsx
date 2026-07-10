@@ -1,4 +1,6 @@
 import { redirect } from 'next/navigation'
+import { NextIntlClientProvider } from 'next-intl'
+import { getMessages } from 'next-intl/server'
 import { createClient } from '@/lib/supabase/server'
 import { AdminBottomNav } from '@/components/admin/admin-bottom-nav'
 import { AdminSidebar } from '@/components/admin/admin-sidebar'
@@ -30,30 +32,37 @@ export default async function AdminLayout({
     redirect(`/${locale}/dashboard`)
   }
 
+  // The root [locale]/layout.tsx only provides a small public-page subset of
+  // translations (landing/auth/register) — the admin panel needs the full
+  // catalog, so it gets its own provider here with everything.
+  const messages = await getMessages()
+
   return (
-    <div className="min-h-screen bg-background text-foreground flex">
-      {/* Sidebar desktop */}
-      <AdminSidebar locale={locale} userEmail={user!.email ?? ''} />
+    <NextIntlClientProvider locale={locale} messages={messages}>
+      <div className="min-h-screen bg-background text-foreground flex">
+        {/* Sidebar desktop */}
+        <AdminSidebar locale={locale} userEmail={user!.email ?? ''} />
 
-      {/* Mobile header */}
-      <div
-        className="md:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center px-4 gap-3 border-b border-blue-900/40"
-        style={{ background: 'linear-gradient(135deg, #073e8a 0%, #0d52b8 100%)' }}
-      >
-        <img src="/logo-icon-t.png" alt="StockShop" className="h-8 w-8 object-contain brightness-0 invert flex-shrink-0" />
-        <div className="flex flex-col leading-none">
-          <span className="font-bold text-sm text-white tracking-wide">StockShop</span>
-          <span className="text-[9px] font-semibold text-stockshop-gold tracking-widest uppercase">Admin Panel</span>
+        {/* Mobile header */}
+        <div
+          className="md:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center px-4 gap-3 border-b border-blue-900/40"
+          style={{ background: 'linear-gradient(135deg, #073e8a 0%, #0d52b8 100%)' }}
+        >
+          <img src="/logo-icon-t.png" alt="StockShop" className="h-8 w-8 object-contain brightness-0 invert flex-shrink-0" />
+          <div className="flex flex-col leading-none">
+            <span className="font-bold text-sm text-white tracking-wide">StockShop</span>
+            <span className="text-[9px] font-semibold text-stockshop-gold tracking-widest uppercase">Admin Panel</span>
+          </div>
         </div>
+
+        {/* Mobile bottom nav */}
+        <AdminBottomNav locale={locale} />
+
+        {/* Main */}
+        <main className="flex-1 md:pl-56 pt-14 md:pt-0 pb-16 md:pb-0 overflow-x-hidden">
+          <div className="p-5 md:p-8">{children}</div>
+        </main>
       </div>
-
-      {/* Mobile bottom nav */}
-      <AdminBottomNav locale={locale} />
-
-      {/* Main */}
-      <main className="flex-1 md:pl-56 pt-14 md:pt-0 pb-16 md:pb-0 overflow-x-hidden">
-        <div className="p-5 md:p-8">{children}</div>
-      </main>
-    </div>
+    </NextIntlClientProvider>
   )
 }
