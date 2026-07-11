@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
-import { Search, Calendar, Package, ArrowRight, X, History } from 'lucide-react'
+import { Search, Calendar, Package, ArrowRight, X, History, ClipboardCheck } from 'lucide-react'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { Input } from '@/components/ui/input'
@@ -39,6 +39,7 @@ interface ProductSummary {
   current_qty: number | null
   initial_stock: number | null
   restocks: Movement[]
+  adjustments: Movement[]
   latest_at: string
 }
 
@@ -94,6 +95,7 @@ export default function StockMovementsPage() {
           current_qty: m.product_current_qty,
           initial_stock: null,
           restocks: [],
+          adjustments: [],
           latest_at: m.created_at,
         })
       }
@@ -103,11 +105,15 @@ export default function StockMovementsPage() {
       if (m.type === 'in') {
         if (m.reason === 'Stock initial') p.initial_stock = m.new_qty
         else p.restocks.push(m)
+      } else if (m.type === 'adjustment') {
+        p.adjustments.push(m)
       }
     }
 
-    for (const p of Array.from(map.values()))
+    for (const p of Array.from(map.values())) {
       p.restocks.sort((a, b) => b.created_at.localeCompare(a.created_at))
+      p.adjustments.sort((a, b) => b.created_at.localeCompare(a.created_at))
+    }
 
     let list = Array.from(map.values())
     if (search.trim()) {
@@ -198,6 +204,7 @@ export default function StockMovementsPage() {
           <div className="divide-y">
             {products.map(p => {
               const hasRestocks = p.restocks.length > 0
+              const hasHistory = hasRestocks || p.adjustments.length > 0
               const restockTotal = p.restocks.reduce((s, m) => s + m.quantity, 0)
               const qty = p.current_qty
               const qtyColor = qty === 0 ? 'text-red-600' : qty != null && qty <= 5 ? 'text-amber-500' : ''
@@ -205,10 +212,10 @@ export default function StockMovementsPage() {
               return (
                 <button
                   key={p.product_name}
-                  onClick={() => hasRestocks && setOpenProduct(p)}
+                  onClick={() => hasHistory && setOpenProduct(p)}
                   className={cn(
                     'w-full transition-colors text-left',
-                    hasRestocks ? 'hover:bg-muted/20 cursor-pointer' : 'cursor-default'
+                    hasHistory ? 'hover:bg-muted/20 cursor-pointer' : 'cursor-default'
                   )}
                 >
                   {/* Desktop row */}
@@ -281,6 +288,8 @@ export default function StockMovementsPage() {
       <AnimatePresence>
         {openProduct && (() => {
           const totalQty = openProduct.restocks.reduce((s, m) => s + m.quantity, 0)
+          const timeline = [...openProduct.restocks, ...openProduct.adjustments]
+            .sort((a, b) => b.created_at.localeCompare(a.created_at))
           return (
             <motion.div
               initial={{ opacity: 0 }}
@@ -353,58 +362,72 @@ export default function StockMovementsPage() {
                 {/* Timeline entries */}
                 <div className="overflow-y-auto flex-1 px-4 py-4">
                   <div className="relative space-y-0">
-                    {openProduct.restocks.map((m, idx) => (
-                      <div key={m.id} className="relative flex gap-3">
-                        {/* Timeline line + dot */}
-                        <div className="flex flex-col items-center">
-                          <div className="h-8 w-8 rounded-full bg-green-50 dark:bg-green-950/40 border-2 border-green-500 flex items-center justify-center flex-shrink-0 z-10">
-                            <Package className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                    {timeline.map((m, idx) => {
+                      const isAdjustment = m.type === 'adjustment'
+                      const isPositive = m.quantity >= 0
+                      const dotColor = isAdjustment
+                        ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-500'
+                        : 'bg-green-50 dark:bg-green-950/40 border-green-500'
+                      const iconColor = isAdjustment ? 'text-amber-600 dark:text-amber-400' : 'text-green-600 dark:text-green-400'
+                      const badgeColor = isPositive
+                        ? 'bg-green-50 dark:bg-green-950/40 border-green-200 dark:border-green-800 text-green-600 dark:text-green-400'
+                        : 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400'
+                      return (
+                        <div key={m.id} className="relative flex gap-3">
+                          {/* Timeline line + dot */}
+                          <div className="flex flex-col items-center">
+                            <div className={cn('h-8 w-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 z-10', dotColor)}>
+                              {isAdjustment
+                                ? <ClipboardCheck className={cn('h-3.5 w-3.5', iconColor)} />
+                                : <Package className={cn('h-3.5 w-3.5', iconColor)} />
+                              }
+                            </div>
+                            {idx < timeline.length - 1 && (
+                              <div className="w-0.5 flex-1 bg-border mt-1 mb-1 min-h-[16px]" />
+                            )}
                           </div>
-                          {idx < openProduct.restocks.length - 1 && (
-                            <div className="w-0.5 flex-1 bg-border mt-1 mb-1 min-h-[16px]" />
-                          )}
-                        </div>
 
-                        {/* Card */}
-                        <div className={cn('flex-1 min-w-0', idx < openProduct.restocks.length - 1 ? 'pb-3' : 'pb-0')}>
-                          <div className="rounded-xl border bg-card shadow-sm px-4 py-3">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex-1 min-w-0">
-                                {/* Reason */}
-                                <p className="text-sm font-semibold text-foreground truncate">
-                                  {m.reason || t('restock_history')}
-                                </p>
-                                {/* Date + performer */}
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                  {fmtDate(m.created_at)}
-                                  {m.performed_by_name && (
-                                    <> · <span className="font-medium text-foreground/70">{m.performed_by_name}</span></>
+                          {/* Card */}
+                          <div className={cn('flex-1 min-w-0', idx < timeline.length - 1 ? 'pb-3' : 'pb-0')}>
+                            <div className="rounded-xl border bg-card shadow-sm px-4 py-3">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex-1 min-w-0">
+                                  {/* Reason */}
+                                  <p className="text-sm font-semibold text-foreground truncate">
+                                    {m.reason || (isAdjustment ? t('type_adjustment') : t('restock_history'))}
+                                  </p>
+                                  {/* Date + performer */}
+                                  <p className="text-xs text-muted-foreground mt-0.5">
+                                    {fmtDate(m.created_at)}
+                                    {m.performed_by_name && (
+                                      <> · <span className="font-medium text-foreground/70">{m.performed_by_name}</span></>
+                                    )}
+                                  </p>
+                                  {/* Before → After */}
+                                  {(m.previous_qty != null || m.new_qty != null) && (
+                                    <div className="flex items-center gap-1.5 mt-2">
+                                      <span className="bg-muted text-muted-foreground text-[11px] font-semibold px-2.5 py-0.5 rounded-full tabular-nums">
+                                        {m.previous_qty ?? '—'}
+                                      </span>
+                                      <ArrowRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                      <span className="bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400 text-[11px] font-semibold px-2.5 py-0.5 rounded-full tabular-nums border border-green-200 dark:border-green-800">
+                                        {m.new_qty ?? '—'}
+                                      </span>
+                                    </div>
                                   )}
-                                </p>
-                                {/* Before → After */}
-                                {(m.previous_qty != null || m.new_qty != null) && (
-                                  <div className="flex items-center gap-1.5 mt-2">
-                                    <span className="bg-muted text-muted-foreground text-[11px] font-semibold px-2.5 py-0.5 rounded-full tabular-nums">
-                                      {m.previous_qty ?? '—'}
-                                    </span>
-                                    <ArrowRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                                    <span className="bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400 text-[11px] font-semibold px-2.5 py-0.5 rounded-full tabular-nums border border-green-200 dark:border-green-800">
-                                      {m.new_qty ?? '—'}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                              {/* Quantity badge */}
-                              <div className="flex-shrink-0 flex h-10 w-10 items-center justify-center rounded-full bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800">
-                                <span className="text-sm font-bold text-green-600 dark:text-green-400 tabular-nums leading-none">
-                                  +{m.quantity}
-                                </span>
+                                </div>
+                                {/* Quantity badge */}
+                                <div className={cn('flex-shrink-0 flex h-10 w-10 items-center justify-center rounded-full border', badgeColor)}>
+                                  <span className="text-sm font-bold tabular-nums leading-none">
+                                    {isPositive ? '+' : ''}{m.quantity}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
 

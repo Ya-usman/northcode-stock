@@ -4,6 +4,7 @@ export type PermFeature =
   | 'new_sale' | 'sales_history' | 'payments' | 'customers'
   | 'stock' | 'movements' | 'categories' | 'suppliers' | 'reports'
   | 'revenue_chart' | 'notes' | 'expenses' | 'delete_products' | 'caisse'
+  | 'inventory_count'
 
 export type ConfigurableRole = 'manager' | 'shop_manager' | 'cashier' | 'viewer' | 'stock_manager'
 
@@ -26,6 +27,7 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     expenses: true,
     delete_products: false,
     caisse: true,
+    inventory_count: true,
   },
   manager: {
     new_sale: true,
@@ -42,6 +44,7 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     expenses: true,
     delete_products: false,
     caisse: true,
+    inventory_count: true,
   },
   cashier: {
     new_sale: true,
@@ -58,6 +61,7 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     expenses: false,
     delete_products: false,
     caisse: false,
+    inventory_count: false,
   },
   viewer: {
     new_sale: false,
@@ -74,6 +78,7 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     expenses: false,
     delete_products: false,
     caisse: false,
+    inventory_count: false,
   },
   stock_manager: {
     new_sale: false,
@@ -90,6 +95,7 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     expenses: false,
     delete_products: false,
     caisse: false,
+    inventory_count: true,
   },
 }
 
