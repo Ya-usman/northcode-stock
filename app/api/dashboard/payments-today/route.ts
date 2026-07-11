@@ -15,6 +15,7 @@ export async function GET(request: Request) {
     const start = searchParams.get('start')
     const end = searchParams.get('end')
     const weekStart = searchParams.get('week_start')
+    const cashierId = searchParams.get('cashier_id')
 
     if (!shopIdsParam || !start || !end) {
       return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 })
@@ -40,15 +41,20 @@ export async function GET(request: Request) {
 
     // Fetch all payments in the full window (week or today)
     // Exclure les paiements liés à des ventes annulées (sale_status = 'cancelled')
+    // cashier_id (optional): scope to one cashier's own sales, so the weekly
+    // chart attributes revenue to the day it was actually paid, consistently
+    // for cashiers too (not just owners/managers).
     const queryStart = weekStart || start
     const { data: paymentsRaw } = await admin
       .from('payments')
-      .select('amount, paid_at, sales!inner(shop_id, sale_status)')
+      .select('amount, paid_at, sales!inner(shop_id, sale_status, cashier_id)')
       .gte('paid_at', queryStart)
       .lte('paid_at', end)
 
     const payments = (paymentsRaw || []).filter((p: any) =>
-      shopIds.includes(p.sales?.shop_id) && p.sales?.sale_status !== 'cancelled'
+      shopIds.includes(p.sales?.shop_id) &&
+      p.sales?.sale_status !== 'cancelled' &&
+      (!cashierId || p.sales?.cashier_id === cashierId)
     )
 
     // Today total

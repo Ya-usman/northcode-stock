@@ -209,7 +209,7 @@ export default function DashboardPage() {
         (() => {
           let q = supabase
             .from('sales')
-            .select('id, total, amount_paid, created_at, sale_items(product_name, quantity, subtotal)')
+            .select('id, total, amount_paid, created_at, sale_items(product_id, product_name, quantity, subtotal)')
             .in('shop_id', shopIds)
             .eq('sale_status', 'active')
             .gte('created_at', weekStartISO)
@@ -236,8 +236,11 @@ export default function DashboardPage() {
           .lte('paid_at', todayEnd)
           .order('paid_at', { ascending: false }),
 
-        // Actual cash received via admin route (for weekly chart)
-        fetch(`/api/dashboard/payments-today?shop_ids=${shopIds.join(',')}&start=${encodeURIComponent(todayStart)}&end=${encodeURIComponent(todayEnd)}&week_start=${encodeURIComponent(weekStartISO)}`),
+        // Actual cash received via admin route (for weekly chart) — scoped to
+        // the cashier's own sales when applicable, so their chart attributes
+        // revenue to the day it was actually paid (same accurate method used
+        // for owners/managers), not just the day the sale was created.
+        fetch(`/api/dashboard/payments-today?shop_ids=${shopIds.join(',')}&start=${encodeURIComponent(todayStart)}&end=${encodeURIComponent(todayEnd)}&week_start=${encodeURIComponent(weekStartISO)}${isCashier && cashierId ? `&cashier_id=${cashierId}` : ''}`),
 
         // Month expenses (owner only) — 1st to last day of current month
         !isCashier ? supabase
@@ -319,13 +322,17 @@ export default function DashboardPage() {
         if (dayMap[key]) { dayMap[key].sales += 1 }
       })
 
-      if (!isCashier && paymentsApiOk) {
-        // Owner/manager: actual cash received per day (includes debt repayments)
+      if (paymentsApiOk) {
+        // Actual cash received per day (includes debt repayments paid on a
+        // later day than the sale itself) — accurate for both owners/managers
+        // (shop-wide) and cashiers (scoped to their own sales via cashier_id).
         ;(paymentsData.weekPayments as { date: string; amount: number }[]).forEach(p => {
           if (dayMap[p.date]) dayMap[p.date].revenue += p.amount
         })
       } else {
-        // Cashier (or API fallback): sum amount_paid from their own sales only
+        // API failed: approximate by summing amount_paid attributed to the
+        // sale's creation date — less accurate for credit sales paid off on a
+        // later day, but better than showing nothing.
         ;(weekSales || []).forEach((sale: any) => {
           const key = format(parseISO(sale.created_at), 'yyyy-MM-dd')
           if (dayMap[key]) dayMap[key].revenue += Number(sale.amount_paid)
@@ -337,12 +344,17 @@ export default function DashboardPage() {
         sales: dayMap[format(d, 'yyyy-MM-dd')].sales,
       }))
 
+      // Grouped by product_id (falling back to product_name for free-text items
+      // with no product_id) — grouping by name alone would split a renamed
+      // product's sales across two entries, or merge two different products
+      // that happen to share the same name.
       const totals: Record<string, TopProduct> = {}
       ;(weekSales || []).forEach((sale: any) => {
         ;(sale.sale_items || []).forEach((item: any) => {
-          if (!totals[item.product_name]) totals[item.product_name] = { name: item.product_name, quantity: 0, revenue: 0 }
-          totals[item.product_name].quantity += Number(item.quantity)
-          totals[item.product_name].revenue += Number(item.subtotal)
+          const key = item.product_id ?? item.product_name
+          if (!totals[key]) totals[key] = { name: item.product_name, quantity: 0, revenue: 0 }
+          totals[key].quantity += Number(item.quantity)
+          totals[key].revenue += Number(item.subtotal)
         })
       })
       const tops = Object.values(totals).sort((a, b) => b.revenue - a.revenue).slice(0, 5)

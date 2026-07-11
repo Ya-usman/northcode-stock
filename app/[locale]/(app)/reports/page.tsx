@@ -140,7 +140,7 @@ export default function ReportsPage() {
 
     // Sale items for profit calculation (only if there are sales)
     let totalBuyingCost = 0
-    let prodTotals: Record<string, { qty: number; revenue: number }> = {}
+    let prodTotals: Record<string, { name: string; qty: number; revenue: number }> = {}
 
     if (sales.length > 0) {
       const { data: items } = await supabase
@@ -156,11 +156,15 @@ export default function ReportsPage() {
         return s + Number(item.buying_price || 0) * Number(item.quantity)
       }, 0)
 
-      // Top 10 products
+      // Top 10 products — grouped by product_id (falling back to product_name
+      // for free-text items with no product_id), same as the dashboard chart:
+      // grouping by name alone would split a renamed product's sales across
+      // two entries, or merge two different products sharing the same name.
       safeItems.forEach(item => {
-        if (!prodTotals[item.product_name]) prodTotals[item.product_name] = { qty: 0, revenue: 0 }
-        prodTotals[item.product_name].qty += Number(item.quantity)
-        prodTotals[item.product_name].revenue += Number(item.subtotal)
+        const key = item.product_id ?? item.product_name
+        if (!prodTotals[key]) prodTotals[key] = { name: item.product_name, qty: 0, revenue: 0 }
+        prodTotals[key].qty += Number(item.quantity)
+        prodTotals[key].revenue += Number(item.subtotal)
       })
     }
 
@@ -169,8 +173,7 @@ export default function ReportsPage() {
 
     setTotals({ revenue: totalRevenue, profit: totalProfit, sales: sales.length })
     setTopProducts(
-      Object.entries(prodTotals)
-        .map(([name, { qty, revenue }]) => ({ name, qty, revenue }))
+      Object.values(prodTotals)
         .sort((a, b) => b.revenue - a.revenue)
         .slice(0, 10)
     )
