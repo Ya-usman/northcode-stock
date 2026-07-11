@@ -1008,10 +1008,10 @@
     "sales_plural": "ventes",
     "unknown": "Inconnu",
     "section_sales": "Ventes",
-    "section_repayments": "Remboursements",
+    "section_repayments": "Remboursements de crédit",
     "col_sales_total": "Total ventes",
-    "col_repayments_count": "Nb remb.",
-    "col_repayments_total": "Total remb."
+    "col_repayments_count": "Nb remb. crédit",
+    "col_repayments_total": "Total remb. crédit"
   },
   "expenses": {
     "title": "Dépenses",

@@ -1008,10 +1008,10 @@
     "sales_plural": "sales",
     "unknown": "Unknown",
     "section_sales": "Sales",
-    "section_repayments": "Repayments",
+    "section_repayments": "Credit repayments",
     "col_sales_total": "Sales total",
-    "col_repayments_count": "Repayments #",
-    "col_repayments_total": "Repayments total"
+    "col_repayments_count": "Credit repayments #",
+    "col_repayments_total": "Credit repayments total"
   },
   "expenses": {
     "title": "Expenses",

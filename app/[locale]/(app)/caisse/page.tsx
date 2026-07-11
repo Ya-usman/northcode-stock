@@ -254,7 +254,7 @@ export default function CaissePage() {
                 <p className="text-base font-bold leading-none">{fmt(grandTotal)}</p>
                 {grandRepayTotal > 0 && (
                   <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {fmt(grandSalesTotal)} + {fmt(grandRepayTotal)} remb.
+                    {fmt(grandSalesTotal)} + {fmt(grandRepayTotal)} remb. créd.
                   </p>
                 )}
               </>
@@ -323,7 +323,7 @@ export default function CaissePage() {
                       </div>
                       <span className="text-[10px] text-muted-foreground flex-shrink-0 leading-tight">
                         {c.salesCount > 0 && `${c.salesCount} vte`}
-                        {c.repaymentsCount > 0 && `${c.salesCount > 0 ? ' · ' : ''}${c.repaymentsCount} remb.`}
+                        {c.repaymentsCount > 0 && `${c.salesCount > 0 ? ' · ' : ''}${c.repaymentsCount} remb. créd.`}
                         {' · '}{pct.toFixed(0)}%
                       </span>
                     </div>
