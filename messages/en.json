@@ -565,6 +565,7 @@
     "perm_movements": "Stock Movements",
     "perm_categories": "Categories",
     "perm_suppliers": "Suppliers",
+    "perm_inventory_count": "Physical Inventory",
     "perm_reports": "Reports",
     "perm_expenses": "Expenses",
     "perm_notes": "Notes",
@@ -618,7 +619,10 @@
     "confirm_button": "Confirm",
     "success_toast": "{count} product(s) adjusted",
     "no_access": "Access not authorized",
-    "error": "Something went wrong"
+    "error": "Something went wrong",
+    "journal_title": "Inventory Log",
+    "journal_loading": "Loading...",
+    "journal_empty": "No inventory count recorded yet."
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",
@@ -876,7 +880,8 @@
       "m9": "Reports & charts",
       "m10": "Push notifications",
       "m11": "Mobile app",
-      "m12": "Offline mode"
+      "m12": "Offline mode",
+      "m13": "Physical inventory"
     },
     "testimonials": {
       "title": "What our customers say",

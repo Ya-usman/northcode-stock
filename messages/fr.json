@@ -565,6 +565,7 @@
     "perm_movements": "Mouvements de stock",
     "perm_categories": "Catégories",
     "perm_suppliers": "Fournisseurs",
+    "perm_inventory_count": "Inventaire physique",
     "perm_reports": "Rapports",
     "perm_expenses": "Dépenses",
     "perm_notes": "Notes",
@@ -618,7 +619,10 @@
     "confirm_button": "Confirmer",
     "success_toast": "{count} produit(s) ajusté(s)",
     "no_access": "Accès non autorisé",
-    "error": "Une erreur s'est produite"
+    "error": "Une erreur s'est produite",
+    "journal_title": "Journal des inventaires",
+    "journal_loading": "Chargement...",
+    "journal_empty": "Aucun inventaire enregistré."
   },
   "errors": {
     "generic": "Une erreur s'est produite. Veuillez réessayer.",
@@ -876,7 +880,8 @@
       "m9": "Rapports & graphes",
       "m10": "Notifications push",
       "m11": "Application mobile",
-      "m12": "Mode hors ligne"
+      "m12": "Mode hors ligne",
+      "m13": "Inventaire physique"
     },
     "testimonials": {
       "title": "Ce que disent nos clients",

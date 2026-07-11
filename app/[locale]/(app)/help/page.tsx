@@ -463,7 +463,7 @@ const SECTIONS: ManualSection[] = [
       description: 'Le bouton « ··· Plus » dans la barre de navigation du bas ouvre un panneau contenant toutes les fonctionnalités.',
       tips: [
         'Historique des ventes, Crédits, Clients',
-        'Mouvements de stock, Catégories, Fournisseurs',
+        'Mouvements de stock, Inventaire physique, Catégories, Fournisseurs',
         'Dépenses, Équipe, Boutiques',
         'Abonnement, Paramètres',
       ],

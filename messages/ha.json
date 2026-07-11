@@ -565,6 +565,7 @@
     "perm_movements": "Motsin Kambun",
     "perm_categories": "Nau'ikan",
     "perm_suppliers": "Masu Kaya",
+    "perm_inventory_count": "Ƙidayar Kaya",
     "perm_reports": "Rahotanni",
     "perm_expenses": "Kashe Kuɗi",
     "perm_notes": "Bayanai",
@@ -618,7 +619,10 @@
     "confirm_button": "Tabbatar",
     "success_toast": "An gyara kaya {count}",
     "no_access": "Ba a ba da izini ba",
-    "error": "Wani kuskure ya faru"
+    "error": "Wani kuskure ya faru",
+    "journal_title": "Tarihin Ƙidayar Kaya",
+    "journal_loading": "Ana lodi...",
+    "journal_empty": "Babu wata ƙidaya da aka yi tukuna."
   },
   "errors": {
     "generic": "Wani abu ya faru. Don Allah a sake gwadawa.",
@@ -876,7 +880,8 @@
       "m9": "Rahoto & zane-zane",
       "m10": "Sanarwar push",
       "m11": "App na wayar hannu",
-      "m12": "Yanayin offline"
+      "m12": "Yanayin offline",
+      "m13": "Ƙidayar kaya"
     },
     "testimonials": {
       "title": "Abin da abokan ciniki suke cewa",

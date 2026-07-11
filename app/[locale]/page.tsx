@@ -70,7 +70,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
     { name: t('testimonials.t8_name'), shop: t('testimonials.t8_shop'), text: t('testimonials.t8_text'), initials: t('testimonials.t8_initials') },
   ]
 
-  const modules = Array.from({ length: 12 }, (_, i) => t(`modules.m${i + 1}`))
+  const modules = Array.from({ length: 13 }, (_, i) => t(`modules.m${i + 1}`))
 
   const plans = [
     {
