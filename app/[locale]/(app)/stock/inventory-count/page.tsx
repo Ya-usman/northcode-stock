@@ -312,8 +312,11 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
         </div>
       )}
 
-      {/* Sticky summary bar */}
-      {view === 'count' && diffs.length > 0 && (
+      {/* Sticky summary bar — hidden while the confirmation dialog is open: it
+          shares the same z-index as the dialog, and on some WebViews the first
+          tap could land on this still-visible button (a no-op re-open) instead
+          of the dialog's real Confirm button underneath. */}
+      {view === 'count' && diffs.length > 0 && !confirmOpen && (
         <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-4">
           <div className="flex items-center gap-3 rounded-2xl bg-card border shadow-xl px-4 py-3">
             <span className="text-sm font-medium flex-1 text-foreground">{t('diffs_count', { count: diffs.length })}</span>
