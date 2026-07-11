@@ -97,15 +97,15 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
   const fetchAuditLogs = async () => {
     if (!shop?.id) return
     setLoadingJournal(true)
-    const { data } = await supabase
-      .from('audit_logs')
-      .select('*')
-      .eq('shop_id', shop.id)
-      .eq('action', 'inventory_count')
-      .order('created_at', { ascending: false })
-      .limit(30)
-    setAuditLogs((data || []) as AuditLog[])
-    setLoadingJournal(false)
+    try {
+      const res = await fetch(`/api/stock/inventory-count?shop_id=${shop.id}`)
+      const json = await res.json()
+      setAuditLogs(res.ok ? (json.logs as AuditLog[]) : [])
+    } catch {
+      setAuditLogs([])
+    } finally {
+      setLoadingJournal(false)
+    }
   }
 
   useEffect(() => { if (view === 'journal') fetchAuditLogs() }, [view])
