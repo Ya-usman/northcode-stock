@@ -364,7 +364,11 @@ export default function ExpensesPage() {
       is_recurring:   isRecurring,
       recurrence:     isRecurring ? recurrence : null,
       recurrence_day: isRecurring && recurrence === 'monthly' ? recurrenceDay : null,
-      next_due_at:    isRecurring ? date : null,
+      // When editing an already-recurring template, keep its existing next_due_at
+      // (already advanced past the creation date) instead of resetting it back to
+      // the form's `date` field — otherwise saving the template unchanged would
+      // push next_due_at into the past and regenerate a duplicate expense.
+      next_due_at:    isRecurring ? (editing?.is_recurring ? (editing.next_due_at ?? date) : date) : null,
       template_id:    null,
       receipt_url,
     }
