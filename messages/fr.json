@@ -55,6 +55,8 @@
     "outstanding_debt": "Crédits en cours",
     "revenue_chart": "Revenus — 7 derniers jours",
     "new_sales_count": "{count} nouvelle(s) vente(s)",
+    "units_sold_count": "{count} unité(s) vendue(s)",
+    "net_label": "Net",
     "top_products": "Top 5 produits",
     "recent_sales": "Ventes récentes",
     "live_badge": "EN DIRECT",

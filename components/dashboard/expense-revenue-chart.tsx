@@ -117,7 +117,7 @@ export function ExpenseRevenueChart() {
         <p className="text-red-400">{t('expenses_label')}: <span className="font-medium">{fmt(exp)}</span></p>
         <div className="mt-2 pt-2 border-t">
           <p className={cn('text-xs font-bold', net >= 0 ? 'text-green-600' : 'text-red-600')}>
-            Net: {net >= 0 ? '+' : ''}{fmt(net)}
+            {t('net_label')}: {net >= 0 ? '+' : ''}{fmt(net)}
           </p>
         </div>
       </div>

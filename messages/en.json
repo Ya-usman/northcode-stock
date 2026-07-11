@@ -55,6 +55,8 @@
     "outstanding_debt": "Outstanding Credits",
     "revenue_chart": "Revenue — Last 7 Days",
     "new_sales_count": "{count} new sale(s)",
+    "units_sold_count": "{count} unit(s) sold",
+    "net_label": "Net",
     "top_products": "Top 5 Products",
     "recent_sales": "Recent Sales",
     "live_badge": "LIVE",

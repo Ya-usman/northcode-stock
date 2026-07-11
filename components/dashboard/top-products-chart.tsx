@@ -27,7 +27,7 @@ export function TopProductsChart({ data }: TopProductsChartProps) {
       <div className="rounded-lg border bg-card p-3 shadow-lg text-sm">
         <p className="font-medium mb-1 max-w-[140px] truncate">{label}</p>
         <p className="text-stockshop-blue dark:text-blue-400">{fmt(payload[0]?.value || 0)}</p>
-        <p className="text-muted-foreground">{payload[0]?.payload?.quantity || 0} units sold</p>
+        <p className="text-muted-foreground">{t('units_sold_count', { count: payload[0]?.payload?.quantity || 0 })}</p>
       </div>
     )
   }
