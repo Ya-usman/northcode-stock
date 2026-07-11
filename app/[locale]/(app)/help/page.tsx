@@ -456,7 +456,24 @@ const SECTIONS: ManualSection[] = [
     ],
   },
   {
-    id: 's15', num: 15, title: 'Menu « Plus »',
+    id: 's15', num: 15, title: 'Inventaire physique',
+    blocks: [{
+      title: 'Comparer stock théorique et stock réel',
+      image: 'inventory-count.png', alt: 'Inventaire physique',
+      description: 'Comptez physiquement vos produits et comparez avec le stock enregistré dans l\'app. Les écarts sont appliqués et journalisés automatiquement.',
+      tips: [
+        '<strong>Quantité comptée</strong> — Entrez le nombre réel trouvé en rayon pour chaque produit ; les produits non touchés ne sont pas comptés comme un écart.',
+        '<strong>Recherche / filtre</strong> — Par nom, SKU ou catégorie, pour ne compter qu\'une partie du stock à la fois.',
+        '<strong>Valider l\'inventaire</strong> — Un récapitulatif des écarts s\'affiche avant confirmation, avec la raison de chacun (perte, vol, casse, expiration, correction) et l\'impact en valeur.',
+        '<strong>Journal des inventaires</strong> — Consultez l\'historique des comptages précédents (qui, quand, combien de produits ajustés).',
+      ],
+      callouts: [
+        { type: 'warning', text: '⚠️ Réservé aux propriétaires, gérants et responsables de stock — un caissier n\'y a pas accès.' },
+      ],
+    }],
+  },
+  {
+    id: 's16', num: 16, title: 'Menu « Plus »',
     blocks: [{
       title: 'Accéder à toutes les fonctionnalités',
       image: 'menu-more.png', alt: 'Menu Plus',
