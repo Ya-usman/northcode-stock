@@ -315,8 +315,8 @@ export default function DashboardPage() {
         }))
 
       const last7 = Array.from({ length: 7 }, (_, i) => subDays(today, 6 - i))
-      const dayMap: Record<string, { revenue: number; sales: number }> = {}
-      last7.forEach(d => { dayMap[format(d, 'yyyy-MM-dd')] = { revenue: 0, sales: 0 } })
+      const dayMap: Record<string, { revenue: number; sales: number; repayments: number }> = {}
+      last7.forEach(d => { dayMap[format(d, 'yyyy-MM-dd')] = { revenue: 0, sales: 0, repayments: 0 } })
       ;(weekSales || []).forEach((sale: any) => {
         const key = format(parseISO(sale.created_at), 'yyyy-MM-dd')
         if (dayMap[key]) { dayMap[key].sales += 1 }
@@ -326,8 +326,14 @@ export default function DashboardPage() {
         // Actual cash received per day (includes debt repayments paid on a
         // later day than the sale itself) — accurate for both owners/managers
         // (shop-wide) and cashiers (scoped to their own sales via cashier_id).
-        ;(paymentsData.weekPayments as { date: string; amount: number }[]).forEach(p => {
-          if (dayMap[p.date]) dayMap[p.date].revenue += p.amount
+        // Repayment events are tracked separately from new-sale count, so the
+        // tooltip can show both "X new sale(s)" and "Y credit repayment(s)"
+        // instead of a single count that hides which is which.
+        ;(paymentsData.weekPayments as { date: string; amount: number; repaymentsCount: number }[]).forEach(p => {
+          if (dayMap[p.date]) {
+            dayMap[p.date].revenue += p.amount
+            dayMap[p.date].repayments += p.repaymentsCount
+          }
         })
       } else {
         // API failed: approximate by summing amount_paid attributed to the
@@ -342,6 +348,7 @@ export default function DashboardPage() {
         date: format(d, 'EEE'),
         revenue: dayMap[format(d, 'yyyy-MM-dd')].revenue,
         sales: dayMap[format(d, 'yyyy-MM-dd')].sales,
+        repayments: dayMap[format(d, 'yyyy-MM-dd')].repayments,
       }))
 
       // Grouped by product_id (falling back to product_name for free-text items

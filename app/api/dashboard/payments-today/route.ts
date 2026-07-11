@@ -47,7 +47,7 @@ export async function GET(request: Request) {
     const queryStart = weekStart || start
     const { data: paymentsRaw } = await admin
       .from('payments')
-      .select('amount, paid_at, sales!inner(shop_id, sale_status, cashier_id)')
+      .select('amount, paid_at, is_repayment, sales!inner(shop_id, sale_status, cashier_id)')
       .gte('paid_at', queryStart)
       .lte('paid_at', end)
 
@@ -62,13 +62,21 @@ export async function GET(request: Request) {
       .filter((p: any) => p.paid_at >= start)
       .reduce((s: number, p: any) => s + Number(p.amount), 0)
 
-    // 7-day breakdown grouped by date (YYYY-MM-DD)
-    const byDate: Record<string, number> = {}
+    // 7-day breakdown grouped by date (YYYY-MM-DD).
+    // repaymentsCount: number of debt-repayment events that day (is_repayment
+    // = true) — separate from amount, so the dashboard's "transactions" count
+    // can include repayment activity without double-counting the payment
+    // already made at sale creation.
+    const byDate: Record<string, { amount: number; repaymentsCount: number }> = {}
     payments.forEach((p: any) => {
       const date = (p.paid_at as string).substring(0, 10)
-      byDate[date] = (byDate[date] || 0) + Number(p.amount)
+      if (!byDate[date]) byDate[date] = { amount: 0, repaymentsCount: 0 }
+      byDate[date].amount += Number(p.amount)
+      if (p.is_repayment) byDate[date].repaymentsCount += 1
     })
-    const weekPayments = Object.entries(byDate).map(([date, amount]) => ({ date, amount }))
+    const weekPayments = Object.entries(byDate).map(([date, v]) => ({
+      date, amount: v.amount, repaymentsCount: v.repaymentsCount,
+    }))
 
     return NextResponse.json({ todayTotal, weekPayments })
   } catch (e: any) {

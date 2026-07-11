@@ -216,6 +216,7 @@ export interface RevenueDataPoint {
   date: string
   revenue: number
   sales: number
+  repayments: number
 }
 
 export interface TopProduct {

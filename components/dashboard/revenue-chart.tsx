@@ -22,11 +22,22 @@ export function RevenueChart({ data }: RevenueChartProps) {
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null
+    const point = payload[0]?.payload
+    const salesCount = point?.sales || 0
+    const repaymentsCount = point?.repayments || 0
     return (
       <div className="rounded-lg border bg-card p-3 shadow-lg text-sm">
         <p className="font-medium text-foreground mb-1">{label}</p>
-        <p className="text-stockshop-blue dark:text-blue-400">{fmt(payload[0]?.value || 0)}</p>
-        <p className="text-muted-foreground">{t('new_sales_count', { count: payload[1]?.value || 0 })}</p>
+        <p className="text-stockshop-blue dark:text-blue-400">{fmt(point?.revenue || 0)}</p>
+        <p className="text-muted-foreground">{t('new_sales_count', { count: salesCount })}</p>
+        {repaymentsCount > 0 && (
+          <p className="text-muted-foreground">{t('repayments_count', { count: repaymentsCount })}</p>
+        )}
+        {repaymentsCount > 0 && (
+          <p className="text-muted-foreground font-medium mt-1 pt-1 border-t">
+            {t('total_transactions_count', { count: salesCount + repaymentsCount })}
+          </p>
+        )}
       </div>
     )
   }
