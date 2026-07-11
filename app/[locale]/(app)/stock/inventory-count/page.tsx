@@ -339,19 +339,19 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
                     {d.variance > 0 ? '+' : ''}{d.variance}
                   </span>
                 </div>
-                <Select
+                {/* Native <select> on purpose — a Radix Select nested inside this
+                    Dialog leaves pointer-events locked on the page after closing,
+                    swallowing the first subsequent click on "Confirmer". */}
+                <select
+                  aria-label={tProducts('adjustment_reason')}
                   value={reasons[d.product.id] ?? 'correction'}
-                  onValueChange={v => setReasons(prev => ({ ...prev, [d.product.id]: v }))}
+                  onChange={e => setReasons(prev => ({ ...prev, [d.product.id]: e.target.value }))}
+                  className="h-7 text-xs mt-1 w-full rounded-md border border-input bg-background px-2"
                 >
-                  <SelectTrigger aria-label={tProducts('adjustment_reason')} className="h-7 text-xs mt-1 w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {REASON_CODES.map(code => (
-                      <SelectItem key={code} value={code} className="text-xs">{tProducts(code)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  {REASON_CODES.map(code => (
+                    <option key={code} value={code}>{tProducts(code)}</option>
+                  ))}
+                </select>
               </div>
             ))}
           </div>
