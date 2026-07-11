@@ -19,6 +19,11 @@ import type { Product, Category } from '@/lib/types/database'
 
 const supabase = createClient() as any
 
+// Reuses the translation keys already defined under `products` (damage, loss,
+// theft, expiry, correction, other) — left over from a per-product adjustment
+// feature that was planned but never built.
+const REASON_CODES = ['correction', 'damage', 'loss', 'theft', 'expiry', 'other'] as const
+
 interface DiffRow {
   product: Product
   theoretical: number
@@ -29,6 +34,7 @@ interface DiffRow {
 
 export default function InventoryCountPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('inventoryCount')
+  const tProducts = useTranslations('products')
   const router = useRouter()
   const { shop, profile, roleInActiveShop } = useAuth()
   const { canAccess } = useRolePermissions()
@@ -46,6 +52,7 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [counts, setCounts] = useState<Record<string, string>>({})
+  const [reasons, setReasons] = useState<Record<string, string>>({})
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
@@ -102,7 +109,11 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           shop_id: shop.id,
-          items: diffs.map(d => ({ product_id: d.product.id, counted_qty: d.counted })),
+          items: diffs.map(d => ({
+            product_id: d.product.id,
+            counted_qty: d.counted,
+            reason_code: reasons[d.product.id] || 'correction',
+          })),
         }),
       })
       const json = await res.json()
@@ -110,6 +121,7 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
       toast({ title: t('success_toast', { count: json.data?.adjusted_count ?? diffs.length }), variant: 'success' })
       setConfirmOpen(false)
       setCounts({})
+      setReasons({})
       router.push(`/${locale}/stock`)
     } finally {
       setSubmitting(false)
@@ -209,14 +221,29 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
             <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
             <p className="text-sm text-amber-700 dark:text-amber-400">{t('confirm_warning')}</p>
           </div>
-          <div className="max-h-64 overflow-y-auto space-y-1 mt-3">
+          <div className="max-h-72 overflow-y-auto space-y-2.5 mt-3">
             {diffs.map(d => (
-              <div key={d.product.id} className="flex items-center justify-between text-sm border-b py-1.5 last:border-0">
-                <span className="truncate flex-1">{d.product.name}</span>
-                <span className="text-muted-foreground text-xs mx-2">{d.theoretical} → {d.counted}</span>
-                <span className={`font-semibold text-xs w-16 text-right ${d.variance > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {d.variance > 0 ? '+' : ''}{d.variance}
-                </span>
+              <div key={d.product.id} className="border-b pb-2 last:border-0">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="truncate flex-1 font-medium">{d.product.name}</span>
+                  <span className="text-muted-foreground text-xs mx-2 flex-shrink-0">{d.theoretical} → {d.counted}</span>
+                  <span className={`font-semibold text-xs w-10 text-right flex-shrink-0 ${d.variance > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {d.variance > 0 ? '+' : ''}{d.variance}
+                  </span>
+                </div>
+                <Select
+                  value={reasons[d.product.id] ?? 'correction'}
+                  onValueChange={v => setReasons(prev => ({ ...prev, [d.product.id]: v }))}
+                >
+                  <SelectTrigger aria-label={tProducts('adjustment_reason')} className="h-7 text-xs mt-1 w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {REASON_CODES.map(code => (
+                      <SelectItem key={code} value={code} className="text-xs">{tProducts(code)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             ))}
           </div>
