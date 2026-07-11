@@ -205,7 +205,7 @@ export function ShopRestorePanel({ shopId, shopName }: Props) {
                     <p className="text-sm text-foreground font-medium truncate">{c.name}</p>
                     <p className="text-xs text-muted-foreground">
                       {c.phone || 'Pas de téléphone'}
-                      {c.total_debt > 0 && ` · Dette : ${formatNaira(c.total_debt)}`}
+                      {c.total_debt > 0 && ` · Solde dû : ${formatNaira(c.total_debt)}`}
                       {' · Supprimé le '}{new Date(c.deleted_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                     </p>
                   </div>

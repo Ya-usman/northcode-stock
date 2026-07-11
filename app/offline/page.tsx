@@ -58,7 +58,7 @@ const GRID_ITEMS = [
   { icon: LayoutDashboard, label: 'Tableau de bord', route: 'dashboard' },
   { icon: Package,         label: 'Stock',           route: 'stock' },
   { icon: Users,           label: 'Clients',         route: 'customers' },
-  { icon: Banknote,        label: 'Dette',            route: 'payments' },
+  { icon: Banknote,        label: 'Crédits',          route: 'payments' },
   { icon: Receipt,         label: 'Dépenses',         route: 'expenses' },
   { icon: BarChart2,       label: 'Rapports',         route: 'reports' },
 ]

@@ -213,7 +213,7 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
   )
 }
 
-export default function DettesPage() {
+export default function CreditsPage() {
   const t = useTranslations()
   const { shop, profile, effectiveShopIds, userShops } = useAuth()
   const isMultiShop = effectiveShopIds.length > 1
@@ -247,7 +247,7 @@ export default function DettesPage() {
   const [loadingHistory, setLoadingHistory] = useState(false)
   const historyCache = useRef<Map<string, { sales: SaleRecord[]; payments: PaymentRecord[] }>>(new Map())
 
-  // ── Historique des dettes tab ────────────────────────────
+  // ── Historique des crédits tab ────────────────────────────
   const [activeTab, setActiveTab] = useState<'en-cours' | 'historique'>('en-cours')
   const [histAll, setHistAll] = useState<HistCustomerEntry[]>(() =>
     getPageCache<HistCustomerEntry[]>(`payments_hist_${effectiveShopIds.join(',')}`) || []
@@ -511,7 +511,7 @@ export default function DettesPage() {
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >
-          Dettes en cours
+          Crédits en cours
           {debtors.length > 0 && (
             <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${activeTab === 'en-cours' ? 'bg-red-100 text-red-600' : 'bg-muted-foreground/20 text-muted-foreground'}`}>
               {debtors.length}
@@ -801,7 +801,7 @@ export default function DettesPage() {
               {repayDebtor && repayDebtor.unpaidSales.length === 0 ? (
                 <div className="rounded-lg bg-orange-50 border border-orange-200 p-3">
                   <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-1">{t('payments.data_to_fix')}</p>
-                  <p className="text-sm text-orange-700">La dette de {fmt(repayDebtor.totalDebt)} est enregistrée mais aucune facture impayée n&apos;est trouvée.</p>
+                  <p className="text-sm text-orange-700">Le solde dû de {fmt(repayDebtor.totalDebt)} est enregistré mais aucune facture impayée n&apos;est trouvée.</p>
                 </div>
               ) : null}
 

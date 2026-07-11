@@ -399,7 +399,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const discountAmt = discount
   const tax = Number(selectedShop?.tax_rate || 0) > 0 ? (subtotal - discountAmt) * (selectedShop!.tax_rate / 100) : 0
   const total = subtotal - discountAmt + tax
-  // Montant total à encaisser = vente + remboursement dette si activé
+  // Montant total à encaisser = vente + remboursement crédit si activé
   const debtAmt = debtRepayEnabled ? (Number(debtRepayAmount) || 0) : 0
   const totalToCollect = total + debtAmt
   const shopCountry = getCountry(selectedShop?.country)
@@ -712,7 +712,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       if (paymentRecordFailed) {
         await db.from('sales').update({ payment_status: 'pending' }).eq('id', sale.id)
         toast({
-          title: 'Vente enregistrée, mais le paiement n\'a pas pu être confirmé (réseau) — vérifiez la dette du client',
+          title: 'Vente enregistrée, mais le paiement n\'a pas pu être confirmé (réseau) — vérifiez le solde dû du client',
           variant: 'destructive',
         })
       }
@@ -1209,7 +1209,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 <p className="text-xs text-muted-foreground">
                   Client existant · {selectedCustomer.phone || 'pas de téléphone'}
                   {Number(selectedCustomer.total_debt) > 0 && (
-                    <span className="text-red-500 ml-2">· Dette: {formatNaira(selectedCustomer.total_debt)}</span>
+                    <span className="text-red-500 ml-2">· Solde dû: {formatNaira(selectedCustomer.total_debt)}</span>
                   )}
                 </p>
               )}
@@ -1222,9 +1222,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-orange-800">Inclure un remboursement de dette</p>
+                    <p className="text-sm font-semibold text-orange-800">Inclure un remboursement de crédit</p>
                     <p className="text-xs text-orange-600">
-                      Dette actuelle : <strong>{formatNaira(selectedCustomer.total_debt)}</strong>
+                      Solde dû actuel : <strong>{formatNaira(selectedCustomer.total_debt)}</strong>
                     </p>
                   </div>
                   <button
@@ -1242,7 +1242,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 {debtRepayEnabled && (
                   <div className="space-y-3 pt-1">
                     <div className="space-y-1">
-                      <Label className="text-xs text-orange-800">Montant donné par le client pour la dette</Label>
+                      <Label className="text-xs text-orange-800">Montant donné par le client pour le solde dû</Label>
                       <div className="flex rounded-md border border-orange-200 overflow-hidden focus-within:ring-2 focus-within:ring-orange-300">
                         <span className="flex items-center px-2.5 bg-orange-50 border-r border-orange-200 text-sm text-muted-foreground font-medium whitespace-nowrap select-none">{selectedShop?.currency || '₦'}</span>
                         <input
@@ -1258,7 +1258,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                       {Number(debtRepayAmount) > 0 && (
                         <p className="text-xs text-orange-600">
                           Reste après : <strong>{formatNaira(Math.max(0, Number(selectedCustomer.total_debt) - Number(debtRepayAmount)))}</strong>
-                          {Number(debtRepayAmount) >= Number(selectedCustomer.total_debt) && ' ✓ Dette soldée'}
+                          {Number(debtRepayAmount) >= Number(selectedCustomer.total_debt) && ' ✓ Solde réglé'}
                         </p>
                       )}
                     </div>
@@ -1270,7 +1270,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                           <span>Vente</span><span>{formatNaira(total)}</span>
                         </div>
                         <div className="flex justify-between text-orange-700">
-                          <span>Remboursement dette</span><span>+{formatNaira(debtAmt)}</span>
+                          <span>Remboursement crédit</span><span>+{formatNaira(debtAmt)}</span>
                         </div>
                         <div className="flex justify-between font-bold border-t pt-1">
                           <span>Total à encaisser</span>
@@ -1372,7 +1372,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           {!splitPayment && methodType === 'credit' && (
             <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
               <p className="text-sm font-medium text-amber-700">
-                📝 Ajoute {formatNaira(total)} à la dette de{' '}
+                📝 Ajoute {formatNaira(total)} au solde dû de{' '}
                 {selectedCustomer?.name || customerName || 'ce client'}
               </p>
               {!selectedCustomer && !customerName && (

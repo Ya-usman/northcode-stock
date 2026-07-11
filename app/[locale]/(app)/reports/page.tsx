@@ -464,7 +464,7 @@ export default function ReportsPage() {
         ))}
       </div>
 
-      {/* KPI — ligne 2 : Marge brute · Bénéfice net · Dettes */}
+      {/* KPI — ligne 2 : Marge brute · Bénéfice net · Crédits */}
       <div className="grid grid-cols-3 gap-2">
         <Card className="border-0 shadow-sm">
           <CardContent className="p-2 sm:p-3 text-center">

@@ -64,11 +64,11 @@ const FAQ = [
     items: [
       {
         q: 'Comment vendre à crédit ?',
-        a: 'Lors d\'une vente, choisissez "Crédit (dette)" comme mode de paiement. La vente est enregistrée et la dette apparaît dans la section Paiements.',
+        a: 'Lors d\'une vente, choisissez "Crédit" comme mode de paiement. La vente est enregistrée et le solde dû apparaît dans la section Crédits.',
       },
       {
         q: 'Comment enregistrer un remboursement de crédit ?',
-        a: 'Allez dans Paiements → trouvez le client → cliquez "Enregistrer le paiement". Entrez le montant reçu.',
+        a: 'Allez dans Crédits → trouvez le client → cliquez "Enregistrer le paiement". Entrez le montant reçu.',
       },
     ],
   },
@@ -183,7 +183,7 @@ const SECTIONS: ManualSection[] = [
         '<strong>Revenus du jour</strong> — Total encaissé aujourd\'hui.',
         '<strong>Ventes aujourd\'hui</strong> — Nombre de transactions.',
         '<strong>Alertes stock</strong> — Produits en stock faible.',
-        '<strong>Dettes en cours</strong> — Total des crédits non remboursés.',
+        '<strong>Crédits en cours</strong> — Total des crédits non remboursés.',
         '<strong>Dépenses aujourd\'hui</strong> — Visible pour le propriétaire uniquement.',
       ],
       callouts: [
@@ -241,7 +241,7 @@ const SECTIONS: ManualSection[] = [
           '<strong>Encaissé</strong> — Total réellement perçu.',
           '<strong>Dépenses</strong> — Total des dépenses sur la période.',
           '<strong>Bénéfice net</strong> — Encaissé moins les dépenses.',
-          '<strong>Dettes en cours</strong> — Crédits clients non remboursés.',
+          '<strong>Crédits en cours</strong> — Crédits clients non remboursés.',
         ],
       },
       {
@@ -274,7 +274,7 @@ const SECTIONS: ManualSection[] = [
       description: 'Toutes les ventes filtrées par date, boutique, caissier ou statut de paiement.',
       tips: [
         '<strong>Onglet Ventes</strong> — Toutes les ventes actives.',
-        '<strong>Onglet Remboursements</strong> — Paiements de dettes clients.',
+        '<strong>Onglet Remboursements</strong> — Remboursements de crédits clients.',
         '<strong>Recherche</strong> — Par numéro de vente ou nom de client.',
         '<strong>Numéro de vente</strong> — Chaque vente a un numéro unique.',
         '<strong>Statut « Payé »</strong> — Badge vert = intégralement payé.',
@@ -290,12 +290,12 @@ const SECTIONS: ManualSection[] = [
     blocks: [{
       title: 'Gérer votre carnet clients',
       image: 'customers.png', alt: 'Clients', reverse: true,
-      description: 'Enregistrez vos clients fidèles pour leur vendre à crédit et suivre leurs dettes.',
+      description: 'Enregistrez vos clients fidèles pour leur vendre à crédit et suivre leurs soldes dus.',
       tips: [
         '<strong>Ajouter un client</strong> — Bouton « + Ajouter un client » en haut à droite.',
         '<strong>Rechercher</strong> — Par nom ou numéro de téléphone.',
-        '<strong>Badge rouge</strong> — Affiche la dette en cours du client.',
-        '<strong>Supprimer 🗑️</strong> — Impossible si le client a une dette active.',
+        '<strong>Badge rouge</strong> — Affiche le solde dû du client.',
+        '<strong>Supprimer 🗑️</strong> — Impossible si le client a un solde dû actif.',
       ],
       callouts: [
         { type: 'warning', text: '⚠️ Pour vendre à crédit, sélectionnez le client et choisissez « Crédit » comme mode de paiement.' },
@@ -462,7 +462,7 @@ const SECTIONS: ManualSection[] = [
       image: 'menu-more.png', alt: 'Menu Plus',
       description: 'Le bouton « ··· Plus » dans la barre de navigation du bas ouvre un panneau contenant toutes les fonctionnalités.',
       tips: [
-        'Historique des ventes, Dettes, Clients',
+        'Historique des ventes, Crédits, Clients',
         'Mouvements de stock, Catégories, Fournisseurs',
         'Dépenses, Équipe, Boutiques',
         'Abonnement, Paramètres',
