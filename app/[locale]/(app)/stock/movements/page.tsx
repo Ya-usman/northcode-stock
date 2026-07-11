@@ -308,7 +308,7 @@ export default function StockMovementsPage() {
               >
                 {/* Header gradient */}
                 <div
-                  className="relative overflow-hidden px-5 pt-5 pb-4"
+                  className="relative overflow-hidden px-5 pt-5 pb-4 flex-shrink-0"
                   style={{ background: 'linear-gradient(135deg, #073e8a 0%, #0d52b8 100%)' }}
                 >
                   {/* Decorative circles */}
@@ -432,7 +432,7 @@ export default function StockMovementsPage() {
                 </div>
 
                 {/* Footer */}
-                <div className="px-4 pb-4 pt-2 border-t">
+                <div className="px-4 pb-4 pt-2 border-t flex-shrink-0">
                   <Button
                     variant="outline"
                     className="w-full h-11 font-medium"
