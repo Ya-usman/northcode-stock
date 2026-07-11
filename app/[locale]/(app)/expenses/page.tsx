@@ -96,7 +96,7 @@ export default function ExpensesPage() {
   const [deleteLogs, setDeleteLogs] = useState<DeleteLog[]>([])
   const [showTemplates, setShowTemplates] = useState(true)
   const [showBudgets, setShowBudgets] = useState(true)
-  const [showDeleteLogs, setShowDeleteLogs] = useState(false)
+  const [view, setView] = useState<'expenses' | 'journal'>('expenses')
   const [exporting, setExporting]     = useState(false)
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
 
@@ -682,6 +682,26 @@ export default function ExpensesPage() {
         </div>
       </div>
 
+      {/* View toggle */}
+      {isOwnerOrAdmin && (
+        <div className="flex gap-1 rounded-lg border bg-muted/30 p-1 w-fit">
+          <button
+            onClick={() => setView('expenses')}
+            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${view === 'expenses' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            {t('tab_expenses')}
+          </button>
+          <button
+            onClick={() => setView('journal')}
+            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${view === 'journal' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            <AlertTriangle className="h-3.5 w-3.5" /> {t('tab_journal')} {deleteLogs.length > 0 && `(${deleteLogs.length})`}
+          </button>
+        </div>
+      )}
+
+      {view === 'expenses' && (
+      <>
       {/* ── Recurring templates ── */}
       {templates.length > 0 && (
         <Card className="border-0 shadow-sm overflow-hidden">
@@ -964,49 +984,37 @@ export default function ExpensesPage() {
           })}
         </div>
       )}
+      </>
+      )}
 
       {/* ── Journal des suppressions (owner uniquement) ── */}
-      {isOwnerOrAdmin && (
+      {view === 'journal' && isOwnerOrAdmin && (
         <Card className="border-0 shadow-sm overflow-hidden">
-          <button
-            onClick={() => setShowDeleteLogs(v => !v)}
-            className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-muted/40 transition-colors"
-          >
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <AlertTriangle className="h-4 w-4" />
-              <span>{t('delete_journal')} {deleteLogs.length > 0 && `(${deleteLogs.length})`}</span>
-            </div>
-            {showDeleteLogs ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-          </button>
-          {showDeleteLogs && (
-            <div className="border-t">
-              {deleteLogs.length === 0 ? (
-                <p className="text-center text-sm text-muted-foreground py-6">{t('delete_journal_empty')}</p>
-              ) : (
-                <div className="divide-y">
-                  {deleteLogs.map(log => {
-                    const cat = catFor(log.metadata?.category ?? 'other')
-                    const dateStr = new Date(log.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-                    return (
-                      <div key={log.id} className="flex items-start gap-3 px-4 py-3">
-                        <span className={cn('flex-shrink-0 h-8 w-8 rounded-lg flex items-center justify-center text-base', cat.color)}>
-                          {cat.icon}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{log.metadata?.description}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {t('deleted_by')} <span className="font-medium text-foreground">{log.actor_email}</span>
-                          </p>
-                          <p className="text-xs text-muted-foreground">{dateStr}</p>
-                        </div>
-                        <span className="text-sm font-semibold text-red-500 flex-shrink-0">
-                          -{fmt(Number(log.metadata?.amount))}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
+          {deleteLogs.length === 0 ? (
+            <p className="text-center text-sm text-muted-foreground py-6">{t('delete_journal_empty')}</p>
+          ) : (
+            <div className="divide-y">
+              {deleteLogs.map(log => {
+                const cat = catFor(log.metadata?.category ?? 'other')
+                const dateStr = new Date(log.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                return (
+                  <div key={log.id} className="flex items-start gap-3 px-4 py-3">
+                    <span className={cn('flex-shrink-0 h-8 w-8 rounded-lg flex items-center justify-center text-base', cat.color)}>
+                      {cat.icon}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{log.metadata?.description}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {t('deleted_by')} <span className="font-medium text-foreground">{log.actor_email}</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">{dateStr}</p>
+                    </div>
+                    <span className="text-sm font-semibold text-red-500 flex-shrink-0">
+                      -{fmt(Number(log.metadata?.amount))}
+                    </span>
+                  </div>
+                )
+              })}
             </div>
           )}
         </Card>

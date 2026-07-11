@@ -103,7 +103,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [bulkDeleteText, setBulkDeleteText] = useState('')
 
   // ── Journal de suppressions ─────────────────────────────────────────────
-  const [showJournal, setShowJournal] = useState(false)
+  const [view, setView] = useState<'products' | 'journal'>('products')
   const [auditLogs, setAuditLogs] = useState<any[]>([])
   const [loadingJournal, setLoadingJournal] = useState(false)
 
@@ -476,6 +476,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     setLoadingJournal(false)
   }
 
+  useEffect(() => { if (view === 'journal') fetchAuditLogs() }, [view])
+
   const renderProductCard = (product: Product, idx: number) => {
     const threshold = product.low_stock_threshold || shop?.low_stock_threshold || 10
     const isSelected = selectedIds.has(product.id)
@@ -584,6 +586,26 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
   return (
     <div className="space-y-4">
+      {/* View toggle */}
+      {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
+        <div className="flex gap-1 rounded-lg border bg-muted/30 p-1 w-fit">
+          <button
+            onClick={() => setView('products')}
+            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${view === 'products' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            {t('products.tab_products')}
+          </button>
+          <button
+            onClick={() => setView('journal')}
+            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${view === 'journal' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            <History className="h-3.5 w-3.5" /> {t('products.tab_journal')}
+          </button>
+        </div>
+      )}
+
+      {view === 'products' && (
+      <>
       {/* Controls */}
       <div className="flex flex-wrap gap-2">
         <div className="relative flex-1 min-w-[180px]">
@@ -772,60 +794,47 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           )}
         </div>
       )}
+      </>
+      )}
 
       {/* Journal de suppressions — owner only */}
-      {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
-        <div className="border border-dashed rounded-xl p-3 space-y-2">
-          <button
-            onClick={() => {
-              if (!showJournal) fetchAuditLogs()
-              setShowJournal(v => !v)
-            }}
-            className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-full"
-          >
-            <History className="h-4 w-4" />
-            Journal de suppressions
-            {showJournal ? <ChevronUp className="h-3.5 w-3.5 ml-auto" /> : <ChevronDown className="h-3.5 w-3.5 ml-auto" />}
-          </button>
-          {showJournal && (
-            <div className="space-y-1.5 pt-1">
-              {loadingJournal ? (
-                <p className="text-xs text-muted-foreground text-center py-3">Chargement...</p>
-              ) : auditLogs.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-3">Aucune suppression enregistrée.</p>
-              ) : (
-                auditLogs.map((log: any) => {
-                  const meta = log.metadata || {}
-                  const actor = meta.actor_name || log.actor_email || '—'
-                  const when = new Date(log.created_at).toLocaleString('fr-FR', {
-                    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-                  })
-                  let label = ''
-                  let detail = ''
-                  if (log.action === 'delete_product') {
-                    label = 'Produit supprimé'
-                    detail = meta.product_name || log.target_id || '—'
-                  } else if (log.action === 'bulk_delete_products') {
-                    label = 'Suppression en masse'
-                    const names = (meta.products_snapshot || []).map((p: any) => p.name).join(', ')
-                    detail = `${meta.count} produit${meta.count > 1 ? 's' : ''}${names ? ` · ${names}` : ''}`
-                  } else {
-                    label = 'Tous les produits supprimés'
-                    detail = `${meta.count} produit${meta.count > 1 ? 's' : ''}`
-                  }
-                  return (
-                    <div key={log.id} className="flex items-start gap-2.5 rounded-lg bg-muted/40 border px-3 py-2.5 text-xs">
-                      <Trash2 className="h-3.5 w-3.5 text-red-400 flex-shrink-0 mt-0.5" />
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-foreground/80">{label}</p>
-                        <p className="text-muted-foreground truncate">{detail}</p>
-                        <p className="text-muted-foreground/70 mt-0.5">{actor} · {when}</p>
-                      </div>
-                    </div>
-                  )
-                })
-              )}
-            </div>
+      {view === 'journal' && (effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
+        <div className="space-y-1.5">
+          {loadingJournal ? (
+            <p className="text-xs text-muted-foreground text-center py-3">Chargement...</p>
+          ) : auditLogs.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-3">Aucune suppression enregistrée.</p>
+          ) : (
+            auditLogs.map((log: any) => {
+              const meta = log.metadata || {}
+              const actor = meta.actor_name || log.actor_email || '—'
+              const when = new Date(log.created_at).toLocaleString('fr-FR', {
+                day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+              })
+              let label = ''
+              let detail = ''
+              if (log.action === 'delete_product') {
+                label = 'Produit supprimé'
+                detail = meta.product_name || log.target_id || '—'
+              } else if (log.action === 'bulk_delete_products') {
+                label = 'Suppression en masse'
+                const names = (meta.products_snapshot || []).map((p: any) => p.name).join(', ')
+                detail = `${meta.count} produit${meta.count > 1 ? 's' : ''}${names ? ` · ${names}` : ''}`
+              } else {
+                label = 'Tous les produits supprimés'
+                detail = `${meta.count} produit${meta.count > 1 ? 's' : ''}`
+              }
+              return (
+                <div key={log.id} className="flex items-start gap-2.5 rounded-lg bg-muted/40 border px-3 py-2.5 text-xs">
+                  <Trash2 className="h-3.5 w-3.5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-foreground/80">{label}</p>
+                    <p className="text-muted-foreground truncate">{detail}</p>
+                    <p className="text-muted-foreground/70 mt-0.5">{actor} · {when}</p>
+                  </div>
+                </div>
+              )
+            })
           )}
         </div>
       )}

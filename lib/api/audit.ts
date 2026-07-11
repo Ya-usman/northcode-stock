@@ -4,6 +4,7 @@ export type AuditAction =
   | 'member.invite'
   | 'member.delete'
   | 'member.role_change'
+  | 'member.toggle_active'
   | 'permissions.update'
   | 'billing.subscribe'
   | 'billing.verify'

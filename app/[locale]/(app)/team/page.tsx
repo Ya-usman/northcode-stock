@@ -96,6 +96,11 @@ export default function TeamPage() {
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; member: Member | null }>({ open: false, member: null })
   const [deleting, setDeleting] = useState(false)
 
+  // ── Journal ──────────────────────────────────────────────────────────────
+  const [view, setView] = useState<'team' | 'journal'>('team')
+  const [auditLogs, setAuditLogs] = useState<any[]>([])
+  const [loadingJournal, setLoadingJournal] = useState(false)
+
   const isOwner = myProfile?.role === 'owner' || myProfile?.role === 'manager' || myProfile?.role === 'shop_manager' || myProfile?.role === 'super_admin'
   // True owners (and super_admin) manage everyone. Managers (manager/shop_manager) only
   // manage subordinate roles — they never see the owner and can't touch peer managers.
@@ -192,20 +197,39 @@ export default function TeamPage() {
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [fetchMembers])
 
+  const fetchAuditLogs = useCallback(async () => {
+    if (!viewShopId) return
+    setLoadingJournal(true)
+    const { data } = await supabase
+      .from('audit_logs')
+      .select('*')
+      .eq('shop_id', viewShopId)
+      .in('action', ['member.invite', 'member.delete', 'member.role_change', 'member.toggle_active'])
+      .order('created_at', { ascending: false })
+      .limit(50)
+    setAuditLogs(data || [])
+    setLoadingJournal(false)
+  }, [viewShopId])
+
+  useEffect(() => { if (view === 'journal') fetchAuditLogs() }, [view, fetchAuditLogs])
+
   const changeRole = async (member: Member, newRole: UserRole) => {
     if (member.user_id === myProfile?.id) {
       toast({ title: t('toast.cannot_edit_own_role'), variant: 'destructive' })
       return
     }
     setActionLoading(member.id + '_role')
-    supabase.auth.getSession().catch(() => {})
     try {
-      const { error } = await withTimeout(
-        supabase.from('shop_members').update({ role: newRole as string }).eq('id', member.id)
-      )
-      if (error) { toast({ title: error.message, variant: 'destructive' }); return }
+      const res = await withTimeout(fetch('/api/team/change-role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ member_id: member.id, shop_id: member.shop_id, new_role: newRole }),
+      }))
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
       toast({ title: t('toast.role_updated'), variant: 'success' })
       fetchMembers()
+      if (view === 'journal') fetchAuditLogs()
     } catch (err: any) {
       toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
       setTimeout(() => fetchMembers(), 3_000)
@@ -232,6 +256,7 @@ export default function TeamPage() {
         variant: action === 'deactivate' ? 'default' : 'success',
       })
       fetchMembers()
+      if (view === 'journal') fetchAuditLogs()
     } catch (err: any) {
       toast({ title: err.message, variant: 'destructive' })
     } finally {
@@ -254,6 +279,7 @@ export default function TeamPage() {
       toast({ title: t('toast.member_deleted', { name: member.profiles?.full_name }), variant: 'success' })
       setDeleteDialog({ open: false, member: null })
       fetchMembers()
+      if (view === 'journal') fetchAuditLogs()
     } catch (err: any) {
       toast({ title: err.message, variant: 'destructive' })
     } finally {
@@ -566,18 +592,82 @@ export default function TeamPage() {
         </div>
       </div>
 
+      {/* View toggle */}
+      {isFullOwner && (
+        <div className="flex gap-1 rounded-lg border bg-muted/30 p-1 w-fit">
+          <button
+            onClick={() => setView('team')}
+            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${view === 'team' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            {t('team.tab_team')}
+          </button>
+          <button
+            onClick={() => setView('journal')}
+            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${view === 'journal' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            <Clock className="h-3.5 w-3.5" /> {t('team.tab_journal')}
+          </button>
+        </div>
+      )}
+
       {/* Member list */}
-      {loading ? (
-        <div className="space-y-2.5">
-          {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-[72px] rounded-xl" />)}
-        </div>
-      ) : displayedMembers.length === 0 ? (
-        <div className="flex h-32 items-center justify-center text-muted-foreground text-sm rounded-xl border bg-card">
-          {t('team.no_members')}
-        </div>
-      ) : (
-        <div className="space-y-2.5">
-          {displayedMembers.map(member => renderMember(member))}
+      {view === 'team' && (
+        loading ? (
+          <div className="space-y-2.5">
+            {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-[72px] rounded-xl" />)}
+          </div>
+        ) : displayedMembers.length === 0 ? (
+          <div className="flex h-32 items-center justify-center text-muted-foreground text-sm rounded-xl border bg-card">
+            {t('team.no_members')}
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {displayedMembers.map(member => renderMember(member))}
+          </div>
+        )
+      )}
+
+      {/* Journal */}
+      {view === 'journal' && isFullOwner && (
+        <div className="space-y-1.5">
+          {loadingJournal ? (
+            <p className="text-xs text-muted-foreground text-center py-3">{t('team.journal_loading')}</p>
+          ) : auditLogs.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-3">{t('team.journal_empty')}</p>
+          ) : (
+            auditLogs.map((log: any) => {
+              const meta = log.metadata || {}
+              const actor = log.actor_email || '—'
+              const when = new Date(log.created_at).toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US', {
+                day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+              })
+              let label = ''
+              let detail = ''
+              if (log.action === 'member.invite') {
+                label = t('team.journal_invited')
+                detail = `${meta.email || '—'} · ${meta.role ? t(`roles.${meta.role}`) : '—'}`
+              } else if (log.action === 'member.delete') {
+                label = t('team.journal_deleted')
+                detail = meta.member_name || '—'
+              } else if (log.action === 'member.role_change') {
+                label = t('team.journal_role_changed')
+                detail = `${meta.member_name || '—'} · ${meta.old_role ? t(`roles.${meta.old_role}`) : '—'} → ${meta.new_role ? t(`roles.${meta.new_role}`) : '—'}`
+              } else {
+                label = t('team.journal_toggled')
+                detail = `${meta.member_name || '—'} · ${meta.new_active ? t('status.active') : t('status.inactive')}`
+              }
+              return (
+                <div key={log.id} className="flex items-start gap-2.5 rounded-lg bg-muted/40 border px-3 py-2.5 text-xs">
+                  <Clock className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-foreground/80">{label}</p>
+                    <p className="text-muted-foreground truncate">{detail}</p>
+                    <p className="text-muted-foreground/70 mt-0.5">{actor} · {when}</p>
+                  </div>
+                </div>
+              )
+            })
+          )}
         </div>
       )}
 

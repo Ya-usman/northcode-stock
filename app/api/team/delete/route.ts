@@ -43,6 +43,9 @@ export async function POST(request: Request) {
 
     const admin = createAdminClient() as any
 
+    // Capture the member's name before deletion, for a readable audit log entry.
+    const { data: targetProfile } = await admin.from('profiles').select('full_name').eq('id', employee_id).single()
+
     // Managers (manager/shop_manager) can only delete subordinate roles —
     // never the owner or peer managers. Only owner/super_admin bypass this.
     if (!['owner', 'super_admin'].includes(callerRole)) {
@@ -82,6 +85,7 @@ export async function POST(request: Request) {
       actor_email: user.email,
       target_id: employee_id,
       target_type: 'profile',
+      metadata: { member_name: targetProfile?.full_name ?? null },
       ip: getClientIp(request),
     })
 
