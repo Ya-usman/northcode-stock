@@ -5,7 +5,7 @@ import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
 import { motion } from 'framer-motion'
-import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, ChevronDown, ChevronUp, Upload, CheckSquare, Square, AlertTriangle, History } from 'lucide-react'
+import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -70,8 +70,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     !getPageCache(`stock_${effectiveShopIds.join(',')}`)
   )
   const isOnline = useIsOnline()
-  const [{ search, categoryFilter, statusFilter, showArchived }, setFilter] = usePersistedFilters(
-    'stock', shop?.id, { search: '', categoryFilter: 'all', statusFilter: 'all', showArchived: false }
+  const [{ search, categoryFilter, statusFilter }, setFilter] = usePersistedFilters(
+    'stock', shop?.id, { search: '', categoryFilter: 'all', statusFilter: 'all' }
   )
   const [showAddModal, setShowAddModal] = useState(false)
   const [addFormKey, setAddFormKey] = useState(0)
@@ -103,7 +103,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [bulkDeleteText, setBulkDeleteText] = useState('')
 
   // ── Journal de suppressions ─────────────────────────────────────────────
-  const [view, setView] = useState<'products' | 'journal'>('products')
+  const [view, setView] = useState<'products' | 'archived' | 'journal'>('products')
   const [auditLogs, setAuditLogs] = useState<any[]>([])
   const [loadingJournal, setLoadingJournal] = useState(false)
 
@@ -605,6 +605,15 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             {t('products.tab_products')}
           </button>
           <button
+            onClick={() => setView('archived')}
+            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${view === 'archived' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            <Archive className="h-3.5 w-3.5" /> {t('products.tab_archived')}
+            {archivedProducts.length > 0 && (
+              <span className="rounded-full bg-muted px-1.5 text-xs">{archivedProducts.length}</span>
+            )}
+          </button>
+          <button
             onClick={() => setView('journal')}
             className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${view === 'journal' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
           >
@@ -755,47 +764,40 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         </div>
       )}
 
-      {/* Archived products section — owner only */}
-      {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && archivedProducts.length > 0 && (
-        <div className="border border-dashed rounded-xl p-3 space-y-2">
-          <button
-            onClick={() => setFilter({ showArchived: !showArchived })}
-            className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-full"
-          >
-            <Archive className="h-4 w-4" />
-            {t('products.archived_section', { count: archivedProducts.length })}
-            {showArchived ? <ChevronUp className="h-3.5 w-3.5 ml-auto" /> : <ChevronDown className="h-3.5 w-3.5 ml-auto" />}
-          </button>
-          {showArchived && (
-            <div className="space-y-1.5 pt-1">
-              {archivedProducts.map(product => (
-                <div key={product.id} className="flex items-center justify-between gap-2 rounded-lg bg-muted/40 border px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-muted-foreground truncate">{product.name}</p>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <Button
-                      variant="outline" size="sm" className="h-7 gap-1 text-xs text-green-700 border-green-200 hover:bg-green-50 dark:text-green-400 dark:border-green-800"
-                      onClick={() => restoreProduct(product)}
-                    >
-                      <RotateCcw className="h-3 w-3" />
-                      {t('products.restore')}
-                    </Button>
-                    <Button
-                      variant="ghost" size="sm" className="h-7 gap-1 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => { setDeleteConfirmProduct(product); setDeleteConfirmText('') }}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                      {t('products.delete_permanent')}
-                    </Button>
-                  </div>
+      </>
+      )}
+
+      {/* Produits archivés — owner only */}
+      {view === 'archived' && (effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
+        <div className="space-y-1.5">
+          {archivedProducts.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-3">{t('products.archived_empty')}</p>
+          ) : (
+            archivedProducts.map(product => (
+              <div key={product.id} className="flex items-center justify-between gap-2 rounded-lg bg-muted/40 border px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-muted-foreground truncate">{product.name}</p>
                 </div>
-              ))}
-            </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Button
+                    variant="outline" size="sm" className="h-7 gap-1 text-xs text-green-700 border-green-200 hover:bg-green-50 dark:text-green-400 dark:border-green-800"
+                    onClick={() => restoreProduct(product)}
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    {t('products.restore')}
+                  </Button>
+                  <Button
+                    variant="ghost" size="sm" className="h-7 gap-1 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => { setDeleteConfirmProduct(product); setDeleteConfirmText('') }}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    {t('products.delete_permanent')}
+                  </Button>
+                </div>
+              </div>
+            ))
           )}
         </div>
-      )}
-      </>
       )}
 
       {/* Journal — suppressions et modifications de prix — owner only */}

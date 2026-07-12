@@ -198,6 +198,7 @@
   "products": {
     "title": "Stock",
     "tab_products": "List",
+    "tab_archived": "Archived",
     "tab_journal": "Journal",
     "name": "Product Name",
     "sku": "SKU / Barcode",
@@ -236,7 +237,7 @@
     "cost_label": "Cost",
     "archive_label": "Archive product",
     "archive_confirm": "Archive this product? It will be hidden from the list but all data is kept. You can restore it at any time.",
-    "archived_section": "Archived products ({count})",
+    "archived_empty": "No archived products.",
     "restore": "Restore",
     "delete_permanent": "Delete permanently",
     "delete_warning_title": "⚠️ Irreversible deletion",

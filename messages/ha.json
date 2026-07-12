@@ -198,6 +198,7 @@
   "products": {
     "title": "Kaya",
     "tab_products": "Jerin Kaya",
+    "tab_archived": "Da aka ajiye",
     "tab_journal": "Tarihi",
     "name": "Sunan Kaya",
     "sku": "SKU / Lambar Barcode",
@@ -236,7 +237,7 @@
     "cost_label": "Farashi",
     "archive_label": "Ajiye kaya",
     "archive_confirm": "Ajiye wannan kaya? Za a ɓoye shi daga jerin amma an adana bayanan. Zaku iya mayar da shi kowane lokaci.",
-    "archived_section": "Kayan da aka ajiye ({count})",
+    "archived_empty": "Babu kayan da aka ajiye.",
     "restore": "Mayar",
     "delete_permanent": "Goge gaba ɗaya",
     "delete_warning_title": "⚠️ Ana gogewa har abada",
