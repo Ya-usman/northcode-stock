@@ -4,6 +4,7 @@ export const metadata = {
 
 export default function PrivacyPage() {
   return (
+    <div style={{ backgroundColor: '#fff', minHeight: '100vh' }}>
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '48px 24px', fontFamily: 'sans-serif', color: '#111', lineHeight: 1.7 }}>
       <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Privacy Policy</h1>
       <p style={{ color: '#666', marginBottom: 32 }}>Last updated: April 23, 2026</p>
@@ -45,6 +46,7 @@ export default function PrivacyPage() {
       </p>
 
       <p style={{ marginTop: 48, color: '#888', fontSize: 14 }}>© {new Date().getFullYear()} StockShop · StockShop. All rights reserved.</p>
+    </div>
     </div>
   )
 }

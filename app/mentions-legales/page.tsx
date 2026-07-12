@@ -4,6 +4,7 @@ export const metadata = {
 
 export default function MentionsLegalesPage() {
   return (
+    <div style={{ backgroundColor: '#fff', minHeight: '100vh' }}>
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '48px 24px', fontFamily: 'sans-serif', color: '#111', lineHeight: 1.7 }}>
       <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Mentions légales</h1>
       <p style={{ color: '#666', marginBottom: 32 }}>Dernière mise à jour : {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
@@ -55,6 +56,7 @@ export default function MentionsLegalesPage() {
       </p>
 
       <p style={{ marginTop: 48, color: '#888', fontSize: 14 }}>© {new Date().getFullYear()} StockShop. Tous droits réservés.</p>
+    </div>
     </div>
   )
 }
