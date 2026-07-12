@@ -492,7 +492,12 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
               <span>{t('footer.secure')}</span>
             </div>
           </div>
-          <p className="text-center text-xs text-muted-foreground mt-5">
+          <div className="flex flex-wrap items-center justify-center gap-3 mt-5 text-xs text-muted-foreground">
+            <a href="/mentions-legales" className="hover:text-foreground">{t('footer.legal')}</a>
+            <span aria-hidden="true">·</span>
+            <a href="/privacy" className="hover:text-foreground">{t('footer.privacy')}</a>
+          </div>
+          <p className="text-center text-xs text-muted-foreground mt-2">
             {t('footer.rights', { year: new Date().getFullYear() })}
           </p>
         </div>

@@ -978,7 +978,9 @@
     },
     "footer": {
       "secure": "Secure • Private • Available Worldwide",
-      "rights": "© {year} StockShop. All rights reserved."
+      "rights": "© {year} StockShop. All rights reserved.",
+      "legal": "Legal Notice",
+      "privacy": "Privacy"
     }
   },
   "billing_page": {
