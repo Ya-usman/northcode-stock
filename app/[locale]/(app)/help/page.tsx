@@ -57,6 +57,10 @@ const FAQ = [
         q: 'Comment exporter mon stock en PDF ou CSV ?',
         a: 'Dans Stock → cliquez sur "Exporter PDF" ou "Exporter CSV" en haut à droite. Le fichier se télécharge immédiatement.',
       },
+      {
+        q: 'Comment faire un inventaire physique ?',
+        a: 'Dans Stock → cliquez sur "Inventaire". Entrez la quantité réellement comptée pour chaque produit, puis validez : les écarts sont appliqués au stock et journalisés (avec la raison : perte, vol, casse, expiration, correction) dans l\'historique des mouvements.',
+      },
     ],
   },
   {
