@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
+import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 
 const WRITE_ROLES = ['owner', 'stock_manager', 'super_admin', 'cashier']
 
@@ -64,18 +65,87 @@ export async function PATCH(request: Request) {
       'category_id', 'unit', 'image_url', 'low_stock_threshold', 'barcode',
       'supplier_name',
     ])
-    const safeUpdates = Object.fromEntries(
+    const safeUpdates: Record<string, unknown> = Object.fromEntries(
       Object.entries(updates).filter(([k]) => PATCHABLE.has(k))
     )
+    // is_active (archive/restore) is handled separately from PATCHABLE: it must
+    // stay restricted to owner/super_admin even though cashier/stock_manager
+    // are otherwise allowed to PATCH other product fields.
+    const ARCHIVE_ROLES = ['owner', 'super_admin']
+    const togglingActive = 'is_active' in updates
+    if (togglingActive) {
+      if (!ARCHIVE_ROLES.includes(role))
+        return NextResponse.json({ error: 'Seul le propriétaire peut archiver ou restaurer un produit' }, { status: 403 })
+      safeUpdates.is_active = Boolean(updates.is_active)
+    }
     if (Object.keys(safeUpdates).length === 0)
       return NextResponse.json({ error: 'Aucun champ valide à mettre à jour' }, { status: 400 })
     if ('sku' in safeUpdates) safeUpdates.sku = (safeUpdates.sku as string)?.trim() || null
     const admin = await createAdminClient()
+
+    // Snapshot avant modification, pour le journal d'audit
+    const TRACKED_FIELDS = ['name', 'selling_price', 'buying_price', 'low_stock_threshold', 'sku', 'barcode'] as const
+    const trackedChange = TRACKED_FIELDS.some(f => f in safeUpdates)
+    let before: Record<string, unknown> | null = null
+    if (trackedChange) {
+      const { data: existing } = await (admin as any)
+        .from('products').select(TRACKED_FIELDS.join(',')).eq('id', id).eq('shop_id', shop_id).single()
+      before = existing || null
+    }
+
     // shop_id filter prevents modifying a product that belongs to a different shop
     // even though the admin client bypasses RLS
     const { data, error } = await (admin as any).from('products').update(safeUpdates).eq('id', id).eq('shop_id', shop_id).select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
     if (!data) return NextResponse.json({ error: 'Produit introuvable dans cette boutique' }, { status: 404 })
+
+    if (trackedChange && before) {
+      const changes: Record<string, { from: unknown; to: unknown }> = {}
+      for (const f of TRACKED_FIELDS) {
+        if (!(f in safeUpdates)) continue
+        const from = before[f]
+        const to = (data as any)[f]
+        const same = (f === 'selling_price' || f === 'buying_price' || f === 'low_stock_threshold')
+          ? Number(from) === Number(to)
+          : (from ?? null) === (to ?? null)
+        if (!same) changes[f] = { from: from ?? null, to: to ?? null }
+      }
+      if (Object.keys(changes).length > 0) {
+        const { data: actorProfile } = await (admin as any).from('profiles').select('full_name').eq('id', user.id).single()
+        await writeAuditLog({
+          action: 'update_product',
+          shop_id,
+          actor_id: user.id,
+          actor_email: user.email,
+          target_id: id,
+          target_type: 'product',
+          ip: getClientIp(request),
+          metadata: {
+            actor_name: actorProfile?.full_name || user.email,
+            product_name: data.name || before.name,
+            changes,
+          },
+        })
+      }
+    }
+
+    if (togglingActive) {
+      const { data: actorProfile } = await (admin as any).from('profiles').select('full_name').eq('id', user.id).single()
+      await writeAuditLog({
+        action: safeUpdates.is_active ? 'restore_product' : 'archive_product',
+        shop_id,
+        actor_id: user.id,
+        actor_email: user.email,
+        target_id: id,
+        target_type: 'product',
+        ip: getClientIp(request),
+        metadata: {
+          actor_name: actorProfile?.full_name || user.email,
+          product_name: data.name,
+        },
+      })
+    }
+
     return NextResponse.json({ data })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })

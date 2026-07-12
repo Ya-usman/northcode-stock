@@ -333,25 +333,31 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const archiveProduct = async () => {
     if (!archiveConfirmProduct) return
     setArchiving(true)
-    await fetch('/api/products', {
+    const res = await fetch('/api/products', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: archiveConfirmProduct.id, shop_id: archiveConfirmProduct.shop_id, is_active: false }),
     })
+    const json = await res.json()
     setArchiving(false)
     setArchiveConfirmProduct(null)
+    if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
     toast({ title: t('toast.product_archived') })
     fetchProducts()
+    if (view === 'journal') fetchAuditLogs()
   }
 
   const restoreProduct = async (product: Product) => {
-    await fetch('/api/products', {
+    const res = await fetch('/api/products', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: product.id, shop_id: product.shop_id, is_active: true }),
     })
+    const json = await res.json()
+    if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
     toast({ title: t('toast.product_restored'), variant: 'success' })
     fetchProducts()
+    if (view === 'journal') fetchAuditLogs()
   }
 
   const permanentlyDelete = async () => {
@@ -469,7 +475,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       .from('audit_logs')
       .select('*')
       .eq('shop_id', shop.id)
-      .in('action', ['delete_product', 'bulk_delete_products', 'delete_all_products'])
+      .in('action', ['delete_product', 'bulk_delete_products', 'delete_all_products', 'update_product', 'archive_product', 'restore_product'])
       .order('created_at', { ascending: false })
       .limit(30)
     setAuditLogs(data || [])
@@ -792,13 +798,13 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       </>
       )}
 
-      {/* Journal de suppressions — owner only */}
+      {/* Journal — suppressions et modifications de prix — owner only */}
       {view === 'journal' && (effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
         <div className="space-y-1.5">
           {loadingJournal ? (
             <p className="text-xs text-muted-foreground text-center py-3">Chargement...</p>
           ) : auditLogs.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-3">Aucune suppression enregistrée.</p>
+            <p className="text-xs text-muted-foreground text-center py-3">Aucune activité enregistrée.</p>
           ) : (
             auditLogs.map((log: any) => {
               const meta = log.metadata || {}
@@ -808,6 +814,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               })
               let label = ''
               let detail = ''
+              let Icon = Trash2
+              let iconColor = 'text-red-400'
               if (log.action === 'delete_product') {
                 label = 'Produit supprimé'
                 detail = meta.product_name || log.target_id || '—'
@@ -815,13 +823,36 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 label = 'Suppression en masse'
                 const names = (meta.products_snapshot || []).map((p: any) => p.name).join(', ')
                 detail = `${meta.count} produit${meta.count > 1 ? 's' : ''}${names ? ` · ${names}` : ''}`
+              } else if (log.action === 'update_product') {
+                Icon = Edit2
+                iconColor = 'text-blue-400'
+                label = meta.product_name || 'Produit modifié'
+                const changes = meta.changes || {}
+                const parts: string[] = []
+                if (changes.name) parts.push(`Nom: "${changes.name.from}" → "${changes.name.to}"`)
+                if (changes.selling_price) parts.push(`Prix vente: ${changes.selling_price.from} → ${changes.selling_price.to} ${currencySymbol}`)
+                if (changes.buying_price) parts.push(`Prix achat: ${changes.buying_price.from} → ${changes.buying_price.to} ${currencySymbol}`)
+                if (changes.low_stock_threshold) parts.push(`Seuil d'alerte: ${changes.low_stock_threshold.from ?? '—'} → ${changes.low_stock_threshold.to ?? '—'}`)
+                if (changes.sku) parts.push(`SKU: ${changes.sku.from || '—'} → ${changes.sku.to || '—'}`)
+                if (changes.barcode) parts.push(`Code-barres: ${changes.barcode.from || '—'} → ${changes.barcode.to || '—'}`)
+                detail = parts.join(' · ')
+              } else if (log.action === 'archive_product') {
+                Icon = Archive
+                iconColor = 'text-amber-500'
+                label = 'Produit archivé'
+                detail = meta.product_name || log.target_id || '—'
+              } else if (log.action === 'restore_product') {
+                Icon = RotateCcw
+                iconColor = 'text-green-500'
+                label = 'Produit restauré'
+                detail = meta.product_name || log.target_id || '—'
               } else {
                 label = 'Tous les produits supprimés'
                 detail = `${meta.count} produit${meta.count > 1 ? 's' : ''}`
               }
               return (
                 <div key={log.id} className="flex items-start gap-2.5 rounded-lg bg-muted/40 border px-3 py-2.5 text-xs">
-                  <Trash2 className="h-3.5 w-3.5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <Icon className={`h-3.5 w-3.5 ${iconColor} flex-shrink-0 mt-0.5`} />
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-foreground/80">{label}</p>
                     <p className="text-muted-foreground truncate">{detail}</p>
