@@ -220,5 +220,8 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|manifest.json|sw.js|workbox-.*|icons|offline|.*\\.png|.*\\.jpg|.*\\.svg).*)'],
+  // privacy/mentions-legales live outside the [locale] segment (locale-agnostic
+  // static pages) — excluded here so next-intl's localePrefix:'always' doesn't
+  // redirect them to a non-existent /<locale>/... route and 404.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|manifest.json|sw.js|workbox-.*|icons|offline|privacy|mentions-legales|.*\\.png|.*\\.jpg|.*\\.svg).*)'],
 }
