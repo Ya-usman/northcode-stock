@@ -3,7 +3,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { ChevronLeft, Search, ClipboardCheck, AlertTriangle } from 'lucide-react'
+import { Search, ClipboardCheck, AlertTriangle } from 'lucide-react'
+import { StockTabs } from '@/components/stock/stock-tabs'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
@@ -139,16 +140,9 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
 
   return (
     <div className="space-y-4 pb-24">
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0" onClick={() => router.push(`/${locale}/stock`)}>
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <div className="min-w-0">
-          <h1 className="text-lg font-bold truncate">{t('title')}</h1>
-          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
-        </div>
-      </div>
+      {/* Tabs */}
+      <StockTabs locale={locale} />
+      <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2">

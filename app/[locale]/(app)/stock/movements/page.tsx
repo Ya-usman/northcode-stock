@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils/cn'
 import { normalize } from '@/lib/utils/normalize'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { StockTabs } from '@/components/stock/stock-tabs'
 
 interface Movement {
   id: string
@@ -47,7 +48,7 @@ function fmtDate(d: string) {
   return format(new Date(d), "dd MMM yyyy 'à' HH:mm", { locale: fr })
 }
 
-export default function StockMovementsPage() {
+export default function StockMovementsPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('movements')
   const { effectiveShopIds, shop } = useAuth()
   const [{ search, dateFrom, dateTo }, setFilter] = usePersistedFilters(
@@ -136,6 +137,8 @@ export default function StockMovementsPage() {
 
   return (
     <div className="space-y-4">
+      {/* Stock / Mouvements / Inventaire physique */}
+      <StockTabs locale={locale} />
 
       {/* Summary */}
       <Card className="border-0 shadow-sm">

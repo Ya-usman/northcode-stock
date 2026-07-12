@@ -5,8 +5,7 @@ import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
 import { motion } from 'framer-motion'
-import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, ChevronDown, ChevronUp, Upload, CheckSquare, Square, AlertTriangle, History, ClipboardCheck } from 'lucide-react'
-import { OfflineLink as Link } from '@/components/ui/offline-link'
+import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, ChevronDown, ChevronUp, Upload, CheckSquare, Square, AlertTriangle, History } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -33,6 +32,7 @@ import { registerBackgroundSync } from '@/lib/offline/sync'
 import { downloadOrShareCSV } from '@/lib/utils/native-share'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 import { useStockRealtime } from '@/lib/hooks/use-realtime'
+import { StockTabs } from '@/components/stock/stock-tabs'
 
 
 function StockBadge({ quantity, threshold }: { quantity: number; threshold: number }) {
@@ -586,6 +586,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
   return (
     <div className="space-y-4">
+      {/* Stock / Mouvements / Inventaire physique */}
+      <StockTabs locale={locale} />
+
       {/* View toggle */}
       {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
         <div className="flex gap-1 rounded-lg border bg-muted/30 p-1 w-fit">
@@ -661,14 +664,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               </Button>
             </div>
           </>
-        )}
-        {(effectiveRole === 'owner' || effectiveRole === 'manager' || effectiveRole === 'shop_manager' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin') && canAccess('inventory_count') && (
-          <Button variant="outline" size="sm" className="h-9 gap-1.5" asChild>
-            <Link href={`/${locale}/stock/inventory-count`}>
-              <ClipboardCheck className="h-3.5 w-3.5" />
-              {t('inventoryCount.nav_button')}
-            </Link>
-          </Button>
         )}
         {canDeleteProducts && (
           <Button

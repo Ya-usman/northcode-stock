@@ -197,7 +197,7 @@
   },
   "products": {
     "title": "Stock",
-    "tab_products": "Produits",
+    "tab_products": "Liste",
     "tab_journal": "Journal",
     "name": "Nom du produit",
     "sku": "SKU / Code-barres",

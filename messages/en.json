@@ -197,7 +197,7 @@
   },
   "products": {
     "title": "Stock",
-    "tab_products": "Products",
+    "tab_products": "List",
     "tab_journal": "Journal",
     "name": "Product Name",
     "sku": "SKU / Barcode",

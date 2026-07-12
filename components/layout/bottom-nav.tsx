@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl'
 import {
   LayoutDashboard, ShoppingCart, Package, BarChart2, Settings,
   MoreHorizontal, History, CreditCard, Users, Truck, Zap,
-  X, LogOut, Store, Tag, ArrowLeftRight, Receipt, ShieldCheck, NotebookPen, BookOpen, MessageCircle, Loader2, ClipboardList, ClipboardCheck,
+  X, LogOut, Store, Tag, Receipt, ShieldCheck, NotebookPen, BookOpen, MessageCircle, Loader2, ClipboardList,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import type { UserRole } from '@/lib/types/database'
@@ -45,8 +45,6 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
     { href: `/${locale}/sales/history`,   icon: History,         label: t('sales_history'), roles: ALL_NON_OWNER, feature: 'sales_history' as PermFeature,   primary: false },
     { href: `/${locale}/payments`,        icon: CreditCard,      label: t('payments'),      roles: ALL_NON_OWNER, feature: 'payments' as PermFeature,        primary: false },
     { href: `/${locale}/customers`,       icon: Users,           label: t('customers'),     roles: ALL_NON_OWNER, feature: 'customers' as PermFeature,       primary: false },
-    { href: `/${locale}/stock/movements`, icon: ArrowLeftRight,  label: t('movements'),     roles: ALL_NON_OWNER, feature: 'movements' as PermFeature,       primary: false },
-    { href: `/${locale}/stock/inventory-count`, icon: ClipboardCheck, label: t('inventory_count'), roles: ['owner', 'super_admin', 'manager', 'shop_manager', 'stock_manager'], feature: 'inventory_count' as PermFeature, primary: false },
     { href: `/${locale}/categories`,      icon: Tag,             label: t('categories'),    roles: ALL_NON_OWNER, feature: 'categories' as PermFeature,      primary: false },
     { href: `/${locale}/suppliers`,       icon: Truck,           label: t('suppliers'),     roles: ALL_NON_OWNER, feature: 'suppliers' as PermFeature,       primary: false },
     { href: `/${locale}/caisse`,   icon: ClipboardList, label: t('caisse'), roles: ['super_admin', 'owner', 'manager', 'shop_manager'], feature: 'caisse' as PermFeature, primary: false },

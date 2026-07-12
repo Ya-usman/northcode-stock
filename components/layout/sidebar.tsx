@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import {
   LayoutDashboard, ShoppingCart, Package, BarChart2, Settings,
   Users, Truck, CreditCard, History, LogOut, ChevronRight, Zap,
-  Store, ChevronDown, Tag, Check, Layers, ArrowLeftRight, Receipt, ShieldCheck, NotebookPen, BookOpen, Loader2, ClipboardList, ClipboardCheck,
+  Store, ChevronDown, Tag, Check, Layers, Receipt, ShieldCheck, NotebookPen, BookOpen, Loader2, ClipboardList,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -60,8 +60,6 @@ export function Sidebar({ locale, role, profile, shop, onSignOut, signingOut = f
       section: t('section_inventory'),
       items: [
         { href: `/${locale}/stock`, icon: Package, label: t('stock'), roles: ALL_NON_OWNER, feature: 'stock' as PermFeature },
-        { href: `/${locale}/stock/movements`, icon: ArrowLeftRight, label: t('movements'), roles: ALL_NON_OWNER, feature: 'movements' as PermFeature },
-        { href: `/${locale}/stock/inventory-count`, icon: ClipboardCheck, label: t('inventory_count'), roles: ['owner', 'super_admin', 'manager', 'shop_manager', 'stock_manager'], feature: 'inventory_count' as PermFeature },
         { href: `/${locale}/categories`, icon: Tag, label: t('categories'), roles: ALL_NON_OWNER, feature: 'categories' as PermFeature },
         { href: `/${locale}/suppliers`, icon: Truck, label: t('suppliers'), roles: ALL_NON_OWNER, feature: 'suppliers' as PermFeature },
       ],
