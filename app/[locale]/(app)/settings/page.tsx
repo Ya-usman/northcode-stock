@@ -18,7 +18,7 @@ import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useRouter, usePathname } from 'next/navigation'
 import type { Shop } from '@/lib/types/database'
-import { DEFAULT_PERMISSIONS, type AllPerms, type ConfigurableRole, type PermFeature } from '@/lib/hooks/use-role-permissions'
+import { DEFAULT_PERMISSIONS, DEFAULT_GENERAL, type AllPerms, type ConfigurableRole, type PermFeature, type RolePerms } from '@/lib/hooks/use-role-permissions'
 import { cn } from '@/lib/utils/cn'
 
 export default function SettingsPage({ params: { locale } }: { params: { locale: string } }) {
@@ -66,8 +66,9 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   }, [])
 
   // ── Role permissions ────────────────────────────────────────────────────────
-  const [activePermRole, setActivePermRole] = useState<ConfigurableRole>('cashier')
+  const [activePermRole, setActivePermRole] = useState<ConfigurableRole | 'general'>('cashier')
   const [permissions, setPermissions] = useState<AllPerms>(DEFAULT_PERMISSIONS)
+  const [generalPerms, setGeneralPerms] = useState<RolePerms>(DEFAULT_GENERAL)
   const [savingPerms, setSavingPerms] = useState(false)
 
   const PERM_FEATURES: { key: PermFeature; label: string; icon: React.ReactNode }[] = [
@@ -142,7 +143,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       setNotifyPushNewExpense(shopData.notify_push_new_expense ?? true)
       setLoading(false)
       // Load stored permissions — deep merge so partial DB objects don't lose default keys
-      const stored = (shopData as any).role_permissions as Partial<AllPerms> | null
+      const stored = (shopData as any).role_permissions as (Partial<AllPerms> & { general?: Partial<RolePerms> }) | null
       if (stored) {
         setPermissions({
           shop_manager:  { ...DEFAULT_PERMISSIONS.shop_manager,  ...(stored.shop_manager  ?? {}) },
@@ -151,6 +152,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
           viewer:        { ...DEFAULT_PERMISSIONS.viewer,        ...(stored.viewer        ?? {}) },
           stock_manager: { ...DEFAULT_PERMISSIONS.stock_manager, ...(stored.stock_manager ?? {}) },
         })
+        setGeneralPerms({ ...DEFAULT_GENERAL, ...(stored.general ?? {}) })
       }
     }
   }, [shopData])
@@ -308,16 +310,20 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
     }
     setPermissions(updated)
     setSavingPerms(true)
+    // The PATCH below overwrites the whole role_permissions blob, so it must
+    // always include the "general" master switch alongside the 5 roles —
+    // otherwise this save would silently wipe out the Général tab's settings.
+    const payload = { ...updated, general: generalPerms }
     try {
       const res = await fetch('/api/team/permissions', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shop_id: shop.id, role_permissions: updated }),
+        body: JSON.stringify({ shop_id: shop.id, role_permissions: payload }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur inconnue')
       // Update auth context directly — avoids stale-read from DB replica after write
-      patchShop(shop.id, { role_permissions: updated })
+      patchShop(shop.id, { role_permissions: payload })
       toast({ title: t('settings.perms_saved'), description: t('settings.perms_saved_desc'), variant: 'success' })
     } catch (err: any) {
       toast({ title: t('settings.perms_error'), description: err.message, variant: 'destructive' })
@@ -326,6 +332,35 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       setSavingPerms(false)
     }
   }
+
+  const toggleGeneralPermission = async (feature: PermFeature, value: boolean) => {
+    if (!shop?.id) return
+    const prev = generalPerms
+    const updated: RolePerms = { ...generalPerms, [feature]: value }
+    setGeneralPerms(updated)
+    setSavingPerms(true)
+    const payload = { ...permissions, general: updated }
+    try {
+      const res = await fetch('/api/team/permissions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop_id: shop.id, role_permissions: payload }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Erreur inconnue')
+      patchShop(shop.id, { role_permissions: payload })
+      toast({ title: t('settings.perms_saved'), description: t('settings.perms_saved_desc'), variant: 'success' })
+    } catch (err: any) {
+      toast({ title: t('settings.perms_error'), description: err.message, variant: 'destructive' })
+      setGeneralPerms(prev)
+    } finally {
+      setSavingPerms(false)
+    }
+  }
+
+  const isPermChecked = (key: PermFeature) => activePermRole === 'general' ? generalPerms[key] : permissions[activePermRole][key]
+  const onPermToggle = (key: PermFeature, val: boolean) =>
+    activePermRole === 'general' ? toggleGeneralPermission(key, val) : togglePermission(activePermRole, key, val)
 
   const switchLanguage = (newLocale: string) => {
     const newPath = pathname.replace(`/${locale}`, `/${newLocale}`)
@@ -631,7 +666,20 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Role tabs */}
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-2 flex-wrap items-center">
+              <button
+                onClick={() => setActivePermRole('general')}
+                className={cn(
+                  'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors border flex items-center gap-1.5',
+                  activePermRole === 'general'
+                    ? 'bg-amber-500 text-white border-amber-500'
+                    : 'border-amber-300 text-amber-600 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400'
+                )}
+              >
+                <Globe className="h-3.5 w-3.5" />
+                {t('settings.perm_general_tab')}
+              </button>
+              <div className="w-px h-5 bg-border mx-1" />
               {(['shop_manager', 'manager', 'cashier', 'viewer', 'stock_manager'] as ConfigurableRole[]).map(r => (
                 <button
                   key={r}
@@ -649,6 +697,12 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
               {savingPerms && <span className="text-xs text-muted-foreground self-center ml-1">{t('settings.saving_perms')}</span>}
             </div>
 
+            {activePermRole === 'general' && (
+              <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                {t('settings.perm_general_warning')}
+              </div>
+            )}
+
             {/* Feature toggles */}
             <div className="space-y-1">
               {PERM_FEATURES.map(({ key, label, icon }) => (
@@ -658,8 +712,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                     <span>{label}</span>
                   </div>
                   <Switch
-                    checked={permissions[activePermRole][key]}
-                    onCheckedChange={val => togglePermission(activePermRole, key, val)}
+                    checked={isPermChecked(key)}
+                    onCheckedChange={val => onPermToggle(key, val)}
                   />
                 </div>
               ))}
@@ -678,8 +732,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                       <span>{label}</span>
                     </div>
                     <Switch
-                      checked={permissions[activePermRole][key]}
-                      onCheckedChange={val => togglePermission(activePermRole, key, val)}
+                      checked={isPermChecked(key)}
+                      onCheckedChange={val => onPermToggle(key, val)}
                     />
                   </div>
                 ))}
@@ -699,8 +753,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                       <span>{label}</span>
                     </div>
                     <Switch
-                      checked={permissions[activePermRole][key]}
-                      onCheckedChange={val => togglePermission(activePermRole, key, val)}
+                      checked={isPermChecked(key)}
+                      onCheckedChange={val => onPermToggle(key, val)}
                     />
                   </div>
                 ))}

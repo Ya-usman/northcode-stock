@@ -197,14 +197,29 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
   },
 }
 
+// Master switch above all roles — when a feature is off here, it's hidden for
+// everyone in the shop, including the owner. Derived from an existing role's
+// keys (all forced to true) instead of retyped by hand, so it can't drift out
+// of sync when a new PermFeature is added.
+export const DEFAULT_GENERAL: RolePerms = Object.fromEntries(
+  Object.keys(DEFAULT_PERMISSIONS.manager).map(k => [k, true])
+) as RolePerms
+
 export function useRolePermissions() {
   const { shop, profile, roleInActiveShop } = useAuthContext()
   // roleInActiveShop (from shop_members) is authoritative; fall back to profiles.role
   const role = roleInActiveShop ?? profile?.role
-  const stored = (shop as any)?.role_permissions as Partial<AllPerms> | null | undefined
+  const stored = (shop as any)?.role_permissions as (Partial<AllPerms> & { general?: Partial<RolePerms> }) | null | undefined
 
   function canAccess(feature: PermFeature): boolean {
-    if (!role || role === 'owner' || role === 'super_admin') return true
+    // Platform admin bypasses everything, regardless of any shop's own config.
+    if (role === 'super_admin') return true
+
+    const generalStored = stored?.general
+    const generalEnabled = generalStored && feature in generalStored ? generalStored[feature]! : DEFAULT_GENERAL[feature]
+    if (!generalEnabled) return false // hidden for everyone, including the owner
+
+    if (!role || role === 'owner') return true
     const cfgRole = role as ConfigurableRole
     if (!DEFAULT_PERMISSIONS[cfgRole]) return false
     const override = stored?.[cfgRole]

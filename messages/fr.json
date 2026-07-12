@@ -582,6 +582,8 @@
     "perm_revenue_chart": "Revenus vs Dépenses & Résultat net",
     "perm_delete_products": "Supprimer des produits",
     "perm_caisse": "Contrôle de caisse",
+    "perm_general_tab": "Général",
+    "perm_general_warning": "Ces réglages s'appliquent à tout le monde, y compris vous (propriétaire).",
     "perm_section_dashboard": "Cartes du tableau de bord",
     "perm_widget_today_revenue": "Revenus du jour",
     "perm_widget_sales_count": "Ventes du jour",

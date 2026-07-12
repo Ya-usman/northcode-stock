@@ -582,6 +582,8 @@
     "perm_revenue_chart": "Revenue vs Expenses & Net Result",
     "perm_delete_products": "Delete products",
     "perm_caisse": "Cash Audit",
+    "perm_general_tab": "General",
+    "perm_general_warning": "These settings apply to everyone, including you (owner).",
     "perm_section_dashboard": "Dashboard cards",
     "perm_widget_today_revenue": "Today's Revenue",
     "perm_widget_sales_count": "Sales Today",
