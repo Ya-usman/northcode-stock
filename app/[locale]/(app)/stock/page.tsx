@@ -836,7 +836,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 if (changes.buying_price) parts.push(`Prix achat: ${changes.buying_price.from} → ${changes.buying_price.to} ${currencySymbol}`)
                 if (changes.low_stock_threshold) parts.push(`Seuil d'alerte: ${changes.low_stock_threshold.from ?? '—'} → ${changes.low_stock_threshold.to ?? '—'}`)
                 if (changes.sku) parts.push(`SKU: ${changes.sku.from || '—'} → ${changes.sku.to || '—'}`)
-                if (changes.barcode) parts.push(`Code-barres: ${changes.barcode.from || '—'} → ${changes.barcode.to || '—'}`)
                 detail = parts.join(' · ')
               } else if (log.action === 'archive_product') {
                 Icon = Archive
