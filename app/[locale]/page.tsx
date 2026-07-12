@@ -492,14 +492,14 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
               <span>{t('footer.secure')}</span>
             </div>
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-3 mt-5 text-xs text-muted-foreground">
-            <a href="/mentions-legales" className="hover:text-foreground">{t('footer.legal')}</a>
-            <span aria-hidden="true">·</span>
-            <a href="/privacy" className="hover:text-foreground">{t('footer.privacy')}</a>
+          <div className="flex flex-col-reverse md:flex-row items-center justify-between gap-2 mt-6 pt-6 border-t border-gray-100 dark:border-gray-800 text-xs text-muted-foreground">
+            <p>{t('footer.rights', { year: new Date().getFullYear() })}</p>
+            <div className="flex items-center gap-3">
+              <a href="/mentions-legales" className="hover:text-foreground">{t('footer.legal')}</a>
+              <span aria-hidden="true">·</span>
+              <a href="/privacy" className="hover:text-foreground">{t('footer.privacy')}</a>
+            </div>
           </div>
-          <p className="text-center text-xs text-muted-foreground mt-2">
-            {t('footer.rights', { year: new Date().getFullYear() })}
-          </p>
         </div>
       </footer>
     </div>
