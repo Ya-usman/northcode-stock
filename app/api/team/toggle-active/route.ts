@@ -41,16 +41,24 @@ export async function POST(request: Request) {
 
     const admin = await createAdminClient()
 
-    // Fetch the target row (current role/state + name) — needed for the
-    // subordinate check below and for a readable audit log entry.
+    // Fetch the target row (current role/state) — needed for the subordinate
+    // check below. profiles has no FK to shop_members (both reference
+    // auth.users independently), so the name is fetched separately below —
+    // a nested `profiles(full_name)` embed here would fail with no relationship found.
     const { data: targetMember } = await (admin as any)
       .from('shop_members')
-      .select('role, is_active, profiles(full_name)')
+      .select('role, is_active')
       .eq('user_id', employee_id)
       .eq('shop_id', shop_id)
       .single()
 
     if (!targetMember) return NextResponse.json({ error: 'Membre introuvable' }, { status: 404 })
+
+    const { data: targetProfile } = await (admin as any)
+      .from('profiles')
+      .select('full_name')
+      .eq('id', employee_id)
+      .single()
 
     // Managers (manager/shop_manager) can only act on subordinate roles —
     // never on the owner or on peer managers. Only owner/super_admin bypass this.
@@ -85,7 +93,7 @@ export async function POST(request: Request) {
       target_id: employee_id,
       target_type: 'profile',
       metadata: {
-        member_name: targetMember.profiles?.full_name ?? null,
+        member_name: targetProfile?.full_name ?? null,
         old_active: targetMember.is_active,
         new_active: is_active,
       },
