@@ -465,7 +465,7 @@ const SECTIONS: ManualSection[] = [
         '<strong>Quantité comptée</strong> — Entrez le nombre réel trouvé en rayon pour chaque produit ; les produits non touchés ne sont pas comptés comme un écart.',
         '<strong>Recherche / filtre</strong> — Par nom, SKU ou catégorie, pour ne compter qu\'une partie du stock à la fois.',
         '<strong>Valider l\'inventaire</strong> — Un récapitulatif des écarts s\'affiche avant confirmation, avec la raison de chacun (perte, vol, casse, expiration, correction) et l\'impact en valeur.',
-        '<strong>Journal des inventaires</strong> — Consultez l\'historique des comptages précédents (qui, quand, combien de produits ajustés).',
+        '<strong>Historique</strong> — Chaque ajustement est visible dans Stock → Mouvements, sur la fiche du produit concerné.',
       ],
       callouts: [
         { type: 'warning', text: '⚠️ Réservé aux propriétaires, gérants et responsables de stock — un caissier n\'y a pas accès.' },

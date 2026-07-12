@@ -615,8 +615,6 @@
     "title": "Inventaire physique",
     "subtitle": "Comparez le stock théorique au stock réel compté",
     "nav_button": "Inventaire",
-    "tab_count": "Compter",
-    "tab_journal": "Journal",
     "search_placeholder": "Rechercher par nom, SKU…",
     "all_categories": "Toutes catégories",
     "progress": "{counted} / {total} produits comptés",
@@ -631,10 +629,7 @@
     "confirm_button": "Confirmer",
     "success_toast": "{count} produit(s) ajusté(s)",
     "no_access": "Accès non autorisé",
-    "error": "Une erreur s'est produite",
-    "journal_title": "Journal des inventaires",
-    "journal_loading": "Chargement...",
-    "journal_empty": "Aucun inventaire enregistré."
+    "error": "Une erreur s'est produite"
   },
   "errors": {
     "generic": "Une erreur s'est produite. Veuillez réessayer.",

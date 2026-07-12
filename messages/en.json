@@ -615,8 +615,6 @@
     "title": "Physical Inventory",
     "subtitle": "Compare theoretical stock to the actual counted stock",
     "nav_button": "Inventory",
-    "tab_count": "Count",
-    "tab_journal": "Journal",
     "search_placeholder": "Search by name, SKU…",
     "all_categories": "All categories",
     "progress": "{counted} / {total} products counted",
@@ -631,10 +629,7 @@
     "confirm_button": "Confirm",
     "success_toast": "{count} product(s) adjusted",
     "no_access": "Access not authorized",
-    "error": "Something went wrong",
-    "journal_title": "Inventory Log",
-    "journal_loading": "Loading...",
-    "journal_empty": "No inventory count recorded yet."
+    "error": "Something went wrong"
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",

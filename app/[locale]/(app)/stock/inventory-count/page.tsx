@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { ChevronLeft, Search, ClipboardCheck, AlertTriangle, ChevronDown, ChevronUp, History } from 'lucide-react'
+import { ChevronLeft, Search, ClipboardCheck, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
@@ -32,26 +32,6 @@ interface DiffRow {
   valueDelta: number
 }
 
-interface AuditLogItem {
-  product_id: string
-  product_name: string | null
-  previous_qty: number
-  new_qty: number
-  reason_label: string
-}
-
-interface AuditLog {
-  id: string
-  created_at: string
-  actor_email: string | null
-  metadata: {
-    actor_name?: string
-    adjusted_count: number
-    value_delta: number
-    items: AuditLogItem[]
-  }
-}
-
 export default function InventoryCountPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('inventoryCount')
   const tProducts = useTranslations('products')
@@ -75,10 +55,6 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
   const [reasons, setReasons] = useState<Record<string, string>>({})
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [view, setView] = useState<'count' | 'journal'>('count')
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
-  const [loadingJournal, setLoadingJournal] = useState(false)
-  const [openLogId, setOpenLogId] = useState<string | null>(null)
 
   const fetchProducts = useCallback(async () => {
     if (!shop?.id) return
@@ -93,22 +69,6 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
   }, [shop?.id])
 
   useEffect(() => { if (isAuthorized) fetchProducts() }, [fetchProducts, isAuthorized])
-
-  const fetchAuditLogs = async () => {
-    if (!shop?.id) return
-    setLoadingJournal(true)
-    try {
-      const res = await fetch(`/api/stock/inventory-count?shop_id=${shop.id}`)
-      const json = await res.json()
-      setAuditLogs(res.ok ? (json.logs as AuditLog[]) : [])
-    } catch {
-      setAuditLogs([])
-    } finally {
-      setLoadingJournal(false)
-    }
-  }
-
-  useEffect(() => { if (view === 'journal') fetchAuditLogs() }, [view])
 
   const filtered = products.filter(p => {
     if (search) {
@@ -190,24 +150,6 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
         </div>
       </div>
 
-      {/* View toggle */}
-      <div className="flex gap-1 rounded-lg border bg-muted/30 p-1 w-fit">
-        <button
-          onClick={() => setView('count')}
-          className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${view === 'count' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-        >
-          {t('tab_count')}
-        </button>
-        <button
-          onClick={() => setView('journal')}
-          className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${view === 'journal' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-        >
-          <History className="h-3.5 w-3.5" /> {t('tab_journal')}
-        </button>
-      </div>
-
-      {view === 'count' && (
-      <>
       {/* Filters */}
       <div className="flex flex-wrap gap-2">
         <div className="relative flex-1 min-w-[180px]">
@@ -261,62 +203,12 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
           })}
         </div>
       )}
-      </>
-      )}
-
-      {/* Journal des inventaires */}
-      {view === 'journal' && (
-        <div className="space-y-1.5">
-          {loadingJournal ? (
-            <p className="text-xs text-muted-foreground text-center py-3">{t('journal_loading')}</p>
-          ) : auditLogs.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-3">{t('journal_empty')}</p>
-          ) : (
-            auditLogs.map(log => {
-              const meta = log.metadata
-              const isOpen = openLogId === log.id
-              const actor = meta.actor_name || log.actor_email || '—'
-              const when = new Date(log.created_at).toLocaleString('fr-FR', {
-                day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-              })
-              return (
-                <div key={log.id} className="rounded-lg bg-muted/40 border overflow-hidden">
-                  <button
-                    onClick={() => setOpenLogId(isOpen ? null : log.id)}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-muted/60 transition-colors"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium">{t('success_toast', { count: meta.adjusted_count })}</p>
-                      <p className="text-xs text-muted-foreground">{actor} · {when}</p>
-                    </div>
-                    <span className={`text-xs font-semibold flex-shrink-0 ${meta.value_delta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {meta.value_delta >= 0 ? '+' : ''}{fmt(meta.value_delta)}
-                    </span>
-                    {isOpen ? <ChevronUp className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />}
-                  </button>
-                  {isOpen && (
-                    <div className="px-3 pb-2.5 space-y-1 border-t border-border/50 pt-2">
-                      {(meta.items || []).map((it, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-xs">
-                          <span className="truncate flex-1">{it.product_name || '—'}</span>
-                          <span className="text-muted-foreground mx-2 flex-shrink-0">{it.previous_qty} → {it.new_qty}</span>
-                          <span className="text-muted-foreground flex-shrink-0">{it.reason_label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })
-          )}
-        </div>
-      )}
 
       {/* Sticky summary bar — hidden while the confirmation dialog is open: it
           shares the same z-index as the dialog, and on some WebViews the first
           tap could land on this still-visible button (a no-op re-open) instead
           of the dialog's real Confirm button underneath. */}
-      {view === 'count' && diffs.length > 0 && !confirmOpen && (
+      {diffs.length > 0 && !confirmOpen && (
         <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-4">
           <div className="flex items-center gap-3 rounded-2xl bg-card border shadow-xl px-4 py-3">
             <span className="text-sm font-medium flex-1 text-foreground">{t('diffs_count', { count: diffs.length })}</span>

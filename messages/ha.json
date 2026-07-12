@@ -615,8 +615,6 @@
     "title": "Ƙidayar Kaya",
     "subtitle": "Kwatanta kayan da aka rubuta da ainihin kayan da aka ƙidaya",
     "nav_button": "Ƙidaya",
-    "tab_count": "Ƙidaya",
-    "tab_journal": "Tarihi",
     "search_placeholder": "Nemo ta suna, SKU…",
     "all_categories": "Duk nau'ikan",
     "progress": "{counted} / {total} kayayyaki an ƙidaya",
@@ -631,10 +629,7 @@
     "confirm_button": "Tabbatar",
     "success_toast": "An gyara kaya {count}",
     "no_access": "Ba a ba da izini ba",
-    "error": "Wani kuskure ya faru",
-    "journal_title": "Tarihin Ƙidayar Kaya",
-    "journal_loading": "Ana lodi...",
-    "journal_empty": "Babu wata ƙidaya da aka yi tukuna."
+    "error": "Wani kuskure ya faru"
   },
   "errors": {
     "generic": "Wani abu ya faru. Don Allah a sake gwadawa.",
