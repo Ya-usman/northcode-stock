@@ -5,6 +5,7 @@ import { TrendingUp, ShoppingCart, AlertTriangle, CreditCard, Receipt, CalendarD
 import { Card, CardContent } from '@/components/ui/card'
 import { useTranslations, useLocale } from 'next-intl'
 import { useCurrency } from '@/lib/hooks/use-currency'
+import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 
 interface MetricCardsProps {
   todayRevenue: number
@@ -34,6 +35,7 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
   const t = useTranslations('dashboard')
   const locale = useLocale()
   const { fmt, symbol } = useCurrency()
+  const { canAccess } = useRolePermissions()
   const compact = (n: number) => {
     const isPrefix = symbol.length <= 2
     const sfx = isPrefix ? '' : ` ${symbol}`
@@ -54,7 +56,7 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
       icon: TrendingUp,
       color: 'text-green-600',
       bg: 'bg-green-50',
-      show: true,
+      show: canAccess('widget_today_revenue'),
     },
     {
       title: t('sales_count'),
@@ -63,7 +65,7 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
       icon: ShoppingCart,
       color: 'text-stockshop-blue dark:text-blue-400',
       bg: 'bg-blue-50 dark:bg-blue-950/40',
-      show: true,
+      show: canAccess('widget_sales_count'),
     },
     {
       title: t('stock_alerts'),
@@ -72,7 +74,7 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
       icon: AlertTriangle,
       color: lowStockCount > 0 ? 'text-amber-600' : 'text-green-600',
       bg: lowStockCount > 0 ? 'bg-amber-50' : 'bg-green-50',
-      show: true,
+      show: canAccess('widget_stock_alerts_card'),
     },
     {
       title: t('outstanding_debt'),
@@ -81,7 +83,7 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
       icon: CreditCard,
       color: outstandingDebt > 0 ? 'text-red-600' : 'text-green-600',
       bg: outstandingDebt > 0 ? 'bg-red-50' : 'bg-green-50',
-      show: role !== 'viewer',
+      show: canAccess('widget_outstanding_debt'),
     },
     {
       title: t('month_expenses'),
@@ -99,7 +101,7 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
       icon: CalendarDays,
       color: 'text-violet-600 dark:text-violet-400',
       bg: 'bg-violet-50 dark:bg-violet-950/30',
-      show: true,
+      show: canAccess('widget_net_result'),
     },
     {
       title: t('global_month_sales'),

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
-import { Save, Upload, Globe, Moon, Sun, ShoppingCart, History, CreditCard, Users, Package, ArrowLeftRight, Tag, Truck, BarChart2, ShieldCheck, Bell, Receipt, NotebookPen, Trash2, ClipboardList, ClipboardCheck } from 'lucide-react'
+import { Save, Upload, Globe, Moon, Sun, ShoppingCart, History, CreditCard, Users, Package, ArrowLeftRight, Tag, Truck, BarChart2, ShieldCheck, Bell, Receipt, NotebookPen, Trash2, ClipboardList, ClipboardCheck, TrendingUp, AlertTriangle, CalendarDays } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
@@ -86,6 +86,30 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
     { key: 'revenue_chart',   label: t('settings.perm_revenue_chart'),   icon: <ShieldCheck className="h-4 w-4" /> },
     { key: 'delete_products', label: t('settings.perm_delete_products'), icon: <Trash2 className="h-4 w-4" /> },
     { key: 'caisse',          label: t('settings.perm_caisse'),          icon: <ClipboardList className="h-4 w-4" /> },
+  ]
+
+  const DASHBOARD_WIDGET_FEATURES: { key: PermFeature; label: string; icon: React.ReactNode }[] = [
+    { key: 'widget_today_revenue',          label: t('settings.perm_widget_today_revenue'),          icon: <TrendingUp className="h-4 w-4" /> },
+    { key: 'widget_sales_count',            label: t('settings.perm_widget_sales_count'),            icon: <ShoppingCart className="h-4 w-4" /> },
+    { key: 'widget_stock_alerts_card',       label: t('settings.perm_widget_stock_alerts_card'),       icon: <AlertTriangle className="h-4 w-4" /> },
+    { key: 'widget_outstanding_debt',        label: t('settings.perm_widget_outstanding_debt'),        icon: <CreditCard className="h-4 w-4" /> },
+    { key: 'widget_net_result',              label: t('settings.perm_widget_net_result'),              icon: <CalendarDays className="h-4 w-4" /> },
+    { key: 'widget_stock_alerts_list',       label: t('settings.perm_widget_stock_alerts_list'),       icon: <Package className="h-4 w-4" /> },
+    { key: 'widget_dashboard_revenue_chart', label: t('settings.perm_widget_dashboard_revenue_chart'), icon: <BarChart2 className="h-4 w-4" /> },
+    { key: 'widget_top_products_chart',      label: t('settings.perm_widget_top_products_chart'),      icon: <BarChart2 className="h-4 w-4" /> },
+    { key: 'widget_recent_sales',            label: t('settings.perm_widget_recent_sales'),            icon: <History className="h-4 w-4" /> },
+  ]
+
+  const REPORT_WIDGET_FEATURES: { key: PermFeature; label: string; icon: React.ReactNode }[] = [
+    { key: 'widget_rep_encaisse',      label: t('settings.perm_widget_rep_encaisse'),      icon: <TrendingUp className="h-4 w-4" /> },
+    { key: 'widget_rep_depenses',      label: t('settings.perm_widget_rep_depenses'),      icon: <Receipt className="h-4 w-4" /> },
+    { key: 'widget_rep_transactions',  label: t('settings.perm_widget_rep_transactions'),  icon: <ShoppingCart className="h-4 w-4" /> },
+    { key: 'widget_rep_marge_brute',   label: t('settings.perm_widget_rep_marge_brute'),   icon: <BarChart2 className="h-4 w-4" /> },
+    { key: 'widget_rep_benefice_net',  label: t('settings.perm_widget_rep_benefice_net'),  icon: <CalendarDays className="h-4 w-4" /> },
+    { key: 'widget_rep_credits',       label: t('settings.perm_widget_rep_credits'),       icon: <CreditCard className="h-4 w-4" /> },
+    { key: 'widget_rep_payment_chart', label: t('settings.perm_widget_rep_payment_chart'), icon: <BarChart2 className="h-4 w-4" /> },
+    { key: 'widget_rep_top_products',  label: t('settings.perm_widget_rep_top_products'),  icon: <Package className="h-4 w-4" /> },
+    { key: 'widget_rep_cashier_perf',  label: t('settings.perm_widget_rep_cashier_perf'),  icon: <Users className="h-4 w-4" /> },
   ]
 
   const ROLE_LABELS: Record<ConfigurableRole, string> = {
@@ -639,6 +663,48 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                   />
                 </div>
               ))}
+            </div>
+
+            {/* Dashboard widget toggles */}
+            <div>
+              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {t('settings.perm_section_dashboard')}
+              </p>
+              <div className="space-y-1">
+                {DASHBOARD_WIDGET_FEATURES.map(({ key, label, icon }) => (
+                  <div key={key} className="flex items-center justify-between rounded-lg px-3 py-2.5 hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-2.5 text-sm">
+                      <span className="text-muted-foreground">{icon}</span>
+                      <span>{label}</span>
+                    </div>
+                    <Switch
+                      checked={permissions[activePermRole][key]}
+                      onCheckedChange={val => togglePermission(activePermRole, key, val)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Reports widget toggles */}
+            <div>
+              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {t('settings.perm_section_reports')}
+              </p>
+              <div className="space-y-1">
+                {REPORT_WIDGET_FEATURES.map(({ key, label, icon }) => (
+                  <div key={key} className="flex items-center justify-between rounded-lg px-3 py-2.5 hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-2.5 text-sm">
+                      <span className="text-muted-foreground">{icon}</span>
+                      <span>{label}</span>
+                    </div>
+                    <Switch
+                      checked={permissions[activePermRole][key]}
+                      onCheckedChange={val => togglePermission(activePermRole, key, val)}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>

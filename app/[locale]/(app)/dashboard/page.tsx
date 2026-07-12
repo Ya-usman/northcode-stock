@@ -573,21 +573,23 @@ export default function DashboardPage() {
       />
 
       {/* Stock alerts */}
-      <StockAlerts lowStockProducts={lowStockProducts} outOfStockProducts={outOfStockProducts} />
+      {canAccess('widget_stock_alerts_list') && (
+        <StockAlerts lowStockProducts={lowStockProducts} outOfStockProducts={outOfStockProducts} />
+      )}
 
       {/* Charts */}
-      {(profile?.role === 'owner' || isCashierView) && (
+      {(canAccess('widget_dashboard_revenue_chart') || canAccess('widget_top_products_chart')) && (
         <div className="grid gap-4 md:grid-cols-2">
-          <RevenueChart data={revenueData} />
-          <TopProductsChart data={topProducts} />
+          {canAccess('widget_dashboard_revenue_chart') && <RevenueChart data={revenueData} />}
+          {canAccess('widget_top_products_chart') && <TopProductsChart data={topProducts} />}
         </div>
       )}
 
       {/* Expense vs Revenue trend — owner or permitted roles */}
       {canSeeRevenueChart && <ExpenseRevenueChart />}
 
-      {/* Recent sales — visible for all roles */}
-      {(
+      {/* Recent sales */}
+      {canAccess('widget_recent_sales') && (
         <RecentSalesFeed
           items={[
             ...recentSales.map(s => ({ ...s, type: 'sale' as const })),

@@ -21,6 +21,7 @@ import { generateReportPDFBlob, savePDF } from '@/lib/utils/pdf'
 import { cn } from '@/lib/utils/cn'
 import { format, subDays, startOfDay, endOfDay, startOfMonth, startOfWeek, startOfQuarter, startOfYear } from 'date-fns'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
+import { useRolePermissions, type PermFeature } from '@/lib/hooks/use-role-permissions'
 
 const PIE_COLORS = ['#60a5fa', '#D4AF37', '#16A34A', '#DC2626', '#a78bfa']
 
@@ -31,6 +32,7 @@ export default function ReportsPage() {
   const isCashier = effectiveRole === 'cashier'
   const isMultiShop = effectiveShopIds.length > 1
   const { fmt: formatNaira, symbol: currencySymbol } = useCurrency()
+  const { canAccess } = useRolePermissions()
   const { toast } = useToast()
   const supabase = createClient() as any
 
@@ -451,10 +453,10 @@ export default function ReportsPage() {
       {/* KPI — ligne 1 : Encaissé · Dépenses · Transactions */}
       <div className="grid grid-cols-3 gap-2">
         {[
-          { label: t('reports.encaisse'), amount: totals.revenue, color: 'text-blue-500', isNum: false, sub: t('reports.cash_in_register') },
-          { label: t('expenses.title'), amount: totalExpenses, color: 'text-red-500', isNum: false, sub: null },
-          { label: t('reports.transactions'), amount: totals.sales, color: 'text-foreground', isNum: true, sub: null },
-        ].map(item => (
+          { key: 'widget_rep_encaisse', label: t('reports.encaisse'), amount: totals.revenue, color: 'text-blue-500', isNum: false, sub: t('reports.cash_in_register') },
+          { key: 'widget_rep_depenses', label: t('expenses.title'), amount: totalExpenses, color: 'text-red-500', isNum: false, sub: null },
+          { key: 'widget_rep_transactions', label: t('reports.transactions'), amount: totals.sales, color: 'text-foreground', isNum: true, sub: null },
+        ].filter(item => canAccess(item.key as PermFeature)).map(item => (
           <Card key={item.label} className="border-0 shadow-sm">
             <CardContent className="p-2 sm:p-3 text-center">
               <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight truncate">{item.label}</p>
@@ -469,32 +471,38 @@ export default function ReportsPage() {
 
       {/* KPI — ligne 2 : Marge brute · Bénéfice net · Crédits */}
       <div className="grid grid-cols-3 gap-2">
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-2 sm:p-3 text-center">
-            <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">Marge brute</p>
-            <p className={`text-sm sm:text-base font-bold mt-0.5 truncate ${totals.profit >= 0 ? 'text-blue-400' : 'text-red-500'}`}>
-              {loading ? '…' : formatNaira(totals.profit)}
-            </p>
-            <p className="text-[9px] text-muted-foreground mt-0.5 hidden sm:block">Ventes − coût achat</p>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-sm ring-1 ring-green-500/40">
-          <CardContent className="p-2 sm:p-3 text-center">
-            <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight font-semibold">{t('expenses.net_profit')}</p>
-            <p className={`text-sm sm:text-base font-bold mt-0.5 truncate ${totals.profit - totalExpenses >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-              {loading ? '…' : formatNaira(totals.profit - totalExpenses)}
-            </p>
-            <p className="text-[9px] text-muted-foreground mt-0.5 hidden sm:block">Marge − dépenses</p>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-2 sm:p-3 text-center">
-            <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">{t('reports.outstanding_debt')}</p>
-            <p className="text-sm sm:text-base font-bold mt-0.5 truncate text-orange-500">
-              {loading ? '…' : formatNaira(outstandingDebt)}
-            </p>
-          </CardContent>
-        </Card>
+        {canAccess('widget_rep_marge_brute') && (
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-2 sm:p-3 text-center">
+              <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">Marge brute</p>
+              <p className={`text-sm sm:text-base font-bold mt-0.5 truncate ${totals.profit >= 0 ? 'text-blue-400' : 'text-red-500'}`}>
+                {loading ? '…' : formatNaira(totals.profit)}
+              </p>
+              <p className="text-[9px] text-muted-foreground mt-0.5 hidden sm:block">Ventes − coût achat</p>
+            </CardContent>
+          </Card>
+        )}
+        {canAccess('widget_rep_benefice_net') && (
+          <Card className="border-0 shadow-sm ring-1 ring-green-500/40">
+            <CardContent className="p-2 sm:p-3 text-center">
+              <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight font-semibold">{t('expenses.net_profit')}</p>
+              <p className={`text-sm sm:text-base font-bold mt-0.5 truncate ${totals.profit - totalExpenses >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                {loading ? '…' : formatNaira(totals.profit - totalExpenses)}
+              </p>
+              <p className="text-[9px] text-muted-foreground mt-0.5 hidden sm:block">Marge − dépenses</p>
+            </CardContent>
+          </Card>
+        )}
+        {canAccess('widget_rep_credits') && (
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-2 sm:p-3 text-center">
+              <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">{t('reports.outstanding_debt')}</p>
+              <p className="text-sm sm:text-base font-bold mt-0.5 truncate text-orange-500">
+                {loading ? '…' : formatNaira(outstandingDebt)}
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {loading ? (
@@ -502,6 +510,7 @@ export default function ReportsPage() {
       ) : (
         <>
           {/* Revenue by payment method */}
+          {canAccess('widget_rep_payment_chart') && (
           <Card className="border-0 shadow-sm">
             <CardHeader className="pb-2 px-3 sm:px-6">
               <CardTitle className="text-sm">{t('reports.revenue_by_method')}</CardTitle>
@@ -537,8 +546,10 @@ export default function ReportsPage() {
               )}
             </CardContent>
           </Card>
+          )}
 
           {/* Top selling products */}
+          {canAccess('widget_rep_top_products') && (
           <Card className="border-0 shadow-sm">
             <CardHeader className="pb-2 px-3 sm:px-6">
               <CardTitle className="text-sm">{t('reports.top_products')}</CardTitle>
@@ -572,6 +583,7 @@ export default function ReportsPage() {
               )}
             </CardContent>
           </Card>
+          )}
 
           {/* Full inventory */}
           <Card className="border-0 shadow-sm">
@@ -677,7 +689,7 @@ export default function ReportsPage() {
           )}
 
           {/* Cashier performance — cashier sees only their own row */}
-          {(isCashier ? cashierPerf.filter(c => c.id === profile?.id) : cashierPerf).length > 0 && (
+          {canAccess('widget_rep_cashier_perf') && (isCashier ? cashierPerf.filter(c => c.id === profile?.id) : cashierPerf).length > 0 && (
             <Card className="border-0 shadow-sm">
               <CardHeader className="pb-2 px-3 sm:px-6">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
