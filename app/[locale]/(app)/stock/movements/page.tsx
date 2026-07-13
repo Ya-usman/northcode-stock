@@ -133,7 +133,17 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
     let list = Array.from(map.values())
     if (search.trim()) {
       const q = normalize(search)
-      list = list.filter(p => normalize(p.product_name).includes(q))
+      list = list.reduce<ProductSummary[]>((acc, p) => {
+        // Product name match — show its full history, unfiltered.
+        if (normalize(p.product_name).includes(q)) { acc.push(p); return acc }
+        // Otherwise this is an employee search: only keep the product if it has
+        // at least one matching movement, and only show that employee's lines —
+        // mixing in other employees' movements would defeat the point of an audit search.
+        const restocks = p.restocks.filter(m => m.performed_by_name && normalize(m.performed_by_name).includes(q))
+        const adjustments = p.adjustments.filter(m => m.performed_by_name && normalize(m.performed_by_name).includes(q))
+        if (restocks.length > 0 || adjustments.length > 0) acc.push({ ...p, restocks, adjustments })
+        return acc
+      }, [])
     }
     return list.sort((a, b) => {
       const aDate = a.restocks[0]?.created_at ?? ''
