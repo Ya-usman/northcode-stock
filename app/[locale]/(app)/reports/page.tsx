@@ -413,7 +413,7 @@ export default function ReportsPage() {
         <div className="flex items-center justify-between gap-2">
           <div className="flex flex-col gap-0.5">
             <Select value={dateFilter} onValueChange={v => setFilter({ dateFilter: v })}>
-              <SelectTrigger className="w-[165px] sm:w-[190px] text-xs sm:text-sm h-9"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-[165px] sm:w-[190px] text-xs sm:text-sm h-9"><span className="truncate"><span className="text-muted-foreground">{t('reports.date_range')}: </span><SelectValue /></span></SelectTrigger>
               <SelectContent>
                 <SelectItem value="today">{t('reports.today')}</SelectItem>
                 <SelectItem value="yesterday">{t('reports.yesterday')}</SelectItem>

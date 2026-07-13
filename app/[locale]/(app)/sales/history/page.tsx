@@ -741,7 +741,7 @@ export default function SalesHistoryPage() {
             }
           }}
         >
-          <SelectTrigger className="w-[140px] h-9"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-[150px] h-9"><span className="truncate"><span className="text-muted-foreground">{t('reports.date_range')}: </span><SelectValue /></span></SelectTrigger>
           <SelectContent>
             <SelectItem value="today">{t('sales.filter_today')}</SelectItem>
             <SelectItem value="yesterday">{t('sales.filter_yesterday')}</SelectItem>
@@ -775,7 +775,7 @@ export default function SalesHistoryPage() {
         )}
 
         <Select value={methodFilter} onValueChange={v => setFilter({ methodFilter: v })}>
-          <SelectTrigger className="w-[120px] h-9"><SelectValue placeholder="Méthode" /></SelectTrigger>
+          <SelectTrigger className="w-[140px] h-9"><span className="truncate"><span className="text-muted-foreground">Méthode: </span><SelectValue /></span></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('sales.all_methods')}</SelectItem>
             <SelectItem value="cash">{t('payment.cash')}</SelectItem>
@@ -789,7 +789,7 @@ export default function SalesHistoryPage() {
         {view === 'sales' && (
           <>
             <Select value={statusFilter} onValueChange={v => setFilter({ statusFilter: v })}>
-              <SelectTrigger className="w-[110px] h-9"><SelectValue placeholder="Statut" /></SelectTrigger>
+              <SelectTrigger className="w-[130px] h-9"><span className="truncate"><span className="text-muted-foreground">Statut: </span><SelectValue /></span></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t('sales.all_statuses')}</SelectItem>
                 <SelectItem value="paid">{t('status.paid')}</SelectItem>
@@ -799,7 +799,7 @@ export default function SalesHistoryPage() {
             </Select>
 
             <Select value={saleStatusFilter} onValueChange={v => setFilter({ saleStatusFilter: v as any })}>
-              <SelectTrigger className="w-[110px] h-9"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-[130px] h-9"><span className="truncate"><span className="text-muted-foreground">Vente: </span><SelectValue /></span></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t('sales.filter_all')}</SelectItem>
                 <SelectItem value="active">{t('sales.filter_active')}</SelectItem>

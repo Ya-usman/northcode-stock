@@ -192,7 +192,7 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('search_placeholder')} className="pl-9 h-9" />
         </div>
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-[150px] h-9"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-[170px] h-9"><span className="truncate"><span className="text-muted-foreground">{tProducts('category')}: </span><SelectValue /></span></SelectTrigger>
           <SelectContent className="max-h-80">
             <SelectItem value="all">{t('all_categories')}</SelectItem>
             {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}

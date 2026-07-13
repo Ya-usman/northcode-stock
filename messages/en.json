@@ -203,6 +203,7 @@
     "name": "Product Name",
     "sku": "SKU / Barcode",
     "category": "Category",
+    "status_label": "Status",
     "supplier": "Supplier",
     "buying_price": "Buying Price",
     "selling_price": "Selling Price",

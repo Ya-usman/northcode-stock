@@ -634,7 +634,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         </div>
         <div className="flex gap-1">
           <Select value={categoryFilter} onValueChange={v => setFilter({ categoryFilter: v })}>
-            <SelectTrigger className="w-[130px] h-9"><SelectValue placeholder={t('products.all_categories')} /></SelectTrigger>
+            <SelectTrigger className="w-[150px] h-9"><span className="truncate"><span className="text-muted-foreground">{t('products.category')}: </span><SelectValue placeholder={t('products.all_categories')} /></span></SelectTrigger>
             <SelectContent className="max-h-80">
               <SelectItem value="all">{t('products.all_categories')}</SelectItem>
               {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
@@ -647,7 +647,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           )}
         </div>
         <Select value={statusFilter} onValueChange={v => setFilter({ statusFilter: v })}>
-          <SelectTrigger className="w-[110px] h-9"><SelectValue placeholder={t('status.all')} /></SelectTrigger>
+          <SelectTrigger className="w-[135px] h-9"><span className="truncate"><span className="text-muted-foreground">{t('products.status_label')}: </span><SelectValue placeholder={t('status.all')} /></span></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('status.all')}</SelectItem>
             <SelectItem value="ok">{t('status.in_stock')}</SelectItem>

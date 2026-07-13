@@ -243,16 +243,19 @@ export default function NotesPage() {
         </div>
 
         {userShops.length > 1 && (
-          <select
-            value={shopFilter}
-            onChange={e => setFilter({ shopFilter: e.target.value })}
-            className="h-10 rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <option value="all">Toutes les boutiques</option>
-            {userShops.map(s => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
+          <div className="relative">
+            <Store className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <select
+              value={shopFilter}
+              onChange={e => setFilter({ shopFilter: e.target.value })}
+              className="h-10 rounded-lg border border-input bg-background pl-9 pr-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="all">Toutes les boutiques</option>
+              {userShops.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
         )}
 
         <Button variant="stockshop" onClick={openCreate} className="gap-2 shrink-0">

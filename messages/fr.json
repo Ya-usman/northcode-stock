@@ -203,6 +203,7 @@
     "name": "Nom du produit",
     "sku": "SKU / Code-barres",
     "category": "Catégorie",
+    "status_label": "Statut",
     "supplier": "Fournisseur",
     "buying_price": "Prix d'achat",
     "selling_price": "Prix de vente",
