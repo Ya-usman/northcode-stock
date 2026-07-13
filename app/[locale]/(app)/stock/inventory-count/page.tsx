@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
+import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import type { Product, Category } from '@/lib/types/database'
 
 const supabase = createClient() as any
@@ -47,9 +48,15 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
     ['owner', 'super_admin', 'manager', 'shop_manager', 'stock_manager'].includes(role || '') &&
     canAccess('inventory_count')
 
-  const [products, setProducts] = useState<Product[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
-  const [loading, setLoading] = useState(true)
+  const [products, setProducts] = useState<Product[]>(() => {
+    const c = getPageCache<{ prods: Product[]; cats: Category[] }>(`inventory_count_${shop?.id}`)
+    return c?.prods || []
+  })
+  const [categories, setCategories] = useState<Category[]>(() => {
+    const c = getPageCache<{ prods: Product[]; cats: Category[] }>(`inventory_count_${shop?.id}`)
+    return c?.cats || []
+  })
+  const [loading, setLoading] = useState(() => !getPageCache(`inventory_count_${shop?.id}`))
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [counts, setCounts] = useState<Record<string, string>>({})
@@ -59,13 +66,19 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
 
   const fetchProducts = useCallback(async () => {
     if (!shop?.id) return
-    setLoading(true)
+    const cacheKey = `inventory_count_${shop.id}`
+    const cached = getPageCache<{ prods: Product[]; cats: Category[] }>(cacheKey)
+    if (cached) { setProducts(cached.prods); setCategories(cached.cats); setLoading(false) }
+    else setLoading(true)
     const [{ data: prods }, { data: cats }] = await Promise.all([
       supabase.from('products').select('*').eq('shop_id', shop.id).eq('is_active', true).order('name'),
       supabase.from('categories').select('*').eq('shop_id', shop.id).order('name'),
     ])
-    setProducts((prods || []) as Product[])
-    setCategories((cats || []) as Category[])
+    const fetchedProducts = (prods || []) as Product[]
+    const fetchedCategories = (cats || []) as Category[]
+    setProducts(fetchedProducts)
+    setCategories(fetchedCategories)
+    setPageCache(cacheKey, { prods: fetchedProducts, cats: fetchedCategories })
     setLoading(false)
   }, [shop?.id])
 

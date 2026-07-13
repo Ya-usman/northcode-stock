@@ -537,8 +537,7 @@ export default function TeamPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="font-bold text-lg">{t('team.title')}</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <p className="text-xs text-muted-foreground">
             {activeCount} {activeCount === 1 ? 'membre actif' : 'membres actifs'}
             {pendingCount > 0 && (
               <span className="text-amber-500 ml-1">· {pendingCount} invitation{pendingCount > 1 ? 's' : ''} en attente</span>

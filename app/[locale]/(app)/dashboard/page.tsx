@@ -521,7 +521,6 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="font-bold text-lg text-foreground">{t('dashboard.title')}</h1>
           <p className="text-xs text-muted-foreground">
             {new Date().toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
