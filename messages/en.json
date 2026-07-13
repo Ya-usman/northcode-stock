@@ -642,6 +642,7 @@
     "all_categories": "All categories",
     "progress": "{counted} / {total} products counted",
     "theoretical_label": "Theoretical",
+    "previous_count_label": "Last count",
     "no_products": "No products to count.",
     "diffs_count": "{count} discrepanc(y/ies)",
     "validate_button": "Validate inventory",

@@ -32,3 +32,47 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }
+
+// GET /api/stock/inventory-count?shop_id= — most recent count session, for
+// comparing "what did we count last time" against the current count.
+export async function GET(request: Request) {
+  try {
+    const { user, supabase } = await getAuthedUser()
+    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
+    const { searchParams } = new URL(request.url)
+    const shopId = searchParams.get('shop_id')
+    if (!shopId) return NextResponse.json({ error: 'shop_id requis' }, { status: 400 })
+
+    const role = await checkShopRole(supabase, user.id, shopId)
+    if (!role || !WRITE_ROLES.includes(role))
+      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+
+    const admin = await createAdminClient()
+
+    const { data: latest } = await (admin as any)
+      .from('stock_movements')
+      .select('count_session_id, created_at')
+      .eq('shop_id', shopId)
+      .not('count_session_id', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (!latest?.count_session_id) return NextResponse.json({ session: null })
+
+    const { data: rows } = await (admin as any)
+      .from('stock_movements')
+      .select('product_id, new_qty')
+      .eq('count_session_id', latest.count_session_id)
+
+    const items: Record<string, number> = {}
+    for (const r of rows || []) {
+      if (r.product_id != null && r.new_qty != null) items[r.product_id] = r.new_qty
+    }
+
+    return NextResponse.json({ session: { countedAt: latest.created_at, items } })
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
+}

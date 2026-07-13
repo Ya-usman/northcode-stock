@@ -642,6 +642,7 @@
     "all_categories": "Toutes catégories",
     "progress": "{counted} / {total} produits comptés",
     "theoretical_label": "Théorique",
+    "previous_count_label": "Dernier comptage",
     "no_products": "Aucun produit à compter.",
     "diffs_count": "{count} écart(s) détecté(s)",
     "validate_button": "Valider l'inventaire",

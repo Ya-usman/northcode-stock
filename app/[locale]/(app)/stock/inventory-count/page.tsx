@@ -3,6 +3,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import { format } from 'date-fns'
+import { fr } from 'date-fns/locale'
 import { Search, ClipboardCheck, AlertTriangle } from 'lucide-react'
 import { StockTabs } from '@/components/stock/stock-tabs'
 import { createClient } from '@/lib/supabase/client'
@@ -66,6 +68,7 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
   const [reasons, setReasons] = useState<Record<string, string>>({})
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [previousSession, setPreviousSession] = useState<{ countedAt: string; items: Record<string, number> } | null>(null)
 
   const fetchProducts = useCallback(async () => {
     if (!shop?.id) return
@@ -85,17 +88,29 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
     setLoading(false)
   }, [shop?.id])
 
-  useEffect(() => { if (isAuthorized) fetchProducts() }, [fetchProducts, isAuthorized])
+  const fetchPreviousSession = useCallback(async () => {
+    if (!shop?.id) return
+    try {
+      const res = await fetch(`/api/stock/inventory-count?shop_id=${shop.id}`)
+      if (!res.ok) return
+      const json = await res.json()
+      setPreviousSession(json.session)
+    } catch {
+      // silencieux — purement informatif, pas critique pour compter
+    }
+  }, [shop?.id])
+
+  useEffect(() => { if (isAuthorized) { fetchProducts(); fetchPreviousSession() } }, [fetchProducts, fetchPreviousSession, isAuthorized])
 
   // Refresh when the user comes back to this tab — counting against a stale
   // theoretical quantity would produce wrong adjustments.
   useEffect(() => {
     if (!isAuthorized) return
-    const onVisible = () => { if (document.visibilityState === 'visible') fetchProducts() }
+    const onVisible = () => { if (document.visibilityState === 'visible') { fetchProducts(); fetchPreviousSession() } }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [fetchProducts, isAuthorized])
-  useRefetchOnReconnect(() => { if (isAuthorized) fetchProducts() }, isOnline)
+  }, [fetchProducts, fetchPreviousSession, isAuthorized])
+  useRefetchOnReconnect(() => { if (isAuthorized) { fetchProducts(); fetchPreviousSession() } }, isOnline)
 
   const filtered = products.filter(p => {
     if (search) {
@@ -203,6 +218,11 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium truncate">{p.name}</p>
                   <p className="text-xs text-muted-foreground">{t('theoretical_label')}: {p.quantity} {p.unit}</p>
+                  {previousSession?.items[p.id] !== undefined && (
+                    <p className="text-xs text-muted-foreground/70">
+                      {t('previous_count_label')}: {previousSession.items[p.id]} {p.unit} · {format(new Date(previousSession.countedAt), 'd MMM', { locale: fr })}
+                    </p>
+                  )}
                 </div>
                 <Input
                   type="number"
