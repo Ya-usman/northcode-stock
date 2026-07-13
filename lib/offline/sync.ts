@@ -46,6 +46,7 @@ export async function syncPendingMovements(shopId: string): Promise<MovementSync
           current_quantity: movement.current_quantity,
           quantity_to_add: movement.quantity_to_add,
           supplier_name: movement.supplier_name,
+          supplier_id: movement.supplier_id,
           buying_price: movement.buying_price,
           notes: movement.notes,
           performed_by: movement.performed_by,

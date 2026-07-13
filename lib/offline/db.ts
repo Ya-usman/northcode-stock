@@ -67,6 +67,7 @@ export interface PendingMovement {
   current_quantity: number
   quantity_to_add: number
   supplier_name: string | null
+  supplier_id: string | null
   buying_price: number | null
   notes: string | null
   performed_by: string

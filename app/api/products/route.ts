@@ -323,7 +323,7 @@ export async function PUT(request: Request) {
   try {
     const { user, supabase } = await getAuthedUser()
     if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-    const { product_id, shop_id, quantity_to_add, supplier_name, buying_price, notes, performed_by } = await request.json()
+    const { product_id, shop_id, quantity_to_add, supplier_name, supplier_id, buying_price, notes, performed_by } = await request.json()
     if (!product_id || !shop_id) return NextResponse.json({ error: 'product_id et shop_id requis' }, { status: 400 })
     if (!Number.isFinite(Number(quantity_to_add)) || Number(quantity_to_add) <= 0)
       return NextResponse.json({ error: 'Quantité invalide' }, { status: 400 })
@@ -376,6 +376,19 @@ export async function PUT(request: Request) {
       previous_qty: prevQty,
       new_qty: newQty,
     })
+
+    // Feed the supplier price comparator with what was actually paid — purely
+    // informational (doesn't switch the product's current supplier, that
+    // stays a deliberate choice via "Utiliser ce prix" on the Fournisseurs
+    // page), so the comparison builds up from real purchases automatically.
+    if (supplier_id && newBuyingPrice !== null) {
+      await (admin as any)
+        .from('product_supplier_prices')
+        .upsert(
+          { shop_id, product_id, supplier_id, price: newBuyingPrice, updated_at: new Date().toISOString() },
+          { onConflict: 'product_id,supplier_id' }
+        )
+    }
 
     // Same audit trail as an edit-driven price change (PATCH above), so the
     // Journal shows every price change regardless of which flow caused it.
