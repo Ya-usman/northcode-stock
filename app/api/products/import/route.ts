@@ -64,6 +64,26 @@ export async function POST(request: Request) {
       const { data, error } = await admin.from('products').insert(toInsert).select('id')
       if (error) return NextResponse.json({ error: error.message }, { status: 400 })
       inserted = data?.length ?? 0
+
+      // Record initial stock movements — same as the single Add Product flow
+      // (POST /api/products) — so Mouvements shows a starting point regardless
+      // of whether the product was created one-by-one, via Ajout rapide, or CSV.
+      const movementRows = (data || [])
+        .map((row: any, i: number) => ({ product_id: row.id, quantity: toInsert[i].quantity }))
+        .filter((r: any) => r.quantity > 0)
+        .map((r: any) => ({
+          shop_id,
+          product_id: r.product_id,
+          type: 'in',
+          quantity: r.quantity,
+          reason: 'Stock initial',
+          performed_by: user.id,
+          previous_qty: 0,
+          new_qty: r.quantity,
+        }))
+      if (movementRows.length > 0) {
+        await admin.from('stock_movements').insert(movementRows)
+      }
     }
 
     return NextResponse.json({ inserted, errors, skipped: errors.length })
