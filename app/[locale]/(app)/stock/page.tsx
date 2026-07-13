@@ -486,6 +486,15 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
   useEffect(() => { if (view === 'journal') fetchAuditLogs() }, [view])
 
+  // Refresh the Journal when the user comes back to this tab or regains
+  // connectivity — same treatment as the rest of the page.
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible' && view === 'journal') fetchAuditLogs() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [view])
+  useRefetchOnReconnect(() => { if (view === 'journal') fetchAuditLogs() }, isOnline)
+
   const renderProductCard = (product: Product, idx: number) => {
     const threshold = product.low_stock_threshold || shop?.low_stock_threshold || 10
     const isSelected = selectedIds.has(product.id)
