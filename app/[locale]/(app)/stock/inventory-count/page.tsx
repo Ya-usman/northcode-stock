@@ -68,7 +68,7 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
   const [reasons, setReasons] = useState<Record<string, string>>({})
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [previousSession, setPreviousSession] = useState<{ countedAt: string; items: Record<string, number> } | null>(null)
+  const [previousSession, setPreviousSession] = useState<{ countedAt: string; items: Record<string, { countedQty: number; previousQty: number; reasonLabel: string | null }> } | null>(null)
 
   const fetchProducts = useCallback(async () => {
     if (!shop?.id) return
@@ -122,6 +122,16 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
   })
 
   const countedTotal = Object.values(counts).filter(v => v.trim() !== '').length
+
+  // Only show the year if the previous session wasn't this year — showing it
+  // unconditionally would be redundant noise for shops that count often.
+  const previousCountedAtLabel = previousSession
+    ? format(
+        new Date(previousSession.countedAt),
+        new Date(previousSession.countedAt).getFullYear() === new Date().getFullYear() ? 'd MMM' : 'd MMM yyyy',
+        { locale: fr }
+      )
+    : ''
 
   const diffs = useMemo<DiffRow[]>(() => {
     return products.reduce<DiffRow[]>((acc, p) => {
@@ -213,14 +223,22 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
             const raw = counts[p.id] ?? ''
             const countedQty = raw.trim() === '' ? null : Number(raw)
             const hasDiff = countedQty !== null && Number.isFinite(countedQty) && countedQty !== p.quantity
+            const prev = previousSession?.items[p.id]
+            const prevVariance = prev ? prev.countedQty - prev.previousQty : 0
             return (
               <div key={p.id} className={`flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5 ${hasDiff ? 'border-amber-300 dark:border-amber-700' : ''}`}>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium truncate">{p.name}</p>
                   <p className="text-xs text-muted-foreground">{t('theoretical_label')}: {p.quantity} {p.unit}</p>
-                  {previousSession?.items[p.id] !== undefined && (
+                  {prev && (
                     <p className="text-xs text-muted-foreground/70">
-                      {t('previous_count_label')}: {previousSession.items[p.id]} {p.unit} · {format(new Date(previousSession.countedAt), 'd MMM', { locale: fr })}
+                      {t('previous_count_label')}: {prev.countedQty} {p.unit}
+                      {prevVariance !== 0 && (
+                        <span className={prevVariance > 0 ? 'text-green-600' : 'text-red-600'}>
+                          {' '}({prevVariance > 0 ? '+' : ''}{prevVariance}{prev.reasonLabel ? `, ${prev.reasonLabel}` : ''})
+                        </span>
+                      )}
+                      {' '}· {previousCountedAtLabel}
                     </p>
                   )}
                 </div>

@@ -63,12 +63,20 @@ export async function GET(request: Request) {
 
     const { data: rows } = await (admin as any)
       .from('stock_movements')
-      .select('product_id, new_qty')
+      .select('product_id, previous_qty, new_qty, reason')
       .eq('count_session_id', latest.count_session_id)
 
-    const items: Record<string, number> = {}
+    const items: Record<string, { countedQty: number; previousQty: number; reasonLabel: string | null }> = {}
     for (const r of rows || []) {
-      if (r.product_id != null && r.new_qty != null) items[r.product_id] = r.new_qty
+      if (r.product_id == null || r.new_qty == null || r.previous_qty == null) continue
+      // reason is stored as "Inventaire physique — <label>" — only surface the
+      // label, and only when it's more informative than the default fallback.
+      const label = String(r.reason || '').split(' — ')[1] || null
+      items[r.product_id] = {
+        countedQty: r.new_qty,
+        previousQty: r.previous_qty,
+        reasonLabel: label && label !== 'Correction de stock' ? label : null,
+      }
     }
 
     return NextResponse.json({ session: { countedAt: latest.created_at, items } })
