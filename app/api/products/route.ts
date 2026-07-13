@@ -296,7 +296,7 @@ export async function PUT(request: Request) {
     // when an offline sync flushes a stale quantity.
     const { data: product, error: fetchError } = await (admin as any)
       .from('products')
-      .select('quantity, shop_id')
+      .select('name, quantity, buying_price, shop_id')
       .eq('id', product_id)
       .eq('shop_id', shop_id)
       .single()
@@ -305,11 +305,18 @@ export async function PUT(request: Request) {
     const prevQty = Number(product.quantity)
     const newQty  = prevQty + Number(quantity_to_add)
 
+    // A restock at a different price updates the product's cost — otherwise
+    // the price entered in the restock form was silently discarded and
+    // margin/reports kept using the old buying_price forever.
+    const newBuyingPrice = Number(buying_price) > 0 ? Number(buying_price) : null
+    const updatePayload: Record<string, unknown> = { quantity: newQty }
+    if (newBuyingPrice !== null) updatePayload.buying_price = newBuyingPrice
+
     // Optimistic lock: if quantity changed between our read and this update,
     // the .eq('quantity', prevQty) filter matches 0 rows → data is null → 409.
     const { data: updated, error: updateError } = await (admin as any)
       .from('products')
-      .update({ quantity: newQty })
+      .update(updatePayload)
       .eq('id', product_id)
       .eq('quantity', prevQty)
       .select('id')
@@ -328,6 +335,27 @@ export async function PUT(request: Request) {
       previous_qty: prevQty,
       new_qty: newQty,
     })
+
+    // Same audit trail as an edit-driven price change (PATCH above), so the
+    // Journal shows every price change regardless of which flow caused it.
+    if (newBuyingPrice !== null && Number(product.buying_price) !== newBuyingPrice) {
+      const { data: actorProfile } = await (admin as any).from('profiles').select('full_name').eq('id', user.id).single()
+      await writeAuditLog({
+        action: 'update_product',
+        shop_id,
+        actor_id: user.id,
+        actor_email: user.email,
+        target_id: product_id,
+        target_type: 'product',
+        ip: getClientIp(request),
+        metadata: {
+          actor_name: actorProfile?.full_name || user.email,
+          product_name: product.name,
+          changes: { buying_price: { from: Number(product.buying_price), to: newBuyingPrice } },
+        },
+      })
+    }
+
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
