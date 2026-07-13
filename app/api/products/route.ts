@@ -40,6 +40,25 @@ export async function POST(request: Request) {
         new_qty: initialQty,
       })
     }
+
+    const { data: actorProfile } = await (admin as any).from('profiles').select('full_name').eq('id', user.id).single()
+    await writeAuditLog({
+      action: 'create_product',
+      shop_id: body.shop_id,
+      actor_id: user.id,
+      actor_email: user.email,
+      target_id: data?.id,
+      target_type: 'product',
+      ip: getClientIp(request),
+      metadata: {
+        actor_name: actorProfile?.full_name || user.email,
+        product_name: data?.name,
+        selling_price: data?.selling_price,
+        buying_price: data?.buying_price,
+        quantity: data?.quantity,
+      },
+    })
+
     return NextResponse.json({ data })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
@@ -84,7 +103,7 @@ export async function PATCH(request: Request) {
     const admin = await createAdminClient()
 
     // Snapshot avant modification, pour le journal d'audit
-    const TRACKED_FIELDS = ['name', 'selling_price', 'buying_price', 'low_stock_threshold', 'sku'] as const
+    const TRACKED_FIELDS = ['name', 'selling_price', 'buying_price', 'low_stock_threshold', 'sku', 'category_id', 'supplier_id'] as const
     const trackedChange = TRACKED_FIELDS.some(f => f in safeUpdates)
     let before: Record<string, unknown> | null = null
     if (trackedChange) {
@@ -110,6 +129,28 @@ export async function PATCH(request: Request) {
           : (from ?? null) === (to ?? null)
         if (!same) changes[f] = { from: from ?? null, to: to ?? null }
       }
+
+      // category_id/supplier_id are foreign keys — resolve to names for a
+      // readable log entry (same reasoning as capturing product_name at
+      // delete time, so the entry stays meaningful even if the category or
+      // supplier is later renamed or removed).
+      if (changes.category_id) {
+        const ids = [changes.category_id.from, changes.category_id.to].filter(Boolean)
+        const { data: cats } = ids.length
+          ? await (admin as any).from('categories').select('id, name').in('id', ids)
+          : { data: [] }
+        const nameOf = (v: unknown) => (cats || []).find((c: any) => c.id === v)?.name ?? null
+        changes.category_id = { from: nameOf(changes.category_id.from), to: nameOf(changes.category_id.to) }
+      }
+      if (changes.supplier_id) {
+        const ids = [changes.supplier_id.from, changes.supplier_id.to].filter(Boolean)
+        const { data: sups } = ids.length
+          ? await (admin as any).from('suppliers').select('id, name').in('id', ids)
+          : { data: [] }
+        const nameOf = (v: unknown) => (sups || []).find((s: any) => s.id === v)?.name ?? null
+        changes.supplier_id = { from: nameOf(changes.supplier_id.from), to: nameOf(changes.supplier_id.to) }
+      }
+
       if (Object.keys(changes).length > 0) {
         const { data: actorProfile } = await (admin as any).from('profiles').select('full_name').eq('id', user.id).single()
         await writeAuditLog({

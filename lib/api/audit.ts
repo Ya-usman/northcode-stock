@@ -17,6 +17,7 @@ export type AuditAction =
   | 'sale.delete'
   | 'expense.delete'
   | 'supplier.delete'
+  | 'create_product'
   | 'update_product'
   | 'archive_product'
   | 'restore_product'

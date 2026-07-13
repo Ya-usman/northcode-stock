@@ -477,7 +477,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       .from('audit_logs')
       .select('*')
       .eq('shop_id', shop.id)
-      .in('action', ['delete_product', 'bulk_delete_products', 'delete_all_products', 'update_product', 'archive_product', 'restore_product'])
+      .in('action', ['delete_product', 'bulk_delete_products', 'delete_all_products', 'create_product', 'update_product', 'archive_product', 'restore_product'])
       .order('created_at', { ascending: false })
       .limit(30)
     setAuditLogs(data || [])
@@ -833,6 +833,11 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 label = 'Suppression en masse'
                 const names = (meta.products_snapshot || []).map((p: any) => p.name).join(', ')
                 detail = `${meta.count} produit${meta.count > 1 ? 's' : ''}${names ? ` · ${names}` : ''}`
+              } else if (log.action === 'create_product') {
+                Icon = Plus
+                iconColor = 'text-green-500'
+                label = meta.product_name || 'Produit créé'
+                detail = `${formatNaira(meta.selling_price)} · ${meta.quantity} unité${meta.quantity > 1 ? 's' : ''}`
               } else if (log.action === 'update_product') {
                 Icon = Edit2
                 iconColor = 'text-blue-400'
@@ -844,6 +849,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 if (changes.buying_price) parts.push(`Prix achat: ${changes.buying_price.from} → ${changes.buying_price.to} ${currencySymbol}`)
                 if (changes.low_stock_threshold) parts.push(`Seuil d'alerte: ${changes.low_stock_threshold.from ?? '—'} → ${changes.low_stock_threshold.to ?? '—'}`)
                 if (changes.sku) parts.push(`SKU: ${changes.sku.from || '—'} → ${changes.sku.to || '—'}`)
+                if (changes.category_id) parts.push(`Catégorie: ${changes.category_id.from || '—'} → ${changes.category_id.to || '—'}`)
+                if (changes.supplier_id) parts.push(`Fournisseur: ${changes.supplier_id.from || '—'} → ${changes.supplier_id.to || '—'}`)
                 detail = parts.join(' · ')
               } else if (log.action === 'archive_product') {
                 Icon = Archive
