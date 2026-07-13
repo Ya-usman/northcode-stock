@@ -26,7 +26,8 @@ import { normalize } from '@/lib/utils/normalize'
 import { format, startOfDay, endOfDay, subDays, subMonths, startOfWeek, startOfMonth, startOfYear } from 'date-fns'
 import type { Sale } from '@/lib/types/database'
 import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-cache'
-import { useIsOnline } from '@/lib/offline/use-is-online'
+import { useOffline } from '@/lib/offline/use-offline'
+import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 
 
 const supabase = createClient() as any
@@ -123,7 +124,7 @@ export default function SalesHistoryPage() {
   const [validateMethod, setValidateMethod] = useState('cash')
   const [actionLoading, setActionLoading] = useState(false)
   const [exportingPDF, setExportingPDF] = useState(false)
-  const isOnline = useIsOnline()
+  const { isOnline } = useOffline()
   const [logs, setLogs] = useState<any[]>([])
   const [loadingLogs, setLoadingLogs] = useState(false)
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -416,16 +417,12 @@ export default function SalesHistoryPage() {
   })
 
   // Refresh when tab regains focus (e.g. after recording a payment on the debts page)
-  // or when connectivity comes back after being offline/asleep.
   useEffect(() => {
     const onFocus = () => { if (document.visibilityState === 'visible') fetchSales() }
     document.addEventListener('visibilitychange', onFocus)
-    window.addEventListener('online', fetchSales)
-    return () => {
-      document.removeEventListener('visibilitychange', onFocus)
-      window.removeEventListener('online', fetchSales)
-    }
+    return () => document.removeEventListener('visibilitychange', onFocus)
   }, [shopKey, dateFilter, customStart, customEnd, methodFilter, statusFilter, saleStatusFilter, view])
+  useRefetchOnReconnect(fetchSales, isOnline)
 
   const filtered = sales.filter(s => {
     if (!search) return true

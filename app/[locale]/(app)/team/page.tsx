@@ -23,6 +23,8 @@ import { fr, enUS } from 'date-fns/locale'
 import type { UserRole } from '@/lib/types/database'
 import { cn } from '@/lib/utils/cn'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
+import { useOffline } from '@/lib/offline/use-offline'
+import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 
 const supabase = createClient() as any
 
@@ -73,6 +75,7 @@ export default function TeamPage() {
   const locale = useLocale()
   const dateFnsLocale = locale === 'fr' ? fr : enUS
   const { profile: myProfile, shop, userShops, effectiveShopIds, dashboardShopFilter } = useAuth()
+  const { isOnline } = useOffline()
   const { toast } = useToast()
 
   const [viewShopId, setViewShopId] = useState<string>(shop?.id || '')
@@ -194,12 +197,9 @@ export default function TeamPage() {
   useEffect(() => {
     const onVisible = () => { if (document.visibilityState === 'visible') fetchMembers() }
     document.addEventListener('visibilitychange', onVisible)
-    window.addEventListener('online', fetchMembers)
-    return () => {
-      document.removeEventListener('visibilitychange', onVisible)
-      window.removeEventListener('online', fetchMembers)
-    }
+    return () => document.removeEventListener('visibilitychange', onVisible)
   }, [fetchMembers])
+  useRefetchOnReconnect(fetchMembers, isOnline)
 
   const fetchAuditLogs = useCallback(async () => {
     if (!viewShopId) return

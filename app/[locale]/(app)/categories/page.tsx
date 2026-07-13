@@ -17,6 +17,8 @@ import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/compone
 import { cn } from '@/lib/utils/cn'
 import type { Category, Product } from '@/lib/types/database'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
+import { useOffline } from '@/lib/offline/use-offline'
+import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 
 function CategoryCard({ cat, products, expandedId, setExpandedId, canEdit, deleteCategory, t, fmt }: any) {
   const catProducts = products.filter((p: any) => p.category_id === cat.id)
@@ -116,6 +118,7 @@ export default function CategoriesPage() {
   const t = useTranslations()
   const { shop, profile, roleInActiveShop, effectiveShopIds, userShops } = useAuthContext()
   const { fmt } = useCurrency()
+  const { isOnline } = useOffline()
   const isMultiShop = effectiveShopIds.length > 1
   const supabase = createClient()
   const { toast } = useToast()
@@ -172,14 +175,7 @@ export default function CategoriesPage() {
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [effectiveShopIds.join(',')])
-
-  // Refresh on reconnect — the auth token can go stale while the device was
-  // offline/asleep, leaving an empty/partial result until something retries.
-  useEffect(() => {
-    const onOnline = () => fetchData()
-    window.addEventListener('online', onOnline)
-    return () => window.removeEventListener('online', onOnline)
-  }, [effectiveShopIds.join(',')])
+  useRefetchOnReconnect(fetchData, isOnline)
 
   const openDialog = () => {
     setNewName('')

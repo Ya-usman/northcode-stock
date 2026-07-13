@@ -182,17 +182,16 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
   useEffect(() => { loadShopData() }, [loadShopData])
 
-  // Refresh when the user comes back to this tab or regains connectivity —
-  // the cart is built from this product/customer list, so stale stock levels
-  // here risk overselling during a sale.
+  // Refresh when the user comes back to this tab — the cart is built from
+  // this product/customer list, so stale stock levels here risk overselling
+  // during a sale. Reconnect is already covered: loadShopData depends on
+  // `isOnline` (from useOffline, verified via a real request — see there for
+  // why the raw browser 'online' event isn't trustworthy on Capacitor/Android),
+  // so the mount effect above re-runs it whenever isOnline flips back to true.
   useEffect(() => {
     const onVisible = () => { if (document.visibilityState === 'visible') loadShopData() }
     document.addEventListener('visibilitychange', onVisible)
-    window.addEventListener('online', loadShopData)
-    return () => {
-      document.removeEventListener('visibilitychange', onVisible)
-      window.removeEventListener('online', loadShopData)
-    }
+    return () => document.removeEventListener('visibilitychange', onVisible)
   }, [loadShopData])
 
   useEffect(() => {

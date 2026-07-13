@@ -6,6 +6,8 @@ import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
+import { useOffline } from '@/lib/offline/use-offline'
+import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { Card, CardContent } from '@/components/ui/card'
@@ -62,6 +64,7 @@ export default function CaissePage() {
 
   const role = roleInActiveShop ?? profile?.role
   const { canAccess } = useRolePermissions()
+  const { isOnline } = useOffline()
   const isAuthorized = (role === 'owner' || role === 'super_admin' || role === 'manager' || role === 'shop_manager') && canAccess('caisse')
 
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date())
@@ -183,12 +186,9 @@ export default function CaissePage() {
   useEffect(() => {
     const onVisible = () => { if (document.visibilityState === 'visible') fetchData() }
     document.addEventListener('visibilitychange', onVisible)
-    window.addEventListener('online', fetchData)
-    return () => {
-      document.removeEventListener('visibilitychange', onVisible)
-      window.removeEventListener('online', fetchData)
-    }
+    return () => document.removeEventListener('visibilitychange', onVisible)
   }, [fetchData])
+  useRefetchOnReconnect(fetchData, isOnline)
 
   const grandTotal        = cashierSummaries.reduce((s, c) => s + c.total, 0)
   const grandSalesTotal   = cashierSummaries.reduce((s, c) => s + c.salesTotal, 0)

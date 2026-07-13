@@ -19,6 +19,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { supplierSchema, type SupplierFormData } from '@/lib/validations/customer'
 import type { Supplier } from '@/lib/types/database'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
+import { useOffline } from '@/lib/offline/use-offline'
+import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 
 function SupplierCard({ supplier, productCounts, setEditingSupplier, form, setShowModal, deleteSupplier, t }: any) {
   return (
@@ -64,6 +66,7 @@ function SupplierCard({ supplier, productCounts, setEditingSupplier, form, setSh
 export default function SuppliersPage() {
   const t = useTranslations()
   const { profile, shop, effectiveShopIds, userShops } = useAuth()
+  const { isOnline } = useOffline()
   const isMultiShop = effectiveShopIds.length > 1
   const supabase = createClient() as any
   const { toast } = useToast()
@@ -112,14 +115,7 @@ export default function SuppliersPage() {
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [effectiveShopIds.join(',')])
-
-  // Refresh on reconnect — the auth token can go stale while the device was
-  // offline/asleep, leaving an empty/partial result until something retries.
-  useEffect(() => {
-    const onOnline = () => fetchSuppliers()
-    window.addEventListener('online', onOnline)
-    return () => window.removeEventListener('online', onOnline)
-  }, [effectiveShopIds.join(',')])
+  useRefetchOnReconnect(fetchSuppliers, isOnline)
 
   const filtered = suppliers.filter(s => {
     if (!search) return true

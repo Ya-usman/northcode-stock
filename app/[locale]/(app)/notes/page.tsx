@@ -14,6 +14,8 @@ import { normalize } from '@/lib/utils/normalize'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
+import { useOffline } from '@/lib/offline/use-offline'
+import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 
 const supabase = createClient() as any
 
@@ -44,6 +46,7 @@ function colorFor(key: string) {
 
 export default function NotesPage() {
   const { profile, shop, userShops } = useAuth()
+  const { isOnline } = useOffline()
   const { toast } = useToast()
 
   const [notes, setNotes] = useState<Note[]>([])
@@ -93,17 +96,14 @@ export default function NotesPage() {
 
   useEffect(() => { fetchNotes() }, [effectiveShopIds.join(','), shopFilter])
 
-  // Refresh when the user comes back to this tab or regains connectivity —
-  // catches notes added/edited by other team members in the meantime.
+  // Refresh when the user comes back to this tab — catches notes added/edited
+  // by other team members in the meantime.
   useEffect(() => {
     const onVisible = () => { if (document.visibilityState === 'visible') fetchNotes() }
     document.addEventListener('visibilitychange', onVisible)
-    window.addEventListener('online', fetchNotes)
-    return () => {
-      document.removeEventListener('visibilitychange', onVisible)
-      window.removeEventListener('online', fetchNotes)
-    }
+    return () => document.removeEventListener('visibilitychange', onVisible)
   }, [effectiveShopIds.join(','), shopFilter])
+  useRefetchOnReconnect(fetchNotes, isOnline)
 
   const openCreate = () => {
     setEditing(null)

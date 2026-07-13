@@ -20,6 +20,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { customerSchema, type CustomerFormData } from '@/lib/validations/customer'
 import type { Customer } from '@/lib/types/database'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
+import { useOffline } from '@/lib/offline/use-offline'
+import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 
 function CustomerCard({ customer, profile, formatNaira, setEditingCustomer, form, setShowModal, deleteCustomer, t }: any) {
   return (
@@ -69,6 +71,7 @@ export default function CustomersPage() {
   const { profile, shop, effectiveShopIds, userShops } = useAuth()
   const isMultiShop = effectiveShopIds.length > 1
   const { fmt: formatNaira } = useCurrency()
+  const { isOnline } = useOffline()
   const supabase = createClient() as any
   const { toast } = useToast()
 
@@ -111,14 +114,7 @@ export default function CustomersPage() {
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [effectiveShopIds.join(',')])
-
-  // Refresh on reconnect — the auth token can go stale while the device was
-  // offline/asleep, leaving an empty/partial result until something retries.
-  useEffect(() => {
-    const onOnline = () => fetchCustomers()
-    window.addEventListener('online', onOnline)
-    return () => window.removeEventListener('online', onOnline)
-  }, [effectiveShopIds.join(',')])
+  useRefetchOnReconnect(fetchCustomers, isOnline)
 
   const filtered = customers.filter(c => {
     if (!search) return true

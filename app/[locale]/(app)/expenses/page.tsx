@@ -20,6 +20,8 @@ import { format, startOfMonth, endOfMonth, addMonths, addWeeks } from 'date-fns'
 import type { Expense, ExpenseBudget } from '@/lib/types/database'
 import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-cache'
 import { useIsOnline } from '@/lib/offline/use-is-online'
+import { useOffline } from '@/lib/offline/use-offline'
+import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { savePendingExpense, getPendingExpenses, type PendingExpense } from '@/lib/offline/db'
 
 import { cn } from '@/lib/utils/cn'
@@ -101,6 +103,7 @@ export default function ExpensesPage() {
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
 
   const isOnline = useIsOnline()
+  const { isOnline: isReallyOnline } = useOffline()
   const [pendingExpenses, setPendingExpenses] = useState<PendingExpense[]>([])
 
   // Expense modal state
@@ -266,18 +269,17 @@ export default function ExpensesPage() {
     generateDueRecurring()
   }, [shopIdsKey, monthFilter])
 
-  // Refresh when the user comes back to this tab or regains connectivity —
-  // catches expenses added/edited by other team members in the meantime.
-  useEffect(() => {
-    const refresh = () => { fetchExpenses(); fetchBudgets(); fetchDeleteLogs() }
-    const onVisible = () => { if (document.visibilityState === 'visible') refresh() }
-    document.addEventListener('visibilitychange', onVisible)
-    window.addEventListener('online', refresh)
-    return () => {
-      document.removeEventListener('visibilitychange', onVisible)
-      window.removeEventListener('online', refresh)
-    }
+  // Refresh when the user comes back to this tab — catches expenses added/
+  // edited by other team members in the meantime.
+  const refreshExpensesData = useCallback(() => {
+    fetchExpenses(); fetchBudgets(); fetchDeleteLogs()
   }, [fetchExpenses, fetchBudgets, fetchDeleteLogs])
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') refreshExpensesData() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [refreshExpensesData])
+  useRefetchOnReconnect(refreshExpensesData, isReallyOnline)
 
   // ─── Expense CRUD ────────────────────────────────────────────────────────
 

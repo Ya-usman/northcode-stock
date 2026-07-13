@@ -17,6 +17,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
+import { useOffline } from '@/lib/offline/use-offline'
+import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import type { Product, Category } from '@/lib/types/database'
 
 const supabase = createClient() as any
@@ -40,6 +42,7 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
   const router = useRouter()
   const { shop, profile, roleInActiveShop } = useAuth()
   const { canAccess } = useRolePermissions()
+  const { isOnline } = useOffline()
   const { toast } = useToast()
   const { fmt } = useCurrency()
 
@@ -84,18 +87,15 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
 
   useEffect(() => { if (isAuthorized) fetchProducts() }, [fetchProducts, isAuthorized])
 
-  // Refresh when the user comes back to this tab or regains connectivity —
-  // counting against a stale theoretical quantity would produce wrong adjustments.
+  // Refresh when the user comes back to this tab — counting against a stale
+  // theoretical quantity would produce wrong adjustments.
   useEffect(() => {
     if (!isAuthorized) return
     const onVisible = () => { if (document.visibilityState === 'visible') fetchProducts() }
     document.addEventListener('visibilitychange', onVisible)
-    window.addEventListener('online', fetchProducts)
-    return () => {
-      document.removeEventListener('visibilitychange', onVisible)
-      window.removeEventListener('online', fetchProducts)
-    }
+    return () => document.removeEventListener('visibilitychange', onVisible)
   }, [fetchProducts, isAuthorized])
+  useRefetchOnReconnect(() => { if (isAuthorized) fetchProducts() }, isOnline)
 
   const filtered = products.filter(p => {
     if (search) {

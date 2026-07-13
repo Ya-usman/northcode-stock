@@ -21,6 +21,8 @@ import { generateReportPDFBlob, savePDF } from '@/lib/utils/pdf'
 import { cn } from '@/lib/utils/cn'
 import { format, subDays, startOfDay, endOfDay, startOfMonth, startOfWeek, startOfQuarter, startOfYear } from 'date-fns'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
+import { useOffline } from '@/lib/offline/use-offline'
+import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRolePermissions, type PermFeature } from '@/lib/hooks/use-role-permissions'
 
 const PIE_COLORS = ['#60a5fa', '#D4AF37', '#16A34A', '#DC2626', '#a78bfa']
@@ -33,6 +35,7 @@ export default function ReportsPage() {
   const isMultiShop = effectiveShopIds.length > 1
   const { fmt: formatNaira, symbol: currencySymbol } = useCurrency()
   const { canAccess } = useRolePermissions()
+  const { isOnline } = useOffline()
   const { toast } = useToast()
   const supabase = createClient() as any
 
@@ -291,23 +294,16 @@ export default function ReportsPage() {
 
   // Refresh when the user comes back to this tab or regains connectivity —
   // financial reports deserve the same freshness as the dashboard.
+  const refetchReports = () => {
+    if (dateFilter === 'custom' && (!customStart || !customEnd)) return
+    fetchReports()
+  }
   useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState !== 'visible') return
-      if (dateFilter === 'custom' && (!customStart || !customEnd)) return
-      fetchReports()
-    }
-    const onOnline = () => {
-      if (dateFilter === 'custom' && (!customStart || !customEnd)) return
-      fetchReports()
-    }
+    const onVisible = () => { if (document.visibilityState === 'visible') refetchReports() }
     document.addEventListener('visibilitychange', onVisible)
-    window.addEventListener('online', onOnline)
-    return () => {
-      document.removeEventListener('visibilitychange', onVisible)
-      window.removeEventListener('online', onOnline)
-    }
+    return () => document.removeEventListener('visibilitychange', onVisible)
   }, [effectiveShopIds.join(','), dateFilter, customStart, customEnd])
+  useRefetchOnReconnect(refetchReports, isOnline)
 
   const buildPdfParams = () => {
     const { start, end } = getDateRange()

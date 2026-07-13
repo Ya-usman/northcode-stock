@@ -8,6 +8,8 @@ import { useTranslations } from 'next-intl'
 import { Search, Calendar, Package, ArrowRight, X, History, ClipboardCheck } from 'lucide-react'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
+import { useOffline } from '@/lib/offline/use-offline'
+import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -51,6 +53,7 @@ function fmtDate(d: string) {
 export default function StockMovementsPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('movements')
   const { effectiveShopIds, shop } = useAuth()
+  const { isOnline } = useOffline()
   const [{ search, dateFrom, dateTo }, setFilter] = usePersistedFilters(
     'movements', shop?.id, { search: '', dateFrom: '', dateTo: '' }
   )
@@ -86,17 +89,14 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
 
   useEffect(() => { fetchMovements() }, [fetchMovements])
 
-  // Refresh when the user comes back to this tab or regains connectivity —
-  // catches restocks/adjustments made by other team members in the meantime.
+  // Refresh when the user comes back to this tab — catches restocks/
+  // adjustments made by other team members in the meantime.
   useEffect(() => {
     const onVisible = () => { if (document.visibilityState === 'visible') fetchMovements() }
     document.addEventListener('visibilitychange', onVisible)
-    window.addEventListener('online', fetchMovements)
-    return () => {
-      document.removeEventListener('visibilitychange', onVisible)
-      window.removeEventListener('online', fetchMovements)
-    }
+    return () => document.removeEventListener('visibilitychange', onVisible)
   }, [fetchMovements])
+  useRefetchOnReconnect(fetchMovements, isOnline)
 
   const products = useMemo<ProductSummary[]>(() => {
     const map = new Map<string, ProductSummary>()

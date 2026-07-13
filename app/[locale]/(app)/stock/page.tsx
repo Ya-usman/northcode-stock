@@ -25,7 +25,8 @@ import { ProductForm } from '@/components/stock/product-form'
 import { ImportProductsModal } from '@/components/stock/import-products-modal'
 import { BulkAddModal } from '@/components/stock/bulk-add-modal'
 import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-cache'
-import { useIsOnline } from '@/lib/offline/use-is-online'
+import { useOffline } from '@/lib/offline/use-offline'
+import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 
 import { savePendingMovement, updateCachedProductQuantity } from '@/lib/offline/db'
 import { registerBackgroundSync } from '@/lib/offline/sync'
@@ -69,7 +70,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [loading, setLoading] = useState(() =>
     !getPageCache(`stock_${effectiveShopIds.join(',')}`)
   )
-  const isOnline = useIsOnline()
+  const { isOnline } = useOffline()
   const [{ search, categoryFilter, statusFilter }, setFilter] = usePersistedFilters(
     'stock', shop?.id, { search: '', categoryFilter: 'all', statusFilter: 'all' }
   )
@@ -163,14 +164,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [effectiveShopIds.join(',')])
-
-  // Refresh on reconnect — the auth token can go stale while the device was
-  // offline/asleep, leaving an empty/partial result until something retries.
-  useEffect(() => {
-    const onOnline = () => fetchProducts()
-    window.addEventListener('online', onOnline)
-    return () => window.removeEventListener('online', onOnline)
-  }, [effectiveShopIds.join(',')])
+  useRefetchOnReconnect(fetchProducts, isOnline)
 
   // Live stock updates (quantity, price, archive status) for the active shop.
   // Realtime payloads are raw rows without the categories(name)/suppliers(name)
