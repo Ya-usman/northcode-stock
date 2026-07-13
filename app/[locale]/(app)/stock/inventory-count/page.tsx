@@ -15,6 +15,7 @@ import { useCurrency } from '@/lib/hooks/use-currency'
 import { normalize } from '@/lib/utils/normalize'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
@@ -196,18 +197,21 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
       <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-end gap-2">
         <div className="relative flex-1 min-w-[180px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('search_placeholder')} className="pl-9 h-9" />
         </div>
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-[170px] h-9"><span className="truncate"><span className="text-muted-foreground">{tProducts('category')}: </span><SelectValue /></span></SelectTrigger>
-          <SelectContent className="max-h-80">
-            <SelectItem value="all">{t('all_categories')}</SelectItem>
-            {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-col gap-0.5">
+          <Label className="text-[10px] font-normal text-muted-foreground px-0.5">{tProducts('category')}</Label>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-[150px] h-9"><SelectValue /></SelectTrigger>
+            <SelectContent className="max-h-80">
+              <SelectItem value="all">{t('all_categories')}</SelectItem>
+              {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <p className="text-xs text-muted-foreground">{t('progress', { counted: countedTotal, total: products.length })}</p>

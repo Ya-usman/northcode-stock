@@ -719,40 +719,43 @@ export default function SalesHistoryPage() {
       </div>
 
       {/* Filters row */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-end gap-2">
         <div className="relative flex-1 min-w-[160px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={e => setFilter({ search: e.target.value })} placeholder={t('sales.search_history')} className="pl-9 h-9" />
         </div>
 
-        <Select
-          value={dateFilter}
-          onValueChange={v => {
-            if (v === 'custom') {
-              const today = format(new Date(), 'yyyy-MM-dd')
-              const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd')
-              setFilter({
-                dateFilter: v,
-                customStart: customStart || monthStart,
-                customEnd:   customEnd   || today,
-              })
-            } else {
-              setFilter({ dateFilter: v })
-            }
-          }}
-        >
-          <SelectTrigger className="w-[150px] h-9"><span className="truncate"><span className="text-muted-foreground">{t('reports.date_range')}: </span><SelectValue /></span></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="today">{t('sales.filter_today')}</SelectItem>
-            <SelectItem value="yesterday">{t('sales.filter_yesterday')}</SelectItem>
-            <SelectItem value="week">{t('sales.filter_week')}</SelectItem>
-            <SelectItem value="month">{t('sales.filter_month')}</SelectItem>
-            <SelectItem value="quarter">{t('sales.filter_quarter')}</SelectItem>
-            <SelectItem value="semester">{t('sales.filter_semester')}</SelectItem>
-            <SelectItem value="year">{t('sales.filter_year')}</SelectItem>
-            <SelectItem value="custom">{t('sales.filter_custom')}</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex flex-col gap-0.5">
+          <Label className="text-[10px] font-normal text-muted-foreground px-0.5">{t('reports.date_range')}</Label>
+          <Select
+            value={dateFilter}
+            onValueChange={v => {
+              if (v === 'custom') {
+                const today = format(new Date(), 'yyyy-MM-dd')
+                const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd')
+                setFilter({
+                  dateFilter: v,
+                  customStart: customStart || monthStart,
+                  customEnd:   customEnd   || today,
+                })
+              } else {
+                setFilter({ dateFilter: v })
+              }
+            }}
+          >
+            <SelectTrigger className="w-[150px] h-9"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="today">{t('sales.filter_today')}</SelectItem>
+              <SelectItem value="yesterday">{t('sales.filter_yesterday')}</SelectItem>
+              <SelectItem value="week">{t('sales.filter_week')}</SelectItem>
+              <SelectItem value="month">{t('sales.filter_month')}</SelectItem>
+              <SelectItem value="quarter">{t('sales.filter_quarter')}</SelectItem>
+              <SelectItem value="semester">{t('sales.filter_semester')}</SelectItem>
+              <SelectItem value="year">{t('sales.filter_year')}</SelectItem>
+              <SelectItem value="custom">{t('sales.filter_custom')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
         {dateFilter === 'custom' && (
           <>
@@ -774,38 +777,47 @@ export default function SalesHistoryPage() {
           </>
         )}
 
-        <Select value={methodFilter} onValueChange={v => setFilter({ methodFilter: v })}>
-          <SelectTrigger className="w-[140px] h-9"><span className="truncate"><span className="text-muted-foreground">Méthode: </span><SelectValue /></span></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t('sales.all_methods')}</SelectItem>
-            <SelectItem value="cash">{t('payment.cash')}</SelectItem>
-            <SelectItem value="mobile_money">{t('payment.mobile_money')}</SelectItem>
-            <SelectItem value="transfer">{t('payment.transfer')}</SelectItem>
-            <SelectItem value="credit">{t('payment.credit')}</SelectItem>
-            <SelectItem value="paystack">{t('payment.paystack')}</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex flex-col gap-0.5">
+          <Label className="text-[10px] font-normal text-muted-foreground px-0.5">Méthode</Label>
+          <Select value={methodFilter} onValueChange={v => setFilter({ methodFilter: v })}>
+            <SelectTrigger className="w-[140px] h-9"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('sales.all_methods')}</SelectItem>
+              <SelectItem value="cash">{t('payment.cash')}</SelectItem>
+              <SelectItem value="mobile_money">{t('payment.mobile_money')}</SelectItem>
+              <SelectItem value="transfer">{t('payment.transfer')}</SelectItem>
+              <SelectItem value="credit">{t('payment.credit')}</SelectItem>
+              <SelectItem value="paystack">{t('payment.paystack')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
         {view === 'sales' && (
           <>
-            <Select value={statusFilter} onValueChange={v => setFilter({ statusFilter: v })}>
-              <SelectTrigger className="w-[130px] h-9"><span className="truncate"><span className="text-muted-foreground">Statut: </span><SelectValue /></span></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('sales.all_statuses')}</SelectItem>
-                <SelectItem value="paid">{t('status.paid')}</SelectItem>
-                <SelectItem value="partial">{t('status.partial')}</SelectItem>
-                <SelectItem value="pending">{t('status.pending')}</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex flex-col gap-0.5">
+              <Label className="text-[10px] font-normal text-muted-foreground px-0.5">Statut</Label>
+              <Select value={statusFilter} onValueChange={v => setFilter({ statusFilter: v })}>
+                <SelectTrigger className="w-[130px] h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('sales.all_statuses')}</SelectItem>
+                  <SelectItem value="paid">{t('status.paid')}</SelectItem>
+                  <SelectItem value="partial">{t('status.partial')}</SelectItem>
+                  <SelectItem value="pending">{t('status.pending')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Select value={saleStatusFilter} onValueChange={v => setFilter({ saleStatusFilter: v as any })}>
-              <SelectTrigger className="w-[130px] h-9"><span className="truncate"><span className="text-muted-foreground">Vente: </span><SelectValue /></span></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('sales.filter_all')}</SelectItem>
-                <SelectItem value="active">{t('sales.filter_active')}</SelectItem>
-                <SelectItem value="cancelled">{t('sales.filter_cancelled')}</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex flex-col gap-0.5">
+              <Label className="text-[10px] font-normal text-muted-foreground px-0.5">Vente</Label>
+              <Select value={saleStatusFilter} onValueChange={v => setFilter({ saleStatusFilter: v as any })}>
+                <SelectTrigger className="w-[130px] h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('sales.filter_all')}</SelectItem>
+                  <SelectItem value="active">{t('sales.filter_active')}</SelectItem>
+                  <SelectItem value="cancelled">{t('sales.filter_cancelled')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </>
         )}
 

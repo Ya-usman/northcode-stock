@@ -627,34 +627,40 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       {view === 'products' && (
       <>
       {/* Controls */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-end gap-2">
         <div className="relative flex-1 min-w-[180px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={e => setFilter({ search: e.target.value })} placeholder={t('products.search_placeholder')} className="pl-9 h-9" />
         </div>
-        <div className="flex gap-1">
-          <Select value={categoryFilter} onValueChange={v => setFilter({ categoryFilter: v })}>
-            <SelectTrigger className="w-[150px] h-9"><span className="truncate"><span className="text-muted-foreground">{t('products.category')}: </span><SelectValue placeholder={t('products.all_categories')} /></span></SelectTrigger>
-            <SelectContent className="max-h-80">
-              <SelectItem value="all">{t('products.all_categories')}</SelectItem>
-              {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+        <div className="flex flex-col gap-0.5">
+          <Label className="text-[10px] font-normal text-muted-foreground px-0.5">{t('products.category')}</Label>
+          <div className="flex gap-1">
+            <Select value={categoryFilter} onValueChange={v => setFilter({ categoryFilter: v })}>
+              <SelectTrigger className="w-[130px] h-9"><SelectValue placeholder={t('products.all_categories')} /></SelectTrigger>
+              <SelectContent className="max-h-80">
+                <SelectItem value="all">{t('products.all_categories')}</SelectItem>
+                {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin') && (
+              <Button variant="outline" size="sm" className="h-9 px-2" onClick={() => setShowCatModal(true)} title={t('products.manage_categories')}>
+                <Settings2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <Label className="text-[10px] font-normal text-muted-foreground px-0.5">{t('products.status_label')}</Label>
+          <Select value={statusFilter} onValueChange={v => setFilter({ statusFilter: v })}>
+            <SelectTrigger className="w-[110px] h-9"><SelectValue placeholder={t('status.all')} /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('status.all')}</SelectItem>
+              <SelectItem value="ok">{t('status.in_stock')}</SelectItem>
+              <SelectItem value="low">{t('status.low_stock')}</SelectItem>
+              <SelectItem value="out">{t('status.out_of_stock')}</SelectItem>
             </SelectContent>
           </Select>
-          {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin') && (
-            <Button variant="outline" size="sm" className="h-9 px-2" onClick={() => setShowCatModal(true)} title={t('products.manage_categories')}>
-              <Settings2 className="h-4 w-4" />
-            </Button>
-          )}
         </div>
-        <Select value={statusFilter} onValueChange={v => setFilter({ statusFilter: v })}>
-          <SelectTrigger className="w-[135px] h-9"><span className="truncate"><span className="text-muted-foreground">{t('products.status_label')}: </span><SelectValue placeholder={t('status.all')} /></span></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t('status.all')}</SelectItem>
-            <SelectItem value="ok">{t('status.in_stock')}</SelectItem>
-            <SelectItem value="low">{t('status.low_stock')}</SelectItem>
-            <SelectItem value="out">{t('status.out_of_stock')}</SelectItem>
-          </SelectContent>
-        </Select>
         {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'cashier' || effectiveRole === 'super_admin') && (
           <>
             <div className="flex gap-1">

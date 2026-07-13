@@ -13,6 +13,7 @@ import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrency } from '@/lib/hooks/use-currency'
@@ -412,8 +413,9 @@ export default function ReportsPage() {
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
           <div className="flex flex-col gap-0.5">
+            <Label className="text-[10px] font-normal text-muted-foreground px-0.5">{t('reports.date_range')}</Label>
             <Select value={dateFilter} onValueChange={v => setFilter({ dateFilter: v })}>
-              <SelectTrigger className="w-[165px] sm:w-[190px] text-xs sm:text-sm h-9"><span className="truncate"><span className="text-muted-foreground">{t('reports.date_range')}: </span><SelectValue /></span></SelectTrigger>
+              <SelectTrigger className="w-[165px] sm:w-[190px] text-xs sm:text-sm h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="today">{t('reports.today')}</SelectItem>
                 <SelectItem value="yesterday">{t('reports.yesterday')}</SelectItem>
