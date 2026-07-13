@@ -165,6 +165,22 @@ export default function CategoriesPage() {
 
   useEffect(() => { fetchData() }, [effectiveShopIds.join(',')])
 
+  // Refresh when the user comes back to this tab — catches categories/products
+  // added or edited by other team members while this page sat in the background.
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchData() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [effectiveShopIds.join(',')])
+
+  // Refresh on reconnect — the auth token can go stale while the device was
+  // offline/asleep, leaving an empty/partial result until something retries.
+  useEffect(() => {
+    const onOnline = () => fetchData()
+    window.addEventListener('online', onOnline)
+    return () => window.removeEventListener('online', onOnline)
+  }, [effectiveShopIds.join(',')])
+
   const openDialog = () => {
     setNewName('')
     setDialogOpen(true)

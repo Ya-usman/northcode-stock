@@ -71,6 +71,19 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
 
   useEffect(() => { if (isAuthorized) fetchProducts() }, [fetchProducts, isAuthorized])
 
+  // Refresh when the user comes back to this tab or regains connectivity —
+  // counting against a stale theoretical quantity would produce wrong adjustments.
+  useEffect(() => {
+    if (!isAuthorized) return
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchProducts() }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('online', fetchProducts)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('online', fetchProducts)
+    }
+  }, [fetchProducts, isAuthorized])
+
   const filtered = products.filter(p => {
     if (search) {
       const q = normalize(search)

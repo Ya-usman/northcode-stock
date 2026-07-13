@@ -93,6 +93,18 @@ export default function NotesPage() {
 
   useEffect(() => { fetchNotes() }, [effectiveShopIds.join(','), shopFilter])
 
+  // Refresh when the user comes back to this tab or regains connectivity —
+  // catches notes added/edited by other team members in the meantime.
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchNotes() }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('online', fetchNotes)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('online', fetchNotes)
+    }
+  }, [effectiveShopIds.join(','), shopFilter])
+
   const openCreate = () => {
     setEditing(null)
     contentValueRef.current = ''

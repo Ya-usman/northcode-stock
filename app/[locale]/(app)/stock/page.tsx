@@ -164,6 +164,14 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [effectiveShopIds.join(',')])
 
+  // Refresh on reconnect — the auth token can go stale while the device was
+  // offline/asleep, leaving an empty/partial result until something retries.
+  useEffect(() => {
+    const onOnline = () => fetchProducts()
+    window.addEventListener('online', onOnline)
+    return () => window.removeEventListener('online', onOnline)
+  }, [effectiveShopIds.join(',')])
+
   // Live stock updates (quantity, price, archive status) for the active shop.
   // Realtime payloads are raw rows without the categories(name)/suppliers(name)
   // joins from the initial fetch, so we merge onto the existing record instead

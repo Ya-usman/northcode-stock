@@ -416,10 +416,15 @@ export default function SalesHistoryPage() {
   })
 
   // Refresh when tab regains focus (e.g. after recording a payment on the debts page)
+  // or when connectivity comes back after being offline/asleep.
   useEffect(() => {
     const onFocus = () => { if (document.visibilityState === 'visible') fetchSales() }
     document.addEventListener('visibilitychange', onFocus)
-    return () => document.removeEventListener('visibilitychange', onFocus)
+    window.addEventListener('online', fetchSales)
+    return () => {
+      document.removeEventListener('visibilitychange', onFocus)
+      window.removeEventListener('online', fetchSales)
+    }
   }, [shopKey, dateFilter, customStart, customEnd, methodFilter, statusFilter, saleStatusFilter, view])
 
   const filtered = sales.filter(s => {

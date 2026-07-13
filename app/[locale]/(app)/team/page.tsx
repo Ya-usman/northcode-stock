@@ -194,7 +194,11 @@ export default function TeamPage() {
   useEffect(() => {
     const onVisible = () => { if (document.visibilityState === 'visible') fetchMembers() }
     document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
+    window.addEventListener('online', fetchMembers)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('online', fetchMembers)
+    }
   }, [fetchMembers])
 
   const fetchAuditLogs = useCallback(async () => {

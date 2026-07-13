@@ -289,6 +289,26 @@ export default function ReportsPage() {
     fetchReports()
   }, [effectiveShopIds.join(','), dateFilter, dateFilter === 'custom' ? customStart : '', dateFilter === 'custom' ? customEnd : ''])
 
+  // Refresh when the user comes back to this tab or regains connectivity —
+  // financial reports deserve the same freshness as the dashboard.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      if (dateFilter === 'custom' && (!customStart || !customEnd)) return
+      fetchReports()
+    }
+    const onOnline = () => {
+      if (dateFilter === 'custom' && (!customStart || !customEnd)) return
+      fetchReports()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('online', onOnline)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('online', onOnline)
+    }
+  }, [effectiveShopIds.join(','), dateFilter, customStart, customEnd])
+
   const buildPdfParams = () => {
     const { start, end } = getDateRange()
     const dateRange = `${format(new Date(start), 'dd MMM yyyy')} – ${format(new Date(end), 'dd MMM yyyy')}`

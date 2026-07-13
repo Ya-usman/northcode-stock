@@ -266,6 +266,19 @@ export default function ExpensesPage() {
     generateDueRecurring()
   }, [shopIdsKey, monthFilter])
 
+  // Refresh when the user comes back to this tab or regains connectivity —
+  // catches expenses added/edited by other team members in the meantime.
+  useEffect(() => {
+    const refresh = () => { fetchExpenses(); fetchBudgets(); fetchDeleteLogs() }
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh() }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('online', refresh)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('online', refresh)
+    }
+  }, [fetchExpenses, fetchBudgets, fetchDeleteLogs])
+
   // ─── Expense CRUD ────────────────────────────────────────────────────────
 
   const openAdd = () => {

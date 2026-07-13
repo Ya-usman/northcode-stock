@@ -135,53 +135,65 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   // once the sale completes (resetForm) or the cart changes to a new attempt.
   const checkoutIdRef = useRef<string | null>(null)
 
-  useEffect(() => {
+  const loadShopData = useCallback(async () => {
     if (!selectedShop?.id) return
-    const load = async () => {
-      // Always show IndexedDB cache immediately (stale-while-revalidate)
-      const [cachedProds, cachedCusts] = await Promise.all([
-        getCachedProducts(selectedShop.id),
-        getCachedCustomers(selectedShop.id),
-      ])
-      if (cachedProds.length > 0) {
-        setProducts(cachedProds as unknown as Product[])
-        setFilteredProducts(cachedProds as unknown as Product[])
-      }
-      if (cachedCusts.length > 0) setCustomers(cachedCusts as unknown as Customer[])
-
-      if (!isOnline) return
-
-      // Fetch fresh data in background
-      try {
-        const [{ data: prods }, { data: custs }, { data: cats }] = await Promise.all([
-          supabase.from('products').select('*, categories(name), suppliers(name)')
-            .eq('shop_id', selectedShop.id).eq('is_active', true).gt('quantity', 0).order('name'),
-          supabase.from('customers').select('*').eq('shop_id', selectedShop.id).order('name'),
-          supabase.from('categories').select('*').eq('shop_id', selectedShop.id).order('name'),
-        ])
-        const safeProds = (prods || []) as unknown as Product[]
-        setProducts(safeProds)
-        setFilteredProducts(safeProds)
-        setCustomers((custs || []) as Customer[])
-        setCategories((cats || []) as Category[])
-        // Refresh IndexedDB cache
-        await Promise.all([
-          cacheProducts(selectedShop.id, safeProds.map((p: any) => ({
-            id: p.id, shop_id: selectedShop.id, name: p.name, sku: p.sku ?? null,
-            selling_price: Number(p.selling_price), buying_price: Number(p.buying_price),
-            quantity: Number(p.quantity), category_id: p.category_id ?? null, is_active: p.is_active,
-          }))),
-          cacheCustomers(selectedShop.id, (custs || []).map((c: any) => ({
-            id: c.id, shop_id: selectedShop.id, name: c.name,
-            phone: c.phone ?? null, total_debt: Number(c.total_debt ?? 0),
-          }))),
-        ])
-      } catch {
-        // Cache already applied above — nothing to do
-      }
+    // Always show IndexedDB cache immediately (stale-while-revalidate)
+    const [cachedProds, cachedCusts] = await Promise.all([
+      getCachedProducts(selectedShop.id),
+      getCachedCustomers(selectedShop.id),
+    ])
+    if (cachedProds.length > 0) {
+      setProducts(cachedProds as unknown as Product[])
+      setFilteredProducts(cachedProds as unknown as Product[])
     }
-    load()
-  }, [selectedShop?.id])
+    if (cachedCusts.length > 0) setCustomers(cachedCusts as unknown as Customer[])
+
+    if (!isOnline) return
+
+    // Fetch fresh data in background
+    try {
+      const [{ data: prods }, { data: custs }, { data: cats }] = await Promise.all([
+        supabase.from('products').select('*, categories(name), suppliers(name)')
+          .eq('shop_id', selectedShop.id).eq('is_active', true).gt('quantity', 0).order('name'),
+        supabase.from('customers').select('*').eq('shop_id', selectedShop.id).order('name'),
+        supabase.from('categories').select('*').eq('shop_id', selectedShop.id).order('name'),
+      ])
+      const safeProds = (prods || []) as unknown as Product[]
+      setProducts(safeProds)
+      setFilteredProducts(safeProds)
+      setCustomers((custs || []) as Customer[])
+      setCategories((cats || []) as Category[])
+      // Refresh IndexedDB cache
+      await Promise.all([
+        cacheProducts(selectedShop.id, safeProds.map((p: any) => ({
+          id: p.id, shop_id: selectedShop.id, name: p.name, sku: p.sku ?? null,
+          selling_price: Number(p.selling_price), buying_price: Number(p.buying_price),
+          quantity: Number(p.quantity), category_id: p.category_id ?? null, is_active: p.is_active,
+        }))),
+        cacheCustomers(selectedShop.id, (custs || []).map((c: any) => ({
+          id: c.id, shop_id: selectedShop.id, name: c.name,
+          phone: c.phone ?? null, total_debt: Number(c.total_debt ?? 0),
+        }))),
+      ])
+    } catch {
+      // Cache already applied above — nothing to do
+    }
+  }, [selectedShop?.id, isOnline])
+
+  useEffect(() => { loadShopData() }, [loadShopData])
+
+  // Refresh when the user comes back to this tab or regains connectivity —
+  // the cart is built from this product/customer list, so stale stock levels
+  // here risk overselling during a sale.
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') loadShopData() }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('online', loadShopData)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('online', loadShopData)
+    }
+  }, [loadShopData])
 
   useEffect(() => {
     let list = products

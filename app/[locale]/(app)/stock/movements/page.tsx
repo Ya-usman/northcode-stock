@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -59,7 +59,7 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
   const [loading, setLoading] = useState(true)
   const [openProduct, setOpenProduct] = useState<ProductSummary | null>(null)
 
-  useEffect(() => {
+  const fetchMovements = useCallback(() => {
     if (!effectiveShopIds.length) return
     const params = new URLSearchParams({ shop_ids: effectiveShopIds.join(',') })
     if (dateFrom) params.set('from', dateFrom)
@@ -83,6 +83,20 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
         setLoading(false)
       })
   }, [effectiveShopIds.join(','), dateFrom, dateTo])
+
+  useEffect(() => { fetchMovements() }, [fetchMovements])
+
+  // Refresh when the user comes back to this tab or regains connectivity —
+  // catches restocks/adjustments made by other team members in the meantime.
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchMovements() }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('online', fetchMovements)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('online', fetchMovements)
+    }
+  }, [fetchMovements])
 
   const products = useMemo<ProductSummary[]>(() => {
     const map = new Map<string, ProductSummary>()

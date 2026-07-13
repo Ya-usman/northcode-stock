@@ -112,6 +112,14 @@ export default function CustomersPage() {
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [effectiveShopIds.join(',')])
 
+  // Refresh on reconnect — the auth token can go stale while the device was
+  // offline/asleep, leaving an empty/partial result until something retries.
+  useEffect(() => {
+    const onOnline = () => fetchCustomers()
+    window.addEventListener('online', onOnline)
+    return () => window.removeEventListener('online', onOnline)
+  }, [effectiveShopIds.join(',')])
+
   const filtered = customers.filter(c => {
     if (!search) return true
     const q = normalize(search)

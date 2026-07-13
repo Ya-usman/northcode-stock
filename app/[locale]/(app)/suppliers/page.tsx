@@ -113,6 +113,14 @@ export default function SuppliersPage() {
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [effectiveShopIds.join(',')])
 
+  // Refresh on reconnect — the auth token can go stale while the device was
+  // offline/asleep, leaving an empty/partial result until something retries.
+  useEffect(() => {
+    const onOnline = () => fetchSuppliers()
+    window.addEventListener('online', onOnline)
+    return () => window.removeEventListener('online', onOnline)
+  }, [effectiveShopIds.join(',')])
+
   const filtered = suppliers.filter(s => {
     if (!search) return true
     const q = normalize(search)

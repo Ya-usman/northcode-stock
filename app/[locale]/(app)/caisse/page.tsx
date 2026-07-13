@@ -178,6 +178,18 @@ export default function CaissePage() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
+  // Refresh when the user comes back to this tab or regains connectivity —
+  // cash totals are money-critical, like the dashboard.
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchData() }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('online', fetchData)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('online', fetchData)
+    }
+  }, [fetchData])
+
   const grandTotal        = cashierSummaries.reduce((s, c) => s + c.total, 0)
   const grandSalesTotal   = cashierSummaries.reduce((s, c) => s + c.salesTotal, 0)
   const grandRepayTotal   = cashierSummaries.reduce((s, c) => s + c.repaymentsTotal, 0)
