@@ -107,6 +107,12 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [view, setView] = useState<'products' | 'archived' | 'journal'>('products')
   const [auditLogs, setAuditLogs] = useState<any[]>([])
   const [loadingJournal, setLoadingJournal] = useState(false)
+  const [journalDateFrom, setJournalDateFrom] = useState('')
+  const [journalDateTo, setJournalDateTo] = useState('')
+  const [journalSearch, setJournalSearch] = useState('')
+  const [archiveDateFrom, setArchiveDateFrom] = useState('')
+  const [archiveDateTo, setArchiveDateTo] = useState('')
+  const [archiveSearch, setArchiveSearch] = useState('')
 
   const restockForm = useForm<RestockFormData>({ resolver: zodResolver(createRestockSchema({ restock_min_qty: t('errors.restock_min_qty') })) })
 
@@ -473,18 +479,21 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const fetchAuditLogs = async () => {
     if (!shop?.id) return
     setLoadingJournal(true)
-    const { data } = await (supabase as any)
+    let query = (supabase as any)
       .from('audit_logs')
       .select('*')
       .eq('shop_id', shop.id)
       .in('action', ['delete_product', 'bulk_delete_products', 'delete_all_products', 'create_product', 'update_product', 'archive_product', 'restore_product'])
       .order('created_at', { ascending: false })
-      .limit(30)
+      .limit(100)
+    if (journalDateFrom) query = query.gte('created_at', `${journalDateFrom}T00:00:00`)
+    if (journalDateTo) query = query.lte('created_at', `${journalDateTo}T23:59:59`)
+    const { data } = await query
     setAuditLogs(data || [])
     setLoadingJournal(false)
   }
 
-  useEffect(() => { if (view === 'journal') fetchAuditLogs() }, [view])
+  useEffect(() => { if (view === 'journal') fetchAuditLogs() }, [view, journalDateFrom, journalDateTo])
 
   // Refresh the Journal when the user comes back to this tab or regains
   // connectivity — same treatment as the rest of the page.
@@ -787,13 +796,40 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       {/* Produits archivés — owner only */}
       {view === 'archived' && (effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
         <div className="space-y-1.5">
-          {archivedProducts.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-3">{t('products.archived_empty')}</p>
-          ) : (
-            archivedProducts.map(product => (
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[160px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input value={archiveSearch} onChange={e => setArchiveSearch(e.target.value)} placeholder={t('products.search_placeholder')} className="pl-8 h-8 text-xs" />
+            </div>
+            <Input type="date" value={archiveDateFrom} max={archiveDateTo || undefined} onChange={e => setArchiveDateFrom(e.target.value)} className="h-8 w-[140px] text-xs" />
+            <span className="text-xs text-muted-foreground">→</span>
+            <Input type="date" value={archiveDateTo} min={archiveDateFrom || undefined} onChange={e => setArchiveDateTo(e.target.value)} className="h-8 w-[140px] text-xs" />
+            {(archiveDateFrom || archiveDateTo || archiveSearch) && (
+              <button className="text-xs text-muted-foreground hover:text-foreground underline" onClick={() => { setArchiveDateFrom(''); setArchiveDateTo(''); setArchiveSearch('') }}>
+                Réinitialiser
+              </button>
+            )}
+          </div>
+          {(() => {
+            const filteredArchived = archivedProducts.filter(p => {
+              const d = (p as any).updated_at?.slice(0, 10)
+              if (archiveDateFrom && d < archiveDateFrom) return false
+              if (archiveDateTo && d > archiveDateTo) return false
+              if (archiveSearch && !normalize(p.name).includes(normalize(archiveSearch))) return false
+              return true
+            })
+            if (filteredArchived.length === 0) {
+              return <p className="text-xs text-muted-foreground text-center py-3">{t('products.archived_empty')}</p>
+            }
+            return filteredArchived.map(product => (
               <div key={product.id} className="flex items-center justify-between gap-2 rounded-lg bg-muted/40 border px-3 py-2">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-muted-foreground truncate">{product.name}</p>
+                  {(product as any).updated_at && (
+                    <p className="text-[11px] text-muted-foreground/70">
+                      Archivé le {new Date((product as any).updated_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   <Button
@@ -813,19 +849,41 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 </div>
               </div>
             ))
-          )}
+          })()}
         </div>
       )}
 
       {/* Journal — suppressions et modifications de prix — owner only */}
       {view === 'journal' && (effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
         <div className="space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[160px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input value={journalSearch} onChange={e => setJournalSearch(e.target.value)} placeholder={t('products.search_placeholder')} className="pl-8 h-8 text-xs" />
+            </div>
+            <Input type="date" value={journalDateFrom} max={journalDateTo || undefined} onChange={e => setJournalDateFrom(e.target.value)} className="h-8 w-[140px] text-xs" />
+            <span className="text-xs text-muted-foreground">→</span>
+            <Input type="date" value={journalDateTo} min={journalDateFrom || undefined} onChange={e => setJournalDateTo(e.target.value)} className="h-8 w-[140px] text-xs" />
+            {(journalDateFrom || journalDateTo || journalSearch) && (
+              <button className="text-xs text-muted-foreground hover:text-foreground underline" onClick={() => { setJournalDateFrom(''); setJournalDateTo(''); setJournalSearch('') }}>
+                Réinitialiser
+              </button>
+            )}
+          </div>
           {loadingJournal ? (
             <p className="text-xs text-muted-foreground text-center py-3">Chargement...</p>
-          ) : auditLogs.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-3">Aucune activité enregistrée.</p>
-          ) : (
-            auditLogs.map((log: any) => {
+          ) : (() => {
+            const filteredLogs = journalSearch.trim()
+              ? auditLogs.filter((log: any) => {
+                  const meta = log.metadata || {}
+                  const names = [meta.product_name, ...((meta.products_snapshot || []) as any[]).map(p => p.name)].filter(Boolean)
+                  return names.some(n => normalize(n).includes(normalize(journalSearch)))
+                })
+              : auditLogs
+            if (filteredLogs.length === 0) {
+              return <p className="text-xs text-muted-foreground text-center py-3">Aucune activité enregistrée.</p>
+            }
+            return filteredLogs.map((log: any) => {
               const meta = log.metadata || {}
               const actor = meta.actor_name || log.actor_email || '—'
               const when = new Date(log.created_at).toLocaleString('fr-FR', {
@@ -886,7 +944,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 </div>
               )
             })
-          )}
+          })()}
         </div>
       )}
 
