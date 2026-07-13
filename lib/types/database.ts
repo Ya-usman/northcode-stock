@@ -91,6 +91,7 @@ export interface Supplier {
   phone: string | null
   city: string | null
   created_at: string
+  deleted_at: string | null
 }
 
 export interface Product {

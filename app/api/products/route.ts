@@ -63,7 +63,7 @@ export async function PATCH(request: Request) {
     const PATCHABLE = new Set([
       'name', 'description', 'selling_price', 'buying_price', 'sku',
       'category_id', 'unit', 'image_url', 'low_stock_threshold', 'barcode',
-      'supplier_name',
+      'supplier_name', 'supplier_id',
     ])
     const safeUpdates: Record<string, unknown> = Object.fromEntries(
       Object.entries(updates).filter(([k]) => PATCHABLE.has(k))

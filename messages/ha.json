@@ -363,7 +363,17 @@
     "products_count": "kaya {count}",
     "edit_title": "Gyara Mai Samar",
     "name_placeholder": "Sunan mai samar",
-    "city_placeholder": "misali Kano"
+    "city_placeholder": "misali Kano",
+    "no_products_for_supplier": "Babu kaya daga wannan mai samar.",
+    "tab_suppliers": "Masu Samar",
+    "tab_by_product": "Ta Kaya",
+    "search_product_placeholder": "Nemi kaya…",
+    "search_product_hint": "Nemi kaya don kwatanta farashin masu samar daban-daban.",
+    "no_prices_for_product": "Babu farashin da aka rubuta don wannan kayan.",
+    "current_price_label": "Na yanzu",
+    "use_this_price": "Yi amfani da wannan farashin",
+    "add_price": "Ƙara farashi",
+    "price_label": "Farashi"
   },
   "payments": {
     "title": "Bashi da Biya",

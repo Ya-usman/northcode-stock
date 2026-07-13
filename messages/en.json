@@ -363,7 +363,17 @@
     "products_count": "{count} product(s)",
     "edit_title": "Edit Supplier",
     "name_placeholder": "Supplier name",
-    "city_placeholder": "e.g. Kano"
+    "city_placeholder": "e.g. Kano",
+    "no_products_for_supplier": "No products for this supplier.",
+    "tab_suppliers": "Suppliers",
+    "tab_by_product": "By product",
+    "search_product_placeholder": "Search a product…",
+    "search_product_hint": "Search a product to compare prices across suppliers.",
+    "no_prices_for_product": "No prices recorded for this product.",
+    "current_price_label": "Current",
+    "use_this_price": "Use this price",
+    "add_price": "Add a price",
+    "price_label": "Price"
   },
   "payments": {
     "title": "Credit & Payments",
