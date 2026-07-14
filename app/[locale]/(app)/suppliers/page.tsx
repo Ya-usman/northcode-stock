@@ -578,7 +578,15 @@ export default function SuppliersPage() {
       const res = await fetch('/api/purchase-orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shop_id: shop.id, supplier_id: reorderPo.supplier_id, items }),
+        body: JSON.stringify({
+          shop_id: shop.id,
+          supplier_id: reorderPo.supplier_id,
+          items,
+          // Marqueur machine (pas affiché tel quel) — garde le lien vers le
+          // bon d'origine pour que l'email généré plus tard sache adapter
+          // son objet/corps (voir buildPoEmailContent).
+          notes: `[reorder:${reorderPo.reference}]`,
+        }),
       })
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
@@ -616,12 +624,20 @@ export default function SuppliersPage() {
     const items = po.purchase_order_items || []
     const supplier = po.suppliers?.name || supplierName(po.supplier_id)
     const dateStr = new Date(po.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-    const subject = `Bon de commande ${po.reference} — ${shop?.name || 'StockShop'}`
+    // Bon créé via "Commander le reste" (voir submitReorder) — garde le
+    // lien vers le bon d'origine dans notes pour adapter l'objet/le corps.
+    const reorderOriginalRef = po.notes?.match(/^\[reorder:(.+?)\]/)?.[1] as string | undefined
+    const subject = reorderOriginalRef
+      ? `Complément au bon ${reorderOriginalRef} — solde manquant (${po.reference}) — ${shop?.name || 'StockShop'}`
+      : `Bon de commande ${po.reference} — ${shop?.name || 'StockShop'}`
     const lines = items.map((it: any) => `- ${it.product_name} : ${it.quantity_ordered} ${it.unit || ''}`.trim())
+    const intro = reorderOriginalRef
+      ? `Suite à la livraison partielle de notre bon de commande ${reorderOriginalRef}, veuillez trouver ci-joint le bon ${po.reference} du ${dateStr} pour le solde manquant.`
+      : `Veuillez trouver ci-joint notre bon de commande ${po.reference} du ${dateStr}.`
     const body = [
       `Bonjour ${supplier},`,
       '',
-      `Veuillez trouver ci-joint notre bon de commande ${po.reference} du ${dateStr}.`,
+      intro,
       '',
       'Produits commandés :',
       ...lines,
