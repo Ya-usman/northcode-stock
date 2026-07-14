@@ -833,7 +833,7 @@ export default function SuppliersPage() {
                           </Button>
                         )}
                         {canManage && po.status === 'sent' && (
-                          <Button variant="outline" size="sm" className="h-7 gap-1 text-xs text-green-700 border-green-200 hover:bg-green-50 dark:text-green-400 dark:border-green-800" onClick={() => openReceivePo(po)}>
+                          <Button size="sm" className="h-7 gap-1 text-xs bg-green-700 hover:bg-green-800 text-white border-0" onClick={() => openReceivePo(po)}>
                             <CheckCircle2 className="h-3 w-3" />{t('suppliers.po_mark_received')}
                           </Button>
                         )}
