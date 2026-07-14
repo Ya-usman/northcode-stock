@@ -80,6 +80,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [promoPrice, setPromoPrice] = useState('')
   const [promoUntil, setPromoUntil] = useState('')
   const [savingPromo, setSavingPromo] = useState(false)
+  const [batchesProduct, setBatchesProduct] = useState<Product | null>(null)
+  const [productBatches, setProductBatches] = useState<any[]>([])
+  const [loadingBatches, setLoadingBatches] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [addFormKey, setAddFormKey] = useState(0)
   const [sessionAddCount, setSessionAddCount] = useState(0)
@@ -214,6 +217,26 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       setSoldQtyByProduct(soldMap)
     } catch {
       // idem — pas de blocage sur l'essentiel (liste produits)
+    }
+  }
+
+  const openProductBatches = async (product: Product) => {
+    setBatchesProduct(product)
+    setProductBatches([])
+    setLoadingBatches(true)
+    try {
+      const { data } = await supabase
+        .from('product_batches')
+        .select('*')
+        .eq('product_id', product.id)
+        .gt('quantity', 0)
+        .order('expiry_date', { ascending: true, nullsFirst: false })
+        .order('received_at', { ascending: true })
+      setProductBatches(data || [])
+    } catch {
+      // liste vide affichée si l'appel échoue
+    } finally {
+      setLoadingBatches(false)
     }
   }
 
@@ -679,14 +702,20 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                   </span>
                 )}
                 {expired && (
-                  <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400">
+                  <button
+                    onClick={e => { e.stopPropagation(); openProductBatches(product) }}
+                    className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 hover:opacity-80"
+                  >
                     {t('products.expired_badge')}
-                  </span>
+                  </button>
                 )}
                 {expiringSoonBadge && (
-                  <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400">
+                  <button
+                    onClick={e => { e.stopPropagation(); openProductBatches(product) }}
+                    className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 hover:opacity-80"
+                  >
                     {t('products.expiring_badge', { date: new Date(expiry!).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) })}
-                  </span>
+                  </button>
                 )}
               </div>
             </div>
@@ -743,6 +772,14 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                   <Tag className="h-3 w-3" />
                 </Button>
               )}
+              <Button
+                variant="outline" size="sm" className="h-7 px-2"
+                disabled={saving}
+                title={t('products.view_batches')}
+                onClick={() => openProductBatches(product)}
+              >
+                <History className="h-3 w-3" />
+              </Button>
               {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
                 <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-amber-600" disabled={saving} title={t('products.archive_label')} onClick={() => setArchiveConfirmProduct(product)}>
                   <Archive className="h-3 w-3" />
@@ -1419,6 +1456,63 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 {t('actions.save')}
               </Button>
             </PremiumDialogFooter>
+          </>
+        )}
+      </PremiumDialog>
+
+      {/* Lots Modal */}
+      <PremiumDialog
+        open={!!batchesProduct}
+        onOpenChange={open => { if (!open) setBatchesProduct(null) }}
+        category={t('nav.stock')}
+        title={batchesProduct?.name || ''}
+        icon={<History className="h-4 w-4" />}
+        maxWidth="max-w-lg"
+      >
+        {batchesProduct && (
+          <>
+            <PremiumDialogBody>
+              <p className="text-xs text-muted-foreground">{t('products.batches_hint')}</p>
+              {loadingBatches ? (
+                <div className="space-y-2 mt-3">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
+              ) : productBatches.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">{t('products.no_batches')}</p>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {productBatches.map((b: any) => {
+                    const today = new Date().toISOString().slice(0, 10)
+                    const isExpired = b.expiry_date && b.expiry_date < today
+                    const sourceLabel = t(`products.batch_source_${b.source}` as any) || b.source
+                    return (
+                      <div key={b.id} className="rounded-lg border px-3 py-2.5 space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold">
+                            {b.quantity} {batchesProduct.unit}
+                          </span>
+                          <span className="text-[10px] font-medium rounded-full px-2 py-0.5 bg-muted text-muted-foreground">
+                            {sourceLabel}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>{t('products.cost_label')}: {formatNaira(b.buying_price)}</span>
+                          <span>{t('products.received_on')}: {new Date(b.received_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        </div>
+                        <div>
+                          {b.expiry_date ? (
+                            <span className={`text-[10px] font-semibold rounded-full px-1.5 py-0.5 ${isExpired ? 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400' : 'bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400'}`}>
+                              {isExpired ? t('products.expired_badge') : t('products.expiring_badge', { date: new Date(b.expiry_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) })}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground">{t('products.no_expiry_date')}</span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </PremiumDialogBody>
+            <PremiumDialogFooter onCancel={() => setBatchesProduct(null)} cancelLabel={t('actions.close')} />
           </>
         )}
       </PremiumDialog>
