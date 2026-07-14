@@ -5,7 +5,7 @@ import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
 import { motion } from 'framer-motion'
-import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History } from 'lucide-react'
+import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -74,6 +74,12 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [{ search, categoryFilter, statusFilter }, setFilter] = usePersistedFilters(
     'stock', shop?.id, { search: '', categoryFilter: 'all', statusFilter: 'all' }
   )
+  const [expiryByProduct, setExpiryByProduct] = useState<Record<string, string>>({})
+  const [soldQtyByProduct, setSoldQtyByProduct] = useState<Record<string, number>>({})
+  const [promoProduct, setPromoProduct] = useState<Product | null>(null)
+  const [promoPrice, setPromoPrice] = useState('')
+  const [promoUntil, setPromoUntil] = useState('')
+  const [savingPromo, setSavingPromo] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [addFormKey, setAddFormKey] = useState(0)
   const [sessionAddCount, setSessionAddCount] = useState(0)
@@ -161,16 +167,66 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     }
   }
 
-  useEffect(() => { fetchProducts() }, [effectiveShopIds.join(',')])
+  // Date de péremption la plus proche par produit (lots encore en stock) et
+  // quantité vendue sur 30 jours glissants (détection stock dormant) — deux
+  // signaux additifs, séparés du fetch principal pour ne pas bloquer
+  // l'affichage des produits si l'un des deux échoue.
+  const fetchStockSignals = async () => {
+    if (!effectiveShopIds.length || !navigator.onLine) return
+    try {
+      const { data: batches } = await supabase
+        .from('product_batches')
+        .select('product_id, expiry_date')
+        .in('shop_id', effectiveShopIds)
+        .gt('quantity', 0)
+        .not('expiry_date', 'is', null)
+      const expiryMap: Record<string, string> = {}
+      for (const b of (batches || []) as any[]) {
+        if (!expiryMap[b.product_id] || b.expiry_date < expiryMap[b.product_id]) {
+          expiryMap[b.product_id] = b.expiry_date
+        }
+      }
+      setExpiryByProduct(expiryMap)
+    } catch {
+      // signal manquant — les cartes/badges concernés restent simplement vides
+    }
+
+    try {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 86_400_000).toISOString()
+      const { data: recentSales } = await supabase
+        .from('sales')
+        .select('id')
+        .in('shop_id', effectiveShopIds)
+        .eq('sale_status', 'active')
+        .gte('created_at', thirtyDaysAgo)
+      const saleIds = (recentSales || []).map((s: any) => s.id)
+      const soldMap: Record<string, number> = {}
+      if (saleIds.length) {
+        const { data: recentItems } = await supabase
+          .from('sale_items')
+          .select('product_id, quantity')
+          .in('sale_id', saleIds)
+        for (const it of (recentItems || []) as any[]) {
+          if (!it.product_id) continue
+          soldMap[it.product_id] = (soldMap[it.product_id] || 0) + it.quantity
+        }
+      }
+      setSoldQtyByProduct(soldMap)
+    } catch {
+      // idem — pas de blocage sur l'essentiel (liste produits)
+    }
+  }
+
+  useEffect(() => { fetchProducts(); fetchStockSignals() }, [effectiveShopIds.join(',')])
 
   // Refresh when the user comes back to this tab — catches stock changes
   // made by other team members while this page sat in the background.
   useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') fetchProducts() }
+    const onVisible = () => { if (document.visibilityState === 'visible') { fetchProducts(); fetchStockSignals() } }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [effectiveShopIds.join(',')])
-  useRefetchOnReconnect(fetchProducts, isOnline)
+  useRefetchOnReconnect(() => { fetchProducts(); fetchStockSignals() }, isOnline)
 
   // Live stock updates (quantity, price, archive status) for the active shop.
   // Realtime payloads are raw rows without the categories(name)/suppliers(name)
@@ -189,6 +245,13 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     setArchivedProducts(prev => isActive ? prev.filter(p => p.id !== product.id) : upsert(prev))
   })
 
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const expiryAlertDays = shop?.expiry_alert_days ?? 14
+  const expiryCutoffStr = new Date(Date.now() + expiryAlertDays * 86_400_000).toISOString().slice(0, 10)
+  const isExpired = (p: Product) => { const exp = expiryByProduct[p.id]; return !!exp && exp < todayStr }
+  const isExpiringSoon = (p: Product) => { const exp = expiryByProduct[p.id]; return !!exp && exp >= todayStr && exp <= expiryCutoffStr }
+  const isDormant = (p: Product) => p.quantity > 0 && !(soldQtyByProduct[p.id] > 0)
+
   const filtered = products
     .filter(p => {
       if (search) {
@@ -200,8 +263,15 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       if (statusFilter === 'out' && p.quantity !== 0) return false
       if (statusFilter === 'low' && (p.quantity === 0 || p.quantity > threshold)) return false
       if (statusFilter === 'ok' && p.quantity <= threshold) return false
+      if (statusFilter === 'expiry' && !isExpired(p) && !isExpiringSoon(p)) return false
+      if (statusFilter === 'dormant' && !isDormant(p)) return false
       return true
     })
+
+  const outCount = products.filter(p => p.quantity === 0).length
+  const lowCount = products.filter(p => p.quantity > 0 && p.quantity <= (p.low_stock_threshold || shop?.low_stock_threshold || 10)).length
+  const expiringCount = products.filter(isExpired).length + products.filter(isExpiringSoon).length
+  const dormantCount = products.filter(isDormant).length
 
   const saveProduct = async (data: ProductFormData) => {
     if (!shop?.id) { toast({ title: t('toast.no_active_shop'), variant: 'destructive' }); return false }
@@ -340,6 +410,53 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     setShowRestockModal(false)
     restockForm.reset()
     fetchProducts()
+  }
+
+  const submitPromo = async () => {
+    if (!promoProduct || !shop?.id) return
+    const price = Number(promoPrice)
+    if (!price || price <= 0 || !promoUntil) {
+      toast({ title: t('products.promo_invalid'), variant: 'destructive' })
+      return
+    }
+    setSavingPromo(true)
+    try {
+      const res = await fetch('/api/products', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: promoProduct.id,
+          shop_id: shop.id,
+          promo_price: price,
+          promo_until: new Date(`${promoUntil}T23:59:59`).toISOString(),
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      toast({ title: t('products.promo_saved'), variant: 'success' })
+      setPromoProduct(null)
+      fetchProducts()
+    } finally {
+      setSavingPromo(false)
+    }
+  }
+
+  const removePromo = async () => {
+    if (!promoProduct || !shop?.id) return
+    setSavingPromo(true)
+    try {
+      const res = await fetch('/api/products', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: promoProduct.id, shop_id: shop.id, promo_price: null, promo_until: null }),
+      })
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      setPromoProduct(null)
+      fetchProducts()
+    } finally {
+      setSavingPromo(false)
+    }
   }
 
   const archiveProduct = async () => {
@@ -511,6 +628,10 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const renderProductCard = (product: Product, idx: number) => {
     const threshold = product.low_stock_threshold || shop?.low_stock_threshold || 10
     const isSelected = selectedIds.has(product.id)
+    const promoActive = !!product.promo_price && !!product.promo_until && product.promo_until >= new Date().toISOString()
+    const expiry = expiryByProduct[product.id]
+    const expired = expiry ? expiry < todayStr : false
+    const expiringSoonBadge = expiry && !expired ? expiry <= expiryCutoffStr : false
     return (
       <motion.div
         key={product.id}
@@ -551,12 +672,36 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               {product.sku && (
                 <p className="text-[10px] font-mono text-muted-foreground truncate">{product.sku}</p>
               )}
+              <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                {promoActive && (
+                  <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-blue-50 dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400">
+                    {t('products.promo_badge')}
+                  </span>
+                )}
+                {expired && (
+                  <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400">
+                    {t('products.expired_badge')}
+                  </span>
+                )}
+                {expiringSoonBadge && (
+                  <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400">
+                    {t('products.expiring_badge', { date: new Date(expiry!).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) })}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <StockBadge quantity={product.quantity} threshold={threshold} />
         </div>
         <div className="flex items-center justify-between text-sm">
-          <span className="font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(product.selling_price)}</span>
+          {promoActive ? (
+            <span className="flex items-center gap-1.5">
+              <span className="font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(product.promo_price!)}</span>
+              <span className="text-xs text-muted-foreground line-through">{formatNaira(product.selling_price)}</span>
+            </span>
+          ) : (
+            <span className="font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(product.selling_price)}</span>
+          )}
           {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
             <span className="text-xs text-muted-foreground">{t('products.cost_label')}: {formatNaira(product.buying_price)}</span>
           )}
@@ -581,6 +726,21 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin') && (
                 <Button variant="outline" size="sm" className="h-7 px-2" disabled={saving} onClick={() => { setShowAddModal(false); setShowRestockModal(false); setEditingProduct(product) }}>
                   <Edit2 className="h-3 w-3" />
+                </Button>
+              )}
+              {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin') && (
+                <Button
+                  variant="outline" size="sm"
+                  className={`h-7 px-2 ${promoActive ? 'text-stockshop-blue border-blue-200 dark:border-blue-800' : ''}`}
+                  disabled={saving}
+                  title={t('products.promo_action')}
+                  onClick={() => {
+                    setPromoProduct(product)
+                    setPromoPrice(product.promo_price ? String(product.promo_price) : '')
+                    setPromoUntil(product.promo_until ? product.promo_until.slice(0, 10) : '')
+                  }}
+                >
+                  <Tag className="h-3 w-3" />
                 </Button>
               )}
               {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
@@ -680,6 +840,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               <SelectItem value="ok">{t('status.in_stock')}</SelectItem>
               <SelectItem value="low">{t('status.low_stock')}</SelectItem>
               <SelectItem value="out">{t('status.out_of_stock')}</SelectItem>
+              <SelectItem value="expiry">{t('products.card_expiry')}</SelectItem>
+              <SelectItem value="dormant">{t('products.card_dormant')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -725,11 +887,28 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         )}
       </div>
 
+      {/* Cartes d'alerte cliquables */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {[
+          { key: 'out', count: outCount, label: t('products.card_out_of_stock'), color: 'text-red-600 border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20' },
+          { key: 'low', count: lowCount, label: t('products.card_low_stock'), color: 'text-amber-600 border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/20' },
+          { key: 'expiry', count: expiringCount, label: t('products.card_expiry'), color: 'text-orange-600 border-orange-200 dark:border-orange-900 bg-orange-50/50 dark:bg-orange-950/20' },
+          { key: 'dormant', count: dormantCount, label: t('products.card_dormant'), color: 'text-blue-600 border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20' },
+        ].map(card => (
+          <button
+            key={card.key}
+            onClick={() => setFilter({ statusFilter: statusFilter === card.key ? 'all' : card.key })}
+            className={`rounded-xl border px-3 py-2.5 text-left transition-all ${card.color} ${statusFilter === card.key ? 'ring-2 ring-offset-1 ring-current' : 'hover:opacity-80'}`}
+          >
+            <p className="text-xl font-bold leading-none">{card.count}</p>
+            <p className="text-[11px] font-medium mt-1 opacity-90">{card.label}</p>
+          </button>
+        ))}
+      </div>
+
       {/* Stats */}
       <div className="flex gap-4 text-sm text-muted-foreground">
         <span>{t('products.stats_count', { count: filtered.length })}</span>
-        <span className="text-amber-600">{t('products.stats_low', { count: filtered.filter(p => p.quantity > 0 && p.quantity <= (p.low_stock_threshold || shop?.low_stock_threshold || 10)).length })}</span>
-        <span className="text-red-500">{t('products.stats_out', { count: filtered.filter(p => p.quantity === 0).length })}</span>
       </div>
 
       {/* Barre de sélection */}
@@ -1195,6 +1374,53 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             <Button variant="stockshop" type="submit" loading={saving} className="flex-1 h-11 rounded-xl font-semibold">{t('actions.restock')}</Button>
           </PremiumDialogFooter>
         </form>
+      </PremiumDialog>
+
+      {/* Promotion Modal */}
+      <PremiumDialog
+        open={!!promoProduct}
+        onOpenChange={open => { if (!open) setPromoProduct(null) }}
+        category={t('nav.stock')}
+        title={promoProduct?.name || ''}
+        icon={<Tag className="h-4 w-4" />}
+      >
+        {promoProduct && (
+          <>
+            <PremiumDialogBody>
+              <p className="text-xs text-muted-foreground">
+                {t('products.promo_hint', { price: formatNaira(promoProduct.selling_price) })}
+              </p>
+              <div className="space-y-1.5">
+                <Label>{t('products.promo_price_label')} *</Label>
+                <Input
+                  type="number" min={0} max={promoProduct.selling_price - 1}
+                  value={promoPrice}
+                  onChange={e => setPromoPrice(e.target.value)}
+                  placeholder={String(promoProduct.selling_price)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>{t('products.promo_until_label')} *</Label>
+                <Input type="date" value={promoUntil} onChange={e => setPromoUntil(e.target.value)} />
+              </div>
+            </PremiumDialogBody>
+            <PremiumDialogFooter onCancel={() => setPromoProduct(null)} cancelLabel={t('actions.cancel')}>
+              {promoProduct.promo_price && (
+                <Button
+                  variant="outline"
+                  className="flex-1 h-11 rounded-xl font-semibold text-destructive border-destructive/30 hover:bg-red-50 dark:hover:bg-red-950/40"
+                  onClick={removePromo}
+                  loading={savingPromo}
+                >
+                  {t('products.promo_remove')}
+                </Button>
+              )}
+              <Button variant="stockshop" className="flex-1 h-11 rounded-xl font-semibold" onClick={submitPromo} loading={savingPromo}>
+                {t('actions.save')}
+              </Button>
+            </PremiumDialogFooter>
+          </>
+        )}
       </PremiumDialog>
       {/* Barre flottante de sélection */}
       {selectionMode && selectedIds.size > 0 && (

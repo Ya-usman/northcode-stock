@@ -15,13 +15,16 @@ export interface Shop {
   currency: string
   low_stock_threshold: number
   tax_rate: number
+  expiry_alert_days: number
   notify_whatsapp_low_stock: boolean
   notify_whatsapp_daily: boolean
   notify_whatsapp_each_sale: boolean
   notify_email_low_stock: boolean
   notify_email_daily: boolean
+  notify_email_expiry: boolean
   notify_push_new_sale: boolean
   notify_push_new_expense: boolean
+  notify_push_expiry: boolean
   created_at: string
   // SaaS fields
   plan: string | null
@@ -140,6 +143,8 @@ export interface Product {
   low_stock_threshold: number | null
   image_url: string | null
   is_active: boolean
+  promo_price: number | null
+  promo_until: string | null
   created_at: string
   updated_at: string
   // Joined fields

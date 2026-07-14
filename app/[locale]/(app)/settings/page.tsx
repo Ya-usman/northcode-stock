@@ -44,9 +44,11 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const [whatsapp, setWhatsapp] = useState('')
   const [threshold, setThreshold] = useState<string>('10')
   const [taxRate, setTaxRate] = useState<string>('0')
+  const [expiryAlertDays, setExpiryAlertDays] = useState<string>('14')
 
   const [notifyEmailLowStock, setNotifyEmailLowStock] = useState(true)
   const [notifyEmailDaily, setNotifyEmailDaily] = useState(true)
+  const [notifyEmailExpiry, setNotifyEmailExpiry] = useState(true)
   const [uploadingLogo, setUploadingLogo] = useState(false)
 
   // Push notifications
@@ -56,6 +58,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const [testingPush, setTestingPush] = useState(false)
   const [notifyPushNewSale, setNotifyPushNewSale] = useState(true)
   const [notifyPushNewExpense, setNotifyPushNewExpense] = useState(true)
+  const [notifyPushExpiry, setNotifyPushExpiry] = useState(true)
   const [saleSoundEnabled, setSaleSoundEnabled] = useState(true)
   const [saleVibrationEnabled, setSaleVibrationEnabled] = useState(true)
 
@@ -136,11 +139,14 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       setWhatsapp(shopData.whatsapp || COUNTRIES[(shopData.country as CountryCode) || 'NG']?.phonePrefix.replace('+', '') || '')
       setThreshold(String(shopData.low_stock_threshold))
       setTaxRate(String(shopData.tax_rate))
+      setExpiryAlertDays(String((shopData as any).expiry_alert_days ?? 14))
 
       setNotifyEmailLowStock(shopData.notify_email_low_stock)
       setNotifyEmailDaily(shopData.notify_email_daily)
+      setNotifyEmailExpiry((shopData as any).notify_email_expiry ?? true)
       setNotifyPushNewSale(shopData.notify_push_new_sale ?? true)
       setNotifyPushNewExpense(shopData.notify_push_new_expense ?? true)
+      setNotifyPushExpiry((shopData as any).notify_push_expiry ?? true)
       setLoading(false)
       // Load stored permissions — deep merge so partial DB objects don't lose default keys
       const stored = (shopData as any).role_permissions as (Partial<AllPerms> & { general?: Partial<RolePerms> }) | null
@@ -217,11 +223,14 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       whatsapp: whatsapp || null,
       low_stock_threshold: Math.max(1, Number(threshold) || 1),
       tax_rate: Math.max(0, Number(taxRate) || 0),
+      expiry_alert_days: Math.max(1, Number(expiryAlertDays) || 1),
 
       notify_email_low_stock: notifyEmailLowStock,
       notify_email_daily: notifyEmailDaily,
+      notify_email_expiry: notifyEmailExpiry,
       notify_push_new_sale: notifyPushNewSale,
       notify_push_new_expense: notifyPushNewExpense,
+      notify_push_expiry: notifyPushExpiry,
     }
     try {
       const res = await fetch('/api/shops/settings', {
@@ -478,6 +487,11 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                   </div>
                   <p className="text-xs text-muted-foreground">{t('settings.tax_hint')}</p>
                 </div>
+                <div className="space-y-1">
+                  <Label>{t('settings.expiry_alert_days')}</Label>
+                  <Input type="number" min={1} value={expiryAlertDays} onChange={e => setExpiryAlertDays(e.target.value)} />
+                  <p className="text-xs text-muted-foreground">{t('settings.expiry_alert_hint')}</p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -494,6 +508,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                 {[
                   { label: t('settings.alert_low_stock'), value: notifyEmailLowStock, setter: setNotifyEmailLowStock },
                   { label: t('settings.alert_daily'), value: notifyEmailDaily, setter: setNotifyEmailDaily },
+                  { label: t('settings.alert_expiry'), value: notifyEmailExpiry, setter: setNotifyEmailExpiry },
                 ].map(item => (
                   <div key={item.label} className="flex items-center justify-between py-1">
                     <Label className="cursor-pointer">{item.label}</Label>
@@ -580,6 +595,16 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                         <Switch
                           checked={notifyPushNewExpense}
                           onCheckedChange={v => setNotifyPushNewExpense(v)}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between py-1">
+                        <div>
+                          <Label className="cursor-pointer">{t('settings.alert_expiry')}</Label>
+                          <p className="text-xs text-muted-foreground mt-0.5">{t('settings.expiry_alert_hint')}</p>
+                        </div>
+                        <Switch
+                          checked={notifyPushExpiry}
+                          onCheckedChange={v => setNotifyPushExpiry(v)}
                         />
                       </div>
                     </div>

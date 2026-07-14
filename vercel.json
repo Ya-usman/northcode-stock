@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/renewal-check",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/expiry-alert",
+      "schedule": "0 7 * * *"
     }
   ]
 }

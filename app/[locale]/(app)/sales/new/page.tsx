@@ -40,6 +40,15 @@ import { getCountry, getMethodType } from '@/lib/saas/countries'
 import { formatInputValue, formatCurrency } from '@/lib/utils/currency'
 import { checkAndNotifyLowStock, notifyNewSale } from '@/lib/push'
 
+// Prix promo si actif (non expiré), sinon prix de vente normal — utilisé à
+// la fois pour l'affichage et pour figer le prix d'une ligne de panier.
+function effectivePrice(product: Product): number {
+  if (product.promo_price && product.promo_until && product.promo_until >= new Date().toISOString()) {
+    return product.promo_price
+  }
+  return product.selling_price
+}
+
 interface Draft {
   id: string
   createdAt: string
@@ -268,7 +277,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             : i
         )
       }
-      return [...prev, { product, quantity: 1, unit_price: product.selling_price, subtotal: product.selling_price }]
+      const price = effectivePrice(product)
+      return [...prev, { product, quantity: 1, unit_price: price, subtotal: price }]
     })
   }
 
@@ -311,7 +321,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const updateItemPrice = (productId: string, newPrice: number) => {
     setCart(prev => prev.map(item => {
       if (item.product.id !== productId) return item
-      const minPrice = Number(item.product.selling_price) || 0
+      const minPrice = effectivePrice(item.product)
       const price = Math.max(minPrice, newPrice)
       return { ...item, unit_price: price, subtotal: Math.round(item.quantity * price) }
     }))
@@ -1030,7 +1040,14 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   </div>
                   {product.sku && <p className="text-[10px] text-muted-foreground font-mono">{product.sku}</p>}
                   <div className="flex items-center justify-between w-full mt-1">
-                    <span className="text-sm font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(product.selling_price)}</span>
+                    {effectivePrice(product) !== product.selling_price ? (
+                      <span className="flex items-center gap-1 flex-wrap">
+                        <span className="text-sm font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(effectivePrice(product))}</span>
+                        <span className="text-[10px] text-muted-foreground line-through">{formatNaira(product.selling_price)}</span>
+                      </span>
+                    ) : (
+                      <span className="text-sm font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(product.selling_price)}</span>
+                    )}
                     <Badge
                       variant={
                         product.quantity === 0
@@ -1091,7 +1108,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                       >
                         <span className="text-xs font-medium text-muted-foreground group-hover:text-blue-600 transition-colors whitespace-nowrap">
                           {formatNaira(item.unit_price)}
-                          {item.unit_price !== item.product.selling_price && (
+                          {item.unit_price === effectivePrice(item.product) && item.unit_price !== item.product.selling_price ? (
+                            <span className="ml-1 text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 px-1 rounded font-medium">{t('products.promo_badge')}</span>
+                          ) : item.unit_price !== item.product.selling_price && (
                             <span className="ml-1 text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 px-1 rounded font-medium">modifié</span>
                           )}
                         </span>
@@ -1520,15 +1539,17 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       {/* Price edit modal — premium design */}
       <Dialog open={!!priceModalItem} onOpenChange={open => { if (!open) setPriceModalItem(null) }}>
         <DialogContent className="max-w-[360px] p-0 gap-0">
-          {priceModalItem && (
+          {priceModalItem && (() => {
+            const minPrice = effectivePrice(priceModalItem.product)
+            return (
             <div className="overflow-hidden rounded-lg">
               {/* Header gradient */}
               <div className="bg-stockshop-blue px-5 pt-5 pb-4">
                 <p className="text-xs font-medium text-blue-200 uppercase tracking-wider mb-1">Prix de vente</p>
                 <p className="text-white font-semibold text-base leading-tight truncate">{priceModalItem.product.name}</p>
                 <div className="flex items-center gap-2 mt-2">
-                  <span className="text-xs text-blue-200">Catalogue :</span>
-                  <span className="text-sm font-bold text-white">{formatNaira(priceModalItem.product.selling_price)}</span>
+                  <span className="text-xs text-blue-200">{minPrice !== priceModalItem.product.selling_price ? t('products.promo_badge') : 'Catalogue'} :</span>
+                  <span className="text-sm font-bold text-white">{formatNaira(minPrice)}</span>
                   <span className="text-[10px] bg-white/20 text-blue-100 px-1.5 py-0.5 rounded-full">minimum</span>
                 </div>
               </div>
@@ -1548,18 +1569,18 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                       value={formatInputValue(priceModalInput, selectedShop?.currency || '₦')}
                       onChange={e => setPriceModalInput(e.target.value.replace(/\D/g, ''))}
                       className="flex-1 h-14 px-4 text-2xl font-bold bg-card outline-none tracking-tight"
-                      placeholder={formatInputValue(priceModalItem.product.selling_price, selectedShop?.currency || '₦')}
+                      placeholder={formatInputValue(minPrice, selectedShop?.currency || '₦')}
                     />
                   </div>
                   <div className="h-5 mt-1.5">
-                    {Number(priceModalInput) > 0 && Number(priceModalInput) < priceModalItem.product.selling_price && (
+                    {Number(priceModalInput) > 0 && Number(priceModalInput) < minPrice && (
                       <p className="text-xs text-red-500 flex items-center gap-1">
-                        <span>⚠</span> Prix minimum : {formatNaira(priceModalItem.product.selling_price)}
+                        <span>⚠</span> Prix minimum : {formatNaira(minPrice)}
                       </p>
                     )}
-                    {Number(priceModalInput) > priceModalItem.product.selling_price && (
+                    {Number(priceModalInput) > minPrice && (
                       <p className="text-xs text-emerald-600 flex items-center gap-1">
-                        <span>↑</span> +{formatNaira(Number(priceModalInput) - priceModalItem.product.selling_price)} par rapport au catalogue
+                        <span>↑</span> +{formatNaira(Number(priceModalInput) - minPrice)} par rapport au catalogue
                       </p>
                     )}
                   </div>
@@ -1571,7 +1592,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   <Button
                     variant="stockshop"
                     className="flex-1 h-11 rounded-xl font-semibold"
-                    disabled={!priceModalInput || Number(priceModalInput) < priceModalItem.product.selling_price}
+                    disabled={!priceModalInput || Number(priceModalInput) < minPrice}
                     onClick={() => {
                       updateItemPrice(priceModalItem.product.id, Number(priceModalInput))
                       setPriceModalItem(null)
@@ -1582,7 +1603,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               </div>
             </div>
             </div>
-          )}
+            )
+          })()}
         </DialogContent>
       </Dialog>
 
