@@ -99,10 +99,17 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
       if (recoveryTimerRef.current) clearTimeout(recoveryTimerRef.current)
       return
     }
-    // !user && !loading : vérifier si on a un cache avant de rediriger
+    // !user && !loading : vérifier si on a un cache avant de rediriger.
+    // Ré-armer la fenêtre de grâce à CHAQUE fois que user retombe à null, pas
+    // seulement au premier montage — sans ce setAuthRecovering(true), un blip
+    // transitoire de session survenant après une connexion déjà réussie (ex:
+    // navigation vers une page qui déclenche plusieurs requêtes en parallèle,
+    // comme Stock) trouve authRecovering déjà à false et déclenche une
+    // redirection immédiate vers /login, alors que la session se serait
+    // rétablie d'elle-même en une fraction de seconde.
     const hasCachedAuth = typeof window !== 'undefined' && !!localStorage.getItem('auth_cache_v1')
     if (hasCachedAuth) {
-      // Possible race condition — attendre que le client récupère la session
+      setAuthRecovering(true)
       recoveryTimerRef.current = setTimeout(() => setAuthRecovering(false), 2000)
     } else {
       setAuthRecovering(false)
