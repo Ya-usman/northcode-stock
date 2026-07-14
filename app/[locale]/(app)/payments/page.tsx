@@ -28,6 +28,8 @@ import { formatInputValue } from '@/lib/utils/currency'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
+import { useOffline } from '@/lib/offline/use-offline'
+import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 
 interface UnpaidSale {
   id: string
@@ -377,6 +379,7 @@ export default function CreditsPage() {
   const isMultiShop = effectiveShopIds.length > 1
   const { fmt, symbol } = useCurrency()
   const { toast } = useToast()
+  const { isOnline } = useOffline()
 
   const [debtors, setDebtors] = useState<CustomerDebt[]>(() =>
     (getPageCache<any[]>(`debtors_${effectiveShopIds.join(',')}`) || []) as CustomerDebt[]
@@ -487,11 +490,9 @@ export default function CreditsPage() {
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [debtSide, effectiveShopIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    const onOnline = () => { if (debtSide === 'payable') fetchSupplierDebtors(true) }
-    window.addEventListener('online', onOnline)
-    return () => window.removeEventListener('online', onOnline)
-  }, [debtSide, effectiveShopIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+  // navigator 'online' is unreliable in the Capacitor Android WebView —
+  // useRefetchOnReconnect uses useOffline()'s actively-verified isOnline instead.
+  useRefetchOnReconnect(() => { if (debtSide === 'payable') fetchSupplierDebtors(true) }, isOnline)
 
   const totalOwedOutstanding = supplierDebtors.reduce((s, d) => s + d.totalOwed, 0)
 
@@ -592,9 +593,12 @@ export default function CreditsPage() {
     }
   }
 
-  const fetchSupplierHistAll = async (from = supplierHistAllDateFrom, to = supplierHistAllDateTo) => {
+  // quiet: skip the loading spinner — used for the silent background
+  // refresh that follows an instant cache-first render, so a stale cached
+  // entry never stays stuck until the 7-day page-cache TTL expires.
+  const fetchSupplierHistAll = async (from = supplierHistAllDateFrom, to = supplierHistAllDateTo, quiet = false) => {
     if (!effectiveShopIds.length) return
-    setLoadingSupplierHistAll(true)
+    if (!quiet) setLoadingSupplierHistAll(true)
     try {
       const params = new URLSearchParams({ shop_ids: effectiveShopIds.join(',') })
       if (from) params.set('date_from', from)
@@ -607,15 +611,18 @@ export default function CreditsPage() {
       setSupplierHistAllFetched(true)
       if (!from && !to) setPageCache(`supplier_payments_hist_${effectiveShopIds.join(',')}`, supps)
     } catch (e: any) {
-      toast({ title: e.message, variant: 'destructive' })
+      if (!quiet) toast({ title: e.message, variant: 'destructive' })
     } finally {
-      setLoadingSupplierHistAll(false)
+      if (!quiet) setLoadingSupplierHistAll(false)
     }
   }
 
   useEffect(() => {
-    if (debtSide === 'payable' && supplierActiveTab === 'historique' && !supplierHistAllFetched) fetchSupplierHistAll()
+    if (debtSide === 'payable' && supplierActiveTab === 'historique') fetchSupplierHistAll(supplierHistAllDateFrom, supplierHistAllDateTo, supplierHistAllFetched)
   }, [debtSide, supplierActiveTab, effectiveShopIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+  useRefetchOnReconnect(() => {
+    if (debtSide === 'payable' && supplierActiveTab === 'historique') fetchSupplierHistAll(supplierHistAllDateFrom, supplierHistAllDateTo, true)
+  }, isOnline)
 
   const filteredSupplierHistAll = useMemo(() => {
     if (!supplierHistAllSearch.trim()) return supplierHistAll
@@ -657,11 +664,9 @@ export default function CreditsPage() {
   }, [shopKey])
   // Refresh on reconnect — debts/repayments are money-critical like the
   // dashboard, so a stale debt total right after coming back online is risky.
-  useEffect(() => {
-    const onOnline = () => fetchDebtors(true)
-    window.addEventListener('online', onOnline)
-    return () => window.removeEventListener('online', onOnline)
-  }, [shopKey])
+  // navigator 'online' is unreliable in the Capacitor Android WebView —
+  // useRefetchOnReconnect uses useOffline()'s actively-verified isOnline instead.
+  useRefetchOnReconnect(() => fetchDebtors(true), isOnline)
 
   const totalOutstanding = debtors.reduce((s, d) => s + d.totalDebt, 0)
 
@@ -810,9 +815,13 @@ export default function CreditsPage() {
   }
 
   // ── Fetch all debt history ───────────────────────────────
-  const fetchHistAll = async (from = histAllDateFrom, to = histAllDateTo) => {
+  // quiet: skip the loading spinner — used for the silent background
+  // refresh that follows an instant cache-first render, so a stale cached
+  // "Soldé" entry (e.g. from before a backend backfill) never stays stuck
+  // until the 7-day page-cache TTL expires.
+  const fetchHistAll = async (from = histAllDateFrom, to = histAllDateTo, quiet = false) => {
     if (!effectiveShopIds.length) return
-    setLoadingHistAll(true)
+    if (!quiet) setLoadingHistAll(true)
     try {
       const params = new URLSearchParams({ shop_ids: effectiveShopIds.join(',') })
       if (from) params.set('date_from', from)
@@ -825,15 +834,16 @@ export default function CreditsPage() {
       setHistAllFetched(true)
       if (!from && !to) setPageCache(`payments_hist_${effectiveShopIds.join(',')}`, customers)
     } catch (e: any) {
-      toast({ title: e.message, variant: 'destructive' })
+      if (!quiet) toast({ title: e.message, variant: 'destructive' })
     } finally {
-      setLoadingHistAll(false)
+      if (!quiet) setLoadingHistAll(false)
     }
   }
 
   useEffect(() => {
-    if (activeTab === 'historique' && !histAllFetched) fetchHistAll()
+    if (activeTab === 'historique') fetchHistAll(histAllDateFrom, histAllDateTo, histAllFetched)
   }, [activeTab, shopKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  useRefetchOnReconnect(() => { if (activeTab === 'historique') fetchHistAll(histAllDateFrom, histAllDateTo, true) }, isOnline)
 
   const filteredHistAll = useMemo(() => {
     if (!histAllSearch.trim()) return histAll
