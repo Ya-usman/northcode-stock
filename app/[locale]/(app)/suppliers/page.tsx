@@ -166,6 +166,7 @@ export default function SuppliersPage() {
   const [emailPo, setEmailPo] = useState<any | null>(null)
   const [receivingPo, setReceivingPo] = useState<any | null>(null)
   const [receiveQuantities, setReceiveQuantities] = useState<Record<string, string>>({})
+  const [receiveExpiryDates, setReceiveExpiryDates] = useState<Record<string, string>>({})
   const [receivingLoading, setReceivingLoading] = useState(false)
   const [{ search: poSearch, status: poStatusFilter, dateFrom: poDateFrom, dateTo: poDateTo }, setPoFilter] = usePersistedFilters(
     'purchase_orders', shop?.id, { search: '', status: '', dateFrom: '', dateTo: '' }
@@ -458,6 +459,7 @@ export default function SuppliersPage() {
       quantities[it.id] = String(it.quantity_ordered)
     }
     setReceiveQuantities(quantities)
+    setReceiveExpiryDates({})
     setReceivingPo(po)
   }
 
@@ -470,6 +472,7 @@ export default function SuppliersPage() {
         product_id: it.product_id,
         quantity_received: Number(receiveQuantities[it.id]) || 0,
         unit_price: it.unit_price,
+        expiry_date: receiveExpiryDates[it.id] || null,
       }))
       const res = await fetch('/api/purchase-orders/receive', {
         method: 'POST',
@@ -1194,17 +1197,28 @@ export default function SuppliersPage() {
               <p className="text-xs text-muted-foreground">{t('suppliers.po_receive_hint')}</p>
               <div className="mt-3 space-y-2">
                 {(receivingPo.purchase_order_items || []).map((it: any) => (
-                  <div key={it.id} className="flex items-center gap-2 rounded-lg border px-2.5 py-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm truncate">{it.product_name}</p>
-                      <p className="text-[11px] text-muted-foreground">{t('suppliers.po_ordered_label')}: {it.quantity_ordered} {it.unit || ''}</p>
+                  <div key={it.id} className="rounded-lg border px-2.5 py-2 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm truncate">{it.product_name}</p>
+                        <p className="text-[11px] text-muted-foreground">{t('suppliers.po_ordered_label')}: {it.quantity_ordered} {it.unit || ''}</p>
+                      </div>
+                      <Input
+                        type="number" min={0} inputMode="numeric"
+                        value={receiveQuantities[it.id] ?? ''}
+                        onChange={e => setReceiveQuantities(prev => ({ ...prev, [it.id]: e.target.value }))}
+                        className="w-20 h-9 text-center flex-shrink-0"
+                      />
                     </div>
-                    <Input
-                      type="number" min={0} inputMode="numeric"
-                      value={receiveQuantities[it.id] ?? ''}
-                      onChange={e => setReceiveQuantities(prev => ({ ...prev, [it.id]: e.target.value }))}
-                      className="w-20 h-9 text-center flex-shrink-0"
-                    />
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-muted-foreground shrink-0">{t('products.expiry_date_label')}</span>
+                      <Input
+                        type="date"
+                        value={receiveExpiryDates[it.id] ?? ''}
+                        onChange={e => setReceiveExpiryDates(prev => ({ ...prev, [it.id]: e.target.value }))}
+                        className="h-8 text-xs flex-1"
+                      />
+                    </div>
                   </div>
                 ))}
               </div>

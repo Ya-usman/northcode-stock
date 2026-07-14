@@ -69,6 +69,7 @@ export interface PendingMovement {
   supplier_name: string | null
   supplier_id: string | null
   buying_price: number | null
+  expiry_date: string | null
   notes: string | null
   performed_by: string
   created_at: string

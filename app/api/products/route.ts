@@ -323,7 +323,7 @@ export async function PUT(request: Request) {
   try {
     const { user, supabase } = await getAuthedUser()
     if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-    const { product_id, shop_id, quantity_to_add, supplier_name, supplier_id, buying_price, notes, performed_by } = await request.json()
+    const { product_id, shop_id, quantity_to_add, supplier_name, supplier_id, buying_price, expiry_date, notes, performed_by } = await request.json()
     if (!product_id || !shop_id) return NextResponse.json({ error: 'product_id et shop_id requis' }, { status: 400 })
     if (!Number.isFinite(Number(quantity_to_add)) || Number(quantity_to_add) <= 0)
       return NextResponse.json({ error: 'Quantité invalide' }, { status: 400 })
@@ -384,6 +384,22 @@ export async function PUT(request: Request) {
       performed_by,
       previous_qty: prevQty,
       new_qty: newQty,
+    })
+
+    // New batch for this restock — carries its own cost and expiry date so
+    // FEFO depletion at the sale trigger can tell it apart from stock
+    // already on the shelf. Uses the price actually paid this time (not the
+    // blended buying_price above), falling back to the product's current
+    // cost when no price was entered for this restock.
+    await (admin as any).from('product_batches').insert({
+      shop_id,
+      product_id,
+      supplier_id: supplier_id || null,
+      quantity: addQty,
+      initial_quantity: addQty,
+      buying_price: enteredPrice ?? (Number(product.buying_price) || 0),
+      expiry_date: expiry_date || null,
+      source: 'restock',
     })
 
     // Feed the supplier price comparator with what was actually paid — purely

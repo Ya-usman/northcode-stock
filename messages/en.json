@@ -230,6 +230,7 @@
     "edit_title": "Edit Product",
     "manage_categories": "Manage Categories",
     "restock_buying_price": "Buying Price (this batch)",
+    "expiry_date_label": "Expiry date (this batch)",
     "notes_label": "Notes",
     "notes_placeholder": "Optional notes…",
     "stats_count": "{count} product(s)",

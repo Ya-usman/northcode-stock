@@ -230,6 +230,7 @@
     "edit_title": "Modifier le produit",
     "manage_categories": "Gérer les catégories",
     "restock_buying_price": "Prix d'achat (ce lot)",
+    "expiry_date_label": "Date de péremption (ce lot)",
     "notes_label": "Notes",
     "notes_placeholder": "Notes optionnelles…",
     "stats_count": "{count} produit(s)",

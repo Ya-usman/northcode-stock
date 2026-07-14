@@ -43,6 +43,7 @@ export function createRestockSchema(msg: Pick<ValidationMessages, 'restock_min_q
     quantity: z.coerce.number().int().min(1, msg.restock_min_qty),
     buying_price: z.coerce.number().min(0).optional(),
     supplier_id: z.string().uuid().optional().or(z.literal('')),
+    expiry_date: z.string().optional().or(z.literal('')),
     notes: z.string().max(500).optional(),
   })
 }

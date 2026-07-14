@@ -48,6 +48,7 @@ export async function syncPendingMovements(shopId: string): Promise<MovementSync
           supplier_name: movement.supplier_name,
           supplier_id: movement.supplier_id,
           buying_price: movement.buying_price,
+          expiry_date: movement.expiry_date,
           notes: movement.notes,
           performed_by: movement.performed_by,
         }),

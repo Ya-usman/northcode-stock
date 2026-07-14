@@ -298,6 +298,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         supplier_name: suppliers.find(s => s.id === data.supplier_id)?.name || null,
         supplier_id: data.supplier_id || null,
         buying_price: data.buying_price || null,
+        expiry_date: data.expiry_date || null,
         notes: data.notes || null,
         performed_by: profile!.id,
         created_at: new Date().toISOString(),
@@ -327,6 +328,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         supplier_name: suppliers.find(s => s.id === data.supplier_id)?.name || null,
         supplier_id: data.supplier_id || null,
         buying_price: data.buying_price || null,
+        expiry_date: data.expiry_date || null,
         notes: data.notes || null,
         performed_by: profile!.id,
       }),
@@ -1180,6 +1182,10 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 <Input type="number" {...restockForm.register('buying_price')} placeholder={String(restockProduct?.buying_price)} />
               </div>
             )}
+            <div className="space-y-1.5">
+              <Label>{t('products.expiry_date_label')}</Label>
+              <Input type="date" {...restockForm.register('expiry_date')} />
+            </div>
             <div className="space-y-1.5">
               <Label>{t('products.notes_label')}</Label>
               <Input {...restockForm.register('notes')} placeholder={t('products.notes_placeholder')} />
