@@ -37,9 +37,23 @@ export async function POST(request: Request) {
     })
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
+    const { data: actorProfile } = await (admin as any).from('profiles').select('full_name').eq('id', user.id).single()
+
+    // Trace permanente de la réception — action la plus engageante du
+    // cycle (stock + argent), indépendante de la ligne purchase_orders.
+    await writeAuditLog({
+      action: 'purchase_order.receive',
+      shop_id,
+      actor_id: user.id,
+      actor_email: user.email,
+      target_id: purchase_order_id,
+      target_type: 'purchase_order',
+      ip: getClientIp(request),
+      metadata: { actor_name: actorProfile?.full_name || user.email },
+    })
+
     const changedItems = (data?.items || []).filter((it: any) => Number(it.price_from) !== Number(it.price_to))
     if (changedItems.length > 0) {
-      const { data: actorProfile } = await (admin as any).from('profiles').select('full_name').eq('id', user.id).single()
       for (const it of changedItems) {
         await writeAuditLog({
           action: 'update_product',

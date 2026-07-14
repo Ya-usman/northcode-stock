@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     // pattern que /api/stock/movements (les colonnes référencent auth.users,
     // pas profiles, donc pas de jointure PostgREST directe possible).
     const actorIds = Array.from(new Set(
-      (data || []).flatMap((po: any) => [po.created_by, po.sent_by, po.cancelled_by]).filter(Boolean)
+      (data || []).flatMap((po: any) => [po.created_by, po.sent_by, po.cancelled_by, po.received_by]).filter(Boolean)
     )) as string[]
     let actorMap: Record<string, string> = {}
     if (actorIds.length) {
@@ -56,6 +56,7 @@ export async function GET(request: Request) {
       created_by_name: po.created_by ? (actorMap[po.created_by] || null) : null,
       sent_by_name: po.sent_by ? (actorMap[po.sent_by] || null) : null,
       cancelled_by_name: po.cancelled_by ? (actorMap[po.cancelled_by] || null) : null,
+      received_by_name: po.received_by ? (actorMap[po.received_by] || null) : null,
     }))
 
     return NextResponse.json({ data: enriched })
@@ -159,13 +160,12 @@ export async function PATCH(request: Request) {
       .from('purchase_orders').update(updates).eq('id', id).eq('shop_id', shop_id).select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
-    // Trace permanente d'une annulation — même raisonnement que la
-    // suppression d'un brouillon : une action qui défait du travail
-    // mérite un journal indépendant de la ligne elle-même.
-    if (status === 'cancelled') {
+    // Trace permanente d'une annulation ou d'un envoi — même raisonnement
+    // que la suppression d'un brouillon : indépendante de la ligne elle-même.
+    if (status === 'cancelled' || status === 'sent') {
       const { data: actorProfile } = await (admin as any).from('profiles').select('full_name').eq('id', user.id).single()
       await writeAuditLog({
-        action: 'purchase_order.cancel',
+        action: status === 'cancelled' ? 'purchase_order.cancel' : 'purchase_order.send',
         shop_id,
         actor_id: user.id,
         actor_email: user.email,

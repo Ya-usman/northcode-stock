@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { useCurrency } from '@/lib/hooks/use-currency'
+import { formatInputValue } from '@/lib/utils/currency'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -122,7 +123,7 @@ export default function SuppliersPage() {
   const t = useTranslations()
   const { profile, shop, roleInActiveShop, effectiveShopIds, userShops } = useAuth()
   const { isOnline } = useOffline()
-  const { fmt } = useCurrency()
+  const { fmt, symbol } = useCurrency()
   const isMultiShop = effectiveShopIds.length > 1
   const supabase = createClient() as any
   const { toast } = useToast()
@@ -1458,9 +1459,9 @@ export default function SuppliersPage() {
                 </div>
                 {receivePaymentStatus === 'partial' && (
                   <Input
-                    type="number" min={0} max={receiveTotal}
-                    value={receivePaymentAmount}
-                    onChange={e => setReceivePaymentAmount(e.target.value)}
+                    inputMode="numeric"
+                    value={formatInputValue(receivePaymentAmount, symbol)}
+                    onChange={e => setReceivePaymentAmount(e.target.value.replace(/\D/g, ''))}
                     placeholder={t('suppliers.po_payment_amount_placeholder')}
                     className="h-9"
                   />
@@ -1510,8 +1511,8 @@ export default function SuppliersPage() {
           if (journalPo.sent_at) {
             events.push({ key: 'sent', label: t('suppliers.po_journal_sent'), date: journalPo.sent_at, Icon: Send, color: 'text-stockshop-blue border-blue-200 bg-blue-50 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800', actorName: journalPo.sent_by_name })
           }
-          if (journalPo.status === 'received' && journalPo.received_at) {
-            events.push({ key: 'received', label: t('suppliers.po_journal_received'), date: journalPo.received_at, Icon: CheckCircle2, color: 'text-green-700 border-green-200 bg-green-50 dark:bg-green-950/40 dark:text-green-400 dark:border-green-800' })
+          if ((journalPo.status === 'received' || journalPo.status === 'partial') && journalPo.received_at) {
+            events.push({ key: 'received', label: t('suppliers.po_journal_received'), date: journalPo.received_at, Icon: CheckCircle2, color: 'text-green-700 border-green-200 bg-green-50 dark:bg-green-950/40 dark:text-green-400 dark:border-green-800', actorName: journalPo.received_by_name })
           }
           if (journalPo.status === 'cancelled') {
             events.push({ key: 'cancelled', label: t('suppliers.po_journal_cancelled'), date: journalPo.updated_at || journalPo.created_at, Icon: Ban, color: 'text-red-600 border-red-200 bg-red-50 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800', actorName: journalPo.cancelled_by_name })
@@ -1542,7 +1543,7 @@ export default function SuppliersPage() {
                   ))}
                 </div>
 
-                {journalPo.status === 'received' && items.length > 0 && (
+                {(journalPo.status === 'received' || journalPo.status === 'partial') && items.length > 0 && (
                   <div className="pt-3 border-t">
                     <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t('suppliers.po_journal_items_title')}</p>
                     <div className="space-y-1.5">

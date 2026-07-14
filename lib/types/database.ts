@@ -124,6 +124,7 @@ export interface PurchaseOrder {
   created_by: string | null
   sent_by: string | null
   cancelled_by: string | null
+  received_by: string | null
   sent_at: string | null
   received_at: string | null
   total_amount: number | null
@@ -137,6 +138,7 @@ export interface PurchaseOrder {
   created_by_name?: string | null
   sent_by_name?: string | null
   cancelled_by_name?: string | null
+  received_by_name?: string | null
 }
 
 export interface Product {

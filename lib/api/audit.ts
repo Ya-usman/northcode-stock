@@ -19,6 +19,8 @@ export type AuditAction =
   | 'supplier.delete'
   | 'purchase_order.cancel'
   | 'purchase_order.delete'
+  | 'purchase_order.send'
+  | 'purchase_order.receive'
   | 'create_product'
   | 'update_product'
   | 'archive_product'
