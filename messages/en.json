@@ -400,7 +400,13 @@
     "po_copy": "Copy",
     "po_copied": "{label} copied",
     "po_no_supplier_email": "This supplier has no email on file — you can still copy the text.",
-    "po_open_mail_app": "Open in my email app"
+    "po_open_mail_app": "Open mail app",
+    "po_receive_title": "Confirm receipt",
+    "po_receive_hint": "Check the quantity actually delivered for each product before confirming — stock will be updated with these quantities, not the ordered ones.",
+    "po_ordered_label": "Ordered",
+    "po_confirm_receipt": "Confirm receipt",
+    "po_received_success": "Receipt confirmed, stock updated",
+    "po_partial_badge": "Incomplete delivery"
   },
   "payments": {
     "title": "Credit & Payments",

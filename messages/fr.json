@@ -400,7 +400,13 @@
     "po_copy": "Copier",
     "po_copied": "{label} copié",
     "po_no_supplier_email": "Ce fournisseur n'a pas d'adresse email enregistrée — vous pouvez quand même copier le texte.",
-    "po_open_mail_app": "Ouvrir dans mon application mail"
+    "po_open_mail_app": "Ouvrir l'app mail",
+    "po_receive_title": "Confirmer la réception",
+    "po_receive_hint": "Vérifiez la quantité réellement livrée pour chaque produit avant de valider — le stock sera mis à jour avec ces quantités, pas celles commandées.",
+    "po_ordered_label": "Commandé",
+    "po_confirm_receipt": "Confirmer la réception",
+    "po_received_success": "Réception confirmée, stock mis à jour",
+    "po_partial_badge": "Livraison incomplète"
   },
   "payments": {
     "title": "Crédit & Paiements",

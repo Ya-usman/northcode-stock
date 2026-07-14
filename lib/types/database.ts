@@ -104,6 +104,7 @@ export interface PurchaseOrderItem {
   product_name: string
   unit: string | null
   quantity_ordered: number
+  quantity_received: number | null
   unit_price: number | null
   created_at: string
 }

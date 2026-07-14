@@ -400,7 +400,13 @@
     "po_copy": "Kwafa",
     "po_copied": "An kwafi {label}",
     "po_no_supplier_email": "Wannan mai samar ba shi da imel da aka rubuta — har yanzu za ka iya kwafin rubutun.",
-    "po_open_mail_app": "Buɗe a app na imel"
+    "po_open_mail_app": "Buɗe app na imel",
+    "po_receive_title": "Tabbatar da karɓa",
+    "po_receive_hint": "Duba adadin da aka kawo ainihi ga kowane kaya kafin tabbatarwa — za a sabunta kaya da waɗannan adadin, ba wanda aka yi oda ba.",
+    "po_ordered_label": "An yi oda",
+    "po_confirm_receipt": "Tabbatar da karɓa",
+    "po_received_success": "An tabbatar da karɓa, an sabunta kaya",
+    "po_partial_badge": "Bayarwa bata cika ba"
   },
   "payments": {
     "title": "Bashi da Biya",

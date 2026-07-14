@@ -155,6 +155,9 @@ export default function SuppliersPage() {
   const [creatingPo, setCreatingPo] = useState(false)
   const [poActionLoading, setPoActionLoading] = useState<string | null>(null)
   const [emailPo, setEmailPo] = useState<any | null>(null)
+  const [receivingPo, setReceivingPo] = useState<any | null>(null)
+  const [receiveQuantities, setReceiveQuantities] = useState<Record<string, string>>({})
+  const [receivingLoading, setReceivingLoading] = useState(false)
 
   const form = useForm<SupplierFormData>({ resolver: zodResolver(supplierSchema) })
 
@@ -404,6 +407,43 @@ export default function SuppliersPage() {
     }
   }
 
+  const openReceivePo = (po: any) => {
+    const quantities: Record<string, string> = {}
+    for (const it of po.purchase_order_items || []) {
+      quantities[it.id] = String(it.quantity_ordered)
+    }
+    setReceiveQuantities(quantities)
+    setReceivingPo(po)
+  }
+
+  const submitReceivePo = async () => {
+    if (!shop?.id || !receivingPo) return
+    setReceivingLoading(true)
+    try {
+      const items = (receivingPo.purchase_order_items || []).map((it: any) => ({
+        item_id: it.id,
+        product_id: it.product_id,
+        quantity_received: Number(receiveQuantities[it.id]) || 0,
+        unit_price: it.unit_price,
+      }))
+      const res = await fetch('/api/purchase-orders/receive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop_id: shop.id, purchase_order_id: receivingPo.id, items }),
+      })
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      toast({ title: t('suppliers.po_received_success'), variant: 'success' })
+      setReceivingPo(null)
+      fetchPurchaseOrders()
+      fetchSuppliers()
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+    } finally {
+      setReceivingLoading(false)
+    }
+  }
+
   const deletePo = async (po: any) => {
     if (!shop?.id) return
     if (!confirm(t('suppliers.po_delete_confirm'))) return
@@ -642,6 +682,7 @@ export default function SuppliersPage() {
               {purchaseOrders.map((po: any) => {
                 const itemCount = (po.purchase_order_items || []).length
                 const total = (po.purchase_order_items || []).reduce((s: number, it: any) => s + (it.unit_price || 0) * it.quantity_ordered, 0)
+                const isPartial = po.status === 'received' && (po.purchase_order_items || []).some((it: any) => (it.quantity_received ?? it.quantity_ordered) < it.quantity_ordered)
                 return (
                   <div key={po.id} className="rounded-lg border bg-card shadow-sm p-4">
                     <div className="flex items-start justify-between gap-2 flex-wrap">
@@ -651,6 +692,11 @@ export default function SuppliersPage() {
                           <span className={`text-[10px] font-medium rounded-full px-2 py-0.5 ${PO_STATUS_STYLES[po.status] || PO_STATUS_STYLES.draft}`}>
                             {t(`suppliers.po_status_${po.status}`)}
                           </span>
+                          {isPartial && (
+                            <span className="text-[10px] font-medium rounded-full px-2 py-0.5 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400">
+                              {t('suppliers.po_partial_badge')}
+                            </span>
+                          )}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
                           {po.suppliers?.name || supplierName(po.supplier_id)} · {t('suppliers.po_items_count', { count: itemCount })} · {fmt(total)}
@@ -673,7 +719,7 @@ export default function SuppliersPage() {
                           </Button>
                         )}
                         {canManage && po.status === 'sent' && (
-                          <Button variant="outline" size="sm" className="h-7 gap-1 text-xs text-green-700 border-green-200 hover:bg-green-50 dark:text-green-400 dark:border-green-800" loading={poActionLoading === po.id} onClick={() => updatePoStatus(po, 'received')}>
+                          <Button variant="outline" size="sm" className="h-7 gap-1 text-xs text-green-700 border-green-200 hover:bg-green-50 dark:text-green-400 dark:border-green-800" onClick={() => openReceivePo(po)}>
                             <CheckCircle2 className="h-3 w-3" />{t('suppliers.po_mark_received')}
                           </Button>
                         )}
@@ -901,15 +947,58 @@ export default function SuppliersPage() {
                 )}
               </PremiumDialogBody>
               <PremiumDialogFooter onCancel={() => setEmailPo(null)} cancelLabel={t('actions.cancel')}>
-                <Button variant="stockshop" className="flex-1 h-11 rounded-xl font-semibold" asChild>
-                  <a href={mailtoHref}>
-                    <Mail className="h-4 w-4 mr-1.5" />{t('suppliers.po_open_mail_app')}
+                <Button variant="stockshop" className="flex-1 h-11 rounded-xl font-semibold min-w-0 px-2" asChild>
+                  <a href={mailtoHref} className="min-w-0">
+                    <Mail className="h-4 w-4 mr-1.5 flex-shrink-0" /><span className="truncate text-[13px] sm:text-sm">{t('suppliers.po_open_mail_app')}</span>
                   </a>
                 </Button>
               </PremiumDialogFooter>
             </>
           )
         })()}
+      </PremiumDialog>
+
+      <PremiumDialog
+        open={!!receivingPo}
+        onOpenChange={open => { if (!open) setReceivingPo(null) }}
+        category={t('nav.suppliers')}
+        title={t('suppliers.po_receive_title')}
+        icon={<CheckCircle2 className="h-4 w-4" />}
+        maxWidth="max-w-lg"
+      >
+        {receivingPo && (
+          <>
+            <PremiumDialogBody>
+              <p className="text-xs text-muted-foreground">{t('suppliers.po_receive_hint')}</p>
+              <div className="mt-3 space-y-2">
+                {(receivingPo.purchase_order_items || []).map((it: any) => (
+                  <div key={it.id} className="flex items-center gap-2 rounded-lg border px-2.5 py-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm truncate">{it.product_name}</p>
+                      <p className="text-[11px] text-muted-foreground">{t('suppliers.po_ordered_label')}: {it.quantity_ordered} {it.unit || ''}</p>
+                    </div>
+                    <Input
+                      type="number" min={0} inputMode="numeric"
+                      value={receiveQuantities[it.id] ?? ''}
+                      onChange={e => setReceiveQuantities(prev => ({ ...prev, [it.id]: e.target.value }))}
+                      className="w-20 h-9 text-center flex-shrink-0"
+                    />
+                  </div>
+                ))}
+              </div>
+            </PremiumDialogBody>
+            <PremiumDialogFooter onCancel={() => setReceivingPo(null)} cancelLabel={t('actions.cancel')}>
+              <Button
+                variant="stockshop"
+                onClick={submitReceivePo}
+                loading={receivingLoading}
+                className="flex-1 h-11 rounded-xl font-semibold"
+              >
+                {t('suppliers.po_confirm_receipt')}
+              </Button>
+            </PremiumDialogFooter>
+          </>
+        )}
       </PremiumDialog>
     </div>
   )

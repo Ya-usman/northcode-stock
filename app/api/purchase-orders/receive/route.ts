@@ -1,0 +1,78 @@
+import { NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
+import { writeAuditLog, getClientIp } from '@/lib/api/audit'
+
+const WRITE_ROLES = ['owner', 'manager', 'shop_manager', 'stock_manager', 'super_admin']
+
+// POST /api/purchase-orders/receive — verify received quantities and restock
+// in one atomic transaction (apply_purchase_order_receipt), instead of a
+// blind status flip followed by a separate manual restock.
+// body: { shop_id, purchase_order_id, items: [{item_id, product_id, quantity_received, unit_price}] }
+export async function POST(request: Request) {
+  try {
+    const { user, supabase } = await getAuthedUser()
+    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
+    const { shop_id, purchase_order_id, items } = await request.json()
+    if (!shop_id || !purchase_order_id) return NextResponse.json({ error: 'shop_id et purchase_order_id requis' }, { status: 400 })
+    if (!Array.isArray(items) || items.length === 0)
+      return NextResponse.json({ error: 'Au moins une ligne est requise' }, { status: 400 })
+
+    const role = await checkShopRole(supabase, user.id, shop_id)
+    if (!role || !WRITE_ROLES.includes(role))
+      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+
+    const admin = await createAdminClient()
+
+    const { data: po } = await (admin as any)
+      .from('purchase_orders').select('supplier_id').eq('id', purchase_order_id).eq('shop_id', shop_id).single()
+    if (!po) return NextResponse.json({ error: 'Bon de commande introuvable' }, { status: 404 })
+
+    const { data, error } = await (admin as any).rpc('apply_purchase_order_receipt', {
+      p_shop_id: shop_id,
+      p_po_id: purchase_order_id,
+      p_performed_by: user.id,
+      p_items: items,
+    })
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+    const changedItems = (data?.items || []).filter((it: any) => Number(it.price_from) !== Number(it.price_to))
+    if (changedItems.length > 0) {
+      const { data: actorProfile } = await (admin as any).from('profiles').select('full_name').eq('id', user.id).single()
+      for (const it of changedItems) {
+        await writeAuditLog({
+          action: 'update_product',
+          shop_id,
+          actor_id: user.id,
+          actor_email: user.email,
+          target_id: it.product_id,
+          target_type: 'product',
+          ip: getClientIp(request),
+          metadata: {
+            actor_name: actorProfile?.full_name || user.email,
+            product_name: it.product_name,
+            changes: { buying_price: { from: Number(it.price_from), to: Number(it.price_to) } },
+          },
+        })
+      }
+    }
+
+    // Feed the supplier price comparator — same as a manual restock.
+    if (po.supplier_id) {
+      for (const it of items) {
+        if (!it.product_id || !it.unit_price || Number(it.unit_price) <= 0) continue
+        await (admin as any)
+          .from('product_supplier_prices')
+          .upsert(
+            { shop_id, product_id: it.product_id, supplier_id: po.supplier_id, price: Number(it.unit_price), updated_at: new Date().toISOString() },
+            { onConflict: 'product_id,supplier_id' }
+          )
+      }
+    }
+
+    return NextResponse.json({ data })
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
+}
