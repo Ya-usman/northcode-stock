@@ -181,6 +181,8 @@ export default function SuppliersPage() {
   const [reorderPo, setReorderPo] = useState<any | null>(null)
   const [reorderItems, setReorderItems] = useState<{ product_id: string | null; product_name: string; unit: string | null; quantity_ordered: string; unit_price: string }[]>([])
   const [creatingReorder, setCreatingReorder] = useState(false)
+  const [deletePoConfirm, setDeletePoConfirm] = useState<any | null>(null)
+  const [deletingPo, setDeletingPo] = useState(false)
 
   const form = useForm<SupplierFormData>({ resolver: zodResolver(supplierSchema) })
 
@@ -499,12 +501,17 @@ export default function SuppliersPage() {
     }
   }
 
-  const deletePo = async (po: any) => {
-    if (!shop?.id) return
-    if (!confirm(t('suppliers.po_delete_confirm'))) return
-    const res = await fetch(`/api/purchase-orders?id=${po.id}&shop_id=${shop.id}`, { method: 'DELETE' })
-    if (!res.ok) { const json = await res.json().catch(() => ({})); toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
-    fetchPurchaseOrders()
+  const confirmDeletePo = async () => {
+    if (!shop?.id || !deletePoConfirm) return
+    setDeletingPo(true)
+    try {
+      const res = await fetch(`/api/purchase-orders?id=${deletePoConfirm.id}&shop_id=${shop.id}`, { method: 'DELETE' })
+      if (!res.ok) { const json = await res.json().catch(() => ({})); toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      setDeletePoConfirm(null)
+      fetchPurchaseOrders()
+    } finally {
+      setDeletingPo(false)
+    }
   }
 
   const openEditPo = (po: any) => {
@@ -980,7 +987,7 @@ export default function SuppliersPage() {
                               <Button
                                 variant="outline" size="sm"
                                 className="h-8 gap-1.5 text-xs flex-1 text-destructive border-destructive/30 hover:bg-red-50 dark:hover:bg-red-950/40"
-                                onClick={() => deletePo(po)}
+                                onClick={() => setDeletePoConfirm(po)}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />{t('actions.delete')}
                               </Button>
@@ -1266,6 +1273,29 @@ export default function SuppliersPage() {
             </PremiumDialogFooter>
           </>
         )}
+      </PremiumDialog>
+
+      <PremiumDialog
+        open={!!deletePoConfirm}
+        onOpenChange={open => { if (!open) setDeletePoConfirm(null) }}
+        category={t('nav.suppliers')}
+        title={deletePoConfirm?.reference || ''}
+        icon={<Trash2 className="h-4 w-4 text-destructive" />}
+        maxWidth="max-w-md"
+      >
+        <PremiumDialogBody>
+          <div className="rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 shadow-inner p-3 text-sm text-red-700 dark:text-red-400">
+            <p>{t('suppliers.po_delete_confirm')}</p>
+          </div>
+        </PremiumDialogBody>
+        <PremiumDialogFooter
+          onCancel={() => setDeletePoConfirm(null)}
+          cancelLabel={t('actions.cancel')}
+          onConfirm={confirmDeletePo}
+          confirmLabel={t('actions.delete')}
+          confirmLoading={deletingPo}
+          confirmDestructive
+        />
       </PremiumDialog>
 
       <PremiumDialog
