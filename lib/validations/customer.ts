@@ -22,6 +22,7 @@ export const supplierSchema = z.object({
     .optional()
     .or(z.literal('')),
   city: z.string().max(100).optional().or(z.literal('')),
+  email: z.string().email('Enter a valid email address').optional().or(z.literal('')),
 })
 
 export type SupplierFormData = z.infer<typeof supplierSchema>

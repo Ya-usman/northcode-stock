@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
-import { Search, Plus, Edit2, Trash2, Phone, MapPin, Package, Store, ChevronDown, ChevronRight, X, ArrowRightLeft } from 'lucide-react'
+import { Search, Plus, Edit2, Trash2, Phone, MapPin, Package, Store, ChevronDown, ChevronRight, X, ArrowRightLeft, FileText, Download, Send, CheckCircle2, Ban } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -18,10 +18,18 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { supplierSchema, type SupplierFormData } from '@/lib/validations/customer'
-import type { Supplier, Product } from '@/lib/types/database'
+import type { Supplier, Product, PurchaseOrder } from '@/lib/types/database'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
+import { generatePurchaseOrderPDF } from '@/lib/utils/pdf'
+
+const PO_STATUS_STYLES: Record<string, string> = {
+  draft: 'bg-muted text-muted-foreground',
+  sent: 'bg-blue-50 dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400',
+  received: 'bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400',
+  cancelled: 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400',
+}
 
 function SupplierCard({ supplier, products, productCount, expandedId, setExpandedId, canManage, setEditingSupplier, form, setShowModal, deleteSupplier, t, fmt }: any) {
   const isExpanded = expandedId === supplier.id
@@ -56,7 +64,7 @@ function SupplierCard({ supplier, products, productCount, expandedId, setExpande
               <span
                 role="button"
                 className="h-8 w-8 flex items-center justify-center rounded hover:bg-accent transition-colors"
-                onClick={(e: any) => { e.stopPropagation(); setEditingSupplier(supplier); form.reset({ name: supplier.name, phone: supplier.phone || '', city: supplier.city || '' }); setShowModal(true) }}
+                onClick={(e: any) => { e.stopPropagation(); setEditingSupplier(supplier); form.reset({ name: supplier.name, phone: supplier.phone || '', city: supplier.city || '', email: supplier.email || '' }); setShowModal(true) }}
               >
                 <Edit2 className="h-3.5 w-3.5" />
               </span>
@@ -128,13 +136,23 @@ export default function SuppliersPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   // ── Comparateur de prix par produit ─────────────────────────────────────
-  const [view, setView] = useState<'suppliers' | 'by_product'>('suppliers')
+  const [view, setView] = useState<'suppliers' | 'by_product' | 'purchase_orders'>('suppliers')
   const [productSearch, setProductSearch] = useState('')
   const [productPrices, setProductPrices] = useState<{ id: string; product_id: string; supplier_id: string; price: number }[]>([])
   const [addPriceProduct, setAddPriceProduct] = useState<Product | null>(null)
   const [addPriceSupplierId, setAddPriceSupplierId] = useState('')
   const [addPriceValue, setAddPriceValue] = useState('')
   const [savingPrice, setSavingPrice] = useState(false)
+
+  // ── Bons de commande ─────────────────────────────────────────────────────
+  const [purchaseOrders, setPurchaseOrders] = useState<any[]>([])
+  const [showPoDialog, setShowPoDialog] = useState(false)
+  const [poSupplierId, setPoSupplierId] = useState('')
+  const [poShowAll, setPoShowAll] = useState(false)
+  const [poChecked, setPoChecked] = useState<Record<string, boolean>>({})
+  const [poQuantities, setPoQuantities] = useState<Record<string, string>>({})
+  const [creatingPo, setCreatingPo] = useState(false)
+  const [poActionLoading, setPoActionLoading] = useState<string | null>(null)
 
   const form = useForm<SupplierFormData>({ resolver: zodResolver(supplierSchema) })
 
@@ -172,16 +190,28 @@ export default function SuppliersPage() {
     }
   }
 
-  useEffect(() => { fetchSuppliers(); fetchProductPrices() }, [effectiveShopIds.join(',')])
+  const fetchPurchaseOrders = async () => {
+    if (!shop?.id) return
+    try {
+      const res = await fetch(`/api/purchase-orders?shop_id=${shop.id}`)
+      if (!res.ok) return
+      const json = await res.json()
+      setPurchaseOrders(json.data || [])
+    } catch {
+      // silencieux
+    }
+  }
 
-  // Refresh when the user comes back to this tab — catches suppliers/prices
-  // added or edited by other team members while this page sat in the background.
+  useEffect(() => { fetchSuppliers(); fetchProductPrices(); fetchPurchaseOrders() }, [effectiveShopIds.join(',')])
+
+  // Refresh when the user comes back to this tab — catches suppliers/prices/
+  // bons de commande ajoutés ou modifiés par un autre membre de l'équipe.
   useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') { fetchSuppliers(); fetchProductPrices() } }
+    const onVisible = () => { if (document.visibilityState === 'visible') { fetchSuppliers(); fetchProductPrices(); fetchPurchaseOrders() } }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [effectiveShopIds.join(',')])
-  useRefetchOnReconnect(() => { fetchSuppliers(); fetchProductPrices() }, isOnline)
+  useRefetchOnReconnect(() => { fetchSuppliers(); fetchProductPrices(); fetchPurchaseOrders() }, isOnline)
 
   const productCounts = useMemo(() => {
     const counts: Record<string, number> = {}
@@ -213,7 +243,7 @@ export default function SuppliersPage() {
       toast({ title: editingSupplier ? t('toast.supplier_updated') : t('toast.supplier_added'), variant: 'success' })
       setShowModal(false)
       setEditingSupplier(null)
-      form.reset({ name: '', phone: '', city: '' })
+      form.reset({ name: '', phone: '', city: '', email: '' })
       fetchSuppliers()
     } catch (err: any) {
       toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
@@ -290,6 +320,116 @@ export default function SuppliersPage() {
     fetchSuppliers()
   }
 
+  // ── Bons de commande ─────────────────────────────────────────────────────
+  const lowStockThreshold = (p: any) => p.low_stock_threshold || shop?.low_stock_threshold || 10
+  const isLowOrOut = (p: any) => p.quantity === 0 || p.quantity <= lowStockThreshold(p)
+  const priceFor = (product: any, supplierId: string) =>
+    productPrices.find(e => e.product_id === product.id && e.supplier_id === supplierId)?.price ?? Number(product.buying_price || 0)
+
+  const poSupplierProducts = products.filter((p: any) => p.supplier_id === poSupplierId)
+  const poVisibleProducts = poShowAll ? poSupplierProducts : poSupplierProducts.filter(isLowOrOut)
+
+  const openCreatePo = () => {
+    setPoSupplierId('')
+    setPoShowAll(false)
+    setPoChecked({})
+    setPoQuantities({})
+    setShowPoDialog(true)
+  }
+
+  const onPoSupplierChange = (supplierId: string) => {
+    setPoSupplierId(supplierId)
+    const supplierProducts = products.filter((p: any) => p.supplier_id === supplierId)
+    const checked: Record<string, boolean> = {}
+    const quantities: Record<string, string> = {}
+    supplierProducts.filter(isLowOrOut).forEach((p: any) => {
+      checked[p.id] = true
+      const threshold = lowStockThreshold(p)
+      quantities[p.id] = String(Math.max(threshold * 2 - p.quantity, threshold))
+    })
+    setPoChecked(checked)
+    setPoQuantities(quantities)
+  }
+
+  const submitCreatePo = async () => {
+    if (!shop?.id || !poSupplierId) return
+    const items = poVisibleProducts
+      .filter((p: any) => poChecked[p.id])
+      .map((p: any) => ({
+        product_id: p.id,
+        product_name: p.name,
+        unit: p.unit,
+        quantity_ordered: Number(poQuantities[p.id]) || 1,
+        unit_price: priceFor(p, poSupplierId),
+      }))
+    if (items.length === 0) {
+      toast({ title: 'Sélectionnez au moins un produit', variant: 'destructive' })
+      return
+    }
+    setCreatingPo(true)
+    try {
+      const res = await fetch('/api/purchase-orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop_id: shop.id, supplier_id: poSupplierId, items }),
+      })
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      toast({ title: t('suppliers.po_created'), variant: 'success' })
+      setShowPoDialog(false)
+      fetchPurchaseOrders()
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+    } finally {
+      setCreatingPo(false)
+    }
+  }
+
+  const updatePoStatus = async (po: any, status: string) => {
+    if (!shop?.id) return
+    setPoActionLoading(po.id)
+    try {
+      const res = await fetch('/api/purchase-orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: po.id, shop_id: shop.id, status }),
+      })
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      fetchPurchaseOrders()
+    } finally {
+      setPoActionLoading(null)
+    }
+  }
+
+  const deletePo = async (po: any) => {
+    if (!shop?.id) return
+    if (!confirm(t('suppliers.po_delete_confirm'))) return
+    const res = await fetch(`/api/purchase-orders?id=${po.id}&shop_id=${shop.id}`, { method: 'DELETE' })
+    if (!res.ok) { const json = await res.json().catch(() => ({})); toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+    fetchPurchaseOrders()
+  }
+
+  const downloadPoPdf = async (po: any) => {
+    const items = (po.purchase_order_items || [])
+    await generatePurchaseOrderPDF({
+      shopName: shop?.name || 'StockShop',
+      reference: po.reference,
+      dateStr: new Date(po.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
+      supplierName: po.suppliers?.name || supplierName(po.supplier_id),
+      supplierPhone: po.suppliers?.phone,
+      supplierCity: po.suppliers?.city,
+      items: items.map((it: any) => ({
+        name: it.product_name,
+        quantity: it.quantity_ordered,
+        unit: it.unit || '',
+        unitPriceLabel: it.unit_price != null ? fmt(it.unit_price) : '—',
+        totalLabel: it.unit_price != null ? fmt(it.unit_price * it.quantity_ordered) : '—',
+      })),
+      totalLabel: fmt(items.reduce((s: number, it: any) => s + (it.unit_price || 0) * it.quantity_ordered, 0)),
+    })
+  }
+
   return (
     <div className="space-y-4">
       {/* View toggle */}
@@ -306,6 +446,12 @@ export default function SuppliersPage() {
         >
           <ArrowRightLeft className="h-3.5 w-3.5" /> {t('suppliers.tab_by_product')}
         </button>
+        <button
+          onClick={() => setView('purchase_orders')}
+          className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${view === 'purchase_orders' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+        >
+          <FileText className="h-3.5 w-3.5" /> {t('suppliers.tab_purchase_orders')}
+        </button>
       </div>
 
       {view === 'suppliers' && (
@@ -320,7 +466,7 @@ export default function SuppliersPage() {
             variant="stockshop"
             className="h-9 gap-1"
             size="sm"
-            onClick={() => { form.reset({ name: '', phone: '', city: '' }); setEditingSupplier(null); setShowModal(true) }}
+            onClick={() => { form.reset({ name: '', phone: '', city: '', email: '' }); setEditingSupplier(null); setShowModal(true) }}
           >
             <Plus className="h-4 w-4" />
             {t('suppliers.add_supplier')}
@@ -444,9 +590,87 @@ export default function SuppliersPage() {
         </div>
       )}
 
+      {view === 'purchase_orders' && (
+        <div className="space-y-3">
+          {canManage && (
+            <div className="flex justify-end">
+              <Button variant="stockshop" size="sm" className="h-9 gap-1" onClick={openCreatePo}>
+                <Plus className="h-4 w-4" />{t('suppliers.new_po')}
+              </Button>
+            </div>
+          )}
+
+          {purchaseOrders.length === 0 ? (
+            <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
+              {t('suppliers.no_purchase_orders')}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {purchaseOrders.map((po: any) => {
+                const itemCount = (po.purchase_order_items || []).length
+                const total = (po.purchase_order_items || []).reduce((s: number, it: any) => s + (it.unit_price || 0) * it.quantity_ordered, 0)
+                return (
+                  <div key={po.id} className="rounded-lg border bg-card shadow-sm p-4">
+                    <div className="flex items-start justify-between gap-2 flex-wrap">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-sm">{po.reference}</p>
+                          <span className={`text-[10px] font-medium rounded-full px-2 py-0.5 ${PO_STATUS_STYLES[po.status] || PO_STATUS_STYLES.draft}`}>
+                            {t(`suppliers.po_status_${po.status}`)}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {po.suppliers?.name || supplierName(po.supplier_id)} · {t('suppliers.po_items_count', { count: itemCount })} · {fmt(total)}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground/70 mt-0.5">
+                          {new Date(po.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => downloadPoPdf(po)}>
+                          <Download className="h-3 w-3" />{t('suppliers.po_download')}
+                        </Button>
+                        {canManage && po.status === 'draft' && (
+                          <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" loading={poActionLoading === po.id} onClick={() => updatePoStatus(po, 'sent')}>
+                            <Send className="h-3 w-3" />{t('suppliers.po_mark_sent')}
+                          </Button>
+                        )}
+                        {canManage && po.status === 'sent' && (
+                          <Button variant="outline" size="sm" className="h-7 gap-1 text-xs text-green-700 border-green-200 hover:bg-green-50 dark:text-green-400 dark:border-green-800" loading={poActionLoading === po.id} onClick={() => updatePoStatus(po, 'received')}>
+                            <CheckCircle2 className="h-3 w-3" />{t('suppliers.po_mark_received')}
+                          </Button>
+                        )}
+                        {canManage && (po.status === 'draft' || po.status === 'sent') && (
+                          <button
+                            className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                            title={t('suppliers.po_cancel')}
+                            onClick={() => updatePoStatus(po, 'cancelled')}
+                          >
+                            <Ban className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        {canManage && po.status === 'draft' && (
+                          <button
+                            className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                            title={t('actions.delete')}
+                            onClick={() => deletePo(po)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       <PremiumDialog
         open={showModal}
-        onOpenChange={open => { if (!open) { setShowModal(false); setEditingSupplier(null); form.reset({ name: '', phone: '', city: '' }) } }}
+        onOpenChange={open => { if (!open) { setShowModal(false); setEditingSupplier(null); form.reset({ name: '', phone: '', city: '', email: '' }) } }}
         category={t('nav.suppliers')}
         title={editingSupplier ? t('suppliers.edit_title') : t('suppliers.add_supplier')}
         icon={<Package className="h-4 w-4" />}
@@ -465,6 +689,11 @@ export default function SuppliersPage() {
             <div className="space-y-1.5">
               <Label>{t('suppliers.city')}</Label>
               <Input {...form.register('city')} placeholder={t('suppliers.city_placeholder')} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{t('suppliers.email')}</Label>
+              <Input {...form.register('email')} placeholder="fournisseur@example.com" type="email" />
+              {form.formState.errors.email && <p className="text-xs text-destructive">{form.formState.errors.email.message}</p>}
             </div>
           </PremiumDialogBody>
           <PremiumDialogFooter
@@ -509,6 +738,75 @@ export default function SuppliersPage() {
             onClick={submitAddPrice}
             loading={savingPrice}
             disabled={!addPriceSupplierId || !addPriceValue || Number(addPriceValue) <= 0}
+            className="flex-1 h-11 rounded-xl font-semibold"
+          >
+            {t('actions.save')}
+          </Button>
+        </PremiumDialogFooter>
+      </PremiumDialog>
+
+      <PremiumDialog
+        open={showPoDialog}
+        onOpenChange={setShowPoDialog}
+        category={t('nav.suppliers')}
+        title={t('suppliers.new_po')}
+        icon={<FileText className="h-4 w-4" />}
+        maxWidth="max-w-lg"
+      >
+        <PremiumDialogBody>
+          <div className="space-y-1.5">
+            <Label>{t('nav.suppliers')} *</Label>
+            <Select value={poSupplierId} onValueChange={onPoSupplierChange}>
+              <SelectTrigger><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
+              <SelectContent>
+                {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {poSupplierId && (
+            <>
+              <label className="flex items-center gap-2 mt-3 text-xs text-muted-foreground cursor-pointer select-none">
+                <input type="checkbox" checked={poShowAll} onChange={e => setPoShowAll(e.target.checked)} />
+                {t('suppliers.po_show_all_products')}
+              </label>
+
+              {poVisibleProducts.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">{t('suppliers.po_no_products')}</p>
+              ) : (
+                <div className="mt-2 max-h-72 overflow-y-auto space-y-1.5">
+                  {poVisibleProducts.map((p: any) => (
+                    <div key={p.id} className="flex items-center gap-2 rounded-lg border px-2.5 py-2">
+                      <input
+                        type="checkbox"
+                        checked={!!poChecked[p.id]}
+                        onChange={e => setPoChecked(prev => ({ ...prev, [p.id]: e.target.checked }))}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm truncate">{p.name}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {t('suppliers.po_stock_label')}: {p.quantity} {p.unit} · {fmt(priceFor(p, poSupplierId))}
+                        </p>
+                      </div>
+                      <Input
+                        type="number" min={1} inputMode="numeric"
+                        value={poQuantities[p.id] ?? ''}
+                        onChange={e => setPoQuantities(prev => ({ ...prev, [p.id]: e.target.value }))}
+                        className="w-16 h-8 text-center text-xs flex-shrink-0"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </PremiumDialogBody>
+        <PremiumDialogFooter onCancel={() => setShowPoDialog(false)} cancelLabel={t('actions.cancel')}>
+          <Button
+            variant="stockshop"
+            onClick={submitCreatePo}
+            loading={creatingPo}
+            disabled={!poSupplierId}
             className="flex-1 h-11 rounded-xl font-semibold"
           >
             {t('actions.save')}

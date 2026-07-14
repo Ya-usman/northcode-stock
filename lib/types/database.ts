@@ -90,8 +90,38 @@ export interface Supplier {
   name: string
   phone: string | null
   city: string | null
+  email: string | null
   created_at: string
   deleted_at: string | null
+}
+
+export type PurchaseOrderStatus = 'draft' | 'sent' | 'received' | 'cancelled'
+
+export interface PurchaseOrderItem {
+  id: string
+  purchase_order_id: string
+  product_id: string | null
+  product_name: string
+  unit: string | null
+  quantity_ordered: number
+  unit_price: number | null
+  created_at: string
+}
+
+export interface PurchaseOrder {
+  id: string
+  shop_id: string
+  supplier_id: string | null
+  reference: string
+  status: PurchaseOrderStatus
+  notes: string | null
+  created_by: string | null
+  sent_at: string | null
+  received_at: string | null
+  created_at: string
+  updated_at: string
+  // Joined
+  purchase_order_items?: PurchaseOrderItem[]
 }
 
 export interface Product {
