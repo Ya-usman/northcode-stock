@@ -448,7 +448,8 @@
     "po_reorder_title": "Commander le reste",
     "po_reorder_hint": "Nouveau bon de commande pour le solde manquant du bon {reference}.",
     "po_reorder_confirm": "Créer le bon de commande",
-    "po_receipt_note_placeholder": "Motif de l'écart (optionnel)…"
+    "po_receipt_note_placeholder": "Motif de l'écart (optionnel)…",
+    "supplier_journal_owed": "Solde dû"
   },
   "payments": {
     "title": "Crédit & Paiements",
@@ -481,7 +482,31 @@
     "unpaid_label": "Impayé",
     "from_oldest": "du plus ancien au plus récent",
     "payment_breakdown": "Répartition du paiement",
-    "fully_settled": "Solde soldé"
+    "fully_settled": "Solde soldé",
+    "side_receivable": "On me doit",
+    "side_payable": "Je dois",
+    "total_owed_label": "Total dû aux fournisseurs",
+    "suppliers_owed_count": "{count} fournisseur(s) avec solde dû",
+    "no_debts_owed": "Aucune dette fournisseur en cours.",
+    "no_debts_owed_detail": "Tous les fournisseurs sont payés",
+    "orders_count": "{count} commande(s)",
+    "unpaid_orders": "Commandes impayées",
+    "record_payment_title": "Enregistrer un paiement",
+    "payment_history_title": "Historique des paiements",
+    "no_orders_for_supplier": "Aucune commande trouvée pour ce fournisseur",
+    "tab_en_cours": "En cours",
+    "tab_historique": "Historique",
+    "search_by_name": "Rechercher par nom…",
+    "filter_btn": "Filtrer",
+    "solde_label": "Soldés ✓",
+    "en_cours_label": "En cours",
+    "solde_badge": "Soldé ✓",
+    "total_label": "Total",
+    "paid_label": "Payé",
+    "remaining_label": "Restant",
+    "no_results": "Aucun résultat",
+    "hide": "Masquer",
+    "view_orders": "Voir les commandes"
   },
   "receipt": {
     "receipt": "Reçu",

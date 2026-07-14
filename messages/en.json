@@ -448,7 +448,8 @@
     "po_reorder_title": "Order the rest",
     "po_reorder_hint": "New purchase order for the missing balance of order {reference}.",
     "po_reorder_confirm": "Create purchase order",
-    "po_receipt_note_placeholder": "Reason for the shortfall (optional)…"
+    "po_receipt_note_placeholder": "Reason for the shortfall (optional)…",
+    "supplier_journal_owed": "Balance due"
   },
   "payments": {
     "title": "Credit & Payments",
@@ -481,7 +482,31 @@
     "unpaid_label": "Unpaid",
     "from_oldest": "from oldest to newest",
     "payment_breakdown": "Payment breakdown",
-    "fully_settled": "Fully settled"
+    "fully_settled": "Fully settled",
+    "side_receivable": "Owed to me",
+    "side_payable": "I owe",
+    "total_owed_label": "Total owed to suppliers",
+    "suppliers_owed_count": "{count} supplier(s) with a balance due",
+    "no_debts_owed": "No outstanding supplier debt.",
+    "no_debts_owed_detail": "All suppliers are paid up",
+    "orders_count": "{count} order(s)",
+    "unpaid_orders": "Unpaid orders",
+    "record_payment_title": "Record a payment",
+    "payment_history_title": "Payment history",
+    "no_orders_for_supplier": "No orders found for this supplier",
+    "tab_en_cours": "Outstanding",
+    "tab_historique": "History",
+    "search_by_name": "Search by name…",
+    "filter_btn": "Filter",
+    "solde_label": "Settled ✓",
+    "en_cours_label": "Outstanding",
+    "solde_badge": "Settled ✓",
+    "total_label": "Total",
+    "paid_label": "Paid",
+    "remaining_label": "Remaining",
+    "no_results": "No results",
+    "hide": "Hide",
+    "view_orders": "View orders"
   },
   "receipt": {
     "receipt": "Receipt",

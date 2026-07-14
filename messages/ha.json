@@ -448,7 +448,8 @@
     "po_reorder_title": "Yi oda na sauran",
     "po_reorder_hint": "Sabuwar odar sayayya don sauran kayan da ba a kawo ba na oda {reference}.",
     "po_reorder_confirm": "Ƙirƙiri odar sayayya",
-    "po_receipt_note_placeholder": "Dalilin rashi (zaɓi)…"
+    "po_receipt_note_placeholder": "Dalilin rashi (zaɓi)…",
+    "supplier_journal_owed": "Bashin da ake bi"
   },
   "payments": {
     "title": "Bashi da Biya",
@@ -481,7 +482,31 @@
     "unpaid_label": "Ba a biya",
     "from_oldest": "daga tsoho zuwa sabo",
     "payment_breakdown": "Yadda ake biya",
-    "fully_settled": "An biya gaba ɗaya"
+    "fully_settled": "An biya gaba ɗaya",
+    "side_receivable": "Ana bin ni",
+    "side_payable": "Ina bin",
+    "total_owed_label": "Jimlar da ake bin masu samar",
+    "suppliers_owed_count": "Mai samar {count} da ake bin",
+    "no_debts_owed": "Babu bashin mai samar a yanzu.",
+    "no_debts_owed_detail": "An biya duk masu samar",
+    "orders_count": "Oda {count}",
+    "unpaid_orders": "Odar da ba a biya ba",
+    "record_payment_title": "Yi rikodin biya",
+    "payment_history_title": "Tarihin biya",
+    "no_orders_for_supplier": "Ba a sami oda ba don wannan mai samar",
+    "tab_en_cours": "A yanzu",
+    "tab_historique": "Tarihi",
+    "search_by_name": "Nemi da suna…",
+    "filter_btn": "Tace",
+    "solde_label": "An biya ✓",
+    "en_cours_label": "A yanzu",
+    "solde_badge": "An biya ✓",
+    "total_label": "Jimla",
+    "paid_label": "An biya",
+    "remaining_label": "Sauran",
+    "no_results": "Babu sakamako",
+    "hide": "Ɓoye",
+    "view_orders": "Duba oda"
   },
   "receipt": {
     "receipt": "Rasiti",

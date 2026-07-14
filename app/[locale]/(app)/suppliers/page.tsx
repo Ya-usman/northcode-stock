@@ -1520,6 +1520,13 @@ export default function SuppliersPage() {
                       </div>
                     </div>
 
+                    {Number(journalSupplier.total_owed) > 0 && (
+                      <div className="mt-3 flex items-center justify-between rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2">
+                        <span className="text-xs font-medium text-amber-700 dark:text-amber-400">{t('suppliers.supplier_journal_owed')}</span>
+                        <span className="text-sm font-bold text-amber-700 dark:text-amber-400">{fmt(journalSupplier.total_owed)}</span>
+                      </div>
+                    )}
+
                     <div className="mt-4 divide-y divide-border/50">
                       {supplierPOs
                         .slice()

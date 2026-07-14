@@ -94,11 +94,12 @@ export interface Supplier {
   phone: string | null
   city: string | null
   email: string | null
+  total_owed: number
   created_at: string
   deleted_at: string | null
 }
 
-export type PurchaseOrderStatus = 'draft' | 'sent' | 'received' | 'cancelled'
+export type PurchaseOrderStatus = 'draft' | 'sent' | 'received' | 'partial' | 'cancelled'
 
 export interface PurchaseOrderItem {
   id: string
@@ -109,6 +110,7 @@ export interface PurchaseOrderItem {
   quantity_ordered: number
   quantity_received: number | null
   unit_price: number | null
+  receipt_note: string | null
   created_at: string
 }
 
@@ -122,6 +124,10 @@ export interface PurchaseOrder {
   created_by: string | null
   sent_at: string | null
   received_at: string | null
+  total_amount: number | null
+  amount_paid: number
+  payment_status: 'unpaid' | 'partial' | 'paid'
+  balance: number
   created_at: string
   updated_at: string
   // Joined
