@@ -403,6 +403,7 @@
     "po_status_draft": "Brouillon",
     "po_status_sent": "Envoyé",
     "po_status_received": "Reçu",
+    "po_status_partial": "Partiellement reçu",
     "po_status_cancelled": "Annulé",
     "po_show_all_products": "Afficher tous les produits de ce fournisseur",
     "po_no_products": "Aucun produit chez ce fournisseur.",
@@ -441,7 +442,13 @@
     "supplier_journal_complete_rate": "Livré complet",
     "supplier_journal_no_orders": "Aucune commande avec ce fournisseur pour l'instant.",
     "supplier_journal_price_trend_title": "Tendance des prix",
-    "supplier_journal_no_data": "—"
+    "supplier_journal_no_data": "—",
+    "po_received_vs_ordered": "{received}/{ordered} reçus",
+    "po_reorder_action": "Commander le reste",
+    "po_reorder_title": "Commander le reste",
+    "po_reorder_hint": "Nouveau bon de commande pour le solde manquant du bon {reference}.",
+    "po_reorder_confirm": "Créer le bon de commande",
+    "po_receipt_note_placeholder": "Motif de l'écart (optionnel)…"
   },
   "payments": {
     "title": "Crédit & Paiements",

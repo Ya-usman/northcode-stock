@@ -403,6 +403,7 @@
     "po_status_draft": "Zane",
     "po_status_sent": "An aika",
     "po_status_received": "An karɓa",
+    "po_status_partial": "An karɓa wani sashi",
     "po_status_cancelled": "An soke",
     "po_show_all_products": "Nuna duk kayan wannan mai samar",
     "po_no_products": "Babu kaya daga wannan mai samar.",
@@ -441,7 +442,13 @@
     "supplier_journal_complete_rate": "An kawo cikakke",
     "supplier_journal_no_orders": "Babu oda da wannan mai samar tukuna.",
     "supplier_journal_price_trend_title": "Yanayin farashi",
-    "supplier_journal_no_data": "—"
+    "supplier_journal_no_data": "—",
+    "po_received_vs_ordered": "{received}/{ordered} an karɓa",
+    "po_reorder_action": "Yi oda na sauran",
+    "po_reorder_title": "Yi oda na sauran",
+    "po_reorder_hint": "Sabuwar odar sayayya don sauran kayan da ba a kawo ba na oda {reference}.",
+    "po_reorder_confirm": "Ƙirƙiri odar sayayya",
+    "po_receipt_note_placeholder": "Dalilin rashi (zaɓi)…"
   },
   "payments": {
     "title": "Bashi da Biya",

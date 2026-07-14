@@ -403,6 +403,7 @@
     "po_status_draft": "Draft",
     "po_status_sent": "Sent",
     "po_status_received": "Received",
+    "po_status_partial": "Partially received",
     "po_status_cancelled": "Cancelled",
     "po_show_all_products": "Show all products from this supplier",
     "po_no_products": "No products from this supplier.",
@@ -441,7 +442,13 @@
     "supplier_journal_complete_rate": "Fully delivered",
     "supplier_journal_no_orders": "No orders with this supplier yet.",
     "supplier_journal_price_trend_title": "Price trend",
-    "supplier_journal_no_data": "—"
+    "supplier_journal_no_data": "—",
+    "po_received_vs_ordered": "{received}/{ordered} received",
+    "po_reorder_action": "Order the rest",
+    "po_reorder_title": "Order the rest",
+    "po_reorder_hint": "New purchase order for the missing balance of order {reference}.",
+    "po_reorder_confirm": "Create purchase order",
+    "po_receipt_note_placeholder": "Reason for the shortfall (optional)…"
   },
   "payments": {
     "title": "Credit & Payments",

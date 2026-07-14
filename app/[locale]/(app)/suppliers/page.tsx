@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
-import { Search, Plus, Edit2, Trash2, Phone, MapPin, Package, Store, ChevronDown, ChevronRight, X, ArrowRightLeft, FileText, Download, Send, CheckCircle2, Ban, Mail, Copy, Share2, History, TrendingUp, TrendingDown } from 'lucide-react'
+import { Search, Plus, Edit2, Trash2, Phone, MapPin, Package, Store, ChevronDown, ChevronRight, X, ArrowRightLeft, FileText, Download, Send, CheckCircle2, Ban, Mail, Copy, Share2, History, TrendingUp, TrendingDown, RotateCcw } from 'lucide-react'
 import { isCapacitor } from '@/lib/utils/native-share'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -29,6 +29,7 @@ const PO_STATUS_STYLES: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
   sent: 'bg-blue-50 dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400',
   received: 'bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400',
+  partial: 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400',
   cancelled: 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400',
 }
 
@@ -167,6 +168,7 @@ export default function SuppliersPage() {
   const [receivingPo, setReceivingPo] = useState<any | null>(null)
   const [receiveQuantities, setReceiveQuantities] = useState<Record<string, string>>({})
   const [receiveExpiryDates, setReceiveExpiryDates] = useState<Record<string, string>>({})
+  const [receiveNotes, setReceiveNotes] = useState<Record<string, string>>({})
   const [receivingLoading, setReceivingLoading] = useState(false)
   const [{ search: poSearch, status: poStatusFilter, dateFrom: poDateFrom, dateTo: poDateTo }, setPoFilter] = usePersistedFilters(
     'purchase_orders', shop?.id, { search: '', status: '', dateFrom: '', dateTo: '' }
@@ -176,6 +178,9 @@ export default function SuppliersPage() {
   const [editingPo, setEditingPo] = useState<any | null>(null)
   const [editItems, setEditItems] = useState<{ id?: string; product_id: string | null; product_name: string; unit: string | null; quantity_ordered: string; unit_price: string }[]>([])
   const [savingEditPo, setSavingEditPo] = useState(false)
+  const [reorderPo, setReorderPo] = useState<any | null>(null)
+  const [reorderItems, setReorderItems] = useState<{ product_id: string | null; product_name: string; unit: string | null; quantity_ordered: string; unit_price: string }[]>([])
+  const [creatingReorder, setCreatingReorder] = useState(false)
 
   const form = useForm<SupplierFormData>({ resolver: zodResolver(supplierSchema) })
 
@@ -460,6 +465,7 @@ export default function SuppliersPage() {
     }
     setReceiveQuantities(quantities)
     setReceiveExpiryDates({})
+    setReceiveNotes({})
     setReceivingPo(po)
   }
 
@@ -473,6 +479,7 @@ export default function SuppliersPage() {
         quantity_received: Number(receiveQuantities[it.id]) || 0,
         unit_price: it.unit_price,
         expiry_date: receiveExpiryDates[it.id] || null,
+        receipt_note: receiveNotes[it.id] || null,
       }))
       const res = await fetch('/api/purchase-orders/receive', {
         method: 'POST',
@@ -540,6 +547,48 @@ export default function SuppliersPage() {
       toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
     } finally {
       setSavingEditPo(false)
+    }
+  }
+
+  const openReorderPo = (po: any) => {
+    const shortfall = (po.purchase_order_items || [])
+      .map((it: any) => ({ ...it, missing: it.quantity_ordered - (it.quantity_received ?? 0) }))
+      .filter((it: any) => it.missing > 0)
+    setReorderItems(shortfall.map((it: any) => ({
+      product_id: it.product_id,
+      product_name: it.product_name,
+      unit: it.unit,
+      quantity_ordered: String(it.missing),
+      unit_price: it.unit_price != null ? String(it.unit_price) : '',
+    })))
+    setReorderPo(po)
+  }
+
+  const submitReorder = async () => {
+    if (!shop?.id || !reorderPo || reorderItems.length === 0) return
+    setCreatingReorder(true)
+    try {
+      const items = reorderItems.map(it => ({
+        product_id: it.product_id,
+        product_name: it.product_name,
+        unit: it.unit,
+        quantity_ordered: Number(it.quantity_ordered) || 1,
+        unit_price: it.unit_price ? Number(it.unit_price) : null,
+      }))
+      const res = await fetch('/api/purchase-orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop_id: shop.id, supplier_id: reorderPo.supplier_id, items }),
+      })
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      toast({ title: t('suppliers.po_created'), variant: 'success' })
+      setReorderPo(null)
+      fetchPurchaseOrders()
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+    } finally {
+      setCreatingReorder(false)
     }
   }
 
@@ -784,6 +833,7 @@ export default function SuppliersPage() {
                   <SelectItem value="draft">{t('suppliers.po_status_draft')}</SelectItem>
                   <SelectItem value="sent">{t('suppliers.po_status_sent')}</SelectItem>
                   <SelectItem value="received">{t('suppliers.po_status_received')}</SelectItem>
+                  <SelectItem value="partial">{t('suppliers.po_status_partial')}</SelectItem>
                   <SelectItem value="cancelled">{t('suppliers.po_status_cancelled')}</SelectItem>
                 </SelectContent>
               </Select>
@@ -808,7 +858,6 @@ export default function SuppliersPage() {
               {filteredPurchaseOrders.map((po: any) => {
                 const itemCount = (po.purchase_order_items || []).length
                 const total = (po.purchase_order_items || []).reduce((s: number, it: any) => s + (it.unit_price || 0) * it.quantity_ordered, 0)
-                const isPartial = po.status === 'received' && (po.purchase_order_items || []).some((it: any) => (it.quantity_received ?? it.quantity_ordered) < it.quantity_ordered)
                 const isExpanded = poExpandedId === po.id
                 return (
                   <div key={po.id} className="rounded-lg border bg-card shadow-sm overflow-hidden">
@@ -825,11 +874,6 @@ export default function SuppliersPage() {
                           <span className={`text-[10px] font-medium rounded-full px-2 py-0.5 ${PO_STATUS_STYLES[po.status] || PO_STATUS_STYLES.draft}`}>
                             {t(`suppliers.po_status_${po.status}`)}
                           </span>
-                          {isPartial && (
-                            <span className="text-[10px] font-medium rounded-full px-2 py-0.5 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400">
-                              {t('suppliers.po_partial_badge')}
-                            </span>
-                          )}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
                           {po.suppliers?.name || supplierName(po.supplier_id)} · {t('suppliers.po_items_count', { count: itemCount })} · {fmt(total)}
@@ -870,15 +914,37 @@ export default function SuppliersPage() {
                     {isExpanded && (
                       <div className="border-t bg-muted/10 px-4 py-3">
                         <div className="space-y-1.5">
-                          {(po.purchase_order_items || []).map((it: any) => (
-                            <div key={it.id} className="flex items-center justify-between gap-2 text-sm">
-                              <span className="truncate">{it.product_name} × {it.quantity_ordered} {it.unit || ''}</span>
-                              <span className="tabular-nums text-muted-foreground shrink-0">
-                                {it.unit_price != null ? fmt(it.unit_price * it.quantity_ordered) : '—'}
-                              </span>
-                            </div>
-                          ))}
+                          {(po.purchase_order_items || []).map((it: any) => {
+                            const shortfall = (po.status === 'partial' || po.status === 'received') && it.quantity_received != null && it.quantity_received < it.quantity_ordered
+                            return (
+                              <div key={it.id} className="text-sm">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="truncate">{it.product_name} × {it.quantity_ordered} {it.unit || ''}</span>
+                                  <span className="tabular-nums text-muted-foreground shrink-0">
+                                    {it.unit_price != null ? fmt(it.unit_price * it.quantity_ordered) : '—'}
+                                  </span>
+                                </div>
+                                {shortfall && (
+                                  <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
+                                    {t('suppliers.po_received_vs_ordered', { received: it.quantity_received, ordered: it.quantity_ordered })}
+                                    {it.receipt_note ? ` — ${it.receipt_note}` : ''}
+                                  </p>
+                                )}
+                              </div>
+                            )
+                          })}
                         </div>
+                        {canManage && po.status === 'partial' && (
+                          <div className="flex gap-2 pt-3 mt-3 border-t">
+                            <Button
+                              variant="outline" size="sm"
+                              className="h-8 gap-1.5 text-xs flex-1 text-stockshop-blue border-blue-200 dark:border-blue-800 dark:text-blue-400"
+                              onClick={() => openReorderPo(po)}
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" />{t('suppliers.po_reorder_action')}
+                            </Button>
+                          </div>
+                        )}
                         {canManage && (po.status === 'draft' || po.status === 'sent') && (
                           <div className="flex gap-2 pt-3 mt-3 border-t">
                             {po.status === 'draft' && (
@@ -1123,6 +1189,70 @@ export default function SuppliersPage() {
       </PremiumDialog>
 
       <PremiumDialog
+        open={!!reorderPo}
+        onOpenChange={open => { if (!open) setReorderPo(null) }}
+        category={t('nav.suppliers')}
+        title={t('suppliers.po_reorder_title')}
+        icon={<RotateCcw className="h-4 w-4" />}
+        maxWidth="max-w-lg"
+      >
+        {reorderPo && (
+          <>
+            <PremiumDialogBody>
+              <p className="text-xs text-muted-foreground">
+                {t('suppliers.po_reorder_hint', { reference: reorderPo.reference })}
+              </p>
+              <div className="space-y-2 mt-3">
+                {reorderItems.map((it, idx) => (
+                  <div key={it.product_id ?? idx} className="flex items-center gap-2 rounded-lg border px-2.5 py-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm truncate">{it.product_name}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Input
+                          type="number" min={1} inputMode="numeric"
+                          value={it.quantity_ordered}
+                          onChange={e => setReorderItems(prev => prev.map((row, i) => i === idx ? { ...row, quantity_ordered: e.target.value } : row))}
+                          className="w-16 h-8 text-center text-xs"
+                        />
+                        <span className="text-[11px] text-muted-foreground">{it.unit}</span>
+                        <Input
+                          type="number" min={0} inputMode="numeric"
+                          value={it.unit_price}
+                          onChange={e => setReorderItems(prev => prev.map((row, i) => i === idx ? { ...row, unit_price: e.target.value } : row))}
+                          placeholder={t('suppliers.price_label')}
+                          className="w-24 h-8 text-center text-xs"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors flex-shrink-0"
+                      onClick={() => setReorderItems(prev => prev.filter((_, i) => i !== idx))}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+                {reorderItems.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-4">{t('suppliers.po_no_products')}</p>
+                )}
+              </div>
+            </PremiumDialogBody>
+            <PremiumDialogFooter onCancel={() => setReorderPo(null)} cancelLabel={t('actions.cancel')}>
+              <Button
+                variant="stockshop"
+                onClick={submitReorder}
+                loading={creatingReorder}
+                disabled={reorderItems.length === 0}
+                className="flex-1 h-11 rounded-xl font-semibold"
+              >
+                {t('suppliers.po_reorder_confirm')}
+              </Button>
+            </PremiumDialogFooter>
+          </>
+        )}
+      </PremiumDialog>
+
+      <PremiumDialog
         open={!!emailPo}
         onOpenChange={open => { if (!open) setEmailPo(null) }}
         category={t('nav.suppliers')}
@@ -1196,31 +1326,43 @@ export default function SuppliersPage() {
             <PremiumDialogBody>
               <p className="text-xs text-muted-foreground">{t('suppliers.po_receive_hint')}</p>
               <div className="mt-3 space-y-2">
-                {(receivingPo.purchase_order_items || []).map((it: any) => (
-                  <div key={it.id} className="rounded-lg border px-2.5 py-2 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm truncate">{it.product_name}</p>
-                        <p className="text-[11px] text-muted-foreground">{t('suppliers.po_ordered_label')}: {it.quantity_ordered} {it.unit || ''}</p>
+                {(receivingPo.purchase_order_items || []).map((it: any) => {
+                  const received = Number(receiveQuantities[it.id])
+                  const isShort = receiveQuantities[it.id] !== undefined && !isNaN(received) && received < it.quantity_ordered
+                  return (
+                    <div key={it.id} className="rounded-lg border px-2.5 py-2 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm truncate">{it.product_name}</p>
+                          <p className="text-[11px] text-muted-foreground">{t('suppliers.po_ordered_label')}: {it.quantity_ordered} {it.unit || ''}</p>
+                        </div>
+                        <Input
+                          type="number" min={0} inputMode="numeric"
+                          value={receiveQuantities[it.id] ?? ''}
+                          onChange={e => setReceiveQuantities(prev => ({ ...prev, [it.id]: e.target.value }))}
+                          className="w-20 h-9 text-center flex-shrink-0"
+                        />
                       </div>
-                      <Input
-                        type="number" min={0} inputMode="numeric"
-                        value={receiveQuantities[it.id] ?? ''}
-                        onChange={e => setReceiveQuantities(prev => ({ ...prev, [it.id]: e.target.value }))}
-                        className="w-20 h-9 text-center flex-shrink-0"
-                      />
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-muted-foreground shrink-0">{t('products.expiry_date_label')}</span>
+                        <Input
+                          type="date"
+                          value={receiveExpiryDates[it.id] ?? ''}
+                          onChange={e => setReceiveExpiryDates(prev => ({ ...prev, [it.id]: e.target.value }))}
+                          className="h-8 text-xs flex-1"
+                        />
+                      </div>
+                      {isShort && (
+                        <Input
+                          value={receiveNotes[it.id] ?? ''}
+                          onChange={e => setReceiveNotes(prev => ({ ...prev, [it.id]: e.target.value }))}
+                          placeholder={t('suppliers.po_receipt_note_placeholder')}
+                          className="h-8 text-xs"
+                        />
+                      )}
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] text-muted-foreground shrink-0">{t('products.expiry_date_label')}</span>
-                      <Input
-                        type="date"
-                        value={receiveExpiryDates[it.id] ?? ''}
-                        onChange={e => setReceiveExpiryDates(prev => ({ ...prev, [it.id]: e.target.value }))}
-                        className="h-8 text-xs flex-1"
-                      />
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </PremiumDialogBody>
             <PremiumDialogFooter onCancel={() => setReceivingPo(null)} cancelLabel={t('actions.cancel')}>
@@ -1316,7 +1458,9 @@ export default function SuppliersPage() {
         {journalSupplier && (() => {
           const supplierPOs = purchaseOrders.filter((po: any) => po.supplier_id === journalSupplier.id)
           const meaningfulPOs = supplierPOs.filter((po: any) => po.status !== 'draft')
-          const receivedPOs = supplierPOs.filter((po: any) => po.status === 'received')
+          // 'partial' compte aussi comme une livraison reçue (argent dépensé,
+          // stock rentré) — seule la complétude diffère.
+          const receivedPOs = supplierPOs.filter((po: any) => po.status === 'received' || po.status === 'partial')
 
           const totalSpent = receivedPOs.reduce((sum: number, po: any) =>
             sum + (po.purchase_order_items || []).reduce((s: number, it: any) =>
@@ -1327,9 +1471,7 @@ export default function SuppliersPage() {
             .map((po: any) => (new Date(po.received_at).getTime() - new Date(po.sent_at).getTime()) / 86_400_000)
           const avgDelay = delays.length ? Math.round(delays.reduce((a: number, b: number) => a + b, 0) / delays.length) : null
 
-          const completeCount = receivedPOs.filter((po: any) =>
-            !(po.purchase_order_items || []).some((it: any) => (it.quantity_received ?? it.quantity_ordered) < it.quantity_ordered)
-          ).length
+          const completeCount = receivedPOs.filter((po: any) => po.status === 'received').length
           const completeRate = receivedPOs.length ? Math.round((completeCount / receivedPOs.length) * 100) : null
 
           // Tendance des prix : compare le premier et le dernier prix payé pour

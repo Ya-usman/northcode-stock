@@ -8,7 +8,7 @@ const WRITE_ROLES = ['owner', 'manager', 'shop_manager', 'stock_manager', 'super
 // POST /api/purchase-orders/receive — verify received quantities and restock
 // in one atomic transaction (apply_purchase_order_receipt), instead of a
 // blind status flip followed by a separate manual restock.
-// body: { shop_id, purchase_order_id, items: [{item_id, product_id, quantity_received, unit_price, expiry_date}] }
+// body: { shop_id, purchase_order_id, items: [{item_id, product_id, quantity_received, unit_price, expiry_date, receipt_note}] }
 export async function POST(request: Request) {
   try {
     const { user, supabase } = await getAuthedUser()
