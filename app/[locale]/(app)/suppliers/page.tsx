@@ -992,7 +992,7 @@ export default function SuppliersPage() {
                 variant="stockshop"
                 onClick={submitReceivePo}
                 loading={receivingLoading}
-                className="flex-1 h-11 rounded-xl font-semibold"
+                className="flex-1 h-11 rounded-xl font-semibold bg-green-600 hover:bg-green-700"
               >
                 {t('suppliers.po_confirm_receipt')}
               </Button>
