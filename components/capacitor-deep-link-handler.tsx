@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { withTimeout } from '@/lib/utils/with-timeout'
 
 // Prevent double-handling when both getLaunchUrl and appUrlOpen fire for the same URL
 let handledCode: string | null = null
@@ -31,12 +32,14 @@ async function handleOAuthUrl(url: string, locale: string) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-    // Exchange code + verifier directly with Supabase — bypasses client storage entirely
-    const res = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=pkce`, {
+    // Exchange code + verifier directly with Supabase — bypasses client storage entirely.
+    // Bounded: without a timeout, a hung request here leaves the user stuck on the
+    // native splash screen with no error and no way in except force-quitting the app.
+    const res = await withTimeout(fetch(`${supabaseUrl}/auth/v1/token?grant_type=pkce`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': supabaseAnonKey },
       body: JSON.stringify({ auth_code: code, code_verifier: codeVerifier }),
-    })
+    }), 15_000)
 
     const tokenData = await res.json()
 
@@ -67,7 +70,10 @@ async function handleOAuthUrl(url: string, locale: string) {
     }
 
     localStorage.setItem('auth_remember_me', '1')
-    await fetch('/api/auth/set-role', {
+    // Fire-and-forget: its own error is already ignored, so it must not be
+    // awaited either — otherwise a hung request here would still block the
+    // redirect below despite the .catch() suggesting it shouldn't.
+    fetch('/api/auth/set-role', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: '{}',

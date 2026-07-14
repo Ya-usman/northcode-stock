@@ -6,6 +6,7 @@ import { RotateCcw, Trash2, Store, ChevronDown, ChevronUp, AlertTriangle, Clock 
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { getCountry } from '@/lib/saas/countries'
+import { withTimeout } from '@/lib/utils/with-timeout'
 
 interface DeletedShop {
   id: string
@@ -42,7 +43,7 @@ export function DeletedShopsPanel({ shops: initialShops }: Props) {
   const handleRestore = async (shopId: string, shopName: string) => {
     setRestoring(shopId)
     try {
-      const res = await fetch(`/api/shops/${shopId}`, { method: 'PATCH' })
+      const res = await withTimeout(fetch(`/api/shops/${shopId}`, { method: 'PATCH' }))
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur')
       toast({ title: `✅ Boutique « ${shopName} » restaurée`, variant: 'success' })
@@ -58,7 +59,7 @@ export function DeletedShopsPanel({ shops: initialShops }: Props) {
   const handlePermanentDelete = async (shopId: string, shopName: string) => {
     setDeleting(shopId)
     try {
-      const res = await fetch(`/api/shops/${shopId}`, { method: 'POST' })
+      const res = await withTimeout(fetch(`/api/shops/${shopId}`, { method: 'POST' }))
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur')
       toast({ title: `🗑️ Boutique « ${shopName} » supprimée définitivement`, variant: 'success' })

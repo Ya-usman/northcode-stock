@@ -8,6 +8,7 @@ import { hasActiveSubscription, getTrialDaysLeft } from '@/lib/saas/plans'
 import { getCountry } from '@/lib/saas/countries'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
+import { withTimeout } from '@/lib/utils/with-timeout'
 
 interface Shop {
   id: string
@@ -78,7 +79,7 @@ export function OwnerShopsView({ owners: initialOwners, locale }: Props) {
   const handleDelete = async (owner: Owner) => {
     setDeleting(owner.id)
     try {
-      const res = await fetch(`/api/admin/owner/${owner.id}`, { method: 'DELETE' })
+      const res = await withTimeout(fetch(`/api/admin/owner/${owner.id}`, { method: 'DELETE' }))
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur')
       toast({ title: `🗑️ Propriétaire « ${owner.full_name || owner.email} » supprimé définitivement`, variant: 'success' })

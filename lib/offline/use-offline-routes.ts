@@ -5,9 +5,14 @@ import { useState, useEffect, useCallback } from 'react'
 /**
  * Retourne l'état hors ligne, les slugs de routes disponibles en cache,
  * et l'âge en ms du dernier sync de données (pour CacheBanner global).
+ *
+ * isOnline vient de useOffline() (vérifié via une vraie requête) — ce hook
+ * ne fait plus sa propre détection via navigator.onLine/les événements
+ * online/offline du navigateur, qui sont peu fiables (notamment dans le
+ * WebView Android/Capacitor).
  */
-export function useOfflineRoutes() {
-  const [isOffline, setIsOffline] = useState(false)
+export function useOfflineRoutes(isOnline: boolean) {
+  const isOffline = !isOnline
   const [cachedSlugs, setCachedSlugs] = useState<Set<string>>(new Set())
   const [cacheAgeMs, setCacheAgeMs] = useState<number | null>(null)
 
@@ -30,20 +35,9 @@ export function useOfflineRoutes() {
   }, [])
 
   useEffect(() => {
-    const online = typeof navigator !== 'undefined' ? navigator.onLine : true
-    setIsOffline(!online)
-    if (!online) readCache()
-
-    const handleOffline = () => { setIsOffline(true); readCache() }
-    const handleOnline = () => { setIsOffline(false); setCacheAgeMs(null) }
-
-    window.addEventListener('offline', handleOffline)
-    window.addEventListener('online', handleOnline)
-    return () => {
-      window.removeEventListener('offline', handleOffline)
-      window.removeEventListener('online', handleOnline)
-    }
-  }, [readCache])
+    if (isOffline) readCache()
+    else setCacheAgeMs(null)
+  }, [isOffline, readCache])
 
   /** Renvoie true si la route est disponible (en ligne ou en cache hors ligne) */
   const isAvailable = useCallback((href: string) => {

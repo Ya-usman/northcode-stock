@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { formatNaira } from '@/lib/utils/currency'
 import { createClient } from '@/lib/supabase/client'
+import { withTimeout } from '@/lib/utils/with-timeout'
 
 const supabase = createClient() as any
 
@@ -26,35 +27,40 @@ export function ShopRestorePanel({ shopId, shopName }: Props) {
 
   const loadData = async () => {
     setLoading(true)
-    const [{ data: delLog }, { data: archived }, { data: softCustomers }] = await Promise.all([
-      // Produits supprimés définitivement (dans le journal)
-      supabase
-        .from('deleted_records_log')
-        .select('id, deleted_at, deleted_by, record_data')
-        .eq('shop_id', shopId)
-        .eq('table_name', 'products')
-        .order('deleted_at', { ascending: false }),
+    try {
+      const [{ data: delLog }, { data: archived }, { data: softCustomers }] = await withTimeout<any>(Promise.all([
+        // Produits supprimés définitivement (dans le journal)
+        supabase
+          .from('deleted_records_log')
+          .select('id, deleted_at, deleted_by, record_data')
+          .eq('shop_id', shopId)
+          .eq('table_name', 'products')
+          .order('deleted_at', { ascending: false }),
 
-      // Produits archivés (is_active = false)
-      supabase
-        .from('products')
-        .select('id, name, selling_price, quantity, unit, updated_at')
-        .eq('shop_id', shopId)
-        .eq('is_active', false)
-        .order('updated_at', { ascending: false }),
+        // Produits archivés (is_active = false)
+        supabase
+          .from('products')
+          .select('id, name, selling_price, quantity, unit, updated_at')
+          .eq('shop_id', shopId)
+          .eq('is_active', false)
+          .order('updated_at', { ascending: false }),
 
-      // Clients soft-deleted (deleted_at non null)
-      supabase
-        .from('customers')
-        .select('id, name, phone, total_debt, deleted_at')
-        .eq('shop_id', shopId)
-        .not('deleted_at', 'is', null)
-        .order('deleted_at', { ascending: false }),
-    ])
-    setDeletedProducts(delLog || [])
-    setArchivedProducts(archived || [])
-    setDeletedCustomers(softCustomers || [])
-    setLoading(false)
+        // Clients soft-deleted (deleted_at non null)
+        supabase
+          .from('customers')
+          .select('id, name, phone, total_debt, deleted_at')
+          .eq('shop_id', shopId)
+          .not('deleted_at', 'is', null)
+          .order('deleted_at', { ascending: false }),
+      ]))
+      setDeletedProducts(delLog || [])
+      setArchivedProducts(archived || [])
+      setDeletedCustomers(softCustomers || [])
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur de chargement', variant: 'destructive' })
+    } finally {
+      setLoading(false)
+    }
   }
 
   const toggle = () => {
@@ -64,45 +70,59 @@ export function ShopRestorePanel({ shopId, shopName }: Props) {
 
   const restoreProduct = async (logId: string) => {
     setRestoring(logId)
-    const res = await fetch('/api/products/restore', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ log_id: logId, shop_id: shopId }),
-    })
-    const json = await res.json()
-    setRestoring(null)
-    if (!res.ok) {
-      toast({ title: json.error, variant: 'destructive' })
-    } else {
+    try {
+      const res = await withTimeout(fetch('/api/products/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ log_id: logId, shop_id: shopId }),
+      }))
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error, variant: 'destructive' }); return }
       toast({ title: '✅ Produit restauré', variant: 'success' })
       loadData()
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur', variant: 'destructive' })
+    } finally {
+      setRestoring(null)
     }
   }
 
   const reactivateProduct = async (productId: string) => {
     setRestoring(productId)
-    const res = await fetch('/api/admin/restore', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'reactivate_product', product_id: productId, shop_id: shopId }),
-    })
-    const json = await res.json()
-    setRestoring(null)
-    if (!res.ok) toast({ title: json.error, variant: 'destructive' })
-    else { toast({ title: 'Produit réactivé', variant: 'success' }); loadData() }
+    try {
+      const res = await withTimeout(fetch('/api/admin/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reactivate_product', product_id: productId, shop_id: shopId }),
+      }))
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error, variant: 'destructive' }); return }
+      toast({ title: 'Produit réactivé', variant: 'success' })
+      loadData()
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur', variant: 'destructive' })
+    } finally {
+      setRestoring(null)
+    }
   }
 
   const restoreCustomer = async (customerId: string) => {
     setRestoring(customerId)
-    const res = await fetch('/api/admin/restore', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'restore_customer', customer_id: customerId, shop_id: shopId }),
-    })
-    const json = await res.json()
-    setRestoring(null)
-    if (!res.ok) toast({ title: json.error, variant: 'destructive' })
-    else { toast({ title: 'Client restauré', variant: 'success' }); loadData() }
+    try {
+      const res = await withTimeout(fetch('/api/admin/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'restore_customer', customer_id: customerId, shop_id: shopId }),
+      }))
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error, variant: 'destructive' }); return }
+      toast({ title: 'Client restauré', variant: 'success' })
+      loadData()
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur', variant: 'destructive' })
+    } finally {
+      setRestoring(null)
+    }
   }
 
   const total = deletedProducts.length + archivedProducts.length + deletedCustomers.length

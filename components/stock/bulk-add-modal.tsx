@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
+import { withTimeout } from '@/lib/utils/with-timeout'
 
 interface Row {
   id: number
@@ -71,11 +72,11 @@ export function BulkAddModal({ open, onClose, shopId, currency, isOwner, onSaved
         unit: row.unit,
       }))
 
-      const res = await fetch('/api/products/import', {
+      const res = await withTimeout(fetch('/api/products/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rows: payload, shop_id: shopId }),
-      })
+      }), 30_000)
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
       setSavedCount(json.inserted)

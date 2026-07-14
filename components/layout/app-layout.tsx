@@ -21,7 +21,6 @@ import { WhatsNewModal, type Announcement } from '@/components/saas/whats-new-mo
 import { getTrialDaysLeft, hasActiveSubscription, isAccessAllowed, getGraceDaysLeft, isBetaPeriod } from '@/lib/saas/plans'
 import { useToast } from '@/components/ui/use-toast'
 import { triggerSaleFeedback, unlockAudio } from '@/lib/utils/sale-feedback'
-import { useOfflinePreload } from '@/lib/offline/use-offline-preload'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useOfflineRoutes } from '@/lib/offline/use-offline-routes'
 import { CacheBanner } from './cache-banner'
@@ -240,10 +239,14 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
     setCrispUnread(0)
   }
 
-  // ── OFFLINE: preload data + auto-sync pending sales ───────────────────────
-  useOfflinePreload()
-  const { pendingCount } = useOffline()
-  const { isOffline, cacheAgeMs } = useOfflineRoutes()
+  // ── OFFLINE: auto-sync pending sales ──────────────────────────────────────
+  // Data/page preload itself lives only in <OfflinePreloader> (mounted once
+  // at the layout root) — it used to also run here, duplicating every
+  // preload fetch. isOnline is verified via a real request in useOffline()
+  // and passed down — useOfflineRoutes no longer does its own unreliable
+  // navigator.onLine detection.
+  const { pendingCount, isOnline } = useOffline()
+  const { isOffline, cacheAgeMs } = useOfflineRoutes(isOnline)
 
   const [signOutDialogOpen, setSignOutDialogOpen] = useState(false)
   const [signOutReason, setSignOutReason] = useState<'blocked' | 'sync_failed' | null>(null)

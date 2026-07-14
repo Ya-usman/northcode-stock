@@ -23,6 +23,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { withTimeout } from '@/lib/utils/with-timeout'
 
 function healthScore(owner: { last_seen: string | null } | null, subscribed: boolean) {
   const lastSeen = owner?.last_seen ? new Date(owner.last_seen) : null
@@ -262,7 +263,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
     let fail = 0
     await Promise.all(ids.map(async shopId => {
       try {
-        const res = await fetch('/api/admin/shop-action', {
+        const res = await withTimeout(fetch('/api/admin/shop-action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -272,7 +273,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
               : bulkConfirm.action === 'grant_plan' ? bulkGrantPlan
               : undefined,
           }),
-        })
+        }))
         if (res.ok) success++; else fail++
       } catch { fail++ }
     }))
@@ -307,7 +308,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
     setConfirmDialog(d => ({ ...d, open: false }))
 
     try {
-      const res = await fetch('/api/admin/shop-action', {
+      const res = await withTimeout(fetch('/api/admin/shop-action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -315,7 +316,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
           shop_id: shop.id,
           days: action === 'extend' ? Number(extendDays) : action === 'grant_plan' ? grantPlan : undefined,
         }),
-      })
+      }))
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       toast({ title: data.message, variant: 'success' })

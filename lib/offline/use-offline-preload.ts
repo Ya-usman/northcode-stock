@@ -90,18 +90,25 @@ async function prefetchAllPages(locale: string): Promise<void> {
   )
 }
 
-export function useOfflinePreload() {
+export function useOfflinePreload(isOnline: boolean) {
   const { shop, effectiveShopIds } = useAuth()
   const shopId = shop?.id
   const dataRunning = useRef(false)
   const pagesRunning = useRef(false)
   const lastLocale = useRef('')
+  // isOnline comes from useOffline() (verified via a real request) — kept in a
+  // ref so prefetchPages/the main effect below can read the current value
+  // without navigator.onLine's unreliability, while prefetchPages itself
+  // stays a stable callback (empty deps — called from the effect, the
+  // interval, AND the visibilitychange listener).
+  const isOnlineRef = useRef(isOnline)
+  useEffect(() => { isOnlineRef.current = isOnline }, [isOnline])
 
   // Précharge toutes les pages SW.
   // Stable ref (useCallback deps vides) — appelé depuis l'effect, l'interval ET le visibilitychange.
   const prefetchPages = useCallback(async (force = false) => {
     if (pagesRunning.current) return
-    if (typeof navigator !== 'undefined' && !navigator.onLine) return
+    if (!isOnlineRef.current) return
     if (typeof window === 'undefined' || !('caches' in window)) return
 
     const locale = getLocale()
@@ -131,7 +138,7 @@ export function useOfflinePreload() {
 
   useEffect(() => {
     if (!shopId || !effectiveShopIds.length) return
-    if (typeof navigator !== 'undefined' && !navigator.onLine) return
+    if (!isOnline) return
 
     const supabase = createClient() as any
     const locale = getLocale()
@@ -203,5 +210,5 @@ export function useOfflinePreload() {
       document.removeEventListener('visibilitychange', onVisibility)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shopId, prefetchPages])
+  }, [shopId, prefetchPages, isOnline])
 }

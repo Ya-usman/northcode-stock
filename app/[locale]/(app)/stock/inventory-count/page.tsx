@@ -13,6 +13,7 @@ import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 import { useToast } from '@/components/ui/use-toast'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { normalize } from '@/lib/utils/normalize'
+import { withTimeout } from '@/lib/utils/with-timeout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -157,7 +158,7 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
     if (!shop?.id || diffs.length === 0) return
     setSubmitting(true)
     try {
-      const res = await fetch('/api/stock/inventory-count', {
+      const res = await withTimeout(fetch('/api/stock/inventory-count', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -168,7 +169,7 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
             reason_code: reasons[d.product.id] || 'correction',
           })),
         }),
-      })
+      }))
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('error'), variant: 'destructive' }); return }
       toast({ title: t('success_toast', { count: json.data?.adjusted_count ?? diffs.length }), variant: 'success' })

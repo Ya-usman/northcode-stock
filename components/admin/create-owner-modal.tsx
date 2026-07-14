@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { COUNTRIES } from '@/lib/saas/countries'
+import { withTimeout } from '@/lib/utils/with-timeout'
 
 const COUNTRY_OPTIONS = Object.values(COUNTRIES).map(c => ({
   code: c.code,
@@ -44,7 +45,7 @@ export function CreateOwnerModal() {
 
     setLoading(true)
     try {
-      const res = await fetch('/api/admin/owner', {
+      const res = await withTimeout(fetch('/api/admin/owner', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -55,7 +56,7 @@ export function CreateOwnerModal() {
           country: form.country,
           currency: selectedCountry.currencySymbol,
         }),
-      })
+      }))
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       toast({ title: `✅ Compte créé — invitation envoyée à ${form.email}`, variant: 'success' })

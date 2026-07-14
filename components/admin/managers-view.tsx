@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { Plus, Store, UserCheck, Trash2, Shield, Crown, Mail, Search } from 'lucide-react'
 import { COUNTRIES } from '@/lib/saas/countries'
+import { withTimeout } from '@/lib/utils/with-timeout'
 
 interface Manager {
   id: string
@@ -68,11 +69,11 @@ export function ManagersView({ shops: initialShops, managers: initialManagers }:
     if (!form.email || !form.shop_id) return
     setSubmitting(true)
     try {
-      const res = await fetch('/api/admin/assign-manager', {
+      const res = await withTimeout(fetch('/api/admin/assign-manager', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: form.email, shop_id: form.shop_id, role: 'manager' }),
-      })
+      }))
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
       toast({ title: 'Responsable assigné !', variant: 'success' })
@@ -89,11 +90,11 @@ export function ManagersView({ shops: initialShops, managers: initialManagers }:
   const handleRevoke = async (member: Manager) => {
     setRevoking(member.id)
     try {
-      const res = await fetch('/api/admin/assign-manager', {
+      const res = await withTimeout(fetch('/api/admin/assign-manager', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ member_id: member.id }),
-      })
+      }))
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
       toast({ title: 'Accès retiré', variant: 'success' })

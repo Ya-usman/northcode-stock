@@ -9,6 +9,7 @@ import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { ShopRestorePanel } from '@/components/admin/shop-restore-panel'
+import { withTimeout } from '@/lib/utils/with-timeout'
 import {
   ArrowLeft, ShoppingBag, Users, Package, TrendingUp, Clock,
   MessageSquare, Send, Trash2, Phone, ExternalLink, Shield,
@@ -42,15 +43,20 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
 
   const load = async () => {
     setLoading(true)
-    const [shopRes, notesRes, notifsRes] = await Promise.all([
-      fetch(`/api/admin/shop/${shopId}`),
-      fetch(`/api/admin/notes?shop_id=${shopId}`),
-      fetch(`/api/admin/notify?shop_id=${shopId}`),
-    ])
-    if (shopRes.ok) setData(await shopRes.json())
-    if (notesRes.ok) setNotes(await notesRes.json())
-    if (notifsRes.ok) setNotifications(await notifsRes.json())
-    setLoading(false)
+    try {
+      const [shopRes, notesRes, notifsRes] = await withTimeout(Promise.all([
+        fetch(`/api/admin/shop/${shopId}`),
+        fetch(`/api/admin/notes?shop_id=${shopId}`),
+        fetch(`/api/admin/notify?shop_id=${shopId}`),
+      ]))
+      if (shopRes.ok) setData(await shopRes.json())
+      if (notesRes.ok) setNotes(await notesRes.json())
+      if (notifsRes.ok) setNotifications(await notifsRes.json())
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur de chargement', variant: 'destructive' })
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [shopId])
@@ -69,74 +75,104 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
 
   const saveEdit = async () => {
     setSavingEdit(true)
-    const res = await fetch('/api/admin/shop-action', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'edit_shop',
-        shop_id: shopId,
-        name: editForm.name || undefined,
-        city: editForm.city || undefined,
-        country: editForm.country || undefined,
-        whatsapp: editForm.whatsapp !== '' ? editForm.whatsapp : undefined,
-        currency: editForm.currency || undefined,
-      }),
-    })
-    const json = await res.json()
-    setSavingEdit(false)
-    if (!res.ok) toast({ title: json.error, variant: 'destructive' })
-    else { toast({ title: '✅ Boutique mise à jour', variant: 'success' }); load() }
+    try {
+      const res = await withTimeout(fetch('/api/admin/shop-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'edit_shop',
+          shop_id: shopId,
+          name: editForm.name || undefined,
+          city: editForm.city || undefined,
+          country: editForm.country || undefined,
+          whatsapp: editForm.whatsapp !== '' ? editForm.whatsapp : undefined,
+          currency: editForm.currency || undefined,
+        }),
+      }))
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error, variant: 'destructive' }); return }
+      toast({ title: '✅ Boutique mise à jour', variant: 'success' })
+      load()
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur', variant: 'destructive' })
+    } finally {
+      setSavingEdit(false)
+    }
   }
 
   const shopAction = async (action: string, extra?: Record<string, any>) => {
     setActionLoading(true)
-    const res = await fetch('/api/admin/shop-action', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shop_id: shopId, action, ...extra }),
-    })
-    const json = await res.json()
-    setActionLoading(false)
-    if (!res.ok) toast({ title: json.error, variant: 'destructive' })
-    else { toast({ title: '✅ Action effectuée', variant: 'success' }); load() }
+    try {
+      const res = await withTimeout(fetch('/api/admin/shop-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop_id: shopId, action, ...extra }),
+      }))
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error, variant: 'destructive' }); return }
+      toast({ title: '✅ Action effectuée', variant: 'success' })
+      load()
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur', variant: 'destructive' })
+    } finally {
+      setActionLoading(false)
+    }
   }
 
   const saveNote = async () => {
     if (!noteText.trim()) return
     setSavingNote(true)
-    const res = await fetch('/api/admin/notes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shop_id: shopId, content: noteText }),
-    })
-    setSavingNote(false)
-    if (res.ok) { setNoteText(''); load() }
-    else toast({ title: 'Erreur', variant: 'destructive' })
+    try {
+      const res = await withTimeout(fetch('/api/admin/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop_id: shopId, content: noteText }),
+      }))
+      if (!res.ok) { toast({ title: 'Erreur', variant: 'destructive' }); return }
+      setNoteText('')
+      load()
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur', variant: 'destructive' })
+    } finally {
+      setSavingNote(false)
+    }
   }
 
   const deleteNote = async (id: string) => {
-    await fetch(`/api/admin/notes?id=${id}`, { method: 'DELETE' })
-    load()
+    try {
+      await withTimeout(fetch(`/api/admin/notes?id=${id}`, { method: 'DELETE' }))
+      load()
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur', variant: 'destructive' })
+    }
   }
 
   const sendNotification = async () => {
     if (!notifTitle.trim() || !notifMsg.trim()) return
     setSendingNotif(true)
-    const res = await fetch('/api/admin/notify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shop_id: shopId, type: notifType, title: notifTitle, message: notifMsg }),
-    })
-    setSendingNotif(false)
-    if (res.ok) {
+    try {
+      const res = await withTimeout(fetch('/api/admin/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop_id: shopId, type: notifType, title: notifTitle, message: notifMsg }),
+      }))
+      if (!res.ok) { toast({ title: 'Erreur', variant: 'destructive' }); return }
       toast({ title: '✅ Notification envoyée', variant: 'success' })
       setNotifTitle(''); setNotifMsg(''); load()
-    } else toast({ title: 'Erreur', variant: 'destructive' })
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur', variant: 'destructive' })
+    } finally {
+      setSendingNotif(false)
+    }
   }
 
   const deleteNotif = async (id: string) => {
-    await fetch(`/api/admin/notify?id=${id}`, { method: 'DELETE' })
-    load()
+    try {
+      await withTimeout(fetch(`/api/admin/notify?id=${id}`, { method: 'DELETE' }))
+      load()
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur', variant: 'destructive' })
+    }
   }
 
   if (loading) {

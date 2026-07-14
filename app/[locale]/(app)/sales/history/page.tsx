@@ -23,6 +23,7 @@ import { useCurrency } from '@/lib/hooks/use-currency'
 import { printPDFNative, downloadOrShareCSV, isCapacitor } from '@/lib/utils/native-share'
 import { getCountry } from '@/lib/saas/countries'
 import { normalize } from '@/lib/utils/normalize'
+import { withTimeout } from '@/lib/utils/with-timeout'
 import { format, startOfDay, endOfDay, subDays, subMonths, startOfWeek, startOfMonth, startOfYear } from 'date-fns'
 import type { Sale } from '@/lib/types/database'
 import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-cache'
@@ -347,7 +348,7 @@ export default function SalesHistoryPage() {
     if (!editDialog || editItems.length === 0) return
     setEditSaving(true)
     try {
-      const res = await fetch('/api/sales/edit', {
+      const res = await withTimeout(fetch('/api/sales/edit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -357,7 +358,7 @@ export default function SalesHistoryPage() {
           notes: editNotes,
           items: editItems,
         }),
-      })
+      }))
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
       toast({ title: json.message, variant: 'success' })
@@ -533,20 +534,20 @@ export default function SalesHistoryPage() {
     setActionLoading(true)
     try {
       if (dialog.type === 'cancel') {
-        const res = await fetch('/api/sales/cancel', {
+        const res = await withTimeout(fetch('/api/sales/cancel', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sale_id: dialog.sale.id, reason: cancelReason }),
-        })
+        }))
         const json = await res.json()
         if (!res.ok) throw new Error(json.error)
         toast({ title: json.message, variant: 'success' })
       } else if (dialog.type === 'validate') {
-        const res = await fetch('/api/sales/validate-payment', {
+        const res = await withTimeout(fetch('/api/sales/validate-payment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sale_id: dialog.sale.id, amount: validateAmount, method: validateMethod }),
-        })
+        }))
         const json = await res.json()
         if (!res.ok) throw new Error(json.error)
         toast({ title: json.message, variant: 'success' })

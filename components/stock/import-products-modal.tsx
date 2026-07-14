@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import { useTranslations } from 'next-intl'
 import { downloadOrShareCSV } from '@/lib/utils/native-share'
+import { withTimeout } from '@/lib/utils/with-timeout'
 
 interface Props {
   open: boolean
@@ -131,11 +132,11 @@ export function ImportProductsModal({ open, onClose, shopId, onImported }: Props
     if (!rows.length || !shopId) return
     setImporting(true)
     try {
-      const res = await fetch('/api/products/import', {
+      const res = await withTimeout(fetch('/api/products/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rows, shop_id: shopId }),
-      })
+      }), 45_000) // import de fichier CSV volumineux — plus long que le défaut
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
       setResult(json)

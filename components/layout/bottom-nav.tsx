@@ -14,6 +14,7 @@ import type { UserRole } from '@/lib/types/database'
 import { isBetaPeriod } from '@/lib/saas/plans'
 import { useRolePermissions, type PermFeature } from '@/lib/hooks/use-role-permissions'
 import { useOfflineRoutes } from '@/lib/offline/use-offline-routes'
+import { useOffline } from '@/lib/offline/use-offline'
 
 const SUPER_ADMIN_EMAILS = (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim())
 
@@ -35,7 +36,8 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
   const pathname = usePathname()
   const [moreOpen, setMoreOpen] = useState(false)
   const { canAccess } = useRolePermissions()
-  const { isOffline, isAvailable } = useOfflineRoutes()
+  const { isOnline } = useOffline()
+  const { isOffline, isAvailable } = useOfflineRoutes(isOnline)
 
   const allItems = [
     { href: `/${locale}/dashboard`,       icon: LayoutDashboard, label: t('dashboard'),    roles: ['super_admin', 'owner', 'manager', 'shop_manager', 'viewer', 'cashier', 'stock_manager'], primary: true },

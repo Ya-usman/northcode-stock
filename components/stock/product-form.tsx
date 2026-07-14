@@ -21,6 +21,7 @@ const BarcodeScanner = dynamic(
 )
 import { useToast } from '@/components/ui/use-toast'
 import { compressImage } from '@/lib/utils/compress-image'
+import { withTimeout } from '@/lib/utils/with-timeout'
 
 interface ProductFormProps {
   categories: Category[]
@@ -105,7 +106,7 @@ export function ProductForm({
       const fd = new FormData()
       fd.append('file', compressed)
       fd.append('shop_id', shopId)
-      const res = await fetch('/api/products/upload-image', { method: 'POST', body: fd })
+      const res = await withTimeout(fetch('/api/products/upload-image', { method: 'POST', body: fd }), 30_000)
       const json = await res.json()
 
       if (res.ok && json.url) {
