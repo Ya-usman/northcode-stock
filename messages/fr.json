@@ -406,7 +406,17 @@
     "po_ordered_label": "Commandé",
     "po_confirm_receipt": "Confirmer la réception",
     "po_received_success": "Réception confirmée, stock mis à jour",
-    "po_partial_badge": "Livraison incomplète"
+    "po_partial_badge": "Livraison incomplète",
+    "po_search_placeholder": "Rechercher (référence, fournisseur)…",
+    "po_filter_status_all": "Tous les statuts",
+    "po_filter_no_results": "Aucun bon de commande ne correspond aux filtres.",
+    "po_journal_button": "Historique",
+    "po_journal_title": "Historique du bon",
+    "po_journal_created": "Bon créé",
+    "po_journal_sent": "Envoyé au fournisseur",
+    "po_journal_received": "Réception confirmée",
+    "po_journal_cancelled": "Bon annulé",
+    "po_journal_items_title": "Quantités reçues"
   },
   "payments": {
     "title": "Crédit & Paiements",

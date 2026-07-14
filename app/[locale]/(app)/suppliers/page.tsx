@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
-import { Search, Plus, Edit2, Trash2, Phone, MapPin, Package, Store, ChevronDown, ChevronRight, X, ArrowRightLeft, FileText, Download, Send, CheckCircle2, Ban, Mail, Copy, Share2 } from 'lucide-react'
+import { Search, Plus, Edit2, Trash2, Phone, MapPin, Package, Store, ChevronDown, ChevronRight, X, ArrowRightLeft, FileText, Download, Send, CheckCircle2, Ban, Mail, Copy, Share2, History } from 'lucide-react'
 import { isCapacitor } from '@/lib/utils/native-share'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -158,6 +158,10 @@ export default function SuppliersPage() {
   const [receivingPo, setReceivingPo] = useState<any | null>(null)
   const [receiveQuantities, setReceiveQuantities] = useState<Record<string, string>>({})
   const [receivingLoading, setReceivingLoading] = useState(false)
+  const [{ search: poSearch, status: poStatusFilter, dateFrom: poDateFrom, dateTo: poDateTo }, setPoFilter] = usePersistedFilters(
+    'purchase_orders', shop?.id, { search: '', status: '', dateFrom: '', dateTo: '' }
+  )
+  const [journalPo, setJournalPo] = useState<any | null>(null)
 
   const form = useForm<SupplierFormData>({ resolver: zodResolver(supplierSchema) })
 
@@ -232,6 +236,22 @@ export default function SuppliersPage() {
     return normalize(s.name).includes(q) || normalize(s.city ?? '').includes(q)
   })
 
+  const supplierName = (id: string) => suppliers.find(s => s.id === id)?.name ?? '—'
+
+  const filteredPurchaseOrders = useMemo(() => {
+    return purchaseOrders.filter((po: any) => {
+      if (poSearch.trim()) {
+        const q = normalize(poSearch)
+        const supplier = po.suppliers?.name || supplierName(po.supplier_id) || ''
+        if (!normalize(po.reference || '').includes(q) && !normalize(supplier).includes(q)) return false
+      }
+      if (poStatusFilter && po.status !== poStatusFilter) return false
+      if (poDateFrom && po.created_at < poDateFrom) return false
+      if (poDateTo && po.created_at.slice(0, 10) > poDateTo) return false
+      return true
+    })
+  }, [purchaseOrders, poSearch, poStatusFilter, poDateFrom, poDateTo])
+
   const withTimeout = (p: Promise<any>, ms = 15_000) =>
     Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Connexion trop lente — réessayez.')), ms))])
 
@@ -268,8 +288,6 @@ export default function SuppliersPage() {
     toast({ title: t('toast.supplier_deleted') })
     fetchSuppliers()
   }
-
-  const supplierName = (id: string) => suppliers.find(s => s.id === id)?.name ?? '—'
 
   const filteredProducts = productSearch.trim()
     ? products.filter(p => normalize(p.name).includes(normalize(productSearch)))
@@ -673,13 +691,48 @@ export default function SuppliersPage() {
             </div>
           )}
 
+          {purchaseOrders.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              <div className="relative flex-1 min-w-[160px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={poSearch}
+                  onChange={e => setPoFilter({ search: e.target.value })}
+                  placeholder={t('suppliers.po_search_placeholder')}
+                  className="pl-9 h-9"
+                />
+              </div>
+              <Select value={poStatusFilter || 'all'} onValueChange={v => setPoFilter({ status: v === 'all' ? '' : v })}>
+                <SelectTrigger className="h-9 w-[150px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('suppliers.po_filter_status_all')}</SelectItem>
+                  <SelectItem value="draft">{t('suppliers.po_status_draft')}</SelectItem>
+                  <SelectItem value="sent">{t('suppliers.po_status_sent')}</SelectItem>
+                  <SelectItem value="received">{t('suppliers.po_status_received')}</SelectItem>
+                  <SelectItem value="cancelled">{t('suppliers.po_status_cancelled')}</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="flex items-center gap-1">
+                <Input type="date" value={poDateFrom} onChange={e => setPoFilter({ dateFrom: e.target.value })} className="h-9 w-[130px] text-xs" />
+                <span className="text-muted-foreground text-xs">→</span>
+                <Input type="date" value={poDateTo} onChange={e => setPoFilter({ dateTo: e.target.value })} className="h-9 w-[130px] text-xs" />
+              </div>
+            </div>
+          )}
+
           {purchaseOrders.length === 0 ? (
             <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
               {t('suppliers.no_purchase_orders')}
             </div>
+          ) : filteredPurchaseOrders.length === 0 ? (
+            <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
+              {t('suppliers.po_filter_no_results')}
+            </div>
           ) : (
             <div className="space-y-2">
-              {purchaseOrders.map((po: any) => {
+              {filteredPurchaseOrders.map((po: any) => {
                 const itemCount = (po.purchase_order_items || []).length
                 const total = (po.purchase_order_items || []).reduce((s: number, it: any) => s + (it.unit_price || 0) * it.quantity_ordered, 0)
                 const isPartial = po.status === 'received' && (po.purchase_order_items || []).some((it: any) => (it.quantity_received ?? it.quantity_ordered) < it.quantity_ordered)
@@ -706,6 +759,13 @@ export default function SuppliersPage() {
                         </p>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                          title={t('suppliers.po_journal_button')}
+                          onClick={() => setJournalPo(po)}
+                        >
+                          <History className="h-3.5 w-3.5" />
+                        </button>
                         <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => downloadPoPdf(po)}>
                           {isCapacitor() ? <Share2 className="h-3 w-3" /> : <Download className="h-3 w-3" />}
                           {isCapacitor() ? t('actions.share') : t('suppliers.po_download')}
@@ -999,6 +1059,74 @@ export default function SuppliersPage() {
             </PremiumDialogFooter>
           </>
         )}
+      </PremiumDialog>
+
+      <PremiumDialog
+        open={!!journalPo}
+        onOpenChange={open => { if (!open) setJournalPo(null) }}
+        category={t('nav.suppliers')}
+        title={t('suppliers.po_journal_title')}
+        icon={<History className="h-4 w-4" />}
+        maxWidth="max-w-lg"
+      >
+        {journalPo && (() => {
+          const events: { key: string; label: string; date: string; Icon: any; color: string }[] = [
+            { key: 'created', label: t('suppliers.po_journal_created'), date: journalPo.created_at, Icon: FileText, color: 'text-muted-foreground border-border bg-muted' },
+          ]
+          if (journalPo.sent_at) {
+            events.push({ key: 'sent', label: t('suppliers.po_journal_sent'), date: journalPo.sent_at, Icon: Send, color: 'text-stockshop-blue border-blue-200 bg-blue-50 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800' })
+          }
+          if (journalPo.status === 'received' && journalPo.received_at) {
+            events.push({ key: 'received', label: t('suppliers.po_journal_received'), date: journalPo.received_at, Icon: CheckCircle2, color: 'text-green-700 border-green-200 bg-green-50 dark:bg-green-950/40 dark:text-green-400 dark:border-green-800' })
+          }
+          if (journalPo.status === 'cancelled') {
+            events.push({ key: 'cancelled', label: t('suppliers.po_journal_cancelled'), date: journalPo.updated_at || journalPo.created_at, Icon: Ban, color: 'text-red-600 border-red-200 bg-red-50 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800' })
+          }
+          events.sort((a, b) => a.date.localeCompare(b.date))
+          const items = journalPo.purchase_order_items || []
+
+          return (
+            <>
+              <PremiumDialogBody>
+                <div className="space-y-0">
+                  {events.map((ev, idx) => (
+                    <div key={ev.key} className="relative flex gap-3">
+                      <div className="flex flex-col items-center">
+                        <div className={`h-8 w-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${ev.color}`}>
+                          <ev.Icon className="h-3.5 w-3.5" />
+                        </div>
+                        {idx < events.length - 1 && <div className="w-0.5 flex-1 bg-border mt-1 mb-1 min-h-[16px]" />}
+                      </div>
+                      <div className={`flex-1 min-w-0 ${idx < events.length - 1 ? 'pb-4' : ''}`}>
+                        <p className="text-sm font-semibold">{ev.label}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {new Date(ev.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {journalPo.status === 'received' && items.length > 0 && (
+                  <div className="pt-3 border-t">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t('suppliers.po_journal_items_title')}</p>
+                    <div className="space-y-1.5">
+                      {items.map((it: any) => (
+                        <div key={it.id} className="flex items-center justify-between text-sm gap-2">
+                          <span className="truncate">{it.product_name}</span>
+                          <span className="tabular-nums text-muted-foreground shrink-0">
+                            {(it.quantity_received ?? it.quantity_ordered)}/{it.quantity_ordered} {it.unit || ''}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </PremiumDialogBody>
+              <PremiumDialogFooter onCancel={() => setJournalPo(null)} cancelLabel={t('actions.close')} />
+            </>
+          )
+        })()}
       </PremiumDialog>
     </div>
   )

@@ -406,7 +406,17 @@
     "po_ordered_label": "Ordered",
     "po_confirm_receipt": "Confirm receipt",
     "po_received_success": "Receipt confirmed, stock updated",
-    "po_partial_badge": "Incomplete delivery"
+    "po_partial_badge": "Incomplete delivery",
+    "po_search_placeholder": "Search (reference, supplier)…",
+    "po_filter_status_all": "All statuses",
+    "po_filter_no_results": "No purchase order matches the filters.",
+    "po_journal_button": "History",
+    "po_journal_title": "Order history",
+    "po_journal_created": "Order created",
+    "po_journal_sent": "Sent to supplier",
+    "po_journal_received": "Receipt confirmed",
+    "po_journal_cancelled": "Order cancelled",
+    "po_journal_items_title": "Quantities received"
   },
   "payments": {
     "title": "Credit & Payments",

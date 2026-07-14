@@ -406,7 +406,17 @@
     "po_ordered_label": "An yi oda",
     "po_confirm_receipt": "Tabbatar da karɓa",
     "po_received_success": "An tabbatar da karɓa, an sabunta kaya",
-    "po_partial_badge": "Bayarwa bata cika ba"
+    "po_partial_badge": "Bayarwa bata cika ba",
+    "po_search_placeholder": "Nemi (lambar oda, mai samar)…",
+    "po_filter_status_all": "Dukan matsayi",
+    "po_filter_no_results": "Babu odar sayayya da ta dace da tacewar.",
+    "po_journal_button": "Tarihi",
+    "po_journal_title": "Tarihin oda",
+    "po_journal_created": "An ƙirƙiri oda",
+    "po_journal_sent": "An aika wa mai samar",
+    "po_journal_received": "An tabbatar da karɓa",
+    "po_journal_cancelled": "An soke oda",
+    "po_journal_items_title": "Adadin da aka karɓa"
   },
   "payments": {
     "title": "Bashi da Biya",
