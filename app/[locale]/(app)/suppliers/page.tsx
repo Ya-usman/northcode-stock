@@ -336,6 +336,19 @@ export default function SuppliersPage() {
   }
 
   const usePrice = async (product: Product, supplierId: string, price: number) => {
+    // Preserve the outgoing supplier's price before switching — it only ever
+    // lived in product.buying_price, so overwriting it without saving it
+    // first would silently erase that supplier from the comparator.
+    const oldSupplierId = (product as any).supplier_id as string | null
+    const oldPrice = Number((product as any).buying_price || 0)
+    if (oldSupplierId && oldSupplierId !== supplierId && oldPrice > 0) {
+      await fetch('/api/product-supplier-prices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop_id: product.shop_id, product_id: product.id, supplier_id: oldSupplierId, price: oldPrice }),
+      })
+    }
+
     const res = await fetch('/api/products', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -345,6 +358,7 @@ export default function SuppliersPage() {
     if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
     toast({ title: t('toast.supplier_updated'), variant: 'success' })
     fetchSuppliers()
+    fetchProductPrices()
   }
 
   // ── Bons de commande ─────────────────────────────────────────────────────
