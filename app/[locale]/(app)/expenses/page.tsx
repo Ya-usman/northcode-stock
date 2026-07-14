@@ -19,12 +19,12 @@ import { NumericInput } from '@/components/ui/numeric-input'
 import { format, startOfMonth, endOfMonth, addMonths, addWeeks } from 'date-fns'
 import type { Expense, ExpenseBudget } from '@/lib/types/database'
 import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-cache'
-import { useIsOnline } from '@/lib/offline/use-is-online'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { savePendingExpense, getPendingExpenses, type PendingExpense } from '@/lib/offline/db'
 
 import { cn } from '@/lib/utils/cn'
+import { withTimeout } from '@/lib/utils/with-timeout'
 import { generateExpensesReportPDF } from '@/lib/utils/pdf'
 import { downloadOrShareCSV } from '@/lib/utils/native-share'
 
@@ -102,7 +102,6 @@ export default function ExpensesPage() {
   const [exporting, setExporting]     = useState(false)
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
 
-  const isOnline = useIsOnline()
   const { isOnline: isReallyOnline } = useOffline()
   const [pendingExpenses, setPendingExpenses] = useState<PendingExpense[]>([])
 
@@ -140,10 +139,6 @@ export default function ExpensesPage() {
     getPendingExpenses(shop.id).then(setPendingExpenses)
   }, [shop?.id])
 
-  const withTimeout = useCallback((p: Promise<any>, ms = 15_000) =>
-    Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Connexion trop lente — réessayez.')), ms))]),
-  [])
-
   const shopIdsKey = effectiveShopIds.join(',')
 
   const fetchExpenses = useCallback(async () => {
@@ -156,7 +151,7 @@ export default function ExpensesPage() {
     } else {
       setLoading(true)
     }
-    if (!navigator.onLine) return
+    if (!isReallyOnline) return
     const start = startOfMonth(new Date(monthFilter + '-01')).toISOString().slice(0, 10)
     const end   = endOfMonth(new Date(monthFilter + '-01')).toISOString().slice(0, 10)
     try {
@@ -188,10 +183,10 @@ export default function ExpensesPage() {
     } finally {
       setLoading(false)
     }
-  }, [shopIdsKey, monthFilter])
+  }, [shopIdsKey, monthFilter, isReallyOnline])
 
   const fetchBudgets = useCallback(async () => {
-    if (!shop?.id || !navigator.onLine) return
+    if (!shop?.id || !isReallyOnline) return
     const { data } = await supabase
       .from('expense_budgets')
       .select('category, amount')
@@ -200,12 +195,12 @@ export default function ExpensesPage() {
     const map: Record<string, number> = {}
     ;(data as ExpenseBudget[]).forEach(b => { map[b.category] = Number(b.amount) })
     setBudgets(map)
-  }, [shop?.id])
+  }, [shop?.id, isReallyOnline])
 
   const isOwnerOrAdmin = profile?.role === 'owner' || profile?.role === 'super_admin'
 
   const fetchDeleteLogs = useCallback(async () => {
-    if (!shop?.id || !isOwnerOrAdmin || !navigator.onLine) return
+    if (!shop?.id || !isOwnerOrAdmin || !isReallyOnline) return
     const { data } = await supabase
       .from('audit_logs')
       .select('id, created_at, actor_email, metadata')
@@ -214,10 +209,10 @@ export default function ExpensesPage() {
       .order('created_at', { ascending: false })
       .limit(50)
     setDeleteLogs((data || []) as DeleteLog[])
-  }, [shop?.id, isOwnerOrAdmin])
+  }, [shop?.id, isOwnerOrAdmin, isReallyOnline])
 
   const generateDueRecurring = useCallback(async () => {
-    if (!effectiveShopIds.length || !navigator.onLine) return
+    if (!effectiveShopIds.length || !isReallyOnline) return
     const today = format(new Date(), 'yyyy-MM-dd')
     const { data: due } = await supabase
       .from('expenses')
@@ -260,7 +255,7 @@ export default function ExpensesPage() {
         }).catch(() => {})
       }
     }
-  }, [shopIdsKey, fetchExpenses, shop?.id])
+  }, [shopIdsKey, fetchExpenses, shop?.id, isReallyOnline])
 
   useEffect(() => {
     fetchExpenses()
@@ -334,7 +329,7 @@ export default function ExpensesPage() {
     setSaving(true)
 
     // ── Offline path: save to IndexedDB (non-recurring new expenses only) ──
-    if (!isOnline && !editing && !isRecurring) {
+    if (!isReallyOnline && !editing && !isRecurring) {
       try {
         await savePendingExpense({
           local_id:       crypto.randomUUID(),
@@ -390,11 +385,11 @@ export default function ExpensesPage() {
     try {
       let error: any = null
       if (editing) {
-        ;({ error } = await withTimeout(
+        ;({ error } = await withTimeout<any>(
           supabase.from('expenses').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', editing.id)
         ))
       } else {
-        ;({ error } = await withTimeout(supabase.from('expenses').insert(payload)))
+        ;({ error } = await withTimeout<any>(supabase.from('expenses').insert(payload)))
       }
       if (error) { toast({ title: error.message, variant: 'destructive' }); return }
       toast({ title: editing ? t('updated') : (isRecurring ? t('recurring_added') : t('added')), variant: 'success' })
@@ -480,7 +475,7 @@ export default function ExpensesPage() {
     if (!shop?.id || !budgetAmount) return
     setSavingBudget(true)
     try {
-      const { error } = await withTimeout(
+      const { error } = await withTimeout<any>(
         supabase.from('expense_budgets').upsert(
           { shop_id: shop.id, category: budgetCategory, amount: Number(budgetAmount), updated_at: new Date().toISOString() },
           { onConflict: 'shop_id,category' }
@@ -1241,7 +1236,7 @@ export default function ExpensesPage() {
             </div>
           )}
         </PremiumDialogBody>
-        {!isOnline && (editing || isRecurring) && (
+        {!isReallyOnline && (editing || isRecurring) && (
           <div className="mx-4 mb-3 flex items-center gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 text-xs text-amber-700 dark:text-amber-300">
             <WifiOff className="h-4 w-4 flex-shrink-0" />
             <span>{editing ? 'La modification nécessite une connexion internet.' : 'Les dépenses récurrentes nécessitent une connexion internet.'}</span>
@@ -1251,11 +1246,11 @@ export default function ExpensesPage() {
           <Button
             onClick={handleSave}
             loading={saving}
-            disabled={!amount || !description.trim() || saving || (!isOnline && (!!editing || isRecurring))}
+            disabled={!amount || !description.trim() || saving || (!isReallyOnline && (!!editing || isRecurring))}
             variant="stockshop"
             className="flex-1 h-11 rounded-xl font-semibold"
           >
-            {editing ? t('save') : !isOnline ? `${t('add')} (hors ligne)` : t('add')}
+            {editing ? t('save') : !isReallyOnline ? `${t('add')} (hors ligne)` : t('add')}
           </Button>
         </PremiumDialogFooter>
       </PremiumDialog>

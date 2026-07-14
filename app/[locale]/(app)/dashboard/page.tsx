@@ -22,6 +22,8 @@ import { cn } from '@/lib/utils/cn'
 import { PlanStatusBanner } from '@/components/dashboard/plan-status-banner'
 
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
+import { useOffline } from '@/lib/offline/use-offline'
+import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 
 const supabase = createClient() as any
 
@@ -85,7 +87,9 @@ export default function DashboardPage() {
 
   const [firstLoad, setFirstLoad] = useState(!mountCache && shopIds.length > 0)
   const [refreshing, setRefreshing] = useState(false)
-  const [isOnline, setIsOnline] = useState(true)
+  // navigator.onLine / the browser 'online' event are unreliable (notably in
+  // the Capacitor Android WebView) — useOffline() actively verifies instead.
+  const { isOnline } = useOffline()
 
   const [todayRevenue, setTodayRevenue] = useState<number | null>(mountCache?.todayRevenue ?? null)
   const [todaySalesCount, setTodaySalesCount] = useState<number | null>(mountCache?.todaySalesCount ?? null)
@@ -149,7 +153,7 @@ export default function DashboardPage() {
     }
 
     // Don't fetch from network when offline
-    if (!navigator.onLine) {
+    if (!isOnline) {
       setFirstLoad(false)
       setRefreshing(false)
       return
@@ -383,7 +387,7 @@ export default function DashboardPage() {
       setFirstLoad(false)
       setRefreshing(false)
     }
-  }, [shopIds.join(','), shop?.low_stock_threshold, applyDashData, roleInActiveShop, profile?.role, profile?.id])
+  }, [shopIds.join(','), shop?.low_stock_threshold, applyDashData, roleInActiveShop, profile?.role, profile?.id, isOnline])
 
   // Initial load when shopIds become available
   useEffect(() => {
@@ -403,15 +407,10 @@ export default function DashboardPage() {
     return () => clearTimeout(t)
   }, [firstLoad])
 
-  // Online/offline tracking
-  useEffect(() => {
-    setIsOnline(navigator.onLine)
-    const on = () => { setIsOnline(true); if (shopIds.length > 0) loadDashboard(true) }
-    const off = () => setIsOnline(false)
-    window.addEventListener('online', on)
-    window.addEventListener('offline', off)
-    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
-  }, [loadDashboard])
+  // Refresh on reconnect — isOnline comes from useOffline()'s actively-verified
+  // check, unlike the raw 'online' event which is unreliable in the Capacitor
+  // Android WebView.
+  useRefetchOnReconnect(() => { if (shopIds.length > 0) loadDashboard(true) }, isOnline)
 
   // Auto-refresh when user comes back to this tab
   useEffect(() => {

@@ -240,7 +240,7 @@ export default function SalesHistoryPage() {
     } else {
       setLoading(true)
     }
-    if (!navigator.onLine) return
+    if (!isOnline) return
     try {
       const { start, end } = getDateBounds()
       const [listResult, statsResult] = await Promise.all([
