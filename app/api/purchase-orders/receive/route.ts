@@ -8,13 +8,13 @@ const WRITE_ROLES = ['owner', 'manager', 'shop_manager', 'stock_manager', 'super
 // POST /api/purchase-orders/receive — verify received quantities and restock
 // in one atomic transaction (apply_purchase_order_receipt), instead of a
 // blind status flip followed by a separate manual restock.
-// body: { shop_id, purchase_order_id, items: [{item_id, product_id, quantity_received, unit_price, expiry_date, receipt_note}] }
+// body: { shop_id, purchase_order_id, items: [{item_id, product_id, quantity_received, unit_price, expiry_date, receipt_note}], payment_amount?, payment_method? }
 export async function POST(request: Request) {
   try {
     const { user, supabase } = await getAuthedUser()
     if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
-    const { shop_id, purchase_order_id, items } = await request.json()
+    const { shop_id, purchase_order_id, items, payment_amount, payment_method } = await request.json()
     if (!shop_id || !purchase_order_id) return NextResponse.json({ error: 'shop_id et purchase_order_id requis' }, { status: 400 })
     if (!Array.isArray(items) || items.length === 0)
       return NextResponse.json({ error: 'Au moins une ligne est requise' }, { status: 400 })
@@ -68,6 +68,24 @@ export async function POST(request: Request) {
             { shop_id, product_id: it.product_id, supplier_id: po.supplier_id, price: Number(it.unit_price), updated_at: new Date().toISOString() },
             { onConflict: 'product_id,supplier_id' }
           )
+      }
+    }
+
+    // Paiement déclaré au moment de la réception (comptant/partiel) — insère
+    // directement dans supplier_payments, le trigger after_supplier_payment_insert
+    // (migration 093) se charge d'ajuster amount_paid/payment_status/
+    // suppliers.total_owed. Rien à faire si "à crédit" (payment_amount absent).
+    if (payment_amount && Number(payment_amount) > 0) {
+      const { data: freshPo } = await (admin as any)
+        .from('purchase_orders').select('balance').eq('id', purchase_order_id).single()
+      const applied = Math.min(Number(payment_amount), Number(freshPo?.balance) || 0)
+      if (applied > 0) {
+        await (admin as any).from('supplier_payments').insert({
+          purchase_order_id,
+          amount: applied,
+          method: payment_method || 'cash',
+          paid_by: user.id,
+        })
       }
     }
 

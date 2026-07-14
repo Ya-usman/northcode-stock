@@ -169,6 +169,9 @@ export default function SuppliersPage() {
   const [receiveQuantities, setReceiveQuantities] = useState<Record<string, string>>({})
   const [receiveExpiryDates, setReceiveExpiryDates] = useState<Record<string, string>>({})
   const [receiveNotes, setReceiveNotes] = useState<Record<string, string>>({})
+  const [receivePaymentStatus, setReceivePaymentStatus] = useState<'paid' | 'partial' | 'credit'>('credit')
+  const [receivePaymentAmount, setReceivePaymentAmount] = useState('')
+  const [receivePaymentMethod, setReceivePaymentMethod] = useState('cash')
   const [receivingLoading, setReceivingLoading] = useState(false)
   const [{ search: poSearch, status: poStatusFilter, dateFrom: poDateFrom, dateTo: poDateTo }, setPoFilter] = usePersistedFilters(
     'purchase_orders', shop?.id, { search: '', status: '', dateFrom: '', dateTo: '' }
@@ -468,8 +471,16 @@ export default function SuppliersPage() {
     setReceiveQuantities(quantities)
     setReceiveExpiryDates({})
     setReceiveNotes({})
+    setReceivePaymentStatus('credit')
+    setReceivePaymentAmount('')
+    setReceivePaymentMethod('cash')
     setReceivingPo(po)
   }
+
+  // Total de ce qui sera effectivement reçu — sert à la fois d'affichage et
+  // à préremplir/valider le montant payé à la réception.
+  const receiveTotal = (receivingPo?.purchase_order_items || []).reduce((s: number, it: any) =>
+    s + (it.unit_price || 0) * (Number(receiveQuantities[it.id]) || 0), 0)
 
   const submitReceivePo = async () => {
     if (!shop?.id || !receivingPo) return
@@ -483,10 +494,21 @@ export default function SuppliersPage() {
         expiry_date: receiveExpiryDates[it.id] || null,
         receipt_note: receiveNotes[it.id] || null,
       }))
+      const paymentAmount = receivePaymentStatus === 'paid'
+        ? receiveTotal
+        : receivePaymentStatus === 'partial'
+          ? Number(receivePaymentAmount) || 0
+          : 0
       const res = await fetch('/api/purchase-orders/receive', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shop_id: shop.id, purchase_order_id: receivingPo.id, items }),
+        body: JSON.stringify({
+          shop_id: shop.id,
+          purchase_order_id: receivingPo.id,
+          items,
+          payment_amount: paymentAmount > 0 ? paymentAmount : null,
+          payment_method: paymentAmount > 0 ? receivePaymentMethod : null,
+        }),
       })
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
@@ -1409,6 +1431,54 @@ export default function SuppliersPage() {
                     </div>
                   )
                 })}
+              </div>
+
+              <div className="mt-4 pt-3 border-t space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>{t('suppliers.po_payment_status_label')}</Label>
+                  <span className="text-xs text-muted-foreground">{t('suppliers.po_total_label')}: {fmt(receiveTotal)}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {(['paid', 'partial', 'credit'] as const).map(status => (
+                    <button
+                      key={status}
+                      type="button"
+                      onClick={() => setReceivePaymentStatus(status)}
+                      className={`h-9 rounded-lg text-xs font-medium border transition-colors ${
+                        receivePaymentStatus === status
+                          ? status === 'paid' ? 'bg-green-600 border-green-600 text-white'
+                            : status === 'partial' ? 'bg-amber-500 border-amber-500 text-white'
+                            : 'bg-muted-foreground/80 border-muted-foreground/80 text-white'
+                          : 'border-input bg-card text-muted-foreground hover:bg-accent'
+                      }`}
+                    >
+                      {t(`suppliers.po_payment_status_${status}`)}
+                    </button>
+                  ))}
+                </div>
+                {receivePaymentStatus === 'partial' && (
+                  <Input
+                    type="number" min={0} max={receiveTotal}
+                    value={receivePaymentAmount}
+                    onChange={e => setReceivePaymentAmount(e.target.value)}
+                    placeholder={t('suppliers.po_payment_amount_placeholder')}
+                    className="h-9"
+                  />
+                )}
+                {receivePaymentStatus !== 'credit' && (
+                  <Select value={receivePaymentMethod} onValueChange={setReceivePaymentMethod}>
+                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">{t('payment.cash')}</SelectItem>
+                      <SelectItem value="transfer">{t('payment.transfer')}</SelectItem>
+                      <SelectItem value="mobile_money">{t('payment.mobile_money')}</SelectItem>
+                      <SelectItem value="other">{t('products.other')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+                {receivePaymentStatus === 'credit' && (
+                  <p className="text-[11px] text-muted-foreground">{t('suppliers.po_payment_credit_hint')}</p>
+                )}
               </div>
             </PremiumDialogBody>
             <PremiumDialogFooter onCancel={() => setReceivingPo(null)} cancelLabel={t('actions.cancel')}>

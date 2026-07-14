@@ -464,7 +464,14 @@
     "po_reorder_hint": "New purchase order for the missing balance of order {reference}.",
     "po_reorder_confirm": "Create purchase order",
     "po_receipt_note_placeholder": "Reason for the shortfall (optional)…",
-    "supplier_journal_owed": "Balance due"
+    "supplier_journal_owed": "Balance due",
+    "po_payment_status_label": "Payment at receipt",
+    "po_total_label": "Total",
+    "po_payment_status_paid": "Paid in full",
+    "po_payment_status_partial": "Partial",
+    "po_payment_status_credit": "On credit",
+    "po_payment_amount_placeholder": "Amount paid now…",
+    "po_payment_credit_hint": "Nothing is paid now — the full amount will show as due in the Credits tab."
   },
   "payments": {
     "title": "Credit & Payments",

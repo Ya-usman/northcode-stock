@@ -464,7 +464,14 @@
     "po_reorder_hint": "Nouveau bon de commande pour le solde manquant du bon {reference}.",
     "po_reorder_confirm": "Créer le bon de commande",
     "po_receipt_note_placeholder": "Motif de l'écart (optionnel)…",
-    "supplier_journal_owed": "Solde dû"
+    "supplier_journal_owed": "Solde dû",
+    "po_payment_status_label": "Paiement à la réception",
+    "po_total_label": "Total",
+    "po_payment_status_paid": "Payé comptant",
+    "po_payment_status_partial": "Partiel",
+    "po_payment_status_credit": "À crédit",
+    "po_payment_amount_placeholder": "Montant payé maintenant…",
+    "po_payment_credit_hint": "Rien n'est payé maintenant — le montant total apparaîtra comme dû dans l'onglet Crédits."
   },
   "payments": {
     "title": "Crédit & Paiements",

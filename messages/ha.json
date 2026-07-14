@@ -464,7 +464,14 @@
     "po_reorder_hint": "Sabuwar odar sayayya don sauran kayan da ba a kawo ba na oda {reference}.",
     "po_reorder_confirm": "Ƙirƙiri odar sayayya",
     "po_receipt_note_placeholder": "Dalilin rashi (zaɓi)…",
-    "supplier_journal_owed": "Bashin da ake bi"
+    "supplier_journal_owed": "Bashin da ake bi",
+    "po_payment_status_label": "Biya a lokacin karɓa",
+    "po_total_label": "Jimla",
+    "po_payment_status_paid": "An biya kaɗai",
+    "po_payment_status_partial": "Wani ɓangare",
+    "po_payment_status_credit": "A bashi",
+    "po_payment_amount_placeholder": "Adadin da aka biya yanzu…",
+    "po_payment_credit_hint": "Ba a biya komai yanzu ba — jimlar adadin za ta bayyana a matsayin bashi a shafin Bashi."
   },
   "payments": {
     "title": "Bashi da Biya",
