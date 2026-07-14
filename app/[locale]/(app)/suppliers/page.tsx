@@ -837,15 +837,6 @@ export default function SuppliersPage() {
                             <CheckCircle2 className="h-3 w-3" />{t('suppliers.po_mark_received')}
                           </Button>
                         )}
-                        {canManage && (po.status === 'draft' || po.status === 'sent') && (
-                          <button
-                            className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-                            title={t('suppliers.po_cancel')}
-                            onClick={() => updatePoStatus(po, 'cancelled')}
-                          >
-                            <Ban className="h-3.5 w-3.5" />
-                          </button>
-                        )}
                         {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground ml-1" /> : <ChevronRight className="h-4 w-4 text-muted-foreground ml-1" />}
                       </div>
                     </div>
@@ -862,18 +853,30 @@ export default function SuppliersPage() {
                             </div>
                           ))}
                         </div>
-                        {canManage && po.status === 'draft' && (
+                        {canManage && (po.status === 'draft' || po.status === 'sent') && (
                           <div className="flex gap-2 pt-3 mt-3 border-t">
-                            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs flex-1" onClick={() => openEditPo(po)}>
-                              <Edit2 className="h-3.5 w-3.5" />{t('actions.edit')}
-                            </Button>
+                            {po.status === 'draft' && (
+                              <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs flex-1" onClick={() => openEditPo(po)}>
+                                <Edit2 className="h-3.5 w-3.5" />{t('actions.edit')}
+                              </Button>
+                            )}
                             <Button
                               variant="outline" size="sm"
-                              className="h-8 gap-1.5 text-xs flex-1 text-destructive border-destructive/30 hover:bg-red-50 dark:hover:bg-red-950/40"
-                              onClick={() => deletePo(po)}
+                              className="h-8 gap-1.5 text-xs flex-1 text-amber-600 border-amber-200 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-800 dark:hover:bg-amber-950/40"
+                              loading={poActionLoading === po.id}
+                              onClick={() => updatePoStatus(po, 'cancelled')}
                             >
-                              <Trash2 className="h-3.5 w-3.5" />{t('actions.delete')}
+                              <Ban className="h-3.5 w-3.5" />{t('suppliers.po_cancel')}
                             </Button>
+                            {po.status === 'draft' && (
+                              <Button
+                                variant="outline" size="sm"
+                                className="h-8 gap-1.5 text-xs flex-1 text-destructive border-destructive/30 hover:bg-red-50 dark:hover:bg-red-950/40"
+                                onClick={() => deletePo(po)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />{t('actions.delete')}
+                              </Button>
+                            )}
                           </div>
                         )}
                       </div>
