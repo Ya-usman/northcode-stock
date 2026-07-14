@@ -4,13 +4,15 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { ComponentProps } from 'react'
 
-let _isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true
-if (typeof window !== 'undefined') {
-  window.addEventListener('online',  () => { _isOnline = true  })
-  window.addEventListener('offline', () => { _isOnline = false })
+type OfflineLinkProps = ComponentProps<typeof Link> & {
+  // Verified via useOffline() (a real request), not navigator.onLine — a
+  // required prop rather than calling the hook in here directly, since this
+  // component is typically rendered many times in a single .map() (nav
+  // lists, tab bars); each instance calling useOffline() itself would mean
+  // dozens of redundant connectivity pollers running at once. Callers lift
+  // a single useOffline() call and pass isOnline down.
+  isOnline: boolean
 }
-
-type OfflineLinkProps = ComponentProps<typeof Link>
 
 /**
  * Drop-in replacement for Next.js Link.
@@ -23,14 +25,14 @@ type OfflineLinkProps = ComponentProps<typeof Link>
  * If the RSC fetch fails offline, React's error boundary (error.tsx) catches it
  * and shows the in-app offline UI instead of the native browser error page.
  */
-export function OfflineLink({ href, onClick, children, ...props }: OfflineLinkProps) {
+export function OfflineLink({ href, onClick, children, isOnline, ...props }: OfflineLinkProps) {
   const router = useRouter()
 
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     onClick?.(e)
     if (e.defaultPrevented) return
 
-    if (!_isOnline) {
+    if (!isOnline) {
       // Prevent any <a> default that could fall back to a hard navigate,
       // then push client-side — RSC errors land in error.tsx, not the WebView.
       e.preventDefault()
@@ -45,5 +47,3 @@ export function OfflineLink({ href, onClick, children, ...props }: OfflineLinkPr
     </Link>
   )
 }
-
-export { _isOnline as isOnlineFast }

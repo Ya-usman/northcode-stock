@@ -3,7 +3,14 @@ const withNextIntl = createNextIntlPlugin('./i18n.ts')
 
 const withPWA = require('next-pwa')({
   dest: 'public',
-  register: true,
+  // false: registration is done explicitly in components/pwa/sw-updater.tsx.
+  // next-pwa's auto-injected register.js (patches webpack's main.js entry)
+  // turned out to silently never call navigator.serviceWorker.register() in
+  // this build — /sw.js served fine (200) but getRegistrations() always
+  // came back empty, no console error. Likely a main.js entry-shape
+  // mismatch with this Next.js version; rather than chase that further,
+  // registration is now owned explicitly where it's easy to verify.
+  register: false,
   skipWaiting: true,
   disable: process.env.NODE_ENV === 'development',
   // Exclude EVERYTHING from the Workbox precache (radical fix).
@@ -15,19 +22,23 @@ const withPWA = require('next-pwa')({
   // even one transient error is enough to block users from ever getting
   // the new SW.
   //
-  // SAFE because runtimeCaching already covers everything:
+  // SAFE because runtimeCaching + worker/index.js already cover everything:
   //   • /_next/static/.* → CacheFirst (JS, CSS, fonts, images)
-  //   • navigate requests  → NetworkFirst (pages + /offline fallback)
+  //   • navigate requests  → handled in worker/index.js (pages + /offline fallback)
   //   • RSC payloads       → StaleWhileRevalidate
   // Files are cached on first use instead of at install time.
   // After one online session the app works fully offline — identical UX.
   // SW installation is now instantaneous (precache list is empty).
   buildExcludes: [/.*/],
   publicExcludes: ['**/*'],
-  // Précache /offline explicitement — setCatchHandler en a besoin pour servir
+  // Précache /offline explicitement — worker/index.js en a besoin pour servir
   // la page offline quand un réseau + cache échouent en même temps.
   // buildExcludes vide tout le reste, mais additionalManifestEntries est manuel.
-  additionalManifestEntries: [{ url: '/offline', revision: 'v3' }],
+  // Révision bumpée (v3 → v4) : navigation entièrement reprise en main dans
+  // worker/index.js (voir son commentaire d'en-tête) — next-pwa's fallbacks/
+  // handlerDidError semblait correctement câblé dans le sw.js généré, mais
+  // servait quand même la page d'erreur native du navigateur en test réel.
+  additionalManifestEntries: [{ url: '/offline', revision: 'v4' }],
   runtimeCaching: [
     // RSC payloads (client-side navigation) — StaleWhileRevalidate.
     // matchOptions.ignoreSearch: true est critique — Next.js ajoute un param
@@ -45,20 +56,10 @@ const withPWA = require('next-pwa')({
         matchOptions: { ignoreSearch: true },
       },
     },
-    // Page HTML (navigation complète) — NetworkFirst :
-    // Essaie le réseau (timeout 1s), puis le cache, puis la page /offline.
-    // CRITIQUE : NetworkFirst déclenche setCatchHandler quand réseau + cache échouent
-    // → affiche la page /offline au lieu de ERR_INTERNET_DISCONNECTED.
-    // StaleWhileRevalidate retournait undefined silencieusement → bug Samsung PWA.
-    {
-      urlPattern: ({ request }) => request.mode === 'navigate',
-      handler: 'NetworkFirst',
-      options: {
-        cacheName: 'next-pages',
-        networkTimeoutSeconds: 5,
-        expiration: { maxEntries: 100, maxAgeSeconds: 24 * 60 * 60 },
-      },
-    },
+    // Page HTML (navigation complète) — PAS gérée ici : voir le fetch handler
+    // dédié à request.mode === 'navigate' dans worker/index.js. Une règle
+    // runtimeCaching ici entrerait en conflit (deux event.respondWith() sur
+    // le même fetch event) avec ce handler explicite.
     // Internal API routes — NetworkOnly: app's localStorage cache handles offline display.
     // NetworkFirst + short timeout was silently serving stale responses on slow networks.
     // options object required by next-pwa even when no caching is configured.

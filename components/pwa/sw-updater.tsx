@@ -26,6 +26,15 @@ export function SWUpdater() {
   useEffect(() => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return
 
+    // Explicit registration — next-pwa's auto-injected register.js (via a
+    // webpack main.js entry patch) turned out to silently never call
+    // navigator.serviceWorker.register() in this build (confirmed live:
+    // /sw.js served fine with a 200, but getRegistrations() always returned
+    // an empty array, no console error either). Rather than keep depending
+    // on that fragile auto-injection, register.js is disabled (register:
+    // false in next.config.js) and this is now the single source of truth.
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {})
+
     function triggerUpdate() {
       navigator.serviceWorker.ready.then(reg => reg.update()).catch(() => {})
     }

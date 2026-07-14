@@ -16,6 +16,7 @@ import { useState } from 'react'
 import type { UserRole, Profile, Shop } from '@/lib/types/database'
 import { isBetaPeriod } from '@/lib/saas/plans'
 import { useRolePermissions, type PermFeature } from '@/lib/hooks/use-role-permissions'
+import { useOffline } from '@/lib/offline/use-offline'
 
 const SUPER_ADMIN_EMAILS = (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim())
 
@@ -37,6 +38,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut, signingOut = f
   const t = useTranslations('nav')
   const pathname = usePathname()
   const { userShops, switchShop, dashboardShopFilter, setDashboardShopFilter } = useAuthContext()
+  const { isOnline } = useOffline()
   const [shopPickerOpen, setShopPickerOpen] = useState(false)
   const { canAccess } = useRolePermissions()
 
@@ -197,6 +199,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut, signingOut = f
                     key={item.href}
                     href={item.href}
                     prefetch={true}
+                    isOnline={isOnline}
                     onClick={isHelp && hasUnreadAnnouncement && onOpenWhatsNew ? () => { onOpenWhatsNew() } : undefined}
                     className={cn(
                       'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors tap-target',

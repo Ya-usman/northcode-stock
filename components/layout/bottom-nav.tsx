@@ -76,6 +76,7 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
                 key={item.href}
                 href={available ? item.href : '#'}
                 prefetch={true}
+                isOnline={isOnline}
                 onClick={(e) => { if (!available) e.preventDefault(); else setMoreOpen(false) }}
                 aria-disabled={!available}
                 title={!available && isOffline ? 'Non disponible hors ligne' : undefined}
@@ -134,6 +135,7 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
                       key={item.href}
                       href={available ? item.href : '#'}
                       prefetch={true}
+                      isOnline={isOnline}
                       onClick={(e) => { if (!available) e.preventDefault(); else setMoreOpen(false) }}
                       aria-disabled={!available}
                       title={!available && isOffline ? 'Non disponible hors ligne' : undefined}

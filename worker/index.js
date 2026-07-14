@@ -1,13 +1,24 @@
-// Custom service worker code — merged into next-pwa generated sw.js
-// ONLY push notifications and background sync are handled here.
-// Navigate and RSC requests are handled entirely by Workbox (NetworkFirst)
-// with the self.fallback (ignoreSearch:true) catching failures — this is
-// the only correct way to serve /offline from the Workbox precache.
+// Custom service worker code — merged into next-pwa generated sw.js.
+//
+// Navigate requests (full page loads: link clicks that escape OfflineLink's
+// SPA interception, hard reloads, typed URLs) are handled entirely here,
+// not by next-pwa's runtimeCaching/fallbacks config. That mechanism was
+// traced end-to-end (handlerDidError plugin injection, the generated
+// fallback-*.js chunk, /offline precached via precacheAndRoute) and looked
+// correctly wired in the built sw.js, yet still served the browser's native
+// offline error page instead of /offline in real offline tests. Rather than
+// keep guessing why next-pwa's black-box wiring fails, navigation is owned
+// explicitly here, in the file we fully control and can reason about.
+//
+// RSC payloads, static assets, and API/Supabase calls are still handled by
+// Workbox via runtimeCaching in next.config.js — only request.mode ===
+// 'navigate' is claimed here, so there's no risk of two handlers both
+// calling event.respondWith() on the same fetch event.
 
 // Cache /offline during install so it is always available under the exact
-// key that caches.match('/offline') looks for — both with the new SW
-// (self.fallback uses ignoreSearch:true → finds Workbox precache entry) and
-// as an insurance entry in 'next-pages' if the precache failed for any reason.
+// key caches.match('/offline') looks for — both in the Workbox precache
+// (additionalManifestEntries in next.config.js) and here in 'next-pages' as
+// a second copy, in case the precache ever fails for any reason.
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open('next-pages')
@@ -16,18 +27,42 @@ self.addEventListener('install', (event) => {
   )
 })
 
-// Android cold-start fallback: MainActivity.java loads /__offline_fallback__
-// after a short delay (to let the SW activate). The SW responds with the
-// cached /offline page, making this a real SW-controlled client so that
-// subsequent navigations (card clicks) are intercepted by the SW normally.
 self.addEventListener('fetch', (event) => {
-  if (new URL(event.request.url).pathname === '/__offline_fallback__') {
+  const url = new URL(event.request.url)
+
+  // Android cold-start fallback: MainActivity.java loads /__offline_fallback__
+  // after a short delay (to let the SW activate). Always serve the cached
+  // /offline page here regardless of network, making this a real
+  // SW-controlled client so that subsequent navigations (card clicks) are
+  // intercepted by the SW normally.
+  if (url.pathname === '/__offline_fallback__') {
     event.respondWith(
       caches.match('/offline', { ignoreSearch: true })
         .then(r => r || caches.match('/offline'))
         .catch(() => new Response('<h1>Hors connexion</h1>', {
           headers: { 'Content-Type': 'text/html' }
         }))
+    )
+    return
+  }
+
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          // Stale-while-revalidate: refresh the cache in the background so
+          // the next offline visit to this exact page has fresh content.
+          const copy = response.clone()
+          caches.open('next-pages').then(cache => cache.put(event.request, copy)).catch(() => {})
+          return response
+        })
+        .catch(() =>
+          caches.match(event.request, { ignoreSearch: true })
+            .then(cached => cached || caches.match('/offline', { ignoreSearch: true }))
+            .then(res => res || new Response('<h1>Hors connexion</h1>', {
+              headers: { 'Content-Type': 'text/html' }
+            }))
+        )
     )
   }
 })

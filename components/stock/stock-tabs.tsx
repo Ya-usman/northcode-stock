@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { Package, ArrowLeftRight, ClipboardCheck } from 'lucide-react'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useRolePermissions, type PermFeature } from '@/lib/hooks/use-role-permissions'
+import { useOffline } from '@/lib/offline/use-offline'
 import { cn } from '@/lib/utils/cn'
 
 const INVENTORY_COUNT_ROLES = ['owner', 'super_admin', 'manager', 'shop_manager', 'stock_manager']
@@ -19,6 +20,7 @@ export function StockTabs({ locale }: { locale: string }) {
   const pathname = usePathname()
   const { profile, roleInActiveShop } = useAuth()
   const { canAccess } = useRolePermissions()
+  const { isOnline } = useOffline()
   const role = roleInActiveShop ?? profile?.role
 
   const tabs = [
@@ -43,6 +45,7 @@ export function StockTabs({ locale }: { locale: string }) {
           <Link
             key={tab.href}
             href={tab.href}
+            isOnline={isOnline}
             className={cn(
               'rounded-md px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5',
               isActive ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
