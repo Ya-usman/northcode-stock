@@ -162,6 +162,10 @@ export default function SuppliersPage() {
     'purchase_orders', shop?.id, { search: '', status: '', dateFrom: '', dateTo: '' }
   )
   const [journalPo, setJournalPo] = useState<any | null>(null)
+  const [poExpandedId, setPoExpandedId] = useState<string | null>(null)
+  const [editingPo, setEditingPo] = useState<any | null>(null)
+  const [editItems, setEditItems] = useState<{ id?: string; product_id: string | null; product_name: string; unit: string | null; quantity_ordered: string; unit_price: string }[]>([])
+  const [savingEditPo, setSavingEditPo] = useState(false)
 
   const form = useForm<SupplierFormData>({ resolver: zodResolver(supplierSchema) })
 
@@ -470,6 +474,49 @@ export default function SuppliersPage() {
     fetchPurchaseOrders()
   }
 
+  const openEditPo = (po: any) => {
+    setEditItems((po.purchase_order_items || []).map((it: any) => ({
+      id: it.id,
+      product_id: it.product_id,
+      product_name: it.product_name,
+      unit: it.unit,
+      quantity_ordered: String(it.quantity_ordered),
+      unit_price: it.unit_price != null ? String(it.unit_price) : '',
+    })))
+    setEditingPo(po)
+  }
+
+  const submitEditPo = async () => {
+    if (!shop?.id || !editingPo) return
+    if (editItems.length === 0) {
+      toast({ title: 'Le bon doit contenir au moins un produit', variant: 'destructive' })
+      return
+    }
+    setSavingEditPo(true)
+    try {
+      const items = editItems.map(it => ({
+        product_id: it.product_id,
+        product_name: it.product_name,
+        unit: it.unit,
+        quantity_ordered: Number(it.quantity_ordered) || 1,
+        unit_price: it.unit_price ? Number(it.unit_price) : null,
+      }))
+      const res = await fetch('/api/purchase-orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editingPo.id, shop_id: shop.id, items }),
+      })
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      setEditingPo(null)
+      fetchPurchaseOrders()
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+    } finally {
+      setSavingEditPo(false)
+    }
+  }
+
   const downloadPoPdf = async (po: any) => {
     const items = (po.purchase_order_items || [])
     await generatePurchaseOrderPDF({
@@ -736,9 +783,16 @@ export default function SuppliersPage() {
                 const itemCount = (po.purchase_order_items || []).length
                 const total = (po.purchase_order_items || []).reduce((s: number, it: any) => s + (it.unit_price || 0) * it.quantity_ordered, 0)
                 const isPartial = po.status === 'received' && (po.purchase_order_items || []).some((it: any) => (it.quantity_received ?? it.quantity_ordered) < it.quantity_ordered)
+                const isExpanded = poExpandedId === po.id
                 return (
-                  <div key={po.id} className="rounded-lg border bg-card shadow-sm p-4">
-                    <div className="flex items-start justify-between gap-2 flex-wrap">
+                  <div key={po.id} className="rounded-lg border bg-card shadow-sm overflow-hidden">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      className="w-full flex items-start justify-between gap-2 flex-wrap p-4 text-left hover:bg-muted/30 transition-colors cursor-pointer"
+                      onClick={() => setPoExpandedId(isExpanded ? null : po.id)}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPoExpandedId(isExpanded ? null : po.id) } }}
+                    >
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold text-sm">{po.reference}</p>
@@ -758,7 +812,7 @@ export default function SuppliersPage() {
                           {new Date(po.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </p>
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
                         <button
                           className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                           title={t('suppliers.po_journal_button')}
@@ -792,17 +846,38 @@ export default function SuppliersPage() {
                             <Ban className="h-3.5 w-3.5" />
                           </button>
                         )}
-                        {canManage && po.status === 'draft' && (
-                          <button
-                            className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-                            title={t('actions.delete')}
-                            onClick={() => deletePo(po)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        )}
+                        {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground ml-1" /> : <ChevronRight className="h-4 w-4 text-muted-foreground ml-1" />}
                       </div>
                     </div>
+
+                    {isExpanded && (
+                      <div className="border-t bg-muted/10 px-4 py-3">
+                        <div className="space-y-1.5">
+                          {(po.purchase_order_items || []).map((it: any) => (
+                            <div key={it.id} className="flex items-center justify-between gap-2 text-sm">
+                              <span className="truncate">{it.product_name} × {it.quantity_ordered} {it.unit || ''}</span>
+                              <span className="tabular-nums text-muted-foreground shrink-0">
+                                {it.unit_price != null ? fmt(it.unit_price * it.quantity_ordered) : '—'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        {canManage && po.status === 'draft' && (
+                          <div className="flex gap-2 pt-3 mt-3 border-t">
+                            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs flex-1" onClick={() => openEditPo(po)}>
+                              <Edit2 className="h-3.5 w-3.5" />{t('actions.edit')}
+                            </Button>
+                            <Button
+                              variant="outline" size="sm"
+                              className="h-8 gap-1.5 text-xs flex-1 text-destructive border-destructive/30 hover:bg-red-50 dark:hover:bg-red-950/40"
+                              onClick={() => deletePo(po)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />{t('actions.delete')}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -955,6 +1030,67 @@ export default function SuppliersPage() {
             {t('actions.save')}
           </Button>
         </PremiumDialogFooter>
+      </PremiumDialog>
+
+      <PremiumDialog
+        open={!!editingPo}
+        onOpenChange={open => { if (!open) setEditingPo(null) }}
+        category={t('nav.suppliers')}
+        title={t('suppliers.po_edit_title')}
+        icon={<Edit2 className="h-4 w-4" />}
+        maxWidth="max-w-lg"
+      >
+        {editingPo && (
+          <>
+            <PremiumDialogBody>
+              <div className="space-y-2">
+                {editItems.map((it, idx) => (
+                  <div key={it.id ?? idx} className="flex items-center gap-2 rounded-lg border px-2.5 py-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm truncate">{it.product_name}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Input
+                          type="number" min={1} inputMode="numeric"
+                          value={it.quantity_ordered}
+                          onChange={e => setEditItems(prev => prev.map((row, i) => i === idx ? { ...row, quantity_ordered: e.target.value } : row))}
+                          className="w-16 h-8 text-center text-xs"
+                        />
+                        <span className="text-[11px] text-muted-foreground">{it.unit}</span>
+                        <Input
+                          type="number" min={0} inputMode="numeric"
+                          value={it.unit_price}
+                          onChange={e => setEditItems(prev => prev.map((row, i) => i === idx ? { ...row, unit_price: e.target.value } : row))}
+                          placeholder={t('suppliers.price_label')}
+                          className="w-24 h-8 text-center text-xs"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors flex-shrink-0"
+                      onClick={() => setEditItems(prev => prev.filter((_, i) => i !== idx))}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+                {editItems.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-4">{t('suppliers.po_no_products')}</p>
+                )}
+              </div>
+            </PremiumDialogBody>
+            <PremiumDialogFooter onCancel={() => setEditingPo(null)} cancelLabel={t('actions.cancel')}>
+              <Button
+                variant="stockshop"
+                onClick={submitEditPo}
+                loading={savingEditPo}
+                disabled={editItems.length === 0}
+                className="flex-1 h-11 rounded-xl font-semibold"
+              >
+                {t('actions.save')}
+              </Button>
+            </PremiumDialogFooter>
+          </>
+        )}
       </PremiumDialog>
 
       <PremiumDialog
