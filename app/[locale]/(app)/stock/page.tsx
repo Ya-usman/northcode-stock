@@ -80,6 +80,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [promoPrice, setPromoPrice] = useState('')
   const [promoUntil, setPromoUntil] = useState('')
   const [savingPromo, setSavingPromo] = useState(false)
+  const [promoSuggestionReason, setPromoSuggestionReason] = useState<string | null>(null)
+  const [promoSuggestionKey, setPromoSuggestionKey] = useState<'expiry' | 'dormant' | null>(null)
+  const [promoBatch, setPromoBatch] = useState<any | null>(null)
   const [batchesProduct, setBatchesProduct] = useState<Product | null>(null)
   const [productBatches, setProductBatches] = useState<any[]>([])
   const [loadingBatches, setLoadingBatches] = useState(false)
@@ -275,6 +278,38 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const isExpiringSoon = (p: Product) => { const exp = expiryByProduct[p.id]; return !!exp && exp >= todayStr && exp <= expiryCutoffStr }
   const isDormant = (p: Product) => p.quantity > 0 && !(soldQtyByProduct[p.id] > 0)
 
+  // Suggestion de promo — jamais pour un produit déjà périmé (à retirer de
+  // la vente, pas à brader), un rabais plus fort à mesure que l'échéance
+  // approche pour un produit proche de péremption, un rabais fixe pour un
+  // produit qui ne se vend juste pas. Purement une suggestion pré-remplie,
+  // modifiable avant validation.
+  const suggestPromo = (p: Product): { price: number; until: string; reason: string; key: 'expiry' | 'dormant' } | null => {
+    const exp = expiryByProduct[p.id]
+    if (isExpiringSoon(p) && exp) {
+      const daysLeft = Math.round((new Date(exp).getTime() - new Date(todayStr).getTime()) / 86_400_000)
+      const pct = daysLeft <= 3 ? 0.3 : daysLeft <= 7 ? 0.2 : 0.1
+      const price = Math.max(1, Math.round(p.selling_price * (1 - pct)))
+      return { price, until: exp, reason: t('products.promo_suggested_expiry', { days: daysLeft }), key: 'expiry' }
+    }
+    if (isDormant(p)) {
+      const price = Math.max(1, Math.round(p.selling_price * 0.85))
+      const until = new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10)
+      return { price, until, reason: t('products.promo_suggested_dormant'), key: 'dormant' }
+    }
+    return null
+  }
+
+  // Une promo produit posée depuis une suggestion (péremption/vente lente)
+  // n'est plus justifiée si le lot/la situation qui l'a déclenchée n'existe
+  // plus — mais on ne la retire jamais automatiquement (voir migration 094).
+  const promoStale = (p: Product) => {
+    const active = !!p.promo_price && !!p.promo_until && p.promo_until >= new Date().toISOString()
+    if (!active || !p.promo_reason) return false
+    if (p.promo_reason === 'expiry') return !isExpiringSoon(p)
+    if (p.promo_reason === 'dormant') return !isDormant(p)
+    return false
+  }
+
   const filtered = products
     .filter(p => {
       if (search) {
@@ -444,21 +479,35 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     }
     setSavingPromo(true)
     try {
-      const res = await fetch('/api/products', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: promoProduct.id,
-          shop_id: shop.id,
-          promo_price: price,
-          promo_until: new Date(`${promoUntil}T23:59:59`).toISOString(),
-        }),
-      })
+      const until = new Date(`${promoUntil}T23:59:59`).toISOString()
+      const res = promoBatch
+        ? await fetch('/api/product-batches/promo', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: promoBatch.id, shop_id: shop.id, promo_price: price, promo_until: until }),
+          })
+        : await fetch('/api/products', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: promoProduct.id,
+              shop_id: shop.id,
+              promo_price: price,
+              promo_until: until,
+              // Uniquement quand la promo vient d'une suggestion fraîche —
+              // sinon on ne touche pas au motif déjà enregistré (édition).
+              ...(promoSuggestionKey ? { promo_reason: promoSuggestionKey } : {}),
+            }),
+          })
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
       toast({ title: t('products.promo_saved'), variant: 'success' })
       setPromoProduct(null)
+      setPromoBatch(null)
+      setPromoSuggestionReason(null)
+      setPromoSuggestionKey(null)
       fetchProducts()
+      if (batchesProduct) openProductBatches(batchesProduct)
     } finally {
       setSavingPromo(false)
     }
@@ -468,15 +517,25 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     if (!promoProduct || !shop?.id) return
     setSavingPromo(true)
     try {
-      const res = await fetch('/api/products', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: promoProduct.id, shop_id: shop.id, promo_price: null, promo_until: null }),
-      })
+      const res = promoBatch
+        ? await fetch('/api/product-batches/promo', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: promoBatch.id, shop_id: shop.id, promo_price: null, promo_until: null }),
+          })
+        : await fetch('/api/products', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: promoProduct.id, shop_id: shop.id, promo_price: null, promo_until: null, promo_reason: null }),
+          })
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
       setPromoProduct(null)
+      setPromoBatch(null)
+      setPromoSuggestionReason(null)
+      setPromoSuggestionKey(null)
       fetchProducts()
+      if (batchesProduct) openProductBatches(batchesProduct)
     } finally {
       setSavingPromo(false)
     }
@@ -697,8 +756,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               )}
               <div className="flex items-center gap-1 flex-wrap mt-0.5">
                 {promoActive && (
-                  <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-blue-50 dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400">
-                    {t('products.promo_badge')}
+                  <span className={`text-[10px] font-semibold rounded-full px-1.5 py-0.5 ${promoStale(product) ? 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400' : 'bg-blue-50 dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400'}`}>
+                    {promoStale(product) ? t('products.promo_stale_badge') : t('products.promo_badge')}
                   </span>
                 )}
                 {expired && (
@@ -757,21 +816,35 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                   <Edit2 className="h-3 w-3" />
                 </Button>
               )}
-              {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin') && (
-                <Button
-                  variant="outline" size="sm"
-                  className={`h-7 px-2 ${promoActive ? 'text-stockshop-blue border-blue-200 dark:border-blue-800' : ''}`}
-                  disabled={saving}
-                  title={t('products.promo_action')}
-                  onClick={() => {
-                    setPromoProduct(product)
-                    setPromoPrice(product.promo_price ? String(product.promo_price) : '')
-                    setPromoUntil(product.promo_until ? product.promo_until.slice(0, 10) : '')
-                  }}
-                >
-                  <Tag className="h-3 w-3" />
-                </Button>
-              )}
+              {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin') && (() => {
+                const suggestion = !promoActive ? suggestPromo(product) : null
+                const stale = promoActive && promoStale(product)
+                return (
+                  <Button
+                    variant="outline" size="sm"
+                    className={`h-7 px-2 ${stale ? 'text-red-600 border-red-300 dark:border-red-700' : promoActive ? 'text-stockshop-blue border-blue-200 dark:border-blue-800' : suggestion ? 'text-amber-600 border-amber-300 dark:border-amber-700' : ''}`}
+                    disabled={saving}
+                    title={stale ? t('products.promo_stale_hint') : suggestion ? suggestion.reason : t('products.promo_action')}
+                    onClick={() => {
+                      setPromoProduct(product)
+                      setPromoBatch(null)
+                      if (product.promo_price) {
+                        setPromoPrice(String(product.promo_price))
+                        setPromoUntil(product.promo_until ? product.promo_until.slice(0, 10) : '')
+                        setPromoSuggestionReason(null)
+                        setPromoSuggestionKey(null)
+                      } else {
+                        setPromoPrice(suggestion ? String(suggestion.price) : '')
+                        setPromoUntil(suggestion ? suggestion.until : '')
+                        setPromoSuggestionReason(suggestion ? suggestion.reason : null)
+                        setPromoSuggestionKey(suggestion ? suggestion.key : null)
+                      }
+                    }}
+                  >
+                    <Tag className="h-3 w-3" />
+                  </Button>
+                )
+              })()}
               <Button
                 variant="outline" size="sm" className="h-7 px-2"
                 disabled={saving}
@@ -1416,14 +1489,34 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       {/* Promotion Modal */}
       <PremiumDialog
         open={!!promoProduct}
-        onOpenChange={open => { if (!open) setPromoProduct(null) }}
-        category={t('nav.stock')}
+        onOpenChange={open => { if (!open) { setPromoProduct(null); setPromoBatch(null); setPromoSuggestionReason(null); setPromoSuggestionKey(null) } }}
+        category={promoBatch ? t('products.promo_batch_category') : t('nav.stock')}
         title={promoProduct?.name || ''}
         icon={<Tag className="h-4 w-4" />}
       >
         {promoProduct && (
           <>
             <PremiumDialogBody>
+              {promoBatch && (
+                <div className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
+                  {t('products.promo_batch_hint', {
+                    quantity: promoBatch.quantity,
+                    date: promoBatch.expiry_date
+                      ? new Date(promoBatch.expiry_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+                      : t('products.no_expiry_date'),
+                  })}
+                </div>
+              )}
+              {!promoBatch && promoStale(promoProduct) && (
+                <div className="rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 px-3 py-2 text-xs text-red-700 dark:text-red-400">
+                  {t('products.promo_stale_hint')}
+                </div>
+              )}
+              {promoSuggestionReason && (
+                <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                  {promoSuggestionReason}
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">
                 {t('products.promo_hint', { price: formatNaira(promoProduct.selling_price) })}
               </p>
@@ -1441,8 +1534,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 <Input type="date" value={promoUntil} onChange={e => setPromoUntil(e.target.value)} />
               </div>
             </PremiumDialogBody>
-            <PremiumDialogFooter onCancel={() => setPromoProduct(null)} cancelLabel={t('actions.cancel')}>
-              {promoProduct.promo_price && (
+            <PremiumDialogFooter onCancel={() => { setPromoProduct(null); setPromoBatch(null); setPromoSuggestionReason(null); setPromoSuggestionKey(null) }} cancelLabel={t('actions.cancel')}>
+              {(promoBatch ? promoBatch.promo_price : promoProduct.promo_price) && (
                 <Button
                   variant="outline"
                   className="flex-1 h-11 rounded-xl font-semibold text-destructive border-destructive/30 hover:bg-red-50 dark:hover:bg-red-950/40"
@@ -1483,27 +1576,51 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                     const today = new Date().toISOString().slice(0, 10)
                     const isExpired = b.expiry_date && b.expiry_date < today
                     const sourceLabel = t(`products.batch_source_${b.source}` as any) || b.source
+                    const batchPromoActive = !!b.promo_price && !!b.promo_until && b.promo_until >= new Date().toISOString()
                     return (
                       <div key={b.id} className="rounded-lg border px-3 py-2.5 space-y-1">
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-sm font-semibold">
                             {b.quantity} {batchesProduct.unit}
                           </span>
-                          <span className="text-[10px] font-medium rounded-full px-2 py-0.5 bg-muted text-muted-foreground">
-                            {sourceLabel}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-medium rounded-full px-2 py-0.5 bg-muted text-muted-foreground">
+                              {sourceLabel}
+                            </span>
+                            {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin') && (
+                              <button
+                                className={`h-6 w-6 flex items-center justify-center rounded ${batchPromoActive ? 'text-stockshop-blue' : 'text-muted-foreground hover:text-amber-600'}`}
+                                title={t('products.promo_action')}
+                                onClick={() => {
+                                  setPromoProduct(batchesProduct)
+                                  setPromoBatch(b)
+                                  setPromoPrice(b.promo_price ? String(b.promo_price) : '')
+                                  setPromoUntil(b.promo_until ? b.promo_until.slice(0, 10) : '')
+                                  setPromoSuggestionReason(null)
+                                  setPromoSuggestionKey(null)
+                                }}
+                              >
+                                <Tag className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <span>{t('products.cost_label')}: {formatNaira(b.buying_price)}</span>
                           <span>{t('products.received_on')}: {new Date(b.received_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                         </div>
-                        <div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           {b.expiry_date ? (
                             <span className={`text-[10px] font-semibold rounded-full px-1.5 py-0.5 ${isExpired ? 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400' : 'bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400'}`}>
                               {isExpired ? t('products.expired_badge') : t('products.expiring_badge', { date: new Date(b.expiry_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) })}
                             </span>
                           ) : (
                             <span className="text-[10px] text-muted-foreground">{t('products.no_expiry_date')}</span>
+                          )}
+                          {batchPromoActive && (
+                            <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-blue-50 dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400">
+                              {t('products.promo_badge')}: {formatNaira(b.promo_price)}
+                            </span>
                           )}
                         </div>
                       </div>

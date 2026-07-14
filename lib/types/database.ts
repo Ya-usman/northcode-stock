@@ -151,6 +151,7 @@ export interface Product {
   is_active: boolean
   promo_price: number | null
   promo_until: string | null
+  promo_reason: 'expiry' | 'dormant' | null
   created_at: string
   updated_at: string
   // Joined fields

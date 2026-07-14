@@ -40,9 +40,18 @@ import { getCountry, getMethodType } from '@/lib/saas/countries'
 import { formatInputValue, formatCurrency } from '@/lib/utils/currency'
 import { checkAndNotifyLowStock, notifyNewSale } from '@/lib/push'
 
-// Prix promo si actif (non expiré), sinon prix de vente normal — utilisé à
-// la fois pour l'affichage et pour figer le prix d'une ligne de panier.
-function effectivePrice(product: Product): number {
+// Prix effectif d'un produit : priorité au prix promo du lot FEFO en tête
+// de file (celui qui sera réellement vendu en premier — voir
+// frontBatchPromo, construit dans loadShopData), sinon la promo produit
+// (091), sinon le prix catalogue. Le prix du lot revient automatiquement
+// au prix produit/catalogue dès que ce lot est épuisé, puisque
+// frontBatchPromo n'est construit qu'à partir des lots avec quantity > 0 —
+// aucune action manuelle nécessaire (voir migration 095).
+function effectivePrice(product: Product, frontBatchPromo?: Record<string, { price: number; until: string }>): number {
+  const batchPromo = frontBatchPromo?.[product.id]
+  if (batchPromo && batchPromo.until >= new Date().toISOString()) {
+    return batchPromo.price
+  }
   if (product.promo_price && product.promo_until && product.promo_until >= new Date().toISOString()) {
     return product.promo_price
   }
@@ -92,6 +101,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [products, setProducts] = useState<Product[]>([])
+  const [frontBatchPromo, setFrontBatchPromo] = useState<Record<string, { price: number; until: string }>>({})
   const [categories, setCategories] = useState<Category[]>([])
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
@@ -161,17 +171,34 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
     // Fetch fresh data in background
     try {
-      const [{ data: prods }, { data: custs }, { data: cats }] = await Promise.all([
+      const [{ data: prods }, { data: custs }, { data: cats }, { data: batches }] = await Promise.all([
         supabase.from('products').select('*, categories(name), suppliers(name)')
           .eq('shop_id', selectedShop.id).eq('is_active', true).gt('quantity', 0).order('name'),
         supabase.from('customers').select('*').eq('shop_id', selectedShop.id).order('name'),
         supabase.from('categories').select('*').eq('shop_id', selectedShop.id).order('name'),
+        supabase.from('product_batches')
+          .select('product_id, expiry_date, received_at, promo_price, promo_until')
+          .eq('shop_id', selectedShop.id).gt('quantity', 0)
+          .order('expiry_date', { ascending: true, nullsFirst: false })
+          .order('received_at', { ascending: true }),
       ])
       const safeProds = (prods || []) as unknown as Product[]
       setProducts(safeProds)
       setFilteredProducts(safeProds)
       setCustomers((custs || []) as Customer[])
       setCategories((cats || []) as Category[])
+
+      // Le premier lot rencontré par produit (déjà trié FEFO ci-dessus) est
+      // celui qui sera vendu en premier — seul son prix promo compte pour
+      // la caisse, jamais celui d'un lot plus tardif.
+      const frontSeen = new Set<string>()
+      const promoMap: Record<string, { price: number; until: string }> = {}
+      for (const b of (batches || []) as any[]) {
+        if (frontSeen.has(b.product_id)) continue
+        frontSeen.add(b.product_id)
+        if (b.promo_price && b.promo_until) promoMap[b.product_id] = { price: Number(b.promo_price), until: b.promo_until }
+      }
+      setFrontBatchPromo(promoMap)
       // Refresh IndexedDB cache
       await Promise.all([
         cacheProducts(selectedShop.id, safeProds.map((p: any) => ({
@@ -277,7 +304,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             : i
         )
       }
-      const price = effectivePrice(product)
+      const price = effectivePrice(product, frontBatchPromo)
       return [...prev, { product, quantity: 1, unit_price: price, subtotal: price }]
     })
   }
@@ -321,7 +348,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const updateItemPrice = (productId: string, newPrice: number) => {
     setCart(prev => prev.map(item => {
       if (item.product.id !== productId) return item
-      const minPrice = effectivePrice(item.product)
+      const minPrice = effectivePrice(item.product, frontBatchPromo)
       const price = Math.max(minPrice, newPrice)
       return { ...item, unit_price: price, subtotal: Math.round(item.quantity * price) }
     }))
@@ -1040,9 +1067,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   </div>
                   {product.sku && <p className="text-[10px] text-muted-foreground font-mono">{product.sku}</p>}
                   <div className="flex items-center justify-between w-full mt-1">
-                    {effectivePrice(product) !== product.selling_price ? (
+                    {effectivePrice(product, frontBatchPromo) !== product.selling_price ? (
                       <span className="flex items-center gap-1 flex-wrap">
-                        <span className="text-sm font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(effectivePrice(product))}</span>
+                        <span className="text-sm font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(effectivePrice(product, frontBatchPromo))}</span>
                         <span className="text-[10px] text-muted-foreground line-through">{formatNaira(product.selling_price)}</span>
                       </span>
                     ) : (
@@ -1108,7 +1135,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                       >
                         <span className="text-xs font-medium text-muted-foreground group-hover:text-blue-600 transition-colors whitespace-nowrap">
                           {formatNaira(item.unit_price)}
-                          {item.unit_price === effectivePrice(item.product) && item.unit_price !== item.product.selling_price ? (
+                          {item.unit_price === effectivePrice(item.product, frontBatchPromo) && item.unit_price !== item.product.selling_price ? (
                             <span className="ml-1 text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 px-1 rounded font-medium">{t('products.promo_badge')}</span>
                           ) : item.unit_price !== item.product.selling_price && (
                             <span className="ml-1 text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 px-1 rounded font-medium">modifié</span>
@@ -1540,7 +1567,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       <Dialog open={!!priceModalItem} onOpenChange={open => { if (!open) setPriceModalItem(null) }}>
         <DialogContent className="max-w-[360px] p-0 gap-0">
           {priceModalItem && (() => {
-            const minPrice = effectivePrice(priceModalItem.product)
+            const minPrice = effectivePrice(priceModalItem.product, frontBatchPromo)
             return (
             <div className="overflow-hidden rounded-lg">
               {/* Header gradient */}

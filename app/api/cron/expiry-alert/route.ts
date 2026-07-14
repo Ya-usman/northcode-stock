@@ -221,9 +221,14 @@ function buildExpiryEmailHtml(
       <p style="margin:0 0 10px;font-size:12px;font-weight:600;color:#d97706;text-transform:uppercase;letter-spacing:0.5px;">⚠️ Bientôt périmés (${expiringSoon.length})</p>
       ${soonRows}` : ''}
 
-      <div style="margin-top:24px;text-align:center;">
+      ${expiringSoon.length > 0 ? `
+      <p style="margin:16px 0 0;font-size:12px;color:#6b7280;text-align:center;">
+        Astuce : une promotion temporaire sur ces produits peut aider à écouler le stock avant la date limite.
+      </p>` : ''}
+
+      <div style="margin-top:16px;text-align:center;">
         <a href="https://stockshop.tech/fr/stock" style="display:inline-block;background:#073e8a;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;font-size:14px;">
-          Gérer le stock →
+          Gérer le stock et les promotions →
         </a>
       </div>
 
