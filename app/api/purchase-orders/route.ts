@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
+import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 
 // Purchase orders are a stock/procurement concern — same write roles as
 // /api/suppliers and stock/inventory-count.
@@ -39,7 +40,25 @@ export async function GET(request: Request) {
       .order('created_at', { ascending: false })
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
-    return NextResponse.json({ data: data || [] })
+    // Résout created_by/sent_by/cancelled_by en noms affichables — même
+    // pattern que /api/stock/movements (les colonnes référencent auth.users,
+    // pas profiles, donc pas de jointure PostgREST directe possible).
+    const actorIds = Array.from(new Set(
+      (data || []).flatMap((po: any) => [po.created_by, po.sent_by, po.cancelled_by]).filter(Boolean)
+    )) as string[]
+    let actorMap: Record<string, string> = {}
+    if (actorIds.length) {
+      const { data: profiles } = await (admin as any).from('profiles').select('id, full_name').in('id', actorIds)
+      for (const p of (profiles || [])) actorMap[p.id] = p.full_name
+    }
+    const enriched = (data || []).map((po: any) => ({
+      ...po,
+      created_by_name: po.created_by ? (actorMap[po.created_by] || null) : null,
+      sent_by_name: po.sent_by ? (actorMap[po.sent_by] || null) : null,
+      cancelled_by_name: po.cancelled_by ? (actorMap[po.cancelled_by] || null) : null,
+    }))
+
+    return NextResponse.json({ data: enriched })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
@@ -107,7 +126,7 @@ export async function PATCH(request: Request) {
     const admin = await createAdminClient()
 
     const { data: existing, error: fetchError } = await (admin as any)
-      .from('purchase_orders').select('status').eq('id', id).eq('shop_id', shop_id).single()
+      .from('purchase_orders').select('status, reference, supplier_id').eq('id', id).eq('shop_id', shop_id).single()
     if (fetchError || !existing) return NextResponse.json({ error: 'Bon de commande introuvable' }, { status: 404 })
 
     if (Array.isArray(items)) {
@@ -131,13 +150,31 @@ export async function PATCH(request: Request) {
       if (!['draft', 'sent', 'received', 'cancelled'].includes(status))
         return NextResponse.json({ error: 'Statut invalide' }, { status: 400 })
       updates.status = status
-      if (status === 'sent') updates.sent_at = new Date().toISOString()
+      if (status === 'sent') { updates.sent_at = new Date().toISOString(); updates.sent_by = user.id }
       if (status === 'received') updates.received_at = new Date().toISOString()
+      if (status === 'cancelled') updates.cancelled_by = user.id
     }
 
     const { data, error } = await (admin as any)
       .from('purchase_orders').update(updates).eq('id', id).eq('shop_id', shop_id).select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+    // Trace permanente d'une annulation — même raisonnement que la
+    // suppression d'un brouillon : une action qui défait du travail
+    // mérite un journal indépendant de la ligne elle-même.
+    if (status === 'cancelled') {
+      const { data: actorProfile } = await (admin as any).from('profiles').select('full_name').eq('id', user.id).single()
+      await writeAuditLog({
+        action: 'purchase_order.cancel',
+        shop_id,
+        actor_id: user.id,
+        actor_email: user.email,
+        target_id: id,
+        target_type: 'purchase_order',
+        ip: getClientIp(request),
+        metadata: { actor_name: actorProfile?.full_name || user.email, reference: existing.reference },
+      })
+    }
 
     return NextResponse.json({ data })
   } catch (e: any) {
@@ -162,13 +199,36 @@ export async function DELETE(request: Request) {
 
     const admin = await createAdminClient()
     const { data: existing } = await (admin as any)
-      .from('purchase_orders').select('status').eq('id', id).eq('shop_id', shopId).single()
+      .from('purchase_orders').select('status, reference, supplier_id, total_amount').eq('id', id).eq('shop_id', shopId).single()
     if (!existing) return NextResponse.json({ error: 'Bon de commande introuvable' }, { status: 404 })
     if (existing.status !== 'draft')
       return NextResponse.json({ error: 'Seul un brouillon peut être supprimé' }, { status: 400 })
 
+    const { count: itemsCount } = await (admin as any)
+      .from('purchase_order_items').select('id', { count: 'exact', head: true }).eq('purchase_order_id', id)
+
     const { error } = await (admin as any).from('purchase_orders').delete().eq('id', id).eq('shop_id', shopId)
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+    // Un brouillon supprimé ne laisse plus aucune ligne en base — la seule
+    // trace restante est ce journal d'audit, écrit après coup (snapshot).
+    const { data: actorProfile } = await (admin as any).from('profiles').select('full_name').eq('id', user.id).single()
+    await writeAuditLog({
+      action: 'purchase_order.delete',
+      shop_id: shopId,
+      actor_id: user.id,
+      actor_email: user.email,
+      target_id: id,
+      target_type: 'purchase_order',
+      ip: getClientIp(request),
+      metadata: {
+        actor_name: actorProfile?.full_name || user.email,
+        reference: existing.reference,
+        supplier_id: existing.supplier_id,
+        items_count: itemsCount ?? 0,
+        total_amount: existing.total_amount,
+      },
+    })
 
     return NextResponse.json({ ok: true })
   } catch (e: any) {

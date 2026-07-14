@@ -1504,17 +1504,17 @@ export default function SuppliersPage() {
         maxWidth="max-w-lg"
       >
         {journalPo && (() => {
-          const events: { key: string; label: string; date: string; Icon: any; color: string }[] = [
-            { key: 'created', label: t('suppliers.po_journal_created'), date: journalPo.created_at, Icon: FileText, color: 'text-muted-foreground border-border bg-muted' },
+          const events: { key: string; label: string; date: string; Icon: any; color: string; actorName?: string | null }[] = [
+            { key: 'created', label: t('suppliers.po_journal_created'), date: journalPo.created_at, Icon: FileText, color: 'text-muted-foreground border-border bg-muted', actorName: journalPo.created_by_name },
           ]
           if (journalPo.sent_at) {
-            events.push({ key: 'sent', label: t('suppliers.po_journal_sent'), date: journalPo.sent_at, Icon: Send, color: 'text-stockshop-blue border-blue-200 bg-blue-50 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800' })
+            events.push({ key: 'sent', label: t('suppliers.po_journal_sent'), date: journalPo.sent_at, Icon: Send, color: 'text-stockshop-blue border-blue-200 bg-blue-50 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800', actorName: journalPo.sent_by_name })
           }
           if (journalPo.status === 'received' && journalPo.received_at) {
             events.push({ key: 'received', label: t('suppliers.po_journal_received'), date: journalPo.received_at, Icon: CheckCircle2, color: 'text-green-700 border-green-200 bg-green-50 dark:bg-green-950/40 dark:text-green-400 dark:border-green-800' })
           }
           if (journalPo.status === 'cancelled') {
-            events.push({ key: 'cancelled', label: t('suppliers.po_journal_cancelled'), date: journalPo.updated_at || journalPo.created_at, Icon: Ban, color: 'text-red-600 border-red-200 bg-red-50 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800' })
+            events.push({ key: 'cancelled', label: t('suppliers.po_journal_cancelled'), date: journalPo.updated_at || journalPo.created_at, Icon: Ban, color: 'text-red-600 border-red-200 bg-red-50 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800', actorName: journalPo.cancelled_by_name })
           }
           events.sort((a, b) => a.date.localeCompare(b.date))
           const items = journalPo.purchase_order_items || []
@@ -1535,6 +1535,7 @@ export default function SuppliersPage() {
                         <p className="text-sm font-semibold">{ev.label}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {new Date(ev.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          {ev.actorName && <> · {t('suppliers.po_journal_by', { name: ev.actorName })}</>}
                         </p>
                       </div>
                     </div>

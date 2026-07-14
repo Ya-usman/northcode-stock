@@ -447,6 +447,7 @@
     "po_journal_sent": "Sent to supplier",
     "po_journal_received": "Receipt confirmed",
     "po_journal_cancelled": "Order cancelled",
+    "po_journal_by": "by {name}",
     "po_journal_items_title": "Quantities received",
     "po_edit_title": "Edit purchase order",
     "supplier_journal_title": "Supplier history",

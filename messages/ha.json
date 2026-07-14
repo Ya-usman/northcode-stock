@@ -447,6 +447,7 @@
     "po_journal_sent": "An aika wa mai samar",
     "po_journal_received": "An tabbatar da karɓa",
     "po_journal_cancelled": "An soke oda",
+    "po_journal_by": "daga {name}",
     "po_journal_items_title": "Adadin da aka karɓa",
     "po_edit_title": "Gyara odar sayayya",
     "supplier_journal_title": "Tarihin mai samar",

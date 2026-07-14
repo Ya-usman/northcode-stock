@@ -447,6 +447,7 @@
     "po_journal_sent": "Envoyé au fournisseur",
     "po_journal_received": "Réception confirmée",
     "po_journal_cancelled": "Bon annulé",
+    "po_journal_by": "par {name}",
     "po_journal_items_title": "Quantités reçues",
     "po_edit_title": "Modifier le bon",
     "supplier_journal_title": "Historique fournisseur",

@@ -122,6 +122,8 @@ export interface PurchaseOrder {
   status: PurchaseOrderStatus
   notes: string | null
   created_by: string | null
+  sent_by: string | null
+  cancelled_by: string | null
   sent_at: string | null
   received_at: string | null
   total_amount: number | null
@@ -132,6 +134,9 @@ export interface PurchaseOrder {
   updated_at: string
   // Joined
   purchase_order_items?: PurchaseOrderItem[]
+  created_by_name?: string | null
+  sent_by_name?: string | null
+  cancelled_by_name?: string | null
 }
 
 export interface Product {
