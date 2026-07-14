@@ -394,6 +394,7 @@
     "po_stock_label": "Stock",
     "po_email_helper": "Email",
     "po_email_hint": "Copiez ces champs dans votre application mail, ou ouvrez-la directement — le PDF reste à joindre manuellement.",
+    "po_email_hint_mobile": "Astuce : le bouton \"Partager\" du bon de commande permet de choisir directement votre application mail, avec le PDF déjà joint. Copiez juste l'objet et le corps ci-dessous pour compléter le message.",
     "po_email_subject": "Objet",
     "po_email_body": "Corps du message",
     "po_copy": "Copier",

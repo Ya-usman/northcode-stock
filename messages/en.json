@@ -394,6 +394,7 @@
     "po_stock_label": "Stock",
     "po_email_helper": "Email",
     "po_email_hint": "Copy these fields into your email app, or open it directly — the PDF still needs to be attached manually.",
+    "po_email_hint_mobile": "Tip: the purchase order's \"Share\" button lets you pick your email app directly, with the PDF already attached. Just copy the subject and body below to finish the message.",
     "po_email_subject": "Subject",
     "po_email_body": "Message body",
     "po_copy": "Copy",

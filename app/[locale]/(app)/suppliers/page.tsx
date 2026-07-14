@@ -4,7 +4,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
-import { Search, Plus, Edit2, Trash2, Phone, MapPin, Package, Store, ChevronDown, ChevronRight, X, ArrowRightLeft, FileText, Download, Send, CheckCircle2, Ban, Mail, Copy } from 'lucide-react'
+import { Search, Plus, Edit2, Trash2, Phone, MapPin, Package, Store, ChevronDown, ChevronRight, X, ArrowRightLeft, FileText, Download, Send, CheckCircle2, Ban, Mail, Copy, Share2 } from 'lucide-react'
+import { isCapacitor } from '@/lib/utils/native-share'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -660,7 +661,8 @@ export default function SuppliersPage() {
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => downloadPoPdf(po)}>
-                          <Download className="h-3 w-3" />{t('suppliers.po_download')}
+                          {isCapacitor() ? <Share2 className="h-3 w-3" /> : <Download className="h-3 w-3" />}
+                          {isCapacitor() ? t('actions.share') : t('suppliers.po_download')}
                         </Button>
                         <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setEmailPo(po)}>
                           <Mail className="h-3 w-3" />{t('suppliers.po_email_helper')}
@@ -864,7 +866,9 @@ export default function SuppliersPage() {
           return (
             <>
               <PremiumDialogBody>
-                <p className="text-xs text-muted-foreground">{t('suppliers.po_email_hint')}</p>
+                <p className="text-xs text-muted-foreground">
+                  {isCapacitor() ? t('suppliers.po_email_hint_mobile') : t('suppliers.po_email_hint')}
+                </p>
 
                 <div className="space-y-1.5 mt-3">
                   <div className="flex items-center justify-between">
