@@ -391,7 +391,15 @@
     "po_status_cancelled": "Cancelled",
     "po_show_all_products": "Show all products from this supplier",
     "po_no_products": "No products from this supplier.",
-    "po_stock_label": "Stock"
+    "po_stock_label": "Stock",
+    "po_email_helper": "Email",
+    "po_email_hint": "Copy these fields into your email app, or open it directly — the PDF still needs to be attached manually.",
+    "po_email_subject": "Subject",
+    "po_email_body": "Message body",
+    "po_copy": "Copy",
+    "po_copied": "{label} copied",
+    "po_no_supplier_email": "This supplier has no email on file — you can still copy the text.",
+    "po_open_mail_app": "Open in my email app"
   },
   "payments": {
     "title": "Credit & Payments",

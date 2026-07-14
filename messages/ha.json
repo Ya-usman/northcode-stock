@@ -391,7 +391,15 @@
     "po_status_cancelled": "An soke",
     "po_show_all_products": "Nuna duk kayan wannan mai samar",
     "po_no_products": "Babu kaya daga wannan mai samar.",
-    "po_stock_label": "Kaya"
+    "po_stock_label": "Kaya",
+    "po_email_helper": "Imel",
+    "po_email_hint": "Kwafa waɗannan filayen zuwa app na imel, ko buɗe kai tsaye — dole ne a manne PDF da hannu.",
+    "po_email_subject": "Batun",
+    "po_email_body": "Rubutun saƙo",
+    "po_copy": "Kwafa",
+    "po_copied": "An kwafi {label}",
+    "po_no_supplier_email": "Wannan mai samar ba shi da imel da aka rubuta — har yanzu za ka iya kwafin rubutun.",
+    "po_open_mail_app": "Buɗe a app na imel"
   },
   "payments": {
     "title": "Bashi da Biya",

@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
-import { Search, Plus, Edit2, Trash2, Phone, MapPin, Package, Store, ChevronDown, ChevronRight, X, ArrowRightLeft, FileText, Download, Send, CheckCircle2, Ban } from 'lucide-react'
+import { Search, Plus, Edit2, Trash2, Phone, MapPin, Package, Store, ChevronDown, ChevronRight, X, ArrowRightLeft, FileText, Download, Send, CheckCircle2, Ban, Mail, Copy } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -153,6 +153,7 @@ export default function SuppliersPage() {
   const [poQuantities, setPoQuantities] = useState<Record<string, string>>({})
   const [creatingPo, setCreatingPo] = useState(false)
   const [poActionLoading, setPoActionLoading] = useState<string | null>(null)
+  const [emailPo, setEmailPo] = useState<any | null>(null)
 
   const form = useForm<SupplierFormData>({ resolver: zodResolver(supplierSchema) })
 
@@ -430,6 +431,37 @@ export default function SuppliersPage() {
     })
   }
 
+  const buildPoEmailContent = (po: any) => {
+    const items = po.purchase_order_items || []
+    const supplier = po.suppliers?.name || supplierName(po.supplier_id)
+    const dateStr = new Date(po.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+    const subject = `Bon de commande ${po.reference} — ${shop?.name || 'StockShop'}`
+    const lines = items.map((it: any) => `- ${it.product_name} : ${it.quantity_ordered} ${it.unit || ''}`.trim())
+    const body = [
+      `Bonjour ${supplier},`,
+      '',
+      `Veuillez trouver ci-joint notre bon de commande ${po.reference} du ${dateStr}.`,
+      '',
+      'Produits commandés :',
+      ...lines,
+      '',
+      'Merci de nous confirmer la réception de cette commande.',
+      '',
+      'Cordialement,',
+      shop?.name || 'StockShop',
+    ].join('\n')
+    return { subject, body }
+  }
+
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      toast({ title: t('suppliers.po_copied', { label }), variant: 'success' })
+    } catch {
+      toast({ title: t('toast.error'), variant: 'destructive' })
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* View toggle */}
@@ -630,6 +662,9 @@ export default function SuppliersPage() {
                         <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => downloadPoPdf(po)}>
                           <Download className="h-3 w-3" />{t('suppliers.po_download')}
                         </Button>
+                        <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setEmailPo(po)}>
+                          <Mail className="h-3 w-3" />{t('suppliers.po_email_helper')}
+                        </Button>
                         {canManage && po.status === 'draft' && (
                           <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" loading={poActionLoading === po.id} onClick={() => updatePoStatus(po, 'sent')}>
                             <Send className="h-3 w-3" />{t('suppliers.po_mark_sent')}
@@ -812,6 +847,65 @@ export default function SuppliersPage() {
             {t('actions.save')}
           </Button>
         </PremiumDialogFooter>
+      </PremiumDialog>
+
+      <PremiumDialog
+        open={!!emailPo}
+        onOpenChange={open => { if (!open) setEmailPo(null) }}
+        category={t('nav.suppliers')}
+        title={t('suppliers.po_email_helper')}
+        icon={<Mail className="h-4 w-4" />}
+        maxWidth="max-w-lg"
+      >
+        {emailPo && (() => {
+          const { subject, body } = buildPoEmailContent(emailPo)
+          const supplierEmail = emailPo.suppliers?.email || ''
+          const mailtoHref = `mailto:${encodeURIComponent(supplierEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+          return (
+            <>
+              <PremiumDialogBody>
+                <p className="text-xs text-muted-foreground">{t('suppliers.po_email_hint')}</p>
+
+                <div className="space-y-1.5 mt-3">
+                  <div className="flex items-center justify-between">
+                    <Label>{t('suppliers.po_email_subject')}</Label>
+                    <button className="flex items-center gap-1 text-xs text-stockshop-blue dark:text-blue-400 hover:underline" onClick={() => copyToClipboard(subject, t('suppliers.po_email_subject'))}>
+                      <Copy className="h-3 w-3" />{t('suppliers.po_copy')}
+                    </button>
+                  </div>
+                  <Input readOnly value={subject} onFocus={e => e.target.select()} />
+                </div>
+
+                <div className="space-y-1.5 mt-3">
+                  <div className="flex items-center justify-between">
+                    <Label>{t('suppliers.po_email_body')}</Label>
+                    <button className="flex items-center gap-1 text-xs text-stockshop-blue dark:text-blue-400 hover:underline" onClick={() => copyToClipboard(body, t('suppliers.po_email_body'))}>
+                      <Copy className="h-3 w-3" />{t('suppliers.po_copy')}
+                    </button>
+                  </div>
+                  <textarea
+                    readOnly
+                    value={body}
+                    onFocus={e => e.target.select()}
+                    rows={10}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
+                  />
+                </div>
+
+                {!supplierEmail && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">{t('suppliers.po_no_supplier_email')}</p>
+                )}
+              </PremiumDialogBody>
+              <PremiumDialogFooter onCancel={() => setEmailPo(null)} cancelLabel={t('actions.cancel')}>
+                <Button variant="stockshop" className="flex-1 h-11 rounded-xl font-semibold" asChild>
+                  <a href={mailtoHref}>
+                    <Mail className="h-4 w-4 mr-1.5" />{t('suppliers.po_open_mail_app')}
+                  </a>
+                </Button>
+              </PremiumDialogFooter>
+            </>
+          )
+        })()}
       </PremiumDialog>
     </div>
   )
