@@ -344,14 +344,23 @@ export async function PUT(request: Request) {
     if (fetchError || !product) return NextResponse.json({ error: 'Produit introuvable' }, { status: 404 })
 
     const prevQty = Number(product.quantity)
-    const newQty  = prevQty + Number(quantity_to_add)
+    const addQty  = Number(quantity_to_add)
+    const newQty  = prevQty + addQty
 
     // A restock at a different price updates the product's cost — otherwise
     // the price entered in the restock form was silently discarded and
-    // margin/reports kept using the old buying_price forever.
-    const newBuyingPrice = Number(buying_price) > 0 ? Number(buying_price) : null
+    // margin/reports kept using the old buying_price forever. The existing
+    // stock and the newly received stock are pooled under one quantity, so
+    // the resulting cost is a quantity-weighted average, not a straight
+    // replacement — same logic as apply_purchase_order_receipt (migration 085).
+    const enteredPrice = Number(buying_price) > 0 ? Number(buying_price) : null
+    let newBuyingPrice: number | null = null
     const updatePayload: Record<string, unknown> = { quantity: newQty }
-    if (newBuyingPrice !== null) updatePayload.buying_price = newBuyingPrice
+    if (enteredPrice !== null) {
+      const prevPrice = Number(product.buying_price) || 0
+      newBuyingPrice = Math.round(((prevQty * prevPrice + addQty * enteredPrice) / newQty) * 100) / 100
+      updatePayload.buying_price = newBuyingPrice
+    }
 
     // Optimistic lock: if quantity changed between our read and this update,
     // the .eq('quantity', prevQty) filter matches 0 rows → data is null → 409.
@@ -381,11 +390,12 @@ export async function PUT(request: Request) {
     // informational (doesn't switch the product's current supplier, that
     // stays a deliberate choice via "Utiliser ce prix" on the Fournisseurs
     // page), so the comparison builds up from real purchases automatically.
-    if (supplier_id && newBuyingPrice !== null) {
+    // Uses the price actually paid this time, not the blended buying_price.
+    if (supplier_id && enteredPrice !== null) {
       await (admin as any)
         .from('product_supplier_prices')
         .upsert(
-          { shop_id, product_id, supplier_id, price: newBuyingPrice, updated_at: new Date().toISOString() },
+          { shop_id, product_id, supplier_id, price: enteredPrice, updated_at: new Date().toISOString() },
           { onConflict: 'product_id,supplier_id' }
         )
     }
