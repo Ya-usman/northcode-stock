@@ -34,6 +34,7 @@ import { downloadOrShareCSV } from '@/lib/utils/native-share'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 import { useStockRealtime } from '@/lib/hooks/use-realtime'
 import { StockTabs } from '@/components/stock/stock-tabs'
+import { withTimeout } from '@/lib/utils/with-timeout'
 
 
 function StockBadge({ quantity, threshold }: { quantity: number; threshold: number }) {
@@ -335,7 +336,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     if (!shop?.id) { toast({ title: t('toast.no_active_shop'), variant: 'destructive' }); return false }
     setSaving(true)
     try {
-      const res = await fetch('/api/products', {
+      const res = await withTimeout(fetch('/api/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -352,11 +353,14 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           image_url: data.image_url || null,
           is_active: true,
         }),
-      })
+      }))
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return false }
       fetchProducts()
       return true
+    } catch (err: any) {
+      toast({ title: err.message || t('toast.error'), variant: 'destructive' })
+      return false
     } finally {
       setSaving(false)
     }
@@ -382,7 +386,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     if (!editingProduct) return
     setSaving(true)
     try {
-      const res = await fetch('/api/products', {
+      const res = await withTimeout(fetch('/api/products', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -398,12 +402,14 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           sku: data.sku || null,
           image_url: data.image_url || null,
         }),
-      })
+      }))
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
       toast({ title: t('toast.product_updated'), variant: 'success' })
       setEditingProduct(null)
       fetchProducts()
+    } catch (err: any) {
+      toast({ title: err.message || t('toast.error'), variant: 'destructive' })
     } finally {
       setSaving(false)
     }
@@ -445,26 +451,32 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       return
     }
 
-    const res = await fetch('/api/products', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        product_id: restockProduct.id,
-        shop_id: shop.id,
-        current_quantity: restockProduct.quantity,
-        quantity_to_add: data.quantity,
-        supplier_name: suppliers.find(s => s.id === data.supplier_id)?.name || null,
-        supplier_id: data.supplier_id || null,
-        buying_price: data.buying_price || null,
-        expiry_date: data.expiry_date || null,
-        notes: data.notes || null,
-        performed_by: profile!.id,
-      }),
-    })
-    setSaving(false)
-    const json = await res.json()
-    if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
-    toast({ title: t('toast.restock_done', { qty: data.quantity, name: restockProduct.name }), variant: 'success' })
+    try {
+      const res = await withTimeout(fetch('/api/products', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_id: restockProduct.id,
+          shop_id: shop.id,
+          current_quantity: restockProduct.quantity,
+          quantity_to_add: data.quantity,
+          supplier_name: suppliers.find(s => s.id === data.supplier_id)?.name || null,
+          supplier_id: data.supplier_id || null,
+          buying_price: data.buying_price || null,
+          expiry_date: data.expiry_date || null,
+          notes: data.notes || null,
+          performed_by: profile!.id,
+        }),
+      }))
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      toast({ title: t('toast.restock_done', { qty: data.quantity, name: restockProduct.name }), variant: 'success' })
+    } catch (err: any) {
+      toast({ title: err.message || t('toast.error'), variant: 'destructive' })
+      return
+    } finally {
+      setSaving(false)
+    }
     setShowRestockModal(false)
     restockForm.reset()
     fetchProducts()
@@ -481,12 +493,12 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     try {
       const until = new Date(`${promoUntil}T23:59:59`).toISOString()
       const res = promoBatch
-        ? await fetch('/api/product-batches/promo', {
+        ? await withTimeout(fetch('/api/product-batches/promo', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: promoBatch.id, shop_id: shop.id, promo_price: price, promo_until: until }),
-          })
-        : await fetch('/api/products', {
+          }))
+        : await withTimeout(fetch('/api/products', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -498,7 +510,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               // sinon on ne touche pas au motif déjà enregistré (édition).
               ...(promoSuggestionKey ? { promo_reason: promoSuggestionKey } : {}),
             }),
-          })
+          }))
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
       toast({ title: t('products.promo_saved'), variant: 'success' })
@@ -508,6 +520,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       setPromoSuggestionKey(null)
       fetchProducts()
       if (batchesProduct) openProductBatches(batchesProduct)
+    } catch (err: any) {
+      toast({ title: err.message || t('toast.error'), variant: 'destructive' })
     } finally {
       setSavingPromo(false)
     }
@@ -518,16 +532,16 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     setSavingPromo(true)
     try {
       const res = promoBatch
-        ? await fetch('/api/product-batches/promo', {
+        ? await withTimeout(fetch('/api/product-batches/promo', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: promoBatch.id, shop_id: shop.id, promo_price: null, promo_until: null }),
-          })
-        : await fetch('/api/products', {
+          }))
+        : await withTimeout(fetch('/api/products', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: promoProduct.id, shop_id: shop.id, promo_price: null, promo_until: null, promo_reason: null }),
-          })
+          }))
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
       setPromoProduct(null)
@@ -536,6 +550,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       setPromoSuggestionKey(null)
       fetchProducts()
       if (batchesProduct) openProductBatches(batchesProduct)
+    } catch (err: any) {
+      toast({ title: err.message || t('toast.error'), variant: 'destructive' })
     } finally {
       setSavingPromo(false)
     }
@@ -544,47 +560,61 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const archiveProduct = async () => {
     if (!archiveConfirmProduct) return
     setArchiving(true)
-    const res = await fetch('/api/products', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: archiveConfirmProduct.id, shop_id: archiveConfirmProduct.shop_id, is_active: false }),
-    })
-    const json = await res.json()
-    setArchiving(false)
-    setArchiveConfirmProduct(null)
-    if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
-    toast({ title: t('toast.product_archived') })
-    fetchProducts()
-    if (view === 'journal') fetchAuditLogs()
+    try {
+      const res = await withTimeout(fetch('/api/products', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: archiveConfirmProduct.id, shop_id: archiveConfirmProduct.shop_id, is_active: false }),
+      }))
+      const json = await res.json()
+      setArchiveConfirmProduct(null)
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      toast({ title: t('toast.product_archived') })
+      fetchProducts()
+      if (view === 'journal') fetchAuditLogs()
+    } catch (err: any) {
+      toast({ title: err.message || t('toast.error'), variant: 'destructive' })
+    } finally {
+      setArchiving(false)
+    }
   }
 
   const restoreProduct = async (product: Product) => {
-    const res = await fetch('/api/products', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: product.id, shop_id: product.shop_id, is_active: true }),
-    })
-    const json = await res.json()
-    if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
-    toast({ title: t('toast.product_restored'), variant: 'success' })
-    fetchProducts()
-    if (view === 'journal') fetchAuditLogs()
+    try {
+      const res = await withTimeout(fetch('/api/products', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: product.id, shop_id: product.shop_id, is_active: true }),
+      }))
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      toast({ title: t('toast.product_restored'), variant: 'success' })
+      fetchProducts()
+      if (view === 'journal') fetchAuditLogs()
+    } catch (err: any) {
+      toast({ title: err.message || t('toast.error'), variant: 'destructive' })
+    }
   }
 
   const permanentlyDelete = async () => {
     if (!deleteConfirmProduct) return
     if (deleteConfirmText.trim().toLowerCase() !== deleteConfirmProduct.name.trim().toLowerCase()) return
     setDeleting(true)
-    const res = await fetch(`/api/products?id=${deleteConfirmProduct.id}&shop_id=${deleteConfirmProduct.shop_id}`, { method: 'DELETE' })
-    setDeleting(false)
-    if (!res.ok) {
-      const json = await res.json()
-      toast({ title: json.error || t('toast.error'), variant: 'destructive' })
-    } else {
-      toast({ title: t('toast.product_deleted'), variant: 'success' })
-      setDeleteConfirmProduct(null)
-      setDeleteConfirmText('')
-      fetchProducts()
+    try {
+      const res = await withTimeout(fetch(`/api/products?id=${deleteConfirmProduct.id}&shop_id=${deleteConfirmProduct.shop_id}`, { method: 'DELETE' }))
+      if (!res.ok) {
+        const json = await res.json()
+        toast({ title: json.error || t('toast.error'), variant: 'destructive' })
+      } else {
+        toast({ title: t('toast.product_deleted'), variant: 'success' })
+        setDeleteConfirmProduct(null)
+        setDeleteConfirmText('')
+        fetchProducts()
+      }
+    } catch (err: any) {
+      toast({ title: err.message || t('toast.error'), variant: 'destructive' })
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -618,22 +648,32 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     if (!shop?.id) { toast({ title: t('toast.no_active_shop'), variant: 'destructive' }); return }
     if (!newCatName.trim()) return
     setSavingCat(true)
-    const res = await fetch('/api/categories', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shop_id: shop.id, name: newCatName.trim() }),
-    })
-    setSavingCat(false)
-    const json = await res.json()
-    if (!res.ok) { toast({ title: json.error || t('errors.generic'), variant: 'destructive' }); return }
-    toast({ title: t('categories.added'), variant: 'success' })
-    setNewCatName('')
-    fetchProducts()
-    setTimeout(() => catInputRef.current?.focus(), 50)
+    try {
+      const res = await withTimeout(fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop_id: shop.id, name: newCatName.trim() }),
+      }))
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error || t('errors.generic'), variant: 'destructive' }); return }
+      toast({ title: t('categories.added'), variant: 'success' })
+      setNewCatName('')
+      fetchProducts()
+      setTimeout(() => catInputRef.current?.focus(), 50)
+    } catch (err: any) {
+      toast({ title: err.message || t('errors.generic'), variant: 'destructive' })
+    } finally {
+      setSavingCat(false)
+    }
   }
 
   const deleteCategory = async (catId: string) => {
-    await fetch(`/api/categories?id=${catId}&shop_id=${shop?.id}`, { method: 'DELETE' })
+    try {
+      await withTimeout(fetch(`/api/categories?id=${catId}&shop_id=${shop?.id}`, { method: 'DELETE' }))
+    } catch (err: any) {
+      toast({ title: err.message || t('errors.generic'), variant: 'destructive' })
+      return
+    }
     if (categoryFilter === catId) setFilter({ categoryFilter: 'all' })
     setDeleteCatConfirmId(null)
     fetchProducts()
@@ -655,11 +695,18 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     const payload = isAll
       ? { shop_id: shop.id, all: true }
       : { shop_id: shop.id, ids: Array.from(selectedIds) }
-    const res = await fetch('/api/products', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
+    let res: Response
+    try {
+      res = await withTimeout(fetch('/api/products', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }), 30_000) // bulk/all delete can legitimately take longer on a large catalog
+    } catch (err: any) {
+      setBulkDeleting(false)
+      toast({ title: err.message || t('toast.error'), variant: 'destructive' })
+      return
+    }
     setBulkDeleting(false)
     const json = await res.json()
     if (!res.ok) {

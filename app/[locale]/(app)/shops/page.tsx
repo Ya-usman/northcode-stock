@@ -13,6 +13,7 @@ import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/compone
 import { Plus, Store, Users, CheckCircle2, Trash2, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
+import { withTimeout } from '@/lib/utils/with-timeout'
 import type { Shop } from '@/lib/types/database'
 
 const supabase = createClient()
@@ -45,11 +46,11 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
     if (!newName.trim() || !user) return
     setLoading(true)
     try {
-      const res = await fetch('/api/shops', {
+      const res = await withTimeout(fetch('/api/shops', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newName.trim(), city: newCity.trim(), country: newCountry }),
-      })
+      }))
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || t('errors.generic'))
       const shop = json.shop
@@ -72,7 +73,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
   const handleDelete = async (shopId: string) => {
     setDeleting(true)
     try {
-      const res = await fetch(`/api/shops/${shopId}`, { method: 'DELETE' })
+      const res = await withTimeout(fetch(`/api/shops/${shopId}`, { method: 'DELETE' }))
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || t('errors.generic'))
       toast({ title: 'Boutique supprimée', variant: 'success' })

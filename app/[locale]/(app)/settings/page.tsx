@@ -20,6 +20,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import type { Shop } from '@/lib/types/database'
 import { DEFAULT_PERMISSIONS, DEFAULT_GENERAL, type AllPerms, type ConfigurableRole, type PermFeature, type RolePerms } from '@/lib/hooks/use-role-permissions'
 import { cn } from '@/lib/utils/cn'
+import { withTimeout } from '@/lib/utils/with-timeout'
 
 export default function SettingsPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations()
@@ -193,11 +194,11 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
     if (!shop?.id) return
     setTestingPush(true)
     try {
-      const res = await fetch('/api/push/test', {
+      const res = await withTimeout(fetch('/api/push/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ shop_id: shop.id }),
-      })
+      }))
       const data = await res.json()
       if (data.error === 'no_subscription') {
         toast({ title: 'Aucun abonnement trouvé. Active d\'abord les notifications.', variant: 'destructive' })
@@ -233,11 +234,11 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       notify_push_expiry: notifyPushExpiry,
     }
     try {
-      const res = await fetch('/api/shops/settings', {
+      const res = await withTimeout(fetch('/api/shops/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ shop_id: shop.id, ...updates }),
-      })
+      }))
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || 'Erreur', variant: 'destructive' }); return }
       // Update local state immediately
@@ -284,16 +285,16 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       const compressed = await compressImage(file)
       // Always use .jpg so the same path is overwritten each time
       const path = `${shop.id}/logo.jpg`
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError } = await withTimeout<any>(supabase.storage
         .from('shop-logos')
-        .upload(path, compressed, { upsert: true, contentType: 'image/jpeg' })
+        .upload(path, compressed, { upsert: true, contentType: 'image/jpeg' }))
       if (uploadError) throw uploadError
 
       // Add timestamp to bust CDN cache
       const { data: { publicUrl } } = supabase.storage.from('shop-logos').getPublicUrl(path)
       const urlWithBust = `${publicUrl}?t=${Date.now()}`
 
-      await supabase.from('shops').update({ logo_url: urlWithBust }).eq('id', shop.id)
+      await withTimeout(supabase.from('shops').update({ logo_url: urlWithBust }).eq('id', shop.id))
 
       // Update local state immediately so the image shows right away
       setShop(prev => prev ? { ...prev, logo_url: urlWithBust } : prev)
@@ -324,11 +325,11 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
     // otherwise this save would silently wipe out the Général tab's settings.
     const payload = { ...updated, general: generalPerms }
     try {
-      const res = await fetch('/api/team/permissions', {
+      const res = await withTimeout(fetch('/api/team/permissions', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ shop_id: shop.id, role_permissions: payload }),
-      })
+      }))
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur inconnue')
       // Update auth context directly — avoids stale-read from DB replica after write
@@ -350,11 +351,11 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
     setSavingPerms(true)
     const payload = { ...permissions, general: updated }
     try {
-      const res = await fetch('/api/team/permissions', {
+      const res = await withTimeout(fetch('/api/team/permissions', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ shop_id: shop.id, role_permissions: payload }),
-      })
+      }))
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur inconnue')
       patchShop(shop.id, { role_permissions: payload })

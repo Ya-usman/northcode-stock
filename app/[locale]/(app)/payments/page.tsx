@@ -6,6 +6,7 @@ import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { generateDebtReceiptPDFBlob } from '@/lib/utils/pdf'
 import { sharePDFNative, printPDFNative, isCapacitor } from '@/lib/utils/native-share'
 import { normalize } from '@/lib/utils/normalize'
+import { withTimeout } from '@/lib/utils/with-timeout'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -535,7 +536,7 @@ export default function CreditsPage() {
     setSavingSupplierPayment(true)
     try {
       const clientRequestId = supplierRepayIdRef.current ?? (supplierRepayIdRef.current = crypto.randomUUID())
-      const res = await fetch('/api/supplier-payments', {
+      const res = await withTimeout(fetch('/api/supplier-payments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -547,7 +548,7 @@ export default function CreditsPage() {
           shop_id: shop!.id,
           client_request_id: clientRequestId,
         }),
-      })
+      }))
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       supplierRepayIdRef.current = null
@@ -712,7 +713,7 @@ export default function CreditsPage() {
     setSaving(true)
     try {
       const clientRequestId = repayIdRef.current ?? (repayIdRef.current = crypto.randomUUID())
-      const res = await fetch('/api/payments', {
+      const res = await withTimeout(fetch('/api/payments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -724,7 +725,7 @@ export default function CreditsPage() {
           shop_id: shop!.id,
           client_request_id: clientRequestId,
         }),
-      })
+      }))
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       repayIdRef.current = null // this attempt succeeded — any further action is a new one

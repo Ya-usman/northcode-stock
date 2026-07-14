@@ -14,6 +14,7 @@ import { CheckCircle2, Clock, Crown, Sparkles, Building2, ShieldCheck, Mail, Ref
 import { PlanUsageCard } from '@/components/saas/plan-usage-card'
 import { DowngradeNotice } from '@/components/saas/downgrade-notice'
 import { cn } from '@/lib/utils/cn'
+import { withTimeout } from '@/lib/utils/with-timeout'
 import { useSearchParams, useRouter } from 'next/navigation'
 
 type PlanId = 'starter' | 'pro' | 'business'
@@ -148,7 +149,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
     if (!shop || !user || !checkoutPlan) return
     setLoading(true)
     try {
-      const res = await fetch('/api/billing/subscribe', {
+      const res = await withTimeout(fetch('/api/billing/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -160,7 +161,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
           payment_method: selectedMethod,
           auto_renew: autoRenew,
         }),
-      })
+      }))
       const data = await res.json()
       if (!res.ok) {
         if (data.error === 'stripe_coming_soon') {
