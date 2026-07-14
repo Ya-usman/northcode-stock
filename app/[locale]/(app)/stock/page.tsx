@@ -146,7 +146,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       setSuppliers(cached.sups as Supplier[])
       setLoading(false)
     }
-    if (!navigator.onLine) return
+    if (!isOnline) return
     try {
       const [{ data: prods }, { data: archived }, { data: cats }, { data: sups }] = await Promise.all([
         supabase.from('products')
@@ -179,7 +179,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   // signaux additifs, séparés du fetch principal pour ne pas bloquer
   // l'affichage des produits si l'un des deux échoue.
   const fetchStockSignals = async () => {
-    if (!effectiveShopIds.length || !navigator.onLine) return
+    if (!effectiveShopIds.length || !isOnline) return
     try {
       const { data: batches } = await supabase
         .from('product_batches')
