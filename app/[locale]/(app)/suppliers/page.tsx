@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
-import { Search, Plus, Edit2, Trash2, Phone, MapPin, Package, Store, ChevronDown, ChevronRight, X, ArrowRightLeft, FileText, Download, Send, CheckCircle2, Ban, Mail, Copy, Share2, History } from 'lucide-react'
+import { Search, Plus, Edit2, Trash2, Phone, MapPin, Package, Store, ChevronDown, ChevronRight, X, ArrowRightLeft, FileText, Download, Send, CheckCircle2, Ban, Mail, Copy, Share2, History, TrendingUp, TrendingDown } from 'lucide-react'
 import { isCapacitor } from '@/lib/utils/native-share'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -32,7 +32,7 @@ const PO_STATUS_STYLES: Record<string, string> = {
   cancelled: 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400',
 }
 
-function SupplierCard({ supplier, products, productCount, expandedId, setExpandedId, canManage, setEditingSupplier, form, setShowModal, deleteSupplier, t, fmt }: any) {
+function SupplierCard({ supplier, products, productCount, expandedId, setExpandedId, canManage, setEditingSupplier, form, setShowModal, deleteSupplier, onOpenJournal, t, fmt }: any) {
   const isExpanded = expandedId === supplier.id
   const supplierProducts = products.filter((p: any) => p.supplier_id === supplier.id)
   return (
@@ -60,6 +60,14 @@ function SupplierCard({ supplier, products, productCount, expandedId, setExpande
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          <span
+            role="button"
+            className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            title={t('suppliers.po_journal_button')}
+            onClick={(e: any) => { e.stopPropagation(); onOpenJournal(supplier) }}
+          >
+            <History className="h-3.5 w-3.5" />
+          </span>
           {canManage && (
             <>
               <span
@@ -135,6 +143,7 @@ export default function SuppliersPage() {
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null)
   const [saving, setSaving] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [journalSupplier, setJournalSupplier] = useState<Supplier | null>(null)
 
   // ── Comparateur de prix par produit ─────────────────────────────────────
   const [view, setView] = useState<'suppliers' | 'by_product' | 'purchase_orders'>('suppliers')
@@ -647,7 +656,7 @@ export default function SuppliersPage() {
                 {shopSuppliers.map(supplier => (
                   <SupplierCard key={supplier.id} supplier={supplier} products={products} productCount={productCounts[supplier.id] || 0}
                     expandedId={expandedId} setExpandedId={setExpandedId} canManage={canManage}
-                    setEditingSupplier={setEditingSupplier} form={form} setShowModal={setShowModal} deleteSupplier={deleteSupplier} t={t} fmt={fmt} />
+                    setEditingSupplier={setEditingSupplier} form={form} setShowModal={setShowModal} deleteSupplier={deleteSupplier} onOpenJournal={setJournalSupplier} t={t} fmt={fmt} />
                 ))}
               </div>
             )
@@ -1277,6 +1286,137 @@ export default function SuppliersPage() {
                 )}
               </PremiumDialogBody>
               <PremiumDialogFooter onCancel={() => setJournalPo(null)} cancelLabel={t('actions.close')} />
+            </>
+          )
+        })()}
+      </PremiumDialog>
+
+      <PremiumDialog
+        open={!!journalSupplier}
+        onOpenChange={open => { if (!open) setJournalSupplier(null) }}
+        category={t('nav.suppliers')}
+        title={journalSupplier?.name || ''}
+        icon={<History className="h-4 w-4" />}
+        maxWidth="max-w-lg"
+      >
+        {journalSupplier && (() => {
+          const supplierPOs = purchaseOrders.filter((po: any) => po.supplier_id === journalSupplier.id)
+          const meaningfulPOs = supplierPOs.filter((po: any) => po.status !== 'draft')
+          const receivedPOs = supplierPOs.filter((po: any) => po.status === 'received')
+
+          const totalSpent = receivedPOs.reduce((sum: number, po: any) =>
+            sum + (po.purchase_order_items || []).reduce((s: number, it: any) =>
+              s + (it.unit_price || 0) * (it.quantity_received ?? it.quantity_ordered), 0), 0)
+
+          const delays = receivedPOs
+            .filter((po: any) => po.sent_at && po.received_at)
+            .map((po: any) => (new Date(po.received_at).getTime() - new Date(po.sent_at).getTime()) / 86_400_000)
+          const avgDelay = delays.length ? Math.round(delays.reduce((a: number, b: number) => a + b, 0) / delays.length) : null
+
+          const completeCount = receivedPOs.filter((po: any) =>
+            !(po.purchase_order_items || []).some((it: any) => (it.quantity_received ?? it.quantity_ordered) < it.quantity_ordered)
+          ).length
+          const completeRate = receivedPOs.length ? Math.round((completeCount / receivedPOs.length) * 100) : null
+
+          // Tendance des prix : compare le premier et le dernier prix payé pour
+          // chaque produit, sur les commandes reçues triées chronologiquement.
+          const sortedReceived = [...receivedPOs].sort((a: any, b: any) =>
+            (a.received_at || a.created_at).localeCompare(b.received_at || b.created_at))
+          const priceHistory: Record<string, { first: number; last: number }> = {}
+          for (const po of sortedReceived) {
+            for (const it of po.purchase_order_items || []) {
+              if (!it.unit_price) continue
+              if (!priceHistory[it.product_name]) priceHistory[it.product_name] = { first: it.unit_price, last: it.unit_price }
+              else priceHistory[it.product_name].last = it.unit_price
+            }
+          }
+          const trends = Object.entries(priceHistory)
+            .filter(([, v]) => v.first !== v.last)
+            .map(([name, v]) => ({ name, ...v, pct: Math.round(((v.last - v.first) / v.first) * 100) }))
+
+          return (
+            <>
+              <PremiumDialogBody>
+                {supplierPOs.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">{t('suppliers.supplier_journal_no_orders')}</p>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 rounded-xl border divide-x divide-y sm:divide-y-0">
+                      <div className="flex flex-col items-center justify-center py-3 px-2 text-center">
+                        <p className="text-lg font-bold">{meaningfulPOs.length}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{t('suppliers.supplier_journal_orders_count')}</p>
+                      </div>
+                      <div className="flex flex-col items-center justify-center py-3 px-2 text-center">
+                        <p className="text-lg font-bold">{fmt(totalSpent)}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{t('suppliers.supplier_journal_total_spent')}</p>
+                      </div>
+                      <div className="flex flex-col items-center justify-center py-3 px-2 text-center">
+                        <p className="text-lg font-bold">
+                          {avgDelay != null ? t('suppliers.supplier_journal_avg_delay_days', { count: avgDelay }) : t('suppliers.supplier_journal_no_data')}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{t('suppliers.supplier_journal_avg_delay')}</p>
+                      </div>
+                      <div className="flex flex-col items-center justify-center py-3 px-2 text-center">
+                        <p className={`text-lg font-bold ${completeRate == null ? '' : completeRate >= 80 ? 'text-green-600' : completeRate >= 50 ? 'text-amber-500' : 'text-red-600'}`}>
+                          {completeRate != null ? `${completeRate}%` : t('suppliers.supplier_journal_no_data')}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{t('suppliers.supplier_journal_complete_rate')}</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 divide-y divide-border/50">
+                      {supplierPOs
+                        .slice()
+                        .sort((a: any, b: any) => b.created_at.localeCompare(a.created_at))
+                        .map((po: any) => {
+                          const itemCount = (po.purchase_order_items || []).length
+                          const total = (po.purchase_order_items || []).reduce((s: number, it: any) => s + (it.unit_price || 0) * it.quantity_ordered, 0)
+                          return (
+                            <button
+                              key={po.id}
+                              className="w-full flex items-center justify-between gap-2 py-2.5 text-left hover:bg-muted/30 transition-colors"
+                              onClick={() => { setJournalSupplier(null); setJournalPo(po) }}
+                            >
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-sm font-medium truncate">{po.reference}</span>
+                                  <span className={`text-[10px] font-medium rounded-full px-1.5 py-0.5 ${PO_STATUS_STYLES[po.status] || PO_STATUS_STYLES.draft}`}>
+                                    {t(`suppliers.po_status_${po.status}`)}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-muted-foreground mt-0.5">
+                                  {t('suppliers.po_items_count', { count: itemCount })} · {fmt(total)} · {new Date(po.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                </p>
+                              </div>
+                              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                            </button>
+                          )
+                        })}
+                    </div>
+
+                    {trends.length > 0 && (
+                      <div className="mt-4 pt-3 border-t">
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t('suppliers.supplier_journal_price_trend_title')}</p>
+                        <div className="space-y-1.5">
+                          {trends.map(tr => (
+                            <div key={tr.name} className="flex items-center justify-between text-sm gap-2">
+                              <span className="truncate">{tr.name}</span>
+                              <span className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-muted-foreground text-xs tabular-nums">{fmt(tr.first)} → {fmt(tr.last)}</span>
+                                <span className={`flex items-center gap-0.5 text-xs font-semibold tabular-nums ${tr.pct > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                  {tr.pct > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                                  {tr.pct > 0 ? '+' : ''}{tr.pct}%
+                                </span>
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </PremiumDialogBody>
+              <PremiumDialogFooter onCancel={() => setJournalSupplier(null)} cancelLabel={t('actions.close')} />
             </>
           )
         })()}

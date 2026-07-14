@@ -417,7 +417,16 @@
     "po_journal_received": "Réception confirmée",
     "po_journal_cancelled": "Bon annulé",
     "po_journal_items_title": "Quantités reçues",
-    "po_edit_title": "Modifier le bon"
+    "po_edit_title": "Modifier le bon",
+    "supplier_journal_title": "Historique fournisseur",
+    "supplier_journal_orders_count": "Commandes",
+    "supplier_journal_total_spent": "Dépensé",
+    "supplier_journal_avg_delay": "Délai moyen",
+    "supplier_journal_avg_delay_days": "{count} j",
+    "supplier_journal_complete_rate": "Livré complet",
+    "supplier_journal_no_orders": "Aucune commande avec ce fournisseur pour l'instant.",
+    "supplier_journal_price_trend_title": "Tendance des prix",
+    "supplier_journal_no_data": "—"
   },
   "payments": {
     "title": "Crédit & Paiements",

@@ -417,7 +417,16 @@
     "po_journal_received": "An tabbatar da karɓa",
     "po_journal_cancelled": "An soke oda",
     "po_journal_items_title": "Adadin da aka karɓa",
-    "po_edit_title": "Gyara odar sayayya"
+    "po_edit_title": "Gyara odar sayayya",
+    "supplier_journal_title": "Tarihin mai samar",
+    "supplier_journal_orders_count": "Oda",
+    "supplier_journal_total_spent": "An kashe",
+    "supplier_journal_avg_delay": "Matsakaicin jira",
+    "supplier_journal_avg_delay_days": "kwana {count}",
+    "supplier_journal_complete_rate": "An kawo cikakke",
+    "supplier_journal_no_orders": "Babu oda da wannan mai samar tukuna.",
+    "supplier_journal_price_trend_title": "Yanayin farashi",
+    "supplier_journal_no_data": "—"
   },
   "payments": {
     "title": "Bashi da Biya",

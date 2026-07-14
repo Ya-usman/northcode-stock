@@ -417,7 +417,16 @@
     "po_journal_received": "Receipt confirmed",
     "po_journal_cancelled": "Order cancelled",
     "po_journal_items_title": "Quantities received",
-    "po_edit_title": "Edit purchase order"
+    "po_edit_title": "Edit purchase order",
+    "supplier_journal_title": "Supplier history",
+    "supplier_journal_orders_count": "Orders",
+    "supplier_journal_total_spent": "Spent",
+    "supplier_journal_avg_delay": "Avg. delay",
+    "supplier_journal_avg_delay_days": "{count}d",
+    "supplier_journal_complete_rate": "Fully delivered",
+    "supplier_journal_no_orders": "No orders with this supplier yet.",
+    "supplier_journal_price_trend_title": "Price trend",
+    "supplier_journal_no_data": "—"
   },
   "payments": {
     "title": "Credit & Payments",
