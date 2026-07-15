@@ -73,7 +73,7 @@
     "today_cash": "Encaissements",
     "today_cash_sub": "Ventes + remboursements",
     "my_sales_today": "Mes ventes du jour",
-    "cash_received_label": "Paiements reçus (hors crédit)",
+    "cash_received_label": "Hors remboursements de crédit",
     "transactions_today": "{count} transaction(s) aujourd'hui",
     "all_stocked": "Tout en stock",
     "items_low": "{count} article(s) en alerte",
