@@ -265,24 +265,29 @@ export default function DashboardPage() {
           .gte('date', startOfMonth(today).toISOString().slice(0, 10))
           .lte('date', endOfMonth(today).toISOString().slice(0, 10)) : Promise.resolve({ data: [] }),
 
-        // Month revenue — only the logged-in user's own sales this month
+        // Month collections — cash actually received this month, sourced from
+        // the payments ledger (paid_at). Filtering sales by created_at instead
+        // would miss a repayment collected this month on a sale created in a
+        // previous month (same fix as sales/history's "Encaissé" — see there
+        // for the full explanation). received_by scopes to what THIS user
+        // personally collected, matching the "Mes encaissements" label.
         supabase
-          .from('sales')
-          .select('amount_paid')
-          .in('shop_id', shopIds)
-          .eq('sale_status', 'active')
-          .eq('cashier_id', cashierId)
-          .gte('created_at', startOfMonth(today).toISOString())
-          .lte('created_at', endOfMonth(today).toISOString()),
+          .from('payments')
+          .select('amount, sales!inner(shop_id, sale_status)')
+          .in('sales.shop_id', shopIds)
+          .eq('sales.sale_status', 'active')
+          .eq('received_by', cashierId)
+          .gte('paid_at', startOfMonth(today).toISOString())
+          .lte('paid_at', endOfMonth(today).toISOString()),
 
-        // Global month revenue (all cashiers) — for roles with revenue_chart access
+        // Global month collections (all cashiers) — for roles with revenue_chart access
         supabase
-          .from('sales')
-          .select('amount_paid')
-          .in('shop_id', shopIds)
-          .eq('sale_status', 'active')
-          .gte('created_at', startOfMonth(today).toISOString())
-          .lte('created_at', endOfMonth(today).toISOString()),
+          .from('payments')
+          .select('amount, sales!inner(shop_id, sale_status)')
+          .in('sales.shop_id', shopIds)
+          .eq('sales.sale_status', 'active')
+          .gte('paid_at', startOfMonth(today).toISOString())
+          .lte('paid_at', endOfMonth(today).toISOString()),
 
       ])
 
@@ -299,10 +304,8 @@ export default function DashboardPage() {
       const salesCount = salesArr.length
       const debt = (debtData || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0)
       const expensesTotal         = (expensesRaw    || []).reduce((s: number, e: any) => s + Number(e.amount), 0)
-      // amount_paid est mis à jour par le trigger after_payment_insert à chaque paiement
-      // (initial et remboursements) — pas besoin d'ajouter les remboursements séparément.
-      const monthRevenueTotal       = (monthSalesRaw  || []).reduce((s: number, e: any) => s + Number(e.amount_paid), 0)
-      const monthGlobalRevenueTotal = (monthGlobalRaw || []).reduce((s: number, e: any) => s + Number(e.amount_paid), 0)
+      const monthRevenueTotal       = (monthSalesRaw  || []).reduce((s: number, e: any) => s + Number(e.amount), 0)
+      const monthGlobalRevenueTotal = (monthGlobalRaw || []).reduce((s: number, e: any) => s + Number(e.amount), 0)
 
       // Cashier's own sale IDs (already filtered by cashier_id above)
       const cashierSaleIds = new Set(salesArr.map((s: any) => s.id))
