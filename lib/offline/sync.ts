@@ -3,6 +3,8 @@ import {
   getPendingSales, markSaleSynced, markSaleError,
   getPendingMovements, markMovementSynced, markMovementError,
   getPendingExpenses, markExpenseSynced, markExpenseError,
+  getPendingCustomerPayments, markCustomerPaymentSynced, markCustomerPaymentError,
+  getPendingSupplierPayments, markSupplierPaymentSynced, markSupplierPaymentError,
 } from './db'
 import { clearPageCacheByPrefix } from './page-cache'
 
@@ -113,6 +115,94 @@ export async function syncPendingExpenses(shopId: string): Promise<SyncResult> {
   }
 
   if (synced > 0) clearPageCacheByPrefix('expenses_')
+
+  return { synced, failed, errors }
+}
+
+export async function syncPendingCustomerPayments(shopId: string): Promise<SyncResult> {
+  const supabase = createClient() as any
+  const { data: { session }, error: refreshError } = await supabase.auth.refreshSession()
+  if (refreshError || !session) {
+    return { synced: 0, failed: 0, errors: ['Session expirée — reconnectez-vous pour synchroniser.'] }
+  }
+
+  const pending = await getPendingCustomerPayments(shopId)
+  let synced = 0, failed = 0
+  const errors: string[] = []
+
+  for (const payment of pending) {
+    try {
+      // client_request_id (= local_id) makes /api/payments idempotent — safe
+      // to retry this loop across sync attempts without ever double-applying.
+      const res = await fetch('/api/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          unpaid_sale_ids: payment.unpaid_sale_ids,
+          amount: payment.amount,
+          method: payment.method,
+          reference: payment.reference,
+          notes: payment.notes,
+          shop_id: payment.shop_id,
+          client_request_id: payment.local_id,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
+      await markCustomerPaymentSynced(payment.local_id)
+      synced++
+    } catch (err: any) {
+      const msg: string = err.message || String(err)
+      await markCustomerPaymentError(payment.local_id, msg)
+      errors.push(msg)
+      failed++
+    }
+  }
+
+  if (synced > 0) clearPageCacheByPrefix('debtors_')
+
+  return { synced, failed, errors }
+}
+
+export async function syncPendingSupplierPayments(shopId: string): Promise<SyncResult> {
+  const supabase = createClient() as any
+  const { data: { session }, error: refreshError } = await supabase.auth.refreshSession()
+  if (refreshError || !session) {
+    return { synced: 0, failed: 0, errors: ['Session expirée — reconnectez-vous pour synchroniser.'] }
+  }
+
+  const pending = await getPendingSupplierPayments(shopId)
+  let synced = 0, failed = 0
+  const errors: string[] = []
+
+  for (const payment of pending) {
+    try {
+      const res = await fetch('/api/supplier-payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          purchase_order_ids: payment.purchase_order_ids,
+          amount: payment.amount,
+          method: payment.method,
+          reference: payment.reference,
+          notes: payment.notes,
+          shop_id: payment.shop_id,
+          client_request_id: payment.local_id,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
+      await markSupplierPaymentSynced(payment.local_id)
+      synced++
+    } catch (err: any) {
+      const msg: string = err.message || String(err)
+      await markSupplierPaymentError(payment.local_id, msg)
+      errors.push(msg)
+      failed++
+    }
+  }
+
+  if (synced > 0) clearPageCacheByPrefix('supplier_debtors_')
 
   return { synced, failed, errors }
 }
@@ -317,15 +407,17 @@ export async function syncAllPending(shopId: string): Promise<CombinedSyncResult
   if (globalSyncPromise) return globalSyncPromise
   globalSyncPromise = (async () => {
     try {
-      const [salesResult, movResult, expResult] = await Promise.all([
+      const [salesResult, movResult, expResult, custPayResult, supPayResult] = await Promise.all([
         syncPendingSales(shopId),
         syncPendingMovements(shopId),
         syncPendingExpenses(shopId),
+        syncPendingCustomerPayments(shopId),
+        syncPendingSupplierPayments(shopId),
       ])
       return {
-        synced: salesResult.synced + movResult.synced + expResult.synced,
-        failed: salesResult.failed + movResult.failed + expResult.failed,
-        errors: [...salesResult.errors, ...movResult.errors, ...expResult.errors],
+        synced: salesResult.synced + movResult.synced + expResult.synced + custPayResult.synced + supPayResult.synced,
+        failed: salesResult.failed + movResult.failed + expResult.failed + custPayResult.failed + supPayResult.failed,
+        errors: [...salesResult.errors, ...movResult.errors, ...expResult.errors, ...custPayResult.errors, ...supPayResult.errors],
       }
     } finally {
       globalSyncPromise = null

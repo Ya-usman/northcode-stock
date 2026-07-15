@@ -24,7 +24,16 @@ export interface RepaymentFeedItem {
   remainingBalance?: number
 }
 
-export type FeedItem = (Sale & { type: 'sale' }) | RepaymentFeedItem
+export interface PendingSaleFeedItem {
+  type: 'pending_sale'
+  id: string
+  total: number
+  payment_method: string
+  customerName: string
+  created_at: string
+}
+
+export type FeedItem = (Sale & { type: 'sale' }) | RepaymentFeedItem | PendingSaleFeedItem
 
 interface RecentSalesFeedProps {
   items: FeedItem[]
@@ -87,11 +96,14 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
   const [activeTab, setActiveTab] = useState<'sales' | 'repayments'>('sales')
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null)
 
-  // Sales tab: fully paid sales — payment_status is set correctly at INSERT time
+  // Sales tab: fully paid sales — payment_status is set correctly at INSERT time.
+  // Pending (not-yet-synced offline) sales are always shown here too — they
+  // haven't reached the server yet, so there's no repayment history to track
+  // for them the way the Debts tab does for real credit sales.
   const salesItems = items.filter(i =>
-    i.type === 'sale' &&
-    (i as Sale).payment_status === 'paid'
-  ) as (Sale & { type: 'sale' })[]
+    (i.type === 'sale' && (i as Sale).payment_status === 'paid') ||
+    i.type === 'pending_sale'
+  ) as ((Sale & { type: 'sale' }) | PendingSaleFeedItem)[]
 
   // Debts tab: unpaid or partial sales
   const debtSaleItems = items.filter(i =>
@@ -188,29 +200,36 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
           /* ── Sales tab ── */
           <div className="divide-y">
             <AnimatePresence initial={false}>
-              {(displayItems as (Sale & { type: 'sale' })[]).slice(0, 12).map((item, idx) => (
-                <motion.div key={item.id}
-                  initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: idx * 0.03 }}
-                  className="px-4 py-3 hover:bg-muted/30 transition-colors">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
-                      <span className="text-xs font-mono font-semibold text-stockshop-blue dark:text-blue-400">#{item.sale_number}</span>
-                      <Badge variant="success" className="text-[10px] px-1.5 py-0">{t('status.paid')}</Badge>
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">{methodLabel(item.payment_method, t)}</Badge>
+              {(displayItems as ((Sale & { type: 'sale' }) | PendingSaleFeedItem)[]).slice(0, 12).map((item, idx) => {
+                const isPending = item.type === 'pending_sale'
+                return (
+                  <motion.div key={item.id}
+                    initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.3, delay: idx * 0.03 }}
+                    className="px-4 py-3 hover:bg-muted/30 transition-colors">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
+                        {!isPending && (
+                          <span className="text-xs font-mono font-semibold text-stockshop-blue dark:text-blue-400">#{(item as Sale).sale_number}</span>
+                        )}
+                        {isPending
+                          ? <Badge variant="warning" className="text-[10px] px-1.5 py-0">{t('sales.pending_sync_badge')}</Badge>
+                          : <Badge variant="success" className="text-[10px] px-1.5 py-0">{t('status.paid')}</Badge>}
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">{methodLabel(item.payment_method, t)}</Badge>
+                      </div>
+                      {role !== 'viewer' && (
+                        <p className="text-sm font-semibold flex-shrink-0 text-emerald-600 dark:text-emerald-400">
+                          {formatNaira(item.total)}
+                        </p>
+                      )}
                     </div>
-                    {role !== 'viewer' && (
-                      <p className="text-sm font-semibold flex-shrink-0 text-emerald-600 dark:text-emerald-400">
-                        {formatNaira(item.total)}
-                      </p>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                    {item.customers?.name || t('sales.walk_in')} ·{' '}
-                    {new Date(item.created_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </motion.div>
-              ))}
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                      {isPending ? (item as PendingSaleFeedItem).customerName || t('sales.walk_in') : (item as Sale).customers?.name || t('sales.walk_in')} ·{' '}
+                      {new Date(item.created_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </motion.div>
+                )
+              })}
             </AnimatePresence>
           </div>
         ) : (

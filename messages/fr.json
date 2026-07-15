@@ -350,6 +350,8 @@
     "sales_count_label": "ventes",
     "remaining_balance_label": "Solde restant",
     "walk_in_short": "Passant",
+    "pending_sync_title": "En attente de synchronisation ({count})",
+    "pending_sync_badge": "En attente",
     "invoices_pending": "{count} facture(s) en attente",
     "balance_due": "Solde dû",
     "new_sale_cta": "Nouvelle vente →",

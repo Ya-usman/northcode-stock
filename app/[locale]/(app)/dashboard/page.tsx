@@ -9,7 +9,7 @@ import { MetricCards } from '@/components/dashboard/metric-cards'
 import { RevenueChart } from '@/components/dashboard/revenue-chart'
 import { TopProductsChart } from '@/components/dashboard/top-products-chart'
 import { ExpenseRevenueChart } from '@/components/dashboard/expense-revenue-chart'
-import { RecentSalesFeed, type RepaymentFeedItem, type FeedItem } from '@/components/dashboard/recent-sales-feed'
+import { RecentSalesFeed, type RepaymentFeedItem, type FeedItem, type PendingSaleFeedItem } from '@/components/dashboard/recent-sales-feed'
 import { StockAlerts } from '@/components/dashboard/stock-alerts'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
@@ -24,6 +24,7 @@ import { PlanStatusBanner } from '@/components/dashboard/plan-status-banner'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
+import { getPendingSales, type PendingSale } from '@/lib/offline/db'
 
 const supabase = createClient() as any
 
@@ -89,7 +90,16 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false)
   // navigator.onLine / the browser 'online' event are unreliable (notably in
   // the Capacitor Android WebView) — useOffline() actively verifies instead.
-  const { isOnline } = useOffline()
+  const { isOnline, pendingCount } = useOffline()
+
+  // Offline sales sitting in the IndexedDB queue, not yet synced — added on
+  // top of todayRevenue/todaySalesCount and the recent-sales feed below
+  // (never merged into the base state itself) so this recomputes cleanly
+  // every time instead of risking double-counting if it re-ran more than
+  // once for the same pending sale.
+  const [pendingSalesToday, setPendingSalesToday] = useState<PendingSale[]>([])
+  const pendingTodayRevenue = pendingSalesToday.reduce((s, sale) => s + sale.total, 0)
+  const pendingTodayCount = pendingSalesToday.length
 
   const [todayRevenue, setTodayRevenue] = useState<number | null>(mountCache?.todayRevenue ?? null)
   const [todaySalesCount, setTodaySalesCount] = useState<number | null>(mountCache?.todaySalesCount ?? null)
@@ -394,6 +404,22 @@ export default function DashboardPage() {
     if (shopIds.length > 0) loadDashboard()
   }, [loadDashboard])
 
+  // Merge today's not-yet-synced offline sales into the displayed totals —
+  // getPendingSales() already filters to unsynced only (lib/offline/db.ts),
+  // so a sale that finishes syncing naturally drops out of this sum right
+  // as it starts being counted in the server-fetched total instead: no
+  // window where it's counted twice or not at all.
+  useEffect(() => {
+    if (shopIds.length === 0) return
+    let cancelled = false
+    const todayStart = startOfDay(new Date())
+    Promise.all(shopIds.map(id => getPendingSales(id))).then(results => {
+      if (cancelled) return
+      setPendingSalesToday(results.flat().filter(sale => new Date(sale.created_at) >= todayStart))
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [shopIds.join(','), pendingCount])
+
   // Si auth est terminée mais aucune boutique disponible, débloquer le skeleton
   useEffect(() => {
     if (!authLoading && shopIds.length === 0) setFirstLoad(false)
@@ -557,8 +583,8 @@ export default function DashboardPage() {
       {/* Metric cards */}
       <MetricCards
         isLoading={todayRevenue === null}
-        todayRevenue={todayRevenue ?? 0}
-        todaySalesCount={todaySalesCount ?? 0}
+        todayRevenue={(todayRevenue ?? 0) + pendingTodayRevenue}
+        todaySalesCount={(todaySalesCount ?? 0) + pendingTodayCount}
         lowStockCount={lowStockProducts.length + outOfStockProducts.length}
         outstandingDebt={outstandingDebt ?? 0}
         monthExpenses={monthExpenses ?? 0}
@@ -592,6 +618,14 @@ export default function DashboardPage() {
           items={[
             ...recentSales.map(s => ({ ...s, type: 'sale' as const })),
             ...repaymentFeed,
+            ...pendingSalesToday.map((s): PendingSaleFeedItem => ({
+              type: 'pending_sale',
+              id: s.local_id,
+              total: s.total,
+              payment_method: s.payment_method,
+              customerName: s.customer_name || '',
+              created_at: s.created_at,
+            })),
           ].sort((a, b) => {
             const tA = a.type === 'repayment' ? a.paid_at : (a as Sale).created_at
             const tB = b.type === 'repayment' ? b.paid_at : (b as Sale).created_at

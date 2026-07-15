@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
-import { getPendingCount, getPendingMovementCount, getPendingExpenseCount } from './db'
+import { getPendingCount, getPendingMovementCount, getPendingExpenseCount, getPendingCustomerPaymentCount, getPendingSupplierPaymentCount } from './db'
 import { syncAllPending, type SyncResult } from './sync'
 
 // navigator.onLine is unreliable in Capacitor WebViews.
@@ -32,12 +32,14 @@ export function useOffline() {
 
   const refreshPendingCount = useCallback(async () => {
     if (!shopId) return
-    const [sales, movements, expenses] = await Promise.all([
+    const [sales, movements, expenses, customerPayments, supplierPayments] = await Promise.all([
       getPendingCount(shopId),
       getPendingMovementCount(shopId),
       getPendingExpenseCount(shopId),
+      getPendingCustomerPaymentCount(shopId),
+      getPendingSupplierPaymentCount(shopId),
     ])
-    const total = sales + movements + expenses
+    const total = sales + movements + expenses + customerPayments + supplierPayments
     setPendingCount(total)
     pendingCountRef.current = total
   }, [shopId])

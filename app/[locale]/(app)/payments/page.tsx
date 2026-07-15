@@ -29,6 +29,7 @@ import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
+import { savePendingCustomerPayment, savePendingSupplierPayment } from '@/lib/offline/db'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 
 interface UnpaidSale {
@@ -535,8 +536,35 @@ export default function CreditsPage() {
       return
     }
     setSavingSupplierPayment(true)
+    let gotResponse = false
     try {
       const clientRequestId = supplierRepayIdRef.current ?? (supplierRepayIdRef.current = crypto.randomUUID())
+
+      if (!isOnline) {
+        await savePendingSupplierPayment({
+          local_id: clientRequestId,
+          shop_id: shop!.id,
+          purchase_order_ids: repaySupplier.unpaidPOs.map(po => po.id),
+          amount: supplierAmount,
+          method: supplierRepayMethod,
+          reference: supplierRepayRef || null,
+          notes: supplierRepayNotes || null,
+          created_at: new Date().toISOString(),
+          synced: false,
+        })
+        supplierRepayIdRef.current = null
+        toast({ title: t('toast.payment_recorded'), variant: 'success' })
+        supplierHistoryCache.current.delete(repaySupplier.supplier.id)
+        setSupplierDebtors(prev => prev
+          .map(d => d.supplier.id === repaySupplier.supplier.id
+            ? { ...d, totalOwed: Math.max(0, d.totalOwed - supplierAmount) }
+            : d)
+          .filter(d => d.totalOwed > 0.01))
+        setRepaySupplier(null)
+        setSupplierRepayAmount('')
+        return
+      }
+
       const res = await withTimeout(fetch('/api/supplier-payments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -550,6 +578,7 @@ export default function CreditsPage() {
           client_request_id: clientRequestId,
         }),
       }))
+      gotResponse = true
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       supplierRepayIdRef.current = null
@@ -559,7 +588,35 @@ export default function CreditsPage() {
       setSupplierRepayAmount('')
       setTimeout(() => fetchSupplierDebtors(true), 300)
     } catch (e: any) {
-      toast({ title: e.message, variant: 'destructive' })
+      if (!gotResponse) {
+        try {
+          await savePendingSupplierPayment({
+            local_id: supplierRepayIdRef.current || crypto.randomUUID(),
+            shop_id: shop!.id,
+            purchase_order_ids: repaySupplier.unpaidPOs.map(po => po.id),
+            amount: supplierAmount,
+            method: supplierRepayMethod,
+            reference: supplierRepayRef || null,
+            notes: supplierRepayNotes || null,
+            created_at: new Date().toISOString(),
+            synced: false,
+          })
+          supplierRepayIdRef.current = null
+          toast({ title: 'Connexion instable · paiement sauvegardé localement, synchronisé automatiquement dès que la connexion revient', variant: 'success' })
+          setSupplierDebtors(prev => prev
+            .map(d => d.supplier.id === repaySupplier.supplier.id
+              ? { ...d, totalOwed: Math.max(0, d.totalOwed - supplierAmount) }
+              : d)
+            .filter(d => d.totalOwed > 0.01))
+          setRepaySupplier(null)
+          setSupplierRepayAmount('')
+          return
+        } catch {
+          toast({ title: e.message, variant: 'destructive' })
+        }
+      } else {
+        toast({ title: e.message, variant: 'destructive' })
+      }
     } finally {
       setSavingSupplierPayment(false)
     }
@@ -716,8 +773,39 @@ export default function CreditsPage() {
       return
     }
     setSaving(true)
+    let gotResponse = false
     try {
       const clientRequestId = repayIdRef.current ?? (repayIdRef.current = crypto.randomUUID())
+
+      // Offline: queue it — synced later by syncPendingCustomerPayments via
+      // the same client_request_id, so it can never double-apply once the
+      // network returns. No PDF receipt here (needs the server's FIFO
+      // allocation result); the online path below still generates one.
+      if (!isOnline) {
+        await savePendingCustomerPayment({
+          local_id: clientRequestId,
+          shop_id: shop!.id,
+          unpaid_sale_ids: repayDebtor.unpaidSales.map(s => s.id),
+          amount,
+          method: repayMethod,
+          reference: repayRef || null,
+          notes: repayNotes || null,
+          created_at: new Date().toISOString(),
+          synced: false,
+        })
+        repayIdRef.current = null
+        toast({ title: t('toast.payment_recorded'), variant: 'success' })
+        historyCache.current.delete(repayDebtor.customer.id)
+        setDebtors(prev => prev
+          .map(d => d.customer.id === repayDebtor.customer.id
+            ? { ...d, totalDebt: Math.max(0, d.totalDebt - amount) }
+            : d)
+          .filter(d => d.totalDebt > 0.01))
+        setRepayDebtor(null)
+        setRepayAmount('')
+        return
+      }
+
       const res = await withTimeout(fetch('/api/payments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -731,6 +819,7 @@ export default function CreditsPage() {
           client_request_id: clientRequestId,
         }),
       }))
+      gotResponse = true
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       repayIdRef.current = null // this attempt succeeded — any further action is a new one
@@ -778,7 +867,40 @@ export default function CreditsPage() {
       setRepayAmount('')
       setTimeout(() => fetchDebtors(true), 300)
     } catch (e: any) {
-      toast({ title: e.message, variant: 'destructive' })
+      // Network failure before any response reached the server — safe to
+      // queue offline instead of just erroring out (same fallback pattern
+      // as sales/new/page.tsx). A response that came back !res.ok (a real
+      // validation error) is NOT retried this way — retrying that offline
+      // would just fail the same way again once synced.
+      if (!gotResponse) {
+        try {
+          await savePendingCustomerPayment({
+            local_id: repayIdRef.current || crypto.randomUUID(),
+            shop_id: shop!.id,
+            unpaid_sale_ids: repayDebtor.unpaidSales.map(s => s.id),
+            amount,
+            method: repayMethod,
+            reference: repayRef || null,
+            notes: repayNotes || null,
+            created_at: new Date().toISOString(),
+            synced: false,
+          })
+          repayIdRef.current = null
+          toast({ title: 'Connexion instable · paiement sauvegardé localement, synchronisé automatiquement dès que la connexion revient', variant: 'success' })
+          setDebtors(prev => prev
+            .map(d => d.customer.id === repayDebtor.customer.id
+              ? { ...d, totalDebt: Math.max(0, d.totalDebt - amount) }
+              : d)
+            .filter(d => d.totalDebt > 0.01))
+          setRepayDebtor(null)
+          setRepayAmount('')
+          return
+        } catch {
+          toast({ title: e.message, variant: 'destructive' })
+        }
+      } else {
+        toast({ title: e.message, variant: 'destructive' })
+      }
     } finally {
       setSaving(false)
     }

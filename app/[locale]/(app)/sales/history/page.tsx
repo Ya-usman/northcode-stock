@@ -5,7 +5,7 @@ import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
 import {
   Search, FileDown, FileText, ChevronDown, ChevronUp,
-  XCircle, CheckCircle2, Printer, Share2, Store, CornerDownLeft, Activity, Edit2, Trash2, Plus,
+  XCircle, CheckCircle2, Printer, Share2, Store, CornerDownLeft, Activity, Edit2, Trash2, Plus, Clock,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -29,6 +29,7 @@ import type { Sale } from '@/lib/types/database'
 import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
+import { getPendingSales, type PendingSale } from '@/lib/offline/db'
 
 
 const supabase = createClient() as any
@@ -125,7 +126,8 @@ export default function SalesHistoryPage() {
   const [validateMethod, setValidateMethod] = useState('cash')
   const [actionLoading, setActionLoading] = useState(false)
   const [exportingPDF, setExportingPDF] = useState(false)
-  const { isOnline } = useOffline()
+  const { isOnline, pendingCount } = useOffline()
+  const [pendingSales, setPendingSales] = useState<PendingSale[]>([])
   const [logs, setLogs] = useState<any[]>([])
   const [loadingLogs, setLoadingLogs] = useState(false)
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -398,6 +400,18 @@ export default function SalesHistoryPage() {
     else if (view === 'repayments') fetchRepayments()
     else fetchLogs()
   }, [shopKey, dateFilter, customStart, customEnd, methodFilter, statusFilter, saleStatusFilter, view])
+
+  // Ventes hors-ligne pas encore synchronisées — getPendingSales() ne renvoie
+  // que les non-synchronisées, donc une vente disparaît naturellement d'ici
+  // dès qu'elle a réellement rejoint la liste normale au-dessus.
+  useEffect(() => {
+    if (!effectiveShopIds.length) return
+    let cancelled = false
+    Promise.all(effectiveShopIds.map(id => getPendingSales(id))).then(results => {
+      if (!cancelled) setPendingSales(results.flat())
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [shopKey, pendingCount])
 
   // Debounced re-fetch when search changes: skip first render (main effect handles it)
   useEffect(() => {
@@ -953,6 +967,32 @@ export default function SalesHistoryPage() {
               {t('sales.balance_summary')}: {formatNaira(periodStats.balance)}
             </span>
           )}
+        </div>
+      )}
+
+      {/* Ventes hors-ligne en attente de synchronisation */}
+      {view === 'sales' && pendingSales.length > 0 && (
+        <div className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 overflow-hidden">
+          <div className="px-3 py-2 flex items-center gap-2 border-b border-amber-200 dark:border-amber-800">
+            <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+            <span className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
+              {t('sales.pending_sync_title', { count: pendingSales.length })}
+            </span>
+          </div>
+          <div className="divide-y divide-amber-100 dark:divide-amber-900">
+            {pendingSales.map(sale => (
+              <div key={sale.local_id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+                <div className="min-w-0">
+                  <p className="font-medium truncate">{sale.customer_name || t('sales.walk_in_short')}</p>
+                  <p className="text-xs text-muted-foreground">{format(new Date(sale.created_at), 'dd MMM · HH:mm')}</p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="font-medium">{formatNaira(sale.total)}</span>
+                  <Badge variant="warning" className="text-[10px] px-1.5">{t('sales.pending_sync_badge')}</Badge>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

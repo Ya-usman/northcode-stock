@@ -350,6 +350,8 @@
     "sales_count_label": "sales",
     "remaining_balance_label": "Remaining balance",
     "walk_in_short": "Walk-in",
+    "pending_sync_title": "Waiting to sync ({count})",
+    "pending_sync_badge": "Pending",
     "invoices_pending": "{count} invoice(s) on hold",
     "balance_due": "Balance Due",
     "new_sale_cta": "New Sale →",

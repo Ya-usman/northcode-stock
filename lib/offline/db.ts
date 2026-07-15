@@ -1,7 +1,7 @@
 import { openDB, type IDBPDatabase } from 'idb'
 
 const DB_NAME = 'stockshop-offline'
-const DB_VERSION = 5
+const DB_VERSION = 6
 
 export interface CachedProduct {
   id: string
@@ -109,6 +109,32 @@ export interface PendingSale {
   sync_error?: string
 }
 
+export interface PendingCustomerPayment {
+  local_id: string
+  shop_id: string
+  unpaid_sale_ids: string[]
+  amount: number
+  method: string
+  reference: string | null
+  notes: string | null
+  created_at: string
+  synced: boolean
+  sync_error?: string
+}
+
+export interface PendingSupplierPayment {
+  local_id: string
+  shop_id: string
+  purchase_order_ids: string[]
+  amount: number
+  method: string
+  reference: string | null
+  notes: string | null
+  created_at: string
+  synced: boolean
+  sync_error?: string
+}
+
 let _db: Promise<IDBPDatabase> | null = null
 
 function getDB() {
@@ -141,6 +167,14 @@ function getDB() {
           const pexp = db.createObjectStore('pending_expenses', { keyPath: 'local_id' })
           pexp.createIndex('shop_id', 'shop_id')
           pexp.createIndex('synced', 'synced')
+        }
+        if (oldVersion < 6) {
+          const pcp = db.createObjectStore('pending_customer_payments', { keyPath: 'local_id' })
+          pcp.createIndex('shop_id', 'shop_id')
+          pcp.createIndex('synced', 'synced')
+          const psp = db.createObjectStore('pending_supplier_payments', { keyPath: 'local_id' })
+          psp.createIndex('shop_id', 'shop_id')
+          psp.createIndex('synced', 'synced')
         }
       },
     })
@@ -205,12 +239,14 @@ export async function getPendingCount(shopId: string): Promise<number> {
 // Total unsynced across ALL shops — used to guard logout
 export async function getTotalPendingCount(): Promise<number> {
   const db = await getDB()
-  const [sales, movements, expenses] = await Promise.all([
+  const [sales, movements, expenses, customerPayments, supplierPayments] = await Promise.all([
     db.getAllFromIndex('pending_sales', 'synced', false as any),
     db.getAllFromIndex('pending_movements', 'synced', false as any),
     db.getAllFromIndex('pending_expenses', 'synced', false as any),
+    db.getAllFromIndex('pending_customer_payments', 'synced', false as any),
+    db.getAllFromIndex('pending_supplier_payments', 'synced', false as any),
   ])
-  return sales.length + movements.length + expenses.length
+  return sales.length + movements.length + expenses.length + customerPayments.length + supplierPayments.length
 }
 
 export async function markSaleSynced(localId: string): Promise<void> {
@@ -317,6 +353,64 @@ export async function markExpenseError(localId: string, error: string): Promise<
   const db = await getDB()
   const e = await db.get('pending_expenses', localId)
   if (e) await db.put('pending_expenses', { ...e, sync_error: error })
+}
+
+// ── Pending customer payments (debt repayment) ────────────────────────────────
+
+export async function savePendingCustomerPayment(payment: PendingCustomerPayment): Promise<void> {
+  const db = await getDB()
+  await db.put('pending_customer_payments', payment)
+}
+
+export async function getPendingCustomerPayments(shopId: string): Promise<PendingCustomerPayment[]> {
+  const db = await getDB()
+  const all = await db.getAllFromIndex('pending_customer_payments', 'shop_id', shopId)
+  return all.filter(p => !p.synced)
+}
+
+export async function getPendingCustomerPaymentCount(shopId: string): Promise<number> {
+  return (await getPendingCustomerPayments(shopId)).length
+}
+
+export async function markCustomerPaymentSynced(localId: string): Promise<void> {
+  const db = await getDB()
+  const p = await db.get('pending_customer_payments', localId)
+  if (p) await db.put('pending_customer_payments', { ...p, synced: true, sync_error: undefined })
+}
+
+export async function markCustomerPaymentError(localId: string, error: string): Promise<void> {
+  const db = await getDB()
+  const p = await db.get('pending_customer_payments', localId)
+  if (p) await db.put('pending_customer_payments', { ...p, sync_error: error })
+}
+
+// ── Pending supplier payments (debt repayment) ────────────────────────────────
+
+export async function savePendingSupplierPayment(payment: PendingSupplierPayment): Promise<void> {
+  const db = await getDB()
+  await db.put('pending_supplier_payments', payment)
+}
+
+export async function getPendingSupplierPayments(shopId: string): Promise<PendingSupplierPayment[]> {
+  const db = await getDB()
+  const all = await db.getAllFromIndex('pending_supplier_payments', 'shop_id', shopId)
+  return all.filter(p => !p.synced)
+}
+
+export async function getPendingSupplierPaymentCount(shopId: string): Promise<number> {
+  return (await getPendingSupplierPayments(shopId)).length
+}
+
+export async function markSupplierPaymentSynced(localId: string): Promise<void> {
+  const db = await getDB()
+  const p = await db.get('pending_supplier_payments', localId)
+  if (p) await db.put('pending_supplier_payments', { ...p, synced: true, sync_error: undefined })
+}
+
+export async function markSupplierPaymentError(localId: string, error: string): Promise<void> {
+  const db = await getDB()
+  const p = await db.get('pending_supplier_payments', localId)
+  if (p) await db.put('pending_supplier_payments', { ...p, sync_error: error })
 }
 
 // Update product quantity in IndexedDB cache (optimistic update for offline restock)

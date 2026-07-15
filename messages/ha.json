@@ -350,6 +350,8 @@
     "sales_count_label": "sayarwa",
     "remaining_balance_label": "Saura",
     "walk_in_short": "Abokin Yau",
+    "pending_sync_title": "Ana jiran daidaitawa ({count})",
+    "pending_sync_badge": "Ana jira",
     "invoices_pending": "takardun {count} da ke jira",
     "balance_due": "Saura Da Ake Bashi",
     "new_sale_cta": "Sayarwa Sabuwa →",
