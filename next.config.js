@@ -40,7 +40,15 @@ const withPWA = require('next-pwa')({
   // servait quand même la page d'erreur native du navigateur en test réel.
   additionalManifestEntries: [{ url: '/offline', revision: 'v4' }],
   runtimeCaching: [
-    // RSC payloads (client-side navigation) — StaleWhileRevalidate.
+    // RSC payloads (client-side navigation) — NetworkFirst.
+    // Le préchargeur hors-ligne (useOfflinePreload) visite TOUTES les pages
+    // en arrière-plan toutes les 20 min, y compris celles jamais ouvertes
+    // par l'utilisateur — avec StaleWhileRevalidate, un onglet peu visité
+    // affichait systématiquement ce snapshot d'arrière-plan au lieu des
+    // données du moment, même en étant bien en ligne. NetworkFirst essaie
+    // le réseau en priorité (toujours frais quand on est en ligne) et ne
+    // retombe sur le cache que si le réseau ne répond pas à temps (le
+    // hors-ligne continue de fonctionner à l'identique).
     // matchOptions.ignoreSearch: true est critique — Next.js ajoute un param
     // ?_rsc=<id> dynamique à chaque requête RSC. Sans ignoreSearch, le cache
     // ne trouve jamais les entrées du prefetch (stockées sans ce param) et
@@ -49,9 +57,10 @@ const withPWA = require('next-pwa')({
       urlPattern: ({ request, url }) =>
         request.headers.get('RSC') === '1' ||
         url.searchParams.has('_rsc'),
-      handler: 'StaleWhileRevalidate',
+      handler: 'NetworkFirst',
       options: {
         cacheName: 'next-rsc',
+        networkTimeoutSeconds: 4,
         expiration: { maxEntries: 120, maxAgeSeconds: 24 * 60 * 60 },
         matchOptions: { ignoreSearch: true },
       },
