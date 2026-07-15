@@ -214,6 +214,28 @@ export default function SalesHistoryPage() {
     return q
   }
 
+  // Cash actually collected during the period — sourced from the payments
+  // ledger (paid_at), not from sales.amount_paid (created_at). A debt
+  // repayment collected today retroactively bumps the ORIGINAL sale's
+  // amount_paid, which stays dated to when the sale was created — so a
+  // stats query keyed on sales.created_at silently attributes that cash to
+  // the wrong day (or misses it entirely from "today"). Querying payments
+  // directly by paid_at attributes every cash-in event (initial payment or
+  // later repayment alike) to the day it was actually received.
+  const buildCollectedQuery = (start: Date, end: Date) => {
+    let q = supabase
+      .from('payments')
+      .select('amount, sales!inner(shop_id, sale_status)')
+      .in('sales.shop_id', effectiveShopIds)
+      .eq('sales.sale_status', 'active')
+      .gte('paid_at', start.toISOString())
+      .lte('paid_at', end.toISOString())
+    if (isCashier) q = q.eq('received_by', profile!.id)
+    if (methodFilter === 'mobile_money') q = q.in('method', mobileMoneyIds.length ? mobileMoneyIds : ['__none__'])
+    else if (methodFilter !== 'all') q = q.eq('method', methodFilter)
+    return q
+  }
+
   const enrichCashiers = async (salesData: Sale[], existingMap: Record<string, string> = {}) => {
     const ids = Array.from(new Set(salesData.map((s: any) => s.cashier_id).filter((id: string) => id && !existingMap[id]))) as string[]
     if (!ids.length) return existingMap
@@ -246,13 +268,15 @@ export default function SalesHistoryPage() {
     if (!isOnline) return
     try {
       const { start, end } = getDateBounds()
-      const [listResult, statsResult] = await Promise.all([
+      const [listResult, statsResult, collectedResult] = await Promise.all([
         buildSalesQuery(start, end, 0, isSearchMode),
         buildStatsQuery(start, end),
+        buildCollectedQuery(start, end),
       ])
       if (listResult.error) throw listResult.error
       const salesData = (listResult.data || []) as Sale[]
       const statsRows = (statsResult.data || []) as Array<{ total: number; amount_paid: number; balance: number }>
+      const collectedRows = (collectedResult.data || []) as Array<{ amount: number }>
       setSales(salesData)
       setHasMoreSales(!isSearchMode && salesData.length === PAGE_SIZE)
       setCashierMap(await enrichCashiers(salesData))
@@ -260,7 +284,7 @@ export default function SalesHistoryPage() {
       setPeriodStats({
         count:     statsRows.length,
         ca:        statsRows.reduce((s, r) => s + Number(r.total), 0),
-        collected: statsRows.reduce((s, r) => s + Number(r.amount_paid), 0),
+        collected: collectedRows.reduce((s, r) => s + Number(r.amount), 0),
         balance:   statsRows.reduce((s, r) => s + Number(r.balance), 0),
       })
     } catch {
