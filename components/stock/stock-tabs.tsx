@@ -4,12 +4,9 @@ import { usePathname } from 'next/navigation'
 import { OfflineLink as Link } from '@/components/ui/offline-link'
 import { useTranslations } from 'next-intl'
 import { Package, ArrowLeftRight, ClipboardCheck } from 'lucide-react'
-import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useRolePermissions, type PermFeature } from '@/lib/hooks/use-role-permissions'
 import { useOffline } from '@/lib/offline/use-offline'
 import { cn } from '@/lib/utils/cn'
-
-const INVENTORY_COUNT_ROLES = ['owner', 'super_admin', 'manager', 'shop_manager', 'stock_manager']
 
 // Shared tab bar for the 3 pages that together make up "Stock" (Produits,
 // Mouvements, Inventaire physique) — they stay separate routes (simpler code,
@@ -18,10 +15,8 @@ const INVENTORY_COUNT_ROLES = ['owner', 'super_admin', 'manager', 'shop_manager'
 export function StockTabs({ locale }: { locale: string }) {
   const t = useTranslations('nav')
   const pathname = usePathname()
-  const { profile, roleInActiveShop } = useAuth()
   const { canAccess } = useRolePermissions()
   const { isOnline } = useOffline()
-  const role = roleInActiveShop ?? profile?.role
 
   const tabs = [
     { href: `/${locale}/stock`, label: t('stock'), icon: Package, show: canAccess('stock' as PermFeature) },
@@ -30,7 +25,7 @@ export function StockTabs({ locale }: { locale: string }) {
       href: `/${locale}/stock/inventory-count`,
       label: t('inventory_count'),
       icon: ClipboardCheck,
-      show: INVENTORY_COUNT_ROLES.includes(role || '') && canAccess('inventory_count' as PermFeature),
+      show: canAccess('inventory_count' as PermFeature),
     },
   ].filter(tab => tab.show)
 

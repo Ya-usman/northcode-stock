@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
-
-const WRITE_ROLES = ['owner', 'manager', 'shop_manager', 'stock_manager', 'super_admin']
+import { hasRolePermission } from '@/lib/api/role-permissions'
 
 // POST /api/purchase-orders/receive — verify received quantities and restock
 // in one atomic transaction (apply_purchase_order_receipt), instead of a
@@ -20,7 +19,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Au moins une ligne est requise' }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !WRITE_ROLES.includes(role))
+    if (!role || !(await hasRolePermission(supabase, role, shop_id, 'suppliers')))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
     const admin = await createAdminClient()

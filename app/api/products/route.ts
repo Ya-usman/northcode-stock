@@ -2,8 +2,17 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
+import { hasRolePermission } from '@/lib/api/role-permissions'
 
-const WRITE_ROLES = ['owner', 'stock_manager', 'super_admin', 'cashier']
+// cashier/stock_manager have always been trusted with product writes here
+// regardless of the "Produits / Stock" toggle (e.g. a cashier restocking
+// during checkout) — preserved as an unconditional allow on top of the
+// dynamic role_permissions.stock check for every other role.
+const STOCK_ALWAYS_ALLOW = ['stock_manager', 'cashier']
+
+async function canWriteProducts(supabase: any, role: string, shop_id: string): Promise<boolean> {
+  return hasRolePermission(supabase, role, shop_id, 'stock', { alwaysAllow: STOCK_ALWAYS_ALLOW })
+}
 
 // POST /api/products — create a product
 export async function POST(request: Request) {
@@ -14,7 +23,7 @@ export async function POST(request: Request) {
     const { shop_id } = body
     if (!shop_id) return NextResponse.json({ error: 'shop_id requis' }, { status: 400 })
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !WRITE_ROLES.includes(role))
+    if (!role || !(await canWriteProducts(supabase, role, shop_id)))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     // Always null-ify empty SKU to avoid unique constraint on empty strings
     body.sku = body.sku?.trim() || null
@@ -73,9 +82,9 @@ export async function PATCH(request: Request) {
     const { id, shop_id, ...updates } = await request.json()
     if (!id || !shop_id) return NextResponse.json({ error: 'id et shop_id requis' }, { status: 400 })
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !WRITE_ROLES.includes(role))
+    if (!role || !(await canWriteProducts(supabase, role, shop_id)))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
-    // Whitelist of fields a WRITE_ROLES member may update via PATCH.
+    // Whitelist of fields a role with product write access may update via PATCH.
     // Omitting a field from this set prevents privilege escalation (e.g. a
     // cashier sending is_active:false to soft-delete a product, or clearing
     // buying_price to distort profit reports).
@@ -210,14 +219,8 @@ export async function DELETE(request: Request) {
     if (singleId && singleShopId) {
       const role = await checkShopRole(supabase, user.id, singleShopId)
       if (!role) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
-      const isPrivilegedSingle = role === 'owner' || role === 'super_admin'
-      if (!isPrivilegedSingle) {
-        const { data: shopData } = await (supabase as any)
-          .from('shops').select('role_permissions').eq('id', singleShopId).single()
-        const canDelete = shopData?.role_permissions?.[role]?.delete_products ?? false
-        if (!canDelete)
-          return NextResponse.json({ error: 'Permission insuffisante pour supprimer des produits' }, { status: 403 })
-      }
+      if (!(await hasRolePermission(supabase, role, singleShopId, 'delete_products')))
+        return NextResponse.json({ error: 'Permission insuffisante pour supprimer des produits' }, { status: 403 })
       const admin = await createAdminClient()
       const { data: product } = await (admin as any)
         .from('products').select('id, name, sku, quantity, buying_price, selling_price').eq('id', singleId).single()
@@ -259,14 +262,8 @@ export async function DELETE(request: Request) {
     // Vérification des permissions
     const role = await checkShopRole(supabase, user.id, body.shop_id)
     if (!role) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
-    const isPrivileged = role === 'owner' || role === 'super_admin'
-    if (!isPrivileged) {
-      const { data: shopData } = await (supabase as any)
-        .from('shops').select('role_permissions').eq('id', body.shop_id).single()
-      const canDelete = shopData?.role_permissions?.[role]?.delete_products ?? false
-      if (!canDelete)
-        return NextResponse.json({ error: 'Permission insuffisante pour supprimer des produits' }, { status: 403 })
-    }
+    if (!(await hasRolePermission(supabase, role, body.shop_id, 'delete_products')))
+      return NextResponse.json({ error: 'Permission insuffisante pour supprimer des produits' }, { status: 403 })
 
     const admin = await createAdminClient()
 
@@ -335,7 +332,7 @@ export async function PUT(request: Request) {
     if (!Number.isFinite(Number(quantity_to_add)) || Number(quantity_to_add) <= 0)
       return NextResponse.json({ error: 'Quantité invalide' }, { status: 400 })
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !WRITE_ROLES.includes(role))
+    if (!role || !(await canWriteProducts(supabase, role, shop_id)))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     const admin = await createAdminClient()
 

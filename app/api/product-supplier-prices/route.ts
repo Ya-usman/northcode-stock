@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
-
-// Same write roles as /api/suppliers — stock/procurement concern.
-const WRITE_ROLES = ['owner', 'manager', 'shop_manager', 'stock_manager', 'super_admin']
+import { hasRolePermission } from '@/lib/api/role-permissions'
 
 // GET /api/product-supplier-prices?shop_id= — raw price comparison entries;
 // joined against product/supplier names client-side (already in memory there).
@@ -46,7 +44,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Le prix doit être supérieur à 0' }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !WRITE_ROLES.includes(role))
+    if (!role || !(await hasRolePermission(supabase, role, shop_id, 'suppliers')))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
     const admin = await createAdminClient()
@@ -77,7 +75,7 @@ export async function DELETE(request: Request) {
     if (!id || !shopId) return NextResponse.json({ error: 'id et shop_id requis' }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shopId)
-    if (!role || !WRITE_ROLES.includes(role))
+    if (!role || !(await hasRolePermission(supabase, role, shopId, 'suppliers')))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
     const admin = await createAdminClient()

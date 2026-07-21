@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
-
-const WRITE_ROLES = ['owner', 'manager', 'shop_manager', 'stock_manager', 'super_admin']
+import { hasRolePermission } from '@/lib/api/role-permissions'
 
 // POST /api/stock/inventory-count — apply a batch of physical stock counts
 // body: { shop_id, items: [{ product_id, counted_qty }] }
@@ -16,7 +15,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'shop_id et items requis' }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !WRITE_ROLES.includes(role))
+    if (!role || !(await hasRolePermission(supabase, role, shop_id, 'inventory_count')))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
     const admin = await createAdminClient()
@@ -45,7 +44,7 @@ export async function GET(request: Request) {
     if (!shopId) return NextResponse.json({ error: 'shop_id requis' }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shopId)
-    if (!role || !WRITE_ROLES.includes(role))
+    if (!role || !(await hasRolePermission(supabase, role, shopId, 'inventory_count')))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
     const admin = await createAdminClient()

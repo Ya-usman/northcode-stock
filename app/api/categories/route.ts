@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
+import { hasRolePermission } from '@/lib/api/role-permissions'
 
 const KEYWORD_MAP: { keywords: string[]; category: string }[] = [
   {
@@ -76,7 +77,7 @@ export async function POST(request: Request) {
     const { shop_id, name } = await request.json()
     if (!shop_id || !name) return NextResponse.json({ error: 'shop_id et name requis' }, { status: 400 })
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !['owner', 'manager', 'shop_manager', 'stock_manager', 'cashier', 'super_admin'].includes(role))
+    if (!role || !(await hasRolePermission(supabase, role, shop_id, 'categories')))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     const admin = await createAdminClient()
     const { data, error } = await (admin as any).from('categories').insert({ shop_id, name }).select().single()
@@ -95,7 +96,7 @@ export async function PUT(request: Request) {
     const { shop_id } = await request.json()
     if (!shop_id) return NextResponse.json({ error: 'shop_id requis' }, { status: 400 })
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !['owner', 'manager', 'shop_manager', 'stock_manager', 'cashier', 'super_admin'].includes(role))
+    if (!role || !(await hasRolePermission(supabase, role, shop_id, 'categories')))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
     const admin = await createAdminClient()
@@ -153,7 +154,7 @@ export async function DELETE(request: Request) {
     const shop_id = searchParams.get('shop_id')
     if (!id || !shop_id) return NextResponse.json({ error: 'id et shop_id requis' }, { status: 400 })
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !['owner', 'manager', 'shop_manager', 'stock_manager', 'cashier', 'super_admin'].includes(role))
+    if (!role || !(await hasRolePermission(supabase, role, shop_id, 'categories')))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     const admin = await createAdminClient()
 

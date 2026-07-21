@@ -2,10 +2,14 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
+import { hasRolePermission } from '@/lib/api/role-permissions'
 
-// Purchase orders are a stock/procurement concern — same write roles as
-// /api/suppliers and stock/inventory-count.
-const WRITE_ROLES = ['owner', 'manager', 'shop_manager', 'stock_manager', 'super_admin']
+// Purchase orders live inside the Suppliers page/tab client-side (gated by
+// canAccess('suppliers') — there's no dedicated toggle wired up for them),
+// so they honor the same role_permissions.suppliers setting server-side.
+async function canWritePurchaseOrders(supabase: any, role: string, shop_id: string): Promise<boolean> {
+  return hasRolePermission(supabase, role, shop_id, 'suppliers')
+}
 
 async function nextReference(admin: any, shopId: string): Promise<string> {
   const year = new Date().getFullYear()
@@ -78,7 +82,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Au moins un produit est requis' }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !WRITE_ROLES.includes(role))
+    if (!role || !(await canWritePurchaseOrders(supabase, role, shop_id)))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
     const admin = await createAdminClient()
@@ -121,7 +125,7 @@ export async function PATCH(request: Request) {
     if (!id || !shop_id) return NextResponse.json({ error: 'id et shop_id requis' }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !WRITE_ROLES.includes(role))
+    if (!role || !(await canWritePurchaseOrders(supabase, role, shop_id)))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
     const admin = await createAdminClient()
@@ -194,7 +198,7 @@ export async function DELETE(request: Request) {
     if (!id || !shopId) return NextResponse.json({ error: 'id et shop_id requis' }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shopId)
-    if (!role || !WRITE_ROLES.includes(role))
+    if (!role || !(await canWritePurchaseOrders(supabase, role, shopId)))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
     const admin = await createAdminClient()

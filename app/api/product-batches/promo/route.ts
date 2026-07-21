@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
+import { hasRolePermission } from '@/lib/api/role-permissions'
 
-// Same write roles as /api/products' promo fields — stock/pricing concern.
-const WRITE_ROLES = ['owner', 'manager', 'shop_manager', 'stock_manager', 'super_admin']
+// Same permission as /api/products' promo fields — stock/pricing concern.
+// cashier is trusted unconditionally there too (see STOCK_ALWAYS_ALLOW).
+const PROMO_ALWAYS_ALLOW = ['stock_manager', 'cashier']
 
 // PATCH /api/product-batches/promo — set or clear a promo on one specific
 // batch. Deliberately a dedicated route rather than a direct client update:
@@ -19,7 +21,7 @@ export async function PATCH(request: Request) {
     if (!id || !shop_id) return NextResponse.json({ error: 'id et shop_id requis' }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !WRITE_ROLES.includes(role))
+    if (!role || !(await hasRolePermission(supabase, role, shop_id, 'stock', { alwaysAllow: PROMO_ALWAYS_ALLOW })))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
     if (promo_price !== null && (!Number.isFinite(Number(promo_price)) || Number(promo_price) <= 0))

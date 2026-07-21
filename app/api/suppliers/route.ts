@@ -2,10 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
-
-// Suppliers are a stock/procurement concern — same write roles as
-// stock/inventory-count, excludes cashier and viewer.
-const WRITE_ROLES = ['owner', 'manager', 'shop_manager', 'stock_manager', 'super_admin']
+import { hasRolePermission } from '@/lib/api/role-permissions'
 
 // POST /api/suppliers — create a supplier
 export async function POST(request: Request) {
@@ -17,7 +14,7 @@ export async function POST(request: Request) {
     if (!shop_id || !name) return NextResponse.json({ error: 'shop_id et name requis' }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !WRITE_ROLES.includes(role))
+    if (!role || !(await hasRolePermission(supabase, role, shop_id, 'suppliers')))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
     const admin = await createAdminClient()
@@ -41,7 +38,7 @@ export async function PATCH(request: Request) {
     if (!id || !shop_id) return NextResponse.json({ error: 'id et shop_id requis' }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !WRITE_ROLES.includes(role))
+    if (!role || !(await hasRolePermission(supabase, role, shop_id, 'suppliers')))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
     const admin = await createAdminClient()
@@ -72,7 +69,7 @@ export async function DELETE(request: Request) {
     if (!id || !shopId) return NextResponse.json({ error: 'id et shop_id requis' }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shopId)
-    if (!role || !WRITE_ROLES.includes(role))
+    if (!role || !(await hasRolePermission(supabase, role, shopId, 'suppliers')))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
     const admin = await createAdminClient()
