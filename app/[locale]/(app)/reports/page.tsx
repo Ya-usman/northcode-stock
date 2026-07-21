@@ -210,14 +210,19 @@ export default function ReportsPage() {
     const totalOutstandingDebt = (debtCustomers || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0)
     setOutstandingDebt(totalOutstandingDebt)
 
-    // Full inventory: all active products, enriched with sold qty/revenue for the period
+    // Full inventory: all active products, enriched with sold qty/revenue for the period.
+    // prodTotals is keyed by product_id (falling back to product_name only for
+    // free-text sale items with no product_id — see the comment above where
+    // it's built) — so the lookup here must try p.id first, matching how the
+    // vast majority of entries are actually keyed; a p.name-only lookup missed
+    // almost every product and left "Vendus" at 0 for them.
     const inventoryList = (allProducts || []).map((p: any) => ({
       name: p.name,
       quantity: Number(p.quantity),
       buying_price: Number(p.buying_price),
       selling_price: Number(p.selling_price),
-      soldQty: prodTotals[p.name]?.qty || 0,
-      soldRevenue: prodTotals[p.name]?.revenue || 0,
+      soldQty: (prodTotals[p.id] ?? prodTotals[p.name])?.qty || 0,
+      soldRevenue: (prodTotals[p.id] ?? prodTotals[p.name])?.revenue || 0,
     })).sort((a: { soldRevenue: number; name: string }, b: { soldRevenue: number; name: string }) => (b.soldRevenue - a.soldRevenue) || a.name.localeCompare(b.name))
     setAllInventory(inventoryList)
 
@@ -261,7 +266,7 @@ export default function ReportsPage() {
 
       setPageCache(cacheKey, {
         revenueByMethod: Object.entries(byMethod).map(([name, value]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), value })),
-        topProducts: Object.entries(prodTotals).map(([name, { qty, revenue }]) => ({ name, qty, revenue })).sort((a, b) => b.revenue - a.revenue).slice(0, 10),
+        topProducts: Object.values(prodTotals).sort((a, b) => b.revenue - a.revenue).slice(0, 10),
         stockValuation: { buyingValue, sellingValue, potentialProfit: sellingValue - buyingValue },
         totals: { revenue: totalRevenue, profit: totalProfit, sales: sales.length },
         outstandingDebt: totalOutstandingDebt,
