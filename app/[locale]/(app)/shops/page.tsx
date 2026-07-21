@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
@@ -15,11 +15,14 @@ import { cn } from '@/lib/utils/cn'
 import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import type { Shop } from '@/lib/types/database'
+import { useOffline } from '@/lib/offline/use-offline'
+import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 
 const supabase = createClient()
 
 export default function ShopsPage({ params: { locale } }: { params: { locale: string } }) {
   const { user, userShops, activeShop, switchShop, setDashboardShopFilter, profile, refreshShop } = useAuthContext()
+  const { isOnline } = useOffline()
   const { toast } = useToast()
   const t = useTranslations()
   const [creating, setCreating] = useState(false)
@@ -31,7 +34,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  useEffect(() => {
+  const fetchMemberCounts = useCallback(() => {
     if (userShops.length === 0) return
     Promise.all(
       userShops.map(s =>
@@ -41,6 +44,17 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
       )
     ).then(entries => setMemberCounts(Object.fromEntries(entries)))
   }, [userShops])
+
+  useEffect(() => { fetchMemberCounts() }, [fetchMemberCounts])
+
+  // Refresh when the user comes back to this tab or regains connectivity —
+  // member counts can change from another device while this tab sits open.
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchMemberCounts() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [fetchMemberCounts])
+  useRefetchOnReconnect(fetchMemberCounts, isOnline)
 
   const handleCreate = async () => {
     if (!newName.trim() || !user) return

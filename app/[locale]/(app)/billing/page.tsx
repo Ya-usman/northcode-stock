@@ -16,6 +16,8 @@ import { DowngradeNotice } from '@/components/saas/downgrade-notice'
 import { cn } from '@/lib/utils/cn'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { useSearchParams, useRouter } from 'next/navigation'
+import { useOffline } from '@/lib/offline/use-offline'
+import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 
 type PlanId = 'starter' | 'pro' | 'business'
 
@@ -28,6 +30,7 @@ const PLAN_ICONS: Record<PlanId, React.ReactNode> = {
 export default function BillingPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('billing_page')
   const { shop, user, refreshShop } = useAuth()
+  const { isOnline } = useOffline()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [usageStats, setUsageStats] = useState({ products: 0, team: 0, shops: 0 })
@@ -104,7 +107,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
 
   // Fetch usage stats once shop is loaded
   const supabase = useRef(createClient()).current
-  useEffect(() => {
+  const fetchUsageStats = useCallback(() => {
     if (!shop?.id || !user?.id) return
     Promise.all([
       supabase.from('products').select('id', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('is_active', true),
@@ -114,6 +117,17 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
       setUsageStats({ products: p ?? 0, team: t ?? 0, shops: s ?? 0 })
     })
   }, [shop?.id, user?.id])
+
+  useEffect(() => { fetchUsageStats() }, [fetchUsageStats])
+
+  // Refresh when the user comes back to this tab or regains connectivity —
+  // plan usage should stay current if the tab was left open a while.
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchUsageStats() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [fetchUsageStats])
+  useRefetchOnReconnect(fetchUsageStats, isOnline)
 
   const currentPlan = getPlan(shop?.plan)
   const trialDaysLeft = getTrialDaysLeft(shop?.trial_ends_at)
