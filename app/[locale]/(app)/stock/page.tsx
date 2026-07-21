@@ -109,6 +109,10 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
   // ── Suppression en masse ────────────────────────────────────────────────
   const canDeleteProducts = canAccess('delete_products')
+  // Mirrors STOCK_ALWAYS_ALLOW in app/api/products/route.ts: cashier is
+  // trusted with product writes unconditionally (e.g. restocking during
+  // checkout), regardless of the "Produits / Stock" toggle value for them.
+  const canWriteStock = effectiveRole === 'cashier' || canAccess('stock')
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false)
@@ -858,12 +862,12 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 <ArrowDown className="h-3 w-3 mr-1" />
                 {t('actions.restock')}
               </Button>
-              {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin') && (
+              {canWriteStock && (
                 <Button variant="outline" size="sm" className="h-7 px-2" disabled={saving} onClick={() => { setShowAddModal(false); setShowRestockModal(false); setEditingProduct(product) }}>
                   <Edit2 className="h-3 w-3" />
                 </Button>
               )}
-              {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin') && (() => {
+              {canWriteStock && (() => {
                 const suggestion = !promoActive ? suggestPromo(product) : null
                 const stale = promoActive && promoStale(product)
                 return (
@@ -981,7 +985,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
               </SelectContent>
             </Select>
-            {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin') && (
+            {canAccess('categories') && (
               <Button variant="outline" size="sm" className="h-9 px-2" onClick={() => setShowCatModal(true)} title={t('products.manage_categories')}>
                 <Settings2 className="h-4 w-4" />
               </Button>
@@ -1002,7 +1006,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             </SelectContent>
           </Select>
         </div>
-        {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'cashier' || effectiveRole === 'super_admin') && (
+        {canWriteStock && (
           <>
             <div className="flex gap-1">
               <Button variant="outline" size="sm" onClick={exportCSV} className="h-9 gap-1">
@@ -1082,7 +1086,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             {selectedIds.size > 0 && selectedIds.size === filtered.length ? 'Tout désélectionner' : 'Tout sélectionner'}
             <span className="text-xs font-normal text-blue-500">({filtered.length})</span>
           </button>
-          {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && products.length > 0 && (
+          {canDeleteProducts && products.length > 0 && (
             <button
               onClick={() => { setBulkDeleteAll(true); setBulkDeleteText(''); setBulkDeleteDialog(true) }}
               className="flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 transition-colors"
@@ -1634,7 +1638,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                             <span className="text-[10px] font-medium rounded-full px-2 py-0.5 bg-muted text-muted-foreground">
                               {sourceLabel}
                             </span>
-                            {(effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin') && (
+                            {canWriteStock && (
                               <button
                                 className={`h-6 w-6 flex items-center justify-center rounded ${batchPromoActive ? 'text-stockshop-blue' : 'text-muted-foreground hover:text-amber-600'}`}
                                 title={t('products.promo_action')}
