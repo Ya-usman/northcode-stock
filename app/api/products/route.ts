@@ -194,7 +194,7 @@ export async function PATCH(request: Request) {
 }
 
 // DELETE /api/products
-// — Single:  ?id=xxx&shop_id=xxx           (owner/super_admin only, URL params)
+// — Single:  ?id=xxx&shop_id=xxx           (owner/super_admin ou role delete_products)
 // — Bulk:    body { ids: string[], shop_id } (owner/super_admin ou role delete_products)
 // — All:     body { all: true, shop_id }    (owner/super_admin ou role delete_products)
 export async function DELETE(request: Request) {
@@ -206,11 +206,18 @@ export async function DELETE(request: Request) {
     const singleId = searchParams.get('id')
     const singleShopId = searchParams.get('shop_id')
 
-    // ── Suppression unitaire (comportement existant) ───────────────────────
+    // ── Suppression unitaire ─────────────────────────────────────────────
     if (singleId && singleShopId) {
       const role = await checkShopRole(supabase, user.id, singleShopId)
-      if (role !== 'owner' && role !== 'super_admin')
-        return NextResponse.json({ error: 'Seul le propriétaire peut supprimer définitivement' }, { status: 403 })
+      if (!role) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      const isPrivilegedSingle = role === 'owner' || role === 'super_admin'
+      if (!isPrivilegedSingle) {
+        const { data: shopData } = await (supabase as any)
+          .from('shops').select('role_permissions').eq('id', singleShopId).single()
+        const canDelete = shopData?.role_permissions?.[role]?.delete_products ?? false
+        if (!canDelete)
+          return NextResponse.json({ error: 'Permission insuffisante pour supprimer des produits' }, { status: 403 })
+      }
       const admin = await createAdminClient()
       const { data: product } = await (admin as any)
         .from('products').select('id, name, sku, quantity, buying_price, selling_price').eq('id', singleId).single()
