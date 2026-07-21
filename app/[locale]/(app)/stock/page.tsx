@@ -77,6 +77,12 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   )
   const [expiryByProduct, setExpiryByProduct] = useState<Record<string, string>>({})
   const [soldQtyByProduct, setSoldQtyByProduct] = useState<Record<string, number>>({})
+  // Tracks whether soldQtyByProduct has ever successfully loaded THIS mount —
+  // it starts empty on every mount (no cache, unlike products), so isDormant
+  // must not treat "not loaded yet" as "confirmed zero sales" or every
+  // in-stock product briefly (or indefinitely, if the fetch is skipped/fails)
+  // counts as dormant right after a remount (e.g. returning from background).
+  const [soldQtyLoaded, setSoldQtyLoaded] = useState(false)
   const [promoProduct, setPromoProduct] = useState<Product | null>(null)
   const [promoPrice, setPromoPrice] = useState('')
   const [promoUntil, setPromoUntil] = useState('')
@@ -223,6 +229,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         }
       }
       setSoldQtyByProduct(soldMap)
+      setSoldQtyLoaded(true)
     } catch {
       // idem — pas de blocage sur l'essentiel (liste produits)
     }
@@ -281,7 +288,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const expiryCutoffStr = new Date(Date.now() + expiryAlertDays * 86_400_000).toISOString().slice(0, 10)
   const isExpired = (p: Product) => { const exp = expiryByProduct[p.id]; return !!exp && exp < todayStr }
   const isExpiringSoon = (p: Product) => { const exp = expiryByProduct[p.id]; return !!exp && exp >= todayStr && exp <= expiryCutoffStr }
-  const isDormant = (p: Product) => p.quantity > 0 && !(soldQtyByProduct[p.id] > 0)
+  const isDormant = (p: Product) => soldQtyLoaded && p.quantity > 0 && !(soldQtyByProduct[p.id] > 0)
 
   // Suggestion de promo — jamais pour un produit déjà périmé (à retirer de
   // la vente, pas à brader), un rabais plus fort à mesure que l'échéance
