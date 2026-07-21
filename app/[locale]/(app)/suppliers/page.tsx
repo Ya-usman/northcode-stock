@@ -25,6 +25,7 @@ import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { generatePurchaseOrderPDF } from '@/lib/utils/pdf'
+import { withTimeout } from '@/lib/utils/with-timeout'
 
 const PO_STATUS_STYLES: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
@@ -196,10 +197,12 @@ export default function SuppliersPage() {
     const cached = getPageCache<{ suppliers: Supplier[]; products: Product[] }>(cacheKey)
     if (cached) { setSuppliers(cached.suppliers); setProducts(cached.products); setLoading(false) }
     try {
-      const [{ data: supplierData }, { data: productData }] = await Promise.all([
+      // Bounded so a stale connection/session after the app sat backgrounded
+      // a while can never leave `loading` stuck true forever.
+      const [{ data: supplierData }, { data: productData }] = await withTimeout(Promise.all([
         supabase.from('suppliers').select('*').in('shop_id', effectiveShopIds).order('name'),
         supabase.from('products').select('id, name, selling_price, buying_price, quantity, unit, supplier_id, shop_id').in('shop_id', effectiveShopIds).eq('is_active', true),
-      ])
+      ]), 20_000, 'Chargement des fournisseurs trop lent — réessayez.')
       const fetchedSuppliers = (supplierData || []) as Supplier[]
       const fetchedProducts = (productData || []) as unknown as Product[]
       setSuppliers(fetchedSuppliers)
@@ -215,7 +218,9 @@ export default function SuppliersPage() {
   const fetchProductPrices = async () => {
     if (!shop?.id) return
     try {
-      const res = await fetch(`/api/product-supplier-prices?shop_id=${shop.id}`)
+      // Bounded so a stale connection/session after the app sat backgrounded
+      // a while can never leave a hung request retried forever.
+      const res = await withTimeout(fetch(`/api/product-supplier-prices?shop_id=${shop.id}`), 20_000)
       if (!res.ok) return
       const json = await res.json()
       setProductPrices(json.data || [])
@@ -227,7 +232,7 @@ export default function SuppliersPage() {
   const fetchPurchaseOrders = async () => {
     if (!shop?.id) return
     try {
-      const res = await fetch(`/api/purchase-orders?shop_id=${shop.id}`)
+      const res = await withTimeout(fetch(`/api/purchase-orders?shop_id=${shop.id}`), 20_000)
       if (!res.ok) return
       const json = await res.json()
       setPurchaseOrders(json.data || [])
@@ -276,9 +281,6 @@ export default function SuppliersPage() {
       return true
     })
   }, [purchaseOrders, poSearch, poStatusFilter, poDateFrom, poDateTo])
-
-  const withTimeout = (p: Promise<any>, ms = 15_000) =>
-    Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Connexion trop lente — réessayez.')), ms))])
 
   const onSubmit = async (data: SupplierFormData) => {
     setSaving(true)

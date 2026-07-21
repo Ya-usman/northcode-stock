@@ -36,13 +36,17 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
 
   const fetchMemberCounts = useCallback(() => {
     if (userShops.length === 0) return
-    Promise.all(
+    // Bounded so a stale connection/session after the app sat backgrounded a
+    // while can never leave a hung request retried forever.
+    withTimeout(Promise.all(
       userShops.map(s =>
         supabase.from('shop_members').select('id', { count: 'exact', head: true })
           .eq('shop_id', s.id).eq('is_active', true)
           .then(({ count }) => [s.id, count ?? 0] as [string, number])
       )
-    ).then(entries => setMemberCounts(Object.fromEntries(entries)))
+    ), 20_000).then(entries => setMemberCounts(Object.fromEntries(entries))).catch(() => {
+      // member count badges just keep showing their last known values
+    })
   }, [userShops])
 
   useEffect(() => { fetchMemberCounts() }, [fetchMemberCounts])

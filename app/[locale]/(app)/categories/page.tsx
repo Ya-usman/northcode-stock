@@ -19,6 +19,7 @@ import type { Category, Product } from '@/lib/types/database'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
+import { withTimeout } from '@/lib/utils/with-timeout'
 
 function CategoryCard({ cat, products, expandedId, setExpandedId, canEdit, deleteCategory, t, fmt }: any) {
   const catProducts = products.filter((p: any) => p.category_id === cat.id)
@@ -150,10 +151,12 @@ export default function CategoriesPage() {
     const cached = getPageCache<any>(cacheKey)
     if (cached) { setCategories(cached.categories); setProducts(cached.products); setLoading(false) }
     try {
-      const [catData, prodData] = await Promise.all([
+      // Bounded so a stale connection/session after the app sat backgrounded
+      // a while can never leave `loading` stuck true forever.
+      const [catData, prodData] = await withTimeout(Promise.all([
         supabase.from('categories').select('*').in('shop_id', effectiveShopIds).order('name'),
         supabase.from('products').select('id, name, selling_price, quantity, unit, category_id, shop_id').in('shop_id', effectiveShopIds).eq('is_active', true).order('name'),
-      ])
+      ]), 20_000, 'Chargement des catégories trop lent — réessayez.')
       const fetchedCategories = (catData.data || []) as Category[]
       const fetchedProducts = (prodData.data || []) as unknown as Product[]
       setCategories(fetchedCategories)
@@ -182,9 +185,6 @@ export default function CategoriesPage() {
     setDialogOpen(true)
     setTimeout(() => inputRef.current?.focus(), 50)
   }
-
-  const withTimeout = (p: Promise<any>, ms = 15_000) =>
-    Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Connexion trop lente — réessayez.')), ms))])
 
   const addCategory = async () => {
     if (!shop?.id || !newName.trim()) return

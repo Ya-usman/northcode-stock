@@ -472,7 +472,9 @@ export default function CreditsPage() {
     if (!cached && !quiet) setLoadingSuppliers(true)
     setRefreshingSuppliers(true)
     try {
-      const res = await fetch(`/api/supplier-payments/debts?shop_ids=${effectiveShopIds.join(',')}`)
+      // Bounded so a stale connection/session after the app sat backgrounded
+      // a while can never leave loading stuck true forever.
+      const res = await withTimeout(fetch(`/api/supplier-payments/debts?shop_ids=${effectiveShopIds.join(',')}`), 20_000, 'Chargement des dettes fournisseurs trop lent — réessayez.')
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setSupplierDebtors(data.debtors || [])
@@ -699,7 +701,9 @@ export default function CreditsPage() {
     if (!cached && !quiet) setLoading(true)
     setRefreshing(true)
     try {
-      const res = await fetch(`/api/payments/debts?shop_ids=${effectiveShopIds.join(',')}`)
+      // Bounded so a stale connection/session after the app sat backgrounded
+      // a while can never leave loading stuck true forever.
+      const res = await withTimeout(fetch(`/api/payments/debts?shop_ids=${effectiveShopIds.join(',')}`), 20_000, 'Chargement des dettes clients trop lent — réessayez.')
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setDebtors(data.debtors || [])

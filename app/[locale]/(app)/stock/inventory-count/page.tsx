@@ -78,16 +78,23 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
     const cached = getPageCache<{ prods: Product[]; cats: Category[] }>(cacheKey)
     if (cached) { setProducts(cached.prods); setCategories(cached.cats); setLoading(false) }
     else setLoading(true)
-    const [{ data: prods }, { data: cats }] = await Promise.all([
-      supabase.from('products').select('*').eq('shop_id', shop.id).eq('is_active', true).order('name'),
-      supabase.from('categories').select('*').eq('shop_id', shop.id).order('name'),
-    ])
-    const fetchedProducts = (prods || []) as Product[]
-    const fetchedCategories = (cats || []) as Category[]
-    setProducts(fetchedProducts)
-    setCategories(fetchedCategories)
-    setPageCache(cacheKey, { prods: fetchedProducts, cats: fetchedCategories })
-    setLoading(false)
+    try {
+      // Bounded so a stale connection/session after the app sat backgrounded
+      // a while can never leave `loading` stuck true forever.
+      const [{ data: prods }, { data: cats }] = await withTimeout(Promise.all([
+        supabase.from('products').select('*').eq('shop_id', shop.id).eq('is_active', true).order('name'),
+        supabase.from('categories').select('*').eq('shop_id', shop.id).order('name'),
+      ]), 20_000, 'Chargement des produits trop lent — réessayez.')
+      const fetchedProducts = (prods || []) as Product[]
+      const fetchedCategories = (cats || []) as Category[]
+      setProducts(fetchedProducts)
+      setCategories(fetchedCategories)
+      setPageCache(cacheKey, { prods: fetchedProducts, cats: fetchedCategories })
+    } catch {
+      // cache already applied if available
+    } finally {
+      setLoading(false)
+    }
   }, [shop?.id])
 
   const fetchPreviousSession = useCallback(async () => {

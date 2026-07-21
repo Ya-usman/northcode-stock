@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils/cn'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
+import { withTimeout } from '@/lib/utils/with-timeout'
 
 const supabase = createClient() as any
 
@@ -123,9 +124,6 @@ export default function TeamPage() {
     }
   }, [shop?.id, dashboardShopFilter])
 
-  const withTimeout = (p: Promise<any>, ms = 15_000) =>
-    Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Connexion trop lente — réessayez.')), ms))])
-
   const fetchMembers = useCallback(async () => {
     if (!effectiveShopIds.length) return
     const cacheKey = `team_${effectiveShopIds.join(',')}`
@@ -134,24 +132,26 @@ export default function TeamPage() {
     else setLoading(true)
 
     try {
-      const results = await Promise.all(
+      // Bounded so a stale connection/session after the app sat backgrounded
+      // a while can never leave `loading` stuck true forever.
+      const results = await withTimeout(Promise.all(
         effectiveShopIds.map(sid =>
           supabase.from('shop_members')
             .select('id, user_id, shop_id, role, is_active, joined_at')
             .eq('shop_id', sid)
             .order('role')
         )
-      )
+      ), 20_000, 'Chargement de l\'équipe trop lent — réessayez.')
 
       const rows = results.flatMap(r => (r.data || []) as any[])
       if (rows.length === 0) { setMembers([]); setLoading(false); return }
 
       const userIds = Array.from(new Set(rows.map((r: any) => r.user_id))) as string[]
 
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('id, full_name, last_seen, is_active')
-        .in('id', userIds)
+      const { data: profilesData } = await withTimeout<any>(
+        supabase.from('profiles').select('id, full_name, last_seen, is_active').in('id', userIds),
+        20_000
+      )
 
       const profilesMap: Record<string, any> = {}
       ;(profilesData || []).forEach((p: any) => { profilesMap[p.id] = p })
@@ -167,11 +167,11 @@ export default function TeamPage() {
       // Fetch auth status (email confirmed, last sign in) for owners/managers only
       if (isOwner && viewShopId) {
         try {
-          const res = await fetch('/api/team/status', {
+          const res = await withTimeout(fetch('/api/team/status', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ user_ids: userIds, shop_id: viewShopId }),
-          })
+          }), 15_000)
           if (res.ok) {
             const { status } = await res.json()
             setMembers(prev => prev.map(m => ({
@@ -204,15 +204,22 @@ export default function TeamPage() {
   const fetchAuditLogs = useCallback(async () => {
     if (!viewShopId) return
     setLoadingJournal(true)
-    const { data } = await supabase
-      .from('audit_logs')
-      .select('*')
-      .eq('shop_id', viewShopId)
-      .in('action', ['member.invite', 'member.delete', 'member.role_change', 'member.toggle_active'])
-      .order('created_at', { ascending: false })
-      .limit(50)
-    setAuditLogs(data || [])
-    setLoadingJournal(false)
+    try {
+      // Bounded so a stale connection/session after the app sat backgrounded
+      // a while can never leave the journal spinning forever.
+      const { data } = await withTimeout<any>(supabase
+        .from('audit_logs')
+        .select('*')
+        .eq('shop_id', viewShopId)
+        .in('action', ['member.invite', 'member.delete', 'member.role_change', 'member.toggle_active'])
+        .order('created_at', { ascending: false })
+        .limit(50), 20_000, 'Chargement du journal trop lent — réessayez.')
+      setAuditLogs(data || [])
+    } catch {
+      // journal just stays empty/stale — non-critical secondary tab
+    } finally {
+      setLoadingJournal(false)
+    }
   }, [viewShopId])
 
   useEffect(() => { if (view === 'journal') fetchAuditLogs() }, [view, fetchAuditLogs])

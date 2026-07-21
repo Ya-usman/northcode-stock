@@ -268,11 +268,13 @@ export default function SalesHistoryPage() {
     if (!isOnline) return
     try {
       const { start, end } = getDateBounds()
-      const [listResult, statsResult, collectedResult] = await Promise.all([
+      // Bounded so a stale connection/session after the app sat backgrounded
+      // a while can never leave `loading` stuck true forever.
+      const [listResult, statsResult, collectedResult] = await withTimeout(Promise.all([
         buildSalesQuery(start, end, 0, isSearchMode),
         buildStatsQuery(start, end),
         buildCollectedQuery(start, end),
-      ])
+      ]), 20_000, 'Chargement des ventes trop lent — réessayez.')
       if (listResult.error) throw listResult.error
       const salesData = (listResult.data || []) as Sale[]
       const statsRows = (statsResult.data || []) as Array<{ total: number; amount_paid: number; balance: number }>
@@ -310,23 +312,40 @@ export default function SalesHistoryPage() {
 
   const fetchRepayments = async () => {
     if (!effectiveShopIds.length) return
-    setLoading(true)
-    const { start, end } = getDateBounds()
+    const customSuffix = dateFilter === 'custom' ? `_${customStart}_${customEnd}` : ''
+    const cacheKey = `sales_history_repayments_${effectiveShopIds.join(',')}_${dateFilter}${customSuffix}_${methodFilter}`
+    const cached = getPageCache<any[]>(cacheKey)
+    if (cached) {
+      setRepayments(cached)
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
+    try {
+      const { start, end } = getDateBounds()
 
-    let query = supabase
-      .from('payments')
-      .select('id, amount, paid_at, method, sales!inner(shop_id, sale_number, created_at, customers(name))')
-      .in('sales.shop_id', effectiveShopIds)
-      .eq('is_repayment', true)
-      .gte('paid_at', start.toISOString())
-      .lte('paid_at', end.toISOString())
-      .order('paid_at', { ascending: false })
+      let query = supabase
+        .from('payments')
+        .select('id, amount, paid_at, method, sales!inner(shop_id, sale_number, created_at, customers(name))')
+        .in('sales.shop_id', effectiveShopIds)
+        .eq('is_repayment', true)
+        .gte('paid_at', start.toISOString())
+        .lte('paid_at', end.toISOString())
+        .order('paid_at', { ascending: false })
 
-    if (methodFilter !== 'all') query = query.eq('method', methodFilter)
+      if (methodFilter !== 'all') query = query.eq('method', methodFilter)
 
-    const { data } = await query
-    setRepayments((data || []).filter((p: any) => effectiveShopIds.includes(p.sales?.shop_id)))
-    setLoading(false)
+      // Bounded so a stale connection/session after the app sat backgrounded
+      // a while can never leave `loading` stuck true forever.
+      const { data } = await withTimeout<any>(query, 20_000, 'Chargement des remboursements trop lent — réessayez.')
+      const filtered = (data || []).filter((p: any) => effectiveShopIds.includes(p.sales?.shop_id))
+      setRepayments(filtered)
+      setPageCache(cacheKey, filtered)
+    } catch {
+      // cache already applied if available
+    } finally {
+      setLoading(false)
+    }
   }
 
   const openEditDialog = (sale: Sale) => {
@@ -407,7 +426,9 @@ export default function SalesHistoryPage() {
         from: start.toISOString(),
         to: end.toISOString(),
       })
-      const res = await fetch(`/api/sales/logs?${params}`)
+      // Bounded so a stale connection/session after the app sat backgrounded
+      // a while can never leave the journal spinning forever.
+      const res = await withTimeout(fetch(`/api/sales/logs?${params}`), 20_000, 'Chargement du journal trop lent — réessayez.')
       const json = await res.json()
       setLogs(json.logs || [])
     } catch {

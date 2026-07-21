@@ -158,7 +158,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     }
     if (!isOnline) return
     try {
-      const [{ data: prods }, { data: archived }, { data: cats }, { data: sups }] = await Promise.all([
+      // Bounded so a stale connection/session after the app sat backgrounded
+      // a while can never leave `loading` stuck true forever.
+      const [{ data: prods }, { data: archived }, { data: cats }, { data: sups }] = await withTimeout(Promise.all([
         supabase.from('products')
           .select('*, categories(name), suppliers(name)')
           .in('shop_id', effectiveShopIds)
@@ -171,7 +173,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           .order('name'),
         supabase.from('categories').select('*').in('shop_id', effectiveShopIds).order('name'),
         supabase.from('suppliers').select('*').in('shop_id', effectiveShopIds).order('name'),
-      ])
+      ]), 20_000, 'Chargement du stock trop lent — réessayez.')
       setProducts((prods || []) as unknown as Product[])
       setArchivedProducts((archived || []) as unknown as Product[])
       setCategories((cats || []) as Category[])
@@ -191,12 +193,15 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const fetchStockSignals = async () => {
     if (!effectiveShopIds.length || !isOnline) return
     try {
-      const { data: batches } = await supabase
+      // Bounded so a stale connection/session after the app sat backgrounded
+      // a while can never leave this signal hanging (it already fails soft
+      // on error — a hang just needs to be turned into a fast rejection too).
+      const { data: batches } = await withTimeout<any>(supabase
         .from('product_batches')
         .select('product_id, expiry_date')
         .in('shop_id', effectiveShopIds)
         .gt('quantity', 0)
-        .not('expiry_date', 'is', null)
+        .not('expiry_date', 'is', null), 20_000)
       const expiryMap: Record<string, string> = {}
       for (const b of (batches || []) as any[]) {
         if (!expiryMap[b.product_id] || b.expiry_date < expiryMap[b.product_id]) {
@@ -210,19 +215,20 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
     try {
       const thirtyDaysAgo = new Date(Date.now() - 30 * 86_400_000).toISOString()
-      const { data: recentSales } = await supabase
+      // Bounded — same reasoning as the expiry signal above.
+      const { data: recentSales } = await withTimeout<any>(supabase
         .from('sales')
         .select('id')
         .in('shop_id', effectiveShopIds)
         .eq('sale_status', 'active')
-        .gte('created_at', thirtyDaysAgo)
+        .gte('created_at', thirtyDaysAgo), 20_000)
       const saleIds = (recentSales || []).map((s: any) => s.id)
       const soldMap: Record<string, number> = {}
       if (saleIds.length) {
-        const { data: recentItems } = await supabase
+        const { data: recentItems } = await withTimeout<any>(supabase
           .from('sale_items')
           .select('product_id, quantity')
-          .in('sale_id', saleIds)
+          .in('sale_id', saleIds), 20_000)
         for (const it of (recentItems || []) as any[]) {
           if (!it.product_id) continue
           soldMap[it.product_id] = (soldMap[it.product_id] || 0) + it.quantity
@@ -749,9 +755,16 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       .limit(100)
     if (journalDateFrom) query = query.gte('created_at', `${journalDateFrom}T00:00:00`)
     if (journalDateTo) query = query.lte('created_at', `${journalDateTo}T23:59:59`)
-    const { data } = await query
-    setAuditLogs(data || [])
-    setLoadingJournal(false)
+    try {
+      // Bounded so a stale connection/session after the app sat backgrounded
+      // a while can never leave the journal spinning forever.
+      const { data } = await withTimeout<any>(query, 20_000, 'Chargement du journal trop lent — réessayez.')
+      setAuditLogs(data || [])
+    } catch {
+      // journal just stays empty/stale — non-critical secondary tab
+    } finally {
+      setLoadingJournal(false)
+    }
   }
 
   useEffect(() => { if (view === 'journal') fetchAuditLogs() }, [view, journalDateFrom, journalDateTo])

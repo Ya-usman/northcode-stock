@@ -109,12 +109,16 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   const supabase = useRef(createClient()).current
   const fetchUsageStats = useCallback(() => {
     if (!shop?.id || !user?.id) return
-    Promise.all([
+    // Bounded so a stale connection/session after the app sat backgrounded a
+    // while can never leave a hung request retried forever.
+    withTimeout(Promise.all([
       supabase.from('products').select('id', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('is_active', true),
       (supabase as any).from('shop_members').select('id', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('is_active', true).neq('role', 'owner'),
       (supabase as any).from('shop_members').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('role', 'owner').eq('is_active', true),
-    ]).then(([{ count: p }, { count: t }, { count: s }]) => {
+    ]), 20_000).then(([{ count: p }, { count: t }, { count: s }]) => {
       setUsageStats({ products: p ?? 0, team: t ?? 0, shops: s ?? 0 })
+    }).catch(() => {
+      // usage bars just keep showing their last known values
     })
   }, [shop?.id, user?.id])
 

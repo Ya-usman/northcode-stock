@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { downloadOrShareCSV } from '@/lib/utils/native-share'
+import { withTimeout } from '@/lib/utils/with-timeout'
 
 const supabase = createClient() as any
 
@@ -86,98 +87,106 @@ export default function CaissePage() {
       setLoading(true)
     }
     try {
-      const dayStart = startOfDay(selectedDate).toISOString()
-      const dayEnd   = endOfDay(selectedDate).toISOString()
-
-      // Fetch sales + repayments in parallel
-      const [{ data: salesData }, { data: repaymentsRaw }] = await Promise.all([
-        supabase
-          .from('sales')
-          .select('id, sale_number, cashier_id, amount_paid, created_at')
-          .in('shop_id', effectiveShopIds)
-          .eq('sale_status', 'active')
-          .gte('created_at', dayStart)
-          .lte('created_at', dayEnd)
-          .order('created_at', { ascending: false }),
-
-        supabase
-          .from('payments')
-          .select('id, amount, received_by, paid_at, method, sales!inner(shop_id, sale_number, sale_status)')
-          .eq('is_repayment', true)
-          .gte('paid_at', dayStart)
-          .lte('paid_at', dayEnd)
-          .order('paid_at', { ascending: false }),
-      ])
-
-      const sales: SaleRow[] = salesData || []
-
-      // Filter repayments to this shop + non-cancelled sales
-      const repayments = (repaymentsRaw || []).filter((p: any) =>
-        effectiveShopIds.includes(p.sales?.shop_id) &&
-        p.sales?.sale_status !== 'cancelled'
-      )
-
-      // Collect all profile IDs to look up (sales cashiers + repayment receivers)
-      const saleIds = sales.map(s => s.cashier_id).filter((id): id is string => !!id)
-      const repayIds = repayments.map((p: any) => p.received_by).filter((id: any): id is string => !!id)
-      const allIds = Array.from(new Set([...saleIds, ...repayIds]))
-
-      let profileMap: Record<string, string> = {}
-      if (allIds.length) {
-        const { data: profilesData } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .in('id', allIds)
-        ;(profilesData || []).forEach((p: any) => { profileMap[p.id] = p.full_name })
-      }
-
-      // Build grouped cashier summaries
-      const grouped: Record<string, CashierSummary> = {}
-
-      const ensure = (cid: string) => {
-        if (!grouped[cid]) {
-          grouped[cid] = {
-            cashierId: cid,
-            name: profileMap[cid] ?? t('unknown'),
-            salesCount: 0, salesTotal: 0,
-            repaymentsCount: 0, repaymentsTotal: 0,
-            total: 0,
-            sales: [], repayments: [],
-          }
-        }
-        return grouped[cid]
-      }
-
-      for (const sale of sales) {
-        const entry = ensure(sale.cashier_id ?? 'unknown')
-        entry.salesCount++
-        entry.salesTotal += Number(sale.amount_paid)
-        entry.total += Number(sale.amount_paid)
-        entry.sales.push(sale)
-      }
-
-      for (const p of repayments) {
-        const cid = (p.received_by as string | null) ?? 'unknown'
-        const entry = ensure(cid)
-        entry.repaymentsCount++
-        entry.repaymentsTotal += Number(p.amount)
-        entry.total += Number(p.amount)
-        entry.repayments.push({
-          id: p.id,
-          sale_number: p.sales?.sale_number ?? '?',
-          amount: Number(p.amount),
-          paid_at: p.paid_at,
-          method: p.method,
-        })
-      }
-
-      const summaries = Object.values(grouped).sort((a, b) => b.total - a.total)
-      setCashierSummaries(summaries)
-      setPageCache(`caisse_${shopIdsKey}_${format(selectedDate, 'yyyy-MM-dd')}`, summaries)
+      // Bounded so a stale connection/session after the app sat backgrounded
+      // a while can never leave `loading` stuck true forever.
+      await withTimeout(loadFreshCaisseData(cacheKey), 20_000, 'Chargement de la caisse trop lent — réessayez.')
+    } catch {
+      // Timeout/network failure — cache already applied above if available.
     } finally {
       setLoading(false)
     }
   }, [shopIdsKey, selectedDate.toDateString(), isAuthorized])
+
+  const loadFreshCaisseData = useCallback(async (cacheKey: string) => {
+    const dayStart = startOfDay(selectedDate).toISOString()
+    const dayEnd   = endOfDay(selectedDate).toISOString()
+
+    // Fetch sales + repayments in parallel
+    const [{ data: salesData }, { data: repaymentsRaw }] = await Promise.all([
+      supabase
+        .from('sales')
+        .select('id, sale_number, cashier_id, amount_paid, created_at')
+        .in('shop_id', effectiveShopIds)
+        .eq('sale_status', 'active')
+        .gte('created_at', dayStart)
+        .lte('created_at', dayEnd)
+        .order('created_at', { ascending: false }),
+
+      supabase
+        .from('payments')
+        .select('id, amount, received_by, paid_at, method, sales!inner(shop_id, sale_number, sale_status)')
+        .eq('is_repayment', true)
+        .gte('paid_at', dayStart)
+        .lte('paid_at', dayEnd)
+        .order('paid_at', { ascending: false }),
+    ])
+
+    const sales: SaleRow[] = salesData || []
+
+    // Filter repayments to this shop + non-cancelled sales
+    const repayments = (repaymentsRaw || []).filter((p: any) =>
+      effectiveShopIds.includes(p.sales?.shop_id) &&
+      p.sales?.sale_status !== 'cancelled'
+    )
+
+    // Collect all profile IDs to look up (sales cashiers + repayment receivers)
+    const saleIds = sales.map(s => s.cashier_id).filter((id): id is string => !!id)
+    const repayIds = repayments.map((p: any) => p.received_by).filter((id: any): id is string => !!id)
+    const allIds = Array.from(new Set([...saleIds, ...repayIds]))
+
+    let profileMap: Record<string, string> = {}
+    if (allIds.length) {
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', allIds)
+      ;(profilesData || []).forEach((p: any) => { profileMap[p.id] = p.full_name })
+    }
+
+    // Build grouped cashier summaries
+    const grouped: Record<string, CashierSummary> = {}
+
+    const ensure = (cid: string) => {
+      if (!grouped[cid]) {
+        grouped[cid] = {
+          cashierId: cid,
+          name: profileMap[cid] ?? t('unknown'),
+          salesCount: 0, salesTotal: 0,
+          repaymentsCount: 0, repaymentsTotal: 0,
+          total: 0,
+          sales: [], repayments: [],
+        }
+      }
+      return grouped[cid]
+    }
+
+    for (const sale of sales) {
+      const entry = ensure(sale.cashier_id ?? 'unknown')
+      entry.salesCount++
+      entry.salesTotal += Number(sale.amount_paid)
+      entry.total += Number(sale.amount_paid)
+      entry.sales.push(sale)
+    }
+
+    for (const p of repayments) {
+      const cid = (p.received_by as string | null) ?? 'unknown'
+      const entry = ensure(cid)
+      entry.repaymentsCount++
+      entry.repaymentsTotal += Number(p.amount)
+      entry.total += Number(p.amount)
+      entry.repayments.push({
+        id: p.id,
+        sale_number: p.sales?.sale_number ?? '?',
+        amount: Number(p.amount),
+        paid_at: p.paid_at,
+        method: p.method,
+      })
+    }
+
+    const summaries = Object.values(grouped).sort((a, b) => b.total - a.total)
+    setCashierSummaries(summaries)
+    setPageCache(cacheKey, summaries)
+  }, [effectiveShopIds, selectedDate, t])
 
   useEffect(() => { fetchData() }, [fetchData])
 

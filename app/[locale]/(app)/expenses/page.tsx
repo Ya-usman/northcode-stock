@@ -155,7 +155,9 @@ export default function ExpensesPage() {
     const start = startOfMonth(new Date(monthFilter + '-01')).toISOString().slice(0, 10)
     const end   = endOfMonth(new Date(monthFilter + '-01')).toISOString().slice(0, 10)
     try {
-      const [{ data: expData, error: expErr }, { data: tplData }] = await Promise.all([
+      // Bounded so a stale connection/session after the app sat backgrounded
+      // a while can never leave `loading` stuck true forever.
+      const [{ data: expData, error: expErr }, { data: tplData }] = await withTimeout(Promise.all([
         supabase
           .from('expenses')
           .select('*')
@@ -170,7 +172,7 @@ export default function ExpensesPage() {
           .in('shop_id', effectiveShopIds)
           .eq('is_recurring', true)
           .order('description'),
-      ])
+      ]), 20_000, 'Chargement des dépenses trop lent — réessayez.')
       if (expErr) {
         toast({ title: expErr.message, variant: 'destructive' })
         return
@@ -187,28 +189,38 @@ export default function ExpensesPage() {
 
   const fetchBudgets = useCallback(async () => {
     if (!shop?.id || !isReallyOnline) return
-    const { data } = await supabase
-      .from('expense_budgets')
-      .select('category, amount')
-      .eq('shop_id', shop.id)
-    if (!data) return
-    const map: Record<string, number> = {}
-    ;(data as ExpenseBudget[]).forEach(b => { map[b.category] = Number(b.amount) })
-    setBudgets(map)
+    try {
+      // Bounded so a stale connection/session after the app sat backgrounded
+      // a while can never leave a hung request retried forever.
+      const { data } = await withTimeout<any>(
+        supabase.from('expense_budgets').select('category, amount').eq('shop_id', shop.id),
+        20_000
+      )
+      if (!data) return
+      const map: Record<string, number> = {}
+      ;(data as ExpenseBudget[]).forEach(b => { map[b.category] = Number(b.amount) })
+      setBudgets(map)
+    } catch {
+      // budgets bar just keeps showing its last known values
+    }
   }, [shop?.id, isReallyOnline])
 
   const isOwnerOrAdmin = profile?.role === 'owner' || profile?.role === 'super_admin'
 
   const fetchDeleteLogs = useCallback(async () => {
     if (!shop?.id || !isOwnerOrAdmin || !isReallyOnline) return
-    const { data } = await supabase
-      .from('audit_logs')
-      .select('id, created_at, actor_email, metadata')
-      .eq('shop_id', shop.id)
-      .eq('action', 'expense.delete')
-      .order('created_at', { ascending: false })
-      .limit(50)
-    setDeleteLogs((data || []) as DeleteLog[])
+    try {
+      const { data } = await withTimeout<any>(supabase
+        .from('audit_logs')
+        .select('id, created_at, actor_email, metadata')
+        .eq('shop_id', shop.id)
+        .eq('action', 'expense.delete')
+        .order('created_at', { ascending: false })
+        .limit(50), 20_000)
+      setDeleteLogs((data || []) as DeleteLog[])
+    } catch {
+      // journal just stays empty/stale — non-critical secondary tab
+    }
   }, [shop?.id, isOwnerOrAdmin, isReallyOnline])
 
   const generateDueRecurring = useCallback(async () => {

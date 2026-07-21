@@ -25,6 +25,7 @@ import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { getPendingSales, type PendingSale } from '@/lib/offline/db'
+import { withTimeout } from '@/lib/utils/with-timeout'
 
 const supabase = createClient() as any
 
@@ -198,7 +199,7 @@ export default function DashboardPage() {
         { data: expensesRaw },
         { data: monthSalesRaw },
         { data: monthGlobalRaw },
-      ] = await Promise.all([
+      ] = await withTimeout(Promise.all([
         // Today's sales — cashier sees only their own; owner/viewer sees all
         (() => {
           let q = supabase
@@ -289,7 +290,7 @@ export default function DashboardPage() {
           .gte('paid_at', startOfMonth(today).toISOString())
           .lte('paid_at', endOfMonth(today).toISOString()),
 
-      ])
+      ]), 20_000, 'Chargement du tableau de bord trop lent — réessayez.')
 
       const paymentsApiOk = paymentsRes.ok
       const paymentsData = paymentsApiOk
@@ -395,6 +396,14 @@ export default function DashboardPage() {
         revenueData: revData, topProducts: tops, lowStock: lowSt, outOfStock: outOf,
         monthExpenses: expensesTotal, monthRevenue: monthRevenueTotal, monthGlobalRevenue: monthGlobalRevenueTotal })
 
+    } catch {
+      // Timeout or network failure — the cache read above (if any) is
+      // already on screen; nothing further to do. The finally block below
+      // is what actually matters here: without it reachable, a hang would
+      // leave loadingRef stuck true and permanently no-op every future
+      // refresh (manual button, visibilitychange, reconnect) until a full
+      // page reload — withTimeout turns that hang into a fast rejection so
+      // finally always runs.
     } finally {
       loadingRef.current = false
       setFirstLoad(false)

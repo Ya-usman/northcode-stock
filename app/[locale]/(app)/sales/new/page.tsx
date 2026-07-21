@@ -37,6 +37,7 @@ const BarcodeScanner = dynamic(
 import { useOffline } from '@/lib/offline/use-offline'
 import { triggerSaleFeedback, unlockAudio } from '@/lib/utils/sale-feedback'
 import { getCountry, getMethodType } from '@/lib/saas/countries'
+import { withTimeout } from '@/lib/utils/with-timeout'
 import { formatInputValue, formatCurrency } from '@/lib/utils/currency'
 import { checkAndNotifyLowStock, notifyNewSale } from '@/lib/push'
 
@@ -171,7 +172,12 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
     // Fetch fresh data in background
     try {
-      const [{ data: prods }, { data: custs }, { data: cats }, { data: batches }] = await Promise.all([
+      // Bounded so a stale connection/session after the app sat backgrounded
+      // a while can never leave stock levels silently frozen forever (a real
+      // overselling risk on the checkout screen) — a hang here previously
+      // left this function stuck, with nothing retrying until the next
+      // visibilitychange/reconnect trigger hit the exact same hang again.
+      const [{ data: prods }, { data: custs }, { data: cats }, { data: batches }] = await withTimeout(Promise.all([
         supabase.from('products').select('*, categories(name), suppliers(name)')
           .eq('shop_id', selectedShop.id).eq('is_active', true).gt('quantity', 0).order('name'),
         supabase.from('customers').select('*').eq('shop_id', selectedShop.id).order('name'),
@@ -181,7 +187,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           .eq('shop_id', selectedShop.id).gt('quantity', 0)
           .order('expiry_date', { ascending: true, nullsFirst: false })
           .order('received_at', { ascending: true }),
-      ])
+      ]), 20_000, 'Chargement des produits trop lent — réessayez.')
       const safeProds = (prods || []) as unknown as Product[]
       setProducts(safeProds)
       setFilteredProducts(safeProds)

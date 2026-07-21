@@ -10,6 +10,7 @@ import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
+import { withTimeout } from '@/lib/utils/with-timeout'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -73,7 +74,9 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
     if (cached) { setMovements(cached); setLoading(false) }
     else setLoading(true)
 
-    fetch(`/api/stock/movements?${params}`)
+    // Bounded so a stale connection/session after the app sat backgrounded a
+    // while can never leave `loading` stuck true forever.
+    withTimeout(fetch(`/api/stock/movements?${params}`), 20_000, 'Chargement des mouvements trop lent — réessayez.')
       .then(r => r.json())
       .then(data => {
         const list = data.movements || []

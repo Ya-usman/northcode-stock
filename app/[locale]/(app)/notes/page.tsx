@@ -16,6 +16,7 @@ import { fr } from 'date-fns/locale'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
+import { withTimeout } from '@/lib/utils/with-timeout'
 
 const supabase = createClient() as any
 
@@ -84,7 +85,9 @@ export default function NotesPage() {
         .order('pinned', { ascending: false })
         .order('updated_at', { ascending: false })
       if (shopFilter !== 'all') q = q.eq('shop_id', shopFilter)
-      const { data } = await q
+      // Bounded so a stale connection/session after the app sat backgrounded
+      // a while can never leave `loading` stuck true forever.
+      const { data } = await withTimeout<any>(q, 20_000, 'Chargement des notes trop lent — réessayez.')
       setNotes((data || []) as Note[])
       setPageCache(cacheKey, data || [])
     } catch {
@@ -158,25 +161,16 @@ export default function NotesPage() {
       color,
       pinned,
     }
-    // Timeout prevents infinite spinner when the Supabase client hangs after
-    // the app is backgrounded on Android (suspended network + stale client).
-    const withTimeout = (p: Promise<any>, ms: number) =>
-      Promise.race([
-        p,
-        new Promise<never>((_, rej) =>
-          setTimeout(() => rej(new Error('Connexion trop lente — réessayez.')), ms)
-        ),
-      ])
     try {
       if (editing) {
-        const { error } = await withTimeout(
+        const { error } = await withTimeout<any>(
           supabase.from('notes').update(payload).eq('id', editing.id),
           15_000
         )
         if (error) throw new Error(error.message)
         toast({ title: 'Note modifiée', variant: 'success' })
       } else {
-        const { error } = await withTimeout(
+        const { error } = await withTimeout<any>(
           supabase.from('notes').insert(payload),
           15_000
         )

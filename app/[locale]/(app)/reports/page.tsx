@@ -25,6 +25,7 @@ import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRolePermissions, type PermFeature } from '@/lib/hooks/use-role-permissions'
+import { withTimeout } from '@/lib/utils/with-timeout'
 
 const PIE_COLORS = ['#60a5fa', '#D4AF37', '#16A34A', '#DC2626', '#a78bfa']
 
@@ -120,7 +121,31 @@ export default function ReportsPage() {
     }
     const { start, end } = getDateRange()
     try {
+      // A stale connection/session after the app sat backgrounded for a
+      // while (JWT/socket gone stale) could otherwise leave one of these
+      // sequential Supabase calls hanging forever, with loading stuck true
+      // and nothing ever shown — bound the whole fetch so it always falls
+      // back to cache instead.
+      await withTimeout(loadFreshReportData(start, end, cacheKey), 20_000, 'Chargement des rapports trop lent — réessayez.')
+    } catch {
+      const cached = getPageCache<any>(cacheKey)
+      if (cached) {
+        setRevenueByMethod(cached.revenueByMethod ?? [])
+        setTopProducts(cached.topProducts ?? [])
+        setStockValuation(cached.stockValuation ?? { buyingValue: 0, sellingValue: 0, potentialProfit: 0 })
+        setCashierPerf(cached.cashierPerf ?? [])
+        setTotals(cached.totals ?? { revenue: 0, profit: 0, sales: 0 })
+        setOutstandingDebt(cached.outstandingDebt ?? 0)
+        setAllInventory(cached.allInventory ?? [])
+        setExpenses(cached.expenses ?? [])
+        setTotalExpenses(cached.totalExpenses ?? 0)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
 
+  const loadFreshReportData = async (start: string, end: string, cacheKey: string) => {
     // Sales in period
     const { data: salesRaw } = await supabase
       .from('sales')
@@ -264,33 +289,17 @@ export default function ReportsPage() {
       setCashierPerf([])
     }
 
-      setPageCache(cacheKey, {
-        revenueByMethod: Object.entries(byMethod).map(([name, value]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), value })),
-        topProducts: Object.values(prodTotals).sort((a, b) => b.revenue - a.revenue).slice(0, 10),
-        stockValuation: { buyingValue, sellingValue, potentialProfit: sellingValue - buyingValue },
-        totals: { revenue: totalRevenue, profit: totalProfit, sales: sales.length },
-        outstandingDebt: totalOutstandingDebt,
-        allInventory: inventoryList,
-        expenses: expensesList,
-        totalExpenses: expTotal,
-        cashierPerf: _cashierPerf,
-      })
-    } catch {
-      const cached = getPageCache<any>(cacheKey)
-      if (cached) {
-        setRevenueByMethod(cached.revenueByMethod ?? [])
-        setTopProducts(cached.topProducts ?? [])
-        setStockValuation(cached.stockValuation ?? { buyingValue: 0, sellingValue: 0, potentialProfit: 0 })
-        setCashierPerf(cached.cashierPerf ?? [])
-        setTotals(cached.totals ?? { revenue: 0, profit: 0, sales: 0 })
-        setOutstandingDebt(cached.outstandingDebt ?? 0)
-        setAllInventory(cached.allInventory ?? [])
-        setExpenses(cached.expenses ?? [])
-        setTotalExpenses(cached.totalExpenses ?? 0)
-      }
-    } finally {
-      setLoading(false)
-    }
+    setPageCache(cacheKey, {
+      revenueByMethod: Object.entries(byMethod).map(([name, value]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), value })),
+      topProducts: Object.values(prodTotals).sort((a, b) => b.revenue - a.revenue).slice(0, 10),
+      stockValuation: { buyingValue, sellingValue, potentialProfit: sellingValue - buyingValue },
+      totals: { revenue: totalRevenue, profit: totalProfit, sales: sales.length },
+      outstandingDebt: totalOutstandingDebt,
+      allInventory: inventoryList,
+      expenses: expensesList,
+      totalExpenses: expTotal,
+      cashierPerf: _cashierPerf,
+    })
   }
 
   useEffect(() => {

@@ -22,6 +22,7 @@ import type { Customer } from '@/lib/types/database'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
+import { withTimeout } from '@/lib/utils/with-timeout'
 
 function CustomerCard({ customer, profile, formatNaira, setEditingCustomer, form, setShowModal, deleteCustomer, t }: any) {
   return (
@@ -94,8 +95,12 @@ export default function CustomersPage() {
     const cached = getPageCache<Customer[]>(cacheKey)
     if (cached) { setCustomers(cached); setLoading(false) }
     try {
-      const { data } = await supabase
-        .from('customers').select('*').in('shop_id', effectiveShopIds).order('name')
+      // Bounded so a stale connection/session after the app sat backgrounded
+      // a while can never leave `loading` stuck true forever.
+      const { data } = await withTimeout<any>(
+        supabase.from('customers').select('*').in('shop_id', effectiveShopIds).order('name'),
+        20_000, 'Chargement des clients trop lent — réessayez.'
+      )
       setCustomers((data || []) as Customer[])
       setPageCache(cacheKey, data || [])
     } catch {
@@ -122,19 +127,16 @@ export default function CustomersPage() {
     return normalize(c.name).includes(q) || c.phone?.includes(q) || normalize(c.city ?? '').includes(q)
   })
 
-  const withTimeout = (p: Promise<any>, ms = 15_000) =>
-    Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Connexion trop lente — réessayez.')), ms))])
-
   const onSubmit = async (data: CustomerFormData) => {
     setSaving(true)
     supabase.auth.getSession().catch(() => {})
     try {
       if (editingCustomer) {
-        const { error } = await withTimeout(supabase.from('customers').update(data).eq('id', editingCustomer.id))
+        const { error } = await withTimeout<any>(supabase.from('customers').update(data).eq('id', editingCustomer.id))
         if (error) { toast({ title: error.message, variant: 'destructive' }); return }
         toast({ title: t('toast.customer_updated'), variant: 'success' })
       } else {
-        const { error } = await withTimeout(supabase.from('customers').insert({ ...data, shop_id: shop!.id }))
+        const { error } = await withTimeout<any>(supabase.from('customers').insert({ ...data, shop_id: shop!.id }))
         if (error) { toast({ title: error.message, variant: 'destructive' }); return }
         toast({ title: t('toast.customer_added'), variant: 'success' })
       }
