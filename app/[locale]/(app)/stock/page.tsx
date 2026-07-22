@@ -156,7 +156,18 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       setSuppliers(cached.sups as Supplier[])
       setLoading(false)
     }
-    if (!isOnline) return
+    if (!isOnline) {
+      // No cache for this shop and no network to fetch fresh — without this,
+      // loading stayed true forever (stuck skeleton) instead of showing a
+      // genuinely empty state.
+      if (!cached) {
+        setProducts([])
+        setCategories([])
+        setSuppliers([])
+        setLoading(false)
+      }
+      return
+    }
     try {
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave `loading` stuck true forever.

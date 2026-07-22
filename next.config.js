@@ -110,9 +110,14 @@ const withPWA = require('next-pwa')({
       },
     },
   ],
-  fallbacks: {
-    document: '/offline',
-  },
+  // No `fallbacks` config — that mechanism was already superseded by
+  // worker/index.js's own explicit navigate-fetch handling (see its header
+  // comment). Keeping it around still made next-pwa emit a separate
+  // fallback-<hash>.js chunk AND bundle it into the SAME importScripts()
+  // call as our custom worker-<hash>.js — since importScripts() aborts on
+  // the first script that fails to load, a single 404/stale-cache hit on
+  // the now-unused fallback chunk silently prevented our own worker (all
+  // of this session's offline-navigation logic) from loading at all.
 })
 
 /** @type {import('next').NextConfig} */

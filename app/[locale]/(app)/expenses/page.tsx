@@ -151,7 +151,13 @@ export default function ExpensesPage() {
     } else {
       setLoading(true)
     }
-    if (!isReallyOnline) return
+    if (!isReallyOnline) {
+      // No cache for this month and no network to fetch fresh — without this,
+      // loading stayed true forever (stuck skeleton) instead of showing a
+      // genuinely empty state.
+      if (!cached) { setExpenses([]); setLoading(false) }
+      return
+    }
     const start = startOfMonth(new Date(monthFilter + '-01')).toISOString().slice(0, 10)
     const end   = endOfMonth(new Date(monthFilter + '-01')).toISOString().slice(0, 10)
     try {

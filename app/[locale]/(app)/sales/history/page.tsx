@@ -256,21 +256,31 @@ export default function SalesHistoryPage() {
     const isSearchMode = search.trim().length > 0
     const customSuffix = dateFilter === 'custom' ? `_${customStart}_${customEnd}` : ''
     const cacheKey = `sales_history_v2_${effectiveShopIds.join(',')}_${dateFilter}${customSuffix}_${methodFilter}_${statusFilter}_${saleStatusFilter}`
-    if (!isSearchMode) {
-      const cached = getPageCache<Sale[]>(cacheKey)
-      if (cached) {
-        setSales(cached)
-        setHasMoreSales(false)
-        setLoading(false)
-        // Enrich cashier names in background — don't block render
-        enrichCashiers(cached).then(map => setCashierMap(map))
-      } else {
-        setLoading(true)
-      }
+    const cached = !isSearchMode ? getPageCache<Sale[]>(cacheKey) : null
+    if (cached) {
+      setSales(cached)
+      setHasMoreSales(false)
+      setLoading(false)
+      // Enrich cashier names in background — don't block render
+      enrichCashiers(cached).then(map => setCashierMap(map))
     } else {
       setLoading(true)
     }
-    if (!isOnline) return
+    if (!isOnline) {
+      // This exact filter combination (period + method + status + sale
+      // status all together form the cache key) was never cached, and
+      // there's no network to fetch it fresh — without this, loading stayed
+      // true forever (the skeleton spun indefinitely) while count/CA/encaissé
+      // kept showing whatever the LAST successfully fetched filter left
+      // behind, mismatched against the empty table underneath.
+      if (!cached) {
+        setSales([])
+        setHasMoreSales(false)
+        setPeriodStats({ count: 0, ca: 0, collected: 0, balance: 0 })
+        setLoading(false)
+      }
+      return
+    }
     try {
       const { start, end } = getDateBounds()
       // Bounded so a stale connection/session after the app sat backgrounded
@@ -347,7 +357,9 @@ export default function SalesHistoryPage() {
       setRepayments(filtered)
       setPageCache(cacheKey, filtered)
     } catch {
-      // cache already applied if available
+      // No cache for this exact filter combo — clear rather than leave a
+      // stale list from whatever filter was viewed previously on screen.
+      if (!cached) setRepayments([])
     } finally {
       setLoading(false)
     }
