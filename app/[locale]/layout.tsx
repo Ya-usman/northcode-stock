@@ -19,7 +19,12 @@ export function generateStaticParams() {
 // directly under this root layout — the (app) and (admin) route groups provide
 // their own NextIntlClientProvider with the full catalog. Scoping this one down
 // keeps the public/marketing pages from shipping every feature's translations.
-const PUBLIC_NAMESPACES = ['landing', 'auth', 'register'] as const
+// error_page is included even though no page here renders it directly:
+// app/[locale]/error.tsx (this segment's own error boundary) is exactly what
+// catches a failed (app)/layout.tsx chunk load — the one time the full-catalog
+// provider from (app)/layout.tsx is guaranteed NOT to have mounted — so it can
+// only ever render with whatever this outer provider supplies.
+const PUBLIC_NAMESPACES = ['landing', 'auth', 'register', 'error_page'] as const
 
 export default async function LocaleLayout({ children, params: { locale } }: LocaleLayoutProps) {
   if (!locales.includes(locale as Locale)) notFound()
