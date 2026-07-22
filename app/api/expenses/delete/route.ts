@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
+import { hasRolePermission } from '@/lib/api/role-permissions'
+
+// manager/shop_manager keep unconditional access (existing behavior,
+// preserved) — cashier/viewer/stock_manager were never allowed before and
+// stay opt-in only, via the new "Supprimer dépenses" toggle in Accès par
+// rôle (delete_expenses defaults to false for them, like delete_products).
+const DELETE_EXPENSES_ALWAYS_ALLOW = ['manager', 'shop_manager']
 
 export async function POST(request: Request) {
   try {
@@ -24,7 +31,7 @@ export async function POST(request: Request) {
       .single()
 
     const callerRole = callerMember?.role
-    if (!callerRole || !['owner', 'manager', 'shop_manager', 'super_admin'].includes(callerRole)) {
+    if (!callerRole || !(await hasRolePermission(supabase, callerRole, shop_id, 'delete_expenses', { alwaysAllow: DELETE_EXPENSES_ALWAYS_ALLOW }))) {
       return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
     }
 

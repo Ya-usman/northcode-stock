@@ -721,6 +721,7 @@
     "perm_notes": "Notes",
     "perm_revenue_chart": "Revenue vs Expenses & Net Result",
     "perm_delete_products": "Delete products",
+    "perm_delete_expenses": "Delete expenses",
     "perm_caisse": "Cash Audit",
     "perm_general_tab": "General",
     "perm_general_warning": "These settings apply to everyone, including you (owner).",

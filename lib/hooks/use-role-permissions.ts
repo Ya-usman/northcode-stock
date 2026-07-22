@@ -3,8 +3,8 @@ import { useAuthContext } from '@/lib/contexts/auth-context'
 export type PermFeature =
   | 'new_sale' | 'sales_history' | 'payments' | 'customers'
   | 'stock' | 'movements' | 'categories' | 'suppliers' | 'reports'
-  | 'revenue_chart' | 'notes' | 'expenses' | 'delete_products' | 'caisse'
-  | 'inventory_count' | 'purchase_orders'
+  | 'revenue_chart' | 'notes' | 'expenses' | 'delete_products' | 'delete_expenses' | 'caisse'
+  | 'inventory_count'
   // Dashboard widgets — finer-grained than the page-level flags above
   | 'widget_today_revenue' | 'widget_sales_count' | 'widget_stock_alerts_card'
   | 'widget_outstanding_debt' | 'widget_net_result' | 'widget_stock_alerts_list'
@@ -29,12 +29,12 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     movements: true,
     categories: true,
     suppliers: true,
-    purchase_orders: true,
     reports: true,
     revenue_chart: false,
     notes: true,
     expenses: true,
     delete_products: false,
+    delete_expenses: false,
     caisse: true,
     inventory_count: true,
     widget_today_revenue: true,
@@ -65,12 +65,12 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     movements: true,
     categories: true,
     suppliers: true,
-    purchase_orders: true,
     reports: true,
     revenue_chart: false,
     notes: true,
     expenses: true,
     delete_products: false,
+    delete_expenses: false,
     caisse: true,
     inventory_count: true,
     widget_today_revenue: true,
@@ -101,12 +101,12 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     movements: false,
     categories: false,
     suppliers: false,
-    purchase_orders: false,
     reports: false,
     revenue_chart: false,
     notes: false,
     expenses: false,
     delete_products: false,
+    delete_expenses: false,
     caisse: false,
     inventory_count: false,
     widget_today_revenue: true,
@@ -137,12 +137,12 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     movements: true,
     categories: true,
     suppliers: true,
-    purchase_orders: true,
     reports: true,
     revenue_chart: false,
     notes: false,
     expenses: false,
     delete_products: false,
+    delete_expenses: false,
     caisse: false,
     inventory_count: false,
     widget_today_revenue: true,
@@ -173,12 +173,12 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     movements: true,
     categories: true,
     suppliers: true,
-    purchase_orders: true,
     reports: false,
     revenue_chart: false,
     notes: false,
     expenses: false,
     delete_products: false,
+    delete_expenses: false,
     caisse: false,
     inventory_count: true,
     widget_today_revenue: true,

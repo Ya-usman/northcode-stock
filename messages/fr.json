@@ -721,6 +721,7 @@
     "perm_notes": "Notes",
     "perm_revenue_chart": "Revenus vs Dépenses & Résultat net",
     "perm_delete_products": "Supprimer des produits",
+    "perm_delete_expenses": "Supprimer des dépenses",
     "perm_caisse": "Contrôle de caisse",
     "perm_general_tab": "Général",
     "perm_general_warning": "Ces réglages s'appliquent à tout le monde, y compris vous (propriétaire).",

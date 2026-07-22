@@ -10,7 +10,7 @@ export type ConfigurableRole = 'manager' | 'shop_manager' | 'cashier' | 'viewer'
 // routes adopt hasRolePermission() instead of a hardcoded role array.
 export type ServerCheckedFeature =
   | 'stock' | 'movements' | 'categories' | 'suppliers' | 'payments'
-  | 'inventory_count' | 'delete_products'
+  | 'inventory_count' | 'delete_products' | 'delete_expenses'
 
 const FEATURE_DEFAULTS: Record<ServerCheckedFeature, Record<ConfigurableRole, boolean>> = {
   stock:           { manager: true,  shop_manager: true,  cashier: false, viewer: true,  stock_manager: true },
@@ -20,6 +20,7 @@ const FEATURE_DEFAULTS: Record<ServerCheckedFeature, Record<ConfigurableRole, bo
   payments:        { manager: true,  shop_manager: true,  cashier: true,  viewer: true,  stock_manager: false },
   inventory_count: { manager: true,  shop_manager: true,  cashier: false, viewer: false, stock_manager: true },
   delete_products: { manager: false, shop_manager: false, cashier: false, viewer: false, stock_manager: false },
+  delete_expenses: { manager: false, shop_manager: false, cashier: false, viewer: false, stock_manager: false },
 }
 
 function isConfigurableRole(role: string): role is ConfigurableRole {

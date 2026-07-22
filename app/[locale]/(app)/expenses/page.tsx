@@ -22,6 +22,7 @@ import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { savePendingExpense, getPendingExpenses, type PendingExpense } from '@/lib/offline/db'
+import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 
 import { cn } from '@/lib/utils/cn'
 import { withTimeout } from '@/lib/utils/with-timeout'
@@ -67,13 +68,18 @@ function advanceNextDue(dateStr: string, recurrence: 'weekly' | 'monthly', day?:
 }
 
 export default function ExpensesPage() {
-  const { shop, effectiveShopIds, profile } = useAuth()
+  const { shop, effectiveShopIds, profile, roleInActiveShop } = useAuth()
   const [{ monthFilter, categoryFilter }, setFilter] = usePersistedFilters(
     'expenses', shop?.id, { monthFilter: format(new Date(), 'yyyy-MM'), categoryFilter: 'all' }
   )
   const { toast } = useToast()
   const { fmt } = useCurrency()
   const t = useTranslations('expenses')
+  const { canAccess } = useRolePermissions()
+  // manager/shop_manager keep unconditional access, matching the API route —
+  // see DELETE_EXPENSES_ALWAYS_ALLOW in app/api/expenses/delete/route.ts.
+  const effectiveRole = roleInActiveShop ?? profile?.role
+  const canDeleteExpenses = effectiveRole === 'manager' || effectiveRole === 'shop_manager' || canAccess('delete_expenses')
   const tA = useTranslations('actions')
 
   const [expenses, setExpenses]       = useState<Expense[]>(() =>
@@ -997,14 +1003,16 @@ export default function ExpensesPage() {
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(exp)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
-                    <Button
-                      variant="ghost" size="icon"
-                      className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
-                      loading={deleting === exp.id}
-                      onClick={() => handleDelete(exp.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    {canDeleteExpenses && (
+                      <Button
+                        variant="ghost" size="icon"
+                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+                        loading={deleting === exp.id}
+                        onClick={() => handleDelete(exp.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>

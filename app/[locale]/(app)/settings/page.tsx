@@ -90,6 +90,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
     { key: 'notes',          label: t('settings.perm_notes'),          icon: <NotebookPen className="h-4 w-4" /> },
     { key: 'revenue_chart',   label: t('settings.perm_revenue_chart'),   icon: <ShieldCheck className="h-4 w-4" /> },
     { key: 'delete_products', label: t('settings.perm_delete_products'), icon: <Trash2 className="h-4 w-4" /> },
+    { key: 'delete_expenses', label: t('settings.perm_delete_expenses'), icon: <Trash2 className="h-4 w-4" /> },
     { key: 'caisse',          label: t('settings.perm_caisse'),          icon: <ClipboardList className="h-4 w-4" /> },
   ]
 
