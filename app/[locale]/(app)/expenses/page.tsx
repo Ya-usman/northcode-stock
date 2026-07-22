@@ -186,14 +186,17 @@ export default function ExpensesPage() {
           .order('description'),
       ]), 20_000, 'Chargement des dépenses trop lent — réessayez.')
       if (expErr) {
-        toast({ title: expErr.message, variant: 'destructive' })
+        // Only alarm the user when there's nothing already on screen — a
+        // silent background refresh (e.g. after returning from a backgrounded
+        // tab) failing shouldn't show a scary error over data that's still valid.
+        if (!cached) toast({ title: expErr.message, variant: 'destructive' })
         return
       }
       setExpenses((expData || []) as Expense[])
       setTemplates((tplData || []) as Expense[])
       setPageCache(cacheKey, expData || [])
     } catch (err: any) {
-      toast({ title: err.message || 'Erreur chargement', variant: 'destructive' })
+      if (!cached) toast({ title: err.message || 'Erreur chargement', variant: 'destructive' })
     } finally {
       setLoading(false)
     }
@@ -222,13 +225,14 @@ export default function ExpensesPage() {
   const fetchDeleteLogs = useCallback(async () => {
     if (!shop?.id || !isOwnerOrAdmin || !isReallyOnline) return
     try {
-      const { data } = await withTimeout<any>(supabase
+      const { data, error } = await withTimeout<any>(supabase
         .from('audit_logs')
         .select('id, created_at, actor_email, metadata')
         .eq('shop_id', shop.id)
         .eq('action', 'expense.delete')
         .order('created_at', { ascending: false })
         .limit(50), 20_000)
+      if (error) throw error
       setDeleteLogs((data || []) as DeleteLog[])
     } catch {
       // journal just stays empty/stale — non-critical secondary tab

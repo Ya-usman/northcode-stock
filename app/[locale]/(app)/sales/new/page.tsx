@@ -177,7 +177,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       // overselling risk on the checkout screen) — a hang here previously
       // left this function stuck, with nothing retrying until the next
       // visibilitychange/reconnect trigger hit the exact same hang again.
-      const [{ data: prods }, { data: custs }, { data: cats }, { data: batches }] = await withTimeout(Promise.all([
+      const [prodsRes, custsRes, catsRes, batchesRes] = await withTimeout(Promise.all([
         supabase.from('products').select('*, categories(name), suppliers(name)')
           .eq('shop_id', selectedShop.id).eq('is_active', true).gt('quantity', 0).order('name'),
         supabase.from('customers').select('*').eq('shop_id', selectedShop.id).order('name'),
@@ -188,6 +188,15 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           .order('expiry_date', { ascending: true, nullsFirst: false })
           .order('received_at', { ascending: true }),
       ]), 20_000, 'Chargement des produits trop lent — réessayez.')
+      // A transient auth/RLS hiccup (session mid-refresh right after the tab
+      // resumes from background) can resolve with data: null instead of
+      // throwing — silently wiping the cart's product/customer list with an
+      // empty one, a real overselling risk on the checkout screen. Check every
+      // error explicitly so the catch block below preserves the IndexedDB
+      // cache already on screen instead of being silently bypassed.
+      const err = prodsRes.error || custsRes.error || catsRes.error || batchesRes.error
+      if (err) throw err
+      const { data: prods } = prodsRes, { data: custs } = custsRes, { data: cats } = catsRes, { data: batches } = batchesRes
       const safeProds = (prods || []) as unknown as Product[]
       setProducts(safeProds)
       setFilteredProducts(safeProds)

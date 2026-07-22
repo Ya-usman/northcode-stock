@@ -97,10 +97,14 @@ export default function CustomersPage() {
     try {
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave `loading` stuck true forever.
-      const { data } = await withTimeout<any>(
+      const { data, error } = await withTimeout<any>(
         supabase.from('customers').select('*').in('shop_id', effectiveShopIds).order('name'),
         20_000, 'Chargement des clients trop lent — réessayez.'
       )
+      // A transient auth/RLS hiccup can resolve with data: null instead of
+      // throwing — check explicitly so the catch below preserves the cache
+      // already on screen instead of zeroing it out.
+      if (error) throw error
       setCustomers((data || []) as Customer[])
       setPageCache(cacheKey, data || [])
     } catch {

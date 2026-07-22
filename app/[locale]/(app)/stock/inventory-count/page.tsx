@@ -81,10 +81,15 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
     try {
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave `loading` stuck true forever.
-      const [{ data: prods }, { data: cats }] = await withTimeout(Promise.all([
+      const [prodsRes, catsRes] = await withTimeout(Promise.all([
         supabase.from('products').select('*').eq('shop_id', shop.id).eq('is_active', true).order('name'),
         supabase.from('categories').select('*').eq('shop_id', shop.id).order('name'),
       ]), 20_000, 'Chargement des produits trop lent — réessayez.')
+      // A transient auth/RLS hiccup can resolve with data: null instead of
+      // throwing — check explicitly so the catch below preserves the cache
+      // already on screen instead of zeroing it out.
+      if (prodsRes.error || catsRes.error) throw prodsRes.error || catsRes.error
+      const { data: prods } = prodsRes, { data: cats } = catsRes
       const fetchedProducts = (prods || []) as Product[]
       const fetchedCategories = (cats || []) as Category[]
       setProducts(fetchedProducts)

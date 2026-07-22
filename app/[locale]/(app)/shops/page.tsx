@@ -42,7 +42,13 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
       userShops.map(s =>
         supabase.from('shop_members').select('id', { count: 'exact', head: true })
           .eq('shop_id', s.id).eq('is_active', true)
-          .then(({ count }) => [s.id, count ?? 0] as [string, number])
+          .then(({ count, error }) => {
+            // A transient auth/RLS hiccup can resolve with count: null instead
+            // of throwing — throw explicitly so the outer .catch() below
+            // preserves the last known badge values instead of zeroing one out.
+            if (error) throw error
+            return [s.id, count ?? 0] as [string, number]
+          })
       )
     ), 20_000).then(entries => setMemberCounts(Object.fromEntries(entries))).catch(() => {
       // member count badges just keep showing their last known values

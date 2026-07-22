@@ -171,7 +171,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     try {
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave `loading` stuck true forever.
-      const [{ data: prods }, { data: archived }, { data: cats }, { data: sups }] = await withTimeout(Promise.all([
+      const [prodsRes, archivedRes, catsRes, supsRes] = await withTimeout(Promise.all([
         supabase.from('products')
           .select('*, categories(name), suppliers(name)')
           .in('shop_id', effectiveShopIds)
@@ -185,6 +185,15 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         supabase.from('categories').select('*').in('shop_id', effectiveShopIds).order('name'),
         supabase.from('suppliers').select('*').in('shop_id', effectiveShopIds).order('name'),
       ]), 20_000, 'Chargement du stock trop lent — réessayez.')
+      // A transient auth/RLS hiccup right after the tab resumes from background
+      // (session mid-refresh) can make one of these calls resolve successfully
+      // with data: null instead of throwing — silently replacing real counts
+      // with 0 everywhere, with no error to land in the catch block below and
+      // preserve the previous good state. Check every error explicitly instead
+      // of trusting `data ?? []` to mean "genuinely empty".
+      const err = prodsRes.error || archivedRes.error || catsRes.error || supsRes.error
+      if (err) throw err
+      const { data: prods } = prodsRes, { data: archived } = archivedRes, { data: cats } = catsRes, { data: sups } = supsRes
       setProducts((prods || []) as unknown as Product[])
       setArchivedProducts((archived || []) as unknown as Product[])
       setCategories((cats || []) as Category[])

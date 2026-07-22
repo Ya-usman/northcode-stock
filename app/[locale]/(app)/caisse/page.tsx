@@ -102,7 +102,7 @@ export default function CaissePage() {
     const dayEnd   = endOfDay(selectedDate).toISOString()
 
     // Fetch sales + repayments in parallel
-    const [{ data: salesData }, { data: repaymentsRaw }] = await Promise.all([
+    const [salesRes, repaymentsRes] = await Promise.all([
       supabase
         .from('sales')
         .select('id, sale_number, cashier_id, amount_paid, created_at')
@@ -120,6 +120,11 @@ export default function CaissePage() {
         .lte('paid_at', dayEnd)
         .order('paid_at', { ascending: false }),
     ])
+    // A transient auth/RLS hiccup can resolve with data: null instead of
+    // throwing — check explicitly so the caller's catch block preserves the
+    // cached cash totals already on screen instead of zeroing them out.
+    if (salesRes.error || repaymentsRes.error) throw salesRes.error || repaymentsRes.error
+    const { data: salesData } = salesRes, { data: repaymentsRaw } = repaymentsRes
 
     const sales: SaleRow[] = salesData || []
 

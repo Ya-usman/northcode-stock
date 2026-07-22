@@ -290,7 +290,14 @@ export default function SalesHistoryPage() {
         buildStatsQuery(start, end),
         buildCollectedQuery(start, end),
       ]), 20_000, 'Chargement des ventes trop lent — réessayez.')
-      if (listResult.error) throw listResult.error
+      // A transient auth/RLS hiccup can resolve statsResult/collectedResult
+      // with data: null instead of throwing — without this, listResult.error
+      // alone let a failure limited to just these two silently reset the
+      // owner-facing summary bar (count/CA/encaissé/solde) to zero while the
+      // sales table underneath still looked fine.
+      if (listResult.error || statsResult.error || collectedResult.error) {
+        throw listResult.error || statsResult.error || collectedResult.error
+      }
       const salesData = (listResult.data || []) as Sale[]
       const statsRows = (statsResult.data || []) as Array<{ total: number; amount_paid: number; balance: number }>
       const collectedRows = (collectedResult.data || []) as Array<{ amount: number }>
@@ -352,7 +359,12 @@ export default function SalesHistoryPage() {
 
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave `loading` stuck true forever.
-      const { data } = await withTimeout<any>(query, 20_000, 'Chargement des remboursements trop lent — réessayez.')
+      const { data, error } = await withTimeout<any>(query, 20_000, 'Chargement des remboursements trop lent — réessayez.')
+      // A transient auth/RLS hiccup can resolve with data: null instead of
+      // throwing — without this check nothing ever threw, so the catch
+      // block's "preserve on failure" comment below was dead code: this line
+      // always ran and unconditionally overwrote good data with [].
+      if (error) throw error
       const filtered = (data || []).filter((p: any) => effectiveShopIds.includes(p.sales?.shop_id))
       setRepayments(filtered)
       setPageCache(cacheKey, filtered)

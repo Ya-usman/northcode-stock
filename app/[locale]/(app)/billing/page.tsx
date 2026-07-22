@@ -115,8 +115,13 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
       supabase.from('products').select('id', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('is_active', true),
       (supabase as any).from('shop_members').select('id', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('is_active', true).neq('role', 'owner'),
       (supabase as any).from('shop_members').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('role', 'owner').eq('is_active', true),
-    ]), 20_000).then(([{ count: p }, { count: t }, { count: s }]) => {
-      setUsageStats({ products: p ?? 0, team: t ?? 0, shops: s ?? 0 })
+    ]), 20_000).then(([prodRes, teamRes, shopsRes]) => {
+      // A transient auth/RLS hiccup can resolve a count query with count:
+      // null instead of throwing — check explicitly so a per-query failure
+      // falls into the catch below (preserving the last known values) instead
+      // of silently resetting that one usage bar to 0.
+      if (prodRes.error || teamRes.error || shopsRes.error) throw prodRes.error || teamRes.error || shopsRes.error
+      setUsageStats({ products: prodRes.count ?? 0, team: teamRes.count ?? 0, shops: shopsRes.count ?? 0 })
     }).catch(() => {
       // usage bars just keep showing their last known values
     })

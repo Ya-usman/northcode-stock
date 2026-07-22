@@ -199,10 +199,15 @@ export default function SuppliersPage() {
     try {
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave `loading` stuck true forever.
-      const [{ data: supplierData }, { data: productData }] = await withTimeout(Promise.all([
+      const [suppliersRes, productsRes] = await withTimeout(Promise.all([
         supabase.from('suppliers').select('*').in('shop_id', effectiveShopIds).order('name'),
         supabase.from('products').select('id, name, selling_price, buying_price, quantity, unit, supplier_id, shop_id').in('shop_id', effectiveShopIds).eq('is_active', true),
       ]), 20_000, 'Chargement des fournisseurs trop lent — réessayez.')
+      // A transient auth/RLS hiccup can resolve with data: null instead of
+      // throwing — check explicitly so the catch below preserves the cache
+      // already on screen instead of zeroing it out.
+      if (suppliersRes.error || productsRes.error) throw suppliersRes.error || productsRes.error
+      const { data: supplierData } = suppliersRes, { data: productData } = productsRes
       const fetchedSuppliers = (supplierData || []) as Supplier[]
       const fetchedProducts = (productData || []) as unknown as Product[]
       setSuppliers(fetchedSuppliers)

@@ -190,15 +190,15 @@ export default function DashboardPage() {
 
       // ── All parallel queries ────────────────────────────────────
       const [
-        { data: todaySales },
-        { data: debtData },
-        { data: weekSales },
-        { data: stockData },
-        { data: todayPaymentsRaw },
+        todaySalesRes,
+        debtRes,
+        weekSalesRes,
+        stockRes,
+        todayPaymentsRes,
         paymentsRes,
-        { data: expensesRaw },
-        { data: monthSalesRaw },
-        { data: monthGlobalRaw },
+        expensesRes,
+        monthSalesRes,
+        monthGlobalRes,
       ] = await withTimeout(Promise.all([
         // Today's sales — cashier sees only their own; owner/viewer sees all
         (() => {
@@ -291,6 +291,23 @@ export default function DashboardPage() {
           .lte('paid_at', endOfMonth(today).toISOString()),
 
       ]), 20_000, 'Chargement du tableau de bord trop lent — réessayez.')
+
+      // A transient auth/RLS hiccup (session mid-refresh right after the tab
+      // resumes from background) can resolve a query successfully with
+      // data: null instead of throwing — check every error explicitly so the
+      // outer catch preserves whatever's already on screen (and in
+      // dashboard_cache_v1) instead of silently overwriting it with zeros.
+      const supaErr = todaySalesRes.error || debtRes.error || weekSalesRes.error || stockRes.error
+        || todayPaymentsRes.error || expensesRes.error || monthSalesRes.error || monthGlobalRes.error
+      if (supaErr) throw supaErr
+      const { data: todaySales } = todaySalesRes
+      const { data: debtData } = debtRes
+      const { data: weekSales } = weekSalesRes
+      const { data: stockData } = stockRes
+      const { data: todayPaymentsRaw } = todayPaymentsRes
+      const { data: expensesRaw } = expensesRes
+      const { data: monthSalesRaw } = monthSalesRes
+      const { data: monthGlobalRaw } = monthGlobalRes
 
       const paymentsApiOk = paymentsRes.ok
       const paymentsData = paymentsApiOk

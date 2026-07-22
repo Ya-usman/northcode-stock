@@ -87,7 +87,11 @@ export default function NotesPage() {
       if (shopFilter !== 'all') q = q.eq('shop_id', shopFilter)
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave `loading` stuck true forever.
-      const { data } = await withTimeout<any>(q, 20_000, 'Chargement des notes trop lent — réessayez.')
+      const { data, error } = await withTimeout<any>(q, 20_000, 'Chargement des notes trop lent — réessayez.')
+      // A transient auth/RLS hiccup can resolve with data: null instead of
+      // throwing — check explicitly so the catch below preserves the cache
+      // already on screen instead of zeroing it out.
+      if (error) throw error
       setNotes((data || []) as Note[])
       setPageCache(cacheKey, data || [])
     } catch {

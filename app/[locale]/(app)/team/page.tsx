@@ -143,6 +143,12 @@ export default function TeamPage() {
         )
       ), 20_000, 'Chargement de l\'équipe trop lent — réessayez.')
 
+      // A transient auth/RLS hiccup can resolve a per-shop query with
+      // data: null instead of throwing — check explicitly so a single-shop
+      // account doesn't fall into "rows.length === 0" (which bypasses the
+      // catch below and directly zeroes the member list) on a fluke failure.
+      const membersErr = results.find(r => r.error)?.error
+      if (membersErr) throw membersErr
       const rows = results.flatMap(r => (r.data || []) as any[])
       if (rows.length === 0) { setMembers([]); setLoading(false); return }
 

@@ -147,13 +147,20 @@ export default function ReportsPage() {
 
   const loadFreshReportData = async (start: string, end: string, cacheKey: string) => {
     // Sales in period
-    const { data: salesRaw } = await supabase
+    // A transient auth/RLS hiccup (session mid-refresh right after the tab
+    // resumes from background) can resolve a query successfully with
+    // data: null instead of throwing — every `error` below is checked and
+    // thrown explicitly so the caller's catch block preserves whatever
+    // report is already on screen instead of silently overwriting it with
+    // zeros (the same bug just fixed in stock.tsx's fetchProducts).
+    const { data: salesRaw, error: salesErr } = await supabase
       .from('sales')
       .select('id, total, amount_paid, payment_method, created_at, cashier_id, shop_id')
       .in('shop_id', effectiveShopIds)
       .eq('sale_status', 'active')
       .gte('created_at', start)
       .lte('created_at', end)
+    if (salesErr) throw salesErr
     const sales = (salesRaw || []) as Array<{ id: string; total: number; amount_paid: number; payment_method: string; created_at: string; cashier_id: string | null; shop_id: string }>
 
     // Revenue by payment method (from sales in period)
@@ -174,10 +181,11 @@ export default function ReportsPage() {
     let prodTotals: Record<string, { name: string; qty: number; revenue: number }> = {}
 
     if (sales.length > 0) {
-      const { data: items } = await supabase
+      const { data: items, error: itemsErr } = await supabase
         .from('sale_items')
         .select('product_name, quantity, unit_price, subtotal, buying_price, product_id, sale_id')
         .in('sale_id', sales.map(s => s.id))
+      if (itemsErr) throw itemsErr
 
       const safeItems = (items || []) as Array<{ product_name: string; quantity: number; unit_price: number; subtotal: number; buying_price: number; product_id: string | null; sale_id: string }>
 
@@ -210,7 +218,7 @@ export default function ReportsPage() {
     )
 
     // Stock valuation + full inventory
-    const [{ data: allProducts }, { data: debtCustomers }, { data: expensesRaw }] = await Promise.all([
+    const [productsRes, debtRes, expensesRes] = await Promise.all([
       supabase
         .from('products').select('id, name, quantity, buying_price, selling_price')
         .in('shop_id', effectiveShopIds).eq('is_active', true).order('name'),
@@ -224,6 +232,10 @@ export default function ReportsPage() {
         .lte('date', format(new Date(end), 'yyyy-MM-dd'))
         .order('date', { ascending: false }),
     ])
+    if (productsRes.error || debtRes.error || expensesRes.error) {
+      throw productsRes.error || debtRes.error || expensesRes.error
+    }
+    const { data: allProducts } = productsRes, { data: debtCustomers } = debtRes, { data: expensesRaw } = expensesRes
     const expensesList = (expensesRaw || []) as { id: string; amount: number; description: string; date: string }[]
     const expTotal = expensesList.reduce((s, e) => s + Number(e.amount), 0)
     setExpenses(expensesList)
@@ -261,9 +273,10 @@ export default function ReportsPage() {
     })
 
     // Fetch ALL active shop members so we include those with 0 sales in the ranking
-    const { data: membersRaw } = await supabase
+    const { data: membersRaw, error: membersErr } = await supabase
       .from('shop_members').select('user_id, shop_id')
       .in('shop_id', effectiveShopIds).eq('is_active', true)
+    if (membersErr) throw membersErr
     const allMembers = (membersRaw || []) as { user_id: string; shop_id: string }[]
     const memberShopMap: Record<string, string> = {}
     allMembers.forEach(m => { memberShopMap[m.user_id] = m.shop_id })
@@ -273,7 +286,8 @@ export default function ReportsPage() {
 
     let _cashierPerf: any[] = []
     if (allUserIds.length > 0) {
-      const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', allUserIds)
+      const { data: profiles, error: profilesErr } = await supabase.from('profiles').select('id, full_name').in('id', allUserIds)
+      if (profilesErr) throw profilesErr
       const shopNameMap: Record<string, string> = {}
       userShops.forEach((s: any) => { shopNameMap[s.id] = s.name })
       _cashierPerf = allUserIds.map(id => ({
