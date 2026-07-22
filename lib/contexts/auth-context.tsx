@@ -386,6 +386,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setState(prev => ({ ...prev, user: refreshed.user, loading: false }))
           return
         }
+        // Being offline makes BOTH recovery attempts above fail unconditionally
+        // (they need the network), which would otherwise be misread as proof of
+        // a real sign-out. Wiping profile/shops/read-caches here would erase
+        // everything the offline-first UI depends on to keep working while
+        // disconnected — exactly the opposite of the behavior built all across
+        // this app. Leave state and caches untouched; the next SIGNED_OUT check
+        // (or the app's own reconnect handling) re-evaluates once back online.
+        if (!navigator.onLine) return
         clearCache()
         clearReadCaches() // read-only caches only — pending sales/movements are NEVER wiped here
         setState({ user: null, profile: null, userShops: [], activeShop: null, roleInActiveShop: null, loading: false })

@@ -198,15 +198,20 @@ export default function SalesHistoryPage() {
     return query
   }
 
-  // Aggregate query for accurate period totals (not limited by page size)
+  // Aggregate query for accurate period totals (not limited by page size).
+  // sale_status must mirror buildSalesQuery's own filter exactly — the "Vente"
+  // dropdown defaults to "all" (active + cancelled together, like the list
+  // below), so hardcoding 'active' here made the summary count/CA never match
+  // the number of rows actually shown whenever a cancelled sale existed in
+  // the period.
   const buildStatsQuery = (start: Date, end: Date) => {
     let q = supabase
       .from('sales')
       .select('total, amount_paid, balance')
       .in('shop_id', effectiveShopIds)
-      .eq('sale_status', 'active')
       .gte('created_at', start.toISOString())
       .lte('created_at', end.toISOString())
+    if (saleStatusFilter !== 'all') q = q.eq('sale_status', saleStatusFilter)
     if (isCashier) q = q.eq('cashier_id', profile!.id)
     if (methodFilter === 'mobile_money') q = q.in('payment_method', mobileMoneyIds.length ? mobileMoneyIds : ['__none__'])
     else if (methodFilter !== 'all') q = q.eq('payment_method', methodFilter)
@@ -227,9 +232,9 @@ export default function SalesHistoryPage() {
       .from('payments')
       .select('amount, sales!inner(shop_id, sale_status)')
       .in('sales.shop_id', effectiveShopIds)
-      .eq('sales.sale_status', 'active')
       .gte('paid_at', start.toISOString())
       .lte('paid_at', end.toISOString())
+    if (saleStatusFilter !== 'all') q = q.eq('sales.sale_status', saleStatusFilter)
     if (isCashier) q = q.eq('received_by', profile!.id)
     if (methodFilter === 'mobile_money') q = q.in('method', mobileMoneyIds.length ? mobileMoneyIds : ['__none__'])
     else if (methodFilter !== 'all') q = q.eq('method', methodFilter)
