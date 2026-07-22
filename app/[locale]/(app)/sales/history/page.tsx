@@ -571,6 +571,11 @@ export default function SalesHistoryPage() {
       await generateSalesReportPDF({
         shopName: shop.name,
         period: periodLabel,
+        // Same figure already shown on screen as "Encaissé" — sourced from
+        // the payments ledger (paid_at), not sales.amount_paid, so a debt
+        // repayment collected this period isn't misattributed to whatever
+        // month the underlying sale was originally created in.
+        totalCollected: periodStats?.collected,
         sales: filtered.map(s => ({
           date: s.created_at,
           sale_number: s.sale_number,
@@ -1091,8 +1096,13 @@ export default function SalesHistoryPage() {
                     <Store className="h-3.5 w-3.5 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
                     <span className="text-xs font-semibold text-stockshop-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
                     <span className="text-xs text-muted-foreground ml-1">
-                      {shopSales.filter(s => (s.sale_status || 'active') === 'active').length} {t('sales.sales_count_label')} ·{' '}
-                      {formatNaira(shopSales.filter(s => (s.sale_status || 'active') === 'active').reduce((acc, s) => acc + Number(s.total), 0))}
+                      {/* shopSales already reflects the "Vente" filter (saleStatusFilter)
+                          via the server query behind `filtered` — hardcoding "active only"
+                          here made this badge disagree with the rows shown right below it
+                          whenever the filter was set to "all" or "cancelled" (same bug
+                          already fixed for the page-level periodStats summary bar). */}
+                      {shopSales.length} {t('sales.sales_count_label')} ·{' '}
+                      {formatNaira(shopSales.reduce((acc, s) => acc + Number(s.total), 0))}
                     </span>
                     <div className="flex-1 h-px bg-border" />
                   </div>

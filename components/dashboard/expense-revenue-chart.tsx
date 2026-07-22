@@ -49,7 +49,7 @@ export function ExpenseRevenueChart() {
       const startStr = format(sixMonthsAgo, 'yyyy-MM-dd')
       const endStr   = format(endOfMonth(today), 'yyyy-MM-dd')
 
-      const [{ data: expRaw }, { data: salesRaw }] = await Promise.all([
+      const [expRes, paymentsRes] = await Promise.all([
         supabase
           .from('expenses')
           .select('date, amount')
@@ -57,14 +57,26 @@ export function ExpenseRevenueChart() {
           .eq('is_recurring', false)
           .gte('date', startStr)
           .lte('date', endStr),
+        // Sourced from the payments ledger (paid_at), not sales.amount_paid
+        // (created_at) — sales.amount_paid is a running total that a later
+        // debt repayment bumps retroactively while the row stays dated to
+        // when the sale was first created, so summing it by created_at
+        // misattributes cash collected this month to whatever month the
+        // underlying sale happened to be made (same fix already applied to
+        // "Mes encaissements du mois" on this same dashboard).
         supabase
-          .from('sales')
-          .select('created_at, amount_paid')
-          .in('shop_id', effectiveShopIds)
-          .eq('sale_status', 'active')
-          .gte('created_at', sixMonthsAgo.toISOString())
-          .lte('created_at', endOfMonth(today).toISOString()),
+          .from('payments')
+          .select('paid_at, amount, sales!inner(shop_id, sale_status)')
+          .in('sales.shop_id', effectiveShopIds)
+          .eq('sales.sale_status', 'active')
+          .gte('paid_at', sixMonthsAgo.toISOString())
+          .lte('paid_at', endOfMonth(today).toISOString()),
       ])
+      // A transient auth/RLS hiccup can resolve with data: null instead of
+      // throwing — check explicitly so the catch below preserves the cache
+      // already on screen instead of zeroing the chart out.
+      if (expRes.error || paymentsRes.error) throw expRes.error || paymentsRes.error
+      const { data: expRaw } = expRes, { data: paymentsRaw } = paymentsRes
 
       const months = Array.from({ length: 6 }, (_, i) => {
         const d = subMonths(today, 5 - i)
@@ -78,9 +90,9 @@ export function ExpenseRevenueChart() {
       const expByMonth: Record<string, number> = {}
       months.forEach(m => { revByMonth[m.key] = 0; expByMonth[m.key] = 0 })
 
-      ;(salesRaw || []).forEach((s: any) => {
-        const key = (s.created_at as string).slice(0, 7)
-        if (revByMonth[key] !== undefined) revByMonth[key] += Number(s.amount_paid)
+      ;(paymentsRaw || []).forEach((p: any) => {
+        const key = (p.paid_at as string).slice(0, 7)
+        if (revByMonth[key] !== undefined) revByMonth[key] += Number(p.amount)
       })
 
       ;(expRaw || []).forEach((e: any) => {
@@ -99,7 +111,11 @@ export function ExpenseRevenueChart() {
       setLoading(false)
     }
 
-    fetchTrend()
+    fetchTrend().catch(() => {
+      // cache already applied above if available — chart just keeps
+      // showing its last known values on a transient failure.
+      setLoading(false)
+    })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveShopIds.join(','), locale])
 

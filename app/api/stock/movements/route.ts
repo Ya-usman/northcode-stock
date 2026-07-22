@@ -68,6 +68,11 @@ export async function GET(request: Request) {
       reason: r.reason,
       notes: r.notes,
       created_at: r.created_at,
+      // product_id lets the client group by the actual product instead of
+      // by name — two different products can legitimately share a name
+      // (duplicate manual entries, a name reused after a delete/recreate),
+      // which silently merged their restock/adjustment history together.
+      product_id: r.product_id || null,
       product_name: productMap[r.product_id]?.name || null,
       product_unit: productMap[r.product_id]?.unit || null,
       product_current_qty: productMap[r.product_id]?.quantity ?? null,

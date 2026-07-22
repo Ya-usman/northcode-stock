@@ -1186,6 +1186,13 @@ interface SalesReportParams {
   pmLabels: Record<string, string>
   statusLabels: Record<string, string>
   fmtAmt: (n: number) => string
+  // Cash actually collected during the period, sourced from the payments
+  // ledger (paid_at) by the caller — NOT recomputed here from
+  // sales.amount_paid, which is a running total keyed to the sale's
+  // created_at and gets bumped retroactively by later debt repayments (the
+  // same fix already applied to the on-screen "Encaissé" figure). Falls back
+  // to the old (less accurate) sales.amount_paid sum if the caller omits it.
+  totalCollected?: number
   labels?: {
     title?: string
     colDate?: string
@@ -1208,7 +1215,7 @@ async function buildSalesReportDoc(params: SalesReportParams) {
   const { jsPDF } = await import('jspdf')
   const autoTable = (await import('jspdf-autotable')).default
 
-  const { shopName, period, sales, pmLabels, statusLabels, labels } = params
+  const { shopName, period, sales, pmLabels, statusLabels, labels, totalCollected } = params
   const fmt = (n: number) => sanitizePDF(params.fmtAmt(n))
 
   const L = {
@@ -1348,7 +1355,7 @@ async function buildSalesReportDoc(params: SalesReportParams) {
   if (y > 255) { doc.addPage(); y = 15 }
 
   // ── Summary ───────────────────────────────────────────────────────────────
-  const totalRevenue = sales.filter(s => s.sale_status === 'active').reduce((s, v) => s + v.amount_paid, 0)
+  const totalRevenue = totalCollected ?? sales.filter(s => s.sale_status === 'active').reduce((s, v) => s + v.amount_paid, 0)
   const activeSales  = sales.filter(s => s.sale_status === 'active').length
   const cancelled    = sales.length - activeSales
 

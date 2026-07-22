@@ -218,7 +218,7 @@ export default function ReportsPage() {
     )
 
     // Stock valuation + full inventory
-    const [productsRes, debtRes, expensesRes] = await Promise.all([
+    const [productsRes, debtRes, expensesRes, cashierPaymentsRes] = await Promise.all([
       supabase
         .from('products').select('id, name, quantity, buying_price, selling_price')
         .in('shop_id', effectiveShopIds).eq('is_active', true).order('name'),
@@ -231,11 +231,25 @@ export default function ReportsPage() {
         .gte('date', format(new Date(start), 'yyyy-MM-dd'))
         .lte('date', format(new Date(end), 'yyyy-MM-dd'))
         .order('date', { ascending: false }),
+      // Cash actually collected per cashier this period (payments.paid_at +
+      // received_by) — NOT sales.amount_paid grouped by the sale's original
+      // cashier_id, which would credit a debt repayment collected today by
+      // cashier B to whoever made the sale (possibly cashier A, possibly
+      // last month) instead of to B, today.
+      supabase
+        .from('payments')
+        .select('amount, received_by, sales!inner(shop_id, sale_status)')
+        .in('sales.shop_id', effectiveShopIds)
+        .eq('sales.sale_status', 'active')
+        .not('received_by', 'is', null)
+        .gte('paid_at', start)
+        .lte('paid_at', end),
     ])
-    if (productsRes.error || debtRes.error || expensesRes.error) {
-      throw productsRes.error || debtRes.error || expensesRes.error
+    if (productsRes.error || debtRes.error || expensesRes.error || cashierPaymentsRes.error) {
+      throw productsRes.error || debtRes.error || expensesRes.error || cashierPaymentsRes.error
     }
     const { data: allProducts } = productsRes, { data: debtCustomers } = debtRes, { data: expensesRaw } = expensesRes
+    const { data: cashierPaymentsRaw } = cashierPaymentsRes
     const expensesList = (expensesRaw || []) as { id: string; amount: number; description: string; date: string }[]
     const expTotal = expensesList.reduce((s, e) => s + Number(e.amount), 0)
     setExpenses(expensesList)
@@ -263,13 +277,19 @@ export default function ReportsPage() {
     })).sort((a: { soldRevenue: number; name: string }, b: { soldRevenue: number; name: string }) => (b.soldRevenue - a.soldRevenue) || a.name.localeCompare(b.name))
     setAllInventory(inventoryList)
 
-    // Cashier performance — build sales map from actual sales
-    const cashierMap: Record<string, { sales: number; revenue: number; shopId: string }> = {}
+    // Cashier performance — sales count from sales made this period
+    // (created_at); revenue kept separate, from cash actually collected this
+    // period (see cashierPaymentsRes above) so it's credited to whoever
+    // really received it today, not folded into the original sale's cashier.
+    const cashierMap: Record<string, { sales: number; shopId: string }> = {}
     sales.forEach(s => {
       if (!s.cashier_id) return
-      if (!cashierMap[s.cashier_id]) cashierMap[s.cashier_id] = { sales: 0, revenue: 0, shopId: s.shop_id }
+      if (!cashierMap[s.cashier_id]) cashierMap[s.cashier_id] = { sales: 0, shopId: s.shop_id }
       cashierMap[s.cashier_id].sales += 1
-      cashierMap[s.cashier_id].revenue += Number(s.amount_paid)
+    })
+    const revenueByCashier: Record<string, number> = {}
+    ;(cashierPaymentsRaw || []).forEach((p: any) => {
+      revenueByCashier[p.received_by] = (revenueByCashier[p.received_by] || 0) + Number(p.amount)
     })
 
     // Fetch ALL active shop members so we include those with 0 sales in the ranking
@@ -281,8 +301,8 @@ export default function ReportsPage() {
     const memberShopMap: Record<string, string> = {}
     allMembers.forEach(m => { memberShopMap[m.user_id] = m.shop_id })
 
-    // Union: members who sold + all active members
-    const allUserIds = Array.from(new Set([...Object.keys(cashierMap), ...allMembers.map(m => m.user_id)]))
+    // Union: members who sold, members who collected a payment, + all active members
+    const allUserIds = Array.from(new Set([...Object.keys(cashierMap), ...Object.keys(revenueByCashier), ...allMembers.map(m => m.user_id)]))
 
     let _cashierPerf: any[] = []
     if (allUserIds.length > 0) {
@@ -295,7 +315,7 @@ export default function ReportsPage() {
         name: (profiles || []).find((p: any) => p.id === id)?.full_name || 'Unknown',
         shopName: shopNameMap[cashierMap[id]?.shopId || memberShopMap[id] || ''],
         sales: cashierMap[id]?.sales || 0,
-        revenue: cashierMap[id]?.revenue || 0,
+        revenue: revenueByCashier[id] || 0,
         shopId: cashierMap[id]?.shopId || memberShopMap[id] || '',
       })).sort((a, b) => b.revenue - a.revenue)
       setCashierPerf(_cashierPerf)

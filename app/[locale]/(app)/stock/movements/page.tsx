@@ -31,6 +31,7 @@ interface Movement {
   reason: string | null
   notes: string | null
   created_at: string
+  product_id: string | null
   product_name: string | null
   product_unit: string | null
   product_current_qty: number | null
@@ -38,6 +39,7 @@ interface Movement {
 }
 
 interface ProductSummary {
+  groupKey: string
   product_name: string
   product_unit: string | null
   current_qty: number | null
@@ -105,9 +107,16 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
     const map = new Map<string, ProductSummary>()
 
     for (const m of movements) {
+      // Group by product_id — two different products can legitimately share
+      // a name (duplicate manual entries, a name reused after a
+      // delete/recreate), which previously merged their history together.
+      // Falls back to name only for a movement whose product was since
+      // permanently deleted (product_id goes null via ON DELETE SET NULL).
+      const key = m.product_id ?? `name:${m.product_name || '—'}`
       const name = m.product_name || '—'
-      if (!map.has(name)) {
-        map.set(name, {
+      if (!map.has(key)) {
+        map.set(key, {
+          groupKey: key,
           product_name: name,
           product_unit: m.product_unit,
           current_qty: m.product_current_qty,
@@ -117,7 +126,7 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
           latest_at: m.created_at,
         })
       }
-      const p = map.get(name)!
+      const p = map.get(key)!
       if (m.created_at > p.latest_at) p.latest_at = m.created_at
       if (m.product_current_qty != null) p.current_qty = m.product_current_qty
       if (m.type === 'in') {
@@ -241,7 +250,7 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
 
               return (
                 <button
-                  key={p.product_name}
+                  key={p.groupKey}
                   onClick={() => hasHistory && setOpenProduct(p)}
                   className={cn(
                     'w-full transition-colors text-left',
