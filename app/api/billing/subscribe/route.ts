@@ -63,9 +63,13 @@ export async function POST(request: Request) {
     const period = billing_period as BillingPeriod
     const supabase = await createAdminClient()
     const { data: shopData } = await supabase
-      .from('shops').select('country').eq('id', shop_id).single()
+      .from('shops').select('country, billing_country').eq('id', shop_id).single()
 
-    const country = getCountry((shopData as any)?.country)
+    // billing_country (figé à l'inscription) fait foi pour le montant/la devise/la
+    // passerelle — pas `country` (modifiable par l'owner dans Paramètres), sinon le
+    // prix affiché sur la page billing (qui utilise déjà billing_country) diverge
+    // silencieusement du montant réellement facturé ici.
+    const country = getCountry((shopData as any)?.billing_country || (shopData as any)?.country)
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}`
     const monthlyPrice = country.prices[plan_id as keyof typeof country.prices]
     if (!monthlyPrice) {
