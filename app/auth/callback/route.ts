@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 
 // Supabase auth callback — échange le code PKCE contre une session
@@ -20,10 +21,23 @@ export async function GET(request: Request) {
     if (!error) {
       // Pour la confirmation email, on ne définit pas le rôle — l'utilisateur va se déconnecter
       // côté client sur la page login avant de se reconnecter normalement
+      //
+      // IMPORTANT : ce fetch doit être attendu, ET porter le cookie de session
+      // FRAÎCHEMENT écrit par exchangeCodeForSession (pas celui de la requête entrante,
+      // capturé avant l'échange — il ne contient pas encore le nouveau token). Sans ces
+      // deux points, set-role (qui auto-provisionne shop+profil pour les nouveaux comptes
+      // Google/Apple) échoue silencieusement en 401 ou est tué avant de finir sur Vercel
+      // si la réponse est déjà partie — confirmé en base : un utilisateur Google réel sans
+      // aucune ligne profiles/shop_members malgré ce code déjà en place.
       if (!confirmed) {
-        fetch(`${origin}/api/auth/set-role`, {
+        const cookieStore = await cookies()
+        const cookieHeader = cookieStore.getAll().map(c => `${c.name}=${c.value}`).join('; ')
+        await fetch(`${origin}/api/auth/set-role`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            cookie: cookieHeader,
+          },
           body: '{}',
         }).catch(() => {})
       }
