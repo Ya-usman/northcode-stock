@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
 import { useTheme } from '@/lib/hooks/use-theme'
+import { withTimeout } from '@/lib/utils/with-timeout'
 
 type FormData = {
   full_name: string
@@ -172,7 +173,11 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
       // Account + shop are created atomically on the backend.
       // The confirmation email is only sent after everything succeeds,
       // so a failed shop creation never leaves the user with a phantom email.
-      const res = await fetch('/api/register', {
+      // Bounded so a stale/slow connection can never leave the submit button
+      // spinning forever with no feedback — the single most damaging place
+      // for that failure mode to go unnoticed, since it's a brand new
+      // visitor's very first interaction with the app.
+      const res = await withTimeout(fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -185,19 +190,24 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
           country,
           referral_code: referralCode.trim() || null,
         }),
-      })
+      }), 20_000, t('account_error_timeout'))
       if (!res.ok) {
         const err = await res.json()
         throw new Error(err.error || t('account_error'))
       }
 
       // Everything succeeded — now trigger the confirmation email.
-      await supabase.auth.resend({
+      await withTimeout(supabase.auth.resend({
         type: 'signup',
         email: data.email,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/callback?next=/${locale}/login&confirmed=1`,
         },
+      }), 15_000).catch(() => {
+        // The account was already created successfully above — a slow/failed
+        // resend just means the confirmation email might be delayed; the user
+        // can request a new one from the login page rather than being stuck
+        // on this form for an email that's cosmetic at this point.
       })
 
       setSentToEmail(data.email)

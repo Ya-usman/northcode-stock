@@ -949,6 +949,7 @@
     "shop_name_required": "Nom de boutique requis",
     "city_required": "Ville requise",
     "account_error": "Erreur de création de compte",
+    "account_error_timeout": "Connexion trop lente — réessayez.",
     "rate_limit": "Trop de tentatives. Réessayez dans {seconds}s",
     "confirm_password": "Confirmer le mot de passe",
     "confirm_password_placeholder": "Répétez votre mot de passe",

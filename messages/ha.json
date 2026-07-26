@@ -983,6 +983,7 @@
     "shop_name_required": "Ana buƙatar sunan kantin",
     "city_required": "Ana buƙatar gari",
     "account_error": "Kuskuren ƙirƙira asusu",
+    "account_error_timeout": "Haɗin intanet a hankali — sake gwadawa.",
     "rate_limit": "Yawan yunƙuri. Sake gwadawa bayan daƙiƙa {seconds}",
     "confirm_password": "Tabbatar Kalmar Sirri",
     "confirm_password_placeholder": "Maimaita kalmar sirrinka",
