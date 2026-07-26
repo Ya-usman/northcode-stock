@@ -32,11 +32,19 @@ export async function GET(request: Request) {
       if (!confirmed) {
         const cookieStore = await cookies()
         const cookieHeader = cookieStore.getAll().map(c => `${c.name}=${c.value}`).join('; ')
+        // Géolocalisation IP de la requête OAuth d'origine (celle du navigateur) —
+        // le fetch interne ci-dessous part du serveur lui-même, donc son propre
+        // x-vercel-ip-country ne reflète plus l'utilisateur réel. On la transmet
+        // sous un nom distinct pour que set-role l'utilise pour l'auto-provisioning
+        // des nouveaux comptes Google/Apple (devise/passerelle adaptées au pays réel
+        // au lieu d'être toujours codées en dur sur le Nigeria).
+        const geoCountry = request.headers.get('x-vercel-ip-country')
         await fetch(`${origin}/api/auth/set-role`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             cookie: cookieHeader,
+            ...(geoCountry ? { 'x-user-country': geoCountry } : {}),
           },
           body: '{}',
         }).catch(() => {})

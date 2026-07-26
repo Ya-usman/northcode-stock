@@ -550,6 +550,26 @@ export function getCountry(code: string | null | undefined): CountryConfig {
   return COUNTRIES[(code as CountryCode) ?? 'NG'] ?? COUNTRIES.NG
 }
 
+// États membres de l'UE (zone EUR) — pour mapper un code ISO fourni par la
+// géolocalisation IP (ex: header x-vercel-ip-country) vers notre code 'EU' unique.
+const EU_ISO_CODES = new Set([
+  'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR',
+  'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK',
+  'SI', 'ES', 'SE',
+])
+
+// Convertit un code pays ISO 3166-1 alpha-2 (ex: header x-vercel-ip-country)
+// en code interne CountryCode. Nos codes africains correspondent déjà à
+// l'ISO ; l'UE est regroupée sous 'EU'. Pays inconnu → 'NG' (marché
+// principal du produit), pour ne jamais laisser un utilisateur sans devise.
+export function detectCountryFromIso(iso: string | null | undefined): CountryCode {
+  if (!iso) return 'NG'
+  const code = iso.toUpperCase()
+  if (code in COUNTRIES) return code as CountryCode
+  if (EU_ISO_CODES.has(code)) return 'EU'
+  return 'NG'
+}
+
 export function formatPrice(amount: number, country: CountryConfig): string {
   const { currency, currencySymbol } = country
   if (currency === 'XAF' || currency === 'XOF')

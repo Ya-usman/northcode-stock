@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { getCountry } from '@/lib/saas/countries'
+import { getCountry, detectCountryFromIso } from '@/lib/saas/countries'
 
 const COOKIE_OPTS = {
   httpOnly: true,
@@ -92,7 +92,11 @@ export async function POST(request: Request) {
       const admin = await createAdminClient() as any
       const meta = user.user_metadata as any
       const fullName: string = meta?.full_name || meta?.name || user.email?.split('@')[0] || 'Utilisateur'
-      const countryConfig = getCountry('NG')
+      // x-user-country : transmis par /auth/callback depuis la géoloc IP de la requête
+      // OAuth d'origine. x-vercel-ip-country : présent directement quand cette route est
+      // appelée depuis le navigateur (login page, app-layout) plutôt qu'en interne.
+      const isoCountry = request.headers.get('x-user-country') || request.headers.get('x-vercel-ip-country')
+      const countryConfig = getCountry(detectCountryFromIso(isoCountry))
       const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
 
       const { data: newShop, error: shopError } = await admin
