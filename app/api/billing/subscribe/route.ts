@@ -16,17 +16,22 @@ const subscribeSchema = z.object({
   auto_renew: z.boolean().default(false),
 })
 
-// Map our internal payment method IDs to Paystack channels
+// Map our internal payment method IDs to Paystack channels.
+// 'mobile_money' n'est PAS un canal Paystack valide pour le Nigeria (NGN) — ce
+// canal n'existe que pour le Ghana/Kenya/Afrique du Sud sur Paystack. OPay et
+// PalmPay sont des néobanques nigérianes qui reçoivent par virement vers un
+// compte virtuel dédié, exactement comme Moniepoint — donc bank_transfer ici,
+// pas mobile_money (qui faisait échouer tout l'appel transaction/initialize).
 function toPaystackChannels(methodId: string): string[] {
   const map: Record<string, string[]> = {
     transfer:   ['bank_transfer'],
     pos:        ['card'],
-    opay:       ['mobile_money'],
-    palmpay:    ['mobile_money'],
+    opay:       ['bank_transfer'],
+    palmpay:    ['bank_transfer'],
     moniepoint: ['bank_transfer'],
     ussd:       ['ussd'],
   }
-  return map[methodId] ?? ['card', 'bank_transfer', 'ussd', 'mobile_money']
+  return map[methodId] ?? ['card', 'bank_transfer', 'ussd']
 }
 
 // Map our internal method IDs to Flutterwave payment_options per country
