@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { getCountry } from '@/lib/saas/countries'
 
 const COOKIE_OPTS = {
   httpOnly: true,
@@ -71,6 +72,69 @@ export async function POST(request: Request) {
         planOkUntil = new Date(shopExpiry) > new Date(profileExpiry) ? shopExpiry : profileExpiry
       } else {
         planOkUntil = profileExpiry ?? shopExpiry ?? null
+      }
+    }
+
+    if (!role) {
+      // No shop_members row AND no profile — this account was created by
+      // Supabase Auth directly (Google/Apple sign-in on the login page acts
+      // as an implicit sign-up for a never-before-seen account) without ever
+      // going through /api/register's shop+profile+membership provisioning,
+      // which only runs for the manual email/password form. Left alone, this
+      // user is permanently stuck: GET /profiles 406s forever (0 rows, not a
+      // timing issue) and the client's profile-fetch retry loop can never
+      // succeed since nothing was ever going to create the row — confirmed
+      // live via a real user's Supabase logs, then verified directly against
+      // the DB (no profiles/shop_members row for their auth id at all).
+      // Auto-provision a starter shop here, mirroring /api/register, so a
+      // first-time OAuth sign-in ends up in a working trial account instead
+      // of an orphaned auth user.
+      const admin = await createAdminClient() as any
+      const meta = user.user_metadata as any
+      const fullName: string = meta?.full_name || meta?.name || user.email?.split('@')[0] || 'Utilisateur'
+      const countryConfig = getCountry('NG')
+      const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+
+      const { data: newShop, error: shopError } = await admin
+        .from('shops')
+        .insert({
+          name: `Boutique de ${fullName}`,
+          owner_id: user.id,
+          city: '',
+          state: '',
+          currency: countryConfig.currencySymbol,
+          country: countryConfig.code,
+          billing_country: countryConfig.code,
+          plan: 'trial',
+          trial_ends_at: trialEndsAt,
+        })
+        .select('id')
+        .single()
+
+      if (!shopError && newShop) {
+        const { error: profileError } = await admin.from('profiles').upsert({
+          id: user.id,
+          shop_id: newShop.id,
+          full_name: fullName,
+          role: 'owner',
+          is_active: true,
+          country: countryConfig.code,
+          plan: 'trial',
+          trial_ends_at: trialEndsAt,
+          plan_expires_at: null,
+        })
+        if (!profileError) {
+          const { error: memberError } = await admin.from('shop_members').insert({
+            shop_id: newShop.id,
+            user_id: user.id,
+            role: 'owner',
+            is_active: true,
+          })
+          if (!memberError) role = 'owner'
+          else await admin.from('shops').delete().eq('id', newShop.id)
+        } else {
+          await admin.from('shops').delete().eq('id', newShop.id)
+        }
       }
     }
 
