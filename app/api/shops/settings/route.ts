@@ -8,9 +8,25 @@ export async function PATCH(request: Request) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
-    const { shop_id, ...updates } = await request.json()
+    const { shop_id, ...rawUpdates } = await request.json()
     if (!shop_id) return NextResponse.json({ error: 'shop_id requis' }, { status: 400 })
-    if (!updates.name?.trim()) return NextResponse.json({ error: 'Le nom de la boutique est requis' }, { status: 400 })
+    if (!rawUpdates.name?.trim()) return NextResponse.json({ error: 'Le nom de la boutique est requis' }, { status: 400 })
+
+    // Liste blanche stricte : sans elle, un propriétaire authentifié pourrait glisser
+    // n'importe quelle colonne (billing_country, plan, plan_expires_at, trial_ends_at,
+    // owner_id...) dans le corps de la requête et se l'écrire directement en base via
+    // le client admin ci-dessous, qui contourne RLS. billing_country reste volontairement
+    // exclu — figé à l'inscription, seul le super_admin le modifie (cf. migration 064).
+    const ALLOWED_FIELDS = [
+      'name', 'city', 'state', 'country', 'currency', 'whatsapp',
+      'low_stock_threshold', 'tax_rate', 'expiry_alert_days',
+      'notify_email_low_stock', 'notify_email_daily', 'notify_email_expiry',
+      'notify_push_new_sale', 'notify_push_new_expense', 'notify_push_expiry',
+    ] as const
+    const updates: Record<string, unknown> = {}
+    for (const field of ALLOWED_FIELDS) {
+      if (field in rawUpdates) updates[field] = rawUpdates[field]
+    }
 
     // Only the owner can update shop settings
     const { data: member } = await supabase
