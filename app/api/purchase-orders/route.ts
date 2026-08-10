@@ -70,13 +70,13 @@ export async function GET(request: Request) {
 }
 
 // POST /api/purchase-orders — create a draft purchase order
-// body: { shop_id, supplier_id, items: [{product_id, product_name, unit, quantity_ordered, unit_price}], notes }
+// body: { shop_id, supplier_id, items: [{product_id, product_name, unit, quantity_ordered, unit_price}], notes, expected_delivery_date }
 export async function POST(request: Request) {
   try {
     const { user, supabase } = await getAuthedUser()
     if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
-    const { shop_id, supplier_id, items, notes } = await request.json()
+    const { shop_id, supplier_id, items, notes, expected_delivery_date } = await request.json()
     if (!shop_id || !supplier_id) return NextResponse.json({ error: 'shop_id et supplier_id requis' }, { status: 400 })
     if (!Array.isArray(items) || items.length === 0)
       return NextResponse.json({ error: 'Au moins un produit est requis' }, { status: 400 })
@@ -90,7 +90,12 @@ export async function POST(request: Request) {
 
     const { data: po, error: poError } = await (admin as any)
       .from('purchase_orders')
-      .insert({ shop_id, supplier_id, reference, status: 'draft', notes: notes || null, created_by: user.id })
+      .insert({
+        shop_id, supplier_id, reference, status: 'draft',
+        notes: notes || null,
+        expected_delivery_date: expected_delivery_date || null,
+        created_by: user.id,
+      })
       .select().single()
     if (poError) return NextResponse.json({ error: poError.message }, { status: 400 })
 

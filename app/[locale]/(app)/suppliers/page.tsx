@@ -174,6 +174,7 @@ export default function SuppliersPage() {
   // négocié ponctuellement) — vide = on garde priceFor(p, poSupplierId).
   const [poPriceOverrides, setPoPriceOverrides] = useState<Record<string, string>>({})
   const [poNotes, setPoNotes] = useState('')
+  const [poDeliveryDate, setPoDeliveryDate] = useState('')
   const [creatingPo, setCreatingPo] = useState(false)
   const [poActionLoading, setPoActionLoading] = useState<string | null>(null)
   const [emailPo, setEmailPo] = useState<any | null>(null)
@@ -446,6 +447,7 @@ export default function SuppliersPage() {
     setPoExtraProductIds(new Set())
     setPoPriceOverrides({})
     setPoNotes('')
+    setPoDeliveryDate('')
     setShowPoDialog(true)
   }
 
@@ -473,6 +475,7 @@ export default function SuppliersPage() {
     setPoExtraProductIds(new Set([product.id]))
     setPoPriceOverrides({})
     setPoNotes('')
+    setPoDeliveryDate('')
     const supplierProducts = products.filter((p: any) => p.supplier_id === supplierId)
     const checked: Record<string, boolean> = {}
     const quantities: Record<string, string> = {}
@@ -512,7 +515,11 @@ export default function SuppliersPage() {
       const res = await fetch('/api/purchase-orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shop_id: shop.id, supplier_id: poSupplierId, items, notes: poNotes.trim() || null }),
+        body: JSON.stringify({
+          shop_id: shop.id, supplier_id: poSupplierId, items,
+          notes: poNotes.trim() || null,
+          expected_delivery_date: poDeliveryDate || null,
+        }),
       })
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
@@ -1026,6 +1033,7 @@ export default function SuppliersPage() {
                 const itemCount = (po.purchase_order_items || []).length
                 const total = (po.purchase_order_items || []).reduce((s: number, it: any) => s + (it.unit_price || 0) * it.quantity_ordered, 0)
                 const isExpanded = poExpandedId === po.id
+                const isOverdue = po.status === 'sent' && po.expected_delivery_date && new Date(po.expected_delivery_date) < new Date(new Date().toDateString())
                 return (
                   <div key={po.id} className="rounded-lg border bg-card shadow-sm overflow-hidden">
                     <div
@@ -1041,12 +1049,25 @@ export default function SuppliersPage() {
                           <span className={`text-[10px] font-medium rounded-full px-2 py-0.5 ${PO_STATUS_STYLES[po.status] || PO_STATUS_STYLES.draft}`}>
                             {t(`suppliers.po_status_${po.status}`)}
                           </span>
+                          {isOverdue && (
+                            <span className="text-[10px] font-medium rounded-full px-2 py-0.5 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400">
+                              {t('suppliers.po_overdue_badge')}
+                            </span>
+                          )}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
                           {po.suppliers?.name || supplierName(po.supplier_id)} · {t('suppliers.po_items_count', { count: itemCount })} · {fmt(total)}
                         </p>
                         <p className="text-[11px] text-muted-foreground/70 mt-0.5">
                           {new Date(po.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          {po.expected_delivery_date && (
+                            <span className={isOverdue ? 'text-red-600 dark:text-red-400 font-medium' : ''}>
+                              {' · '}
+                              {t('suppliers.po_expected_delivery', {
+                                date: new Date(po.expected_delivery_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+                              })}
+                            </span>
+                          )}
                         </p>
                       </div>
                       <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
@@ -1292,6 +1313,17 @@ export default function SuppliersPage() {
                   ))}
                 </div>
               )}
+
+              <div className="space-y-1.5 mt-3">
+                <Label>{t('suppliers.po_delivery_date_label')}</Label>
+                <Input
+                  type="date"
+                  value={poDeliveryDate}
+                  onChange={e => setPoDeliveryDate(e.target.value)}
+                  min={new Date().toISOString().slice(0, 10)}
+                  className="h-9"
+                />
+              </div>
 
               <div className="space-y-1.5 mt-3">
                 <Label>{t('suppliers.po_notes_label')}</Label>

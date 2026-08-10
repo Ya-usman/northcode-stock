@@ -125,6 +125,7 @@ export interface PurchaseOrder {
   reference: string
   status: PurchaseOrderStatus
   notes: string | null
+  expected_delivery_date: string | null
   created_by: string | null
   sent_by: string | null
   cancelled_by: string | null
