@@ -26,7 +26,8 @@ import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { getPendingSales, type PendingSale } from '@/lib/offline/db'
 import { withTimeout } from '@/lib/utils/with-timeout'
-import { getPageCache, setPageCache } from '@/lib/offline/page-cache'
+import { setPageCache } from '@/lib/offline/page-cache'
+import { runIdlePrefetch, type PrefetchTask } from '@/lib/utils/idle-prefetch'
 
 const supabase = createClient() as any
 
@@ -492,33 +493,72 @@ export default function DashboardPage() {
   const canSeeRevenueChart = canAccess('revenue_chart')
   const canSeeExpenses = canAccess('expenses')
 
-  // Réchauffe le cache de /suppliers en arrière-plan pendant que l'utilisateur
-  // est sur le dashboard, avec la même clé de cache que suppliers/page.tsx —
-  // le temps qu'il y navigue, la donnée est déjà là et le squelette de
-  // chargement ne s'affiche quasiment jamais. Best-effort : si ça échoue,
-  // /suppliers charge normalement comme avant.
-  //
-  // Sauté hors-ligne : la requête échouerait de toute façon (silencieusement,
-  // via le catch plus bas), mais autant ne pas la tenter — ça évite de faire
-  // concurrence à la synchro des ventes/mouvements en attente (IndexedDB, un
-  // espace de stockage séparé mais qui partage la même bande passante) au
-  // moment où la connexion revient.
+  // Réchauffe en arrière-plan le cache des quelques pages les plus visitées
+  // après le dashboard (Fournisseurs, Stock, Clients, Crédits) — mêmes clés de
+  // cache que leurs pages respectives, remplies une par une pendant les temps
+  // d'inactivité du navigateur (voir runIdlePrefetch) plutôt que toutes en
+  // même temps, et jamais hors-ligne ou en mode économie de données. Le temps
+  // que l'utilisateur y navigue, les données sont déjà là et le squelette de
+  // chargement ne s'affiche quasiment jamais. Best-effort partout : en cas
+  // d'échec d'une tâche, la page concernée charge normalement comme avant.
   useEffect(() => {
-    if (!isOnline || !canAccess('suppliers') || !effectiveShopIds.length) return
-    const cacheKey = `suppliers_${effectiveShopIds.join(',')}`
-    if (getPageCache(cacheKey)) return
-    ;(async () => {
-      try {
-        const [suppliersRes, productsRes] = await Promise.all([
-          supabase.from('suppliers').select('*').in('shop_id', effectiveShopIds).order('name'),
-          supabase.from('products').select('id, name, selling_price, buying_price, quantity, unit, supplier_id, shop_id').in('shop_id', effectiveShopIds).eq('is_active', true),
-        ])
-        if (suppliersRes.error || productsRes.error) return
-        setPageCache(cacheKey, { suppliers: suppliersRes.data || [], products: productsRes.data || [] })
-      } catch {
-        // best-effort — /suppliers falls back to its own fetch
-      }
-    })()
+    if (!effectiveShopIds.length) return
+    const ids = effectiveShopIds
+    const tasks: PrefetchTask[] = []
+
+    if (canAccess('suppliers')) {
+      tasks.push({
+        cacheKey: `suppliers_${ids.join(',')}`,
+        run: async () => {
+          const [suppliersRes, productsRes] = await Promise.all([
+            supabase.from('suppliers').select('*').in('shop_id', ids).order('name'),
+            supabase.from('products').select('id, name, selling_price, buying_price, quantity, unit, supplier_id, shop_id').in('shop_id', ids).eq('is_active', true),
+          ])
+          if (suppliersRes.error || productsRes.error) return
+          setPageCache(`suppliers_${ids.join(',')}`, { suppliers: suppliersRes.data || [], products: productsRes.data || [] })
+        },
+      })
+    }
+
+    if (canAccess('stock')) {
+      tasks.push({
+        cacheKey: `stock_${ids.join(',')}`,
+        run: async () => {
+          const [prodsRes, catsRes, supsRes] = await Promise.all([
+            supabase.from('products').select('*, categories(name), suppliers(name)').in('shop_id', ids).eq('is_active', true).order('name'),
+            supabase.from('categories').select('*').in('shop_id', ids).order('name'),
+            supabase.from('suppliers').select('*').in('shop_id', ids).order('name'),
+          ])
+          if (prodsRes.error || catsRes.error || supsRes.error) return
+          setPageCache(`stock_${ids.join(',')}`, { prods: prodsRes.data || [], cats: catsRes.data || [], sups: supsRes.data || [] })
+        },
+      })
+    }
+
+    if (canAccess('customers')) {
+      tasks.push({
+        cacheKey: `customers_${ids.join(',')}`,
+        run: async () => {
+          const res = await supabase.from('customers').select('*').in('shop_id', ids).order('name')
+          if (res.error) return
+          setPageCache(`customers_${ids.join(',')}`, res.data || [])
+        },
+      })
+    }
+
+    if (canAccess('payments')) {
+      tasks.push({
+        cacheKey: `debtors_${ids.join(',')}`,
+        run: async () => {
+          const res = await fetch(`/api/payments/debts?shop_ids=${ids.join(',')}`)
+          if (!res.ok) return
+          const data = await res.json()
+          setPageCache(`debtors_${ids.join(',')}`, data.debtors || [])
+        },
+      })
+    }
+
+    runIdlePrefetch(tasks, isOnline)
   }, [effectiveShopIds.join(','), isOnline])
   useDashboardRealtime(shop?.id || null, {
     onNewSale: (sale) => {
