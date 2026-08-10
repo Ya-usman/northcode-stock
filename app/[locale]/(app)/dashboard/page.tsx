@@ -26,6 +26,7 @@ import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { getPendingSales, type PendingSale } from '@/lib/offline/db'
 import { withTimeout } from '@/lib/utils/with-timeout'
+import { getPageCache, setPageCache } from '@/lib/offline/page-cache'
 
 const supabase = createClient() as any
 
@@ -71,7 +72,7 @@ function writeDashCache(data: Omit<DashCache, 'savedAt'>) {
 export default function DashboardPage() {
   const t = useTranslations()
   const locale = useLocale()
-  const { profile, shop, userShops, dashboardShopFilter, roleInActiveShop, loading: authLoading } = useAuth()
+  const { profile, shop, userShops, dashboardShopFilter, roleInActiveShop, loading: authLoading, effectiveShopIds } = useAuth()
   const { fmt: formatNaira } = useCurrency()
   const { toast } = useToast()
 
@@ -490,6 +491,29 @@ export default function DashboardPage() {
   const { canAccess } = useRolePermissions()
   const canSeeRevenueChart = canAccess('revenue_chart')
   const canSeeExpenses = canAccess('expenses')
+
+  // Réchauffe le cache de /suppliers en arrière-plan pendant que l'utilisateur
+  // est sur le dashboard, avec la même clé de cache que suppliers/page.tsx —
+  // le temps qu'il y navigue, la donnée est déjà là et le squelette de
+  // chargement ne s'affiche quasiment jamais. Best-effort : si ça échoue,
+  // /suppliers charge normalement comme avant.
+  useEffect(() => {
+    if (!canAccess('suppliers') || !effectiveShopIds.length) return
+    const cacheKey = `suppliers_${effectiveShopIds.join(',')}`
+    if (getPageCache(cacheKey)) return
+    ;(async () => {
+      try {
+        const [suppliersRes, productsRes] = await Promise.all([
+          supabase.from('suppliers').select('*').in('shop_id', effectiveShopIds).order('name'),
+          supabase.from('products').select('id, name, selling_price, buying_price, quantity, unit, supplier_id, shop_id').in('shop_id', effectiveShopIds).eq('is_active', true),
+        ])
+        if (suppliersRes.error || productsRes.error) return
+        setPageCache(cacheKey, { suppliers: suppliersRes.data || [], products: productsRes.data || [] })
+      } catch {
+        // best-effort — /suppliers falls back to its own fetch
+      }
+    })()
+  }, [effectiveShopIds.join(',')])
   useDashboardRealtime(shop?.id || null, {
     onNewSale: (sale) => {
       if (shopIds.includes(sale.shop_id || '')) {
