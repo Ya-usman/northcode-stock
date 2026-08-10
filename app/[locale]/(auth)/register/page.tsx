@@ -161,13 +161,22 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
     setError('')
     setCountdown(0)
     try {
-      await supabase.auth.signOut()
+      // Best-effort cleanup — bounded and non-blocking. On some devices (low-end
+      // Android, heavy service-worker cache from the offline-first PWA) the Cache
+      // Storage API or signOut's network round-trip can hang indefinitely; left
+      // unguarded, that stalls onSubmit before it ever reaches the actual account
+      // creation below, leaving the button spinning forever with zero network call
+      // ever made — so no trace in the DB, and no error message either. None of
+      // this is required for registration to succeed, so failures are swallowed.
+      await withTimeout(supabase.auth.signOut(), 5_000).catch(() => {})
       const drafts = localStorage.getItem('nc_sale_drafts')
       localStorage.clear()
       if (drafts) localStorage.setItem('nc_sale_drafts', drafts)
       if ('caches' in window) {
-        const keys = await caches.keys()
-        await Promise.all(keys.map(k => caches.delete(k)))
+        await withTimeout(
+          caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))),
+          5_000
+        ).catch(() => {})
       }
 
       // Account + shop are created atomically on the backend.
