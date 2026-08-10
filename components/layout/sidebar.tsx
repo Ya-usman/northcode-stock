@@ -7,6 +7,7 @@ import {
   LayoutDashboard, ShoppingCart, Package, BarChart2, Settings,
   Users, Truck, CreditCard, History, LogOut, ChevronRight, Zap,
   Store, ChevronDown, Tag, Check, Layers, Receipt, ShieldCheck, NotebookPen, BookOpen, Loader2, ClipboardList,
+  ArrowLeftRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -64,6 +65,8 @@ export function Sidebar({ locale, role, profile, shop, onSignOut, signingOut = f
         { href: `/${locale}/stock`, icon: Package, label: t('stock'), roles: ALL_NON_OWNER, feature: 'stock' as PermFeature },
         { href: `/${locale}/categories`, icon: Tag, label: t('categories'), roles: ALL_NON_OWNER, feature: 'categories' as PermFeature },
         { href: `/${locale}/suppliers`, icon: Truck, label: t('suppliers'), roles: ALL_NON_OWNER, feature: 'suppliers' as PermFeature },
+        // Sans intérêt pour un compte à une seule boutique — rien à transférer.
+        { href: `/${locale}/transfers`, icon: ArrowLeftRight, label: t('transfers'), roles: ALL_NON_OWNER, feature: 'transfers' as PermFeature, hidden: userShops.length <= 1 },
       ],
     },
     {
@@ -178,7 +181,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut, signingOut = f
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
         {navItems.map((section) => {
           const visibleItems = section.items.filter(item =>
-            item.roles.includes(role) && (!(item as any).feature || canAccess((item as any).feature))
+            item.roles.includes(role) && (!(item as any).feature || canAccess((item as any).feature)) && !(item as any).hidden
           )
           if (visibleItems.length === 0) return null
 

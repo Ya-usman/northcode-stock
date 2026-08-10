@@ -8,11 +8,13 @@ import {
   LayoutDashboard, ShoppingCart, Package, BarChart2, Settings,
   MoreHorizontal, History, CreditCard, Users, Truck, Zap,
   X, LogOut, Store, Tag, Receipt, ShieldCheck, NotebookPen, BookOpen, MessageCircle, Loader2, ClipboardList,
+  ArrowLeftRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import type { UserRole } from '@/lib/types/database'
 import { isBetaPeriod } from '@/lib/saas/plans'
 import { useRolePermissions, type PermFeature } from '@/lib/hooks/use-role-permissions'
+import { useAuthContext } from '@/lib/contexts/auth-context'
 import { useOfflineRoutes } from '@/lib/offline/use-offline-routes'
 import { useOffline } from '@/lib/offline/use-offline'
 
@@ -36,6 +38,7 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
   const pathname = usePathname()
   const [moreOpen, setMoreOpen] = useState(false)
   const { canAccess } = useRolePermissions()
+  const { userShops } = useAuthContext()
   const { isOnline } = useOffline()
   const { isOffline, isAvailable } = useOfflineRoutes(isOnline)
 
@@ -49,6 +52,8 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
     { href: `/${locale}/customers`,       icon: Users,           label: t('customers'),     roles: ALL_NON_OWNER, feature: 'customers' as PermFeature,       primary: false },
     { href: `/${locale}/categories`,      icon: Tag,             label: t('categories'),    roles: ALL_NON_OWNER, feature: 'categories' as PermFeature,      primary: false },
     { href: `/${locale}/suppliers`,       icon: Truck,           label: t('suppliers'),     roles: ALL_NON_OWNER, feature: 'suppliers' as PermFeature,       primary: false },
+    // Sans intérêt pour un compte à une seule boutique — rien à transférer.
+    { href: `/${locale}/transfers`,       icon: ArrowLeftRight,  label: t('transfers'),     roles: ALL_NON_OWNER, feature: 'transfers' as PermFeature,       primary: false, hidden: userShops.length <= 1 },
     { href: `/${locale}/caisse`,   icon: ClipboardList, label: t('caisse'), roles: ['super_admin', 'owner', 'manager', 'shop_manager'], feature: 'caisse' as PermFeature, primary: false },
     { href: `/${locale}/notes`,    icon: NotebookPen, label: t('notes'),    roles: ALL_NON_OWNER, feature: 'notes' as PermFeature,    primary: false },
     { href: `/${locale}/expenses`, icon: Receipt,     label: t('expenses'), roles: ALL_NON_OWNER, feature: 'expenses' as PermFeature, primary: false },
@@ -57,7 +62,7 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
     { href: `/${locale}/billing`,         icon: Zap,             label: t('billing'),       roles: ['owner'],                                                primary: false },
     { href: `/${locale}/settings`,        icon: Settings,        label: t('settings'),      roles: ['owner', 'manager'],                                     primary: false },
     { href: `/${locale}/help`,            icon: BookOpen,        label: t('help'),          roles: ALL_NON_OWNER,                                                primary: false },
-  ].filter(item => item.roles.includes(role) && (!item.feature || canAccess(item.feature)))
+  ].filter(item => item.roles.includes(role) && (!item.feature || canAccess(item.feature)) && !(item as any).hidden)
 
   const primaryItems = allItems.filter(i => i.primary)
   const moreItems = allItems.filter(i => !i.primary)

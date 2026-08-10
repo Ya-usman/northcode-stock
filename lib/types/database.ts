@@ -146,6 +146,44 @@ export interface PurchaseOrder {
   received_by_name?: string | null
 }
 
+export type StockTransferStatus = 'sent' | 'received' | 'cancelled'
+export type DiscrepancyCategory = 'transport_loss' | 'theft' | 'breakage' | 'count_error' | 'other'
+
+export interface StockTransferItem {
+  id: string
+  stock_transfer_id: string
+  source_product_id: string | null
+  product_name: string
+  unit: string | null
+  buying_price: number | null
+  selling_price: number | null
+  quantity_sent: number
+  quantity_received: number | null
+  destination_product_id: string | null
+  discrepancy_category: DiscrepancyCategory | null
+  discrepancy_detail: string | null
+  created_at: string
+}
+
+export interface StockTransfer {
+  id: string
+  reference: string
+  source_shop_id: string
+  destination_shop_id: string
+  status: StockTransferStatus
+  notes: string | null
+  created_by: string | null
+  created_at: string
+  received_at: string | null
+  received_by: string | null
+  cancelled_at: string | null
+  cancelled_by: string | null
+  // Joined
+  stock_transfer_items?: StockTransferItem[]
+  source_shop_name?: string | null
+  destination_shop_name?: string | null
+}
+
 export interface Product {
   id: string
   shop_id: string

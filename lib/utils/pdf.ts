@@ -931,6 +931,185 @@ export async function generatePurchaseOrderPDFBlob(params: PurchaseOrderPDFParam
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Stock transfer (bon de sortie inter-boutiques)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface StockTransferPDFItem {
+  name: string
+  quantity: number
+  unit: string
+}
+
+export interface StockTransferPDFParams {
+  sourceShopName: string
+  destinationShopName: string
+  reference: string
+  dateStr: string
+  notes?: string | null
+  items: StockTransferPDFItem[]
+  labels?: {
+    title?: string
+    reference?: string
+    date?: string
+    from?: string
+    to?: string
+    notes?: string
+    colProduct?: string
+    colQty?: string
+    generatedBy?: string
+    page?: string
+    of?: string
+  }
+}
+
+// Fonction séparée de buildPurchaseOrderDoc plutôt que généralisée dessus,
+// pour ne pas risquer de casser le flux fournisseur déjà en production —
+// même charte graphique (bandeau, logo, pied de page), mais pas de prix
+// affiché : c'est un bon de sortie interne, pas une facture.
+async function buildStockTransferDoc(params: StockTransferPDFParams) {
+  const { jsPDF } = await import('jspdf')
+  const autoTable = (await import('jspdf-autotable')).default
+
+  const { sourceShopName, destinationShopName, reference, dateStr, notes, items } = params
+  const lbl = {
+    title: params.labels?.title ?? 'BON DE TRANSFERT',
+    reference: params.labels?.reference ?? 'Référence',
+    date: params.labels?.date ?? 'Date',
+    from: params.labels?.from ?? 'De',
+    to: params.labels?.to ?? 'Vers',
+    notes: params.labels?.notes ?? 'Notes',
+    colProduct: params.labels?.colProduct ?? 'Produit',
+    colQty: params.labels?.colQty ?? 'Quantité',
+    generatedBy: params.labels?.generatedBy ?? 'Généré par StockShop',
+    page: params.labels?.page ?? 'Page',
+    of: params.labels?.of ?? 'sur',
+  }
+
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const pageWidth = 210
+  const margin = 14
+  let y = 0
+
+  // ── HEADER BAND ── (même charte que buildPurchaseOrderDoc)
+  doc.setFillColor(10, 47, 110)
+  doc.rect(0, 0, pageWidth, 22, 'F')
+  doc.setFillColor(212, 175, 55)
+  doc.rect(0, 22, pageWidth, 2, 'F')
+
+  let logoLoaded = false
+  try {
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const img = new Image()
+      const timer = setTimeout(() => reject(new Error('logo timeout')), 6000)
+      img.onload = () => {
+        clearTimeout(timer)
+        try {
+          const canvas = document.createElement('canvas')
+          canvas.width = img.naturalWidth || 512
+          canvas.height = img.naturalHeight || 512
+          const ctx = canvas.getContext('2d')!
+          ctx.drawImage(img, 0, 0)
+          resolve(canvas.toDataURL('image/png').split(',')[1])
+        } catch (e) { reject(e) }
+      }
+      img.onerror = () => { clearTimeout(timer); reject(new Error('logo load error')) }
+      img.src = `${window.location.origin}/logo-icon.png`
+    })
+    doc.setFillColor(212, 175, 55)
+    doc.roundedRect(margin - 1, 2, 18, 18, 2.5, 2.5, 'F')
+    doc.setFillColor(255, 255, 255)
+    doc.roundedRect(margin, 3, 16, 16, 2, 2, 'F')
+    doc.addImage(base64, 'PNG', margin + 0.5, 3.5, 15, 15)
+    logoLoaded = true
+  } catch { /* fallback below */ }
+
+  if (!logoLoaded) {
+    doc.setFillColor(212, 175, 55)
+    doc.roundedRect(margin - 1, 2, 18, 18, 2.5, 2.5, 'F')
+    doc.setFillColor(10, 47, 110)
+    doc.roundedRect(margin, 3, 16, 16, 2, 2, 'F')
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(14); doc.setFont('helvetica', 'bold')
+    doc.text('S', margin + 8, 14, { align: 'center' })
+  }
+
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(13); doc.setFont('helvetica', 'bold')
+  doc.text('StockShop', margin + 20, 12)
+  doc.setFontSize(8); doc.setFont('helvetica', 'normal')
+  doc.setTextColor(200, 210, 255)
+  doc.text(lbl.title, margin + 20, 18)
+
+  doc.setFontSize(8); doc.setTextColor(200, 210, 255)
+  doc.text(sanitizePDF(reference), pageWidth - margin, 12, { align: 'right' })
+  doc.text(sanitizePDF(dateStr), pageWidth - margin, 18, { align: 'right' })
+
+  y = 30
+
+  // ── FROM → TO ──
+  doc.setFontSize(9); doc.setFont('helvetica', 'bold')
+  doc.setTextColor(120, 100, 30)
+  doc.text(lbl.from.toUpperCase(), margin, y)
+  doc.text(lbl.to.toUpperCase(), pageWidth / 2 + 10, y)
+  y += 6
+  doc.setFontSize(12); doc.setFont('helvetica', 'bold')
+  doc.setTextColor(30, 30, 30)
+  doc.text(sanitizePDF(sourceShopName), margin, y)
+  doc.text(sanitizePDF(destinationShopName), pageWidth / 2 + 10, y)
+  y += 8
+
+  doc.setDrawColor(220, 225, 240); doc.setLineWidth(0.3)
+  doc.line(margin, y, pageWidth - margin, y)
+  y += 8
+
+  // ── ITEMS TABLE ── (pas de prix — bon de sortie interne, pas une facture)
+  autoTable(doc, {
+    startY: y,
+    head: [[lbl.colProduct, lbl.colQty].map(sanitizePDF)],
+    body: items.map(it => [sanitizePDF(it.name), `${it.quantity} ${sanitizePDF(it.unit)}`]),
+    margin: { left: margin, right: margin },
+    styles: { fontSize: 9, cellPadding: { top: 3.5, bottom: 3.5, left: 4, right: 4 }, textColor: [30, 30, 30], lineColor: [230, 234, 245], lineWidth: 0.2 },
+    headStyles: { fillColor: [10, 47, 110], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+    alternateRowStyles: { fillColor: [246, 248, 255] },
+    columnStyles: { 1: { halign: 'right', cellWidth: 50 } },
+  })
+
+  y = (doc as any).lastAutoTable.finalY + 8
+
+  if (notes) {
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold')
+    doc.setTextColor(120, 100, 30)
+    doc.text(lbl.notes.toUpperCase(), margin, y)
+    y += 5
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal')
+    doc.setTextColor(60, 60, 60)
+    doc.text(sanitizePDF(notes), margin, y)
+  }
+
+  // ── FOOTER ──
+  const pageCount = (doc as any).internal.getNumberOfPages()
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i)
+    doc.setFillColor(245, 247, 252)
+    doc.rect(0, 281, pageWidth, 16, 'F')
+    doc.setFontSize(6.5); doc.setFont('helvetica', 'italic')
+    doc.setTextColor(160, 130, 40)
+    doc.text('Manage smarter. Sell faster. Grow bigger.', pageWidth / 2, 286, { align: 'center' })
+    doc.setFontSize(7); doc.setFont('helvetica', 'normal')
+    doc.setTextColor(140, 150, 170)
+    doc.text(`${lbl.generatedBy} — stockshop.tech`, margin, 293)
+    doc.text(`${lbl.page} ${i} ${lbl.of} ${pageCount}`, pageWidth - margin, 293, { align: 'right' })
+  }
+
+  return { doc, fileName: `${reference}.pdf`.replace(/[/\\:*?"<>|]/g, '-') }
+}
+
+export async function generateStockTransferPDF(params: StockTransferPDFParams): Promise<void> {
+  const { doc, fileName } = await buildStockTransferDoc(params)
+  await savePDF(doc.output('blob') as Blob, fileName)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Expenses report
 // ─────────────────────────────────────────────────────────────────────────────
 
