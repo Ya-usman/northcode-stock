@@ -61,6 +61,10 @@ const FAQ = [
         q: 'Comment faire un inventaire physique ?',
         a: 'Dans Stock → cliquez sur "Inventaire". Entrez la quantité réellement comptée pour chaque produit, puis validez : les écarts sont appliqués au stock et journalisés (avec la raison : perte, vol, casse, expiration, correction) dans l\'historique des mouvements.',
       },
+      {
+        q: 'Comment transférer du stock entre mes boutiques ?',
+        a: 'Si vous avez plusieurs boutiques, allez dans Stock → onglet "Transferts". Choisissez la boutique destination, sélectionnez les produits et quantités à envoyer : le stock de votre boutique diminue immédiatement et un numéro de référence est généré. La boutique destination retrouve le transfert avec ce numéro, contrôle ce qui a été envoyé, puis valide les quantités réellement reçues en signalant toute perte, casse ou vol constaté.',
+      },
     ],
   },
   {
