@@ -13,6 +13,11 @@ export async function GET(request: Request) {
   // confirmed=1 → confirmation email : la page login se charge de signOut() côté client
   // (signOut() serveur ne propage pas ses cookies dans NextResponse.redirect)
   const confirmed = searchParams.get('confirmed') === '1'
+  // Calculé une seule fois, réutilisé sur les DEUX chemins de redirection ci-dessous
+  // (avec et sans code PKCE) — un précédent bug ne l'appliquait que sur le chemin
+  // avec code, donc un lien de confirmation email passant par le flux hash-based
+  // atterrissait sur /login sans jamais afficher le message de confirmation.
+  const confirmedSuffix = confirmed ? (next?.includes('?') ? '&confirmed=1' : '?confirmed=1') : ''
 
   if (code) {
     const supabase = await createClient()
@@ -50,8 +55,7 @@ export async function GET(request: Request) {
         }).catch(() => {})
       }
 
-      // Ajouter ?confirmed=1 à la destination si le flag est présent
-      const confirmedSuffix = confirmed ? '?confirmed=1' : ''
+      // confirmedSuffix calculé plus haut, réutilisé ici
       const dest = next
         ? `${origin}${next}${confirmedSuffix}`
         : confirmed
@@ -61,12 +65,14 @@ export async function GET(request: Request) {
     }
   }
 
-  // Pas de code PKCE → flux OTP hash-based (ex: admin.inviteUserByEmail).
+  // Pas de code PKCE → flux OTP hash-based (ex: admin.inviteUserByEmail, et
+  // potentiellement la confirmation d'email elle-même selon la configuration
+  // Supabase — d'où le bug ci-dessus si confirmedSuffix n'était pas repris ici).
   // Le token est dans le fragment URL (#access_token=…) qui n'est pas visible
   // côté serveur. Si `next` est fourni, on redirige vers cette page et laisse
   // le code client gérer le hash (reset-password/page.tsx le fait déjà).
   if (next) {
-    return NextResponse.redirect(`${origin}${next}`)
+    return NextResponse.redirect(`${origin}${next}${confirmedSuffix}`)
   }
 
   return NextResponse.redirect(`${origin}/${localeCookie}/login?error=lien_invalide`)
