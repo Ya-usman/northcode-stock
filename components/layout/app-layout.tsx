@@ -130,15 +130,19 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
       .limit(10)
       .then(({ data }: { data: any }) => {
         if (!data?.length) return
-        setAnnouncements(data as Announcement[])
         const lastSeen = profile.last_seen_announcement_at
           ? new Date(profile.last_seen_announcement_at)
           : null
-        const latestAt = new Date((data[0] as Announcement).published_at)
-        if (!lastSeen || latestAt > lastSeen) {
-          setWhatsNewOpen(true)
-          setHasUnread(true)
-        }
+        // N'affiche que les annonces publiées depuis la dernière visite — sans
+        // ce filtre, une seule nouvelle annonce réaffichait aussi toutes les
+        // précédentes (jusqu'à 10) déjà vues et fermées par l'utilisateur.
+        const unseen = lastSeen
+          ? (data as Announcement[]).filter(a => new Date(a.published_at) > lastSeen)
+          : (data as Announcement[])
+        if (unseen.length === 0) return
+        setAnnouncements(unseen)
+        setWhatsNewOpen(true)
+        setHasUnread(true)
       })
   }, [profile?.id])
 

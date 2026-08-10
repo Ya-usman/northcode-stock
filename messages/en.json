@@ -1105,7 +1105,8 @@
       "m10": "Push notifications",
       "m11": "Mobile app",
       "m12": "Offline mode",
-      "m13": "Physical inventory"
+      "m13": "Physical inventory",
+      "m14": "Inter-shop transfers"
     },
     "testimonials": {
       "title": "What our customers say",
