@@ -102,6 +102,7 @@ export async function middleware(request: NextRequest) {
   // Token integrity is verified server-side in individual API routes that need it.
   const { data: { session } } = await supabase.auth.getSession()
   const userId = session?.user?.id ?? null
+  const userEmail = session?.user?.email ?? null
 
   // Root → dashboard or login (cookie → Accept-Language → default)
   if (pathname === '/') {
@@ -190,11 +191,21 @@ export async function middleware(request: NextRequest) {
   // Subscription enforcement — redirect owners to /billing when plan is expired
   // Runs only outside the beta period. /billing and /settings remain accessible
   // so the owner can pay. Members see the UpgradeWall via app-layout instead.
+  //
+  // Superadmins (email allowlist) are exempt on every path, not just /admin —
+  // their own personal test shops must never lock them out of the platform they
+  // administer. Real fix: chicken-and-egg — before this, a superadmin whose test
+  // shop had an expired plan got redirected to /billing on EVERY path including
+  // /admin itself, with no way to reach the admin panel to fix it (is_internal
+  // is set from there). Same getSession()-can't-fully-trust-email caveat as the
+  // /admin gate above: if email is transiently absent right after a token
+  // refresh, this just falls back to today's existing behavior, not a new one.
   const BILLING_EXEMPT = ['/billing', '/settings']
   const isBillingExempt = BILLING_EXEMPT.some(
     p => pathnameWithoutLocale === p || pathnameWithoutLocale.startsWith(p + '/')
   )
-  if (!isBillingExempt && role === 'owner' && !isBetaPeriod()) {
+  const isSuperAdminEmail = !!userEmail && SUPER_ADMIN_EMAILS.includes(userEmail)
+  if (!isBillingExempt && role === 'owner' && !isBetaPeriod() && !isSuperAdminEmail) {
     const planOkUntil = request.cookies.get('plan_ok_until')?.value
     // Only redirect if the cookie is explicitly set AND expired.
     // If missing (old session before this cookie was introduced), let through —
