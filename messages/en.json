@@ -398,7 +398,7 @@
     "city_placeholder": "e.g. Kano",
     "no_products_for_supplier": "No products for this supplier.",
     "tab_suppliers": "Suppliers",
-    "tab_by_product": "By product",
+    "tab_by_product": "Price comparator",
     "search_product_placeholder": "Search a product…",
     "search_product_hint": "Search a product to compare prices across suppliers.",
     "no_prices_for_product": "No prices recorded for this product.",
