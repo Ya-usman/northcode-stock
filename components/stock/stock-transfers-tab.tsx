@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
-import { Search, Plus, X, ArrowRight, Package, Download, Share2, Mail, Copy, Ban, CheckCircle2 } from 'lucide-react'
+import { Search, Plus, X, ArrowRight, Package, Download, Share2, Mail, Copy, Ban, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react'
 import { isCapacitor } from '@/lib/utils/native-share'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -49,6 +49,7 @@ export function StockTransfersTab() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(() => !getPageCache(`transfers_${shop?.id}`))
   const [{ search }, setFilter] = usePersistedFilters('transfers', shop?.id, { search: '' })
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   // ── Nouveau transfert ────────────────────────────────────────────────────
   const [showNewDialog, setShowNewDialog] = useState(false)
@@ -333,9 +334,16 @@ export function StockTransfersTab() {
             const isSource = tr.source_shop_id === shop.id
             const isDestination = tr.destination_shop_id === shop.id
             const itemCount = (tr.stock_transfer_items || []).length
+            const isExpanded = expandedId === tr.id
             return (
-              <div key={tr.id} className="rounded-lg border bg-card shadow-sm p-4">
-                <div className="flex items-start justify-between gap-2 flex-wrap">
+              <div key={tr.id} className="rounded-lg border bg-card shadow-sm overflow-hidden">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  className="w-full flex items-start justify-between gap-2 flex-wrap p-4 text-left hover:bg-muted/30 transition-colors cursor-pointer"
+                  onClick={() => setExpandedId(isExpanded ? null : tr.id)}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedId(isExpanded ? null : tr.id) } }}
+                >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold text-sm">{tr.reference}</p>
@@ -353,7 +361,7 @@ export function StockTransfersTab() {
                       {new Date(tr.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
                     <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => downloadTransferPdf(tr)}>
                       {isCapacitor() ? <Share2 className="h-3 w-3" /> : <Download className="h-3 w-3" />}
                       {isCapacitor() ? t('actions.share') : t('transfers.download_pdf')}
@@ -366,32 +374,51 @@ export function StockTransfersTab() {
                         <CheckCircle2 className="h-3 w-3" />{t('transfers.receive_button')}
                       </Button>
                     )}
-                    {tr.status === 'sent' && isSource && canManage && (
-                      <Button
-                        variant="outline" size="sm" className="h-7 gap-1 text-xs text-destructive hover:bg-red-50 dark:hover:bg-red-950/40"
-                        loading={cancelling === tr.id}
-                        onClick={() => cancelTransfer(tr)}
-                      >
-                        <Ban className="h-3 w-3" />{t('actions.cancel')}
-                      </Button>
-                    )}
+                    {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground ml-1" /> : <ChevronRight className="h-4 w-4 text-muted-foreground ml-1" />}
                   </div>
                 </div>
 
-                {tr.status !== 'sent' && itemCount > 0 && (
-                  <div className="mt-2 pt-2 border-t divide-y divide-border/50">
-                    {(tr.stock_transfer_items || []).map((it: any) => {
-                      const hasDiscrepancy = it.quantity_received != null && it.quantity_received !== it.quantity_sent
-                      return (
-                        <div key={it.id} className="flex items-center justify-between py-1.5 text-xs gap-2">
-                          <span className="truncate">{it.product_name}</span>
-                          <span className={`shrink-0 ${hasDiscrepancy ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-muted-foreground'}`}>
-                            {it.quantity_received != null ? `${it.quantity_received} / ${it.quantity_sent}` : `${it.quantity_sent}`} {it.unit || ''}
-                            {hasDiscrepancy && it.discrepancy_category && ` · ${t(`transfers.discrepancy_${it.discrepancy_category}`)}`}
-                          </span>
-                        </div>
-                      )
-                    })}
+                {isExpanded && (
+                  <div className="border-t bg-muted/10 px-4 py-3">
+                    <div className="space-y-1.5 divide-y divide-border/50">
+                      {(tr.stock_transfer_items || []).map((it: any) => {
+                        const hasDiscrepancy = it.quantity_received != null && it.quantity_received !== it.quantity_sent
+                        return (
+                          <div key={it.id} className="text-sm pt-1.5 first:pt-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="truncate">{it.product_name}</span>
+                              <span className={`tabular-nums shrink-0 ${hasDiscrepancy ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-muted-foreground'}`}>
+                                {it.quantity_received != null ? `${it.quantity_received} / ${it.quantity_sent}` : `${it.quantity_sent}`} {it.unit || ''}
+                              </span>
+                            </div>
+                            {hasDiscrepancy && (
+                              <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
+                                {it.discrepancy_category && t(`transfers.discrepancy_${it.discrepancy_category}`)}
+                                {it.discrepancy_detail ? ` — ${it.discrepancy_detail}` : ''}
+                              </p>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {tr.notes && (
+                      <p className="text-xs text-muted-foreground mt-3 pt-3 border-t">
+                        <span className="font-medium text-foreground/80">{t('transfers.notes_label')} </span>{tr.notes}
+                      </p>
+                    )}
+
+                    {tr.status === 'sent' && isSource && canManage && (
+                      <div className="flex gap-2 pt-3 mt-3 border-t">
+                        <Button
+                          variant="outline" size="sm" className="h-8 gap-1.5 text-xs flex-1 text-destructive border-destructive/30 hover:bg-red-50 dark:hover:bg-red-950/40"
+                          loading={cancelling === tr.id}
+                          onClick={() => cancelTransfer(tr)}
+                        >
+                          <Ban className="h-3.5 w-3.5" />{t('actions.cancel')}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
