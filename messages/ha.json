@@ -409,6 +409,8 @@
     "margin_label": "Riba",
     "price_updated_on": "An sabunta {date}",
     "savings_label": "Ragi",
+    "order_button": "Yi oda",
+    "opportunities_hint": "Kaya {count} da aka riga aka san mai samar da arha.",
     "email": "Imel",
     "tab_purchase_orders": "Odar Sayayya",
     "new_po": "Sabuwar odar sayayya",

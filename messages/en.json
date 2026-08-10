@@ -409,6 +409,8 @@
     "margin_label": "Margin",
     "price_updated_on": "Updated on {date}",
     "savings_label": "Savings",
+    "order_button": "Order",
+    "opportunities_hint": "{count} product(s) where a cheaper supplier is already known.",
     "email": "Email",
     "tab_purchase_orders": "Purchase orders",
     "new_po": "New purchase order",

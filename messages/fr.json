@@ -409,6 +409,8 @@
     "margin_label": "Marge",
     "price_updated_on": "Mis à jour le {date}",
     "savings_label": "Économie",
+    "order_button": "Commander",
+    "opportunities_hint": "{count} produit(s) où un fournisseur moins cher est déjà connu.",
     "email": "Email",
     "tab_purchase_orders": "Bons de commande",
     "new_po": "Nouveau bon de commande",

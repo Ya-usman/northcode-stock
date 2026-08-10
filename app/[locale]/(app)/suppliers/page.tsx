@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
-import { Search, Plus, Edit2, Trash2, Phone, MapPin, Package, Store, ChevronDown, ChevronRight, X, ArrowRightLeft, FileText, Download, Send, CheckCircle2, Ban, Mail, Copy, Share2, History, TrendingUp, TrendingDown, RotateCcw } from 'lucide-react'
+import { Search, Plus, Edit2, Trash2, Phone, MapPin, Package, Store, ChevronDown, ChevronRight, X, ArrowRightLeft, FileText, Download, Send, CheckCircle2, Ban, Mail, Copy, Share2, History, TrendingUp, TrendingDown, RotateCcw, ShoppingCart } from 'lucide-react'
 import { isCapacitor } from '@/lib/utils/native-share'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -164,6 +164,12 @@ export default function SuppliersPage() {
   const [poShowAll, setPoShowAll] = useState(false)
   const [poChecked, setPoChecked] = useState<Record<string, boolean>>({})
   const [poQuantities, setPoQuantities] = useState<Record<string, string>>({})
+  // Produits ajoutés manuellement à un BC en cours de création depuis le
+  // comparateur de prix — pas forcément assignés à ce fournisseur-là (le
+  // comparateur permet justement de commander un produit chez un fournisseur
+  // moins cher que son fournisseur habituel), donc poSupplierProducts doit
+  // les inclure explicitement en plus de son filtre normal par supplier_id.
+  const [poExtraProductIds, setPoExtraProductIds] = useState<Set<string>>(new Set())
   const [creatingPo, setCreatingPo] = useState(false)
   const [poActionLoading, setPoActionLoading] = useState<string | null>(null)
   const [emailPo, setEmailPo] = useState<any | null>(null)
@@ -325,6 +331,25 @@ export default function SuppliersPage() {
     ? products.filter(p => normalize(p.name).includes(normalize(productSearch)))
     : []
 
+  // Produits où un fournisseur moins cher que l'actuel est déjà connu — permet
+  // au comparateur de proposer des opportunités sans recherche préalable,
+  // plutôt que d'exiger que l'utilisateur sache déjà quoi chercher. Aucune
+  // donnée supplémentaire : products/productPrices sont déjà en mémoire.
+  const priceOpportunities = useMemo(() => {
+    return products
+      .map((p: any) => {
+        if (!p.supplier_id) return null
+        const currentPrice = Number(p.buying_price || 0)
+        const cheaper = productPrices
+          .filter(e => e.product_id === p.id && e.supplier_id !== p.supplier_id && e.price < currentPrice)
+          .sort((a, b) => a.price - b.price)[0]
+        if (!cheaper) return null
+        return { product: p as Product, savings: currentPrice - cheaper.price }
+      })
+      .filter((x): x is { product: Product; savings: number } => x !== null)
+      .sort((a, b) => b.savings - a.savings)
+  }, [products, productPrices])
+
   const openAddPrice = (product: Product) => {
     setAddPriceProduct(product)
     setAddPriceSupplierId('')
@@ -395,7 +420,7 @@ export default function SuppliersPage() {
   const priceFor = (product: any, supplierId: string) =>
     productPrices.find(e => e.product_id === product.id && e.supplier_id === supplierId)?.price ?? Number(product.buying_price || 0)
 
-  const poSupplierProducts = products.filter((p: any) => p.supplier_id === poSupplierId)
+  const poSupplierProducts = products.filter((p: any) => p.supplier_id === poSupplierId || poExtraProductIds.has(p.id))
   const poVisibleProducts = poShowAll ? poSupplierProducts : poSupplierProducts.filter(isLowOrOut)
 
   const openCreatePo = () => {
@@ -403,11 +428,13 @@ export default function SuppliersPage() {
     setPoShowAll(false)
     setPoChecked({})
     setPoQuantities({})
+    setPoExtraProductIds(new Set())
     setShowPoDialog(true)
   }
 
   const onPoSupplierChange = (supplierId: string) => {
     setPoSupplierId(supplierId)
+    setPoExtraProductIds(new Set())
     const supplierProducts = products.filter((p: any) => p.supplier_id === supplierId)
     const checked: Record<string, boolean> = {}
     const quantities: Record<string, string> = {}
@@ -418,6 +445,31 @@ export default function SuppliersPage() {
     })
     setPoChecked(checked)
     setPoQuantities(quantities)
+  }
+
+  // Depuis une ligne du comparateur de prix : ouvre le BC pré-rempli avec ce
+  // produit chez ce fournisseur précis (potentiellement différent de son
+  // fournisseur habituel), coché et visible même s'il n'est pas en stock bas.
+  const orderFromComparator = (product: any, supplierId: string) => {
+    setPoSupplierId(supplierId)
+    setPoExtraProductIds(new Set([product.id]))
+    const supplierProducts = products.filter((p: any) => p.supplier_id === supplierId)
+    const checked: Record<string, boolean> = {}
+    const quantities: Record<string, string> = {}
+    supplierProducts.filter(isLowOrOut).forEach((p: any) => {
+      checked[p.id] = true
+      const threshold = lowStockThreshold(p)
+      quantities[p.id] = String(Math.max(threshold * 2 - p.quantity, threshold))
+    })
+    checked[product.id] = true
+    if (!quantities[product.id]) {
+      const threshold = lowStockThreshold(product)
+      quantities[product.id] = String(Math.max(threshold * 2 - (product.quantity || 0), threshold, 1))
+    }
+    setPoChecked(checked)
+    setPoQuantities(quantities)
+    setPoShowAll(true)
+    setShowPoDialog(true)
   }
 
   const submitCreatePo = async () => {
@@ -696,6 +748,95 @@ export default function SuppliersPage() {
     }
   }
 
+  // Une carte "produit" du comparateur de prix — partagée entre les résultats
+  // de recherche et la liste d'opportunités (produits déjà moins chers ailleurs).
+  const renderPriceCard = (p: any) => {
+    const entries = productPrices.filter(e => e.product_id === p.id)
+    const currentSupplierId = p.supplier_id as string | null
+    const currentPrice = currentSupplierId ? Number(p.buying_price || 0) : null
+    const sellingPrice = Number(p.selling_price || 0)
+    const rows = [
+      ...(currentSupplierId ? [{ supplierId: currentSupplierId, price: currentPrice as number, isCurrent: true, entryId: null as string | null, updatedAt: null as string | null }] : []),
+      ...entries.filter(e => e.supplier_id !== currentSupplierId).map(e => ({ supplierId: e.supplier_id, price: e.price, isCurrent: false, entryId: e.id, updatedAt: e.updated_at ?? null })),
+    ].sort((a, b) => a.price - b.price)
+
+    return (
+      <div key={p.id} className="rounded-lg border bg-card shadow-sm p-4">
+        <div className="flex items-center justify-between gap-2">
+          <p className="font-semibold text-sm truncate">{p.name}</p>
+          {canManage && (
+            <Button variant="outline" size="sm" className="h-7 gap-1 text-xs shrink-0" onClick={() => openAddPrice(p)}>
+              <Plus className="h-3 w-3" />{t('suppliers.add_price')}
+            </Button>
+          )}
+        </div>
+        {rows.length === 0 ? (
+          <p className="text-xs text-muted-foreground mt-2">{t('suppliers.no_prices_for_product')}</p>
+        ) : (
+          <div className="mt-2 divide-y divide-border/50">
+            {rows.map(row => {
+              const marginAmount = sellingPrice > 0 ? sellingPrice - row.price : null
+              const marginPct = sellingPrice > 0 ? Math.round((marginAmount! / sellingPrice) * 100) : null
+              const savings = !row.isCurrent && currentPrice != null ? currentPrice - row.price : null
+              const showSavings = savings != null && savings > 0
+              const savingsPct = showSavings && currentPrice ? Math.round((savings / currentPrice) * 100) : null
+              return (
+                <div key={row.supplierId} className="flex items-center justify-between py-2 gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                      <span className="text-sm truncate">{supplierName(row.supplierId)}</span>
+                      {row.isCurrent && (
+                        <span className="text-[10px] font-medium rounded-full bg-blue-50 dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400 px-2 py-0.5 shrink-0">
+                          {t('suppliers.current_price_label')}
+                        </span>
+                      )}
+                      {showSavings && (
+                        <span className="flex items-center gap-0.5 text-[10px] font-medium rounded-full bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400 px-2 py-0.5 shrink-0">
+                          <TrendingDown className="h-2.5 w-2.5" />
+                          {t('suppliers.savings_label')} {fmt(savings)}{savingsPct != null ? ` (-${savingsPct}%)` : ''}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                      {marginAmount != null && (
+                        <span>{t('suppliers.margin_label')} {fmt(marginAmount)}{marginPct != null ? ` (${marginPct}%)` : ''}</span>
+                      )}
+                      {row.updatedAt && (
+                        <span>
+                          {marginAmount != null ? ' · ' : ''}
+                          {t('suppliers.price_updated_on', { date: new Date(row.updatedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) })}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    <span className="text-sm font-semibold">{fmt(row.price)}</span>
+                    {!row.isCurrent && canManage && (
+                      <>
+                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => usePrice(p, row.supplierId, row.price)}>
+                          {t('suppliers.use_this_price')}
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onClick={() => orderFromComparator(p, row.supplierId)}>
+                          <ShoppingCart className="h-3 w-3" />{t('suppliers.order_button')}
+                        </Button>
+                        <button
+                          className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                          onClick={() => row.entryId && deletePrice(row.entryId)}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
       {/* View toggle */}
@@ -786,99 +927,24 @@ export default function SuppliersPage() {
             <Input value={productSearch} onChange={e => setProductSearch(e.target.value)} placeholder={t('suppliers.search_product_placeholder')} className="pl-9 h-9" />
           </div>
 
-          {!productSearch.trim() ? (
-            <div className="flex h-32 items-center justify-center text-muted-foreground text-sm text-center px-6">
-              {t('suppliers.search_product_hint')}
-            </div>
-          ) : filteredProducts.length === 0 ? (
-            <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
-              {t('suppliers.no_suppliers')}
+          {productSearch.trim() ? (
+            filteredProducts.length === 0 ? (
+              <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
+                {t('suppliers.no_suppliers')}
+              </div>
+            ) : (
+              <div className="space-y-2">{filteredProducts.map(renderPriceCard)}</div>
+            )
+          ) : priceOpportunities.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground px-1">
+                {t('suppliers.opportunities_hint', { count: priceOpportunities.length })}
+              </p>
+              {priceOpportunities.map(({ product }) => renderPriceCard(product))}
             </div>
           ) : (
-            <div className="space-y-2">
-              {filteredProducts.map(p => {
-                const entries = productPrices.filter(e => e.product_id === p.id)
-                const currentSupplierId = (p as any).supplier_id as string | null
-                const currentPrice = currentSupplierId ? Number((p as any).buying_price || 0) : null
-                const sellingPrice = Number((p as any).selling_price || 0)
-                const rows = [
-                  ...(currentSupplierId ? [{ supplierId: currentSupplierId, price: currentPrice as number, isCurrent: true, entryId: null as string | null, updatedAt: null as string | null }] : []),
-                  ...entries.filter(e => e.supplier_id !== currentSupplierId).map(e => ({ supplierId: e.supplier_id, price: e.price, isCurrent: false, entryId: e.id, updatedAt: e.updated_at ?? null })),
-                ].sort((a, b) => a.price - b.price)
-
-                return (
-                  <div key={p.id} className="rounded-lg border bg-card shadow-sm p-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-semibold text-sm truncate">{p.name}</p>
-                      {canManage && (
-                        <Button variant="outline" size="sm" className="h-7 gap-1 text-xs shrink-0" onClick={() => openAddPrice(p)}>
-                          <Plus className="h-3 w-3" />{t('suppliers.add_price')}
-                        </Button>
-                      )}
-                    </div>
-                    {rows.length === 0 ? (
-                      <p className="text-xs text-muted-foreground mt-2">{t('suppliers.no_prices_for_product')}</p>
-                    ) : (
-                      <div className="mt-2 divide-y divide-border/50">
-                        {rows.map(row => {
-                          const marginAmount = sellingPrice > 0 ? sellingPrice - row.price : null
-                          const marginPct = sellingPrice > 0 ? Math.round((marginAmount! / sellingPrice) * 100) : null
-                          const savings = !row.isCurrent && currentPrice != null ? currentPrice - row.price : null
-                          const showSavings = savings != null && savings > 0
-                          const savingsPct = showSavings && currentPrice ? Math.round((savings / currentPrice) * 100) : null
-                          return (
-                            <div key={row.supplierId} className="flex items-center justify-between py-2 gap-2">
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                                  <span className="text-sm truncate">{supplierName(row.supplierId)}</span>
-                                  {row.isCurrent && (
-                                    <span className="text-[10px] font-medium rounded-full bg-blue-50 dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400 px-2 py-0.5 shrink-0">
-                                      {t('suppliers.current_price_label')}
-                                    </span>
-                                  )}
-                                  {showSavings && (
-                                    <span className="flex items-center gap-0.5 text-[10px] font-medium rounded-full bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400 px-2 py-0.5 shrink-0">
-                                      <TrendingDown className="h-2.5 w-2.5" />
-                                      {t('suppliers.savings_label')} {fmt(savings)}{savingsPct != null ? ` (-${savingsPct}%)` : ''}
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
-                                  {marginAmount != null && (
-                                    <span>{t('suppliers.margin_label')} {fmt(marginAmount)}{marginPct != null ? ` (${marginPct}%)` : ''}</span>
-                                  )}
-                                  {row.updatedAt && (
-                                    <span>
-                                      {marginAmount != null ? ' · ' : ''}
-                                      {t('suppliers.price_updated_on', { date: new Date(row.updatedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) })}
-                                    </span>
-                                  )}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-2 shrink-0 ml-2">
-                                <span className="text-sm font-semibold">{fmt(row.price)}</span>
-                                {!row.isCurrent && canManage && (
-                                  <>
-                                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => usePrice(p, row.supplierId, row.price)}>
-                                      {t('suppliers.use_this_price')}
-                                    </Button>
-                                    <button
-                                      className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-                                      onClick={() => row.entryId && deletePrice(row.entryId)}
-                                    >
-                                      <X className="h-3.5 w-3.5" />
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
+            <div className="flex h-32 items-center justify-center text-muted-foreground text-sm text-center px-6">
+              {t('suppliers.search_product_hint')}
             </div>
           )}
         </div>
