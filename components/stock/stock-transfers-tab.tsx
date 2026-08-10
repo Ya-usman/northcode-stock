@@ -32,7 +32,11 @@ const DISCREPANCY_CATEGORIES = ['transport_loss', 'theft', 'breakage', 'count_er
 
 const supabase = createClient() as any
 
-export default function TransfersPage() {
+// Onglet "Transferts" de la page Stock — pas un item de menu séparé, même
+// logique que les Bons de commande fournisseurs qui vivent en onglet dans
+// Suppliers plutôt qu'en item de menu à part (workflow rattaché à un sujet
+// plus large, pas une destination de navigation autonome).
+export function StockTransfersTab() {
   const t = useTranslations()
   const { shop, userShops, roleInActiveShop, profile } = useAuth()
   const { isOnline } = useOffline()
@@ -400,7 +404,7 @@ export default function TransfersPage() {
       <PremiumDialog
         open={showNewDialog}
         onOpenChange={open => { if (!open) setShowNewDialog(false) }}
-        category={t('transfers.nav_label')}
+        category={t('nav.stock')}
         title={t('transfers.new_transfer')}
         icon={<Package className="h-4 w-4" />}
         maxWidth="max-w-lg"
@@ -506,7 +510,7 @@ export default function TransfersPage() {
       <PremiumDialog
         open={!!receivingTransfer}
         onOpenChange={open => { if (!open) setReceivingTransfer(null) }}
-        category={t('transfers.nav_label')}
+        category={t('nav.stock')}
         title={t('transfers.receive_title')}
         icon={<CheckCircle2 className="h-4 w-4" />}
         maxWidth="max-w-lg"
@@ -620,7 +624,7 @@ export default function TransfersPage() {
       <PremiumDialog
         open={!!emailTransfer}
         onOpenChange={open => { if (!open) setEmailTransfer(null) }}
-        category={t('transfers.nav_label')}
+        category={t('nav.stock')}
         title={t('suppliers.po_email_helper')}
         icon={<Mail className="h-4 w-4" />}
         maxWidth="max-w-lg"

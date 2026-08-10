@@ -5,7 +5,7 @@ import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
 import { motion } from 'framer-motion'
-import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag } from 'lucide-react'
+import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag, ArrowLeftRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -24,6 +24,7 @@ import type { Product, Category, Supplier } from '@/lib/types/database'
 import { ProductForm } from '@/components/stock/product-form'
 import { ImportProductsModal } from '@/components/stock/import-products-modal'
 import { BulkAddModal } from '@/components/stock/bulk-add-modal'
+import { StockTransfersTab } from '@/components/stock/stock-transfers-tab'
 import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
@@ -127,7 +128,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [bulkDeleteText, setBulkDeleteText] = useState('')
 
   // ── Journal de suppressions ─────────────────────────────────────────────
-  const [view, setView] = useState<'products' | 'archived' | 'journal'>('products')
+  const [view, setView] = useState<'products' | 'archived' | 'journal' | 'transfers'>('products')
   const [auditLogs, setAuditLogs] = useState<any[]>([])
   const [loadingJournal, setLoadingJournal] = useState(false)
   const [journalDateFrom, setJournalDateFrom] = useState('')
@@ -981,7 +982,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       <StockTabs locale={locale} />
 
       {/* View toggle */}
-      {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
+      {(effectiveRole === 'owner' || effectiveRole === 'super_admin' || (canAccess('transfers') && userShops.length > 1)) && (
         <div className="flex gap-1 rounded-lg border bg-muted/30 p-1 w-fit">
           <button
             onClick={() => setView('products')}
@@ -989,21 +990,37 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           >
             {t('products.tab_products')}
           </button>
-          <button
-            onClick={() => setView('archived')}
-            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${view === 'archived' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            <Archive className="h-3.5 w-3.5" /> {t('products.tab_archived')}
-            {archivedProducts.length > 0 && (
-              <span className="rounded-full bg-muted px-1.5 text-xs">{archivedProducts.length}</span>
-            )}
-          </button>
-          <button
-            onClick={() => setView('journal')}
-            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${view === 'journal' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            <History className="h-3.5 w-3.5" /> {t('products.tab_journal')}
-          </button>
+          {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
+            <>
+              <button
+                onClick={() => setView('archived')}
+                className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${view === 'archived' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <Archive className="h-3.5 w-3.5" /> {t('products.tab_archived')}
+                {archivedProducts.length > 0 && (
+                  <span className="rounded-full bg-muted px-1.5 text-xs">{archivedProducts.length}</span>
+                )}
+              </button>
+              <button
+                onClick={() => setView('journal')}
+                className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${view === 'journal' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <History className="h-3.5 w-3.5" /> {t('products.tab_journal')}
+              </button>
+            </>
+          )}
+          {/* Sans intérêt pour un compte à une seule boutique — rien à transférer.
+              Rôles alignés sur le PermFeature 'transfers' (mêmes rôles que les
+              bons de commande fournisseurs), pas restreint à owner/super_admin
+              comme Archivés/Journal ci-dessus. */}
+          {canAccess('transfers') && userShops.length > 1 && (
+            <button
+              onClick={() => setView('transfers')}
+              className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${view === 'transfers' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <ArrowLeftRight className="h-3.5 w-3.5" /> {t('products.tab_transfers')}
+            </button>
+          )}
         </div>
       )}
 
@@ -1330,6 +1347,11 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             })
           })()}
         </div>
+      )}
+
+      {/* Transferts entre boutiques */}
+      {view === 'transfers' && canAccess('transfers') && userShops.length > 1 && (
+        <StockTransfersTab />
       )}
 
       {/* Bulk Add Modal */}
