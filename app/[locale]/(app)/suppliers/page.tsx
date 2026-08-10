@@ -151,7 +151,7 @@ export default function SuppliersPage() {
   // ── Comparateur de prix par produit ─────────────────────────────────────
   const [view, setView] = useState<'suppliers' | 'by_product' | 'purchase_orders'>('suppliers')
   const [productSearch, setProductSearch] = useState('')
-  const [productPrices, setProductPrices] = useState<{ id: string; product_id: string; supplier_id: string; price: number }[]>([])
+  const [productPrices, setProductPrices] = useState<{ id: string; product_id: string; supplier_id: string; price: number; updated_at?: string }[]>([])
   const [addPriceProduct, setAddPriceProduct] = useState<Product | null>(null)
   const [addPriceSupplierId, setAddPriceSupplierId] = useState('')
   const [addPriceValue, setAddPriceValue] = useState('')
@@ -799,9 +799,11 @@ export default function SuppliersPage() {
               {filteredProducts.map(p => {
                 const entries = productPrices.filter(e => e.product_id === p.id)
                 const currentSupplierId = (p as any).supplier_id as string | null
+                const currentPrice = currentSupplierId ? Number((p as any).buying_price || 0) : null
+                const sellingPrice = Number((p as any).selling_price || 0)
                 const rows = [
-                  ...(currentSupplierId ? [{ supplierId: currentSupplierId, price: Number((p as any).buying_price || 0), isCurrent: true, entryId: null as string | null }] : []),
-                  ...entries.filter(e => e.supplier_id !== currentSupplierId).map(e => ({ supplierId: e.supplier_id, price: e.price, isCurrent: false, entryId: e.id })),
+                  ...(currentSupplierId ? [{ supplierId: currentSupplierId, price: currentPrice as number, isCurrent: true, entryId: null as string | null, updatedAt: null as string | null }] : []),
+                  ...entries.filter(e => e.supplier_id !== currentSupplierId).map(e => ({ supplierId: e.supplier_id, price: e.price, isCurrent: false, entryId: e.id, updatedAt: e.updated_at ?? null })),
                 ].sort((a, b) => a.price - b.price)
 
                 return (
@@ -818,34 +820,60 @@ export default function SuppliersPage() {
                       <p className="text-xs text-muted-foreground mt-2">{t('suppliers.no_prices_for_product')}</p>
                     ) : (
                       <div className="mt-2 divide-y divide-border/50">
-                        {rows.map(row => (
-                          <div key={row.supplierId} className="flex items-center justify-between py-2">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="text-sm truncate">{supplierName(row.supplierId)}</span>
-                              {row.isCurrent && (
-                                <span className="text-[10px] font-medium rounded-full bg-blue-50 dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400 px-2 py-0.5 shrink-0">
-                                  {t('suppliers.current_price_label')}
-                                </span>
-                              )}
+                        {rows.map(row => {
+                          const marginAmount = sellingPrice > 0 ? sellingPrice - row.price : null
+                          const marginPct = sellingPrice > 0 ? Math.round((marginAmount! / sellingPrice) * 100) : null
+                          const savings = !row.isCurrent && currentPrice != null ? currentPrice - row.price : null
+                          const showSavings = savings != null && savings > 0
+                          const savingsPct = showSavings && currentPrice ? Math.round((savings / currentPrice) * 100) : null
+                          return (
+                            <div key={row.supplierId} className="flex items-center justify-between py-2 gap-2">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                                  <span className="text-sm truncate">{supplierName(row.supplierId)}</span>
+                                  {row.isCurrent && (
+                                    <span className="text-[10px] font-medium rounded-full bg-blue-50 dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400 px-2 py-0.5 shrink-0">
+                                      {t('suppliers.current_price_label')}
+                                    </span>
+                                  )}
+                                  {showSavings && (
+                                    <span className="flex items-center gap-0.5 text-[10px] font-medium rounded-full bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400 px-2 py-0.5 shrink-0">
+                                      <TrendingDown className="h-2.5 w-2.5" />
+                                      {t('suppliers.savings_label')} {fmt(savings)}{savingsPct != null ? ` (-${savingsPct}%)` : ''}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                                  {marginAmount != null && (
+                                    <span>{t('suppliers.margin_label')} {fmt(marginAmount)}{marginPct != null ? ` (${marginPct}%)` : ''}</span>
+                                  )}
+                                  {row.updatedAt && (
+                                    <span>
+                                      {marginAmount != null ? ' · ' : ''}
+                                      {t('suppliers.price_updated_on', { date: new Date(row.updatedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) })}
+                                    </span>
+                                  )}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0 ml-2">
+                                <span className="text-sm font-semibold">{fmt(row.price)}</span>
+                                {!row.isCurrent && canManage && (
+                                  <>
+                                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => usePrice(p, row.supplierId, row.price)}>
+                                      {t('suppliers.use_this_price')}
+                                    </Button>
+                                    <button
+                                      className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                                      onClick={() => row.entryId && deletePrice(row.entryId)}
+                                    >
+                                      <X className="h-3.5 w-3.5" />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 shrink-0 ml-2">
-                              <span className="text-sm font-semibold">{fmt(row.price)}</span>
-                              {!row.isCurrent && canManage && (
-                                <>
-                                  <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => usePrice(p, row.supplierId, row.price)}>
-                                    {t('suppliers.use_this_price')}
-                                  </Button>
-                                  <button
-                                    className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-                                    onClick={() => row.entryId && deletePrice(row.entryId)}
-                                  >
-                                    <X className="h-3.5 w-3.5" />
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     )}
                   </div>
