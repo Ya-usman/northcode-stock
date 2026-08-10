@@ -170,6 +170,10 @@ export default function SuppliersPage() {
   // moins cher que son fournisseur habituel), donc poSupplierProducts doit
   // les inclure explicitement en plus de son filtre normal par supplier_id.
   const [poExtraProductIds, setPoExtraProductIds] = useState<Set<string>>(new Set())
+  // Override manuel du prix catalogue pour cette commande précise (prix
+  // négocié ponctuellement) — vide = on garde priceFor(p, poSupplierId).
+  const [poPriceOverrides, setPoPriceOverrides] = useState<Record<string, string>>({})
+  const [poNotes, setPoNotes] = useState('')
   const [creatingPo, setCreatingPo] = useState(false)
   const [poActionLoading, setPoActionLoading] = useState<string | null>(null)
   const [emailPo, setEmailPo] = useState<any | null>(null)
@@ -420,8 +424,19 @@ export default function SuppliersPage() {
   const priceFor = (product: any, supplierId: string) =>
     productPrices.find(e => e.product_id === product.id && e.supplier_id === supplierId)?.price ?? Number(product.buying_price || 0)
 
+  // Prix effectif d'une ligne de BC en cours de création : l'override manuel
+  // s'il est renseigné et valide, sinon le prix catalogue habituel.
+  const poUnitPrice = (p: any) => {
+    const override = poPriceOverrides[p.id]
+    if (override != null && override !== '' && !Number.isNaN(Number(override))) return Number(override)
+    return priceFor(p, poSupplierId)
+  }
+
   const poSupplierProducts = products.filter((p: any) => p.supplier_id === poSupplierId || poExtraProductIds.has(p.id))
   const poVisibleProducts = poShowAll ? poSupplierProducts : poSupplierProducts.filter(isLowOrOut)
+  const poTotal = poVisibleProducts
+    .filter((p: any) => poChecked[p.id])
+    .reduce((sum: number, p: any) => sum + poUnitPrice(p) * (Number(poQuantities[p.id]) || 0), 0)
 
   const openCreatePo = () => {
     setPoSupplierId('')
@@ -429,12 +444,15 @@ export default function SuppliersPage() {
     setPoChecked({})
     setPoQuantities({})
     setPoExtraProductIds(new Set())
+    setPoPriceOverrides({})
+    setPoNotes('')
     setShowPoDialog(true)
   }
 
   const onPoSupplierChange = (supplierId: string) => {
     setPoSupplierId(supplierId)
     setPoExtraProductIds(new Set())
+    setPoPriceOverrides({})
     const supplierProducts = products.filter((p: any) => p.supplier_id === supplierId)
     const checked: Record<string, boolean> = {}
     const quantities: Record<string, string> = {}
@@ -453,6 +471,8 @@ export default function SuppliersPage() {
   const orderFromComparator = (product: any, supplierId: string) => {
     setPoSupplierId(supplierId)
     setPoExtraProductIds(new Set([product.id]))
+    setPoPriceOverrides({})
+    setPoNotes('')
     const supplierProducts = products.filter((p: any) => p.supplier_id === supplierId)
     const checked: Record<string, boolean> = {}
     const quantities: Record<string, string> = {}
@@ -481,7 +501,7 @@ export default function SuppliersPage() {
         product_name: p.name,
         unit: p.unit,
         quantity_ordered: Number(poQuantities[p.id]) || 1,
-        unit_price: priceFor(p, poSupplierId),
+        unit_price: poUnitPrice(p),
       }))
     if (items.length === 0) {
       toast({ title: 'Sélectionnez au moins un produit', variant: 'destructive' })
@@ -492,7 +512,7 @@ export default function SuppliersPage() {
       const res = await fetch('/api/purchase-orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shop_id: shop.id, supplier_id: poSupplierId, items }),
+        body: JSON.stringify({ shop_id: shop.id, supplier_id: poSupplierId, items, notes: poNotes.trim() || null }),
       })
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
@@ -1245,19 +1265,49 @@ export default function SuppliersPage() {
                       <div className="min-w-0 flex-1">
                         <p className="text-sm truncate">{p.name}</p>
                         <p className="text-[11px] text-muted-foreground">
-                          {t('suppliers.po_stock_label')}: {p.quantity} {p.unit} · {fmt(priceFor(p, poSupplierId))}
+                          {t('suppliers.po_stock_label')}: {p.quantity} {p.unit}
                         </p>
                       </div>
-                      <Input
-                        type="number" min={1} inputMode="numeric"
-                        value={poQuantities[p.id] ?? ''}
-                        onChange={e => setPoQuantities(prev => ({ ...prev, [p.id]: e.target.value }))}
-                        className="w-16 h-8 text-center text-xs flex-shrink-0"
-                      />
+                      <div className="flex items-end gap-1.5 shrink-0">
+                        <div className="flex flex-col items-center gap-0.5">
+                          <span className="text-[9px] text-muted-foreground">{t('suppliers.po_qty_short')}</span>
+                          <Input
+                            type="number" min={1} inputMode="numeric"
+                            value={poQuantities[p.id] ?? ''}
+                            onChange={e => setPoQuantities(prev => ({ ...prev, [p.id]: e.target.value }))}
+                            className="w-14 h-8 text-center text-xs"
+                          />
+                        </div>
+                        <div className="flex flex-col items-center gap-0.5">
+                          <span className="text-[9px] text-muted-foreground">{t('suppliers.po_price_short')}</span>
+                          <Input
+                            type="number" min={0} inputMode="decimal"
+                            value={poPriceOverrides[p.id] ?? String(priceFor(p, poSupplierId))}
+                            onChange={e => setPoPriceOverrides(prev => ({ ...prev, [p.id]: e.target.value }))}
+                            className="w-20 h-8 text-center text-xs"
+                          />
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
+
+              <div className="space-y-1.5 mt-3">
+                <Label>{t('suppliers.po_notes_label')}</Label>
+                <textarea
+                  value={poNotes}
+                  onChange={e => setPoNotes(e.target.value)}
+                  placeholder={t('suppliers.po_notes_placeholder')}
+                  rows={2}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2.5 mt-3">
+                <span className="text-sm font-medium">{t('suppliers.po_total_label')}</span>
+                <span className="text-base font-bold text-stockshop-blue dark:text-blue-400">{fmt(poTotal)}</span>
+              </div>
             </>
           )}
         </PremiumDialogBody>
