@@ -497,8 +497,14 @@ export default function DashboardPage() {
   // le temps qu'il y navigue, la donnée est déjà là et le squelette de
   // chargement ne s'affiche quasiment jamais. Best-effort : si ça échoue,
   // /suppliers charge normalement comme avant.
+  //
+  // Sauté hors-ligne : la requête échouerait de toute façon (silencieusement,
+  // via le catch plus bas), mais autant ne pas la tenter — ça évite de faire
+  // concurrence à la synchro des ventes/mouvements en attente (IndexedDB, un
+  // espace de stockage séparé mais qui partage la même bande passante) au
+  // moment où la connexion revient.
   useEffect(() => {
-    if (!canAccess('suppliers') || !effectiveShopIds.length) return
+    if (!isOnline || !canAccess('suppliers') || !effectiveShopIds.length) return
     const cacheKey = `suppliers_${effectiveShopIds.join(',')}`
     if (getPageCache(cacheKey)) return
     ;(async () => {
@@ -513,7 +519,7 @@ export default function DashboardPage() {
         // best-effort — /suppliers falls back to its own fetch
       }
     })()
-  }, [effectiveShopIds.join(',')])
+  }, [effectiveShopIds.join(','), isOnline])
   useDashboardRealtime(shop?.id || null, {
     onNewSale: (sale) => {
       if (shopIds.includes(sale.shop_id || '')) {
