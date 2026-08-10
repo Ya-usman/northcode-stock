@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { action, shop_id, days, name, city, country, whatsapp, currency } = body
+    const { action, shop_id, days, name, city, country, whatsapp, currency, internal } = body
     if (!action || !shop_id) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
@@ -127,6 +127,21 @@ export async function POST(request: Request) {
         }
         await writeAuditLog({ action: 'admin.grant_plan', shop_id, actor_id: user.id, actor_email: user.email, target_id: shop_id, target_type: 'shop', metadata: { plan: planId }, ip: getClientIp(request) })
         return NextResponse.json({ success: true, message: `Plan ${planId} granted` })
+      }
+
+      case 'set_internal': {
+        const isInternal = !!internal
+        // profiles.is_internal fait foi (au niveau owner) ; shops.is_internal est une
+        // copie miroir pour lecture directe côté shop, appliquée à TOUTES les boutiques
+        // non supprimées de ce owner — la demande porte sur le owner, pas une boutique isolée.
+        if (owner_id) {
+          await admin.from('profiles').update({ is_internal: isInternal } as any).eq('id', owner_id)
+          await admin.from('shops').update({ is_internal: isInternal } as any).eq('owner_id', owner_id).is('deleted_at', null)
+        } else {
+          await admin.from('shops').update({ is_internal: isInternal } as any).eq('id', shop_id)
+        }
+        await writeAuditLog({ action: 'admin.set_internal', shop_id, actor_id: user.id, actor_email: user.email, target_id: owner_id || shop_id, target_type: owner_id ? 'owner' : 'shop', metadata: { internal: isInternal }, ip: getClientIp(request) })
+        return NextResponse.json({ success: true, message: isInternal ? 'Compte marqué interne (accès illimité)' : 'Compte interne désactivé' })
       }
 
       case 'edit_shop': {

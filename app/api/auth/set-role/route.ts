@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       const [profileRes, shopRes] = await Promise.all([
         supabase
           .from('profiles')
-          .select('role, plan, plan_expires_at, trial_ends_at')
+          .select('role, plan, plan_expires_at, trial_ends_at, is_internal')
           .eq('id', user.id)
           .single(),
         supabase
@@ -72,6 +72,14 @@ export async function POST(request: Request) {
         planOkUntil = new Date(shopExpiry) > new Date(profileExpiry) ? shopExpiry : profileExpiry
       } else {
         planOkUntil = profileExpiry ?? shopExpiry ?? null
+      }
+
+      // Compte interne (superadmin de test) — jamais bloqué par le mur de
+      // facturation. Volontairement écrasé après le calcul ci-dessus plutôt
+      // que court-circuité plus tôt, pour ne pas dupliquer la logique de
+      // repli entre profil/boutique.
+      if (profile?.is_internal) {
+        planOkUntil = new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString()
       }
     }
 

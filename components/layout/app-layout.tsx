@@ -408,7 +408,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   const trialDaysLeft  = getTrialDaysLeft(shop?.trial_ends_at ?? null)
   const graceDaysLeft  = getGraceDaysLeft(shop?.plan ?? null, shop?.plan_expires_at ?? null)
   const subscribed     = hasActiveSubscription(shop?.plan ?? null, shop?.plan_expires_at ?? null)
-  const accessAllowed  = !shop || isAccessAllowed(shop.plan ?? null, shop.trial_ends_at ?? null, shop.plan_expires_at ?? null)
+  const accessAllowed  = !shop || isAccessAllowed(shop.plan ?? null, shop.trial_ends_at ?? null, shop.plan_expires_at ?? null, shop.is_internal ?? false)
   const inGracePeriod  = graceDaysLeft > 0
   const showTrialBanner   = !subscribed && !inGracePeriod && accessAllowed && trialDaysLeft <= 7 && profile.role === 'owner'
   const showGraceBanner   = inGracePeriod && profile.role === 'owner'

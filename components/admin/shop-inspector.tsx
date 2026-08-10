@@ -462,6 +462,18 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
                 <CreditCard className="h-3.5 w-3.5 mr-1.5" />
                 Activer Starter
               </Button>
+              <Button
+                size="sm" variant="outline"
+                className={shop.is_internal
+                  ? 'border-emerald-700 text-emerald-400 hover:bg-emerald-900/30'
+                  : 'border-gray-700 text-gray-400 hover:bg-gray-900/30'}
+                disabled={actionLoading}
+                onClick={() => shopAction('set_internal', { internal: !shop.is_internal })}
+                title="Exempte définitivement ce owner (et toutes ses boutiques) de la facturation — pour les comptes de test superadmin. N'apparaît pas comme abonnement payant dans les stats."
+              >
+                <Shield className="h-3.5 w-3.5 mr-1.5" />
+                {shop.is_internal ? 'Compte interne ✓' : 'Marquer compte interne'}
+              </Button>
               {shop.whatsapp && (
                 <a
                   href={`https://wa.me/${shop.whatsapp.replace(/\D/g, '')}?text=Bonjour depuis StockShop Support`}

@@ -34,6 +34,9 @@ export interface Shop {
   billing_country: string | null
   role_permissions: Record<string, Record<string, boolean>> | null
   deleted_at: string | null
+  // Compte interne (superadmin de test) — exempté de la facturation, jamais
+  // compté comme abonnement payant dans les métriques admin/analytics.
+  is_internal: boolean
 }
 
 export interface Profile {
@@ -49,6 +52,7 @@ export interface Profile {
   country: string | null
   plan_grace_ends_at: string | null
   last_seen_announcement_at: string | null
+  is_internal: boolean
 }
 
 export interface Expense {

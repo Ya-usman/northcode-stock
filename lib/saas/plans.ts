@@ -144,12 +144,21 @@ export function getGraceDaysLeft(
   return diff > 0 ? diff : -1
 }
 
-/** Returns true if shop can still use the app */
+/**
+ * Returns true if shop can still use the app.
+ *
+ * isInternal bypasses billing entirely for internal/test accounts (superadmins
+ * testing the product). Deliberately NOT folded into hasActiveSubscription —
+ * that function's result also feeds admin/analytics "paying customer" metrics,
+ * and an internal account must never count as a real subscriber there.
+ */
 export function isAccessAllowed(
   planId: string | null,
   trialEndsAt: string | null,
   planExpiresAt: string | null,
+  isInternal?: boolean,
 ): boolean {
+  if (isInternal) return true
   if (hasActiveSubscription(planId, planExpiresAt)) return true
   // 7-day grace period after a paid plan expires
   if (getGraceDaysLeft(planId, planExpiresAt) > 0) return true
