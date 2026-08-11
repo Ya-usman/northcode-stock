@@ -7,6 +7,7 @@ export type AuditAction =
   | 'member.toggle_active'
   | 'permissions.update'
   | 'shop.update_hours'
+  | 'shop.extend_hours'
   | 'billing.subscribe'
   | 'billing.verify'
   | 'billing.limit_enforced'

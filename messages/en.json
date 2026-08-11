@@ -789,6 +789,7 @@
     "perm_delete_products": "Delete products",
     "perm_delete_expenses": "Delete expenses",
     "perm_caisse": "Cash Audit",
+    "perm_extend_hours": "Extend closing time",
     "perm_general_tab": "General",
     "perm_general_warning": "These settings apply to everyone, including you (owner).",
     "perm_section_dashboard": "Dashboard cards",
@@ -1401,6 +1402,8 @@
     "closed_subtitle_shop": "{shopName} — access is limited to business hours.",
     "closed_hours": "Hours: {opening} – {closing}",
     "closed_device_time": "It's {time} on this device",
-    "countdown": "Closing in {time}"
+    "countdown": "Closing in {time}",
+    "extend_success": "Closing pushed back by {minutes} min",
+    "extend_remaining": "{count} extension(s) left for the shop today"
   }
 }

@@ -65,6 +65,7 @@ export async function PATCH(request: Request) {
       currentHours = data
     }
 
+    let hoursChanged = false
     if (touchesHours) {
       const effectiveEnabled = 'hours_enabled' in updates ? updates.hours_enabled : currentHours?.hours_enabled
       const effectiveOpening = ('opening_time' in updates ? updates.opening_time : currentHours?.opening_time) as string | null
@@ -72,28 +73,36 @@ export async function PATCH(request: Request) {
       if (effectiveEnabled && effectiveOpening && effectiveClosing && effectiveClosing <= effectiveOpening) {
         return NextResponse.json({ error: "L'heure de fermeture doit être après l'heure d'ouverture" }, { status: 400 })
       }
+
+      hoursChanged = HOURS_FIELDS.some(f => f in updates && updates[f] !== currentHours?.[f])
+      // Un changement d'horaire délibéré par le owner efface toute
+      // prolongation en cours (accordée par un manager) et remet le quota
+      // du jour à zéro — sinon une prolongation plus ancienne pourrait
+      // silencieusement annuler la correction du owner.
+      if (hoursChanged) {
+        updates.hours_extension_until = null
+        updates.hours_extension_count = 0
+        updates.hours_extension_count_date = null
+      }
     }
 
     const { error } = await admin.from('shops').update(updates).eq('id', shop_id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    if (touchesHours && currentHours) {
-      const changed = HOURS_FIELDS.some(f => f in updates && updates[f] !== currentHours![f])
-      if (changed) {
-        await writeAuditLog({
-          action: 'shop.update_hours',
-          shop_id,
-          actor_id: user.id,
-          actor_email: user.email,
-          target_id: shop_id,
-          target_type: 'shop',
-          metadata: {
-            before: currentHours,
-            after: Object.fromEntries(HOURS_FIELDS.map(f => [f, f in updates ? updates[f] : currentHours![f]])),
-          },
-          ip: getClientIp(request),
-        })
-      }
+    if (hoursChanged && currentHours) {
+      await writeAuditLog({
+        action: 'shop.update_hours',
+        shop_id,
+        actor_id: user.id,
+        actor_email: user.email,
+        target_id: shop_id,
+        target_type: 'shop',
+        metadata: {
+          before: currentHours,
+          after: Object.fromEntries(HOURS_FIELDS.map(f => [f, f in updates ? updates[f] : currentHours![f]])),
+        },
+        ip: getClientIp(request),
+      })
     }
 
     return NextResponse.json({ success: true })

@@ -11,6 +11,7 @@ export type ConfigurableRole = 'manager' | 'shop_manager' | 'cashier' | 'viewer'
 export type ServerCheckedFeature =
   | 'stock' | 'movements' | 'categories' | 'suppliers' | 'payments'
   | 'inventory_count' | 'delete_products' | 'delete_expenses' | 'transfers'
+  | 'extend_hours'
 
 const FEATURE_DEFAULTS: Record<ServerCheckedFeature, Record<ConfigurableRole, boolean>> = {
   stock:           { manager: true,  shop_manager: true,  cashier: false, viewer: true,  stock_manager: true },
@@ -22,6 +23,7 @@ const FEATURE_DEFAULTS: Record<ServerCheckedFeature, Record<ConfigurableRole, bo
   delete_products: { manager: false, shop_manager: false, cashier: false, viewer: false, stock_manager: false },
   delete_expenses: { manager: false, shop_manager: false, cashier: false, viewer: false, stock_manager: false },
   transfers:       { manager: true,  shop_manager: true,  cashier: false, viewer: true,  stock_manager: true },
+  extend_hours:    { manager: false, shop_manager: false, cashier: false, viewer: false, stock_manager: false },
 }
 
 function isConfigurableRole(role: string): role is ConfigurableRole {

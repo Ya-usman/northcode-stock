@@ -22,6 +22,7 @@ import { ShopClosedWall } from '@/components/saas/shop-closed-wall'
 import { ShopHoursCountdownBanner } from '@/components/saas/shop-hours-countdown-banner'
 import { getTrialDaysLeft, hasActiveSubscription, isAccessAllowed, getGraceDaysLeft, isBetaPeriod } from '@/lib/saas/plans'
 import { isShopOpenNow } from '@/lib/saas/shop-hours'
+import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 import { useToast } from '@/components/ui/use-toast'
 import { triggerSaleFeedback, unlockAudio } from '@/lib/utils/sale-feedback'
 import { useOffline } from '@/lib/offline/use-offline'
@@ -78,6 +79,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   const pathname = usePathname()
   const router = useRouter()
   const { user, profile, shop, roleInActiveShop, loading, signOut, refreshShop } = useAuthContext()
+  const { canAccess } = useRolePermissions()
   const title = usePageTitle(pathname, locale)
   const [productCount, setProductCount] = useState(0)
   const [teamCount, setTeamCount] = useState(0)
@@ -421,7 +423,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   // configurée par le owner. roleInActiveShop (pas profile.role seul) est
   // requis : un owner de la Boutique A qui n'est que simple membre de la
   // Boutique B ne doit pas être exempté du mur de la Boutique B.
-  const shopOpen        = !shop || isShopOpenNow(shop.hours_enabled, shop.opening_time, shop.closing_time, shop.hours_manual_override)
+  const shopOpen        = !shop || isShopOpenNow(shop.hours_enabled, shop.opening_time, shop.closing_time, shop.hours_manual_override, shop.hours_extension_until)
   const effectiveRole   = roleInActiveShop ?? profile.role
   const isExemptFromHours = effectiveRole === 'owner' || effectiveRole === 'super_admin'
   // Compte interne (superadmin de test) — jamais de rappel de facturation,
@@ -448,10 +450,14 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         {showGraceBanner && !isBillingPage && <GracePeriodBanner daysLeft={graceDaysLeft} locale={locale} />}
         {shop?.hours_enabled && shopOpen && (
           <ShopHoursCountdownBanner
+            shopId={shop.id}
             hoursEnabled={shop.hours_enabled}
             openingTime={shop.opening_time}
             closingTime={shop.closing_time}
             manualOverride={shop.hours_manual_override}
+            extensionUntil={shop.hours_extension_until}
+            extensionCount={shop.hours_extension_count ?? 0}
+            canExtend={canAccess('extend_hours')}
           />
         )}
 

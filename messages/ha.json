@@ -789,6 +789,7 @@
     "perm_delete_products": "Share Kayayyaki",
     "perm_delete_expenses": "Share Kashe Kuɗi",
     "perm_caisse": "Duba Kuɗin Kasuwanci",
+    "perm_extend_hours": "Tsawaita lokacin rufewa",
     "perm_general_tab": "Gaba Ɗaya",
     "perm_general_warning": "Wadannan saitunan suna shafar kowa, har da kai (mai shago).",
     "perm_section_dashboard": "Katunan Taswirar Aiki",
@@ -1401,6 +1402,8 @@
     "closed_subtitle_shop": "{shopName} — shiga yana iyakance ga lokutan buɗewa.",
     "closed_hours": "Lokuta: {opening} – {closing}",
     "closed_device_time": "Yanzu {time} ne akan wannan na'ura",
-    "countdown": "Za a rufe cikin {time}"
+    "countdown": "Za a rufe cikin {time}",
+    "extend_success": "An tsawaita rufewa da mintuna {minutes}",
+    "extend_remaining": "Tsawaita {count} sun rage wa shago yau"
   }
 }

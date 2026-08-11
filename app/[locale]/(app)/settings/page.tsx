@@ -101,6 +101,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
     { key: 'delete_products', label: t('settings.perm_delete_products'), icon: <Trash2 className="h-4 w-4" /> },
     { key: 'delete_expenses', label: t('settings.perm_delete_expenses'), icon: <Trash2 className="h-4 w-4" /> },
     { key: 'caisse',          label: t('settings.perm_caisse'),          icon: <ClipboardList className="h-4 w-4" /> },
+    { key: 'extend_hours',    label: t('settings.perm_extend_hours'),    icon: <Clock className="h-4 w-4" /> },
   ]
 
   const DASHBOARD_WIDGET_FEATURES: { key: PermFeature; label: string; icon: React.ReactNode }[] = [

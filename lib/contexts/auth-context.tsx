@@ -526,6 +526,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (raw.opening_time !== undefined) (patch as any).opening_time = raw.opening_time
         if (raw.closing_time !== undefined) (patch as any).closing_time = raw.closing_time
         if (raw.hours_manual_override !== undefined) (patch as any).hours_manual_override = raw.hours_manual_override
+        if (raw.hours_extension_until !== undefined) (patch as any).hours_extension_until = raw.hours_extension_until
+        if (raw.hours_extension_count !== undefined) (patch as any).hours_extension_count = raw.hours_extension_count
+        if (raw.hours_extension_count_date !== undefined) (patch as any).hours_extension_count_date = raw.hours_extension_count_date
         if (Object.keys(patch).length === 0) return
         setState(prev => ({
           ...prev,

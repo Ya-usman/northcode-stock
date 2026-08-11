@@ -46,6 +46,9 @@ export interface Shop {
   opening_time: string | null
   closing_time: string | null
   hours_manual_override: 'open' | 'closed' | null
+  hours_extension_until: string | null
+  hours_extension_count: number
+  hours_extension_count_date: string | null
 }
 
 export interface Profile {

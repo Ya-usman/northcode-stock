@@ -4,7 +4,7 @@ export type PermFeature =
   | 'new_sale' | 'sales_history' | 'payments' | 'customers'
   | 'stock' | 'movements' | 'categories' | 'suppliers' | 'transfers' | 'reports'
   | 'revenue_chart' | 'notes' | 'expenses' | 'delete_products' | 'delete_expenses' | 'caisse'
-  | 'inventory_count'
+  | 'inventory_count' | 'extend_hours'
   // Dashboard widgets — finer-grained than the page-level flags above
   | 'widget_today_revenue' | 'widget_sales_count' | 'widget_stock_alerts_card'
   | 'widget_outstanding_debt' | 'widget_net_result' | 'widget_stock_alerts_list'
@@ -38,6 +38,7 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     delete_expenses: false,
     caisse: true,
     inventory_count: true,
+    extend_hours: false,
     widget_today_revenue: true,
     widget_sales_count: true,
     widget_stock_alerts_card: true,
@@ -75,6 +76,7 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     delete_expenses: false,
     caisse: true,
     inventory_count: true,
+    extend_hours: false,
     widget_today_revenue: true,
     widget_sales_count: true,
     widget_stock_alerts_card: true,
@@ -112,6 +114,7 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     delete_expenses: false,
     caisse: false,
     inventory_count: false,
+    extend_hours: false,
     widget_today_revenue: true,
     widget_sales_count: true,
     widget_stock_alerts_card: true,
@@ -149,6 +152,7 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     delete_expenses: false,
     caisse: false,
     inventory_count: false,
+    extend_hours: false,
     widget_today_revenue: true,
     widget_sales_count: true,
     widget_stock_alerts_card: true,
@@ -186,6 +190,7 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     delete_expenses: false,
     caisse: false,
     inventory_count: true,
+    extend_hours: false,
     widget_today_revenue: true,
     widget_sales_count: true,
     widget_stock_alerts_card: true,

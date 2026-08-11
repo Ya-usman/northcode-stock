@@ -789,6 +789,7 @@
     "perm_delete_products": "Supprimer des produits",
     "perm_delete_expenses": "Supprimer des dépenses",
     "perm_caisse": "Contrôle de caisse",
+    "perm_extend_hours": "Prolonger l'heure de fermeture",
     "perm_general_tab": "Général",
     "perm_general_warning": "Ces réglages s'appliquent à tout le monde, y compris vous (propriétaire).",
     "perm_section_dashboard": "Cartes du tableau de bord",
@@ -1401,6 +1402,8 @@
     "closed_subtitle_shop": "{shopName} — l'accès est limité aux horaires d'ouverture.",
     "closed_hours": "Horaires : {opening} – {closing}",
     "closed_device_time": "Il est {time} sur cet appareil",
-    "countdown": "Fermeture dans {time}"
+    "countdown": "Fermeture dans {time}",
+    "extend_success": "Fermeture repoussée de {minutes} min",
+    "extend_remaining": "{count} prolongation(s) restante(s) pour la boutique aujourd'hui"
   }
 }
