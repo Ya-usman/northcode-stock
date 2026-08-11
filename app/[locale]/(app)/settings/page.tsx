@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
-import { Save, Upload, Globe, Moon, Sun, ShoppingCart, History, CreditCard, Users, Package, ArrowLeftRight, Tag, Truck, BarChart2, ShieldCheck, Bell, Receipt, NotebookPen, Trash2, ClipboardList, ClipboardCheck, TrendingUp, AlertTriangle, CalendarDays } from 'lucide-react'
+import { Save, Upload, Globe, Moon, Sun, ShoppingCart, History, CreditCard, Users, Package, ArrowLeftRight, Tag, Truck, BarChart2, ShieldCheck, Bell, Receipt, NotebookPen, Trash2, ClipboardList, ClipboardCheck, TrendingUp, AlertTriangle, CalendarDays, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
@@ -32,6 +32,10 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const { isDark, setIsDark } = useTheme()
 
   const isOwner = profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'shop_manager' || profile?.role === 'super_admin'
+  // Plus étroit que isOwner ci-dessus (qui inclut manager/shop_manager) —
+  // aligné sur la vérification réelle de /api/shops/settings, pour ne pas
+  // afficher une carte qu'un manager pourrait remplir mais jamais enregistrer.
+  const canManageHours = profile?.role === 'owner' || profile?.role === 'super_admin'
 
   const [shop, setShop] = useState<Shop | null>(shopData)
   const [saving, setSaving] = useState(false)
@@ -46,6 +50,11 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const [threshold, setThreshold] = useState<string>('10')
   const [taxRate, setTaxRate] = useState<string>('0')
   const [expiryAlertDays, setExpiryAlertDays] = useState<string>('14')
+
+  const [hoursEnabled, setHoursEnabled] = useState(false)
+  const [openingTime, setOpeningTime] = useState('08:00')
+  const [closingTime, setClosingTime] = useState('20:00')
+  const [hoursOverride, setHoursOverride] = useState<'auto' | 'open' | 'closed'>('auto')
 
   const [notifyEmailLowStock, setNotifyEmailLowStock] = useState(true)
   const [notifyEmailDaily, setNotifyEmailDaily] = useState(true)
@@ -142,6 +151,10 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       setThreshold(String(shopData.low_stock_threshold))
       setTaxRate(String(shopData.tax_rate))
       setExpiryAlertDays(String((shopData as any).expiry_alert_days ?? 14))
+      setHoursEnabled(shopData.hours_enabled ?? false)
+      setOpeningTime((shopData.opening_time ?? '08:00').slice(0, 5))
+      setClosingTime((shopData.closing_time ?? '20:00').slice(0, 5))
+      setHoursOverride(shopData.hours_manual_override === 'open' ? 'open' : shopData.hours_manual_override === 'closed' ? 'closed' : 'auto')
 
       setNotifyEmailLowStock(shopData.notify_email_low_stock)
       setNotifyEmailDaily(shopData.notify_email_daily)
@@ -215,6 +228,10 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
 
   const saveSettings = async () => {
     if (!shop?.id) return
+    if (hoursEnabled && closingTime <= openingTime) {
+      toast({ title: t('settings.hours_invalid_range'), variant: 'destructive' })
+      return
+    }
     setSaving(true)
     const updates = {
       name: name.trim(),
@@ -226,6 +243,11 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       low_stock_threshold: Math.max(1, Number(threshold) || 1),
       tax_rate: Math.max(0, Number(taxRate) || 0),
       expiry_alert_days: Math.max(1, Number(expiryAlertDays) || 1),
+
+      hours_enabled: hoursEnabled,
+      opening_time: openingTime,
+      closing_time: closingTime,
+      hours_manual_override: hoursOverride === 'auto' ? null : hoursOverride,
 
       notify_email_low_stock: notifyEmailLowStock,
       notify_email_daily: notifyEmailDaily,
@@ -497,6 +519,71 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
               </div>
             </CardContent>
           </Card>
+
+          {/* Horaires d'ouverture */}
+          {canManageHours && (
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  {t('settings.hours_title')}
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">{t('settings.hours_desc')}</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label>{t('settings.hours_enabled')}</Label>
+                  <Switch checked={hoursEnabled} onCheckedChange={setHoursEnabled} />
+                </div>
+
+                {hoursEnabled && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <Label>{t('settings.hours_opening')}</Label>
+                        <Input type="time" value={openingTime} onChange={e => setOpeningTime(e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>{t('settings.hours_closing')}</Label>
+                        <Input type="time" value={closingTime} onChange={e => setClosingTime(e.target.value)} />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label>{t('settings.hours_override')}</Label>
+                      <div className="flex gap-2 flex-wrap">
+                        {([
+                          ['auto', t('settings.hours_override_auto')],
+                          ['open', t('settings.hours_override_open')],
+                          ['closed', t('settings.hours_override_closed')],
+                        ] as const).map(([value, label]) => (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => setHoursOverride(value)}
+                            className={cn(
+                              'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors border',
+                              hoursOverride === value
+                                ? 'bg-stockshop-blue text-white border-stockshop-blue'
+                                : 'border-border text-muted-foreground hover:bg-muted'
+                            )}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {hoursOverride !== 'auto' && (
+                      <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                        {t('settings.hours_override_warning')}
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Notifications */}
           <Card className="border-0 shadow-sm">

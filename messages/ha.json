@@ -747,6 +747,17 @@
     "expiry_alert_days": "Faɗakarwar ƙarewa (kwanaki kafin)",
     "expiry_alert_hint": "Faɗakarwa idan lodi zai ƙare a wannan lokacin",
     "alert_expiry": "Faɗakarwar ƙarewa",
+    "hours_title": "Lokutan buɗewa",
+    "hours_desc": "A waje da wannan lokacin, ma'aikata ba za su iya shiga app ɗin ba. Wannan ƙuntatawa ba ta shafe ka ba.",
+    "hours_enabled": "Kunna lokutan buɗewa",
+    "hours_opening": "Buɗewa",
+    "hours_closing": "Rufewa",
+    "hours_override": "Sauyawa da hannu",
+    "hours_override_auto": "Atomatik",
+    "hours_override_open": "Tilasta buɗewa",
+    "hours_override_closed": "Tilasta rufewa",
+    "hours_override_warning": "Sauyawa da hannu na aiki — jadawalin atomatik an yi watsi da shi.",
+    "hours_invalid_range": "Lokacin rufewa dole ya kasance bayan lokacin buɗewa",
     "notif_hint": "Saita sanarwar da za a aika zuwa waya da imel ɗinka",
     "push_notifications": "Sanarwar Push",
     "push_low_stock": "Sanarwar Ƙarancin Kaya",
@@ -1383,5 +1394,13 @@
     "ex_name1": "Coca Cola 50cl",
     "ex_name2": "Sukari 1kg",
     "ex_name3": "Man Ci 1L"
+  },
+  "shop_hours": {
+    "closed_title": "An rufe shago",
+    "closed_subtitle": "Shiga yana iyakance ga lokutan buɗewa.",
+    "closed_subtitle_shop": "{shopName} — shiga yana iyakance ga lokutan buɗewa.",
+    "closed_hours": "Lokuta: {opening} – {closing}",
+    "closed_device_time": "Yanzu {time} ne akan wannan na'ura",
+    "countdown": "Za a rufe cikin {time}"
   }
 }

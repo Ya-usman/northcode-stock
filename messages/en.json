@@ -746,6 +746,17 @@
     "expiry_alert_days": "Expiry alert (days before)",
     "expiry_alert_hint": "Alert when a batch expires within this window",
     "alert_expiry": "Expiry alert",
+    "hours_title": "Business hours",
+    "hours_desc": "Outside this window, employees lose access to the app. You are never affected by this restriction.",
+    "hours_enabled": "Enable business hours",
+    "hours_opening": "Opening",
+    "hours_closing": "Closing",
+    "hours_override": "Override",
+    "hours_override_auto": "Automatic",
+    "hours_override_open": "Force open",
+    "hours_override_closed": "Force closed",
+    "hours_override_warning": "Manual override active — the automatic schedule is ignored.",
+    "hours_invalid_range": "Closing time must be after opening time",
     "notif_hint": "Configure alerts sent to your phone and email",
     "saved": "Settings saved!",
     "push_notifications": "Push Notifications",
@@ -1383,5 +1394,13 @@
     "ex_name1": "Coca Cola 50cl",
     "ex_name2": "Sugar 1kg",
     "ex_name3": "Vegetable Oil 1L"
+  },
+  "shop_hours": {
+    "closed_title": "Shop closed",
+    "closed_subtitle": "Access is limited to business hours.",
+    "closed_subtitle_shop": "{shopName} — access is limited to business hours.",
+    "closed_hours": "Hours: {opening} – {closing}",
+    "closed_device_time": "It's {time} on this device",
+    "countdown": "Closing in {time}"
   }
 }

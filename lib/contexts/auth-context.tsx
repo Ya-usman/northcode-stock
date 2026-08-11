@@ -519,6 +519,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const patch: Partial<Shop> = {}
         if (raw.role_permissions !== undefined) (patch as any).role_permissions = raw.role_permissions
         if (raw.name !== undefined) patch.name = raw.name
+        // Horaires d'ouverture — pousse la fermeture/dérogation en direct vers
+        // les employés déjà connectés (mur d'accès + compte à rebours).
+        if (raw.hours_enabled !== undefined) (patch as any).hours_enabled = raw.hours_enabled
+        if (raw.opening_time !== undefined) (patch as any).opening_time = raw.opening_time
+        if (raw.closing_time !== undefined) (patch as any).closing_time = raw.closing_time
+        if (raw.hours_manual_override !== undefined) (patch as any).hours_manual_override = raw.hours_manual_override
         if (Object.keys(patch).length === 0) return
         setState(prev => ({
           ...prev,

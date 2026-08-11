@@ -39,6 +39,13 @@ export interface Shop {
   // Compte interne (superadmin de test) — exempté de la facturation, jamais
   // compté comme abonnement payant dans les métriques admin/analytics.
   is_internal: boolean
+  // Horaires d'ouverture — fenêtre unique, partagée par tous les employés
+  // (voir lib/saas/shop-hours.ts). hours_enabled=false = fonctionnalité
+  // désactivée, aucune restriction.
+  hours_enabled: boolean
+  opening_time: string | null
+  closing_time: string | null
+  hours_manual_override: 'open' | 'closed' | null
 }
 
 export interface Profile {

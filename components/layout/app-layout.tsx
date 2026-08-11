@@ -18,7 +18,10 @@ import { UpgradeWall } from '@/components/saas/upgrade-wall'
 import { PlanLimitAlert } from '@/components/saas/plan-limit-alert'
 import { GracePeriodBanner } from '@/components/saas/grace-period-banner'
 import { WhatsNewModal, type Announcement } from '@/components/saas/whats-new-modal'
+import { ShopClosedWall } from '@/components/saas/shop-closed-wall'
+import { ShopHoursCountdownBanner } from '@/components/saas/shop-hours-countdown-banner'
 import { getTrialDaysLeft, hasActiveSubscription, isAccessAllowed, getGraceDaysLeft, isBetaPeriod } from '@/lib/saas/plans'
+import { isShopOpenNow } from '@/lib/saas/shop-hours'
 import { useToast } from '@/components/ui/use-toast'
 import { triggerSaleFeedback, unlockAudio } from '@/lib/utils/sale-feedback'
 import { useOffline } from '@/lib/offline/use-offline'
@@ -414,6 +417,13 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   const subscribed     = hasActiveSubscription(shop?.plan ?? null, shop?.plan_expires_at ?? null)
   const accessAllowed  = !shop || isAccessAllowed(shop.plan ?? null, shop.trial_ends_at ?? null, shop.plan_expires_at ?? null, shop.is_internal ?? false)
   const inGracePeriod  = graceDaysLeft > 0
+  // Horaires d'ouverture — coupe l'accès aux employés hors de la fenêtre
+  // configurée par le owner. roleInActiveShop (pas profile.role seul) est
+  // requis : un owner de la Boutique A qui n'est que simple membre de la
+  // Boutique B ne doit pas être exempté du mur de la Boutique B.
+  const shopOpen        = !shop || isShopOpenNow(shop.hours_enabled, shop.opening_time, shop.closing_time, shop.hours_manual_override)
+  const effectiveRole   = roleInActiveShop ?? profile.role
+  const isExemptFromHours = effectiveRole === 'owner' || effectiveRole === 'super_admin'
   // Compte interne (superadmin de test) — jamais de rappel de facturation,
   // même exemption que le mur de facturation (isAccessAllowed).
   const showTrialBanner   = !subscribed && !inGracePeriod && accessAllowed && trialDaysLeft <= 7 && profile.role === 'owner' && !shop?.is_internal
@@ -426,6 +436,9 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
       {!accessAllowed && !isBillingPage && (
         <UpgradeWall locale={locale} shopName={shop?.name} />
       )}
+      {accessAllowed && !shopOpen && !isExemptFromHours && (
+        <ShopClosedWall locale={locale} shopName={shop?.name} openingTime={shop!.opening_time!} closingTime={shop!.closing_time!} />
+      )}
 
       <Sidebar locale={locale} role={roleInActiveShop ?? profile.role} profile={profile} shop={shop} onSignOut={handleSignOut} signingOut={signingOut} userEmail={user.email ?? ''} hasUnreadAnnouncement={hasUnreadAnnouncement} onOpenWhatsNew={() => setWhatsNewOpen(true)} />
 
@@ -433,6 +446,14 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         <OfflineBanner />
         {showTrialBanner && <TrialBanner daysLeft={trialDaysLeft} locale={locale} />}
         {showGraceBanner && !isBillingPage && <GracePeriodBanner daysLeft={graceDaysLeft} locale={locale} />}
+        {shop?.hours_enabled && shopOpen && (
+          <ShopHoursCountdownBanner
+            hoursEnabled={shop.hours_enabled}
+            openingTime={shop.opening_time}
+            closingTime={shop.closing_time}
+            manualOverride={shop.hours_manual_override}
+          />
+        )}
 
         <Header title={title} shop={shop} locale={locale} onSignOut={handleSignOut} crispUnread={crispUnread} onOpenChat={handleOpenChat} />
 

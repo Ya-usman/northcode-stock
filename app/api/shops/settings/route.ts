@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { writeAuditLog, getClientIp } from '@/lib/api/audit'
+
+const HOURS_FIELDS = ['hours_enabled', 'opening_time', 'closing_time', 'hours_manual_override'] as const
 
 // PATCH /api/shops/settings — mise à jour des paramètres de la boutique (nom, ville, notifications...)
 export async function PATCH(request: Request) {
@@ -22,10 +25,18 @@ export async function PATCH(request: Request) {
       'low_stock_threshold', 'tax_rate', 'expiry_alert_days',
       'notify_email_low_stock', 'notify_email_daily', 'notify_email_expiry',
       'notify_push_new_sale', 'notify_push_new_expense', 'notify_push_expiry',
+      ...HOURS_FIELDS,
     ] as const
     const updates: Record<string, unknown> = {}
     for (const field of ALLOWED_FIELDS) {
       if (field in rawUpdates) updates[field] = rawUpdates[field]
+    }
+
+    if ('hours_manual_override' in updates) {
+      const v = updates.hours_manual_override
+      if (v !== null && v !== 'open' && v !== 'closed') {
+        return NextResponse.json({ error: 'hours_manual_override invalide' }, { status: 400 })
+      }
     }
 
     // Only the owner can update shop settings
@@ -42,8 +53,48 @@ export async function PATCH(request: Request) {
     }
 
     const admin = await createAdminClient() as any
+
+    // Les horaires ont besoin de l'état actuel : pour valider fermeture >
+    // ouverture même si un seul des deux champs est envoyé dans cette
+    // requête, et pour ne journaliser que si l'un des 4 champs change
+    // réellement (cette route n'audite aucun autre champ aujourd'hui).
+    const touchesHours = HOURS_FIELDS.some(f => f in updates)
+    let currentHours: Record<string, unknown> | null = null
+    if (touchesHours) {
+      const { data } = await admin.from('shops').select(HOURS_FIELDS.join(',')).eq('id', shop_id).single()
+      currentHours = data
+    }
+
+    if (touchesHours) {
+      const effectiveEnabled = 'hours_enabled' in updates ? updates.hours_enabled : currentHours?.hours_enabled
+      const effectiveOpening = ('opening_time' in updates ? updates.opening_time : currentHours?.opening_time) as string | null
+      const effectiveClosing = ('closing_time' in updates ? updates.closing_time : currentHours?.closing_time) as string | null
+      if (effectiveEnabled && effectiveOpening && effectiveClosing && effectiveClosing <= effectiveOpening) {
+        return NextResponse.json({ error: "L'heure de fermeture doit être après l'heure d'ouverture" }, { status: 400 })
+      }
+    }
+
     const { error } = await admin.from('shops').update(updates).eq('id', shop_id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    if (touchesHours && currentHours) {
+      const changed = HOURS_FIELDS.some(f => f in updates && updates[f] !== currentHours![f])
+      if (changed) {
+        await writeAuditLog({
+          action: 'shop.update_hours',
+          shop_id,
+          actor_id: user.id,
+          actor_email: user.email,
+          target_id: shop_id,
+          target_type: 'shop',
+          metadata: {
+            before: currentHours,
+            after: Object.fromEntries(HOURS_FIELDS.map(f => [f, f in updates ? updates[f] : currentHours![f]])),
+          },
+          ip: getClientIp(request),
+        })
+      }
+    }
 
     return NextResponse.json({ success: true })
   } catch (err: any) {
