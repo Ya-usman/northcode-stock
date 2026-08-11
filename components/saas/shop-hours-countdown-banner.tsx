@@ -21,6 +21,8 @@ interface ShopHoursCountdownBannerProps {
 }
 
 const PRESET_MINUTES = [15, 30, 45, 60] as const
+const WARNING_THRESHOLD_MS = 30 * 60_000
+const CRITICAL_THRESHOLD_MS = 10 * 60_000
 
 function formatDuration(ms: number): string {
   const totalMinutes = Math.max(0, Math.round(ms / 60000))
@@ -56,6 +58,13 @@ export function ShopHoursCountdownBanner({
   const remaining = Math.max(0, 2 - extensionCount)
   const showExtendControls = canExtend && !manualOverride && remaining > 0
 
+  const urgency = msLeft <= CRITICAL_THRESHOLD_MS ? 'critical' : msLeft <= WARNING_THRESHOLD_MS ? 'warning' : 'normal'
+  const urgencyClass = {
+    normal: 'bg-stockshop-blue',
+    warning: 'bg-amber-600',
+    critical: 'bg-red-600 motion-safe:animate-pulse',
+  }[urgency]
+
   const extend = async (minutes: number) => {
     if (extending) return
     setExtending(true)
@@ -80,7 +89,7 @@ export function ShopHoursCountdownBanner({
   }
 
   return (
-    <div className="w-full bg-stockshop-blue text-white px-4 py-2.5 flex items-center gap-3 flex-wrap text-sm font-medium">
+    <div className={cn('w-full text-white px-4 py-2.5 flex items-center gap-3 flex-wrap text-sm font-medium transition-colors duration-500', urgencyClass)}>
       <div className="flex items-center gap-2">
         <Clock className="h-4 w-4 flex-shrink-0" />
         <span>{t('countdown', { time: formatDuration(msLeft) })}</span>
@@ -101,7 +110,7 @@ export function ShopHoursCountdownBanner({
               +{minutes}min
             </button>
           ))}
-          <span className="text-xs text-blue-100">{t('extend_remaining', { count: remaining })}</span>
+          <span className="text-xs text-white/80">{t('extend_remaining', { count: remaining })}</span>
         </div>
       )}
     </div>
