@@ -1,7 +1,6 @@
 ﻿'use client'
 
 import { useState, useEffect, useMemo, Fragment, useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
 import {
@@ -31,8 +30,9 @@ import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { getPendingSales, type PendingSale } from '@/lib/offline/db'
-import { queryKeys, invalidateSalesData } from '@/lib/query-keys'
+import { invalidateSalesData } from '@/lib/query-keys'
 import { queryClient } from '@/lib/query-client'
+import { onSalesDataChanged } from '@/lib/data-refresh'
 
 
 const supabase = createClient() as any
@@ -441,7 +441,7 @@ export default function SalesHistoryPage() {
       toast({ title: json.message, variant: 'success' })
       setEditDialog(null)
       invalidateSalesData(queryClient)
-      refetchSales()
+      fetchSales()
     } catch (err: any) {
       toast({ title: err.message, variant: 'destructive' })
     } finally {
@@ -473,23 +473,20 @@ export default function SalesHistoryPage() {
 
   const shopKey = effectiveShopIds.join(',')
 
-  // Sentinel query: fetchSales() below still owns all the actual fetching/
-  // caching/state logic (offline fallback, search mode, pagination reset —
-  // battle-tested edge cases not worth re-deriving) — react-query is used
-  // here purely so a sale created elsewhere (sales/new checkout, or synced
-  // from the offline queue) can trigger this page to refetch via
-  // invalidateSalesData(), whether this page is already mounted (another
-  // tab) or gets visited afterward, instead of needing a hard reload.
-  const { refetch: refetchSales } = useQuery({
-    queryKey: queryKeys.salesHistory(shopKey, `${dateFilter}${_sfx}_${methodFilter}_${statusFilter}_${saleStatusFilter}`),
-    queryFn: async () => { await fetchSales(); return true },
-    enabled: view === 'sales' && effectiveShopIds.length > 0,
-  })
-
   useEffect(() => {
-    if (view === 'repayments') fetchRepayments()
-    else if (view === 'logs') fetchLogs()
+    if (view === 'sales') fetchSales()
+    else if (view === 'repayments') fetchRepayments()
+    else fetchLogs()
   }, [shopKey, dateFilter, customStart, customEnd, methodFilter, statusFilter, saleStatusFilter, view])
+
+  // A sale created elsewhere (sales/new checkout, or synced from the
+  // offline queue) calls notifySalesDataChanged() — refetch so this page
+  // doesn't need a hard reload to show it, whether already mounted or
+  // freshly visited.
+  useEffect(() => {
+    if (view !== 'sales') return
+    return onSalesDataChanged(() => fetchSales())
+  }, [view])
 
   // Ventes hors-ligne pas encore synchronisées — getPendingSales() ne renvoie
   // que les non-synchronisées, donc une vente disparaît naturellement d'ici
@@ -508,7 +505,7 @@ export default function SalesHistoryPage() {
     if (isFirstSearchRender.current) { isFirstSearchRender.current = false; return }
     if (view !== 'sales') return
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
-    searchTimerRef.current = setTimeout(() => { refetchSales() }, 350)
+    searchTimerRef.current = setTimeout(() => { fetchSales() }, 350)
     return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current) }
   }, [search])
 
@@ -523,11 +520,11 @@ export default function SalesHistoryPage() {
 
   // Refresh when tab regains focus (e.g. after recording a payment on the debts page)
   useEffect(() => {
-    const onFocus = () => { if (document.visibilityState === 'visible') refetchSales() }
+    const onFocus = () => { if (document.visibilityState === 'visible') fetchSales() }
     document.addEventListener('visibilitychange', onFocus)
     return () => document.removeEventListener('visibilitychange', onFocus)
-  }, [refetchSales])
-  useRefetchOnReconnect(refetchSales, isOnline)
+  }, [shopKey, dateFilter, customStart, customEnd, methodFilter, statusFilter, saleStatusFilter, view])
+  useRefetchOnReconnect(fetchSales, isOnline)
 
   const filtered = sales.filter(s => {
     if (!search) return true
@@ -664,7 +661,7 @@ export default function SalesHistoryPage() {
       setDialog(null)
       setCancelReason(''); setValidateAmount('')
       invalidateSalesData(queryClient)
-      refetchSales()
+      fetchSales()
     } catch (err: any) {
       toast({ title: err.message, variant: 'destructive' })
     } finally {

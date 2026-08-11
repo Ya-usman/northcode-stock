@@ -28,12 +28,14 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
       persistOptions={{
         persister,
         maxAge: 24 * 60 * 60 * 1000,
-        // Scoped to the pages actually migrated to react-query — avoids
-        // persisting anything unexpected as more pages move over later
-        // without an explicit decision to include them.
+        // Only reports actually uses react-query for its data — dashboard
+        // and sales/history use the pub-sub in lib/data-refresh.ts instead,
+        // specifically to avoid paying the "wait for restore" cost this
+        // persister imposes on every useQuery in the tree (see there for
+        // why). Scoped explicitly so a future page added to react-query
+        // doesn't get persisted without that being a deliberate decision.
         dehydrateOptions: {
-          shouldDehydrateQuery: (query) =>
-            ['dashboard', 'sales-history', 'reports'].includes(query.queryKey[0] as string),
+          shouldDehydrateQuery: (query) => query.queryKey[0] === 'reports',
         },
       }}
     >

@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -29,7 +28,7 @@ import { getPendingSales, type PendingSale } from '@/lib/offline/db'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { setPageCache } from '@/lib/offline/page-cache'
 import { runIdlePrefetch, type PrefetchTask } from '@/lib/utils/idle-prefetch'
-import { queryKeys } from '@/lib/query-keys'
+import { onSalesDataChanged } from '@/lib/data-refresh'
 
 const supabase = createClient() as any
 
@@ -432,19 +431,17 @@ export default function DashboardPage() {
     }
   }, [shopIds.join(','), shop?.low_stock_threshold, applyDashData, roleInActiveShop, profile?.role, profile?.id, isOnline])
 
-  // Sentinel query: loadDashboard() above still owns all the actual fetching/
-  // caching/state logic (9 parallel queries, offline-pending merge, its own
-  // localStorage cache) — react-query is used here purely so a sale created
-  // elsewhere (checkout, or synced from the offline queue) can trigger this
-  // page to refetch via invalidateSalesData(), whether the dashboard is
-  // already mounted (another tab) or gets visited afterward, instead of
-  // needing a hard reload. The realtime layer below (useDashboardRealtime)
-  // still separately patches state live while this page is open.
-  useQuery({
-    queryKey: queryKeys.dashboard(`${profile?.id}:${shopIds.join(',')}`),
-    queryFn: async () => { await loadDashboard(); return true },
-    enabled: shopIds.length > 0,
-  })
+  // Initial load when shopIds become available
+  useEffect(() => {
+    if (shopIds.length > 0) loadDashboard()
+  }, [loadDashboard])
+
+  // A sale created elsewhere (checkout, or synced from the offline queue)
+  // calls notifySalesDataChanged() — refetch so this page doesn't need a
+  // hard reload to show it, whether already mounted or freshly visited.
+  // The realtime layer below (useDashboardRealtime) separately patches
+  // state live while this page stays open.
+  useEffect(() => onSalesDataChanged(() => loadDashboard()), [loadDashboard])
 
   // Merge today's not-yet-synced offline sales into the displayed totals —
   // getPendingSales() already filters to unsynced only (lib/offline/db.ts),
