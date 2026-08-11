@@ -805,7 +805,7 @@ export default function SuppliersPage() {
               const showSavings = savings != null && savings > 0
               const savingsPct = showSavings && currentPrice ? Math.round((savings / currentPrice) * 100) : null
               return (
-                <div key={row.supplierId} className="flex items-center justify-between py-2 gap-2">
+                <div key={row.supplierId} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-2 gap-2">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 min-w-0 flex-wrap">
                       <span className="text-sm truncate">{supplierName(row.supplierId)}</span>
@@ -833,7 +833,7 @@ export default function SuppliersPage() {
                       )}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:shrink-0 sm:ml-2">
                     <span className="text-sm font-semibold">{fmt(row.price)}</span>
                     {!row.isCurrent && canManage && (
                       <>
