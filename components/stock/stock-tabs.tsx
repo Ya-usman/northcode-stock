@@ -3,19 +3,21 @@
 import { usePathname } from 'next/navigation'
 import { OfflineLink as Link } from '@/components/ui/offline-link'
 import { useTranslations } from 'next-intl'
-import { Package, ArrowLeftRight, ClipboardCheck } from 'lucide-react'
+import { Package, ArrowRightLeft, ArrowLeftRight, ClipboardCheck } from 'lucide-react'
 import { useRolePermissions, type PermFeature } from '@/lib/hooks/use-role-permissions'
+import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useOffline } from '@/lib/offline/use-offline'
 import { cn } from '@/lib/utils/cn'
 
-// Shared tab bar for the 3 pages that together make up "Stock" (Produits,
-// Mouvements, Inventaire physique) — they stay separate routes (simpler code,
-// stable/shareable URLs) but present as one unified section, so the sidebar/
-// bottom-nav only need a single "Stock" entry point.
+// Shared tab bar for the 4 pages that together make up "Stock" (Produits,
+// Mouvements, Inventaire physique, Transferts) — they stay separate routes
+// (simpler code, stable/shareable URLs) but present as one unified section,
+// so the sidebar/bottom-nav only need a single "Stock" entry point.
 export function StockTabs({ locale }: { locale: string }) {
   const t = useTranslations('nav')
   const pathname = usePathname()
   const { canAccess } = useRolePermissions()
+  const { userShops } = useAuth()
   const { isOnline } = useOffline()
 
   const tabs = [
@@ -26,6 +28,13 @@ export function StockTabs({ locale }: { locale: string }) {
       label: t('inventory_count'),
       icon: ClipboardCheck,
       show: canAccess('inventory_count' as PermFeature),
+    },
+    {
+      // Sans intérêt pour un compte à une seule boutique — rien à transférer.
+      href: `/${locale}/stock/transfers`,
+      label: t('transfers'),
+      icon: ArrowRightLeft,
+      show: canAccess('transfers' as PermFeature) && userShops.length > 1,
     },
   ].filter(tab => tab.show)
 

@@ -17,6 +17,7 @@
     "suppliers": "Masu Samar da Kaya",
     "movements": "Motsi na Kaya",
     "inventory_count": "Ƙidayar Kaya",
+    "transfers": "Canja Wuri",
     "logout": "Fita",
     "section_sales": "Sayarwa",
     "section_inventory": "Kayan Hannun",
@@ -28,7 +29,8 @@
     "more": "Ƙari",
     "notes": "Bayanan Kula",
     "help": "Taimako",
-    "caisse": "Duba Kuɗin Kasuwanci"
+    "caisse": "Duba Kuɗin Kasuwanci",
+    "no_access": "Ba a ba da izini ba"
   },
   "auth": {
     "login": "Shiga",

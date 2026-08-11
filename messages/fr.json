@@ -20,6 +20,7 @@
     "billing": "Abonnement",
     "movements": "Mouvements",
     "inventory_count": "Inventaire physique",
+    "transfers": "Transferts",
     "logout": "Se déconnecter",
     "section_sales": "Ventes",
     "section_inventory": "Inventaire",
@@ -28,7 +29,8 @@
     "more": "Plus",
     "notes": "Notes",
     "help": "Aide",
-    "caisse": "Contrôle de caisse"
+    "caisse": "Contrôle de caisse",
+    "no_access": "Accès non autorisé"
   },
   "auth": {
     "login": "Se connecter",

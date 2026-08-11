@@ -20,6 +20,7 @@
     "billing": "Subscription",
     "movements": "Movements",
     "inventory_count": "Physical Inventory",
+    "transfers": "Transfers",
     "logout": "Log Out",
     "section_sales": "Sales",
     "section_inventory": "Inventory",
@@ -28,7 +29,8 @@
     "more": "More",
     "notes": "Notes",
     "help": "Help",
-    "caisse": "Cash Audit"
+    "caisse": "Cash Audit",
+    "no_access": "Access not authorized"
   },
   "auth": {
     "login": "Log In",
