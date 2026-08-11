@@ -47,6 +47,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             runs on online sessions, even when old SW is still serving old JS bundles.
             This breaks the cycle: old SW → old JS → no reg.update() → SW never updates. */}
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{if('serviceWorker' in navigator&&navigator.onLine){navigator.serviceWorker.ready.then(function(r){r.update()}).catch(function(){})}}catch(e){}})()` }} />
+        {/* Boot watchdog: a corrupted CacheFirst entry for the main JS bundle (see
+            sw-updater.tsx) can leave the page blank with NO React code ever running —
+            in that case the ChunkLoadError recovery net in SWUpdater can't fire either,
+            since it's part of the bundle that failed to load. This script runs
+            independently of the app bundle, so it can still recover: if `window.__appMounted`
+            (set by SWUpdater on its first mount) isn't true within 10s, force one reload.
+            Shares SWUpdater's cooldown key so the two mechanisms never double-reload. */}
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{setTimeout(function(){try{if(window.__appMounted)return;var k='sw_chunk_reload_at',c=30000,last=Number(sessionStorage.getItem(k)||0);if(Date.now()-last<c)return;sessionStorage.setItem(k,String(Date.now()));location.reload()}catch(e){}},10000)}catch(e){}})()` }} />
       </head>
       <body className="bg-background">
         <SWUpdater />

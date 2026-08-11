@@ -23,6 +23,14 @@ export function SWUpdater() {
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const mountedAtRef = useRef(Date.now())
 
+  // Signals to the inline boot watchdog (app/layout.tsx <head>) that React
+  // actually started running — SWUpdater is the earliest-mounting component
+  // in the tree and doesn't wait on auth/data, so its mount is a reliable
+  // "the JS bundle loaded successfully" marker independent of app state.
+  useEffect(() => {
+    ;(window as any).__appMounted = true
+  }, [])
+
   useEffect(() => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return
 
