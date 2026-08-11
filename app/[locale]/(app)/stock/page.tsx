@@ -218,12 +218,18 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave this signal hanging (it already fails soft
       // on error — a hang just needs to be turned into a fast rejection too).
-      const { data: batches } = await withTimeout<any>(supabase
+      // Error checked explicitly (not just `data ?? []`) for the same reason
+      // as fetchProducts above: a stale session mid-refresh can resolve this
+      // call successfully with data: null instead of throwing, which would
+      // otherwise silently zero out "Péremption" instead of preserving the
+      // last known-good expiry map.
+      const { data: batches, error: batchesErr } = await withTimeout<any>(supabase
         .from('product_batches')
         .select('product_id, expiry_date')
         .in('shop_id', effectiveShopIds)
         .gt('quantity', 0)
         .not('expiry_date', 'is', null), 20_000)
+      if (batchesErr) throw batchesErr
       const expiryMap: Record<string, string> = {}
       for (const b of (batches || []) as any[]) {
         if (!expiryMap[b.product_id] || b.expiry_date < expiryMap[b.product_id]) {
@@ -232,25 +238,27 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       }
       setExpiryByProduct(expiryMap)
     } catch {
-      // signal manquant — les cartes/badges concernés restent simplement vides
+      // signal manquant — on garde le dernier état connu plutôt que d'écraser avec un faux "vide"
     }
 
     try {
       const thirtyDaysAgo = new Date(Date.now() - 30 * 86_400_000).toISOString()
-      // Bounded — same reasoning as the expiry signal above.
-      const { data: recentSales } = await withTimeout<any>(supabase
+      // Bounded + explicit error check — same reasoning as the expiry signal above.
+      const { data: recentSales, error: salesErr } = await withTimeout<any>(supabase
         .from('sales')
         .select('id')
         .in('shop_id', effectiveShopIds)
         .eq('sale_status', 'active')
         .gte('created_at', thirtyDaysAgo), 20_000)
+      if (salesErr) throw salesErr
       const saleIds = (recentSales || []).map((s: any) => s.id)
       const soldMap: Record<string, number> = {}
       if (saleIds.length) {
-        const { data: recentItems } = await withTimeout<any>(supabase
+        const { data: recentItems, error: itemsErr } = await withTimeout<any>(supabase
           .from('sale_items')
           .select('product_id, quantity')
           .in('sale_id', saleIds), 20_000)
+        if (itemsErr) throw itemsErr
         for (const it of (recentItems || []) as any[]) {
           if (!it.product_id) continue
           soldMap[it.product_id] = (soldMap[it.product_id] || 0) + it.quantity
@@ -259,7 +267,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       setSoldQtyByProduct(soldMap)
       setSoldQtyLoaded(true)
     } catch {
-      // idem — pas de blocage sur l'essentiel (liste produits)
+      // idem — on garde le dernier état connu plutôt que d'écraser avec un faux "vide"
     }
   }
 
