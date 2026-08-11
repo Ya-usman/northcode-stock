@@ -704,7 +704,13 @@ export default function DashboardPage() {
       {/* Charts */}
       {(canAccess('widget_dashboard_revenue_chart') || canAccess('widget_top_products_chart')) && (
         <div className="grid gap-4 md:grid-cols-2">
-          {canAccess('widget_dashboard_revenue_chart') && <RevenueChart data={revenueData} />}
+          {canAccess('widget_dashboard_revenue_chart') && (
+            <RevenueChart
+              data={revenueData}
+              shopIds={effectiveShopIds}
+              cashierId={isCashierView ? (profile?.id ?? undefined) : undefined}
+            />
+          )}
           {canAccess('widget_top_products_chart') && <TopProductsChart data={topProducts} />}
         </div>
       )}
