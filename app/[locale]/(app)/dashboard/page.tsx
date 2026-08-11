@@ -676,6 +676,7 @@ export default function DashboardPage() {
           plan={shop.plan ?? null}
           trialEndsAt={shop.trial_ends_at ?? null}
           planExpiresAt={shop.plan_expires_at ?? null}
+          isInternal={shop.is_internal}
         />
       )}
 

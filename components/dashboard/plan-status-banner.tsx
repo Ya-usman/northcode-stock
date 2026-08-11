@@ -11,13 +11,16 @@ interface PlanStatusBannerProps {
   plan: string | null
   trialEndsAt: string | null
   planExpiresAt: string | null
+  isInternal?: boolean
 }
 
-export function PlanStatusBanner({ plan, trialEndsAt, planExpiresAt }: PlanStatusBannerProps) {
+export function PlanStatusBanner({ plan, trialEndsAt, planExpiresAt, isInternal }: PlanStatusBannerProps) {
   const t = useTranslations('dashboard_banner')
   const locale = useLocale()
   const [dismissed, setDismissed] = useState(false)
-  if (dismissed) return null
+  // Compte interne (superadmin de test) — jamais de rappel de facturation,
+  // même exemption que le mur de facturation (isAccessAllowed).
+  if (dismissed || isInternal) return null
 
   const subscribed = hasActiveSubscription(plan, planExpiresAt)
   const trialDays = getTrialDaysLeft(trialEndsAt)
