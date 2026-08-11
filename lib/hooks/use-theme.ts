@@ -12,11 +12,11 @@ function getInitialTheme(): boolean {
 }
 
 export function useTheme() {
-  const [isDark, setIsDark] = useState(false)
+  const [isDark, setIsDarkState] = useState(false)
 
   // Read real theme from localStorage after mount to avoid SSR/client hydration mismatch
   useEffect(() => {
-    setIsDark(getInitialTheme())
+    setIsDarkState(getInitialTheme())
   }, [])
 
   // Applique la classe dark sur <html>
@@ -26,25 +26,28 @@ export function useTheme() {
     else root.classList.remove('dark')
   }, [isDark])
 
-  // Suit les changements système en temps réel — toujours prioritaire sur la préférence manuelle
+  // Suit les changements système en temps réel — mais seulement tant qu'aucune
+  // préférence explicite n'a été enregistrée (aucun theme dans localStorage).
+  // Un choix manuel (toggle/setIsDark ci-dessous) est définitif : il ne doit
+  // plus jamais être écrasé par un changement de mode système ultérieur —
+  // sinon "choisir Clair" ne tiendrait que jusqu'au prochain mode sombre
+  // auto du téléphone, ce qui n'est le comportement d'aucune app sérieuse.
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
     const handler = (e: MediaQueryListEvent) => {
-      setIsDark(e.matches)
-      localStorage.setItem('theme', e.matches ? 'dark' : 'light')
+      if (localStorage.getItem('theme')) return
+      setIsDarkState(e.matches)
     }
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
   }, [])
 
-  // Toggle manuel → sauvegarde la préférence
-  const toggle = () => {
-    setIsDark(prev => {
-      const next = !prev
-      localStorage.setItem('theme', next ? 'dark' : 'light')
-      return next
-    })
+  // Choix manuel → sauvegarde la préférence, devient définitif
+  const setIsDark = (next: boolean) => {
+    localStorage.setItem('theme', next ? 'dark' : 'light')
+    setIsDarkState(next)
   }
+  const toggle = () => setIsDark(!isDark)
 
   return { isDark, setIsDark, toggle }
 }
