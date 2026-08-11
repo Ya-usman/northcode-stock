@@ -7,6 +7,8 @@ import {
   getPendingSupplierPayments, markSupplierPaymentSynced, markSupplierPaymentError,
 } from './db'
 import { clearPageCacheByPrefix } from './page-cache'
+import { queryClient } from '@/lib/query-client'
+import { invalidateSalesData } from '@/lib/query-keys'
 
 // Register a Background Sync tag so the SW retries when connectivity is restored
 export async function registerBackgroundSync(): Promise<void> {
@@ -381,6 +383,7 @@ export async function syncPendingSales(shopId: string): Promise<SyncResult> {
     clearPageCacheByPrefix('sales_history_v2_')
     clearPageCacheByPrefix('stock_')
     clearPageCacheByPrefix('debtors_')
+    invalidateSalesData(queryClient)
   }
 
   return { synced, failed, errors }

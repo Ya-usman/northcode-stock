@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import { useState, useEffect, useMemo, Fragment, useRef } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
 import {
@@ -30,6 +31,8 @@ import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { getPendingSales, type PendingSale } from '@/lib/offline/db'
+import { queryKeys, invalidateSalesData } from '@/lib/query-keys'
+import { queryClient } from '@/lib/query-client'
 
 
 const supabase = createClient() as any
@@ -437,7 +440,8 @@ export default function SalesHistoryPage() {
       if (!res.ok) throw new Error(json.error)
       toast({ title: json.message, variant: 'success' })
       setEditDialog(null)
-      fetchSales()
+      invalidateSalesData(queryClient)
+      refetchSales()
     } catch (err: any) {
       toast({ title: err.message, variant: 'destructive' })
     } finally {
@@ -469,10 +473,22 @@ export default function SalesHistoryPage() {
 
   const shopKey = effectiveShopIds.join(',')
 
+  // Sentinel query: fetchSales() below still owns all the actual fetching/
+  // caching/state logic (offline fallback, search mode, pagination reset —
+  // battle-tested edge cases not worth re-deriving) — react-query is used
+  // here purely so a sale created elsewhere (sales/new checkout, or synced
+  // from the offline queue) can trigger this page to refetch via
+  // invalidateSalesData(), whether this page is already mounted (another
+  // tab) or gets visited afterward, instead of needing a hard reload.
+  const { refetch: refetchSales } = useQuery({
+    queryKey: queryKeys.salesHistory(shopKey, `${dateFilter}${_sfx}_${methodFilter}_${statusFilter}_${saleStatusFilter}`),
+    queryFn: async () => { await fetchSales(); return true },
+    enabled: view === 'sales' && effectiveShopIds.length > 0,
+  })
+
   useEffect(() => {
-    if (view === 'sales') fetchSales()
-    else if (view === 'repayments') fetchRepayments()
-    else fetchLogs()
+    if (view === 'repayments') fetchRepayments()
+    else if (view === 'logs') fetchLogs()
   }, [shopKey, dateFilter, customStart, customEnd, methodFilter, statusFilter, saleStatusFilter, view])
 
   // Ventes hors-ligne pas encore synchronisées — getPendingSales() ne renvoie
@@ -492,7 +508,7 @@ export default function SalesHistoryPage() {
     if (isFirstSearchRender.current) { isFirstSearchRender.current = false; return }
     if (view !== 'sales') return
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
-    searchTimerRef.current = setTimeout(() => { fetchSales() }, 350)
+    searchTimerRef.current = setTimeout(() => { refetchSales() }, 350)
     return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current) }
   }, [search])
 
@@ -507,11 +523,11 @@ export default function SalesHistoryPage() {
 
   // Refresh when tab regains focus (e.g. after recording a payment on the debts page)
   useEffect(() => {
-    const onFocus = () => { if (document.visibilityState === 'visible') fetchSales() }
+    const onFocus = () => { if (document.visibilityState === 'visible') refetchSales() }
     document.addEventListener('visibilitychange', onFocus)
     return () => document.removeEventListener('visibilitychange', onFocus)
-  }, [shopKey, dateFilter, customStart, customEnd, methodFilter, statusFilter, saleStatusFilter, view])
-  useRefetchOnReconnect(fetchSales, isOnline)
+  }, [refetchSales])
+  useRefetchOnReconnect(refetchSales, isOnline)
 
   const filtered = sales.filter(s => {
     if (!search) return true
@@ -647,7 +663,8 @@ export default function SalesHistoryPage() {
       }
       setDialog(null)
       setCancelReason(''); setValidateAmount('')
-      fetchSales()
+      invalidateSalesData(queryClient)
+      refetchSales()
     } catch (err: any) {
       toast({ title: err.message, variant: 'destructive' })
     } finally {

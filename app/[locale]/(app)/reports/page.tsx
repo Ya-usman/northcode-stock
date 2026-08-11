@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
 import { Download, Receipt, TrendingDown, Banknote, X, Loader2 } from 'lucide-react'
@@ -21,13 +22,37 @@ import { useToast } from '@/components/ui/use-toast'
 import { generateReportPDFBlob, savePDF } from '@/lib/utils/pdf'
 import { cn } from '@/lib/utils/cn'
 import { format, subDays, startOfDay, endOfDay, startOfMonth, startOfWeek, startOfQuarter, startOfYear } from 'date-fns'
-import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRolePermissions, type PermFeature } from '@/lib/hooks/use-role-permissions'
 import { withTimeout } from '@/lib/utils/with-timeout'
+import { queryKeys } from '@/lib/query-keys'
 
 const PIE_COLORS = ['#60a5fa', '#D4AF37', '#16A34A', '#DC2626', '#a78bfa']
+
+interface ReportsData {
+  revenueByMethod: { name: string; value: number }[]
+  topProducts: { name: string; qty: number; revenue: number }[]
+  stockValuation: { buyingValue: number; sellingValue: number; potentialProfit: number }
+  cashierPerf: { id: string; name: string; shopName?: string; sales: number; revenue: number; shopId: string }[]
+  totals: { revenue: number; profit: number; sales: number }
+  outstandingDebt: number
+  allInventory: { name: string; quantity: number; buying_price: number; selling_price: number; soldQty: number; soldRevenue: number }[]
+  expenses: { id: string; amount: number; description: string; date: string }[]
+  totalExpenses: number
+}
+
+const EMPTY_REPORTS: ReportsData = {
+  revenueByMethod: [],
+  topProducts: [],
+  stockValuation: { buyingValue: 0, sellingValue: 0, potentialProfit: 0 },
+  cashierPerf: [],
+  totals: { revenue: 0, profit: 0, sales: 0 },
+  outstandingDebt: 0,
+  allInventory: [],
+  expenses: [],
+  totalExpenses: 0,
+}
 
 export default function ReportsPage() {
   const t = useTranslations()
@@ -45,23 +70,12 @@ export default function ReportsPage() {
   const [{ dateFilter, customStart, customEnd }, setFilter] = usePersistedFilters(
     'reports', shop?.id, { dateFilter: 'today', customStart: today, customEnd: today }
   )
-  const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
   const [pdfSheet, setPdfSheet] = useState<{ blob: Blob; url: string; name: string } | null>(null)
   const [downloading, setDownloading] = useState(false)
   const closePdfSheet = () => {
     if (pdfSheet) { URL.revokeObjectURL(pdfSheet.url); setPdfSheet(null) }
   }
-
-  const [revenueByMethod, setRevenueByMethod] = useState<{ name: string; value: number }[]>([])
-  const [topProducts, setTopProducts] = useState<{ name: string; qty: number; revenue: number }[]>([])
-  const [stockValuation, setStockValuation] = useState({ buyingValue: 0, sellingValue: 0, potentialProfit: 0 })
-  const [cashierPerf, setCashierPerf] = useState<{ id: string; name: string; shopName?: string; sales: number; revenue: number; shopId: string }[]>([])
-  const [totals, setTotals] = useState({ revenue: 0, profit: 0, sales: 0 })
-  const [outstandingDebt, setOutstandingDebt] = useState(0)
-  const [allInventory, setAllInventory] = useState<{ name: string; quantity: number; buying_price: number; selling_price: number; soldQty: number; soldRevenue: number }[]>([])
-  const [expenses, setExpenses] = useState<{ id: string; amount: number; description: string; date: string }[]>([])
-  const [totalExpenses, setTotalExpenses] = useState(0)
 
   const getDateRange = () => {
     const now = new Date()
@@ -99,53 +113,7 @@ export default function ReportsPage() {
     return `${format(s, 'dd MMM yyyy')} – ${format(e, 'dd MMM yyyy')}`
   }
 
-  const fetchReports = async () => {
-    if (!effectiveShopIds.length) return
-    const cacheKey = `reports_v2_${effectiveShopIds.join(',')}_${dateFilter}_${customStart}_${customEnd}`
-    const cached = getPageCache<any>(cacheKey)
-    if (cached) {
-      setRevenueByMethod(cached.revenueByMethod ?? [])
-      setTopProducts(cached.topProducts ?? [])
-      setStockValuation(cached.stockValuation ?? { buyingValue: 0, sellingValue: 0, potentialProfit: 0 })
-      setCashierPerf(cached.cashierPerf ?? [])
-      setTotals(cached.totals ?? { revenue: 0, profit: 0, sales: 0 })
-      setOutstandingDebt(cached.outstandingDebt ?? 0)
-      setAllInventory(cached.allInventory ?? [])
-      setExpenses(cached.expenses ?? [])
-      setTotalExpenses(cached.totalExpenses ?? 0)
-      setLoading(false)
-      // Stale-while-revalidate: show cache instantly, refresh silently in background
-      if (!isOnline) return
-    } else {
-      setLoading(true)
-    }
-    const { start, end } = getDateRange()
-    try {
-      // A stale connection/session after the app sat backgrounded for a
-      // while (JWT/socket gone stale) could otherwise leave one of these
-      // sequential Supabase calls hanging forever, with loading stuck true
-      // and nothing ever shown — bound the whole fetch so it always falls
-      // back to cache instead.
-      await withTimeout(loadFreshReportData(start, end, cacheKey), 20_000, 'Chargement des rapports trop lent — réessayez.')
-    } catch {
-      const cached = getPageCache<any>(cacheKey)
-      if (cached) {
-        setRevenueByMethod(cached.revenueByMethod ?? [])
-        setTopProducts(cached.topProducts ?? [])
-        setStockValuation(cached.stockValuation ?? { buyingValue: 0, sellingValue: 0, potentialProfit: 0 })
-        setCashierPerf(cached.cashierPerf ?? [])
-        setTotals(cached.totals ?? { revenue: 0, profit: 0, sales: 0 })
-        setOutstandingDebt(cached.outstandingDebt ?? 0)
-        setAllInventory(cached.allInventory ?? [])
-        setExpenses(cached.expenses ?? [])
-        setTotalExpenses(cached.totalExpenses ?? 0)
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const loadFreshReportData = async (start: string, end: string, cacheKey: string) => {
+  const loadFreshReportData = async (start: string, end: string): Promise<ReportsData> => {
     // Sales in period
     // A transient auth/RLS hiccup (session mid-refresh right after the tab
     // resumes from background) can resolve a query successfully with
@@ -166,12 +134,10 @@ export default function ReportsPage() {
     // Revenue by payment method (from sales in period)
     const byMethod: Record<string, number> = {}
     sales.forEach(s => { byMethod[s.payment_method] = (byMethod[s.payment_method] || 0) + Number(s.total) })
-    setRevenueByMethod(
-      Object.entries(byMethod).map(([name, value]) => ({
-        name: name.charAt(0).toUpperCase() + name.slice(1),
-        value,
-      }))
-    )
+    const revenueByMethod = Object.entries(byMethod).map(([name, value]) => ({
+      name: name.charAt(0).toUpperCase() + name.slice(1),
+      value,
+    }))
 
     // Total revenue = sum of sales.total (consistent base for marge brute)
     const totalRevenue = sales.reduce((s, sale) => s + Number(sale.total), 0)
@@ -210,12 +176,10 @@ export default function ReportsPage() {
     // Marge brute = revenue - buying cost (always ≤ revenue)
     const totalProfit = totalRevenue - totalBuyingCost
 
-    setTotals({ revenue: totalRevenue, profit: totalProfit, sales: sales.length })
-    setTopProducts(
-      Object.values(prodTotals)
-        .sort((a, b) => b.revenue - a.revenue)
-        .slice(0, 10)
-    )
+    const totals = { revenue: totalRevenue, profit: totalProfit, sales: sales.length }
+    const topProducts = Object.values(prodTotals)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 10)
 
     // Stock valuation + full inventory
     const [productsRes, debtRes, expensesRes, cashierPaymentsRes] = await Promise.all([
@@ -252,14 +216,11 @@ export default function ReportsPage() {
     const { data: cashierPaymentsRaw } = cashierPaymentsRes
     const expensesList = (expensesRaw || []) as { id: string; amount: number; description: string; date: string }[]
     const expTotal = expensesList.reduce((s, e) => s + Number(e.amount), 0)
-    setExpenses(expensesList)
-    setTotalExpenses(expTotal)
     const buyingValue = (allProducts || []).reduce((s: number, p: any) => s + Number(p.quantity) * Number(p.buying_price), 0)
     const sellingValue = (allProducts || []).reduce((s: number, p: any) => s + Number(p.quantity) * Number(p.selling_price), 0)
-    setStockValuation({ buyingValue, sellingValue, potentialProfit: sellingValue - buyingValue })
+    const stockValuation = { buyingValue, sellingValue, potentialProfit: sellingValue - buyingValue }
 
     const totalOutstandingDebt = (debtCustomers || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0)
-    setOutstandingDebt(totalOutstandingDebt)
 
     // Full inventory: all active products, enriched with sold qty/revenue for the period.
     // prodTotals is keyed by product_id (falling back to product_name only for
@@ -275,7 +236,6 @@ export default function ReportsPage() {
       soldQty: (prodTotals[p.id] ?? prodTotals[p.name])?.qty || 0,
       soldRevenue: (prodTotals[p.id] ?? prodTotals[p.name])?.revenue || 0,
     })).sort((a: { soldRevenue: number; name: string }, b: { soldRevenue: number; name: string }) => (b.soldRevenue - a.soldRevenue) || a.name.localeCompare(b.name))
-    setAllInventory(inventoryList)
 
     // Cashier performance — sales count from sales made this period
     // (created_at); revenue kept separate, from cash actually collected this
@@ -318,41 +278,48 @@ export default function ReportsPage() {
         revenue: revenueByCashier[id] || 0,
         shopId: cashierMap[id]?.shopId || memberShopMap[id] || '',
       })).sort((a, b) => b.revenue - a.revenue)
-      setCashierPerf(_cashierPerf)
-    } else {
-      setCashierPerf([])
     }
 
-    setPageCache(cacheKey, {
-      revenueByMethod: Object.entries(byMethod).map(([name, value]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), value })),
-      topProducts: Object.values(prodTotals).sort((a, b) => b.revenue - a.revenue).slice(0, 10),
-      stockValuation: { buyingValue, sellingValue, potentialProfit: sellingValue - buyingValue },
-      totals: { revenue: totalRevenue, profit: totalProfit, sales: sales.length },
+    return {
+      revenueByMethod,
+      topProducts,
+      stockValuation,
+      totals,
       outstandingDebt: totalOutstandingDebt,
       allInventory: inventoryList,
       expenses: expensesList,
       totalExpenses: expTotal,
       cashierPerf: _cashierPerf,
-    })
+    }
   }
 
-  useEffect(() => {
-    if (dateFilter === 'custom' && (!customStart || !customEnd)) return
-    fetchReports()
-  }, [effectiveShopIds.join(','), dateFilter, dateFilter === 'custom' ? customStart : '', dateFilter === 'custom' ? customEnd : ''])
+  const filtersReady = !(dateFilter === 'custom' && (!customStart || !customEnd))
+  const shopKey = effectiveShopIds.join(',')
+  const { data, isLoading: loading, refetch } = useQuery({
+    queryKey: queryKeys.reports(shopKey, `${dateFilter}_${customStart}_${customEnd}`),
+    queryFn: () => {
+      const { start, end } = getDateRange()
+      // A stale connection/session after the app sat backgrounded for a
+      // while (JWT/socket gone stale) could otherwise leave one of these
+      // sequential Supabase calls hanging forever — bound the whole fetch
+      // so it always falls back to whatever was last cached instead.
+      return withTimeout(loadFreshReportData(start, end), 20_000, 'Chargement des rapports trop lent — réessayez.')
+    },
+    enabled: effectiveShopIds.length > 0 && filtersReady,
+  })
+  const {
+    revenueByMethod, topProducts, stockValuation, cashierPerf,
+    totals, outstandingDebt, allInventory, expenses, totalExpenses,
+  } = data ?? EMPTY_REPORTS
 
   // Refresh when the user comes back to this tab or regains connectivity —
   // financial reports deserve the same freshness as the dashboard.
-  const refetchReports = () => {
-    if (dateFilter === 'custom' && (!customStart || !customEnd)) return
-    fetchReports()
-  }
   useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') refetchReports() }
+    const onVisible = () => { if (document.visibilityState === 'visible') refetch() }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [effectiveShopIds.join(','), dateFilter, customStart, customEnd])
-  useRefetchOnReconnect(refetchReports, isOnline)
+  }, [refetch])
+  useRefetchOnReconnect(refetch, isOnline)
 
   const buildPdfParams = () => {
     const { start, end } = getDateRange()

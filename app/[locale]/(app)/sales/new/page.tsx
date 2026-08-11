@@ -37,7 +37,9 @@ const BarcodeScanner = dynamic(
 import { useOffline } from '@/lib/offline/use-offline'
 import { triggerSaleFeedback, unlockAudio } from '@/lib/utils/sale-feedback'
 import { getCountry, getMethodType } from '@/lib/saas/countries'
-import { withTimeout } from '@/lib/utils/with-timeout'
+import { withTimeout, refreshSessionBeforeWrite } from '@/lib/utils/with-timeout'
+import { queryClient } from '@/lib/query-client'
+import { invalidateSalesData } from '@/lib/query-keys'
 import { formatInputValue, formatCurrency } from '@/lib/utils/currency'
 import { checkAndNotifyLowStock, notifyNewSale } from '@/lib/push'
 
@@ -614,6 +616,13 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     try {
       const db = supabase as any
 
+      // Best-effort token refresh before the sequence below — if the tab sat
+      // backgrounded for a while, the JWT can be stale by the time the
+      // cashier clicks "Valider". Bounded to 3s so a hung refresh never
+      // delays checkout; the withTimeout() guards on each call remain the
+      // real safety net regardless.
+      await refreshSessionBeforeWrite(supabase)
+
       // Create or find customer by phone/name if provided
       let customerId = selectedCustomer?.id || null
       if (!customerId && customerName.trim()) {
@@ -622,11 +631,13 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           ? customers.find(c => c.phone === customerPhone)
           : null
         if (!existing) {
-          const { data: newCust } = await db.from('customers').insert({
-            shop_id: selectedShop!.id,
-            name: customerName.trim(),
-            phone: customerPhone.trim() || null,
-          }).select().single()
+          const { data: newCust } = await withTimeout(
+            db.from('customers').insert({
+              shop_id: selectedShop!.id,
+              name: customerName.trim(),
+              phone: customerPhone.trim() || null,
+            }).select().single() as Promise<any>
+          )
           if (newCust) {
             customerId = (newCust as any).id
             setCustomers(prev => [...prev, newCust as Customer])
@@ -669,29 +680,25 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       // prior call to completeSale() got no response due to a network drop,
       // and the cashier re-clicked)? If so, reuse it instead of inserting again.
       let saleAlreadyExisted = false
-      const { data: alreadyCreated } = await db
-        .from('sales')
-        .select('id, sale_number')
-        .eq('client_request_id', clientRequestId)
-        .maybeSingle()
+      const { data: alreadyCreated } = await withTimeout(
+        db.from('sales')
+          .select('id, sale_number')
+          .eq('client_request_id', clientRequestId)
+          .maybeSingle() as Promise<any>
+      )
       if (alreadyCreated) { sale = alreadyCreated; saleAlreadyExisted = true }
 
       // Retry up to 5 times on duplicate sale_number (race condition / pre-existing number)
-      // 20 s client-side timeout per attempt: prevents infinite spinner when a DB trigger
-      // blocks on a lock (e.g. shop_sale_counters row held by a zombie transaction).
-      const withTimeout = (p: Promise<any>, ms: number) =>
-        Promise.race([
-          p,
-          new Promise<never>((_, rej) =>
-            setTimeout(() => rej(new Error('La base de données ne répond pas — vérifiez votre connexion et réessayez.')), ms)
-          ),
-        ])
-
+      // 20 s client-side timeout per attempt (longer than the 15s default): prevents
+      // infinite spinner when a DB trigger blocks on a lock (e.g. shop_sale_counters
+      // row held by a zombie transaction) — a slower but legitimate case, distinct
+      // from a plain stale connection.
       let lastError: any = null
       for (let attempt = 0; !sale && attempt < 5; attempt++) {
         const res = await withTimeout(
           db.from('sales').insert(salePayload).select().single() as Promise<any>,
-          20_000
+          20_000,
+          'La base de données ne répond pas — vérifiez votre connexion et réessayez.'
         )
         lastError = res.error
         if (!res.error) { sale = res.data; lastError = null; break }
@@ -702,7 +709,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         // succeeded already — the key never changes between retries, so fetch
         // it instead of retrying blindly toward the same collision).
         if (res.error.message?.includes('client_request_id')) {
-          const { data: raced } = await db.from('sales').select('id, sale_number').eq('client_request_id', clientRequestId).maybeSingle()
+          const { data: raced } = await withTimeout(
+            db.from('sales').select('id, sale_number').eq('client_request_id', clientRequestId).maybeSingle() as Promise<any>
+          )
           if (raced) { sale = raced; saleAlreadyExisted = true; lastError = null; break }
         }
         await new Promise(r => setTimeout(r, 80 + attempt * 120))
@@ -719,20 +728,24 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       // or a duplicate payment record.
       let itemsAlreadyExist = false
       if (saleAlreadyExisted) {
-        const { count } = await db.from('sale_items').select('id', { count: 'exact', head: true }).eq('sale_id', sale.id)
+        const { count } = await withTimeout(
+          db.from('sale_items').select('id', { count: 'exact', head: true }).eq('sale_id', sale.id) as Promise<any>
+        )
         itemsAlreadyExist = Boolean(count)
       }
 
       if (!itemsAlreadyExist) {
-        const { error: itemsError } = await db.from('sale_items').insert(
-          cart.map((item: any) => ({
-            sale_id: sale.id,
-            product_id: item.product.id,
-            product_name: item.product.name,
-            quantity: Math.round(item.quantity),
-            unit_price: item.unit_price,
-            buying_price: Number(item.product.buying_price) || 0,
-          }))
+        const { error: itemsError } = await withTimeout(
+          db.from('sale_items').insert(
+            cart.map((item: any) => ({
+              sale_id: sale.id,
+              product_id: item.product.id,
+              product_name: item.product.name,
+              quantity: Math.round(item.quantity),
+              unit_price: item.unit_price,
+              buying_price: Number(item.product.buying_price) || 0,
+            }))
+          ) as Promise<any>
         )
         if (itemsError) throw itemsError
       }
@@ -745,7 +758,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       let paymentRecordFailed = false
       let paymentAlreadyExists = false
       if (saleAlreadyExisted) {
-        const { count } = await db.from('payments').select('id', { count: 'exact', head: true }).eq('sale_id', sale.id)
+        const { count } = await withTimeout(
+          db.from('payments').select('id', { count: 'exact', head: true }).eq('sale_id', sale.id) as Promise<any>
+        )
         paymentAlreadyExists = Boolean(count)
       }
 
@@ -757,23 +772,25 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           if (amt1 > 0) recs.push({ sale_id: sale.id, amount: amt1, method: paymentMethod, reference: null, received_by: profile!.id })
           if (amt2 > 0) recs.push({ sale_id: sale.id, amount: amt2, method: splitMethod2, reference: null, received_by: profile!.id })
           if (recs.length > 0) {
-            const { error: paymentError } = await db.from('payments').insert(recs)
+            const { error: paymentError } = await withTimeout(db.from('payments').insert(recs) as Promise<any>)
             if (paymentError) paymentRecordFailed = true
           }
         } else if (methodType !== 'credit' && paid > 0) {
-          const { error: paymentError } = await db.from('payments').insert({
-            sale_id: sale.id,
-            amount: paid,
-            method: paymentMethod,
-            reference: methodType === 'transfer' ? transferRef : null,
-            received_by: profile!.id,
-          })
+          const { error: paymentError } = await withTimeout(
+            db.from('payments').insert({
+              sale_id: sale.id,
+              amount: paid,
+              method: paymentMethod,
+              reference: methodType === 'transfer' ? transferRef : null,
+              received_by: profile!.id,
+            }) as Promise<any>
+          )
           if (paymentError) paymentRecordFailed = true
         }
       }
 
       if (paymentRecordFailed) {
-        await db.from('sales').update({ payment_status: 'pending' }).eq('id', sale.id)
+        await withTimeout(db.from('sales').update({ payment_status: 'pending' }).eq('id', sale.id) as Promise<any>)
         toast({
           title: 'Vente enregistrée, mais le paiement n\'a pas pu être confirmé (réseau) — vérifiez le solde dû du client',
           variant: 'destructive',
@@ -785,7 +802,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       // was already applied by the earlier successful attempt, and calling
       // it again would deduct it from the customer's debt twice.
       if (!saleAlreadyExisted && debtRepayEnabled && Number(debtRepayAmount) > 0 && customerUnpaidSales.length > 0) {
-        await fetch('/api/payments', {
+        await withTimeout(fetch('/api/payments', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -797,18 +814,20 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             shop_id: selectedShop!.id,
             client_request_id: clientRequestId,
           }),
-        })
+        }))
       }
 
-      const { data: fullSale } = await db
-        .from('sales')
-        .select('*, sale_items(*), customers(*)')
-        .eq('id', sale.id)
-        .single()
+      const { data: fullSale } = await withTimeout(
+        db.from('sales')
+          .select('*, sale_items(*), customers(*)')
+          .eq('id', sale.id)
+          .single() as Promise<any>
+      )
 
       // Remove from drafts if it was a held invoice
       if (activeDraftId) deleteDraft(activeDraftId)
 
+      invalidateSalesData(queryClient)
       setCompletedSale(fullSale as any)
       setShowReceipt(true)
       resetForm()
