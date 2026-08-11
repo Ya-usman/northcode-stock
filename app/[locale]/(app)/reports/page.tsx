@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils/cn'
 import { format, subDays, startOfDay, endOfDay, startOfMonth, startOfWeek, startOfQuarter, startOfYear } from 'date-fns'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
+import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { useRolePermissions, type PermFeature } from '@/lib/hooks/use-role-permissions'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { queryKeys } from '@/lib/query-keys'
@@ -314,11 +315,7 @@ export default function ReportsPage() {
 
   // Refresh when the user comes back to this tab or regains connectivity —
   // financial reports deserve the same freshness as the dashboard.
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') refetch() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [refetch])
+  useRefetchOnVisible(refetch)
   useRefetchOnReconnect(refetch, isOnline)
 
   const buildPdfParams = () => {

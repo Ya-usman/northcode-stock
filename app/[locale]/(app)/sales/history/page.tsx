@@ -29,6 +29,7 @@ import type { Sale } from '@/lib/types/database'
 import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
+import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { getPendingSales, type PendingSale } from '@/lib/offline/db'
 import { invalidateSalesData } from '@/lib/query-keys'
 import { queryClient } from '@/lib/query-client'
@@ -519,11 +520,7 @@ export default function SalesHistoryPage() {
   })
 
   // Refresh when tab regains focus (e.g. after recording a payment on the debts page)
-  useEffect(() => {
-    const onFocus = () => { if (document.visibilityState === 'visible') fetchSales() }
-    document.addEventListener('visibilitychange', onFocus)
-    return () => document.removeEventListener('visibilitychange', onFocus)
-  }, [shopKey, dateFilter, customStart, customEnd, methodFilter, statusFilter, saleStatusFilter, view])
+  useRefetchOnVisible(fetchSales)
   useRefetchOnReconnect(fetchSales, isOnline)
 
   const filtered = sales.filter(s => {

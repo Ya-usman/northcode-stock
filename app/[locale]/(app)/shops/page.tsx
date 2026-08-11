@@ -17,6 +17,7 @@ import { withTimeout } from '@/lib/utils/with-timeout'
 import type { Shop } from '@/lib/types/database'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
+import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 
 const supabase = createClient()
 
@@ -59,11 +60,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
 
   // Refresh when the user comes back to this tab or regains connectivity —
   // member counts can change from another device while this tab sits open.
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') fetchMemberCounts() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [fetchMemberCounts])
+  useRefetchOnVisible(fetchMemberCounts)
   useRefetchOnReconnect(fetchMemberCounts, isOnline)
 
   const handleCreate = async () => {

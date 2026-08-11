@@ -28,6 +28,7 @@ import { StockTransfersTab } from '@/components/stock/stock-transfers-tab'
 import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
+import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 
 import { savePendingMovement, updateCachedProductQuantity } from '@/lib/offline/db'
 import { registerBackgroundSync } from '@/lib/offline/sync'
@@ -286,11 +287,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
   // Refresh when the user comes back to this tab — catches stock changes
   // made by other team members while this page sat in the background.
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') { fetchProducts(); fetchStockSignals() } }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [effectiveShopIds.join(',')])
+  useRefetchOnVisible(() => { fetchProducts(); fetchStockSignals() })
   useRefetchOnReconnect(() => { fetchProducts(); fetchStockSignals() }, isOnline)
 
   // Live stock updates (quantity, price, archive status) for the active shop.
@@ -792,11 +789,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
   // Refresh the Journal when the user comes back to this tab or regains
   // connectivity — same treatment as the rest of the page.
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible' && view === 'journal') fetchAuditLogs() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [view])
+  useRefetchOnVisible(() => { if (view === 'journal') fetchAuditLogs() })
   useRefetchOnReconnect(() => { if (view === 'journal') fetchAuditLogs() }, isOnline)
 
   const renderProductCard = (product: Product, idx: number) => {

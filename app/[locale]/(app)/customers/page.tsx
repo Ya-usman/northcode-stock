@@ -22,6 +22,7 @@ import type { Customer } from '@/lib/types/database'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
+import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { withTimeout } from '@/lib/utils/with-timeout'
 
 function CustomerCard({ customer, profile, formatNaira, setEditingCustomer, form, setShowModal, deleteCustomer, t }: any) {
@@ -118,11 +119,7 @@ export default function CustomersPage() {
 
   // Refresh when the user comes back to this tab — catches customers/debts
   // added or edited by other team members while this page sat in the background.
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') fetchCustomers() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [effectiveShopIds.join(',')])
+  useRefetchOnVisible(fetchCustomers)
   useRefetchOnReconnect(fetchCustomers, isOnline)
 
   const filtered = customers.filter(c => {

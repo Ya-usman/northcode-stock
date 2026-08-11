@@ -24,6 +24,7 @@ import { PlanStatusBanner } from '@/components/dashboard/plan-status-banner'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
+import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { getPendingSales, type PendingSale } from '@/lib/offline/db'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { setPageCache } from '@/lib/offline/page-cache'
@@ -478,13 +479,7 @@ export default function DashboardPage() {
   useRefetchOnReconnect(() => { if (shopIds.length > 0) loadDashboard(true) }, isOnline)
 
   // Auto-refresh when user comes back to this tab
-  useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState === 'visible' && shopIds.length > 0) loadDashboard(true)
-    }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [loadDashboard])
+  useRefetchOnVisible(() => { if (shopIds.length > 0) loadDashboard(true) })
 
   const handleRefresh = () => {
     if (loadingRef.current) {

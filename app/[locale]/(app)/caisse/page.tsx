@@ -8,6 +8,7 @@ import { useAuthContext } from '@/lib/contexts/auth-context'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
+import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { Card, CardContent } from '@/components/ui/card'
@@ -197,11 +198,7 @@ export default function CaissePage() {
 
   // Refresh when the user comes back to this tab or regains connectivity —
   // cash totals are money-critical, like the dashboard.
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') fetchData() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [fetchData])
+  useRefetchOnVisible(fetchData)
   useRefetchOnReconnect(fetchData, isOnline)
 
   const grandTotal        = cashierSummaries.reduce((s, c) => s + c.total, 0)

@@ -31,6 +31,7 @@ import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { savePendingCustomerPayment, savePendingSupplierPayment } from '@/lib/offline/db'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
+import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 
 interface UnpaidSale {
   id: string
@@ -488,11 +489,7 @@ export default function CreditsPage() {
   }
 
   useEffect(() => { if (debtSide === 'payable') fetchSupplierDebtors() }, [debtSide, effectiveShopIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible' && debtSide === 'payable') fetchSupplierDebtors(true) }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [debtSide, effectiveShopIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+  useRefetchOnVisible(() => { if (debtSide === 'payable') fetchSupplierDebtors(true) })
   // navigator 'online' is unreliable in the Capacitor Android WebView —
   // useRefetchOnReconnect uses useOffline()'s actively-verified isOnline instead.
   useRefetchOnReconnect(() => { if (debtSide === 'payable') fetchSupplierDebtors(true) }, isOnline)
@@ -718,11 +715,7 @@ export default function CreditsPage() {
 
   const shopKey = effectiveShopIds.join(',')
   useEffect(() => { fetchDebtors() }, [shopKey])
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') fetchDebtors(true) }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [shopKey])
+  useRefetchOnVisible(() => fetchDebtors(true))
   // Refresh on reconnect — debts/repayments are money-critical like the
   // dashboard, so a stale debt total right after coming back online is risky.
   // navigator 'online' is unreliable in the Capacitor Android WebView —

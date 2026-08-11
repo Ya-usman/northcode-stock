@@ -23,6 +23,7 @@ import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/compone
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
+import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import type { Product, Category } from '@/lib/types/database'
 
 const supabase = createClient() as any
@@ -118,12 +119,7 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
 
   // Refresh when the user comes back to this tab — counting against a stale
   // theoretical quantity would produce wrong adjustments.
-  useEffect(() => {
-    if (!isAuthorized) return
-    const onVisible = () => { if (document.visibilityState === 'visible') { fetchProducts(); fetchPreviousSession() } }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [fetchProducts, fetchPreviousSession, isAuthorized])
+  useRefetchOnVisible(() => { if (isAuthorized) { fetchProducts(); fetchPreviousSession() } })
   useRefetchOnReconnect(() => { if (isAuthorized) { fetchProducts(); fetchPreviousSession() } }, isOnline)
 
   const filtered = products.filter(p => {

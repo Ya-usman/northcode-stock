@@ -24,6 +24,7 @@ import type { Supplier, Product, PurchaseOrder } from '@/lib/types/database'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
+import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { generatePurchaseOrderPDF } from '@/lib/utils/pdf'
 import { withTimeout } from '@/lib/utils/with-timeout'
 
@@ -261,11 +262,7 @@ export default function SuppliersPage() {
 
   // Refresh when the user comes back to this tab — catches suppliers/prices/
   // bons de commande ajoutés ou modifiés par un autre membre de l'équipe.
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') { fetchSuppliers(); fetchProductPrices(); fetchPurchaseOrders() } }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [effectiveShopIds.join(',')])
+  useRefetchOnVisible(() => { fetchSuppliers(); fetchProductPrices(); fetchPurchaseOrders() })
   useRefetchOnReconnect(() => { fetchSuppliers(); fetchProductPrices(); fetchPurchaseOrders() }, isOnline)
 
   const productCounts = useMemo(() => {

@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils/cn'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
+import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { withTimeout } from '@/lib/utils/with-timeout'
 
 const supabase = createClient() as any
@@ -200,11 +201,7 @@ export default function TeamPage() {
 
   // Refresh when the user comes back to this tab — catches team changes
   // (new invites, role/status changes) made while this page sat in the background.
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') fetchMembers() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [fetchMembers])
+  useRefetchOnVisible(fetchMembers)
   useRefetchOnReconnect(fetchMembers, isOnline)
 
   const fetchAuditLogs = useCallback(async () => {

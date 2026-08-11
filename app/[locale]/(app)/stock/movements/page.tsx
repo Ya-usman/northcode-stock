@@ -10,6 +10,7 @@ import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
+import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -96,11 +97,7 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
 
   // Refresh when the user comes back to this tab — catches restocks/
   // adjustments made by other team members in the meantime.
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') fetchMovements() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [fetchMovements])
+  useRefetchOnVisible(fetchMovements)
   useRefetchOnReconnect(fetchMovements, isOnline)
 
   const products = useMemo<ProductSummary[]>(() => {

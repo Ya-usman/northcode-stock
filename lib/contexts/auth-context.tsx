@@ -7,6 +7,7 @@ import type { Profile, Shop, UserRole } from '@/lib/types/database'
 import { attachOwnerPlan } from '@/lib/saas/resolve-owner-plan'
 import { setLocaleCookie, getLocaleCookie } from '@/lib/utils/cookies'
 import { isCapacitor } from '@/lib/utils/native-share'
+import { ensureFreshSession } from '@/lib/session-refresh'
 
 interface AuthState {
   user: User | null
@@ -550,9 +551,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const onVisible = () => {
       if (document.visibilityState !== 'visible') return
       updateLastSeen()
-      // Rafraîchir le JWT silencieusement (expire après 1h en arrière-plan).
-      // .catch() : si hors-ligne, ça échoue silencieusement sans bloquer quoi que ce soit.
-      supabase.auth.refreshSession().catch(() => {})
+      // Source unique du rafraîchissement JWT au retour sur l'onglet — les
+      // pages qui refetch sur ce même événement (useRefetchOnVisible)
+      // attendent ce même appel dédupliqué plutôt que de rafraîchir chacune
+      // de leur côté (voir lib/session-refresh.ts).
+      ensureFreshSession(supabase)
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => {

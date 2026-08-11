@@ -38,6 +38,7 @@ import { useOffline } from '@/lib/offline/use-offline'
 import { triggerSaleFeedback, unlockAudio } from '@/lib/utils/sale-feedback'
 import { getCountry, getMethodType } from '@/lib/saas/countries'
 import { withTimeout, refreshSessionBeforeWrite } from '@/lib/utils/with-timeout'
+import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { queryClient } from '@/lib/query-client'
 import { invalidateSalesData } from '@/lib/query-keys'
 import { formatInputValue, formatCurrency } from '@/lib/utils/currency'
@@ -241,11 +242,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   // `isOnline` (from useOffline, verified via a real request — see there for
   // why the raw browser 'online' event isn't trustworthy on Capacitor/Android),
   // so the mount effect above re-runs it whenever isOnline flips back to true.
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') loadShopData() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [loadShopData])
+  useRefetchOnVisible(loadShopData)
 
   useEffect(() => {
     let list = products

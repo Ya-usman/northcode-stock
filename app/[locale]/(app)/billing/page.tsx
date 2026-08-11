@@ -18,6 +18,7 @@ import { withTimeout } from '@/lib/utils/with-timeout'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
+import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 
 type PlanId = 'starter' | 'pro' | 'business'
 
@@ -131,11 +132,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
 
   // Refresh when the user comes back to this tab or regains connectivity —
   // plan usage should stay current if the tab was left open a while.
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') fetchUsageStats() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [fetchUsageStats])
+  useRefetchOnVisible(fetchUsageStats)
   useRefetchOnReconnect(fetchUsageStats, isOnline)
 
   const currentPlan = getPlan(shop?.plan)

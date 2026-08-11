@@ -19,6 +19,7 @@ import type { Category, Product } from '@/lib/types/database'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
+import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { withTimeout } from '@/lib/utils/with-timeout'
 
 function CategoryCard({ cat, products, expandedId, setExpandedId, canEdit, deleteCategory, t, fmt }: any) {
@@ -177,11 +178,7 @@ export default function CategoriesPage() {
 
   // Refresh when the user comes back to this tab — catches categories/products
   // added or edited by other team members while this page sat in the background.
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') fetchData() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [effectiveShopIds.join(',')])
+  useRefetchOnVisible(fetchData)
   useRefetchOnReconnect(fetchData, isOnline)
 
   const openDialog = () => {

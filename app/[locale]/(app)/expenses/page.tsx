@@ -21,6 +21,7 @@ import type { Expense, ExpenseBudget } from '@/lib/types/database'
 import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
+import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { savePendingExpense, getPendingExpenses, type PendingExpense } from '@/lib/offline/db'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 
@@ -297,11 +298,7 @@ export default function ExpensesPage() {
   const refreshExpensesData = useCallback(() => {
     fetchExpenses(); fetchBudgets(); fetchDeleteLogs()
   }, [fetchExpenses, fetchBudgets, fetchDeleteLogs])
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') refreshExpensesData() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [refreshExpensesData])
+  useRefetchOnVisible(refreshExpensesData)
   useRefetchOnReconnect(refreshExpensesData, isReallyOnline)
 
   // ─── Expense CRUD ────────────────────────────────────────────────────────

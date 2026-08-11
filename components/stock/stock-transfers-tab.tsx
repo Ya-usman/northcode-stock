@@ -17,6 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
+import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { getPageCache, setPageCache } from '@/lib/offline/page-cache'
 import { generateStockTransferPDF } from '@/lib/utils/pdf'
@@ -110,11 +111,7 @@ export function StockTransfersTab() {
 
   useEffect(() => { fetchTransfers(); fetchProducts() }, [shop?.id])
 
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') { fetchTransfers(); fetchProducts() } }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [shop?.id])
+  useRefetchOnVisible(() => { fetchTransfers(); fetchProducts() })
   useRefetchOnReconnect(() => { fetchTransfers(); fetchProducts() }, isOnline)
 
   const shopName = (id: string) => userShops.find(s => s.id === id)?.name ?? '—'

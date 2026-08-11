@@ -16,6 +16,7 @@ import { fr } from 'date-fns/locale'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
+import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { withTimeout } from '@/lib/utils/with-timeout'
 
 const supabase = createClient() as any
@@ -105,11 +106,7 @@ export default function NotesPage() {
 
   // Refresh when the user comes back to this tab — catches notes added/edited
   // by other team members in the meantime.
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') fetchNotes() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [effectiveShopIds.join(','), shopFilter])
+  useRefetchOnVisible(fetchNotes)
   useRefetchOnReconnect(fetchNotes, isOnline)
 
   const openCreate = () => {
