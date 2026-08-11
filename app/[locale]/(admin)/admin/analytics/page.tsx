@@ -6,15 +6,18 @@ import { formatAdminRevenue } from '@/lib/utils/currency'
 import { GrowthChart } from '@/components/admin/growth-chart'
 import { CountryFilter } from '@/components/admin/country-filter'
 import { COUNTRIES } from '@/lib/saas/countries'
+import { attachOwnerPlan } from '@/lib/saas/resolve-owner-plan'
 import Link from 'next/link'
 import { TrendingUp, Users, ShoppingBag, Activity } from 'lucide-react'
 
 async function getData(supabase: any) {
   const [{ data: shops }, { data: subs }, { data: owners }] = await Promise.all([
-    supabase.from('shops').select('id, name, plan, trial_ends_at, plan_expires_at, created_at, currency, country').is('deleted_at', null).order('created_at', { ascending: true }),
+    supabase.from('shops').select('id, name, owner_id, created_at, currency, country').is('deleted_at', null).order('created_at', { ascending: true }),
     supabase.from('subscriptions').select('id, shop_id, plan, amount, status, created_at').order('created_at', { ascending: false }),
     supabase.from('profiles').select('id, shop_id, last_seen').eq('role', 'owner'),
   ])
+  // Plan/trial are owner-level (profiles), not columns on shops anymore.
+  await attachOwnerPlan(supabase, shops || [])
   return { shops: shops || [], subs: subs || [], owners: owners || [] }
 }
 

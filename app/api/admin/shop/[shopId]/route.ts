@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { attachOwnerPlan } from '@/lib/saas/resolve-owner-plan'
 
 const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean)
 
@@ -37,6 +38,9 @@ export async function GET(_req: Request, { params }: { params: { shopId: string 
       admin.from('products').select('id', { count: 'exact', head: true }).eq('shop_id', shopId).eq('is_active', false),
       admin.from('customers').select('id', { count: 'exact', head: true }).eq('shop_id', shopId).not('deleted_at', 'is', null),
     ])
+
+    // Plan/trial are owner-level (profiles), not columns on `shops` anymore.
+    if (shop) await attachOwnerPlan(admin, [shop])
 
     // Owner email via auth.users (service role)
     let ownerEmail = null

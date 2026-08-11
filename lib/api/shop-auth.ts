@@ -15,6 +15,26 @@ export async function getAuthedUser() {
   return { user, supabase }
 }
 
+/**
+ * Résout les boutiques d'un owner via shop_members (source de vérité déjà
+ * utilisée pour l'accès dans toute l'app) plutôt que shops.owner_id — cette
+ * colonne a `on delete set null` (migration 001) : elle se vide
+ * silencieusement dès que le compte auth qu'elle référençait est supprimé
+ * (nettoyage d'un compte en double, recréation...), même si un nouveau
+ * compte devient ensuite le vrai propriétaire via shop_members. Toute
+ * synchronisation qui filtrait sur `shops.owner_id = X` pouvait donc rater
+ * silencieusement des boutiques pourtant bien à cet owner.
+ */
+export async function getOwnerShopIds(supabase: any, ownerId: string): Promise<string[]> {
+  const { data } = await supabase
+    .from('shop_members')
+    .select('shop_id')
+    .eq('user_id', ownerId)
+    .eq('role', 'owner')
+    .eq('is_active', true)
+  return (data || []).map((r: any) => r.shop_id)
+}
+
 export async function checkShopRole(supabase: any, userId: string, shopId: string): Promise<string | null> {
   const [{ data: member }, { data: profile }, { data: shop }] = await Promise.all([
     supabase.from('shop_members').select('role').eq('shop_id', shopId).eq('user_id', userId).eq('is_active', true).single(),

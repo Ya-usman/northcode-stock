@@ -49,10 +49,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
     }
 
-    // Enforce team member limit based on shop plan
-    const { data: shopRow } = await supabase
-      .from('shops').select('plan, plan_expires_at').eq('id', shop_id).single()
-    const plan = getPlan((shopRow as any)?.plan)
+    // Enforce team member limit based on owner plan — billing is owner-level
+    // (profiles is the single source of truth, see migration 047).
+    const { data: shopRow } = await supabase.from('shops').select('owner_id').eq('id', shop_id).single()
+    const { data: ownerProfile } = (shopRow as any)?.owner_id
+      ? await supabase.from('profiles').select('plan, plan_expires_at').eq('id', (shopRow as any).owner_id).single()
+      : { data: null }
+    const plan = getPlan((ownerProfile as any)?.plan)
     if (plan.limits.team_members !== -1) {
       // Count active non-owner members
       const { count: memberCount } = await supabase

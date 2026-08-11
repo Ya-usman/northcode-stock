@@ -42,8 +42,6 @@ export async function POST(request: Request) {
       billing_country: country || 'NG',
       currency: currency || '₦',
       owner_id: userId,
-      plan: 'trial',
-      trial_ends_at: trialEndsAt,
     }).select('id').single()
 
     if (shopErr) {
@@ -61,6 +59,8 @@ export async function POST(request: Request) {
       role: 'owner',
       shop_id: shopId,
       is_active: true,
+      plan: 'trial',
+      plan_expires_at: null,
       trial_ends_at: trialEndsAt,
     }, { onConflict: 'id' })
 

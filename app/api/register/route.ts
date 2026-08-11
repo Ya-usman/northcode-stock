@@ -68,8 +68,6 @@ export async function POST(request: Request) {
         currency: countryConfig.currencySymbol,
         country: countryConfig.code,
         billing_country: countryConfig.code,
-        plan: 'trial',
-        trial_ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         agent_id: agentId,
       } as any)
       .select('id')

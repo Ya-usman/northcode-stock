@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, useRef, useCallback, us
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
 import type { Profile, Shop, UserRole } from '@/lib/types/database'
+import { attachOwnerPlan } from '@/lib/saas/resolve-owner-plan'
 import { setLocaleCookie, getLocaleCookie } from '@/lib/utils/cookies'
 import { isCapacitor } from '@/lib/utils/native-share'
 
@@ -149,7 +150,10 @@ async function fetchUserData(userId: string): Promise<{
 
   if (userShops.length === 0 && profile?.shop_id) {
     const { data: shop } = await supabase.from('shops').select('*').eq('id', profile.shop_id).single()
-    if (shop) return { profile, userShops: [shop as Shop], memberships: rows }
+    if (shop) {
+      await attachOwnerPlan(supabase, [shop as Shop])
+      return { profile, userShops: [shop as Shop], memberships: rows }
+    }
   }
 
   // Always fetch role_permissions directly — the join may return a stale schema-cache
@@ -166,6 +170,11 @@ async function fetchUserData(userId: string): Promise<{
       })
     }
   }
+
+  // Plan/trial fields are owner-level (profiles), not raw columns on shops
+  // anymore — resolve them here so every consumer of `Shop` keeps working
+  // unchanged (see lib/saas/resolve-owner-plan.ts).
+  await attachOwnerPlan(supabase, userShops)
 
   return { profile, userShops, memberships: rows }
 }

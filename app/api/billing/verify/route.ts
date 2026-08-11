@@ -77,24 +77,16 @@ export async function GET(request: NextRequest) {
     const agent_id = (shopRow as any)?.agent_id
 
     if (owner_id) {
-      // Update profiles — single source of truth
+      // Update profiles — single source of truth for billing (owner-level).
+      // Every shop of this owner reads its plan from here (attachOwnerPlan),
+      // so there is nothing else to sync.
       await supabase.from('profiles').update({
         plan: plan_id,
         plan_expires_at,
         trial_ends_at: null,
       } as any).eq('id', owner_id)
-
-      // Backward compat: sync all active shops owned by this user
-      await supabase.from('shops').update({
-        plan: plan_id,
-        plan_expires_at,
-        trial_ends_at: null,
-      } as any).eq('owner_id', owner_id).is('deleted_at', null)
     } else {
-      await supabase.from('shops').update({
-        plan: plan_id,
-        plan_expires_at,
-      } as any).eq('id', shop_id)
+      console.error('[billing/verify] no resolvable owner for shop', shop_id)
     }
 
     const auth = data.data.authorization

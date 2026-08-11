@@ -52,27 +52,23 @@ export async function GET(request: NextRequest) {
     const days = getPeriodDays(billing_period as BillingPeriod)
     const plan_expires_at = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
 
-    // Get owner_id to update profile (owner-level billing)
+    // Get owner_id to update profile (owner-level billing) — via shop_members
+    // d'abord (fiable), shops.owner_id en repli seulement (peut être null,
+    // voir lib/api/shop-auth.ts:getOwnerShopIds).
+    const { data: ownerMember } = await supabase
+      .from('shop_members').select('user_id').eq('shop_id', shop_id).eq('role', 'owner').eq('is_active', true).maybeSingle()
     const { data: shopRow } = await supabase.from('shops').select('owner_id').eq('id', shop_id).single()
-    const owner_id = (shopRow as any)?.owner_id
+    const owner_id = ownerMember?.user_id ?? (shopRow as any)?.owner_id
 
     if (owner_id) {
+      // Update profiles — single source of truth for billing (owner-level).
       await supabase.from('profiles').update({
         plan: plan_id,
         plan_expires_at,
         trial_ends_at: null,
       } as any).eq('id', owner_id)
-
-      await supabase.from('shops').update({
-        plan: plan_id,
-        plan_expires_at,
-        trial_ends_at: null,
-      } as any).eq('owner_id', owner_id).is('deleted_at', null)
     } else {
-      await supabase.from('shops').update({
-        plan: plan_id,
-        plan_expires_at,
-      } as any).eq('id', shop_id)
+      console.error('[billing/notchpay/verify] no resolvable owner for shop', shop_id)
     }
 
     const amount = data.transaction?.amount || data.payment?.amount || 0

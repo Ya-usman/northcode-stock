@@ -65,11 +65,15 @@ export async function GET(request: NextRequest) {
             last_renewal_attempt_at: now.toISOString(),
           }).eq('id', sub.id)
 
+          // owner_id via shop_members d'abord (fiable) — shops.owner_id peut être
+          // null (voir lib/api/shop-auth.ts:getOwnerShopIds), ce qui ferait sauter
+          // silencieusement tout ce bloc pour une boutique pourtant bien payée.
+          const { data: ownerMember } = await supabase
+            .from('shop_members').select('user_id').eq('shop_id', sub.shop_id).eq('role', 'owner').eq('is_active', true).maybeSingle()
           const { data: shopRow } = await supabase.from('shops').select('owner_id').eq('id', sub.shop_id).single()
-          const owner_id = (shopRow as any)?.owner_id
+          const owner_id = ownerMember?.user_id ?? (shopRow as any)?.owner_id
           if (owner_id) {
             await supabase.from('profiles').update({ plan: sub.plan, plan_expires_at: newExpiry } as any).eq('id', owner_id)
-            await supabase.from('shops').update({ plan: sub.plan, plan_expires_at: newExpiry } as any).eq('owner_id', owner_id).is('deleted_at', null)
           }
 
           await supabase.from('subscriptions').insert({

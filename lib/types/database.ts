@@ -26,7 +26,9 @@ export interface Shop {
   notify_push_new_expense: boolean
   notify_push_expiry: boolean
   created_at: string
-  // SaaS fields
+  // SaaS fields — DERIVED from the owner's profile (see lib/saas/resolve-owner-plan.ts),
+  // not raw columns on this table anymore. Always populate via attachOwnerPlan()
+  // after fetching shops; never write these directly to `shops`.
   plan: string | null
   trial_ends_at: string | null
   plan_expires_at: string | null
@@ -50,6 +52,12 @@ export interface Profile {
   created_at: string
   locale: string | null
   country: string | null
+  // SaaS fields — single source of truth for billing (owner-level).
+  // `shops.plan`/`plan_expires_at`/`trial_ends_at` no longer exist as columns;
+  // Shop.plan/etc below are resolved from here via attachOwnerPlan().
+  plan: string | null
+  plan_expires_at: string | null
+  trial_ends_at: string | null
   plan_grace_ends_at: string | null
   last_seen_announcement_at: string | null
   is_internal: boolean

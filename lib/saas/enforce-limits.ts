@@ -1,5 +1,6 @@
 import { getPlan } from './plans'
 import { writeAuditLog } from '@/lib/api/audit'
+import { getOwnerShopIds } from '@/lib/api/shop-auth'
 
 export interface EnforcementResult {
   suspended_shops:     string[]  // shop ids newly suspended
@@ -41,14 +42,21 @@ export async function enforceOwnerPlanLimits(
   const shopLimit    = plan.limits.shops        // -1 = unlimited
   const memberLimit  = plan.limits.team_members // -1 = unlimited; owner doesn't count
 
+  // Résolu via shop_members (fiable) plutôt que shops.owner_id, qui peut être
+  // null — une boutique orpheline échapperait sinon complètement au comptage
+  // et à la suspension/réactivation par plan (voir lib/api/shop-auth.ts).
+  const ownerShopIds = await getOwnerShopIds(supabase, owner_id)
+
   // ── 1. SHOPS ──────────────────────────────────────────────────────────────
   // Fetch all non-deleted shops owned by this user, ordered oldest → newest
-  const { data: allShops } = await supabase
-    .from('shops')
-    .select('id, is_active, suspended_by_plan, created_at')
-    .eq('owner_id', owner_id)
-    .is('deleted_at', null)
-    .order('created_at', { ascending: true })
+  const { data: allShops } = ownerShopIds.length > 0
+    ? await supabase
+        .from('shops')
+        .select('id, is_active, suspended_by_plan, created_at')
+        .in('id', ownerShopIds)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: true })
+    : { data: [] }
 
   if (allShops && shopLimit !== -1) {
     const activeShops    = allShops.filter((s: any) => s.is_active)
@@ -93,12 +101,14 @@ export async function enforceOwnerPlanLimits(
   // ── 2. TEAM MEMBERS ───────────────────────────────────────────────────────
   // Count only active non-owner members across all active shops
   if (memberLimit !== -1) {
-    const { data: activeShopIds } = await supabase
-      .from('shops')
-      .select('id')
-      .eq('owner_id', owner_id)
-      .eq('is_active', true)
-      .is('deleted_at', null)
+    const { data: activeShopIds } = ownerShopIds.length > 0
+      ? await supabase
+          .from('shops')
+          .select('id')
+          .in('id', ownerShopIds)
+          .eq('is_active', true)
+          .is('deleted_at', null)
+      : { data: [] }
 
     const ids = (activeShopIds || []).map((s: any) => s.id)
 

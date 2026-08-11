@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { ShopsViewToggle } from '@/components/admin/shops-view-toggle'
 import { DeletedShopsPanel } from '@/components/admin/deleted-shops-panel'
 import { CreateOwnerModal } from '@/components/admin/create-owner-modal'
+import { attachOwnerPlan } from '@/lib/saas/resolve-owner-plan'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,7 +10,7 @@ export default async function AdminShopsPage({ params: { locale } }: { params: {
   const supabase = createAdminClient() as any
 
   const [{ data: shops }, { data: deletedShops }, { data: subs }, { data: profiles }] = await Promise.all([
-    supabase.from('shops').select('id, name, city, country, currency, plan, trial_ends_at, plan_expires_at, created_at, whatsapp, owner_id')
+    supabase.from('shops').select('id, name, city, country, currency, created_at, whatsapp, owner_id')
       .is('deleted_at', null)
       .order('created_at', { ascending: false }),
     supabase.from('shops').select('id, name, city, country, owner_id, deleted_at, created_at')
@@ -18,6 +19,10 @@ export default async function AdminShopsPage({ params: { locale } }: { params: {
     supabase.from('subscriptions').select('id, shop_id, plan, amount, status, paystack_reference, starts_at, expires_at, created_at').order('created_at', { ascending: false }),
     supabase.from('profiles').select('id, full_name, shop_id, role, is_active, last_seen').eq('role', 'owner'),
   ])
+
+  // Plan/trial are owner-level (profiles), not columns on shops anymore —
+  // resolve them before building any of the views below.
+  await attachOwnerPlan(supabase, shops || [])
 
   // Owner profiles keyed by profile.id (= auth.users.id = shops.owner_id)
   const profileById: Record<string, any> = {}

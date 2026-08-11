@@ -1,6 +1,6 @@
 ﻿import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
-import { getPlan, hasActiveSubscription } from '@/lib/saas/plans'
+import { getPlan } from '@/lib/saas/plans'
 
 export async function POST(request: Request) {
   try {
@@ -43,25 +43,9 @@ export async function POST(request: Request) {
       currency = '₦'
     }
 
-    // Read plan from owner profile (owner-level billing)
-    // Fallback to scanning all shops for pre-migration accounts without profiles.plan
-    let refPlan: string = (profile as any)?.plan ?? null
-    let refExpiry: string | null = (profile as any)?.plan_expires_at ?? null
-    let refTrial: string | null = (profile as any)?.trial_ends_at ?? null
-
-    if (!refPlan) {
-      const { data: ownerShops } = await supabase
-        .from('shops')
-        .select('id, plan, plan_expires_at, trial_ends_at')
-        .eq('owner_id', user.id)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: true })
-      const best = (ownerShops ?? []).find((s: any) => hasActiveSubscription(s.plan, s.plan_expires_at))
-        ?? (ownerShops ?? [])[0] ?? null
-      refPlan = (best as any)?.plan ?? 'trial'
-      refExpiry = (best as any)?.plan_expires_at ?? null
-      refTrial = (best as any)?.trial_ends_at ?? null
-    }
+    // Read plan from owner profile — the single source of truth for billing
+    // (profiles.plan has a DB DEFAULT 'trial', always populated).
+    const refPlan: string = (profile as any)?.plan ?? 'trial'
 
     // Enforce shop limit based on owner's plan
     const plan = getPlan(refPlan)
@@ -77,16 +61,9 @@ export async function POST(request: Request) {
       }
     }
 
-    // New shop inherits owner's paid plan — no double billing
-    const isActiveSub = hasActiveSubscription(refPlan, refExpiry)
-
-    const newShopPlan = isActiveSub ? refPlan : 'trial'
-    const newShopExpiry = isActiveSub ? refExpiry : null
-    const newShopTrial = isActiveSub
-      ? null
-      : (refTrial ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString())
-
-    // Use admin client to bypass RLS
+    // New shop automatically inherits the owner's plan — plan is resolved
+    // from profiles via the owner, not stored per-shop, so there is nothing
+    // to set here (no double billing, no separate trial to track).
     const admin = await createAdminClient()
 
     const { data: shop, error: shopError } = await admin.from('shops').insert({
@@ -94,9 +71,6 @@ export async function POST(request: Request) {
       city: city?.trim() || '',
       state: '',
       owner_id: user.id,
-      plan: newShopPlan,
-      plan_expires_at: newShopExpiry,
-      trial_ends_at: newShopTrial,
       currency,
       country,
       billing_country: country,

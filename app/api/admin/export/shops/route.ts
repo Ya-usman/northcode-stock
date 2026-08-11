@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { createClient } from '@/lib/supabase/server'
 import { getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
+import { attachOwnerPlan } from '@/lib/saas/resolve-owner-plan'
 
 const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean)
 
@@ -18,10 +19,13 @@ export async function GET(request: Request) {
   const admin = createAdminClient() as any
 
   const [{ data: shops }, { data: profiles }, { data: subs }] = await Promise.all([
-    admin.from('shops').select('id, name, city, country, currency, plan, trial_ends_at, plan_expires_at, created_at, whatsapp, owner_id').is('deleted_at', null).order('created_at', { ascending: false }),
+    admin.from('shops').select('id, name, city, country, currency, created_at, whatsapp, owner_id').is('deleted_at', null).order('created_at', { ascending: false }),
     admin.from('profiles').select('id, full_name, shop_id, is_active, last_seen').eq('role', 'owner'),
     admin.from('subscriptions').select('shop_id, amount').eq('status', 'active'),
   ])
+
+  // Plan/trial are owner-level (profiles), not columns on shops anymore.
+  await attachOwnerPlan(admin, shops || [])
 
   const ownersByShop: Record<string, any> = {}
   for (const p of profiles || []) if (p.shop_id) ownersByShop[p.shop_id] = p

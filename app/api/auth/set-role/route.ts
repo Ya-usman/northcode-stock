@@ -34,50 +34,23 @@ export async function POST(request: Request) {
     let role = data?.role
     let planOkUntil: string | null = null
     {
-      // Query profiles AND the user's shops in parallel.
-      // The verify route updates both tables, but profiles can silently fail.
-      // Using the later of the two expiries prevents a stale profiles row from
-      // locking the owner out via the middleware billing redirect.
-      const [profileRes, shopRes] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('role, plan, plan_expires_at, trial_ends_at, is_internal')
-          .eq('id', user.id)
-          .single(),
-        supabase
-          .from('shops')
-          .select('plan, plan_expires_at, trial_ends_at')
-          .eq('owner_id', user.id)
-          .is('deleted_at', null)
-          .order('plan_expires_at', { ascending: false, nullsFirst: false })
-          .limit(1)
-          .maybeSingle(),
-      ])
-
-      const profile  = profileRes.data
-      const shopBill = shopRes.data
+      // profiles is the single source of truth for billing (owner-level —
+      // see migration 047 and lib/saas/resolve-owner-plan.ts). shops no
+      // longer carries its own copy, so there's nothing left to compare.
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, plan, plan_expires_at, trial_ends_at, is_internal')
+        .eq('id', user.id)
+        .single()
 
       if (!role) role = profile?.role
 
-      const profileExpiry = profile?.plan && profile.plan !== 'trial'
+      planOkUntil = profile?.plan && profile.plan !== 'trial'
         ? (profile.plan_expires_at ?? null)
         : (profile?.trial_ends_at ?? null)
 
-      const shopExpiry = shopBill?.plan && shopBill.plan !== 'trial'
-        ? (shopBill.plan_expires_at ?? null)
-        : (shopBill?.trial_ends_at ?? null)
-
-      // Use whichever expiry is further in the future
-      if (profileExpiry && shopExpiry) {
-        planOkUntil = new Date(shopExpiry) > new Date(profileExpiry) ? shopExpiry : profileExpiry
-      } else {
-        planOkUntil = profileExpiry ?? shopExpiry ?? null
-      }
-
       // Compte interne (superadmin de test) — jamais bloqué par le mur de
-      // facturation. Volontairement écrasé après le calcul ci-dessus plutôt
-      // que court-circuité plus tôt, pour ne pas dupliquer la logique de
-      // repli entre profil/boutique.
+      // facturation.
       if (profile?.is_internal) {
         planOkUntil = new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString()
       }
@@ -117,8 +90,6 @@ export async function POST(request: Request) {
           currency: countryConfig.currencySymbol,
           country: countryConfig.code,
           billing_country: countryConfig.code,
-          plan: 'trial',
-          trial_ends_at: trialEndsAt,
         })
         .select('id')
         .single()
