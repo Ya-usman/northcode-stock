@@ -5,7 +5,7 @@ import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
 import { motion } from 'framer-motion'
-import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag, ArrowLeftRight } from 'lucide-react'
+import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag, ArrowLeftRight, PackageX, PackageMinus, CalendarClock, TrendingDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -1101,17 +1101,20 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       {/* Cartes d'alerte cliquables */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {[
-          { key: 'out', count: outCount, label: t('products.card_out_of_stock'), color: 'text-red-600 border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20' },
-          { key: 'low', count: lowCount, label: t('products.card_low_stock'), color: 'text-amber-600 border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/20' },
-          { key: 'expiry', count: expiringCount, label: t('products.card_expiry'), color: 'text-orange-600 border-orange-200 dark:border-orange-900 bg-orange-50/50 dark:bg-orange-950/20' },
-          { key: 'dormant', count: dormantCount, label: t('products.card_dormant'), color: 'text-blue-600 border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20' },
+          { key: 'out', count: outCount, label: t('products.card_out_of_stock'), icon: PackageX, color: 'text-red-600 border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20' },
+          { key: 'low', count: lowCount, label: t('products.card_low_stock'), icon: PackageMinus, color: 'text-amber-600 border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/20' },
+          { key: 'expiry', count: expiringCount, label: t('products.card_expiry'), icon: CalendarClock, color: 'text-orange-600 border-orange-200 dark:border-orange-900 bg-orange-50/50 dark:bg-orange-950/20' },
+          { key: 'dormant', count: dormantCount, label: t('products.card_dormant'), icon: TrendingDown, color: 'text-blue-600 border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20' },
         ].map(card => (
           <button
             key={card.key}
             onClick={() => setFilter({ statusFilter: statusFilter === card.key ? 'all' : card.key })}
             className={`rounded-xl border px-3 py-2.5 text-left transition-all ${card.color} ${statusFilter === card.key ? 'ring-2 ring-offset-1 ring-current' : 'hover:opacity-80'}`}
           >
-            <p className="text-xl font-bold leading-none">{card.count}</p>
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-xl font-bold leading-none">{card.count}</p>
+              <card.icon className="h-4 w-4 opacity-70 flex-shrink-0" />
+            </div>
             <p className="text-[11px] font-medium mt-1 opacity-90">{card.label}</p>
           </button>
         ))}
