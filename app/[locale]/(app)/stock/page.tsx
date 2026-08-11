@@ -1109,10 +1109,10 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       {/* Cartes d'alerte cliquables */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {[
-          { key: 'out', count: outCount, label: t('products.card_out_of_stock'), icon: PackageX, color: 'text-red-600 border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20' },
-          { key: 'low', count: lowCount, label: t('products.card_low_stock'), icon: PackageMinus, color: 'text-amber-600 border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/20' },
-          { key: 'expiry', count: expiringCount, label: t('products.card_expiry'), icon: CalendarClock, color: 'text-orange-600 border-orange-200 dark:border-orange-900 bg-orange-50/50 dark:bg-orange-950/20' },
-          { key: 'dormant', count: dormantCount, label: t('products.card_dormant'), icon: TrendingDown, color: 'text-blue-600 border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20' },
+          { key: 'out', count: outCount, label: t('products.card_out_of_stock'), icon: PackageX, color: 'text-red-600 border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20', badge: 'bg-red-100 dark:bg-red-900/40' },
+          { key: 'low', count: lowCount, label: t('products.card_low_stock'), icon: PackageMinus, color: 'text-amber-600 border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/20', badge: 'bg-amber-100 dark:bg-amber-900/40' },
+          { key: 'expiry', count: expiringCount, label: t('products.card_expiry'), icon: CalendarClock, color: 'text-orange-600 border-orange-200 dark:border-orange-900 bg-orange-50/50 dark:bg-orange-950/20', badge: 'bg-orange-100 dark:bg-orange-900/40' },
+          { key: 'dormant', count: dormantCount, label: t('products.card_dormant'), icon: TrendingDown, color: 'text-blue-600 border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20', badge: 'bg-blue-100 dark:bg-blue-900/40' },
         ].map(card => (
           <button
             key={card.key}
@@ -1121,7 +1121,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           >
             <div className="flex items-start justify-between gap-2">
               <p className="text-xl font-bold leading-none">{card.count}</p>
-              <card.icon className="h-4 w-4 opacity-70 flex-shrink-0" />
+              <span className={`rounded-lg p-1.5 flex-shrink-0 ${card.badge}`}>
+                <card.icon className="h-5 w-5" />
+              </span>
             </div>
             <p className="text-[11px] font-medium mt-1 opacity-90">{card.label}</p>
           </button>
