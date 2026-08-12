@@ -93,6 +93,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [promoSuggestionReason, setPromoSuggestionReason] = useState<string | null>(null)
   const [promoSuggestionKey, setPromoSuggestionKey] = useState<'expiry' | 'dormant' | null>(null)
   const [promoBatch, setPromoBatch] = useState<any | null>(null)
+  const [expiryBatch, setExpiryBatch] = useState<any | null>(null)
+  const [expiryDate, setExpiryDate] = useState('')
+  const [savingExpiry, setSavingExpiry] = useState(false)
   const [batchesProduct, setBatchesProduct] = useState<Product | null>(null)
   const [productBatches, setProductBatches] = useState<any[]>([])
   const [loadingBatches, setLoadingBatches] = useState(false)
@@ -602,6 +605,50 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       toast({ title: err.message || t('toast.error'), variant: 'destructive' })
     } finally {
       setSavingPromo(false)
+    }
+  }
+
+  const submitExpiry = async () => {
+    if (!expiryBatch || !shop?.id || !expiryDate) return
+    setSavingExpiry(true)
+    try {
+      const res = await withTimeout(fetch('/api/product-batches/expiry', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: expiryBatch.id, shop_id: shop.id, expiry_date: expiryDate }),
+      }))
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      toast({ title: t('products.expiry_saved'), variant: 'success' })
+      setExpiryBatch(null)
+      fetchStockSignals()
+      if (batchesProduct) openProductBatches(batchesProduct)
+    } catch (err: any) {
+      toast({ title: err.message || t('toast.error'), variant: 'destructive' })
+    } finally {
+      setSavingExpiry(false)
+    }
+  }
+
+  const clearExpiry = async () => {
+    if (!expiryBatch || !shop?.id) return
+    setSavingExpiry(true)
+    try {
+      const res = await withTimeout(fetch('/api/product-batches/expiry', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: expiryBatch.id, shop_id: shop.id, expiry_date: null }),
+      }))
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      toast({ title: t('products.expiry_saved'), variant: 'success' })
+      setExpiryBatch(null)
+      fetchStockSignals()
+      if (batchesProduct) openProductBatches(batchesProduct)
+    } catch (err: any) {
+      toast({ title: err.message || t('toast.error'), variant: 'destructive' })
+    } finally {
+      setSavingExpiry(false)
     }
   }
 
@@ -1729,6 +1776,15 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                           ) : (
                             <span className="text-[10px] text-muted-foreground">{t('products.no_expiry_date')}</span>
                           )}
+                          {canWriteStock && (
+                            <button
+                              className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-stockshop-blue"
+                              title={t('products.edit_expiry_action')}
+                              onClick={() => { setExpiryBatch(b); setExpiryDate(b.expiry_date ? b.expiry_date.slice(0, 10) : '') }}
+                            >
+                              <CalendarClock className="h-3 w-3" />
+                            </button>
+                          )}
                           {batchPromoActive && (
                             <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-blue-50 dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400">
                               {t('products.promo_badge')}: {formatNaira(b.promo_price)}
@@ -1742,6 +1798,36 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               )}
             </PremiumDialogBody>
             <PremiumDialogFooter onCancel={() => setBatchesProduct(null)} cancelLabel={t('actions.close')} />
+          </>
+        )}
+      </PremiumDialog>
+
+      {/* Correction de la date de péremption d'un lot */}
+      <PremiumDialog
+        open={!!expiryBatch}
+        onOpenChange={open => { if (!open) setExpiryBatch(null) }}
+        category={t('nav.stock')}
+        title={t('products.edit_expiry_action')}
+        icon={<CalendarClock className="h-4 w-4" />}
+      >
+        {expiryBatch && (
+          <>
+            <PremiumDialogBody>
+              <div className="space-y-1.5">
+                <Label>{t('products.card_expiry')}</Label>
+                <Input type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} className="h-9" />
+              </div>
+            </PremiumDialogBody>
+            <PremiumDialogFooter onCancel={() => setExpiryBatch(null)} cancelLabel={t('actions.cancel')}>
+              {expiryBatch.expiry_date && (
+                <Button variant="outline" className="h-11 rounded-xl font-semibold text-red-600 hover:text-red-700" onClick={clearExpiry} loading={savingExpiry}>
+                  {t('products.clear_expiry_action')}
+                </Button>
+              )}
+              <Button variant="stockshop" className="flex-1 h-11 rounded-xl font-semibold" onClick={submitExpiry} loading={savingExpiry} disabled={!expiryDate}>
+                {t('actions.save')}
+              </Button>
+            </PremiumDialogFooter>
           </>
         )}
       </PremiumDialog>
