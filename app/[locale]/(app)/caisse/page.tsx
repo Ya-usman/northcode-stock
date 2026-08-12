@@ -102,16 +102,29 @@ export default function CaissePage() {
     const dayStart = startOfDay(selectedDate).toISOString()
     const dayEnd   = endOfDay(selectedDate).toISOString()
 
-    // Fetch sales + repayments in parallel
-    const [salesRes, repaymentsRes] = await Promise.all([
+    // Fetch sales + initial payments + repayments in parallel. Money is
+    // always sourced from `payments` (paid_at = when cash actually changed
+    // hands) — never from sales.amount_paid, which is a running cumulative
+    // total updated by the same DB trigger for both the initial payment AND
+    // any later debt repayment. Reading it directly double-counts a same-day
+    // repayment: once via the sale's now-higher amount_paid, once via its
+    // own payments row in the repayments section below.
+    const [salesRes, initialPaymentsRes, repaymentsRes] = await Promise.all([
       supabase
         .from('sales')
-        .select('id, sale_number, cashier_id, amount_paid, created_at')
+        .select('id, sale_number, cashier_id, created_at')
         .in('shop_id', effectiveShopIds)
         .eq('sale_status', 'active')
         .gte('created_at', dayStart)
         .lte('created_at', dayEnd)
         .order('created_at', { ascending: false }),
+
+      supabase
+        .from('payments')
+        .select('sale_id, amount, sales!inner(shop_id, sale_status)')
+        .eq('is_repayment', false)
+        .gte('paid_at', dayStart)
+        .lte('paid_at', dayEnd),
 
       supabase
         .from('payments')
@@ -124,10 +137,20 @@ export default function CaissePage() {
     // A transient auth/RLS hiccup can resolve with data: null instead of
     // throwing — check explicitly so the caller's catch block preserves the
     // cached cash totals already on screen instead of zeroing them out.
-    if (salesRes.error || repaymentsRes.error) throw salesRes.error || repaymentsRes.error
-    const { data: salesData } = salesRes, { data: repaymentsRaw } = repaymentsRes
+    if (salesRes.error || initialPaymentsRes.error || repaymentsRes.error)
+      throw salesRes.error || initialPaymentsRes.error || repaymentsRes.error
+    const { data: salesData } = salesRes, { data: initialPaymentsRaw } = initialPaymentsRes, { data: repaymentsRaw } = repaymentsRes
 
     const sales: SaleRow[] = salesData || []
+
+    // Sum non-repayment payments per sale — what was actually collected at
+    // checkout for that sale, today. A split payment produces 2 rows for the
+    // same sale; both fold into one total here.
+    const initialPaidBySale: Record<string, number> = {}
+    for (const p of (initialPaymentsRaw || []) as any[]) {
+      if (!effectiveShopIds.includes(p.sales?.shop_id) || p.sales?.sale_status === 'cancelled') continue
+      initialPaidBySale[p.sale_id] = (initialPaidBySale[p.sale_id] || 0) + Number(p.amount)
+    }
 
     // Filter repayments to this shop + non-cancelled sales
     const repayments = (repaymentsRaw || []).filter((p: any) =>
@@ -168,10 +191,11 @@ export default function CaissePage() {
 
     for (const sale of sales) {
       const entry = ensure(sale.cashier_id ?? 'unknown')
+      const paid = initialPaidBySale[sale.id] || 0
       entry.salesCount++
-      entry.salesTotal += Number(sale.amount_paid)
-      entry.total += Number(sale.amount_paid)
-      entry.sales.push(sale)
+      entry.salesTotal += paid
+      entry.total += paid
+      entry.sales.push({ ...sale, amount_paid: paid })
     }
 
     for (const p of repayments) {
