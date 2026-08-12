@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
@@ -49,6 +49,7 @@ function StockBadge({ quantity, threshold }: { quantity: number; threshold: numb
 export default function StockPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations()
   const router = useRouter()
+  const pathname = usePathname()
   const { profile, shop, roleInActiveShop, effectiveShopIds, userShops } = useAuth()
   const effectiveRole = roleInActiveShop ?? profile?.role
   const { canAccess } = useRolePermissions()
@@ -299,7 +300,17 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     }
   }
 
-  useEffect(() => { fetchProducts(); fetchStockSignals() }, [effectiveShopIds.join(',')])
+  useEffect(() => { fetchProducts() }, [effectiveShopIds.join(',')])
+
+  // Péremption/Ventes lentes n'ont pas d'équivalent temps réel (contrairement
+  // à la liste produits, tenue à jour par useStockRealtime plus bas) — sans ce
+  // déclencheur basé sur le chemin de navigation, ces deux cartes resteraient
+  // figées sur leur dernière valeur si l'app réutilise une instance déjà
+  // montée de cette page en naviguant en interne (onglets), au lieu de la
+  // remonter à chaque fois — observé sur l'app Android.
+  useEffect(() => {
+    if (pathname === `/${locale}/stock`) fetchStockSignals()
+  }, [pathname, effectiveShopIds.join(',')])
 
   // Refresh when the user comes back to this tab — catches stock changes
   // made by other team members while this page sat in the background.
