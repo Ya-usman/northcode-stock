@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
 import { motion } from 'framer-motion'
-import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag, PackageX, PackageMinus, CalendarClock, TrendingDown } from 'lucide-react'
+import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag, PackageX, PackageMinus, CalendarClock, TrendingDown, ShoppingCart } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -47,6 +48,7 @@ function StockBadge({ quantity, threshold }: { quantity: number; threshold: numb
 
 export default function StockPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations()
+  const router = useRouter()
   const { profile, shop, roleInActiveShop, effectiveShopIds, userShops } = useAuth()
   const effectiveRole = roleInActiveShop ?? profile?.role
   const { canAccess } = useRolePermissions()
@@ -120,6 +122,10 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   // trusted with product writes unconditionally (e.g. restocking during
   // checkout), regardless of the "Produits / Stock" toggle value for them.
   const canWriteStock = effectiveRole === 'cashier' || canAccess('stock')
+  // Mêmes rôles que la création de bon de commande côté Fournisseurs
+  // (canManage dans suppliers/page.tsx) — pas canWriteStock, plus large
+  // et pas pertinent pour une décision d'achat fournisseur.
+  const canOrderStock = ['owner', 'manager', 'shop_manager', 'stock_manager', 'super_admin'].includes(effectiveRole || '')
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false)
@@ -895,6 +901,15 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               <span className="text-muted-foreground text-xs">{product.unit}s</span>
             </span>
             <div className="flex gap-1">
+              {canOrderStock && product.quantity <= threshold && (
+                <Button
+                  variant="outline" size="sm" className="h-7 px-2 text-xs"
+                  onClick={() => router.push(`/${locale}/suppliers?order_product=${product.id}`)}
+                >
+                  <ShoppingCart className="h-3 w-3 mr-1" />
+                  {t('actions.order')}
+                </Button>
+              )}
               <Button
                 variant="outline" size="sm" className="h-7 px-2 text-xs"
                 disabled={saving}

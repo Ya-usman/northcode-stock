@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
@@ -123,6 +124,9 @@ function SupplierCard({ supplier, products, productCount, expandedId, setExpande
 
 export default function SuppliersPage() {
   const t = useTranslations()
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
   const { profile, shop, roleInActiveShop, effectiveShopIds, userShops } = useAuth()
   const { isOnline } = useOffline()
   const { fmt, symbol } = useCurrency()
@@ -491,6 +495,22 @@ export default function SuppliersPage() {
     setPoShowAll(true)
     setShowPoDialog(true)
   }
+
+  // Lien profond depuis la page Stock (bouton "Commander" sur un produit en
+  // rupture/stock bas) : ?order_product=<id> ouvre le BC pré-rempli avec ce
+  // produit, chez son fournisseur habituel s'il en a un — sinon le dialogue
+  // s'ouvre quand même, le champ fournisseur reste simplement à choisir.
+  const orderProductId = searchParams.get('order_product')
+  useEffect(() => {
+    if (!orderProductId || !products.length) return
+    const product = products.find((p: any) => p.id === orderProductId)
+    if (product) {
+      setView('purchase_orders')
+      orderFromComparator(product, product.supplier_id || '')
+    }
+    router.replace(pathname)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderProductId, products])
 
   const submitCreatePo = async () => {
     if (!shop?.id || !poSupplierId) return

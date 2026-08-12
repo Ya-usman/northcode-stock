@@ -115,6 +115,7 @@
     "add_product": "Add Product",
     "new_sale": "New Sale",
     "restock": "Restock",
+    "order": "Order",
     "print_receipt": "Print Receipt",
     "export_pdf": "Export PDF",
     "download_pdf": "Download PDF",

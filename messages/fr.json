@@ -115,6 +115,7 @@
     "add_product": "Ajouter un produit",
     "new_sale": "Nouvelle vente",
     "restock": "Réapprovisionner",
+    "order": "Commander",
     "print_receipt": "Imprimer le reçu",
     "export_pdf": "Exporter en PDF",
     "download_pdf": "Télécharger le PDF",
