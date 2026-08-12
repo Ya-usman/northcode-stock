@@ -1,17 +1,14 @@
 import { NextResponse } from 'next/server'
 import webpush from 'web-push'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { configureWebPush } from '@/lib/api/push-server'
 
 // POST /api/push/sale
 // Notify shop owner(s) when a cashier completes a sale
 // Body: { shop_id, total, currency_symbol, cashier_name, payment_label }
 export async function POST(req: Request) {
   try {
-    webpush.setVapidDetails(
-      process.env.VAPID_MAILTO!,
-      process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-      process.env.VAPID_PRIVATE_KEY!
-    )
+    if (!configureWebPush()) return NextResponse.json({ ok: true, skipped: true })
 
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()

@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server'
 import webpush from 'web-push'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { configureWebPush } from '@/lib/api/push-server'
 
 export async function POST(req: Request) {
   try {
-    webpush.setVapidDetails(
-      process.env.VAPID_MAILTO!,
-      process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-      process.env.VAPID_PRIVATE_KEY!
-    )
+    // Unlike the other push routes (fire-and-forget, silently skip), this one
+    // is a deliberate user action ("Tester les notifications") — a silent
+    // skip would look like a false success, so surface it clearly instead.
+    if (!configureWebPush()) {
+      return NextResponse.json({ error: 'Notifications push non configurées sur ce serveur' }, { status: 503 })
+    }
 
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
