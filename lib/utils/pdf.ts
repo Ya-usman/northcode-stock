@@ -3,6 +3,36 @@
 import type { Sale, SaleItem, Shop } from '@/lib/types/database'
 import { getCountry } from '@/lib/saas/countries'
 
+// Shop logos rarely change mid-session — fetching + re-encoding one to
+// base64 on every single receipt (sale or debt repayment) adds an avoidable
+// network round trip to each one. Cached per URL for the life of the tab; a
+// logo change takes effect on next reload, same as other shop data cached
+// elsewhere in the app. Caches the in-flight promise (not just the resolved
+// value) so concurrent receipts started before the first fetch settles
+// share one request instead of firing one each.
+const logoBase64Cache = new Map<string, Promise<{ base64: string; ext: 'PNG' | 'JPEG' }>>()
+function getShopLogoBase64(logoUrl: string): Promise<{ base64: string; ext: 'PNG' | 'JPEG' }> {
+  let cached = logoBase64Cache.get(logoUrl)
+  if (!cached) {
+    cached = (async () => {
+      const response = await fetch(logoUrl)
+      const blob = await response.blob()
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve((reader.result as string).split(',')[1])
+        reader.onerror = reject
+        reader.readAsDataURL(blob)
+      })
+      return { base64, ext: (blob.type.includes('png') ? 'PNG' : 'JPEG') as 'PNG' | 'JPEG' }
+    })()
+    logoBase64Cache.set(logoUrl, cached)
+    // Don't cache a failure — a transient network hiccup shouldn't
+    // permanently fall back to the initials box for the rest of the tab.
+    cached.catch(() => logoBase64Cache.delete(logoUrl))
+  }
+  return cached
+}
+
 interface ReceiptLabels {
   receipt: string
   cashier: string
@@ -75,15 +105,7 @@ async function buildReceiptDoc(data: ReceiptData) {
   let logoLoaded = false
   if (shop.logo_url) {
     try {
-      const response = await fetch(shop.logo_url)
-      const blob = await response.blob()
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = () => resolve((reader.result as string).split(',')[1])
-        reader.onerror = reject
-        reader.readAsDataURL(blob)
-      })
-      const ext = blob.type.includes('png') ? 'PNG' : 'JPEG'
+      const { base64, ext } = await getShopLogoBase64(shop.logo_url)
       doc.addImage(base64, ext, margin, y, 20, 20)
       logoLoaded = true
     } catch { /* fall through to initials box */ }
@@ -402,15 +424,7 @@ async function buildDebtReceiptDoc(data: DebtReceiptData) {
   let logoLoaded = false
   if (shop.logo_url) {
     try {
-      const response = await fetch(shop.logo_url)
-      const blob = await response.blob()
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = () => resolve((reader.result as string).split(',')[1])
-        reader.onerror = reject
-        reader.readAsDataURL(blob)
-      })
-      const ext = blob.type.includes('png') ? 'PNG' : 'JPEG'
+      const { base64, ext } = await getShopLogoBase64(shop.logo_url)
       doc.addImage(base64, ext, margin, y, 20, 20)
       logoLoaded = true
     } catch { /* fall through to initials box */ }

@@ -757,6 +757,11 @@ export default function CreditsPage() {
     setRepayRef('')
     setRepayNotes('')
     repayIdRef.current = null
+    // Preload the PDF chunk while the cashier fills the form — by the time
+    // they click "Confirmer" it's already loaded instead of adding to the
+    // perceived delay (jsPDF is dynamically imported on first use).
+    import('jspdf').catch(() => {})
+    import('jspdf-autotable').catch(() => {})
   }
 
   // ── Record repayment ─────────────────────────────────────
