@@ -417,6 +417,7 @@ export default function CreditsPage() {
   )
   const [loadingHistAll, setLoadingHistAll] = useState(false)
   const [histAllSearch, setHistAllSearch] = useState('')
+  const [histAllStatusFilter, setHistAllStatusFilter] = useState<'all' | 'solde' | 'en_cours'>('all')
   const [histAllDateFrom, setHistAllDateFrom] = useState('')
   const [histAllDateTo, setHistAllDateTo] = useState('')
   const [histAllExpandedId, setHistAllExpandedId] = useState<string | null>(null)
@@ -458,6 +459,7 @@ export default function CreditsPage() {
   )
   const [loadingSupplierHistAll, setLoadingSupplierHistAll] = useState(false)
   const [supplierHistAllSearch, setSupplierHistAllSearch] = useState('')
+  const [supplierHistAllStatusFilter, setSupplierHistAllStatusFilter] = useState<'all' | 'solde' | 'en_cours'>('all')
   const [supplierHistAllDateFrom, setSupplierHistAllDateFrom] = useState('')
   const [supplierHistAllDateTo, setSupplierHistAllDateTo] = useState('')
   const [supplierHistAllExpandedId, setSupplierHistAllExpandedId] = useState<string | null>(null)
@@ -681,10 +683,13 @@ export default function CreditsPage() {
   }, isOnline)
 
   const filteredSupplierHistAll = useMemo(() => {
-    if (!supplierHistAllSearch.trim()) return supplierHistAll
+    let list = supplierHistAll
+    if (supplierHistAllStatusFilter === 'solde') list = list.filter(e => e.isSolde)
+    else if (supplierHistAllStatusFilter === 'en_cours') list = list.filter(e => !e.isSolde)
+    if (!supplierHistAllSearch.trim()) return list
     const q = normalize(supplierHistAllSearch)
-    return supplierHistAll.filter(e => normalize(e.supplier.name).includes(q) || e.supplier.phone?.includes(q))
-  }, [supplierHistAll, supplierHistAllSearch])
+    return list.filter(e => normalize(e.supplier.name).includes(q) || e.supplier.phone?.includes(q))
+  }, [supplierHistAll, supplierHistAllSearch, supplierHistAllStatusFilter])
 
   const supplierHistAllSoldeCount = useMemo(() => supplierHistAll.filter(e => e.isSolde).length, [supplierHistAll])
 
@@ -970,12 +975,15 @@ export default function CreditsPage() {
   useRefetchOnReconnect(() => { if (activeTab === 'historique') fetchHistAll(histAllDateFrom, histAllDateTo, true) }, isOnline)
 
   const filteredHistAll = useMemo(() => {
-    if (!histAllSearch.trim()) return histAll
+    let list = histAll
+    if (histAllStatusFilter === 'solde') list = list.filter(e => e.isSolde)
+    else if (histAllStatusFilter === 'en_cours') list = list.filter(e => !e.isSolde)
+    if (!histAllSearch.trim()) return list
     const q = normalize(histAllSearch)
-    return histAll.filter(e =>
+    return list.filter(e =>
       normalize(e.customer.name).includes(q) || e.customer.phone?.includes(q)
     )
-  }, [histAll, histAllSearch])
+  }, [histAll, histAllSearch, histAllStatusFilter])
 
   const histAllSoldeCount = useMemo(() => histAll.filter(e => e.isSolde).length, [histAll])
 
@@ -1153,17 +1161,25 @@ export default function CreditsPage() {
             </div>
           </div>
 
-          {/* Stats bar */}
+          {/* Stats bar — cliquable pour filtrer la liste, même logique que les cartes d'alerte de Stock */}
           {histAllFetched && histAll.length > 0 && (
             <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-xl bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900 px-3 py-2.5 text-center">
+              <button
+                type="button"
+                onClick={() => setHistAllStatusFilter(f => f === 'solde' ? 'all' : 'solde')}
+                className={`rounded-xl bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900 px-3 py-2.5 text-center transition-all ${histAllStatusFilter === 'solde' ? 'ring-2 ring-offset-1 ring-green-500' : 'hover:opacity-80'}`}
+              >
                 <p className="text-lg font-bold text-green-600">{histAllSoldeCount}</p>
                 <p className="text-[11px] text-green-700 dark:text-green-400 font-medium">Soldés ✓</p>
-              </div>
-              <div className="rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900 px-3 py-2.5 text-center">
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistAllStatusFilter(f => f === 'en_cours' ? 'all' : 'en_cours')}
+                className={`rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900 px-3 py-2.5 text-center transition-all ${histAllStatusFilter === 'en_cours' ? 'ring-2 ring-offset-1 ring-red-500' : 'hover:opacity-80'}`}
+              >
                 <p className="text-lg font-bold text-red-600">{histAll.length - histAllSoldeCount}</p>
                 <p className="text-[11px] text-red-700 dark:text-red-400 font-medium">En cours</p>
-              </div>
+              </button>
             </div>
           )}
 
@@ -1413,14 +1429,22 @@ export default function CreditsPage() {
 
           {supplierHistAllFetched && supplierHistAll.length > 0 && (
             <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-xl bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900 px-3 py-2.5 text-center">
+              <button
+                type="button"
+                onClick={() => setSupplierHistAllStatusFilter(f => f === 'solde' ? 'all' : 'solde')}
+                className={`rounded-xl bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900 px-3 py-2.5 text-center transition-all ${supplierHistAllStatusFilter === 'solde' ? 'ring-2 ring-offset-1 ring-green-500' : 'hover:opacity-80'}`}
+              >
                 <p className="text-lg font-bold text-green-600">{supplierHistAllSoldeCount}</p>
                 <p className="text-[11px] text-green-700 dark:text-green-400 font-medium">{t('payments.solde_label')}</p>
-              </div>
-              <div className="rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900 px-3 py-2.5 text-center">
+              </button>
+              <button
+                type="button"
+                onClick={() => setSupplierHistAllStatusFilter(f => f === 'en_cours' ? 'all' : 'en_cours')}
+                className={`rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900 px-3 py-2.5 text-center transition-all ${supplierHistAllStatusFilter === 'en_cours' ? 'ring-2 ring-offset-1 ring-amber-500' : 'hover:opacity-80'}`}
+              >
                 <p className="text-lg font-bold text-amber-600">{supplierHistAll.length - supplierHistAllSoldeCount}</p>
                 <p className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">{t('payments.en_cours_label')}</p>
-              </div>
+              </button>
             </div>
           )}
 
