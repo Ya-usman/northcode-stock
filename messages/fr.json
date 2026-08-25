@@ -1733,11 +1733,6 @@
       "syncing": "Sync…",
       "sync_button": "Synchroniser"
     },
-    "sw_update": {
-      "available": "Nouvelle version disponible.",
-      "refresh": "Actualiser",
-      "close": "Fermer"
-    },
     "app_update": {
       "title": "Mise à jour disponible",
       "subtitle": "Une nouvelle version de StockShop est disponible",

@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { RefreshCw, X } from 'lucide-react'
-import { useTranslations } from 'next-intl'
 
 // Ignore controllerchange events firing just after mount — almost always
 // this tab's own service worker registration settling (first activation /
@@ -20,8 +19,11 @@ function isChunkLoadError(text: string): boolean {
   return /ChunkLoadError|Loading chunk [\w-]+ failed|Failed to fetch dynamically imported module/i.test(text)
 }
 
+// This component mounts in the true root layout (app/layout.tsx), above
+// app/[locale]/layout.tsx — i.e. outside any NextIntlClientProvider, and
+// deliberately so (see the boot-watchdog comment below). useTranslations()
+// is therefore not available here; its 3 strings stay hardcoded in French.
 export function SWUpdater() {
-  const t = useTranslations('banners.sw_update')
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const mountedAtRef = useRef(Date.now())
 
@@ -108,19 +110,19 @@ export function SWUpdater() {
   return (
     <div className="fixed bottom-4 inset-x-4 sm:inset-x-auto sm:right-4 sm:left-auto z-[9998] max-w-sm rounded-xl border bg-card shadow-lg p-3 flex items-center gap-3">
       <RefreshCw className="h-4 w-4 text-stockshop-blue flex-shrink-0" />
-      <p className="text-sm flex-1">{t('available')}</p>
+      <p className="text-sm flex-1">Nouvelle version disponible.</p>
       <button
         type="button"
         onClick={() => window.location.reload()}
         className="text-sm font-semibold text-stockshop-blue hover:underline flex-shrink-0"
       >
-        {t('refresh')}
+        Actualiser
       </button>
       <button
         type="button"
         onClick={() => setUpdateAvailable(false)}
         className="text-muted-foreground hover:text-foreground flex-shrink-0"
-        aria-label={t('close')}
+        aria-label="Fermer"
       >
         <X className="h-4 w-4" />
       </button>
