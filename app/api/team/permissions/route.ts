@@ -1,16 +1,18 @@
 ﻿import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 // PATCH /api/team/permissions — save role_permissions JSON on a shop (bypasses RLS via admin client)
 export async function PATCH(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const supabase = await createClient() as any
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { shop_id, role_permissions } = await request.json()
     if (!shop_id || role_permissions === undefined) {
-      return NextResponse.json({ error: 'Champs manquants' }, { status: 400 })
+      return NextResponse.json({ error: t('missing_fields') }, { status: 400 })
     }
 
     // Verify caller is owner or manager of this shop
@@ -23,7 +25,7 @@ export async function PATCH(request: Request) {
       .single()
 
     if (!callerMember || !['owner', 'manager', 'shop_manager', 'super_admin'].includes(callerMember.role)) {
-      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 
     const admin = await createAdminClient() as any
@@ -38,13 +40,14 @@ export async function PATCH(request: Request) {
 
 // PUT /api/team/permissions — toggle can_delete_sales for a shop member
 export async function PUT(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const supabase = await createClient() as any
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { shop_id, user_id, can_delete_sales } = await request.json()
-    if (!shop_id || !user_id) return NextResponse.json({ error: 'Champs manquants' }, { status: 400 })
+    if (!shop_id || !user_id) return NextResponse.json({ error: t('missing_fields') }, { status: 400 })
 
     // Verify caller is owner of this specific shop (via user client — respects session)
     const { data: callerMember } = await supabase
@@ -56,7 +59,7 @@ export async function PUT(request: Request) {
       .single()
 
     const isOwner = callerMember?.role === 'owner' || callerMember?.role === 'manager' || callerMember?.role === 'super_admin'
-    if (!isOwner) return NextResponse.json({ error: 'Seul le propriétaire peut modifier ces permissions' }, { status: 403 })
+    if (!isOwner) return NextResponse.json({ error: t('owner_only_permissions') }, { status: 403 })
 
     const admin = await createAdminClient() as any
 

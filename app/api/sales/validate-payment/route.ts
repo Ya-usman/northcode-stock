@@ -1,17 +1,19 @@
 ﻿import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 export async function POST(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const supabase = await createClient() as any
     const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { sale_id, amount, method, reference } = await request.json()
     if (!sale_id || !amount || !method) {
-      return NextResponse.json({ error: 'Champs manquants' }, { status: 400 })
+      return NextResponse.json({ error: t('missing_fields') }, { status: 400 })
     }
 
     const admin = await createAdminClient() as any
@@ -23,8 +25,8 @@ export async function POST(request: Request) {
       .eq('id', sale_id)
       .single()
 
-    if (saleErr || !sale) return NextResponse.json({ error: 'Vente introuvable' }, { status: 404 })
-    if (sale.sale_status === 'cancelled') return NextResponse.json({ error: 'Vente annulée' }, { status: 400 })
+    if (saleErr || !sale) return NextResponse.json({ error: t('sale_not_found') }, { status: 404 })
+    if (sale.sale_status === 'cancelled') return NextResponse.json({ error: t('sale_is_cancelled') }, { status: 400 })
 
     const { data: memberRow } = await supabase
       .from('shop_members')
@@ -35,7 +37,7 @@ export async function POST(request: Request) {
       .single()
 
     if (!memberRow) {
-      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 
     // Atomic: lock sale row, cap amount, insert payment, update payment_method
@@ -62,7 +64,7 @@ export async function POST(request: Request) {
       ip: getClientIp(request),
     })
 
-    return NextResponse.json({ success: true, message: newBalance <= 0 ? 'Paiement complet' : `Solde restant: ${newBalance}` })
+    return NextResponse.json({ success: true, message: newBalance <= 0 ? t('payment_complete') : t('remaining_balance', { balance: newBalance }) })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { validateBody, uuid } from '@/lib/api/validate'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
+import { getApiTranslator } from '@/lib/api/i18n'
 import { z } from 'zod'
 
 const SUBORDINATE_ROLES = ['cashier', 'stock_manager', 'viewer']
@@ -13,6 +14,7 @@ const changeRoleSchema = z.object({
 })
 
 export async function POST(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const body = await request.json()
     const validated = validateBody(changeRoleSchema, body)
@@ -21,7 +23,7 @@ export async function POST(request: Request) {
 
     const supabase = await createClient() as any
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     // Check caller is owner/manager of this shop (via shop_members OR profiles fallback)
     const { data: memberRow } = await supabase
@@ -39,7 +41,7 @@ export async function POST(request: Request) {
     }
 
     if (!callerRole || !['owner', 'manager', 'shop_manager', 'super_admin'].includes(callerRole)) {
-      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 
     const admin = await createAdminClient()
@@ -55,7 +57,7 @@ export async function POST(request: Request) {
       .eq('shop_id', shop_id)
       .single()
 
-    if (!targetMember) return NextResponse.json({ error: 'Membre introuvable' }, { status: 404 })
+    if (!targetMember) return NextResponse.json({ error: t('member_not_found') }, { status: 404 })
 
     const { data: targetProfile } = await (admin as any)
       .from('profiles')
@@ -64,7 +66,7 @@ export async function POST(request: Request) {
       .single()
 
     if (targetMember.user_id === user.id) {
-      return NextResponse.json({ error: 'Impossible de modifier votre propre rôle' }, { status: 400 })
+      return NextResponse.json({ error: t('cannot_modify_own_role') }, { status: 400 })
     }
 
     // Managers (manager/shop_manager) can only act on subordinate roles — never
@@ -72,7 +74,7 @@ export async function POST(request: Request) {
     // manager/shop_manager themselves. Only owner/super_admin bypass this.
     if (!['owner', 'super_admin'].includes(callerRole)) {
       if (!SUBORDINATE_ROLES.includes(targetMember.role) || !SUBORDINATE_ROLES.includes(new_role)) {
-        return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+        return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
       }
     }
 

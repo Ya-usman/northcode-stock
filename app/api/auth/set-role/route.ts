@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { getCountry, detectCountryFromIso } from '@/lib/saas/countries'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 const COOKIE_OPTS = {
   httpOnly: true,
@@ -12,10 +13,11 @@ const COOKIE_OPTS = {
 
 // POST — look up the user's real role from DB and set it as HttpOnly cookie
 export async function POST(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const supabase = await createClient() as any
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { shop_id } = await request.json().catch(() => ({}))
 
@@ -121,7 +123,7 @@ export async function POST(request: Request) {
       }
     }
 
-    if (!role) return NextResponse.json({ error: 'Role not found' }, { status: 404 })
+    if (!role) return NextResponse.json({ error: t('role_not_found') }, { status: 404 })
 
     const response = NextResponse.json({ success: true, role })
     response.cookies.set('user_role', role, { ...COOKIE_OPTS, maxAge: 3600 })

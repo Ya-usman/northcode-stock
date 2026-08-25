@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { validateBody, uuid, email as emailSchema } from '@/lib/api/validate'
+import { getApiTranslator } from '@/lib/api/i18n'
 import { z } from 'zod'
 
 const schema = z.object({
@@ -18,10 +19,11 @@ function getAdminClient() {
 }
 
 export async function POST(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const supabase = await createServerClient() as any
     const { data: { user: caller } } = await supabase.auth.getUser()
-    if (!caller) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!caller) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const body = await request.json()
     const validated = validateBody(schema, body)
@@ -38,7 +40,7 @@ export async function POST(request: Request) {
       .single()
 
     if (!callerMember || !['owner', 'manager', 'shop_manager', 'super_admin'].includes(callerMember.role)) {
-      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 
     const admin = getAdminClient()

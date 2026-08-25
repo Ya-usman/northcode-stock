@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { hasRolePermission } from '@/lib/api/role-permissions'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 // POST /api/supplier-payments — record FIFO payment across a supplier's
 // unpaid purchase orders. Mirrors POST /api/payments (customer side) —
@@ -11,18 +12,19 @@ export async function POST(request: Request) {
   const limited = await checkRateLimit(request, 'api')
   if (limited) return limited
 
+  const t = getApiTranslator(request)
   try {
     const supabase = await createClient() as any
     const { data: { user }, error: authErr } = await supabase.auth.getUser()
-    if (authErr || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (authErr || !user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { purchase_order_ids, amount, method, reference, notes, shop_id, client_request_id } = await request.json()
 
     if (!purchase_order_ids?.length || !amount || !method || !shop_id) {
-      return NextResponse.json({ error: 'Champs manquants' }, { status: 400 })
+      return NextResponse.json({ error: t('missing_fields') }, { status: 400 })
     }
     if (Number(amount) <= 0 || !isFinite(Number(amount))) {
-      return NextResponse.json({ error: 'Le montant doit être supérieur à 0' }, { status: 400 })
+      return NextResponse.json({ error: t('amount_must_be_positive') }, { status: 400 })
     }
 
     const { data: memberRow } = await supabase
@@ -35,7 +37,7 @@ export async function POST(request: Request) {
 
     const callerRole = memberRow?.role
     if (!callerRole || !(await hasRolePermission(supabase, callerRole, shop_id, 'payments'))) {
-      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 
     const admin = await createAdminClient() as any

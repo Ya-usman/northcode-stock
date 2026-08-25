@@ -1,15 +1,17 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 // GET /api/payments/history-all?shop_ids=...&date_from=...&date_to=...
 // Returns all customers with credit-related sales, optionally filtered by date range
 export async function GET(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const { searchParams } = new URL(request.url)
     const shopIdsParam = searchParams.get('shop_ids') || searchParams.get('shop_id')
-    if (!shopIdsParam) return NextResponse.json({ error: 'shop_ids requis' }, { status: 400 })
+    if (!shopIdsParam) return NextResponse.json({ error: t('shop_ids_required') }, { status: 400 })
     const shopIds = shopIdsParam.split(',').map(s => s.trim()).filter(Boolean)
-    if (!shopIds.length) return NextResponse.json({ error: 'shop_ids requis' }, { status: 400 })
+    if (!shopIds.length) return NextResponse.json({ error: t('shop_ids_required') }, { status: 400 })
 
     const dateFrom = searchParams.get('date_from')
     const dateTo = searchParams.get('date_to')
@@ -17,7 +19,7 @@ export async function GET(request: Request) {
     const supabase = await createClient() as any
     const { data: { session } } = await supabase.auth.getSession()
     const user = session?.user
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { data: memberRows } = await supabase
       .from('shop_members')
@@ -27,7 +29,7 @@ export async function GET(request: Request) {
       .eq('is_active', true)
 
     const allowedIds = shopIds.filter(id => (memberRows || []).some((m: any) => m.shop_id === id))
-    if (!allowedIds.length) return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+    if (!allowedIds.length) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient() as any
 

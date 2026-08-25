@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { hasRolePermission } from '@/lib/api/role-permissions'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 // POST /api/sales/checkout — checkout atomique en ligne. Résout/crée le
 // client, insère vente + articles + paiement(s), renvoie la vente complète
@@ -13,9 +14,10 @@ export async function POST(request: Request) {
   const limited = await checkRateLimit(request, 'api')
   if (limited) return limited
 
+  const t = getApiTranslator(request)
   try {
     const { user, supabase } = await getAuthedUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const {
       shop_id, customer_id, customer_name, customer_phone,
@@ -25,15 +27,15 @@ export async function POST(request: Request) {
     } = await request.json()
 
     if (!shop_id || !Array.isArray(items) || items.length === 0) {
-      return NextResponse.json({ error: 'Données invalides' }, { status: 400 })
+      return NextResponse.json({ error: t('invalid_data') }, { status: 400 })
     }
     if (!client_request_id) {
-      return NextResponse.json({ error: 'client_request_id requis' }, { status: 400 })
+      return NextResponse.json({ error: t('client_request_id_required') }, { status: 400 })
     }
 
     const role = await checkShopRole(supabase, user.id, shop_id)
     if (!role || !(await hasRolePermission(supabase, role, shop_id, 'new_sale'))) {
-      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 
     const admin = await createAdminClient() as any

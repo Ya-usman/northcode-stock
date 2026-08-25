@@ -2,6 +2,7 @@
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { validateBody, uuid } from '@/lib/api/validate'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
+import { getApiTranslator } from '@/lib/api/i18n'
 import { z } from 'zod'
 
 const deleteSchema = z.object({
@@ -10,6 +11,7 @@ const deleteSchema = z.object({
 })
 
 export async function POST(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const body = await request.json()
     const validated = validateBody(deleteSchema, body)
@@ -19,8 +21,8 @@ export async function POST(request: Request) {
     // Verify caller is owner or super_admin
     const supabase = await createClient() as any
     const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     // Verify caller is owner/super_admin of THIS specific shop
     const { data: callerMember } = await supabase
@@ -33,12 +35,12 @@ export async function POST(request: Request) {
 
     const callerRole = callerMember?.role
     if (!callerRole || !['owner', 'manager', 'shop_manager', 'super_admin'].includes(callerRole)) {
-      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 
     // Prevent deleting yourself
     if (employee_id === user.id) {
-      return NextResponse.json({ error: 'Vous ne pouvez pas vous supprimer vous-même' }, { status: 400 })
+      return NextResponse.json({ error: t('cannot_delete_self') }, { status: 400 })
     }
 
     const admin = createAdminClient() as any
@@ -56,7 +58,7 @@ export async function POST(request: Request) {
         .eq('shop_id', shop_id)
         .single()
       if (!targetMember || !['cashier', 'stock_manager', 'viewer'].includes(targetMember.role)) {
-        return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+        return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
       }
     }
 

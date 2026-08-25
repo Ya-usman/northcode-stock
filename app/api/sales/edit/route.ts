@@ -1,16 +1,18 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 export async function POST(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const supabase = await createClient() as any
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { sale_id, customer_id, payment_method, notes, items } = await request.json()
     if (!sale_id || !payment_method || !Array.isArray(items) || items.length === 0) {
-      return NextResponse.json({ error: 'Données invalides' }, { status: 400 })
+      return NextResponse.json({ error: t('invalid_data') }, { status: 400 })
     }
 
     const admin = await createAdminClient() as any
@@ -22,8 +24,8 @@ export async function POST(request: Request) {
       .eq('id', sale_id)
       .single()
 
-    if (saleErr || !sale) return NextResponse.json({ error: 'Vente introuvable' }, { status: 404 })
-    if (sale.sale_status === 'cancelled') return NextResponse.json({ error: 'Vente annulée' }, { status: 400 })
+    if (saleErr || !sale) return NextResponse.json({ error: t('sale_not_found') }, { status: 404 })
+    if (sale.sale_status === 'cancelled') return NextResponse.json({ error: t('sale_is_cancelled') }, { status: 400 })
 
     // Verify caller has access (owner/manager/shop_manager always; cashier only today's own)
     const { data: memberRow } = await supabase
@@ -34,13 +36,13 @@ export async function POST(request: Request) {
       .eq('is_active', true)
       .single()
 
-    if (!memberRow) return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+    if (!memberRow) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const isManager = ['owner', 'manager', 'shop_manager', 'super_admin'].includes(memberRow.role)
     const isCashierOwn = memberRow.role === 'cashier' && sale.cashier_id === user.id
 
     if (!isManager && !isCashierOwn) {
-      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 
     // Cashiers can only edit today's own sales
@@ -53,7 +55,7 @@ export async function POST(request: Request) {
         .eq('id', sale_id)
         .single()
       if (!saleDate || new Date(saleDate.created_at) < todayStart) {
-        return NextResponse.json({ error: 'Vous ne pouvez modifier que les ventes du jour' }, { status: 403 })
+        return NextResponse.json({ error: t('edit_only_today') }, { status: 403 })
       }
     }
 
@@ -88,7 +90,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `Vente #${sale.sale_number} modifiée`,
+      message: t('sale_updated', { number: sale.sale_number }),
       ...row,
     })
   } catch (err: any) {

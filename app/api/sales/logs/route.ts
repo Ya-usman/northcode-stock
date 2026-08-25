@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 const ALLOWED_ROLES = ['owner', 'manager', 'shop_manager', 'super_admin']
 
 export async function GET(request: Request) {
+  const t = getApiTranslator(request)
   const supabase = await createClient() as any
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
   const shopIds = searchParams.get('shop_ids')?.split(',').filter(Boolean) || []
@@ -34,7 +36,7 @@ export async function GET(request: Request) {
     .single()
 
   const effectiveShopIds = profileRow?.role === 'super_admin' ? shopIds : allowedShopIds
-  if (!effectiveShopIds.length) return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+  if (!effectiveShopIds.length) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
   const admin = await createAdminClient() as any
 
@@ -63,7 +65,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     logs: (logs || []).map((l: any) => ({
       ...l,
-      actor_name: actorMap[l.actor_id] || l.actor_email || 'Inconnu',
+      actor_name: actorMap[l.actor_id] || l.actor_email || t('unknown'),
     })),
   })
 }

@@ -1,15 +1,17 @@
 ﻿import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 export async function POST(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const supabase = await createClient() as any
     const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { sale_id } = await request.json()
-    if (!sale_id) return NextResponse.json({ error: 'Missing sale_id' }, { status: 400 })
+    if (!sale_id) return NextResponse.json({ error: t('missing_sale_id') }, { status: 400 })
 
     const admin = await createAdminClient() as any
 
@@ -20,7 +22,7 @@ export async function POST(request: Request) {
       .eq('id', sale_id)
       .single()
 
-    if (saleErr || !sale) return NextResponse.json({ error: 'Vente introuvable' }, { status: 404 })
+    if (saleErr || !sale) return NextResponse.json({ error: t('sale_not_found') }, { status: 404 })
 
     // Check permission: owner/super_admin in THIS shop, or member with can_delete_sales
     const { data: member } = await supabase
@@ -32,12 +34,12 @@ export async function POST(request: Request) {
       .single()
 
     if (!member) {
-      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 
     const isOwnerOrAdmin = member.role === 'owner' || member.role === 'manager' || member.role === 'shop_manager' || member.role === 'super_admin'
     if (!isOwnerOrAdmin && !member.can_delete_sales) {
-      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 
     // Atomic: restore stock (if active) + delete items/payments/sale in one DB transaction
@@ -48,7 +50,7 @@ export async function POST(request: Request) {
 
     if (rpcErr) throw rpcErr
 
-    return NextResponse.json({ success: true, message: `Vente #${sale.sale_number} supprimée définitivement` })
+    return NextResponse.json({ success: true, message: t('sale_deleted_permanently', { number: sale.sale_number }) })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

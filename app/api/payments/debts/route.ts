@@ -1,22 +1,24 @@
 ﻿import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 // GET /api/payments/debts?shop_ids=id1,id2  (or legacy ?shop_id=xxx)
 // Returns customers with debt + their unpaid sales (bypasses RLS)
 // All roles see full shop debt — access is restricted to allowedIds (their shop only)
 export async function GET(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const { searchParams } = new URL(request.url)
     const shopIdsParam = searchParams.get('shop_ids') || searchParams.get('shop_id')
-    if (!shopIdsParam) return NextResponse.json({ error: 'shop_ids requis' }, { status: 400 })
+    if (!shopIdsParam) return NextResponse.json({ error: t('shop_ids_required') }, { status: 400 })
     const shopIds = shopIdsParam.split(',').map(s => s.trim()).filter(Boolean)
-    if (!shopIds.length) return NextResponse.json({ error: 'shop_ids requis' }, { status: 400 })
+    if (!shopIds.length) return NextResponse.json({ error: t('shop_ids_required') }, { status: 400 })
 
     // getUser() verifies the JWT with Supabase auth server — unlike getSession()
     // which only parses the cookie without server-side validation.
     const supabase = await createClient() as any
     const { data: { user }, error: authErr } = await supabase.auth.getUser()
-    if (authErr || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (authErr || !user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     // Verify caller has access to all requested shops
     const { data: memberRows } = await supabase
@@ -29,7 +31,7 @@ export async function GET(request: Request) {
     const accessibleShopIds = (memberRows || []).map((m: any) => m.shop_id)
 
     const allowedIds = shopIds.filter(id => accessibleShopIds.includes(id))
-    if (!allowedIds.length) return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+    if (!allowedIds.length) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient() as any
 

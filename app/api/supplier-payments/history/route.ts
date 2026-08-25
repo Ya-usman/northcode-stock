@@ -1,21 +1,23 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 // GET /api/supplier-payments/history?shop_id=xxx&supplier_id=yyy
 // Mirrors GET /api/payments/history (customer side).
 export async function GET(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const { searchParams } = new URL(request.url)
     const shop_id = searchParams.get('shop_id')
     const supplier_id = searchParams.get('supplier_id')
     if (!shop_id || !supplier_id) {
-      return NextResponse.json({ error: 'shop_id et supplier_id requis' }, { status: 400 })
+      return NextResponse.json({ error: t('shop_supplier_ids_required') }, { status: 400 })
     }
 
     const supabase = await createClient() as any
     const { data: { session } } = await supabase.auth.getSession()
     const user = session?.user
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const admin = await createAdminClient() as any
 
@@ -38,7 +40,7 @@ export async function GET(request: Request) {
         .from('profiles').select('role, shop_id').eq('id', user.id).single()
       if ((profile as any)?.shop_id === shop_id) callerRole = (profile as any)?.role
     }
-    if (!callerRole) return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+    if (!callerRole) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const purchaseOrders: any[] = posRes.data || []
     if (!purchaseOrders.length) return NextResponse.json({ purchaseOrders: [], payments: [] })

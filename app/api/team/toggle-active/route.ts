@@ -1,20 +1,22 @@
 ﻿import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 export async function POST(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const { employee_id, is_active, shop_id } = await request.json()
 
     if (!employee_id || !shop_id || typeof is_active !== 'boolean') {
-      return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
+      return NextResponse.json({ error: t('missing_fields') }, { status: 400 })
     }
 
     // Auth check
     const supabase = await createClient() as any
     const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     // Check caller is owner of this shop (via shop_members OR profiles fallback)
     const { data: memberRow } = await supabase
@@ -32,11 +34,11 @@ export async function POST(request: Request) {
     }
 
     if (!callerRole || !['owner', 'manager', 'shop_manager', 'super_admin'].includes(callerRole)) {
-      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 
     if (employee_id === user.id) {
-      return NextResponse.json({ error: 'Impossible de modifier votre propre compte' }, { status: 400 })
+      return NextResponse.json({ error: t('cannot_modify_own_account') }, { status: 400 })
     }
 
     const admin = await createAdminClient()
@@ -52,7 +54,7 @@ export async function POST(request: Request) {
       .eq('shop_id', shop_id)
       .single()
 
-    if (!targetMember) return NextResponse.json({ error: 'Membre introuvable' }, { status: 404 })
+    if (!targetMember) return NextResponse.json({ error: t('member_not_found') }, { status: 404 })
 
     const { data: targetProfile } = await (admin as any)
       .from('profiles')
@@ -64,7 +66,7 @@ export async function POST(request: Request) {
     // never on the owner or on peer managers. Only owner/super_admin bypass this.
     if (!['owner', 'super_admin'].includes(callerRole)) {
       if (!['cashier', 'stock_manager', 'viewer'].includes(targetMember.role)) {
-        return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+        return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
       }
     }
 

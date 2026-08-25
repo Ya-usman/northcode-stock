@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 // POST /api/auth/set-password
 //
@@ -12,14 +13,15 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 // The invite token path bypasses stale cookies (which caused "User not found")
 // and the setSession() hang (Web Lock contention with other open tabs).
 export async function POST(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const { password, access_token } = await request.json()
 
     if (!password) {
-      return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 })
+      return NextResponse.json({ error: t('missing_params') }, { status: 400 })
     }
     if (password.length < 8) {
-      return NextResponse.json({ error: 'Mot de passe trop court' }, { status: 400 })
+      return NextResponse.json({ error: t('password_too_short') }, { status: 400 })
     }
 
     const admin = await createAdminClient() as any
@@ -48,7 +50,7 @@ export async function POST(request: Request) {
           console.log('[set-password] found user by email:', email, '->', userId)
         } catch {
           return NextResponse.json(
-            { error: 'Compte introuvable. Redemandez une invitation.' },
+            { error: t('account_not_found_invite') },
             { status: 401 }
           )
         }
@@ -56,7 +58,7 @@ export async function POST(request: Request) {
         // Invalid JWT, expired, or other error
         console.error('[set-password] getUser error:', getUserError?.message)
         return NextResponse.json(
-          { error: 'Lien invalide ou expiré. Demandez un nouveau lien.' },
+          { error: t('invalid_or_expired_link') },
           { status: 401 }
         )
       }
@@ -70,7 +72,7 @@ export async function POST(request: Request) {
 
     if (!userId) {
       return NextResponse.json(
-        { error: 'Session invalide ou expirée. Cliquez à nouveau sur le lien dans votre email.' },
+        { error: t('invalid_session') },
         { status: 401 }
       )
     }

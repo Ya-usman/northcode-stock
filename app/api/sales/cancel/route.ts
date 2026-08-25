@@ -1,16 +1,18 @@
 ﻿import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 export async function POST(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const supabase = await createClient() as any
     const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { sale_id, reason } = await request.json()
-    if (!sale_id) return NextResponse.json({ error: 'Missing sale_id' }, { status: 400 })
+    if (!sale_id) return NextResponse.json({ error: t('missing_sale_id') }, { status: 400 })
 
     const admin = await createAdminClient() as any
 
@@ -21,8 +23,8 @@ export async function POST(request: Request) {
       .eq('id', sale_id)
       .single()
 
-    if (saleErr || !sale) return NextResponse.json({ error: 'Vente introuvable' }, { status: 404 })
-    if (sale.sale_status === 'cancelled') return NextResponse.json({ error: 'Vente déjà annulée' }, { status: 400 })
+    if (saleErr || !sale) return NextResponse.json({ error: t('sale_not_found') }, { status: 404 })
+    if (sale.sale_status === 'cancelled') return NextResponse.json({ error: t('sale_already_cancelled') }, { status: 400 })
 
     // Verify caller has access to the sale's shop
     const { data: memberRow } = await supabase
@@ -34,14 +36,14 @@ export async function POST(request: Request) {
       .single()
 
     if (!memberRow) {
-      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 
     const isOwner = memberRow.role === 'owner' || memberRow.role === 'manager' || memberRow.role === 'shop_manager' || memberRow.role === 'super_admin'
     const isCashierOwn = memberRow.role === 'cashier' && sale.cashier_id === user.id
 
     if (!isOwner && !isCashierOwn) {
-      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 
     // Cashiers can only cancel today's sales
@@ -49,7 +51,7 @@ export async function POST(request: Request) {
       const today = new Date()
       today.setHours(0, 0, 0, 0)
       if (new Date(sale.created_at) < today) {
-        return NextResponse.json({ error: 'Vous ne pouvez annuler que les ventes du jour' }, { status: 403 })
+        return NextResponse.json({ error: t('cancel_only_today') }, { status: 403 })
       }
     }
 
@@ -73,7 +75,7 @@ export async function POST(request: Request) {
       ip: getClientIp(request),
     })
 
-    return NextResponse.json({ success: true, message: `Vente #${sale.sale_number} annulée` })
+    return NextResponse.json({ success: true, message: t('sale_cancelled_message', { number: sale.sale_number }) })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
