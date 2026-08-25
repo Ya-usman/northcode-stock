@@ -14,7 +14,7 @@ import { chartTickFormatter } from '@/lib/utils/currency'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import type { RevenueDataPoint } from '@/lib/types/database'
 
-type Period = '7d' | 'year'
+type Period = 'week' | 'month' | 'year'
 
 interface RevenueChartProps {
   data: RevenueDataPoint[]
@@ -28,31 +28,35 @@ export function RevenueChart({ data, shopIds, cashierId }: RevenueChartProps) {
   const { fmt, symbol } = useCurrency()
   const isFCFA = symbol.includes('CFA')
 
-  const [period, setPeriod] = useState<Period>('7d')
+  const [period, setPeriod] = useState<Period>('week')
+  const [monthData, setMonthData] = useState<RevenueDataPoint[] | null>(null)
   const [yearData, setYearData] = useState<RevenueDataPoint[] | null>(null)
-  const [yearLoading, setYearLoading] = useState(false)
-  const [yearError, setYearError] = useState(false)
+  const [periodLoading, setPeriodLoading] = useState(false)
+  const [periodError, setPeriodError] = useState(false)
 
   const selectPeriod = async (next: Period) => {
     setPeriod(next)
-    if (next === '7d' || yearData || yearLoading) return
-    setYearLoading(true)
-    setYearError(false)
+    if (next === 'week') return
+    const [cache, setCache] = next === 'month' ? [monthData, setMonthData] : [yearData, setYearData]
+    if (cache || periodLoading) return
+    setPeriodLoading(true)
+    setPeriodError(false)
     try {
       const params = new URLSearchParams({ shop_ids: shopIds.join(',') })
       if (cashierId) params.set('cashier_id', cashierId)
-      const res = await withTimeout(fetch(`/api/dashboard/revenue-yearly?${params}`))
+      const endpoint = next === 'month' ? 'revenue-monthly' : 'revenue-yearly'
+      const res = await withTimeout(fetch(`/api/dashboard/${endpoint}?${params}`))
       if (!res.ok) throw new Error('fetch failed')
       const json = await res.json()
-      setYearData(json.data)
+      setCache(json.data)
     } catch {
-      setYearError(true)
+      setPeriodError(true)
     } finally {
-      setYearLoading(false)
+      setPeriodLoading(false)
     }
   }
 
-  const chartData = period === '7d' ? data : (yearData ?? [])
+  const chartData = period === 'week' ? data : period === 'month' ? (monthData ?? []) : (yearData ?? [])
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null
@@ -91,7 +95,7 @@ export function RevenueChart({ data, shopIds, cashierId }: RevenueChartProps) {
             )}
           </CardTitle>
           <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-lg flex-shrink-0">
-            {(['7d', 'year'] as const).map(p => (
+            {(['week', 'month', 'year'] as const).map(p => (
               <button
                 key={p}
                 type="button"
@@ -103,20 +107,20 @@ export function RevenueChart({ data, shopIds, cashierId }: RevenueChartProps) {
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                {t(p === '7d' ? 'period_7d' : 'period_year')}
+                {t(`period_${p}`)}
               </button>
             ))}
           </div>
         </div>
       </CardHeader>
       <CardContent className="pb-2">
-        {period === 'year' && yearLoading ? (
+        {period !== 'week' && periodLoading ? (
           <div className="flex items-center justify-center" style={{ height: 180 }}>
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
-        ) : period === 'year' && yearError ? (
+        ) : period !== 'week' && periodError ? (
           <div className="flex items-center justify-center text-xs text-muted-foreground" style={{ height: 180 }}>
-            {t('revenue_year_error')}
+            {t('period_load_error')}
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={180}>
@@ -128,7 +132,13 @@ export function RevenueChart({ data, shopIds, cashierId }: RevenueChartProps) {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 10, fill: '#9ca3af' }}
+                tickLine={false}
+                axisLine={false}
+                interval={chartData.length > 15 ? 'preserveStartEnd' : 0}
+              />
               <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} tickFormatter={tickFormatter} width={44} />
               <Tooltip content={<CustomTooltip />} />
               <Area type="monotone" dataKey="revenue" stroke="#60a5fa" strokeWidth={2.5} fill="url(#revenueGrad)" dot={{ fill: '#60a5fa', r: 3 }} activeDot={{ r: 5, fill: '#3b82f6' }} />

@@ -714,7 +714,13 @@ export default function DashboardPage() {
               cashierId={isCashierView ? (profile?.id ?? undefined) : undefined}
             />
           )}
-          {canAccess('widget_top_products_chart') && <TopProductsChart data={topProducts} />}
+          {canAccess('widget_top_products_chart') && (
+            <TopProductsChart
+              data={topProducts}
+              shopIds={effectiveShopIds}
+              cashierId={isCashierView ? (profile?.id ?? undefined) : undefined}
+            />
+          )}
         </div>
       )}
 
