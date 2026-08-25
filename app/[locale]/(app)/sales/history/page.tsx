@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, Fragment, useRef } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
 import {
-  Search, FileDown, FileText, ChevronDown, ChevronUp,
+  Search, FileDown, FileText, Table2, ChevronDown, ChevronUp,
   XCircle, CheckCircle2, Printer, Share2, Store, CornerDownLeft, Activity, Edit2, Trash2, Plus, Clock,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -130,6 +130,7 @@ export default function SalesHistoryPage() {
   const [validateMethod, setValidateMethod] = useState('cash')
   const [actionLoading, setActionLoading] = useState(false)
   const [exportingPDF, setExportingPDF] = useState(false)
+  const [exportMenuOpen, setExportMenuOpen] = useState(false)
   const { isOnline, pendingCount } = useOffline()
   const [pendingSales, setPendingSales] = useState<PendingSale[]>([])
   const [logs, setLogs] = useState<any[]>([])
@@ -536,6 +537,7 @@ export default function SalesHistoryPage() {
   })
 
   const exportCSV = async () => {
+    setExportMenuOpen(false)
     const pmLabels = Object.fromEntries(
       getCountry(shop?.country).paymentMethods.map(m => [m.id, m.label])
     )
@@ -561,6 +563,7 @@ export default function SalesHistoryPage() {
   const exportPDF = async () => {
     if (!shop || !filtered.length) return
     setExportingPDF(true)
+    setExportMenuOpen(false)
     try {
       const { generateSalesReportPDF } = await import('@/lib/utils/pdf')
       const currency = shop.currency || 'XOF'
@@ -931,15 +934,39 @@ export default function SalesHistoryPage() {
         )}
 
         {isOwner && (
-          <>
-            <Button variant="outline" size="sm" onClick={exportCSV} className="h-9 gap-1">
-              <FileDown className="h-3.5 w-3.5" /> CSV
+          <div className="relative flex-shrink-0">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9"
+              loading={exportingPDF}
+              onClick={() => setExportMenuOpen(v => !v)}
+              aria-label={t('actions.export_pdf')}
+            >
+              <FileDown className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm" onClick={exportPDF} disabled={exportingPDF} className="h-9 gap-1">
-              <FileText className="h-3.5 w-3.5" />
-              {exportingPDF ? t('expenses.exporting') : 'PDF'}
-            </Button>
-          </>
+            {exportMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setExportMenuOpen(false)} />
+                <div className="absolute right-0 top-10 z-50 w-44 rounded-xl border bg-background shadow-lg p-1 flex flex-col gap-0.5">
+                  <button
+                    onClick={exportPDF}
+                    className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left"
+                  >
+                    <FileText className="h-4 w-4 text-red-500 flex-shrink-0" />
+                    <span>{t('actions.export_pdf')}</span>
+                  </button>
+                  <button
+                    onClick={exportCSV}
+                    className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left"
+                  >
+                    <Table2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    <span>{t('actions.export_csv')}</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         )}
       </div>
 
