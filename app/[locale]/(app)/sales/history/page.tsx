@@ -117,8 +117,13 @@ export default function SalesHistoryPage() {
     { search: '', dateFilter: 'today', methodFilter: 'all', statusFilter: 'all', saleStatusFilter: 'all' as 'all' | 'active' | 'cancelled', customStart: '', customEnd: '' }
   )
   // Lazy initializers: read cache synchronously so first render shows cached data, not a skeleton.
+  // Search mode fetches a different row count (SEARCH_LIMIT, unpaginated)
+  // than normal browsing (PAGE_SIZE) — the cache key carries a distinct
+  // suffix for it so a paginated cache never gets served (and truncates
+  // results) under search, or vice versa, while still caching both modes
+  // instead of skipping the cache entirely whenever search is active.
   const _sfx = dateFilter === 'custom' ? `_${customStart}_${customEnd}` : ''
-  const _salesCacheKey = `sales_history_v2_${effectiveShopIds.join(',')}_${dateFilter}${_sfx}_${methodFilter}_${statusFilter}_${saleStatusFilter}`
+  const _salesCacheKey = `sales_history_v2_${effectiveShopIds.join(',')}_${dateFilter}${_sfx}_${methodFilter}_${statusFilter}_${saleStatusFilter}${search.trim() ? '_search' : ''}`
   const [sales, setSales] = useState<Sale[]>(() => getPageCache<Sale[]>(_salesCacheKey) || [])
   const [loading, setLoading] = useState(() => !getPageCache(_salesCacheKey))
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -262,8 +267,8 @@ export default function SalesHistoryPage() {
     setSalesOffset(0)
     const isSearchMode = search.trim().length > 0
     const customSuffix = dateFilter === 'custom' ? `_${customStart}_${customEnd}` : ''
-    const cacheKey = `sales_history_v2_${effectiveShopIds.join(',')}_${dateFilter}${customSuffix}_${methodFilter}_${statusFilter}_${saleStatusFilter}`
-    const cached = !isSearchMode ? getPageCache<Sale[]>(cacheKey) : null
+    const cacheKey = `sales_history_v2_${effectiveShopIds.join(',')}_${dateFilter}${customSuffix}_${methodFilter}_${statusFilter}_${saleStatusFilter}${isSearchMode ? '_search' : ''}`
+    const cached = getPageCache<Sale[]>(cacheKey)
     if (cached) {
       setSales(cached)
       setHasMoreSales(false)
@@ -311,7 +316,7 @@ export default function SalesHistoryPage() {
       setSales(salesData)
       setHasMoreSales(!isSearchMode && salesData.length === PAGE_SIZE)
       setCashierMap(await enrichCashiers(salesData))
-      if (!isSearchMode) setPageCache(cacheKey, salesData)
+      setPageCache(cacheKey, salesData)
       setPeriodStats({
         count:     statsRows.length,
         ca:        statsRows.reduce((s, r) => s + Number(r.total), 0),
