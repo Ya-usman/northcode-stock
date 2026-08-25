@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { hasRolePermission } from '@/lib/api/role-permissions'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 // manager/shop_manager keep unconditional access (existing behavior,
 // preserved) — cashier/viewer/stock_manager were never allowed before and
@@ -10,16 +11,17 @@ import { hasRolePermission } from '@/lib/api/role-permissions'
 const DELETE_EXPENSES_ALWAYS_ALLOW = ['manager', 'shop_manager']
 
 export async function POST(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const { expense_id, shop_id } = await request.json()
 
     if (!expense_id || !shop_id) {
-      return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
+      return NextResponse.json({ error: t('missing_fields') }, { status: 400 })
     }
 
     const supabase = await createClient() as any
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     // Verify caller is an active member with delete permission
     const { data: callerMember } = await supabase
@@ -32,7 +34,7 @@ export async function POST(request: Request) {
 
     const callerRole = callerMember?.role
     if (!callerRole || !(await hasRolePermission(supabase, callerRole, shop_id, 'delete_expenses', { alwaysAllow: DELETE_EXPENSES_ALWAYS_ALLOW }))) {
-      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 
     const admin = createAdminClient() as any
@@ -46,7 +48,7 @@ export async function POST(request: Request) {
       .single()
 
     if (fetchError || !expense) {
-      return NextResponse.json({ error: 'Dépense introuvable' }, { status: 404 })
+      return NextResponse.json({ error: t('expense_not_found') }, { status: 404 })
     }
 
     // Delete

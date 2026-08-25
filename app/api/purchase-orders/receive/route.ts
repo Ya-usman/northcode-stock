@@ -3,30 +3,32 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { hasRolePermission } from '@/lib/api/role-permissions'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 // POST /api/purchase-orders/receive — verify received quantities and restock
 // in one atomic transaction (apply_purchase_order_receipt), instead of a
 // blind status flip followed by a separate manual restock.
 // body: { shop_id, purchase_order_id, items: [{item_id, product_id, quantity_received, unit_price, expiry_date, receipt_note}], payment_amount?, payment_method? }
 export async function POST(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const { user, supabase } = await getAuthedUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { shop_id, purchase_order_id, items, payment_amount, payment_method } = await request.json()
-    if (!shop_id || !purchase_order_id) return NextResponse.json({ error: 'shop_id et purchase_order_id requis' }, { status: 400 })
+    if (!shop_id || !purchase_order_id) return NextResponse.json({ error: t('shop_po_id_required') }, { status: 400 })
     if (!Array.isArray(items) || items.length === 0)
-      return NextResponse.json({ error: 'Au moins une ligne est requise' }, { status: 400 })
+      return NextResponse.json({ error: t('at_least_one_line_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
     if (!role || !(await hasRolePermission(supabase, role, shop_id, 'suppliers')))
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()
 
     const { data: po } = await (admin as any)
       .from('purchase_orders').select('supplier_id').eq('id', purchase_order_id).eq('shop_id', shop_id).single()
-    if (!po) return NextResponse.json({ error: 'Bon de commande introuvable' }, { status: 404 })
+    if (!po) return NextResponse.json({ error: t('po_not_found') }, { status: 404 })
 
     const { data, error } = await (admin as any).rpc('apply_purchase_order_receipt', {
       p_shop_id: shop_id,

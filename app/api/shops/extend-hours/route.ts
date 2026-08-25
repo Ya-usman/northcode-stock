@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { hasRolePermission } from '@/lib/api/role-permissions'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 const ALLOWED_MINUTES = [15, 30, 45, 60] as const
 
@@ -11,19 +12,20 @@ const ALLOWED_MINUTES = [15, 30, 45, 60] as const
 // boutique, quota atomique) vit dans grant_hours_extension (migration 108)
 // — pas ici, pour éviter la course entre lecture et écriture d'un compteur.
 export async function POST(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const { user, supabase } = await getAuthedUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { shop_id, minutes } = await request.json()
-    if (!shop_id) return NextResponse.json({ error: 'shop_id requis' }, { status: 400 })
+    if (!shop_id) return NextResponse.json({ error: t('shop_id_required') }, { status: 400 })
     if (!ALLOWED_MINUTES.includes(minutes)) {
-      return NextResponse.json({ error: 'Durée de prolongation invalide' }, { status: 400 })
+      return NextResponse.json({ error: t('invalid_extension_duration') }, { status: 400 })
     }
 
     const role = await checkShopRole(supabase, user.id, shop_id)
     if (!role || !(await hasRolePermission(supabase, role, shop_id, 'extend_hours'))) {
-      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 
     const admin = await createAdminClient() as any

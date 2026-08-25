@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { hasRolePermission } from '@/lib/api/role-permissions'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 // Same permission as /api/products' promo fields — stock/pricing concern.
 // cashier is trusted unconditionally there too (see STOCK_ALWAYS_ALLOW).
@@ -13,19 +14,20 @@ const PROMO_ALWAYS_ALLOW = ['stock_manager', 'cashier']
 // FEFO depletion trigger on sale), so a role check has to live here instead.
 // body: { id, shop_id, promo_price, promo_until } — pass both null to clear.
 export async function PATCH(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const { user, supabase } = await getAuthedUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { id, shop_id, promo_price, promo_until } = await request.json()
-    if (!id || !shop_id) return NextResponse.json({ error: 'id et shop_id requis' }, { status: 400 })
+    if (!id || !shop_id) return NextResponse.json({ error: t('id_shop_id_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
     if (!role || !(await hasRolePermission(supabase, role, shop_id, 'stock', { alwaysAllow: PROMO_ALWAYS_ALLOW })))
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     if (promo_price !== null && (!Number.isFinite(Number(promo_price)) || Number(promo_price) <= 0))
-      return NextResponse.json({ error: 'Prix promo invalide' }, { status: 400 })
+      return NextResponse.json({ error: t('invalid_promo_price') }, { status: 400 })
 
     const admin = await createAdminClient() as any
     const { data, error } = await admin
@@ -36,7 +38,7 @@ export async function PATCH(request: Request) {
       .select()
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-    if (!data) return NextResponse.json({ error: 'Lot introuvable' }, { status: 404 })
+    if (!data) return NextResponse.json({ error: t('batch_not_found') }, { status: 404 })
 
     return NextResponse.json({ data })
   } catch (e: any) {

@@ -2,21 +2,23 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { hasRolePermission } from '@/lib/api/role-permissions'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 // POST /api/stock/inventory-count — apply a batch of physical stock counts
 // body: { shop_id, items: [{ product_id, counted_qty }] }
 export async function POST(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const { user, supabase } = await getAuthedUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { shop_id, items } = await request.json()
     if (!shop_id || !Array.isArray(items) || items.length === 0)
-      return NextResponse.json({ error: 'shop_id et items requis' }, { status: 400 })
+      return NextResponse.json({ error: t('shop_items_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
     if (!role || !(await hasRolePermission(supabase, role, shop_id, 'inventory_count')))
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()
     const { data, error } = await (admin as any).rpc('apply_inventory_count', {
@@ -35,17 +37,18 @@ export async function POST(request: Request) {
 // GET /api/stock/inventory-count?shop_id= — most recent count session, for
 // comparing "what did we count last time" against the current count.
 export async function GET(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const { user, supabase } = await getAuthedUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { searchParams } = new URL(request.url)
     const shopId = searchParams.get('shop_id')
-    if (!shopId) return NextResponse.json({ error: 'shop_id requis' }, { status: 400 })
+    if (!shopId) return NextResponse.json({ error: t('shop_id_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shopId)
     if (!role || !(await hasRolePermission(supabase, role, shopId, 'inventory_count')))
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()
 

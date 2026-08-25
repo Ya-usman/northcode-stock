@@ -1,20 +1,22 @@
 ﻿import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getPlan } from '@/lib/saas/plans'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 export async function POST(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const { name, city, country: requestCountry } = await request.json()
 
     if (!name?.trim()) {
-      return NextResponse.json({ error: 'Nom requis' }, { status: 400 })
+      return NextResponse.json({ error: t('name_required') }, { status: 400 })
     }
 
     // Get current user
     const supabase = await createClient() as any
     const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     // Get owner profile: country + owner-level plan (single source of truth)
     const { data: profile } = await supabase
@@ -55,7 +57,7 @@ export async function POST(request: Request) {
         .eq('user_id', user.id).eq('role', 'owner').eq('is_active', true)
       if ((count ?? 0) >= plan.limits.shops) {
         return NextResponse.json(
-          { error: `Votre forfait ${plan.name} est limité à ${plan.limits.shops} boutique(s). Passez au forfait supérieur pour en créer davantage.` },
+          { error: t('shop_limit_reached', { plan: plan.name, limit: plan.limits.shops }) },
           { status: 403 }
         )
       }
@@ -79,7 +81,7 @@ export async function POST(request: Request) {
     } as any).select().single()
 
     if (shopError || !shop) {
-      return NextResponse.json({ error: shopError?.message ?? 'Erreur création' }, { status: 500 })
+      return NextResponse.json({ error: shopError?.message ?? t('create_error') }, { status: 500 })
     }
 
     const { error: memberError } = await admin.from('shop_members').insert({

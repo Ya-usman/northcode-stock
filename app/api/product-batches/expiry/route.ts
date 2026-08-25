@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { hasRolePermission } from '@/lib/api/role-permissions'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 // Same permission tier as /api/product-batches/promo — stock/pricing concern,
 // same table. cashier trusted unconditionally (see STOCK_ALWAYS_ALLOW).
@@ -14,19 +15,20 @@ const EXPIRY_ALWAYS_ALLOW = ['stock_manager', 'cashier']
 // sale), so the role check has to live here instead.
 // body: { id, shop_id, expiry_date } — expiry_date: 'YYYY-MM-DD' or null to clear.
 export async function PATCH(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const { user, supabase } = await getAuthedUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { id, shop_id, expiry_date } = await request.json()
-    if (!id || !shop_id) return NextResponse.json({ error: 'id et shop_id requis' }, { status: 400 })
+    if (!id || !shop_id) return NextResponse.json({ error: t('id_shop_id_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
     if (!role || !(await hasRolePermission(supabase, role, shop_id, 'stock', { alwaysAllow: EXPIRY_ALWAYS_ALLOW })))
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     if (expiry_date !== null && isNaN(new Date(expiry_date).getTime()))
-      return NextResponse.json({ error: 'Date invalide' }, { status: 400 })
+      return NextResponse.json({ error: t('date_invalid') }, { status: 400 })
 
     const admin = await createAdminClient() as any
     const { data, error } = await admin
@@ -37,7 +39,7 @@ export async function PATCH(request: Request) {
       .select()
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-    if (!data) return NextResponse.json({ error: 'Lot introuvable' }, { status: 404 })
+    if (!data) return NextResponse.json({ error: t('batch_not_found') }, { status: 404 })
 
     return NextResponse.json({ data })
   } catch (e: any) {

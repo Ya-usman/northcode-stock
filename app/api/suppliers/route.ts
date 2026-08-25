@@ -3,19 +3,21 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { hasRolePermission } from '@/lib/api/role-permissions'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 // POST /api/suppliers — create a supplier
 export async function POST(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const { user, supabase } = await getAuthedUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { shop_id, name, phone, city } = await request.json()
-    if (!shop_id || !name) return NextResponse.json({ error: 'shop_id et name requis' }, { status: 400 })
+    if (!shop_id || !name) return NextResponse.json({ error: t('shop_name_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
     if (!role || !(await hasRolePermission(supabase, role, shop_id, 'suppliers')))
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()
     const { data, error } = await (admin as any)
@@ -30,16 +32,17 @@ export async function POST(request: Request) {
 
 // PATCH /api/suppliers — update a supplier
 export async function PATCH(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const { user, supabase } = await getAuthedUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { id, shop_id, name, phone, city } = await request.json()
-    if (!id || !shop_id) return NextResponse.json({ error: 'id et shop_id requis' }, { status: 400 })
+    if (!id || !shop_id) return NextResponse.json({ error: t('id_shop_id_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
     if (!role || !(await hasRolePermission(supabase, role, shop_id, 'suppliers')))
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()
     const { data, error } = await (admin as any)
@@ -48,7 +51,7 @@ export async function PATCH(request: Request) {
       .eq('id', id).eq('shop_id', shop_id)
       .select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-    if (!data) return NextResponse.json({ error: 'Fournisseur introuvable dans cette boutique' }, { status: 404 })
+    if (!data) return NextResponse.json({ error: t('supplier_not_found_in_shop') }, { status: 404 })
 
     return NextResponse.json({ data })
   } catch (e: any) {
@@ -59,18 +62,19 @@ export async function PATCH(request: Request) {
 // DELETE /api/suppliers?id=&shop_id= — soft-delete, keeps a trace unlike a
 // hard delete (matches customers' deleted_at pattern)
 export async function DELETE(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const { user, supabase } = await getAuthedUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
     const shopId = searchParams.get('shop_id')
-    if (!id || !shopId) return NextResponse.json({ error: 'id et shop_id requis' }, { status: 400 })
+    if (!id || !shopId) return NextResponse.json({ error: t('id_shop_id_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shopId)
     if (!role || !(await hasRolePermission(supabase, role, shopId, 'suppliers')))
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()
 

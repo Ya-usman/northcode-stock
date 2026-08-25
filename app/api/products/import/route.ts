@@ -1,16 +1,18 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 export async function POST(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const supabase = await createClient() as any
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { rows, shop_id } = await request.json()
-    if (!shop_id) return NextResponse.json({ error: 'shop_id manquant' }, { status: 400 })
-    if (!Array.isArray(rows) || rows.length === 0) return NextResponse.json({ error: 'Aucune ligne à importer' }, { status: 400 })
-    if (rows.length > 500) return NextResponse.json({ error: 'Maximum 500 produits par import' }, { status: 400 })
+    if (!shop_id) return NextResponse.json({ error: t('shop_id_required') }, { status: 400 })
+    if (!Array.isArray(rows) || rows.length === 0) return NextResponse.json({ error: t('no_rows_to_import') }, { status: 400 })
+    if (rows.length > 500) return NextResponse.json({ error: t('max_500_products') }, { status: 400 })
 
     // Verify user is an active member with write access to this shop
     const { data: memberRow } = await supabase
@@ -21,7 +23,7 @@ export async function POST(request: Request) {
       .eq('is_active', true)
       .single()
     if (!memberRow || !['owner', 'manager', 'shop_manager', 'stock_manager'].includes(memberRow.role))
-      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = createAdminClient() as any
 
@@ -33,11 +35,11 @@ export async function POST(request: Request) {
       const lineNum = i + 2 // +2 because line 1 is header
 
       const name = String(row.name || '').trim()
-      if (!name) { errors.push({ line: lineNum, error: 'Nom manquant' }); continue }
+      if (!name) { errors.push({ line: lineNum, error: t('missing_name') }); continue }
 
       const selling_price = parseFloat(String(row.selling_price || '0').replace(/[^\d.]/g, ''))
       if (isNaN(selling_price) || selling_price <= 0) {
-        errors.push({ line: lineNum, error: `Prix de vente invalide pour "${name}"` }); continue
+        errors.push({ line: lineNum, error: t('invalid_selling_price_for', { name }) }); continue
       }
 
       const buying_price = parseFloat(String(row.buying_price || '0').replace(/[^\d.]/g, '')) || 0

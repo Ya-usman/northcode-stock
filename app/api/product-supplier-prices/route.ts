@@ -2,20 +2,22 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { hasRolePermission } from '@/lib/api/role-permissions'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 // GET /api/product-supplier-prices?shop_id= — raw price comparison entries;
 // joined against product/supplier names client-side (already in memory there).
 export async function GET(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const { user, supabase } = await getAuthedUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { searchParams } = new URL(request.url)
     const shopId = searchParams.get('shop_id')
-    if (!shopId) return NextResponse.json({ error: 'shop_id requis' }, { status: 400 })
+    if (!shopId) return NextResponse.json({ error: t('shop_id_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shopId)
-    if (!role) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    if (!role) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()
     const { data, error } = await (admin as any)
@@ -33,19 +35,20 @@ export async function GET(request: Request) {
 // POST /api/product-supplier-prices — create or update a price entry
 // body: { shop_id, product_id, supplier_id, price }
 export async function POST(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const { user, supabase } = await getAuthedUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { shop_id, product_id, supplier_id, price } = await request.json()
     if (!shop_id || !product_id || !supplier_id || !price)
-      return NextResponse.json({ error: 'shop_id, product_id, supplier_id et price requis' }, { status: 400 })
+      return NextResponse.json({ error: t('price_entry_fields_required') }, { status: 400 })
     if (Number(price) <= 0)
-      return NextResponse.json({ error: 'Le prix doit être supérieur à 0' }, { status: 400 })
+      return NextResponse.json({ error: t('price_must_be_positive') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
     if (!role || !(await hasRolePermission(supabase, role, shop_id, 'suppliers')))
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()
     const { data, error } = await (admin as any)
@@ -65,18 +68,19 @@ export async function POST(request: Request) {
 
 // DELETE /api/product-supplier-prices?id=&shop_id= — remove a comparison entry
 export async function DELETE(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const { user, supabase } = await getAuthedUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
     const shopId = searchParams.get('shop_id')
-    if (!id || !shopId) return NextResponse.json({ error: 'id et shop_id requis' }, { status: 400 })
+    if (!id || !shopId) return NextResponse.json({ error: t('id_shop_id_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shopId)
     if (!role || !(await hasRolePermission(supabase, role, shopId, 'suppliers')))
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()
     const { error } = await (admin as any)

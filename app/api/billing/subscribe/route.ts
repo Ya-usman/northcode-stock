@@ -4,6 +4,7 @@ import { getCountry, getPeriodPrice, type BillingPeriod } from '@/lib/saas/count
 import { checkRateLimit } from '@/lib/rate-limit'
 import { validateBody, uuid, email as emailSchema, billingPeriodEnum, planEnum } from '@/lib/api/validate'
 import { fetchWithTimeout } from '@/lib/api/fetch'
+import { getApiTranslator } from '@/lib/api/i18n'
 import { z } from 'zod'
 
 const subscribeSchema = z.object({
@@ -59,6 +60,7 @@ export async function POST(request: Request) {
   const limited = await checkRateLimit(request, 'billing')
   if (limited) return limited
 
+  const t = getApiTranslator(request)
   try {
     const body = await request.json()
     const validated = validateBody(subscribeSchema, body)
@@ -78,7 +80,7 @@ export async function POST(request: Request) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}`
     const monthlyPrice = country.prices[plan_id as keyof typeof country.prices]
     if (!monthlyPrice) {
-      return NextResponse.json({ error: 'Invalid plan for this country' }, { status: 400 })
+      return NextResponse.json({ error: t('invalid_plan_for_country') }, { status: 400 })
     }
 
     const amount = getPeriodPrice(monthlyPrice, period)
@@ -86,7 +88,7 @@ export async function POST(request: Request) {
     // ── Nigeria → Paystack ──────────────────────────────────────────────────
     if (country.gateway === 'paystack') {
       const secret = process.env.PAYSTACK_SECRET_KEY
-      if (!secret) return NextResponse.json({ error: 'Paystack not configured' }, { status: 500 })
+      if (!secret) return NextResponse.json({ error: t('paystack_not_configured') }, { status: 500 })
 
       const channels = toPaystackChannels(payment_method ?? '')
 
@@ -102,7 +104,7 @@ export async function POST(request: Request) {
         }),
       })
       const data = await res.json()
-      if (!data.status) return NextResponse.json({ error: data.message || 'Paystack error' }, { status: 500 })
+      if (!data.status) return NextResponse.json({ error: data.message || t('payment_gateway_error') }, { status: 500 })
 
       return NextResponse.json({
         authorization_url: data.data.authorization_url,
@@ -116,7 +118,7 @@ export async function POST(request: Request) {
     // ── NotchPay (Cameroun — Orange Money & MTN MoMo XAF natif) ───────────
     if (country.gateway === 'notchpay') {
       const publicKey = process.env.NOTCHPAY_PUBLIC_KEY
-      if (!publicKey) return NextResponse.json({ error: 'NotchPay not configured' }, { status: 500 })
+      if (!publicKey) return NextResponse.json({ error: t('notchpay_not_configured') }, { status: 500 })
 
       const res = await fetchWithTimeout('https://api.notchpay.co/payments/initialize', {
         method: 'POST',
@@ -136,14 +138,14 @@ export async function POST(request: Request) {
       })
       const data = await res.json()
       const url = data.authorization_url
-      if (!url) return NextResponse.json({ error: data.message || 'NotchPay error' }, { status: 500 })
+      if (!url) return NextResponse.json({ error: data.message || t('payment_gateway_error') }, { status: 500 })
       return NextResponse.json({ authorization_url: url, reference: data.transaction?.reference || '' })
     }
 
     // ── Wave (pays FCFA avec Wave sélectionné) ────────────────────────────
     if (country.gateway === 'flutterwave' && payment_method === 'wave') {
       const waveKey = process.env.WAVE_API_KEY
-      if (!waveKey) return NextResponse.json({ error: 'Wave not configured' }, { status: 500 })
+      if (!waveKey) return NextResponse.json({ error: t('wave_not_configured') }, { status: 500 })
 
       const tx_ref = `SS-${shop_id.slice(0, 8)}-${Date.now()}`
 
@@ -160,7 +162,7 @@ export async function POST(request: Request) {
       })
       const data = await res.json()
       const url = data.wave_launch_url
-      if (!url) return NextResponse.json({ error: data.message || 'Wave error' }, { status: 500 })
+      if (!url) return NextResponse.json({ error: data.message || t('payment_gateway_error') }, { status: 500 })
 
       return NextResponse.json({ authorization_url: url, reference: tx_ref })
     }
@@ -168,7 +170,7 @@ export async function POST(request: Request) {
     // ── Flutterwave (tous les autres pays FCFA) ────────────────────────────
     if (country.gateway === 'flutterwave') {
       const secretKey = process.env.FLUTTERWAVE_SECRET_KEY
-      if (!secretKey) return NextResponse.json({ error: 'Flutterwave not configured' }, { status: 500 })
+      if (!secretKey) return NextResponse.json({ error: t('flutterwave_not_configured') }, { status: 500 })
 
       const tx_ref = `SS-${shop_id.slice(0, 8)}-${Date.now()}`
       const payment_options = toFlutterwaveOption(payment_method ?? '', country.code)
@@ -193,7 +195,7 @@ export async function POST(request: Request) {
       })
       const data = await res.json()
       const url = data.data?.link
-      if (!url) return NextResponse.json({ error: data.message || 'Flutterwave error' }, { status: 500 })
+      if (!url) return NextResponse.json({ error: data.message || t('payment_gateway_error') }, { status: 500 })
 
       return NextResponse.json({ authorization_url: url, reference: tx_ref })
     }
@@ -202,7 +204,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'stripe_coming_soon' }, { status: 400 })
     }
 
-    return NextResponse.json({ error: 'Unknown gateway' }, { status: 500 })
+    return NextResponse.json({ error: t('unknown_gateway') }, { status: 500 })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { hasRolePermission } from '@/lib/api/role-permissions'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 // Purchase orders live inside the Suppliers page/tab client-side (gated by
 // canAccess('suppliers') — there's no dedicated toggle wired up for them),
@@ -25,16 +26,17 @@ async function nextReference(admin: any, shopId: string): Promise<string> {
 
 // GET /api/purchase-orders?shop_id= — list purchase orders with their items
 export async function GET(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const { user, supabase } = await getAuthedUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { searchParams } = new URL(request.url)
     const shopId = searchParams.get('shop_id')
-    if (!shopId) return NextResponse.json({ error: 'shop_id requis' }, { status: 400 })
+    if (!shopId) return NextResponse.json({ error: t('shop_id_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shopId)
-    if (!role) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    if (!role) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()
     const { data, error } = await (admin as any)
@@ -72,18 +74,19 @@ export async function GET(request: Request) {
 // POST /api/purchase-orders — create a draft purchase order
 // body: { shop_id, supplier_id, items: [{product_id, product_name, unit, quantity_ordered, unit_price}], notes, expected_delivery_date }
 export async function POST(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const { user, supabase } = await getAuthedUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { shop_id, supplier_id, items, notes, expected_delivery_date } = await request.json()
-    if (!shop_id || !supplier_id) return NextResponse.json({ error: 'shop_id et supplier_id requis' }, { status: 400 })
+    if (!shop_id || !supplier_id) return NextResponse.json({ error: t('shop_supplier_ids_required') }, { status: 400 })
     if (!Array.isArray(items) || items.length === 0)
-      return NextResponse.json({ error: 'Au moins un produit est requis' }, { status: 400 })
+      return NextResponse.json({ error: t('at_least_one_product_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
     if (!role || !(await canWritePurchaseOrders(supabase, role, shop_id)))
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()
     const reference = await nextReference(admin, shop_id)
@@ -122,26 +125,27 @@ export async function POST(request: Request) {
 // PATCH /api/purchase-orders — change status, or replace items while still a draft
 // body: { id, shop_id, status?, items? }
 export async function PATCH(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const { user, supabase } = await getAuthedUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { id, shop_id, status, items } = await request.json()
-    if (!id || !shop_id) return NextResponse.json({ error: 'id et shop_id requis' }, { status: 400 })
+    if (!id || !shop_id) return NextResponse.json({ error: t('id_shop_id_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
     if (!role || !(await canWritePurchaseOrders(supabase, role, shop_id)))
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()
 
     const { data: existing, error: fetchError } = await (admin as any)
       .from('purchase_orders').select('status, reference, supplier_id').eq('id', id).eq('shop_id', shop_id).single()
-    if (fetchError || !existing) return NextResponse.json({ error: 'Bon de commande introuvable' }, { status: 404 })
+    if (fetchError || !existing) return NextResponse.json({ error: t('po_not_found') }, { status: 404 })
 
     if (Array.isArray(items)) {
       if (existing.status !== 'draft')
-        return NextResponse.json({ error: 'Seul un brouillon peut être modifié' }, { status: 400 })
+        return NextResponse.json({ error: t('draft_only_editable') }, { status: 400 })
       await (admin as any).from('purchase_order_items').delete().eq('purchase_order_id', id)
       const itemRows = items.map((it: any) => ({
         purchase_order_id: id,
@@ -158,7 +162,7 @@ export async function PATCH(request: Request) {
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
     if (status) {
       if (!['draft', 'sent', 'received', 'cancelled'].includes(status))
-        return NextResponse.json({ error: 'Statut invalide' }, { status: 400 })
+        return NextResponse.json({ error: t('invalid_status') }, { status: 400 })
       updates.status = status
       if (status === 'sent') { updates.sent_at = new Date().toISOString(); updates.sent_by = user.id }
       if (status === 'received') updates.received_at = new Date().toISOString()
@@ -193,25 +197,26 @@ export async function PATCH(request: Request) {
 
 // DELETE /api/purchase-orders?id=&shop_id= — draft only, keeps a trace otherwise
 export async function DELETE(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const { user, supabase } = await getAuthedUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
     const shopId = searchParams.get('shop_id')
-    if (!id || !shopId) return NextResponse.json({ error: 'id et shop_id requis' }, { status: 400 })
+    if (!id || !shopId) return NextResponse.json({ error: t('id_shop_id_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shopId)
     if (!role || !(await canWritePurchaseOrders(supabase, role, shopId)))
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()
     const { data: existing } = await (admin as any)
       .from('purchase_orders').select('status, reference, supplier_id, total_amount').eq('id', id).eq('shop_id', shopId).single()
-    if (!existing) return NextResponse.json({ error: 'Bon de commande introuvable' }, { status: 404 })
+    if (!existing) return NextResponse.json({ error: t('po_not_found') }, { status: 404 })
     if (existing.status !== 'draft')
-      return NextResponse.json({ error: 'Seul un brouillon peut être supprimé' }, { status: 400 })
+      return NextResponse.json({ error: t('draft_only_deletable') }, { status: 400 })
 
     const { count: itemsCount } = await (admin as any)
       .from('purchase_order_items').select('id', { count: 'exact', head: true }).eq('purchase_order_id', id)

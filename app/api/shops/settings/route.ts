@@ -1,19 +1,21 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 const HOURS_FIELDS = ['hours_enabled', 'opening_time', 'closing_time', 'hours_manual_override'] as const
 
 // PATCH /api/shops/settings — mise à jour des paramètres de la boutique (nom, ville, notifications...)
 export async function PATCH(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const supabase = await createClient() as any
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { shop_id, ...rawUpdates } = await request.json()
-    if (!shop_id) return NextResponse.json({ error: 'shop_id requis' }, { status: 400 })
-    if (!rawUpdates.name?.trim()) return NextResponse.json({ error: 'Le nom de la boutique est requis' }, { status: 400 })
+    if (!shop_id) return NextResponse.json({ error: t('shop_id_required') }, { status: 400 })
+    if (!rawUpdates.name?.trim()) return NextResponse.json({ error: t('shop_name_field_required') }, { status: 400 })
 
     // Liste blanche stricte : sans elle, un propriétaire authentifié pourrait glisser
     // n'importe quelle colonne (billing_country, plan, plan_expires_at, trial_ends_at,
@@ -35,7 +37,7 @@ export async function PATCH(request: Request) {
     if ('hours_manual_override' in updates) {
       const v = updates.hours_manual_override
       if (v !== null && v !== 'open' && v !== 'closed') {
-        return NextResponse.json({ error: 'hours_manual_override invalide' }, { status: 400 })
+        return NextResponse.json({ error: t('invalid_hours_override') }, { status: 400 })
       }
     }
 
@@ -49,7 +51,7 @@ export async function PATCH(request: Request) {
       .single()
 
     if (!member || !['owner', 'super_admin'].includes(member.role)) {
-      return NextResponse.json({ error: 'Seul le propriétaire peut modifier les paramètres de la boutique' }, { status: 403 })
+      return NextResponse.json({ error: t('owner_only_settings') }, { status: 403 })
     }
 
     const admin = await createAdminClient() as any
@@ -71,7 +73,7 @@ export async function PATCH(request: Request) {
       const effectiveOpening = ('opening_time' in updates ? updates.opening_time : currentHours?.opening_time) as string | null
       const effectiveClosing = ('closing_time' in updates ? updates.closing_time : currentHours?.closing_time) as string | null
       if (effectiveEnabled && effectiveOpening && effectiveClosing && effectiveClosing <= effectiveOpening) {
-        return NextResponse.json({ error: "L'heure de fermeture doit être après l'heure d'ouverture" }, { status: 400 })
+        return NextResponse.json({ error: t('closing_after_opening') }, { status: 400 })
       }
 
       hoursChanged = HOURS_FIELDS.some(f => f in updates && updates[f] !== currentHours?.[f])

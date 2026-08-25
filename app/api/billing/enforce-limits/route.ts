@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { enforceOwnerPlanLimits } from '@/lib/saas/enforce-limits'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 // Called from the billing page / app-layout when the owner loads the app
 // after a plan change or expiry — enforces limits and returns what changed.
-export async function POST() {
+export async function POST(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const supabase = await createClient() as any
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     // Only owners can trigger enforcement
     const { data: profile } = await supabase
@@ -18,7 +20,7 @@ export async function POST() {
       .single()
 
     if (!['owner', 'super_admin'].includes((profile as any)?.role)) {
-      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 
     const admin = await createAdminClient() as any

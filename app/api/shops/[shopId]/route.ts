@@ -1,25 +1,27 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, isSuperAdminUser } from '@/lib/api/shop-auth'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 // DELETE /api/shops/[shopId] — soft-delete par l'owner
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: { shopId: string } }
 ) {
+  const t = getApiTranslator(request)
   try {
     const { shopId } = params
     const { user } = await getAuthedUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const admin = createAdminClient() as any
 
     const { data: shop } = await admin
       .from('shops').select('id, owner_id, name, deleted_at').eq('id', shopId).single()
 
-    if (!shop || shop.deleted_at) return NextResponse.json({ error: 'Boutique introuvable' }, { status: 404 })
+    if (!shop || shop.deleted_at) return NextResponse.json({ error: t('shop_not_found') }, { status: 404 })
     if (shop.owner_id !== user.id) {
-      return NextResponse.json({ error: "Vous n'êtes pas le propriétaire de cette boutique" }, { status: 403 })
+      return NextResponse.json({ error: t('not_shop_owner') }, { status: 403 })
     }
 
     const { count } = await admin
@@ -28,7 +30,7 @@ export async function DELETE(
 
     if ((count ?? 0) <= 1) {
       return NextResponse.json(
-        { error: "Impossible de supprimer votre seule boutique. Créez-en une autre d'abord." },
+        { error: t('cannot_delete_only_shop') },
         { status: 400 }
       )
     }
@@ -67,26 +69,27 @@ export async function DELETE(
 
 // POST /api/shops/[shopId] — hard-delete définitive (super_admin uniquement)
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: { shopId: string } }
 ) {
+  const t = getApiTranslator(request)
   try {
     const { shopId } = params
     const { user, supabase } = await getAuthedUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
     if (!isSuperAdminUser(user.email, (profile as any)?.role)) {
-      return NextResponse.json({ error: 'Réservé au support StockShop' }, { status: 403 })
+      return NextResponse.json({ error: t('support_only') }, { status: 403 })
     }
 
     const admin = createAdminClient() as any
     const { data: shop } = await admin.from('shops').select('id, deleted_at').eq('id', shopId).single()
 
-    if (!shop) return NextResponse.json({ error: 'Boutique introuvable' }, { status: 404 })
+    if (!shop) return NextResponse.json({ error: t('shop_not_found') }, { status: 404 })
     if (!shop.deleted_at) {
       return NextResponse.json(
-        { error: "La boutique doit d'abord être désactivée avant suppression définitive." },
+        { error: t('shop_must_be_deactivated_first') },
         { status: 400 }
       )
     }
@@ -101,17 +104,18 @@ export async function POST(
 
 // PATCH /api/shops/[shopId] — restaurer un shop soft-deleted (super_admin uniquement)
 export async function PATCH(
-  _request: Request,
+  request: Request,
   { params }: { params: { shopId: string } }
 ) {
+  const t = getApiTranslator(request)
   try {
     const { shopId } = params
     const { user, supabase } = await getAuthedUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
     if (!isSuperAdminUser(user.email, (profile as any)?.role)) {
-      return NextResponse.json({ error: 'Réservé au support StockShop' }, { status: 403 })
+      return NextResponse.json({ error: t('support_only') }, { status: 403 })
     }
 
     const admin = createAdminClient() as any
