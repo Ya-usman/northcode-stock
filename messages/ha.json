@@ -720,7 +720,9 @@
     "debt_no_invoice_found": "An rubuta bashin {amount} amma ba a sami lissafin da ba a biya ba.",
     "by_connector": "daga",
     "payments_count": "Biyan kuɗi {count}",
-    "total_repaid": "Jimlar da aka mayar"
+    "total_repaid": "Jimlar da aka mayar",
+    "supplier_debts_timeout": "Loda bashin masu kaya yana ɗaukar lokaci mai yawa — sake gwadawa.",
+    "client_debts_timeout": "Loda bashin abokan ciniki yana ɗaukar lokaci mai yawa — sake gwadawa."
   },
   "receipt": {
     "receipt": "Rasiti",

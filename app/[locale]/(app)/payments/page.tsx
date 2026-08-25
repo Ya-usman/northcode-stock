@@ -252,7 +252,7 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>{format(new Date(sale.created_at), 'dd MMM yyyy', { locale: fr })}</span>
-                  <span>Total: {fmt(sale.total)}</span>
+                  <span>{t('payments.summary_total', { amount: fmt(sale.total) })}</span>
                 </div>
                 {sale.amount_paid > 0 && (
                   <div className="flex items-center justify-between text-xs">
@@ -372,7 +372,7 @@ function SupplierDebtorCard({ supplier, unpaidPOs, totalOwed, isExpanded, setExp
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>{format(new Date(po.created_at), 'dd MMM yyyy', { locale: fr })}</span>
-                  <span>Total: {fmt(po.total_amount)}</span>
+                  <span>{t('payments.summary_total', { amount: fmt(po.total_amount) })}</span>
                 </div>
                 {po.amount_paid > 0 && (
                   <div className="flex items-center justify-between text-xs">
@@ -513,7 +513,7 @@ export default function CreditsPage() {
     try {
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave loading stuck true forever.
-      const res = await withTimeout(fetch(`/api/supplier-payments/debts?shop_ids=${effectiveShopIds.join(',')}`), 20_000, 'Chargement des dettes fournisseurs trop lent — réessayez.')
+      const res = await withTimeout(fetch(`/api/supplier-payments/debts?shop_ids=${effectiveShopIds.join(',')}`), 20_000, t('payments.supplier_debts_timeout'))
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setSupplierDebtors(data.debtors || [])
@@ -741,7 +741,7 @@ export default function CreditsPage() {
     try {
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave loading stuck true forever.
-      const res = await withTimeout(fetch(`/api/payments/debts?shop_ids=${effectiveShopIds.join(',')}`), 20_000, 'Chargement des dettes clients trop lent — réessayez.')
+      const res = await withTimeout(fetch(`/api/payments/debts?shop_ids=${effectiveShopIds.join(',')}`), 20_000, t('payments.client_debts_timeout'))
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setDebtors(data.debtors || [])

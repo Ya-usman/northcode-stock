@@ -720,7 +720,9 @@
     "debt_no_invoice_found": "Le solde dû de {amount} est enregistré mais aucune facture impayée n'est trouvée.",
     "by_connector": "par",
     "payments_count": "{count} paiement(s)",
-    "total_repaid": "Total remboursé"
+    "total_repaid": "Total remboursé",
+    "supplier_debts_timeout": "Chargement des dettes fournisseurs trop lent — réessayez.",
+    "client_debts_timeout": "Chargement des dettes clients trop lent — réessayez."
   },
   "receipt": {
     "receipt": "Reçu",

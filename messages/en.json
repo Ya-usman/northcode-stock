@@ -720,7 +720,9 @@
     "debt_no_invoice_found": "The outstanding balance of {amount} is recorded but no unpaid invoice was found.",
     "by_connector": "by",
     "payments_count": "{count} payment(s)",
-    "total_repaid": "Total repaid"
+    "total_repaid": "Total repaid",
+    "supplier_debts_timeout": "Supplier debts are taking too long to load — try again.",
+    "client_debts_timeout": "Customer debts are taking too long to load — try again."
   },
   "receipt": {
     "receipt": "Receipt",
