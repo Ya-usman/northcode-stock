@@ -5,8 +5,10 @@ import { App } from '@capacitor/app'
 import { isCapacitor } from '@/lib/utils/native-share'
 import { RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useTranslations } from 'next-intl'
 
 export function AppUpdateChecker() {
+  const t = useTranslations('banners.app_update')
   const [needsUpdate, setNeedsUpdate] = useState(false)
   const [storeUrl, setStoreUrl] = useState('')
 
@@ -45,15 +47,15 @@ export function AppUpdateChecker() {
           <div className="flex items-center justify-center w-14 h-14 rounded-full bg-white/20 mx-auto mb-3">
             <RefreshCw className="h-7 w-7 text-white" />
           </div>
-          <h2 className="text-center text-lg font-bold text-white">Mise à jour disponible</h2>
+          <h2 className="text-center text-lg font-bold text-white">{t('title')}</h2>
           <p className="text-center text-sm text-blue-200 mt-1">
-            Une nouvelle version de StockShop est disponible
+            {t('subtitle')}
           </p>
         </div>
 
         <div className="px-6 py-5 space-y-3">
           <p className="text-sm text-muted-foreground text-center">
-            Cette mise à jour contient des améliorations importantes. Nous recommandons de mettre à jour dès que possible.
+            {t('body')}
           </p>
 
           <Button
@@ -62,14 +64,14 @@ export function AppUpdateChecker() {
               window.open(storeUrl, '_system')
             }}
           >
-            Mettre à jour
+            {t('update_button')}
           </Button>
 
           <button
             className="w-full py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
             onClick={() => setNeedsUpdate(false)}
           >
-            Plus tard
+            {t('later')}
           </button>
         </div>
       </div>

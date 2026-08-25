@@ -2,8 +2,10 @@
 
 import { WifiOff, ShoppingCart, RefreshCw } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 
 export default function OfflinePage() {
+  const t = useTranslations('offline')
   const params = useParams()
   const locale = (params?.locale as string) || 'fr'
   const router = useRouter()
@@ -19,11 +21,11 @@ export default function OfflinePage() {
       </div>
 
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-        Mode hors-ligne
+        {t('offline_page_title')}
       </h1>
       <p className="text-gray-500 dark:text-gray-400 max-w-sm mb-8">
-        Pas de connexion internet.<br />
-        La page de vente reste entièrement accessible.
+        {t('no_internet')}<br />
+        {t('sales_page_accessible')}
       </p>
 
       <div className="flex flex-col gap-3 w-full max-w-xs">
@@ -32,7 +34,7 @@ export default function OfflinePage() {
           className="flex items-center justify-center gap-2 w-full rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-3 transition-colors"
         >
           <ShoppingCart className="h-4 w-4" />
-          Aller à la vente
+          {t('go_to_sale')}
         </button>
 
         <button
@@ -40,7 +42,7 @@ export default function OfflinePage() {
           className="flex items-center justify-center gap-2 w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium px-4 py-3 transition-colors"
         >
           <RefreshCw className="h-4 w-4" />
-          Réessayer
+          {t('retry')}
         </button>
       </div>
 

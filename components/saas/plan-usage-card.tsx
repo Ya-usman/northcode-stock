@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { useTranslations } from 'next-intl'
 import { getPlan, hasActiveSubscription, getTrialDaysLeft } from '@/lib/saas/plans'
 import { Users, Store, History, Package, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
@@ -70,6 +71,7 @@ export function PlanUsageCard({
   plan, planExpiresAt, trialEndsAt,
   productCount, teamCount, shopCount,
 }: PlanUsageCardProps) {
+  const t = useTranslations('plan_usage')
   const planData = getPlan(plan)
   const isSubscribed = hasActiveSubscription(plan, planExpiresAt)
   const trialDaysLeft = getTrialDaysLeft(trialEndsAt)
@@ -78,30 +80,30 @@ export function PlanUsageCard({
   const stats: UsageStat[] = useMemo(() => [
     {
       icon: <Store className="h-4 w-4" />,
-      label: 'Boutiques',
+      label: t('shops'),
       used: shopCount,
       limit: planData.limits.shops,
     },
     {
       icon: <Users className="h-4 w-4" />,
-      label: 'Employés',
+      label: t('employees'),
       used: teamCount,
       limit: planData.limits.team_members,
     },
     {
       icon: <Package className="h-4 w-4" />,
-      label: 'Produits',
+      label: t('products'),
       used: productCount,
       limit: planData.limits.products,
     },
     {
       icon: <History className="h-4 w-4" />,
-      label: 'Historique',
+      label: t('history'),
       used: planData.limits.history_days === -1 ? 0 : planData.limits.history_days,
       limit: planData.limits.history_days,
-      unit: 'jours',
+      unit: t('days_unit'),
     },
-  ], [planData, shopCount, teamCount, productCount])
+  ], [planData, shopCount, teamCount, productCount, t])
 
   // Expiry countdown
   const daysLeft = isSubscribed && planExpiresAt
@@ -114,7 +116,7 @@ export function PlanUsageCard({
   return (
     <div className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-sm text-foreground">Utilisation du forfait</h3>
+        <h3 className="font-semibold text-sm text-foreground">{t('title')}</h3>
         <span className={cn(
           'text-xs font-semibold px-2 py-0.5 rounded-full',
           isSubscribed ? 'bg-green-500/10 text-green-600' : isTrialActive ? 'bg-amber-500/10 text-amber-600' : 'bg-red-500/10 text-red-600'
@@ -131,9 +133,9 @@ export function PlanUsageCard({
       {daysLeft !== null && (
         <div className="pt-1 border-t border-border space-y-1.5">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">{isSubscribed ? 'Renouvellement dans' : 'Essai — expire dans'}</span>
+            <span className="text-muted-foreground">{isSubscribed ? t('renewal_in') : t('trial_expires_in')}</span>
             <span className={cn('font-semibold', daysLeft <= 5 ? 'text-red-500' : daysLeft <= 14 ? 'text-amber-600' : 'text-foreground')}>
-              {daysLeft === 0 ? "Aujourd'hui" : `${daysLeft}j`}
+              {daysLeft === 0 ? t('today') : `${daysLeft}j`}
             </span>
           </div>
           <div className="h-1.5 rounded-full bg-muted overflow-hidden">

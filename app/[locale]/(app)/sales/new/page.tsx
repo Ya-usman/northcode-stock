@@ -517,10 +517,10 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         toast({ title: 'Entrez le montant du 1er paiement', variant: 'destructive' }); return
       }
       if (amt1 >= totalToCollect) {
-        toast({ title: 'Ce montant couvre déjà tout le total — désactivez le paiement mixte', variant: 'destructive' }); return
+        toast({ title: t('sales.split_covers_total_disable'), variant: 'destructive' }); return
       }
       if (!splitMethod2) {
-        toast({ title: 'Choisissez le 2ème moyen de paiement', variant: 'destructive' }); return
+        toast({ title: t('sales.choose_second_method'), variant: 'destructive' }); return
       }
     }
 
@@ -612,7 +612,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       resetForm()
       triggerSaleFeedback()
       toast({
-        title: persisted ? toastMsg : 'Vente enregistrée · reconnectez-vous pour synchroniser',
+        title: persisted ? toastMsg : t('sales.sale_saved_reconnect'),
         variant: 'success',
       })
     }
@@ -620,7 +620,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     // ── OFFLINE PATH ─────────────────────────────────────────────────────────
     if (!isOnline) {
       try {
-        await saveOffline('Vente sauvegardée hors-ligne · sera synchronisée automatiquement')
+        await saveOffline(t('sales.sale_saved_offline'))
       } catch (err: any) {
         toast({ title: err.message || t('errors.generic'), variant: 'destructive' })
       } finally {
@@ -693,11 +693,11 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           }),
         }).then(async r => {
           const body = await r.json().catch(() => ({}))
-          if (!r.ok) throw new Error(body.error || 'Erreur création vente')
+          if (!r.ok) throw new Error(body.error || t('sales.create_error'))
           return body
         }),
         20_000,
-        'La base de données ne répond pas — vérifiez votre connexion et réessayez.'
+        t('sales.db_not_responding')
       )
 
       sale = res.sale
@@ -765,7 +765,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       } else {
         // Sale was never created — safe to fall back to local save.
         try {
-          await saveOffline('Connexion instable · vente sauvegardée localement et synchronisée automatiquement dès que la connexion est stable')
+          await saveOffline(t('sales.unstable_connection_saved'))
         } catch {
           toast({ title: err.message || t('errors.generic'), variant: 'destructive' })
         }
@@ -821,7 +821,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       await sharePDFNative(
         blob,
         fileName,
-        `Reçu #${completedSale.sale_number} — ${selectedShop?.name}`,
+        t('sales.receipt_share_title', { number: completedSale.sale_number, shop: selectedShop?.name || '' }),
       )
       return
     } catch (err: any) {
@@ -1033,7 +1033,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 </button>
               ))}
               {filteredProducts.length === 0 && (
-                <p className="col-span-2 text-sm text-muted-foreground text-center py-4">Aucun produit trouvé</p>
+                <p className="col-span-2 text-sm text-muted-foreground text-center py-4">{t('sales.no_products_found')}</p>
               )}
             </div>
           </motion.div>
@@ -1051,7 +1051,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         <div className="flex-1 flex flex-col items-center justify-center text-center py-12 text-muted-foreground md:py-20">
           <div className="text-4xl mb-3">🛒</div>
           <p className="font-medium">{t('sales.cart_empty')}</p>
-          <p className="text-sm mt-1">Cherche ou scanne un produit pour commencer</p>
+          <p className="text-sm mt-1">{t('sales.search_or_scan_hint')}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -1173,7 +1173,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   onChange={e => { setCustomerName(e.target.value); setSelectedCustomer(null); setShowCustomerDropdown(e.target.value.length > 0) }}
                   onFocus={() => setShowCustomerDropdown(true)}
                   onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 150)}
-                  placeholder="Nom complet du client…"
+                  placeholder={t('sales.customer_name_placeholder')}
                 />
                 {(selectedCustomer || customerName) && (
                   <button className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
@@ -1199,16 +1199,16 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 <Input
                   value={customerPhone}
                   onChange={e => setCustomerPhone(e.target.value)}
-                  placeholder="Numéro de téléphone (optionnel)"
+                  placeholder={t('sales.customer_phone_placeholder')}
                   type="tel"
                 />
               )}
 
               {selectedCustomer && (
                 <p className="text-xs text-muted-foreground">
-                  Client existant · {selectedCustomer.phone || 'pas de téléphone'}
+                  {t('sales.existing_customer')} · {selectedCustomer.phone || t('sales.no_phone')}
                   {Number(selectedCustomer.total_debt) > 0 && (
-                    <span className="text-red-500 ml-2">· Solde dû: {formatNaira(selectedCustomer.total_debt)}</span>
+                    <span className="text-red-500 ml-2">· {t('sales.debt_due_inline', { amount: formatNaira(selectedCustomer.total_debt) })}</span>
                   )}
                 </p>
               )}
@@ -1221,9 +1221,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-orange-800">Inclure un remboursement de crédit</p>
+                    <p className="text-sm font-semibold text-orange-800">{t('sales.include_debt_repayment')}</p>
                     <p className="text-xs text-orange-600">
-                      Solde dû actuel : <strong>{formatNaira(selectedCustomer.total_debt)}</strong>
+                      {t('sales.current_debt_label')} : <strong>{formatNaira(selectedCustomer.total_debt)}</strong>
                     </p>
                   </div>
                   <button
@@ -1241,7 +1241,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 {debtRepayEnabled && (
                   <div className="space-y-3 pt-1">
                     <div className="space-y-1">
-                      <Label className="text-xs text-orange-800">Montant donné par le client pour le solde dû</Label>
+                      <Label className="text-xs text-orange-800">{t('sales.amount_given_for_debt')}</Label>
                       <div className="flex rounded-md border border-orange-200 overflow-hidden focus-within:ring-2 focus-within:ring-orange-300">
                         <span className="flex items-center px-2.5 bg-orange-50 border-r border-orange-200 text-sm text-muted-foreground font-medium whitespace-nowrap select-none">{selectedShop?.currency || '₦'}</span>
                         <input
@@ -1256,8 +1256,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                       </div>
                       {Number(debtRepayAmount) > 0 && (
                         <p className="text-xs text-orange-600">
-                          Reste après : <strong>{formatNaira(Math.max(0, Number(selectedCustomer.total_debt) - Number(debtRepayAmount)))}</strong>
-                          {Number(debtRepayAmount) >= Number(selectedCustomer.total_debt) && ' ✓ Solde réglé'}
+                          {t('sales.remaining_after')} : <strong>{formatNaira(Math.max(0, Number(selectedCustomer.total_debt) - Number(debtRepayAmount)))}</strong>
+                          {Number(debtRepayAmount) >= Number(selectedCustomer.total_debt) && ` ${t('sales.debt_settled_check')}`}
                         </p>
                       )}
                     </div>
@@ -1272,7 +1272,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                           <span>Remboursement crédit</span><span>+{formatNaira(debtAmt)}</span>
                         </div>
                         <div className="flex justify-between font-bold border-t pt-1">
-                          <span>Total à encaisser</span>
+                          <span>{t('sales.total_to_collect')}</span>
                           <span className="text-stockshop-blue dark:text-blue-400">{formatNaira(totalToCollect)}</span>
                         </div>
                       </div>
@@ -1355,14 +1355,14 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   value={transferRef}
                   onChange={e => setTransferRef(e.target.value)}
                   placeholder={
-                    methodType === 'mobile_money' ? 'Numéro de transaction / téléphone' :
-                    methodType === 'card' ? 'Référence POS / reçu' :
-                    'Numéro de référence du virement'
+                    methodType === 'mobile_money' ? t('sales.ref_placeholder_mobile') :
+                    methodType === 'card' ? t('sales.ref_placeholder_card') :
+                    t('sales.ref_placeholder_transfer')
                   }
                 />
               </div>
               <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-center">
-                <p className="text-sm text-muted-foreground">Montant à recevoir</p>
+                <p className="text-sm text-muted-foreground">{t('sales.amount_to_receive')}</p>
                 <p className="text-2xl font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(total)}</p>
               </div>
             </div>
@@ -1371,11 +1371,11 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           {!splitPayment && methodType === 'credit' && (
             <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
               <p className="text-sm font-medium text-amber-700">
-                📝 Ajoute {formatNaira(total)} au solde dû de{' '}
-                {selectedCustomer?.name || customerName || 'ce client'}
+                {t('sales.adds_to_debt_of', { amount: formatNaira(total) })}{' '}
+                {selectedCustomer?.name || customerName || t('sales.this_customer')}
               </p>
               {!selectedCustomer && !customerName && (
-                <p className="text-xs text-amber-600 mt-1">Entre un nom client ci-dessus pour le crédit</p>
+                <p className="text-xs text-amber-600 mt-1">{t('sales.enter_customer_for_credit')}</p>
               )}
             </div>
           )}
@@ -1396,7 +1396,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               className="flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:underline"
             >
               {splitPayment ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
-              {splitPayment ? 'Annuler le paiement mixte' : 'Paiement mixte (2 moyens)'}
+              {splitPayment ? t('sales.cancel_split_payment') : t('sales.split_payment_label')}
             </button>
           )}
 
@@ -1406,7 +1406,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               {/* Amount for method 1 */}
               <div className="space-y-1.5">
                 <Label className="text-sm">
-                  Montant payé en {getCountry(selectedShop?.country).paymentMethods.find(m => m.id === paymentMethod)?.label || paymentMethod}
+                  {t('sales.amount_paid_in', { method: getCountry(selectedShop?.country).paymentMethods.find(m => m.id === paymentMethod)?.label || paymentMethod })}
                 </Label>
                 <div className="flex rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
                   <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">{selectedShop?.currency || '₦'}</span>
@@ -1420,7 +1420,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
               {/* Method 2 selector */}
               <div className="space-y-1.5">
-                <Label className="text-sm">2ème moyen de paiement</Label>
+                <Label className="text-sm">{t('sales.second_payment_method')}</Label>
                 <div className="grid grid-cols-3 gap-2.5">
                   {getCountry(selectedShop?.country).paymentMethods
                     .filter(m => m.id !== paymentMethod && m.id !== 'credit')
@@ -1465,7 +1465,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               {/* Warning if method 1 already covers everything */}
               {(Number(amountPaid) || 0) >= totalToCollect && Number(amountPaid) > 0 && (
                 <p className="text-xs text-orange-500 text-center">
-                  Ce montant couvre déjà tout le total — pas besoin d'un 2ème paiement
+                  {t('sales.amount_covers_total_no_second')}
                 </p>
               )}
             </div>
@@ -1475,20 +1475,20 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           {/* Échéance de paiement — uniquement si la vente laisse un solde */}
           {balance > 0 && (
             <div className="space-y-1.5">
-              <Label>Échéance de paiement</Label>
+              <Label>{t('sales.due_date_label')}</Label>
               <Input
                 type="date"
                 value={dueDate}
                 onChange={e => { dueDateTouchedRef.current = true; setDueDate(e.target.value) }}
               />
-              <p className="text-xs text-muted-foreground">Date à laquelle le solde restant est attendu — modifiable, jamais obligatoire.</p>
+              <p className="text-xs text-muted-foreground">{t('sales.due_date_hint')}</p>
             </div>
           )}
 
           {/* Notes */}
           <div className="space-y-1.5">
-            <Label>Notes (optionnel)</Label>
-            <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Remarques sur cette vente…" />
+            <Label>{t('sales.notes_optional_label')}</Label>
+            <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder={t('sales.notes_placeholder')} />
           </div>
 
           {/* Action buttons */}
@@ -1527,7 +1527,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             <div className="overflow-hidden rounded-lg">
               {/* Header gradient */}
               <div className="bg-stockshop-blue px-5 pt-5 pb-4">
-                <p className="text-xs font-medium text-blue-200 uppercase tracking-wider mb-1">Prix de vente</p>
+                <p className="text-xs font-medium text-blue-200 uppercase tracking-wider mb-1">{t('products.selling_price')}</p>
                 <p className="text-white font-semibold text-base leading-tight truncate">{priceModalItem.product.name}</p>
                 <div className="flex items-center gap-2 mt-2">
                   <span className="text-xs text-blue-200">{minPrice !== priceModalItem.product.selling_price ? t('products.promo_badge') : 'Catalogue'} :</span>
@@ -1538,7 +1538,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               {/* Body */}
               <div className="p-5 space-y-4 bg-background">
                 <div>
-                  <p className="text-xs text-muted-foreground mb-2 font-medium">Nouveau prix de vente</p>
+                  <p className="text-xs text-muted-foreground mb-2 font-medium">{t('sales.new_selling_price')}</p>
                   <div className="flex rounded-xl border-2 border-stockshop-blue overflow-hidden shadow-sm">
                     <span className="flex items-center px-4 bg-stockshop-blue/5 border-r border-stockshop-blue/30 text-sm font-bold text-stockshop-blue whitespace-nowrap select-none">
                       {selectedShop?.currency || '₦'}
@@ -1595,7 +1595,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         open={showDrafts}
         onOpenChange={setShowDrafts}
         category="Ventes"
-        title="Factures en attente"
+        title={t('sales.pending_invoices_title')}
         icon={<Clock className="h-4 w-4" />}
       >
         <PremiumDialogBody className="space-y-2 max-h-80 overflow-y-auto">

@@ -1,6 +1,7 @@
 'use client'
 
 import { X, Sparkles, ArrowRight } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils/cn'
 
 export interface Announcement {
@@ -26,6 +27,7 @@ const BADGE_STYLES: Record<string, { dot: string; text: string; bg: string }> = 
 }
 
 export function WhatsNewModal({ announcements, onClose }: WhatsNewModalProps) {
+  const t = useTranslations('banners.whats_new')
   return (
     <>
       {/* Backdrop */}
@@ -63,11 +65,11 @@ export function WhatsNewModal({ announcements, onClose }: WhatsNewModalProps) {
               </div>
               <div>
                 <p className="text-[11px] font-semibold text-blue-200 uppercase tracking-widest">StockShop</p>
-                <h2 className="text-xl font-bold text-white leading-tight">Nouveautés</h2>
+                <h2 className="text-xl font-bold text-white leading-tight">{t('title')}</h2>
               </div>
             </div>
             <p className="relative text-sm text-blue-100/80 mt-1">
-              {announcements.length} mise{announcements.length > 1 ? 's' : ''} à jour disponible{announcements.length > 1 ? 's' : ''}
+              {t('updates_count', { count: announcements.length })}
             </p>
           </div>
 
@@ -111,7 +113,7 @@ export function WhatsNewModal({ announcements, onClose }: WhatsNewModalProps) {
               className="w-full flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white transition-all active:scale-95"
               style={{ background: 'linear-gradient(135deg, #073e8a 0%, #1560c0 100%)' }}
             >
-              Continuer
+              {t('continue')}
               <ArrowRight className="h-4 w-4" />
             </button>
           </div>

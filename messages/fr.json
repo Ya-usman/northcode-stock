@@ -30,7 +30,12 @@
     "notes": "Notes",
     "help": "Aide",
     "caisse": "Contrôle de caisse",
-    "no_access": "Accès non autorisé"
+    "no_access": "Accès non autorisé",
+    "new_badge": "Nouveau",
+    "admin_panel": "Admin Panel",
+    "unavailable_offline": "Non disponible hors ligne",
+    "support": "Support",
+    "admin": "Admin"
   },
   "auth": {
     "login": "Se connecter",
@@ -48,7 +53,26 @@
     "register_link": "Créer un compte",
     "or_separator": "ou",
     "continue_google": "Continuer avec Google",
-    "continue_apple": "Continuer avec Apple"
+    "continue_apple": "Continuer avec Apple",
+    "error_no_profile": "Compte pas encore configuré. Contactez votre administrateur.",
+    "error_inactive": "Votre compte a été désactivé. Contactez votre administrateur.",
+    "error_use_email": "Un compte existe déjà avec cet email. Connectez-vous avec votre email et mot de passe.",
+    "error_invalid_link": "Lien expiré ou déjà utilisé. Ouvre le lien de confirmation sur le même téléphone où tu t'es inscrit(e), ou redemande un email de confirmation.",
+    "error_generic": "Erreur : {error}",
+    "email_confirmed_success": "Adresse e-mail confirmée ! Vous pouvez maintenant vous connecter.",
+    "network_error": "Problème de connexion. Vérifiez votre réseau et réessayez.",
+    "unexpected_error": "Erreur inattendue",
+    "hero_title_1": "Gérez plus intelligemment.",
+    "hero_title_2": "Vendez plus vite.",
+    "hero_title_3": "Développez votre activité.",
+    "hero_subtitle": "Tout ce dont votre boutique a besoin — stock, ventes, clients et rapports.",
+    "hero_feature_offline": "Fonctionne hors ligne, même sans réseau",
+    "hero_feature_multi_shop": "Multi-boutiques, multi-devises",
+    "hero_feature_realtime_reports": "Rapports en temps réel",
+    "hero_feature_languages": "Disponible en français, anglais et haoussa",
+    "login_subtitle": "Connectez-vous à votre compte",
+    "email_placeholder": "vous@exemple.com",
+    "forgot_subtitle": "Entrez votre e-mail pour réinitialiser votre mot de passe"
   },
   "dashboard": {
     "title": "Tableau de bord",
@@ -89,7 +113,11 @@
     "global_month_sales": "Encaissements du mois",
     "monthly_trend": "Revenus vs Dépenses (6 mois)",
     "revenue_label": "Revenus",
-    "expenses_label": "Dépenses"
+    "expenses_label": "Dépenses",
+    "new_sale_toast_title": "Nouvelle vente: {amount}",
+    "new_sale_toast_number": "#{number}",
+    "out_of_stock_toast": "⚠️ {product} en rupture de stock!",
+    "low_stock_toast": "{product}: plus que {qty} en stock"
   },
   "dashboard_banner": {
     "beta_active": "Accès bêta gratuit — profitez de l'accès complet pendant encore {days} jours.",
@@ -101,7 +129,8 @@
     "expired": "Votre essai a expiré. Abonnez-vous pour continuer.",
     "upgrade": "Passer au plan payant",
     "renew": "Renouveler",
-    "subscribe": "S'abonner"
+    "subscribe": "S'abonner",
+    "dismiss": "Fermer"
   },
   "metrics": {
     "revenue": "Revenus",
@@ -286,7 +315,41 @@
     "delete_confirm_label": "Pour confirmer, tapez exactement le nom du produit : {name}",
     "trash_section": "Corbeille — {count} produit(s) supprimé(s) définitivement",
     "trash_hint": "Ces produits ont été supprimés définitivement mais peuvent encore être récupérés.",
-    "trash_deleted_at": "Supprimé le {date}"
+    "trash_deleted_at": "Supprimé le {date}",
+    "all_deleted_toast": "Tous les produits ont été supprimés",
+    "bulk_deleted_toast": "{count} produit(s) supprimé(s)",
+    "deselect_all": "Tout désélectionner",
+    "select_all": "Tout sélectionner",
+    "delete_all_count": "Supprimer tous les produits ({count})",
+    "reset_filters": "Réinitialiser",
+    "archived_on": "Archivé le {date}",
+    "journal_deleted": "Produit supprimé",
+    "journal_bulk_delete": "Suppression en masse",
+    "journal_bulk_delete_detail": "{count} produit(s){names}",
+    "journal_created": "Produit créé",
+    "journal_created_detail": "{price} · {qty} unité(s)",
+    "journal_updated": "Produit modifié",
+    "journal_field_name": "Nom",
+    "journal_field_selling_price": "Prix vente",
+    "journal_field_buying_price": "Prix achat",
+    "journal_field_threshold": "Seuil d'alerte",
+    "journal_field_sku": "SKU",
+    "journal_field_category": "Catégorie",
+    "journal_field_supplier": "Fournisseur",
+    "journal_archived": "Produit archivé",
+    "journal_restored": "Produit restauré",
+    "journal_all_deleted_detail": "{count} produit(s)",
+    "delete_warning_title_short": "Suppression définitive",
+    "delete_all_title": "Supprimer tous les produits",
+    "delete_selected_title": "Supprimer {count} produit(s)",
+    "bulk_delete_all_warning": "{count} produit(s) seront supprimés définitivement.",
+    "bulk_delete_selected_warning": "{count} produit(s) sélectionné(s) seront supprimés définitivement.",
+    "sales_data_kept": "Les données de ventes associées sont conservées.",
+    "irreversible_action": "Cette action est irréversible.",
+    "type_to_confirm_prefix": "Tapez",
+    "type_to_confirm_suffix": "pour confirmer",
+    "delete_confirm_word": "SUPPRIMER",
+    "selected_count": "{count} sélectionné(s)"
   },
   "sales": {
     "title": "Ventes",
@@ -378,7 +441,49 @@
     "pdf_total_revenue": "Total encaissé",
     "pdf_generated_by": "Généré par StockShop",
     "pdf_page": "Page",
-    "pdf_of": "sur"
+    "pdf_of": "sur",
+    "filter_method_label": "Méthode",
+    "filter_status_label": "Statut",
+    "filter_sale_label": "Vente",
+    "split_covers_total_disable": "Ce montant couvre déjà tout le total — désactivez le paiement mixte",
+    "choose_second_method": "Choisissez le 2ème moyen de paiement",
+    "sale_saved_reconnect": "Vente enregistrée · reconnectez-vous pour synchroniser",
+    "sale_saved_offline": "Vente sauvegardée hors-ligne · sera synchronisée automatiquement",
+    "create_error": "Erreur création vente",
+    "db_not_responding": "La base de données ne répond pas — vérifiez votre connexion et réessayez.",
+    "unstable_connection_saved": "Connexion instable · vente sauvegardée localement et synchronisée automatiquement dès que la connexion est stable",
+    "receipt_share_title": "Reçu #{number} — {shop}",
+    "no_products_found": "Aucun produit trouvé",
+    "search_or_scan_hint": "Cherche ou scanne un produit pour commencer",
+    "customer_name_placeholder": "Nom complet du client…",
+    "customer_phone_placeholder": "Numéro de téléphone (optionnel)",
+    "existing_customer": "Client existant",
+    "no_phone": "pas de téléphone",
+    "debt_due_inline": "Solde dû: {amount}",
+    "include_debt_repayment": "Inclure un remboursement de crédit",
+    "current_debt_label": "Solde dû actuel",
+    "amount_given_for_debt": "Montant donné par le client pour le solde dû",
+    "remaining_after": "Reste après",
+    "debt_settled_check": "✓ Solde réglé",
+    "total_to_collect": "Total à encaisser",
+    "ref_placeholder_mobile": "Numéro de transaction / téléphone",
+    "ref_placeholder_card": "Référence POS / reçu",
+    "ref_placeholder_transfer": "Numéro de référence du virement",
+    "amount_to_receive": "Montant à recevoir",
+    "adds_to_debt_of": "📝 Ajoute {amount} au solde dû de",
+    "this_customer": "ce client",
+    "enter_customer_for_credit": "Entre un nom client ci-dessus pour le crédit",
+    "cancel_split_payment": "Annuler le paiement mixte",
+    "split_payment_label": "Paiement mixte (2 moyens)",
+    "amount_paid_in": "Montant payé en {method}",
+    "second_payment_method": "2ème moyen de paiement",
+    "amount_covers_total_no_second": "Ce montant couvre déjà tout le total — pas besoin d'un 2ème paiement",
+    "due_date_label": "Échéance de paiement",
+    "due_date_hint": "Date à laquelle le solde restant est attendu — modifiable, jamais obligatoire.",
+    "notes_optional_label": "Notes (optionnel)",
+    "notes_placeholder": "Remarques sur cette vente…",
+    "new_selling_price": "Nouveau prix de vente",
+    "pending_invoices_title": "Factures en attente"
   },
   "customers": {
     "title": "Clients",
@@ -497,7 +602,8 @@
     "po_payment_status_partial": "Partiel",
     "po_payment_status_credit": "À crédit",
     "po_payment_amount_placeholder": "Montant payé maintenant…",
-    "po_payment_credit_hint": "Rien n'est payé maintenant — le montant total apparaîtra comme dû dans l'onglet Crédits."
+    "po_payment_credit_hint": "Rien n'est payé maintenant — le montant total apparaîtra comme dû dans l'onglet Crédits.",
+    "po_must_have_product": "Le bon doit contenir au moins un produit"
   },
   "transfers": {
     "load_timeout": "Chargement des transferts trop lent — réessayez.",
@@ -599,7 +705,21 @@
     "remaining_label": "Restant",
     "no_results": "Aucun résultat",
     "hide": "Masquer",
-    "view_orders": "Voir les commandes"
+    "view_orders": "Voir les commandes",
+    "unstable_connection_saved_locally": "Connexion instable · paiement sauvegardé localement, synchronisé automatiquement dès que la connexion revient",
+    "summary_total": "Total : {amount}",
+    "summary_paid": "Payé : {amount}",
+    "summary_remaining": "Restant : {amount}",
+    "view_invoices": "Voir les factures",
+    "invoices_label": "Factures",
+    "invoices_count_plain": "{count} facture(s)",
+    "status_paid_check": "Payé ✓",
+    "receipt_share_title": "Reçu — {customer}",
+    "whatsapp_receipt_message": "Bonjour {customer}, votre paiement a bien été enregistré. Merci !",
+    "debt_no_invoice_found": "Le solde dû de {amount} est enregistré mais aucune facture impayée n'est trouvée.",
+    "by_connector": "par",
+    "payments_count": "{count} paiement(s)",
+    "total_repaid": "Total remboursé"
   },
   "receipt": {
     "receipt": "Reçu",
@@ -679,7 +799,16 @@
     "col_buying_price": "Prix achat",
     "col_selling_price": "Prix vente",
     "col_sold_qty": "Vendus",
-    "encaisse": "Chiffre d'affaires"
+    "encaisse": "Chiffre d'affaires",
+    "gross_margin_sales_pdf": "Marge brute sur ventes",
+    "from_date": "Du",
+    "to_date": "Au",
+    "gross_margin": "Marge brute",
+    "gross_margin_hint": "Ventes − coût achat",
+    "net_profit_hint": "Marge − dépenses",
+    "pdf_ready": "PDF prêt",
+    "preparing": "Préparation…",
+    "save_to_files": "Enregistrer dans les fichiers"
   },
   "team": {
     "title": "Équipe",
@@ -729,7 +858,12 @@
     "role_label": "Rôle",
     "shop_label": "Boutique *",
     "invite_info": "Un email d'invitation sera envoyé. L'employé définira son mot de passe.",
-    "send_invite": "Envoyer l'invitation"
+    "send_invite": "Envoyer l'invitation",
+    "email_not_found": "Email introuvable pour cet employé",
+    "invite_resent": "Invitation renvoyée à {email}",
+    "invite_pending": "Invitation en attente",
+    "resend": "Renvoyer",
+    "email_confirmed_never_connected": "Email confirmé · jamais connecté"
   },
   "settings": {
     "title": "Paramètres",
@@ -826,7 +960,25 @@
     "perm_widget_rep_credits": "Crédits en cours",
     "perm_widget_rep_payment_chart": "Graphique par mode de paiement",
     "perm_widget_rep_top_products": "Top produits",
-    "perm_widget_rep_cashier_perf": "Performance caissiers"
+    "perm_widget_rep_cashier_perf": "Performance caissiers",
+    "no_subscription_found": "Aucun abonnement trouvé. Active d'abord les notifications.",
+    "test_notification_sent": "Notification envoyée ! Vérifie ton téléphone.",
+    "shop_name_example": "Boutique Alpha",
+    "city_example": "Kano",
+    "state_example": "Kano State",
+    "operating_country": "Pays d'opération",
+    "display_and_currency": "Affichage et devise de l'app",
+    "currency_label": "Devise",
+    "currency_auto_hint": "Automatique selon le pays",
+    "email_section_label": "Email",
+    "push_new_sale_label": "Alerte nouvelle vente",
+    "push_new_sale_hint": "Recevoir une alerte quand un caissier fait une vente",
+    "sound_label": "Son",
+    "sound_hint": "Jouer un bip à chaque vente",
+    "vibration_label": "Vibration",
+    "vibration_hint": "Vibrer à chaque vente",
+    "push_new_expense_label": "Alerte nouvelle dépense",
+    "push_new_expense_hint": "Recevoir une alerte quand un Responsable ou Caissier ajoute une dépense"
   },
   "movements": {
     "title": "Mouvements de stock",
@@ -854,7 +1006,9 @@
     "products_tracked": "Produits suivis",
     "products_count": "produits",
     "restock_history": "Historique réapprovisionnement",
-    "product": "Produit"
+    "product": "Produit",
+    "restocks_count_label": "Réappros",
+    "total_added_label": "Total ajouté"
   },
   "inventoryCount": {
     "title": "Inventaire physique",
@@ -895,13 +1049,20 @@
   "offline": {
     "title": "Vous êtes hors ligne",
     "body": "Certaines fonctionnalités peuvent être limitées. Les données de votre dernière synchronisation sont affichées.",
-    "cached": "Données en cache affichées"
+    "cached": "Données en cache affichées",
+    "offline_page_title": "Mode hors-ligne",
+    "no_internet": "Pas de connexion internet.",
+    "sales_page_accessible": "La page de vente reste entièrement accessible.",
+    "go_to_sale": "Aller à la vente",
+    "retry": "Réessayer"
   },
   "error_page": {
     "title": "Une erreur s'est produite",
     "body": "L'application a rencontré une erreur. Vos données sont en sécurité.",
     "try_again": "Réessayer",
-    "go_home": "Accueil"
+    "go_home": "Accueil",
+    "offline_title": "Page non disponible hors ligne",
+    "offline_body": "Cette page n'a pas pu être chargée sans connexion. Naviguez vers une page déjà en cache."
   },
   "categories": {
     "title": "Catégories de produits",
@@ -941,11 +1102,45 @@
     "city_label": "Ville",
     "members": "{count} membre(s)",
     "no_shops": "Aucune boutique",
-    "no_shops_detail": "Créez votre première boutique pour commencer."
+    "no_shops_detail": "Créez votre première boutique pour commencer.",
+    "deleted": "Boutique supprimée",
+    "country_label": "Pays",
+    "delete_confirm_title": "Supprimer « {name} » ?",
+    "delete_warning": "Tous les produits, ventes, clients et données de cette boutique seront définitivement effacés. Cette action est irréversible.",
+    "confirm_delete_yes": "Oui, supprimer"
+  },
+  "notes": {
+    "load_timeout": "Chargement des notes trop lent — réessayez.",
+    "updated_toast": "Note modifiée",
+    "created_toast": "Note créée",
+    "deleted_toast": "Note supprimée",
+    "search_placeholder": "Rechercher dans les notes…",
+    "new_note": "Nouvelle note",
+    "empty_title": "Aucune note",
+    "empty_no_results": "Aucun résultat pour cette recherche",
+    "empty_create_hint": "Créez votre première note avec le bouton ci-dessus",
+    "pinned_section": "Épinglées",
+    "other_section": "Autres",
+    "edit_title": "Modifier la note",
+    "title_placeholder": "Titre (optionnel)",
+    "content_placeholder": "Écrivez votre note ici…",
+    "color_label": "Couleur",
+    "shop_label": "Boutique",
+    "pinned_label": "Épinglée",
+    "pin_label": "Épingler",
+    "create_button": "Créer",
+    "color_default": "Blanc",
+    "color_yellow": "Jaune",
+    "color_blue": "Bleu",
+    "color_green": "Vert",
+    "color_pink": "Rose",
+    "color_purple": "Violet"
   },
   "toast": {
     "no_active_shop": "Aucune boutique active",
     "error": "Erreur",
+    "retry_error": "Erreur, réessayez",
+    "network_error": "Erreur réseau",
     "product_added": "Produit ajouté !",
     "product_updated": "Produit mis à jour !",
     "product_deleted": "Produit supprimé définitivement",
@@ -1044,7 +1239,14 @@
     "email_sent_note": "Vérifiez vos spams si vous ne le recevez pas dans quelques minutes.",
     "resend_email": "Renvoyer l'email",
     "resent_success": "Email renvoyé !",
-    "go_to_login": "Aller à la connexion"
+    "go_to_login": "Aller à la connexion",
+    "full_name_example": "Malam Usman",
+    "shop_name_example": "Boutique Alhaji Musa",
+    "referral_code_label": "Code de parrainage",
+    "referral_code_placeholder": "ex: ALHAJI2025",
+    "referral_checking": "Vérification...",
+    "referral_agent_found": "✓ Agent : {agent}",
+    "referral_code_not_found": "Code non reconnu (tu peux continuer sans)"
   },
   "saas": {
     "trial_expires_today": "Votre essai gratuit expire aujourd'hui !",
@@ -1078,7 +1280,8 @@
     "downgrade_shops_reactivated": "{count} boutique(s) réactivée(s)",
     "downgrade_members_reactivated": "{count} employé(s) réactivés",
     "downgrade_info": "Les boutiques et employés suspendus restent conservés. Passez à un plan supérieur pour les récupérer.",
-    "upgrade_to_recover": "Upgrader pour récupérer"
+    "upgrade_to_recover": "Upgrader pour récupérer",
+    "dismiss": "Fermer"
   },
   "landing": {
     "nav": {
@@ -1207,7 +1410,11 @@
       "rights": "© {year} StockShop. Tous droits réservés.",
       "legal": "Mentions légales",
       "privacy": "Politique de confidentialité"
-    }
+    },
+    "payment_paystack": "Paystack · Carte · Virement · USSD",
+    "payment_notchpay": "NotchPay · MTN MoMo · Orange Money · Visa / Mastercard",
+    "payment_flutterwave": "Flutterwave · Mobile Money · Visa / Mastercard",
+    "payment_stripe": "Stripe · Visa · Mastercard · PayPal"
   },
   "billing_page": {
     "title": "Abonnement",
@@ -1272,7 +1479,19 @@
     "business_f3": "30 employés + owner",
     "business_f4": "Historique complet",
     "business_f5": "Support dédié",
-    "business_f6": "Garantie SLA"
+    "business_f6": "Garantie SLA",
+    "stripe_coming_soon_title": "Stripe bientôt disponible",
+    "stripe_coming_soon_desc": "Contacte-nous pour activer ton abonnement {plan} manuellement.",
+    "online_payment_soon_title": "Paiement en ligne bientôt disponible",
+    "online_payment_soon_desc": "Le paiement Stripe par carte bancaire sera activé prochainement pour {country}.",
+    "meanwhile_contact": "En attendant, contacte-nous :",
+    "email_us_plan": "Envoie-nous un email avec le plan choisi ({plan} · {price}/mois) et nous activerons ton abonnement manuellement.",
+    "secure_payment_stripe_soon": "Paiement sécurisé · Stripe (bientôt)",
+    "payment_mode_label": "Mode de paiement",
+    "secure_payment_gateway": "Paiement sécurisé · {gateway}",
+    "auto_renew_label": "Renouvellement automatique",
+    "auto_renew_card_hint": "Votre carte sera débitée automatiquement avant l'échéance",
+    "auto_renew_email_hint": "Vous recevrez un email de rappel 3 jours avant l'échéance"
   },
   "caisse": {
     "title": "Contrôle de caisse",
@@ -1294,7 +1513,9 @@
     "section_repayments": "Remboursements de crédit",
     "col_sales_total": "Total ventes",
     "col_repayments_count": "Nb remb. crédit",
-    "col_repayments_total": "Total remb. crédit"
+    "col_repayments_total": "Total remb. crédit",
+    "sale_abbr": "vte",
+    "repayment_abbr": "remb. créd."
   },
   "expenses": {
     "title": "Dépenses",
@@ -1380,7 +1601,18 @@
     "pdf_generated_by": "Genere par StockShop",
     "pdf_page": "Page",
     "pdf_of": "sur",
-    "csv_filename_prefix": "depenses"
+    "csv_filename_prefix": "depenses",
+    "load_timeout": "Chargement des dépenses trop lent — réessayez.",
+    "added_offline": "{added} · sera synchronisé à la reconnexion",
+    "no_connection": "Pas de connexion",
+    "no_connection_download": "Connectez-vous pour télécharger.",
+    "export_error": "Erreur export",
+    "download_error": "Erreur de téléchargement",
+    "prev_month": "Mois précédent",
+    "next_month": "Mois suivant",
+    "pending_sync_aria": "En attente de synchronisation",
+    "edit_requires_connection": "La modification nécessite une connexion internet.",
+    "recurring_requires_connection": "Les dépenses récurrentes nécessitent une connexion internet."
   },
   "import": {
     "title": "Importer des produits",
@@ -1420,5 +1652,137 @@
     "countdown": "Fermeture dans {time}",
     "extend_success": "Fermeture repoussée de {minutes} min",
     "extend_remaining": "{count} prolongation(s) restante(s) pour la boutique aujourd'hui"
+  },
+  "app_layout": {
+    "new_sale_toast_title": "💰 Nouvelle vente",
+    "incomplete_config_title": "Configuration incomplète",
+    "incomplete_config_body": "Votre profil n'a pas pu être chargé. Vérifiez votre connexion et réessayez.",
+    "offline_title": "Hors connexion",
+    "sync_failed_title": "Échec de synchronisation",
+    "blocked_signout_body": "Vous avez {count} opération(s) hors-ligne non synchronisée(s). Connectez-vous à internet avant de vous déconnecter.",
+    "sync_failed_body": "La synchronisation a échoué. {count} opération(s) risque(nt) d'être perdue(s) définitivement si vous vous déconnectez maintenant.",
+    "signout_now_erases_data": "Se déconnecter maintenant effacera définitivement les données non envoyées.",
+    "syncing_ellipsis": "Synchronisation…",
+    "retry_sync": "🔄 Réessayer la synchronisation",
+    "signing_out_ellipsis": "Déconnexion…",
+    "signout_anyway": "Se déconnecter quand même"
+  },
+  "reset_password": {
+    "verification_timeout": "La vérification a pris trop de temps. Retournez dans votre email et cliquez à nouveau sur le lien.",
+    "invalid_link": "Lien invalide ou expiré. Demandez un nouveau lien de réinitialisation.",
+    "password_too_short": "Le mot de passe doit faire au moins 8 caractères",
+    "generic_error": "Une erreur est survenue",
+    "password_changed": "Mot de passe modifié !",
+    "redirecting": "Redirection vers la connexion…",
+    "verifying_link": "Vérification du lien…",
+    "set_password_title": "Définir votre mot de passe",
+    "new_password_title": "Nouveau mot de passe",
+    "set_password_subtitle": "Choisissez un mot de passe pour activer votre compte",
+    "new_password_subtitle": "Entrez et confirmez votre nouveau mot de passe",
+    "new_password_label": "Nouveau mot de passe",
+    "password_placeholder": "Min. 8 caractères",
+    "activate_button": "Activer mon compte",
+    "save_password_button": "Enregistrer le mot de passe"
+  },
+  "stock_transfers": {
+    "email_subject": "Bon de transfert {reference} — {source} → {destination}",
+    "email_greeting": "Bonjour,",
+    "email_body": "Veuillez trouver ci-joint le bon de transfert {reference} de {source} vers {destination}.",
+    "email_products_sent": "Produits envoyés :",
+    "email_notes": "Notes : {notes}",
+    "email_regards": "Cordialement,"
+  },
+  "product_form": {
+    "code_scanned": "Code scanné : {code}",
+    "missing_shop_id": "shop_id manquant — impossible d'uploader",
+    "upload_error": "Erreur upload",
+    "upload_failed": "Upload échoué : {error}",
+    "sku_placeholder": "Ex : 6001234567890",
+    "scan": "Scan",
+    "scanner_hint": "Scanner Bluetooth/USB : cliquez dans le champ et scannez directement.",
+    "product_photo": "Photo du produit",
+    "uploading": "Upload en cours…",
+    "photo_saved": "Photo enregistrée ✓",
+    "bucket_hint": "Vérifiez que le bucket \"product-images\" existe dans Supabase Storage.",
+    "take_photo": "Prendre une photo",
+    "choose_photo": "Choisir une photo",
+    "save_and_add_another": "Enregistrer et ajouter un autre"
+  },
+  "banners": {
+    "cache": {
+      "just_now": "à l'instant",
+      "minutes_ago": "il y a {minutes} min",
+      "hours_ago": "il y a {hours}h",
+      "days_ago": "il y a {days}j",
+      "cached_label": "Données en cache · {age}"
+    },
+    "sync": {
+      "synced_success": "{count} vente(s) synchronisée(s) ✓",
+      "synced_partial": "{synced} synchronisée(s), {failed} échouée(s)",
+      "pending": "{count} vente(s) en attente de synchronisation",
+      "sync_button": "Synchroniser"
+    },
+    "offline": {
+      "synced_success": "{count} opération(s) synchronisée(s) ✓",
+      "sync_error": "{count} en erreur · {detail}",
+      "check_connection": "vérifiez votre connexion",
+      "retry": "Réessayer",
+      "offline_pending": "Mode hors-ligne · {count} opération(s) en attente",
+      "offline_saved_locally": "Mode hors-ligne · données sauvegardées localement",
+      "pending_sync": "{count} opération(s) en attente de synchronisation",
+      "syncing": "Sync…",
+      "sync_button": "Synchroniser"
+    },
+    "sw_update": {
+      "available": "Nouvelle version disponible.",
+      "refresh": "Actualiser",
+      "close": "Fermer"
+    },
+    "app_update": {
+      "title": "Mise à jour disponible",
+      "subtitle": "Une nouvelle version de StockShop est disponible",
+      "body": "Cette mise à jour contient des améliorations importantes. Nous recommandons de mettre à jour dès que possible.",
+      "update_button": "Mettre à jour",
+      "later": "Plus tard"
+    },
+    "whats_new": {
+      "title": "Nouveautés",
+      "updates_count": "{count} mise(s) à jour disponible(s)",
+      "continue": "Continuer"
+    }
+  },
+  "plan_usage": {
+    "shops": "Boutiques",
+    "employees": "Employés",
+    "products": "Produits",
+    "history": "Historique",
+    "days_unit": "jours",
+    "title": "Utilisation du forfait",
+    "renewal_in": "Renouvellement dans",
+    "trial_expires_in": "Essai — expire dans",
+    "today": "Aujourd'hui"
+  },
+  "barcode_scanner": {
+    "camera_denied": "Accès caméra refusé. Autorisez l'accès dans les réglages.",
+    "camera_error": "Impossible d'accéder à la caméra.",
+    "close": "Fermer",
+    "hint": "Pointez vers le code-barres"
+  },
+  "bulk_add": {
+    "title": "Ajout rapide de produits",
+    "name_required": "Nom requis",
+    "price_required": "Prix requis",
+    "added_count": "{count} produit(s) ajouté(s) !",
+    "add_more": "Ajouter d'autres produits",
+    "col_name": "Nom *",
+    "col_selling_price": "Prix vente *",
+    "col_buying_price": "Prix achat",
+    "col_qty": "Qté",
+    "col_unit": "Unité",
+    "row_placeholder": "Produit {index}",
+    "add_row": "Ajouter une ligne",
+    "rows_to_add": "{count} produit(s) à ajouter · Appuyez sur Entrée pour passer à la ligne suivante",
+    "save_button": "Enregistrer {count} produit(s)",
+    "saving": "Enregistrement…"
   }
 }

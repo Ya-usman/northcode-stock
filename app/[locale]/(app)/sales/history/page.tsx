@@ -883,7 +883,7 @@ export default function SalesHistoryPage() {
         )}
 
         <div className="flex flex-col gap-0.5">
-          <Label className="text-[10px] font-normal text-muted-foreground px-0.5">Méthode</Label>
+          <Label className="text-[10px] font-normal text-muted-foreground px-0.5">{t('sales.filter_method_label')}</Label>
           <Select value={methodFilter} onValueChange={v => setFilter({ methodFilter: v })}>
             <SelectTrigger className="w-[140px] h-9"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -900,7 +900,7 @@ export default function SalesHistoryPage() {
         {view === 'sales' && (
           <>
             <div className="flex flex-col gap-0.5">
-              <Label className="text-[10px] font-normal text-muted-foreground px-0.5">Statut</Label>
+              <Label className="text-[10px] font-normal text-muted-foreground px-0.5">{t('sales.filter_status_label')}</Label>
               <Select value={statusFilter} onValueChange={v => setFilter({ statusFilter: v })}>
                 <SelectTrigger className="w-[130px] h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -913,7 +913,7 @@ export default function SalesHistoryPage() {
             </div>
 
             <div className="flex flex-col gap-0.5">
-              <Label className="text-[10px] font-normal text-muted-foreground px-0.5">Vente</Label>
+              <Label className="text-[10px] font-normal text-muted-foreground px-0.5">{t('sales.filter_sale_label')}</Label>
               <Select value={saleStatusFilter} onValueChange={v => setFilter({ saleStatusFilter: v as any })}>
                 <SelectTrigger className="w-[130px] h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>

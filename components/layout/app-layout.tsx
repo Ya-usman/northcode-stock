@@ -76,6 +76,7 @@ function LoadingSkeleton() {
 }
 
 export function AppLayout({ children, locale }: { children: React.ReactNode; locale: string }) {
+  const t = useTranslations()
   const pathname = usePathname()
   const router = useRouter()
   const { user, profile, shop, roleInActiveShop, loading, signOut, refreshShop } = useAuthContext()
@@ -335,7 +336,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         triggerSaleFeedback()
         const amount = `${Number(sale.total ?? 0).toLocaleString('fr-FR')} ${shop.currency || ''}`
         toast({
-          title: '💰 Nouvelle vente',
+          title: t('app_layout.new_sale_toast_title'),
           description: `${amount}${sale.sale_number ? ` · #${sale.sale_number}` : ''}`,
           variant: 'success',
         })
@@ -384,16 +385,16 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
         <div className="max-w-sm w-full text-center space-y-4">
           <div className="text-4xl">⚠️</div>
-          <h2 className="text-lg font-bold text-foreground">Configuration incomplète</h2>
+          <h2 className="text-lg font-bold text-foreground">{t('app_layout.incomplete_config_title')}</h2>
           <p className="text-sm text-muted-foreground">
-            Votre profil n&apos;a pas pu être chargé. Vérifiez votre connexion et réessayez.
+            {t('app_layout.incomplete_config_body')}
           </p>
           <div className="flex flex-col gap-2">
             <button
               onClick={() => refreshShop().catch(() => window.location.reload())}
               className="w-full rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors"
             >
-              Réessayer
+              {t('error_page.try_again')}
             </button>
             <button
               onClick={async () => {
@@ -404,7 +405,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
               }}
               className="w-full rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-white hover:bg-destructive/90 transition-colors"
             >
-              Se déconnecter
+              {t('nav.logout')}
             </button>
           </div>
         </div>
@@ -486,24 +487,24 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <span className="text-xl">⚠️</span>
-              {signOutReason === 'blocked' ? 'Hors connexion' : 'Échec de synchronisation'}
+              {signOutReason === 'blocked' ? t('app_layout.offline_title') : t('app_layout.sync_failed_title')}
             </DialogTitle>
             <DialogDescription className="pt-1 space-y-2">
               <span className="block">
                 {signOutReason === 'blocked'
-                  ? `Vous avez ${pendingCount} opération${pendingCount > 1 ? 's' : ''} hors-ligne non synchronisée${pendingCount > 1 ? 's' : ''}. Connectez-vous à internet avant de vous déconnecter.`
-                  : `La synchronisation a échoué. ${pendingCount} opération${pendingCount > 1 ? 's' : ''} risque${pendingCount > 1 ? 'nt' : ''} d'être perdue${pendingCount > 1 ? 's' : ''} définitivement si vous vous déconnectez maintenant.`
+                  ? t('app_layout.blocked_signout_body', { count: pendingCount })
+                  : t('app_layout.sync_failed_body', { count: pendingCount })
                 }
               </span>
               <span className="block text-xs text-destructive font-medium">
-                Se déconnecter maintenant effacera définitivement les données non envoyées.
+                {t('app_layout.signout_now_erases_data')}
               </span>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex-col gap-2 sm:flex-col">
             {signOutReason === 'sync_failed' && (
               <Button onClick={handleRetrySync} disabled={retryingSync} className="w-full bg-stockshop-blue hover:bg-stockshop-blue-light">
-                {retryingSync ? 'Synchronisation…' : '🔄 Réessayer la synchronisation'}
+                {retryingSync ? t('app_layout.syncing_ellipsis') : t('app_layout.retry_sync')}
               </Button>
             )}
             <Button
@@ -512,10 +513,10 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
               disabled={forcingSignOut}
               className="w-full"
             >
-              {forcingSignOut ? 'Déconnexion…' : 'Se déconnecter quand même'}
+              {forcingSignOut ? t('app_layout.signing_out_ellipsis') : t('app_layout.signout_anyway')}
             </Button>
             <Button variant="ghost" onClick={() => setSignOutDialogOpen(false)} disabled={forcingSignOut} className="w-full">
-              Annuler
+              {t('actions.cancel')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -40,6 +40,7 @@ export function ShopHoursCountdownBanner({
   extensionUntil, extensionCount, canExtend,
 }: ShopHoursCountdownBannerProps) {
   const t = useTranslations('shop_hours')
+  const tRoot = useTranslations()
   const { patchShop } = useAuthContext()
   const { toast } = useToast()
   const [msLeft, setMsLeft] = useState(() =>
@@ -75,14 +76,14 @@ export function ShopHoursCountdownBanner({
         body: JSON.stringify({ shop_id: shopId, minutes }),
       }))
       const json = await res.json()
-      if (!res.ok) { toast({ title: json.error || 'Erreur', variant: 'destructive' }); return }
+      if (!res.ok) { toast({ title: json.error || tRoot('toast.error'), variant: 'destructive' }); return }
       patchShop(shopId, {
         hours_extension_until: json.hours_extension_until,
         hours_extension_count: json.hours_extension_count,
       })
       toast({ title: t('extend_success', { minutes }), variant: 'success' })
     } catch (err: any) {
-      toast({ title: err.message || 'Erreur réseau', variant: 'destructive' })
+      toast({ title: err.message || tRoot('toast.network_error'), variant: 'destructive' })
     } finally {
       setExtending(false)
     }

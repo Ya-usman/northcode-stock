@@ -10,8 +10,12 @@ import { useTheme } from '@/lib/hooks/use-theme'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useTranslations } from 'next-intl'
 
 export default function ResetPasswordPage({ params: { locale } }: { params: { locale: string } }) {
+  const t = useTranslations('reset_password')
+  const tAuth = useTranslations('auth')
+  const tRegister = useTranslations('register')
   const router = useRouter()
   const supabase = createClient()
   const { isDark, toggle } = useTheme()
@@ -59,10 +63,10 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
 
     // Safety net: never spin forever — show a clear message after 12s
     const timeout = setTimeout(() => {
-      done(() => setError('La vérification a pris trop de temps. Retournez dans votre email et cliquez à nouveau sur le lien.'))
+      done(() => setError(t('verification_timeout')))
     }, 12000)
 
-    const fail = () => done(() => setError('Lien invalide ou expiré. Demandez un nouveau lien de réinitialisation.'))
+    const fail = () => done(() => setError(t('invalid_link')))
 
     // 1. PKCE flow (?code= in URL) — forgot-password goes through /auth/callback
     // which exchanges the code server-side and stores the session in cookies.
@@ -101,11 +105,11 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
     setError('')
 
     if (password.length < 8) {
-      setError('Le mot de passe doit faire au moins 8 caractères')
+      setError(t('password_too_short'))
       return
     }
     if (password !== confirm) {
-      setError('Les mots de passe ne correspondent pas')
+      setError(tRegister('password_mismatch'))
       return
     }
 
@@ -123,7 +127,7 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error || 'Une erreur est survenue')
+        setError(data.error || t('generic_error'))
         setLoading(false)
         return
       }
@@ -132,7 +136,7 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
       setDone(true)
       setTimeout(() => router.push(`/${locale}/login`), 2500)
     } catch (err: any) {
-      setError(err?.message || 'Une erreur est survenue')
+      setError(err?.message || t('generic_error'))
       setLoading(false)
     }
   }
@@ -152,15 +156,15 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
           <Link href={`/${locale}`} onClick={e => { if ((window as any).Capacitor?.isNativePlatform?.()) e.preventDefault() }}>
             <img src="/logo-login-t.png" alt="StockShop" className="h-36 w-auto object-contain" style={{ filter: 'brightness(0) invert(1) drop-shadow(0 8px 24px rgba(0,0,0,0.55))' }} />
           </Link>
-          <p className="text-blue-200 text-sm mt-2 italic tracking-wide">Manage smarter. Sell faster. Grow bigger.</p>
+          <p className="text-blue-200 text-sm mt-2 italic tracking-wide">{tAuth('hero_title_1')} {tAuth('hero_title_2')} {tAuth('hero_title_3')}</p>
         </div>
 
         <div className="rounded-2xl bg-card dark:bg-[#0d2a5e] shadow-2xl overflow-hidden p-6">
           {done ? (
             <div className="text-center py-6 space-y-3">
               <CheckCircle2 className="h-14 w-14 text-green-500 mx-auto" />
-              <h2 className="text-lg font-semibold">Mot de passe modifié !</h2>
-              <p className="text-sm text-muted-foreground">Redirection vers la connexion…</p>
+              <h2 className="text-lg font-semibold">{t('password_changed')}</h2>
+              <p className="text-sm text-muted-foreground">{t('redirecting')}</p>
             </div>
           ) : !sessionReady ? (
             <div className="text-center py-8">
@@ -168,35 +172,35 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
                 <>
                   <p className="text-sm text-destructive mb-4">{error}</p>
                   <Link href={`/${locale}/login`} className="text-sm text-stockshop-blue dark:text-blue-400 hover:underline">
-                    Retour à la connexion
+                    {tAuth('back_to_login')}
                   </Link>
                 </>
               ) : (
                 <div className="flex flex-col items-center gap-3">
                   <div className="h-8 w-8 rounded-full border-2 border-stockshop-blue border-t-transparent animate-spin" />
-                  <p className="text-sm text-muted-foreground">Vérification du lien…</p>
+                  <p className="text-sm text-muted-foreground">{t('verifying_link')}</p>
                 </div>
               )}
             </div>
           ) : (
             <>
               <h2 className="text-xl font-semibold mb-1">
-                {isInvite ? 'Définir votre mot de passe' : 'Nouveau mot de passe'}
+                {isInvite ? t('set_password_title') : t('new_password_title')}
               </h2>
               <p className="text-sm text-muted-foreground mb-5">
-                {isInvite ? 'Choisissez un mot de passe pour activer votre compte' : 'Entrez et confirmez votre nouveau mot de passe'}
+                {isInvite ? t('set_password_subtitle') : t('new_password_subtitle')}
               </p>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label>Nouveau mot de passe</Label>
+                  <Label>{t('new_password_label')}</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-gray-500" />
                     <Input
                       type={showPwd ? 'text' : 'password'}
                       value={password}
                       onChange={e => setPassword(e.target.value)}
-                      placeholder="Min. 8 caractères"
+                      placeholder={t('password_placeholder')}
                       className="pl-9 pr-10 dark:bg-white dark:text-gray-900 dark:placeholder:text-gray-400 dark:border-white/30"
                       autoComplete="new-password"
                     />
@@ -211,14 +215,14 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>Confirmer le mot de passe</Label>
+                  <Label>{tRegister('confirm_password')}</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-gray-500" />
                     <Input
                       type={showPwd ? 'text' : 'password'}
                       value={confirm}
                       onChange={e => setConfirm(e.target.value)}
-                      placeholder="Répétez le mot de passe"
+                      placeholder={tRegister('confirm_password_placeholder')}
                       className="pl-9 dark:bg-white dark:text-gray-900 dark:placeholder:text-gray-400 dark:border-white/30"
                       autoComplete="new-password"
                     />
@@ -234,14 +238,14 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
                   loading={loading}
                   className="w-full h-11 bg-stockshop-blue hover:bg-stockshop-blue-light text-base font-semibold"
                 >
-                  {isInvite ? 'Activer mon compte' : 'Enregistrer le mot de passe'}
+                  {isInvite ? t('activate_button') : t('save_password_button')}
                 </Button>
 
                 <Link
                   href={`/${locale}/login`}
                   className="block text-center text-sm text-muted-foreground hover:text-foreground"
                 >
-                  ← Retour à la connexion
+                  ← {tAuth('back_to_login')}
                 </Link>
               </form>
             </>

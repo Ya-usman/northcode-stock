@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils/cn'
@@ -103,11 +104,14 @@ interface PremiumDialogFooterProps {
 }
 
 export function PremiumDialogFooter({
-  onCancel, cancelLabel = 'Annuler',
-  onConfirm, confirmLabel = 'Confirmer',
+  onCancel, cancelLabel,
+  onConfirm, confirmLabel,
   confirmDisabled, confirmLoading, confirmDestructive,
   children,
 }: PremiumDialogFooterProps) {
+  const t = useTranslations('actions')
+  cancelLabel = cancelLabel ?? t('cancel')
+  confirmLabel = confirmLabel ?? t('confirm')
   return (
     <div className="flex-shrink-0 px-5 pb-5 pt-3 flex justify-center gap-3 border-t border-border bg-background">
       <Button

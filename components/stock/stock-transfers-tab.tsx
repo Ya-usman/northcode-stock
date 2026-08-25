@@ -271,19 +271,19 @@ export function StockTransfersTab() {
 
   const buildTransferEmailContent = (tr: any) => {
     const items = tr.stock_transfer_items || []
-    const subject = `Bon de transfert ${tr.reference} — ${tr.source_shop_name} → ${tr.destination_shop_name}`
+    const subject = t('stock_transfers.email_subject', { reference: tr.reference, source: tr.source_shop_name, destination: tr.destination_shop_name })
     const lines = items.map((it: any) => `- ${it.product_name} : ${it.quantity_sent} ${it.unit || ''}`.trim())
     const body = [
-      `Bonjour,`,
+      t('stock_transfers.email_greeting'),
       '',
-      `Veuillez trouver ci-joint le bon de transfert ${tr.reference} de ${tr.source_shop_name} vers ${tr.destination_shop_name}.`,
+      t('stock_transfers.email_body', { reference: tr.reference, source: tr.source_shop_name, destination: tr.destination_shop_name }),
       '',
-      'Produits envoyés :',
+      t('stock_transfers.email_products_sent'),
       ...lines,
       '',
-      tr.notes ? `Notes : ${tr.notes}` : '',
+      tr.notes ? t('stock_transfers.email_notes', { notes: tr.notes }) : '',
       '',
-      'Cordialement,',
+      t('stock_transfers.email_regards'),
       tr.source_shop_name || 'StockShop',
     ].filter(Boolean).join('\n')
     return { subject, body }

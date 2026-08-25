@@ -245,7 +245,7 @@ export default function TeamPage() {
       fetchMembers()
       if (view === 'journal') fetchAuditLogs()
     } catch (err: any) {
-      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+      toast({ title: err.message || t('toast.retry_error'), variant: 'destructive' })
       setTimeout(() => fetchMembers(), 3_000)
     } finally {
       setActionLoading(null)
@@ -336,7 +336,7 @@ export default function TeamPage() {
   const resendInvite = async (member: Member) => {
     const email = member.email || member.profiles?.full_name
     if (!email?.includes('@')) {
-      toast({ title: "Email introuvable pour cet employé", variant: 'destructive' })
+      toast({ title: t('team.email_not_found'), variant: 'destructive' })
       return
     }
     setActionLoading(member.id + '_resend')
@@ -348,7 +348,7 @@ export default function TeamPage() {
       }))
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      toast({ title: `Invitation renvoyée à ${email}`, variant: 'success' })
+      toast({ title: t('team.invite_resent', { email }), variant: 'success' })
     } catch (err: any) {
       toast({ title: err.message, variant: 'destructive' })
     } finally {
@@ -378,7 +378,7 @@ export default function TeamPage() {
         <div className="flex items-center gap-2 flex-wrap">
           <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium">
             <AlertTriangle className="h-3 w-3" />
-            Invitation en attente
+            {t('team.invite_pending')}
           </span>
           {isOwner && (
             <button
@@ -389,7 +389,7 @@ export default function TeamPage() {
               {actionLoading === member.id + '_resend'
                 ? <span className="h-2.5 w-2.5 rounded-full border border-current border-t-transparent animate-spin" />
                 : <RotateCcw className="h-2.5 w-2.5" />}
-              Renvoyer
+              {t('team.resend')}
             </button>
           )}
         </div>
@@ -401,7 +401,7 @@ export default function TeamPage() {
       return (
         <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
           <CheckCircle2 className="h-3 w-3 text-green-500" />
-          Email confirmé · jamais connecté
+          {t('team.email_confirmed_never_connected')}
         </span>
       )
     }

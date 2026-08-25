@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { useTranslations } from 'next-intl'
 import { Plus, Trash2, Loader2, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,6 +33,8 @@ let nextId = 1
 const newRow = (): Row => ({ id: nextId++, name: '', selling_price: '', buying_price: '', quantity: '0', unit: 'piece' })
 
 export function BulkAddModal({ open, onClose, shopId, currency, isOwner, onSaved }: Props) {
+  const t = useTranslations('bulk_add')
+  const tCommon = useTranslations()
   const [rows, setRows] = useState<Row[]>([newRow()])
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<Record<number, string>>({})
@@ -53,9 +56,9 @@ export function BulkAddModal({ open, onClose, shopId, currency, isOwner, onSaved
   const handleSave = async () => {
     const errs: Record<number, string> = {}
     const valid = rows.filter(row => {
-      if (!row.name.trim()) { errs[row.id] = 'Nom requis'; return false }
+      if (!row.name.trim()) { errs[row.id] = t('name_required'); return false }
       const price = parseFloat(row.selling_price)
-      if (!row.selling_price || isNaN(price) || price <= 0) { errs[row.id] = 'Prix requis'; return false }
+      if (!row.selling_price || isNaN(price) || price <= 0) { errs[row.id] = t('price_required'); return false }
       return true
     })
 
@@ -97,14 +100,14 @@ export function BulkAddModal({ open, onClose, shopId, currency, isOwner, onSaved
   const handleClose = () => { reset(); onClose() }
 
   return (
-    <PremiumDialog open={open} onOpenChange={v => { if (!v) handleClose() }} category="Stock" title="Ajout rapide de produits" icon={<Plus className="h-4 w-4" />} maxWidth="max-w-xl">
+    <PremiumDialog open={open} onOpenChange={v => { if (!v) handleClose() }} category={tCommon('products.title')} title={t('title')} icon={<Plus className="h-4 w-4" />} maxWidth="max-w-xl">
       <PremiumDialogBody className="space-y-3">
 
         {savedCount > 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-6 text-center">
             <CheckCircle2 className="h-10 w-10 text-green-500" />
-            <p className="font-semibold text-lg">{savedCount} produit{savedCount > 1 ? 's' : ''} ajouté{savedCount > 1 ? 's' : ''} !</p>
-            <Button variant="outline" onClick={reset}>Ajouter d'autres produits</Button>
+            <p className="font-semibold text-lg">{t('added_count', { count: savedCount })}</p>
+            <Button variant="outline" onClick={reset}>{t('add_more')}</Button>
           </div>
         ) : (
           <>
@@ -114,11 +117,11 @@ export function BulkAddModal({ open, onClose, shopId, currency, isOwner, onSaved
 
             {/* Column headers */}
             <div className={`grid gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide px-1 ${isOwner ? 'grid-cols-[1fr_80px_80px_60px_90px_28px]' : 'grid-cols-[1fr_80px_60px_90px_28px]'}`}>
-              <span>Nom *</span>
-              <span>Prix vente *</span>
-              {isOwner && <span>Prix achat</span>}
-              <span>Qté</span>
-              <span>Unité</span>
+              <span>{t('col_name')}</span>
+              <span>{t('col_selling_price')}</span>
+              {isOwner && <span>{t('col_buying_price')}</span>}
+              <span>{t('col_qty')}</span>
+              <span>{t('col_unit')}</span>
               <span />
             </div>
 
@@ -132,7 +135,7 @@ export function BulkAddModal({ open, onClose, shopId, currency, isOwner, onSaved
                       value={row.name}
                       onChange={e => update(row.id, 'name', e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addRow() } }}
-                      placeholder={`Produit ${idx + 1}`}
+                      placeholder={t('row_placeholder', { index: idx + 1 })}
                       className={`h-9 text-sm ${errors[row.id] ? 'border-red-400' : ''}`}
                     />
                     {errors[row.id] && <p className="text-[10px] text-red-500 mt-0.5">{errors[row.id]}</p>}
@@ -177,11 +180,11 @@ export function BulkAddModal({ open, onClose, shopId, currency, isOwner, onSaved
               className="w-full h-9 border-2 border-dashed border-border rounded-lg flex items-center justify-center gap-2 text-sm text-muted-foreground hover:border-primary hover:text-foreground transition-colors"
             >
               <Plus className="h-3.5 w-3.5" />
-              Ajouter une ligne  <kbd className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono">Enter</kbd>
+              {t('add_row')}  <kbd className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono">Enter</kbd>
             </button>
 
             <p className="text-[11px] text-muted-foreground text-center">
-              {rows.length} produit{rows.length > 1 ? 's' : ''} à ajouter · Appuyez sur Entrée pour passer à la ligne suivante
+              {t('rows_to_add', { count: rows.length })}
             </p>
           </>
         )}
@@ -194,7 +197,7 @@ export function BulkAddModal({ open, onClose, shopId, currency, isOwner, onSaved
             disabled={saving || rows.every(r => !r.name.trim())}
             onClick={handleSave}
           >
-            {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Enregistrement…</> : `Enregistrer ${rows.filter(r => r.name.trim()).length || ''} produit${rows.filter(r => r.name.trim()).length > 1 ? 's' : ''}`}
+            {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> {t('saving')}</> : t('save_button', { count: rows.filter(r => r.name.trim()).length })}
           </Button>
         </PremiumDialogFooter>
       )}

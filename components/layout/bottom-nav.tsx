@@ -79,7 +79,7 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
                 isOnline={isOnline}
                 onClick={(e) => { if (!available) e.preventDefault(); else setMoreOpen(false) }}
                 aria-disabled={!available}
-                title={!available && isOffline ? 'Non disponible hors ligne' : undefined}
+                title={!available && isOffline ? t('unavailable_offline') : undefined}
                 className={cn(
                   'relative flex flex-1 flex-col items-center justify-center gap-0.5 text-xs transition-colors tap-target',
                   isActive ? 'text-stockshop-blue dark:text-blue-400' : 'text-muted-foreground hover:text-foreground',
@@ -138,7 +138,7 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
                       isOnline={isOnline}
                       onClick={(e) => { if (!available) e.preventDefault(); else setMoreOpen(false) }}
                       aria-disabled={!available}
-                      title={!available && isOffline ? 'Non disponible hors ligne' : undefined}
+                      title={!available && isOffline ? t('unavailable_offline') : undefined}
                       className={cn(
                         'flex flex-col items-center gap-1.5 rounded-xl p-3 transition-colors',
                         isActive
@@ -172,7 +172,7 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
                         </span>
                       )}
                     </div>
-                    <span className="text-[10px] font-medium leading-none text-center">Support</span>
+                    <span className="text-[10px] font-medium leading-none text-center">{t('support')}</span>
                   </button>
                 )}
 
@@ -185,7 +185,7 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
                     className="flex flex-col items-center gap-1.5 rounded-xl p-3 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
                   >
                     <ShieldCheck className="h-5 w-5" />
-                    <span className="text-[10px] font-medium leading-none text-center">Admin</span>
+                    <span className="text-[10px] font-medium leading-none text-center">{t('admin')}</span>
                   </a>
                 )}
 

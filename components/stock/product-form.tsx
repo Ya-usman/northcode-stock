@@ -84,14 +84,14 @@ export function ProductForm({
   const handleBarcodeDetected = (code: string) => {
     form.setValue('sku', code)
     setShowScanner(false)
-    toast({ title: `Code scanné : ${code}`, variant: 'success' })
+    toast({ title: t('product_form.code_scanned', { code }), variant: 'success' })
   }
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     if (!shopId) {
-      toast({ title: 'shop_id manquant — impossible d\'uploader', variant: 'destructive' })
+      toast({ title: t('product_form.missing_shop_id'), variant: 'destructive' })
       return
     }
 
@@ -114,16 +114,16 @@ export function ProductForm({
         setImagePreview(json.url)
         URL.revokeObjectURL(localUrl)
       } else {
-        const errMsg = json.error || 'Erreur upload'
+        const errMsg = json.error || t('product_form.upload_error')
         setUploadError(errMsg)
-        toast({ title: `Upload échoué : ${errMsg}`, variant: 'destructive' })
+        toast({ title: t('product_form.upload_failed', { error: errMsg }), variant: 'destructive' })
         // Keep local preview so user sees what they selected
         form.setValue('image_url', '')
       }
     } catch (err: any) {
-      const errMsg = err.message || 'Erreur réseau'
+      const errMsg = err.message || t('toast.network_error')
       setUploadError(errMsg)
-      toast({ title: `Upload échoué : ${errMsg}`, variant: 'destructive' })
+      toast({ title: t('product_form.upload_failed', { error: errMsg }), variant: 'destructive' })
       form.setValue('image_url', '')
     } finally {
       setUploadingImage(false)
@@ -262,13 +262,13 @@ export function ProductForm({
       <div className="space-y-1">
         <Label className="flex items-center gap-1.5">
           <ScanLine className="h-3.5 w-3.5 text-muted-foreground" />
-          SKU / Code-barres
+          {t('products.sku')}
           <span className="text-muted-foreground text-xs font-normal">({t('form.optional')})</span>
         </Label>
         <div className="flex gap-2">
           <Input
             {...form.register('sku')}
-            placeholder="Ex : 6001234567890"
+            placeholder={t('product_form.sku_placeholder')}
             className="font-mono text-sm flex-1"
           />
           <button
@@ -277,11 +277,11 @@ export function ProductForm({
             className="h-9 px-3 flex items-center gap-1.5 text-xs font-medium border border-border rounded-lg bg-muted hover:bg-accent transition-colors shrink-0"
           >
             <Camera className="h-3.5 w-3.5" />
-            Scan
+            {t('product_form.scan')}
           </button>
         </div>
         <p className="text-[11px] text-muted-foreground">
-          Scanner Bluetooth/USB : cliquez dans le champ et scannez directement.
+          {t('product_form.scanner_hint')}
         </p>
 
         {showScanner && (
@@ -296,7 +296,7 @@ export function ProductForm({
       <div className="space-y-1.5">
         <Label className="flex items-center gap-1.5">
           <ImagePlus className="h-3.5 w-3.5 text-muted-foreground" />
-          Photo du produit
+          {t('product_form.product_photo')}
           <span className="text-muted-foreground text-xs font-normal">({t('form.optional')})</span>
         </Label>
 
@@ -321,8 +321,8 @@ export function ProductForm({
               )}
             </div>
             <div className="text-xs space-y-1 pt-1">
-              {uploadingImage && <p className="text-muted-foreground">Upload en cours…</p>}
-              {!uploadingImage && imageUrl && <p className="text-green-500">Photo enregistrée ✓</p>}
+              {uploadingImage && <p className="text-muted-foreground">{t('product_form.uploading')}</p>}
+              {!uploadingImage && imageUrl && <p className="text-green-500">{t('product_form.photo_saved')}</p>}
               {!uploadingImage && uploadError && (
                 <div className="flex items-start gap-1 text-red-400">
                   <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
@@ -331,7 +331,7 @@ export function ProductForm({
               )}
               {!uploadingImage && uploadError && (
                 <p className="text-muted-foreground text-[11px]">
-                  Vérifiez que le bucket "product-images" existe dans Supabase Storage.
+                  {t('product_form.bucket_hint')}
                 </p>
               )}
             </div>
@@ -345,7 +345,7 @@ export function ProductForm({
               className="flex-1 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:border-primary hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Camera className="h-5 w-5" />
-              <span className="text-xs">Prendre une photo</span>
+              <span className="text-xs">{t('product_form.take_photo')}</span>
             </button>
             <button
               type="button"
@@ -354,7 +354,7 @@ export function ProductForm({
               className="flex-1 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:border-primary hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <ImagePlus className="h-5 w-5" />
-              <span className="text-xs">Choisir une photo</span>
+              <span className="text-xs">{t('product_form.choose_photo')}</span>
             </button>
           </div>
         )}
@@ -390,7 +390,7 @@ export function ProductForm({
             onClick={form.handleSubmit(onSaveAndAdd)}
           >
             <PlusCircle className="h-4 w-4" />
-            Enregistrer et ajouter un autre
+            {t('product_form.save_and_add_another')}
           </Button>
         </div>
       )}

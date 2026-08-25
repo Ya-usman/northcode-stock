@@ -203,7 +203,7 @@ export default function CategoriesPage() {
       fetchData()
       toast({ title: t('categories.added'), variant: 'success' })
     } catch (err: any) {
-      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+      toast({ title: err.message || t('toast.retry_error'), variant: 'destructive' })
     } finally {
       setSaving(false)
     }
@@ -218,7 +218,7 @@ export default function CategoriesPage() {
       fetchData()
       toast({ title: t('categories.deleted') })
     } catch (err: any) {
-      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+      toast({ title: err.message || t('toast.retry_error'), variant: 'destructive' })
     } finally {
       setDeleting(false)
     }

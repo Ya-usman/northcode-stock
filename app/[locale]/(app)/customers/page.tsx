@@ -146,7 +146,7 @@ export default function CustomersPage() {
       form.reset({ name: '', phone: '', city: '' })
       fetchCustomers()
     } catch (err: any) {
-      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+      toast({ title: err.message || t('toast.retry_error'), variant: 'destructive' })
       setTimeout(() => fetchCustomers(), 3_000)
     } finally {
       setSaving(false)

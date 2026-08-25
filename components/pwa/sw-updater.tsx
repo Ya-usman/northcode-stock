@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { RefreshCw, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 // Ignore controllerchange events firing just after mount — almost always
 // this tab's own service worker registration settling (first activation /
@@ -20,6 +21,7 @@ function isChunkLoadError(text: string): boolean {
 }
 
 export function SWUpdater() {
+  const t = useTranslations('banners.sw_update')
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const mountedAtRef = useRef(Date.now())
 
@@ -106,19 +108,19 @@ export function SWUpdater() {
   return (
     <div className="fixed bottom-4 inset-x-4 sm:inset-x-auto sm:right-4 sm:left-auto z-[9998] max-w-sm rounded-xl border bg-card shadow-lg p-3 flex items-center gap-3">
       <RefreshCw className="h-4 w-4 text-stockshop-blue flex-shrink-0" />
-      <p className="text-sm flex-1">Nouvelle version disponible.</p>
+      <p className="text-sm flex-1">{t('available')}</p>
       <button
         type="button"
         onClick={() => window.location.reload()}
         className="text-sm font-semibold text-stockshop-blue hover:underline flex-shrink-0"
       >
-        Actualiser
+        {t('refresh')}
       </button>
       <button
         type="button"
         onClick={() => setUpdateAvailable(false)}
         className="text-muted-foreground hover:text-foreground flex-shrink-0"
-        aria-label="Fermer"
+        aria-label={t('close')}
       >
         <X className="h-4 w-4" />
       </button>

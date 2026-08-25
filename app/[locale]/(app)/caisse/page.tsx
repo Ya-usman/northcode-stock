@@ -301,7 +301,7 @@ export default function CaissePage() {
                 <p className="text-base font-bold leading-none">{fmt(grandTotal)}</p>
                 {grandRepayTotal > 0 && (
                   <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {fmt(grandSalesTotal)} + {fmt(grandRepayTotal)} remb. créd.
+                    {fmt(grandSalesTotal)} + {fmt(grandRepayTotal)} {t('repayment_abbr')}
                   </p>
                 )}
               </>
@@ -369,8 +369,8 @@ export default function CaissePage() {
                           style={{ width: `${pct}%` }} />
                       </div>
                       <span className="text-[10px] text-muted-foreground flex-shrink-0 leading-tight">
-                        {c.salesCount > 0 && `${c.salesCount} vte`}
-                        {c.repaymentsCount > 0 && `${c.salesCount > 0 ? ' · ' : ''}${c.repaymentsCount} remb. créd.`}
+                        {c.salesCount > 0 && `${c.salesCount} ${t('sale_abbr')}`}
+                        {c.repaymentsCount > 0 && `${c.salesCount > 0 ? ' · ' : ''}${c.repaymentsCount} ${t('repayment_abbr')}`}
                         {' · '}{pct.toFixed(0)}%
                       </span>
                     </div>

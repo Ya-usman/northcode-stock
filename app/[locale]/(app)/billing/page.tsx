@@ -185,7 +185,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
       const data = await res.json()
       if (!res.ok) {
         if (data.error === 'stripe_coming_soon') {
-          toast({ title: 'Stripe bientôt disponible', description: `Contacte-nous pour activer ton abonnement ${checkoutPlan} manuellement.`, variant: 'default' })
+          toast({ title: t('stripe_coming_soon_title'), description: t('stripe_coming_soon_desc', { plan: checkoutPlan }), variant: 'default' })
           closeCheckout()
           setLoading(false)
           return
@@ -481,28 +481,27 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                       </div>
                     </div>
                     <div>
-                      <p className="font-semibold text-sm">Paiement en ligne bientôt disponible</p>
+                      <p className="font-semibold text-sm">{t('online_payment_soon_title')}</p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Le paiement Stripe par carte bancaire sera activé prochainement pour {country.name}.
+                        {t('online_payment_soon_desc', { country: country.name })}
                       </p>
                     </div>
                     <div className="rounded-xl bg-card border p-3 text-left space-y-1">
-                      <p className="text-xs font-semibold text-foreground">En attendant, contacte-nous :</p>
+                      <p className="text-xs font-semibold text-foreground">{t('meanwhile_contact')}</p>
                       <p className="text-xs text-muted-foreground">
-                        Envoie-nous un email avec le plan choisi ({checkoutPlan} · {formatPrice(checkoutPlan)}/mois)
-                        et nous activerons ton abonnement manuellement.
+                        {t('email_us_plan', { plan: checkoutPlan, price: formatPrice(checkoutPlan) })}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
                     <ShieldCheck className="h-3.5 w-3.5 text-green-500" />
-                    <span>Paiement sécurisé · Stripe (bientôt)</span>
+                    <span>{t('secure_payment_stripe_soon')}</span>
                   </div>
                 </div>
               ) : (
                 /* ── Autres pays : sélection de méthode de paiement ── */
                 <div>
-                  <p className="text-sm font-semibold mb-3">Mode de paiement</p>
+                  <p className="text-sm font-semibold mb-3">{t('payment_mode_label')}</p>
                   <div className="space-y-2">
                     {subscriptionMethods.map(method => (
                       <button
@@ -545,7 +544,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                   </div>
                   <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground mt-4">
                     <ShieldCheck className="h-3.5 w-3.5 text-green-500" />
-                    <span>Paiement sécurisé · {gatewayLabel}</span>
+                    <span>{t('secure_payment_gateway', { gateway: gatewayLabel })}</span>
                   </div>
                 </div>
               )}
@@ -565,12 +564,12 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                   <RefreshCw className={cn('h-4 w-4 shrink-0', autoRenew ? 'text-green-600' : 'text-muted-foreground')} />
                   <div className="flex-1 min-w-0">
                     <p className={cn('text-sm font-semibold', autoRenew ? 'text-green-700 dark:text-green-400' : 'text-foreground')}>
-                      Renouvellement automatique
+                      {t('auto_renew_label')}
                     </p>
                     <p className="text-xs text-muted-foreground leading-tight mt-0.5">
                       {isNigeria
-                        ? 'Votre carte sera débitée automatiquement avant l\'échéance'
-                        : 'Vous recevrez un email de rappel 3 jours avant l\'échéance'}
+                        ? t('auto_renew_card_hint')
+                        : t('auto_renew_email_hint')}
                     </p>
                   </div>
                   <div className={cn(

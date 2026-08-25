@@ -639,7 +639,7 @@ export default function CreditsPage() {
             synced: false,
           })
           supplierRepayIdRef.current = null
-          toast({ title: 'Connexion instable · paiement sauvegardé localement, synchronisé automatiquement dès que la connexion revient', variant: 'success' })
+          toast({ title: t('payments.unstable_connection_saved_locally'), variant: 'success' })
           setSupplierDebtors(prev => prev
             .map(d => d.supplier.id === repaySupplier.supplier.id
               ? { ...d, totalOwed: Math.max(0, d.totalOwed - supplierAmount) }
@@ -971,7 +971,7 @@ export default function CreditsPage() {
             synced: false,
           })
           repayIdRef.current = null
-          toast({ title: 'Connexion instable · paiement sauvegardé localement, synchronisé automatiquement dès que la connexion revient', variant: 'success' })
+          toast({ title: t('payments.unstable_connection_saved_locally'), variant: 'success' })
           setDebtors(prev => prev
             .map(d => d.customer.id === repayDebtor.customer.id
               ? { ...d, totalDebt: Math.max(0, d.totalDebt - amount) }
@@ -1117,7 +1117,7 @@ export default function CreditsPage() {
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >
-          Crédits en cours
+          {t('payments.outstanding_debts')}
           {debtors.length > 0 && (
             <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${activeTab === 'en-cours' ? 'bg-red-100 text-red-600' : 'bg-muted-foreground/20 text-muted-foreground'}`}>
               {debtors.length}
@@ -1132,7 +1132,7 @@ export default function CreditsPage() {
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >
-          Historique
+          {t('payments.tab_historique')}
           {histAllFetched && histAll.length > 0 && (
             <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${activeTab === 'historique' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400' : 'bg-muted-foreground/20 text-muted-foreground'}`}>
               {histAll.length}
@@ -1221,7 +1221,7 @@ export default function CreditsPage() {
               <Input
                 value={histAllSearch}
                 onChange={e => setHistAllSearch(e.target.value)}
-                placeholder="Rechercher par nom..."
+                placeholder={t('payments.search_by_name')}
                 className="pl-9 h-9"
               />
             </div>
@@ -1247,7 +1247,7 @@ export default function CreditsPage() {
                 onClick={() => { setHistAllFetched(false); fetchHistAll(histAllDateFrom, histAllDateTo) }}
                 disabled={loadingHistAll}
               >
-                {loadingHistAll ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : 'Filtrer'}
+                {loadingHistAll ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : t('payments.filter_btn')}
               </Button>
             </div>
           </div>
@@ -1261,7 +1261,7 @@ export default function CreditsPage() {
                 className={`rounded-xl bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900 px-3 py-2.5 text-center transition-all ${histAllStatusFilter === 'solde' ? 'ring-2 ring-offset-1 ring-green-500' : 'hover:opacity-80'}`}
               >
                 <p className="text-lg font-bold text-green-600">{histAllSoldeCount}</p>
-                <p className="text-[11px] text-green-700 dark:text-green-400 font-medium">Soldés ✓</p>
+                <p className="text-[11px] text-green-700 dark:text-green-400 font-medium">{t('payments.solde_label')}</p>
               </button>
               <button
                 type="button"
@@ -1269,7 +1269,7 @@ export default function CreditsPage() {
                 className={`rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900 px-3 py-2.5 text-center transition-all ${histAllStatusFilter === 'en_cours' ? 'ring-2 ring-offset-1 ring-red-500' : 'hover:opacity-80'}`}
               >
                 <p className="text-lg font-bold text-red-600">{histAll.length - histAllSoldeCount}</p>
-                <p className="text-[11px] text-red-700 dark:text-red-400 font-medium">En cours</p>
+                <p className="text-[11px] text-red-700 dark:text-red-400 font-medium">{t('payments.en_cours_label')}</p>
               </button>
             </div>
           )}
@@ -1280,7 +1280,7 @@ export default function CreditsPage() {
           ) : !histAllFetched ? null : filteredHistAll.length === 0 ? (
             <div className="flex h-32 flex-col items-center justify-center text-muted-foreground">
               <History className="h-8 w-8 mb-2 opacity-30" />
-              <p className="text-sm">Aucun résultat</p>
+              <p className="text-sm">{t('payments.no_results')}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -1309,17 +1309,17 @@ export default function CreditsPage() {
                                   variant={entry.isSolde ? 'success' : 'destructive'}
                                   className="text-[10px] px-1.5 flex-shrink-0"
                                 >
-                                  {entry.isSolde ? 'Soldé ✓' : 'En cours'}
+                                  {entry.isSolde ? t('payments.solde_badge') : t('payments.en_cours_label')}
                                 </Badge>
                               </div>
                               {entry.customer.phone && <p className="text-xs text-muted-foreground">{entry.customer.phone}</p>}
                             </div>
                           </div>
                           <div className="text-right flex-shrink-0">
-                            <p className="text-xs text-muted-foreground">Total : {fmt(entry.totalOwed)}</p>
+                            <p className="text-xs text-muted-foreground">{t('payments.summary_total', { amount: fmt(entry.totalOwed) })}</p>
                             {entry.isSolde
-                              ? <p className="text-xs text-green-600 font-semibold">Payé : {fmt(entry.totalPaid)}</p>
-                              : <p className="text-xs text-red-600 font-semibold">Restant : {fmt(entry.totalRemaining)}</p>
+                              ? <p className="text-xs text-green-600 font-semibold">{t('payments.summary_paid', { amount: fmt(entry.totalPaid) })}</p>
+                              : <p className="text-xs text-red-600 font-semibold">{t('payments.summary_remaining', { amount: fmt(entry.totalRemaining) })}</p>
                             }
                           </div>
                         </div>
@@ -1328,33 +1328,33 @@ export default function CreditsPage() {
                           <DebtGauge pct={pct} remaining={entry.isSolde ? undefined : entry.totalRemaining} fmt={fmt} t={t} />
                         </div>
                         <div className="flex items-center justify-between mt-1.5">
-                          <p className="text-[11px] text-muted-foreground">{entry.sales.length} facture{entry.sales.length > 1 ? 's' : ''}</p>
+                          <p className="text-[11px] text-muted-foreground">{t('payments.invoices_count_plain', { count: entry.sales.length })}</p>
                           <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
                             {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                            {isExpanded ? 'Masquer' : 'Voir les factures'}
+                            {isExpanded ? t('payments.hide') : t('payments.view_invoices')}
                           </div>
                         </div>
                       </button>
 
                       {isExpanded && (
                         <div className="border-t bg-muted/40 px-4 py-3 space-y-2">
-                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Factures</p>
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('payments.invoices_label')}</p>
                           {entry.sales.map(sale => (
                             <div key={sale.id} className="bg-card rounded-lg border p-3 space-y-1">
                               <div className="flex items-center justify-between gap-2">
                                 <span className="font-mono text-stockshop-blue dark:text-blue-400 font-semibold text-sm">#{sale.sale_number}</span>
                                 <Badge variant={STATUS_VARIANTS[sale.payment_status] || ('outline' as any)} className="text-[10px]">
-                                  {sale.payment_status === 'paid' ? 'Payé ✓' : sale.payment_status === 'partial' ? 'Partiel' : 'Impayé'}
+                                  {sale.payment_status === 'paid' ? t('payments.status_paid_check') : sale.payment_status === 'partial' ? t('payments.partial_label') : t('payments.unpaid_label')}
                                 </Badge>
                               </div>
                               <div className="flex items-center justify-between text-xs text-muted-foreground">
                                 <span>{format(new Date(sale.created_at), 'dd MMM yyyy', { locale: fr })}</span>
-                                <span>Total : {fmt(sale.total)}</span>
+                                <span>{t('payments.summary_total', { amount: fmt(sale.total) })}</span>
                               </div>
                               {sale.amount_paid > 0 && (
                                 <div className="flex items-center justify-between text-xs">
-                                  <span className="text-green-600">Payé : {fmt(sale.amount_paid)}</span>
-                                  {sale.balance > 0 && <span className="font-bold text-red-600">Restant : {fmt(sale.balance)}</span>}
+                                  <span className="text-green-600">{t('payments.summary_paid', { amount: fmt(sale.amount_paid) })}</span>
+                                  {sale.balance > 0 && <span className="font-bold text-red-600">{t('payments.summary_remaining', { amount: fmt(sale.balance) })}</span>}
                                 </div>
                               )}
                               {sale.cashier_name && (
@@ -1655,12 +1655,12 @@ export default function CreditsPage() {
                   {isCapacitor() ? <Share2 className="h-4 w-4" /> : <Printer className="h-4 w-4" />}
                   {isCapacitor() ? t('actions.share') : t('actions.print_receipt')}
                 </Button>
-                <Button className="gap-2 h-11 bg-green-600 hover:bg-green-700" onClick={() => sharePDFNative(receiptResult.blob, receiptResult.fileName, `Reçu — ${receiptResult.customerName}`)}>
+                <Button className="gap-2 h-11 bg-green-600 hover:bg-green-700" onClick={() => sharePDFNative(receiptResult.blob, receiptResult.fileName, t('payments.receipt_share_title', { customer: receiptResult.customerName }))}>
                   <Share2 className="h-4 w-4" />WhatsApp
                 </Button>
               </div>
               {receiptResult.phone && (
-                <a href={`https://wa.me/${receiptResult.phone.replace(/[^\d]/g, '').replace(/^0/, '234')}?text=${encodeURIComponent(`Bonjour ${receiptResult.customerName}, votre paiement a bien été enregistré. Merci !`)}`}
+                <a href={`https://wa.me/${receiptResult.phone.replace(/[^\d]/g, '').replace(/^0/, '234')}?text=${encodeURIComponent(t('payments.whatsapp_receipt_message', { customer: receiptResult.customerName }))}`}
                   target="_blank" rel="noreferrer" className="block">
                   <Button variant="outline" className="w-full gap-2 border-green-300 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/30">
                     💬 {t('payments.open_whatsapp_chat')}
@@ -1687,7 +1687,7 @@ export default function CreditsPage() {
               {repayDebtor && repayDebtor.unpaidSales.length === 0 ? (
                 <div className="rounded-lg bg-orange-50 border border-orange-200 p-3">
                   <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-1">{t('payments.data_to_fix')}</p>
-                  <p className="text-sm text-orange-700">Le solde dû de {fmt(repayDebtor.totalDebt)} est enregistré mais aucune facture impayée n&apos;est trouvée.</p>
+                  <p className="text-sm text-orange-700">{t('payments.debt_no_invoice_found', { amount: fmt(repayDebtor.totalDebt) })}</p>
                 </div>
               ) : null}
 
@@ -1880,7 +1880,7 @@ export default function CreditsPage() {
                         </div>
                         <p className="text-xs text-muted-foreground">
                           {format(new Date(sale.created_at), "dd MMM yyyy 'à' HH:mm", { locale: fr })}
-                          {sale.cashier_name && <> · par <strong>{sale.cashier_name}</strong></>}
+                          {sale.cashier_name && <> · {t('payments.by_connector')} <strong>{sale.cashier_name}</strong></>}
                         </p>
                         <DebtGauge pct={paidPct} remaining={sale.balance > 0 ? sale.balance : undefined} fmt={fmt} t={t} />
                       </div>
@@ -1922,7 +1922,7 @@ export default function CreditsPage() {
                                         {t(`payment.${p.method}` as any) || p.method}
                                       </Badge>
                                       {p.received_by_name && (
-                                        <span className="text-[11px] text-muted-foreground">par <strong>{p.received_by_name}</strong></span>
+                                        <span className="text-[11px] text-muted-foreground">{t('payments.by_connector')} <strong>{p.received_by_name}</strong></span>
                                       )}
                                     </div>
                                     <p className="text-[11px] text-muted-foreground">
@@ -2170,7 +2170,7 @@ export default function CreditsPage() {
                                             {t(`payment.${p.method}` as any) || p.method}
                                           </Badge>
                                           {p.paid_by_name && (
-                                            <span className="text-[11px] text-muted-foreground">par <strong>{p.paid_by_name}</strong></span>
+                                            <span className="text-[11px] text-muted-foreground">{t('payments.by_connector')} <strong>{p.paid_by_name}</strong></span>
                                           )}
                                         </div>
                                         <p className="text-[11px] text-muted-foreground">

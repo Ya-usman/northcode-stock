@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { WifiOff, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { useOffline } from '@/lib/offline/use-offline'
 import { cn } from '@/lib/utils/cn'
 import type { SyncResult } from '@/lib/offline/sync'
 
 export function OfflineBanner() {
+  const t = useTranslations('banners.offline')
   const { isOnline, pendingCount, syncing, sync, lastSyncResult } = useOffline()
 
   const [showResult, setShowResult] = useState(false)
@@ -55,8 +57,8 @@ export function OfflineBanner() {
         }
         <span className="flex-1">
           {allOk
-            ? `${displayedResult.synced} opération${displayedResult.synced > 1 ? 's' : ''} synchronisée${displayedResult.synced > 1 ? 's' : ''} ✓`
-            : `${displayedResult.failed} en erreur · ${displayedResult.errors[0] ?? 'vérifiez votre connexion'}`
+            ? t('synced_success', { count: displayedResult.synced })
+            : t('sync_error', { count: displayedResult.failed, detail: displayedResult.errors[0] ?? t('check_connection') })
           }
         </span>
         {!allOk && (
@@ -66,7 +68,7 @@ export function OfflineBanner() {
             className="flex items-center gap-1.5 rounded-md bg-red-500/15 hover:bg-red-500/25 px-2.5 py-1 transition-colors disabled:opacity-50"
           >
             <RefreshCw className={cn('h-3 w-3', syncing && 'animate-spin')} />
-            Réessayer
+            {t('retry')}
           </button>
         )}
       </div>
@@ -85,9 +87,9 @@ export function OfflineBanner() {
         <WifiOff className="h-3.5 w-3.5 flex-shrink-0" />
         {!isOnline
           ? pendingCount > 0
-            ? `Mode hors-ligne · ${pendingCount} opération${pendingCount > 1 ? 's' : ''} en attente`
-            : 'Mode hors-ligne · données sauvegardées localement'
-          : `${pendingCount} opération${pendingCount > 1 ? 's' : ''} en attente de synchronisation`
+            ? t('offline_pending', { count: pendingCount })
+            : t('offline_saved_locally')
+          : t('pending_sync', { count: pendingCount })
         }
       </div>
       {isOnline && pendingCount > 0 && (
@@ -97,7 +99,7 @@ export function OfflineBanner() {
           className="flex items-center gap-1.5 rounded-md bg-amber-500/15 hover:bg-amber-500/25 px-2.5 py-1 transition-colors disabled:opacity-50"
         >
           <RefreshCw className={cn('h-3 w-3', syncing && 'animate-spin')} />
-          {syncing ? 'Sync…' : 'Synchroniser'}
+          {syncing ? t('syncing') : t('sync_button')}
         </button>
       )}
     </div>

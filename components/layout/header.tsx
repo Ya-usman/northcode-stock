@@ -6,6 +6,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { usePathname, useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { useTheme } from '@/lib/hooks/use-theme'
 import { useCurrency } from '@/lib/hooks/use-currency'
@@ -28,6 +29,7 @@ interface HeaderProps {
 }
 
 export function Header({ title, locale, crispUnread = 0, onOpenChat }: HeaderProps) {
+  const t = useTranslations('nav')
   const pathname = usePathname()
   const router = useRouter()
   const { shop, userShops, updateLocale } = useAuthContext()
@@ -68,7 +70,7 @@ export function Header({ title, locale, crispUnread = 0, onOpenChat }: HeaderPro
             size="icon"
             onClick={onOpenChat}
             className="relative h-8 w-8 text-muted-foreground hover:text-foreground overflow-visible"
-            aria-label="Support chat"
+            aria-label={t('support')}
           >
             <MessageCircle className="h-5 w-5" />
             {crispUnread > 0 && (

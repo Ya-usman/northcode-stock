@@ -796,7 +796,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const bulkDelete = async () => {
     if (!shop?.id) return
     const isAll = bulkDeleteAll
-    if (isAll && bulkDeleteText.trim().toUpperCase() !== 'SUPPRIMER') return
+    if (isAll && bulkDeleteText.trim().toUpperCase() !== t('products.delete_confirm_word').toUpperCase()) return
     setBulkDeleting(true)
     const payload = isAll
       ? { shop_id: shop.id, all: true }
@@ -821,7 +821,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     }
     const count = json.deleted ?? selectedIds.size
     toast({
-      title: isAll ? 'Tous les produits ont été supprimés' : `${count} produit${count > 1 ? 's' : ''} supprimé${count > 1 ? 's' : ''}`,
+      title: isAll ? t('products.all_deleted_toast') : t('products.bulk_deleted_toast', { count }),
       variant: 'success',
     })
     setBulkDeleteDialog(false)
@@ -1202,7 +1202,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               ? <CheckSquare className="h-4 w-4" />
               : <Square className="h-4 w-4" />
             }
-            {selectedIds.size > 0 && selectedIds.size === filtered.length ? 'Tout désélectionner' : 'Tout sélectionner'}
+            {selectedIds.size > 0 && selectedIds.size === filtered.length ? t('products.deselect_all') : t('products.select_all')}
             <span className="text-xs font-normal text-blue-500">({filtered.length})</span>
           </button>
           {canDeleteProducts && products.length > 0 && (
@@ -1211,7 +1211,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               className="flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 transition-colors"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              Supprimer tous les produits ({products.length})
+              {t('products.delete_all_count', { count: products.length })}
             </button>
           )}
         </div>
@@ -1269,7 +1269,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             <Input type="date" value={archiveDateTo} min={archiveDateFrom || undefined} onChange={e => setArchiveDateTo(e.target.value)} className="h-8 w-[140px] text-xs" />
             {(archiveDateFrom || archiveDateTo || archiveSearch) && (
               <button className="text-xs text-muted-foreground hover:text-foreground underline" onClick={() => { setArchiveDateFrom(''); setArchiveDateTo(''); setArchiveSearch('') }}>
-                Réinitialiser
+                {t('products.reset_filters')}
               </button>
             )}
           </div>
@@ -1290,7 +1290,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                   <p className="text-sm font-medium text-muted-foreground truncate">{product.name}</p>
                   {(product as any).updated_at && (
                     <p className="text-[11px] text-muted-foreground/70">
-                      Archivé le {new Date((product as any).updated_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {t('products.archived_on', { date: new Date((product as any).updated_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) })}
                     </p>
                   )}
                 </div>
@@ -1329,12 +1329,12 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             <Input type="date" value={journalDateTo} min={journalDateFrom || undefined} onChange={e => setJournalDateTo(e.target.value)} className="h-8 w-[140px] text-xs" />
             {(journalDateFrom || journalDateTo || journalSearch) && (
               <button className="text-xs text-muted-foreground hover:text-foreground underline" onClick={() => { setJournalDateFrom(''); setJournalDateTo(''); setJournalSearch('') }}>
-                Réinitialiser
+                {t('products.reset_filters')}
               </button>
             )}
           </div>
           {loadingJournal ? (
-            <p className="text-xs text-muted-foreground text-center py-3">Chargement...</p>
+            <p className="text-xs text-muted-foreground text-center py-3">{t('team.journal_loading')}</p>
           ) : (() => {
             const filteredLogs = journalSearch.trim()
               ? auditLogs.filter((log: any) => {
@@ -1344,7 +1344,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 })
               : auditLogs
             if (filteredLogs.length === 0) {
-              return <p className="text-xs text-muted-foreground text-center py-3">Aucune activité enregistrée.</p>
+              return <p className="text-xs text-muted-foreground text-center py-3">{t('team.journal_empty')}</p>
             }
             return filteredLogs.map((log: any) => {
               const meta = log.metadata || {}
@@ -1357,44 +1357,44 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               let Icon = Trash2
               let iconColor = 'text-red-400'
               if (log.action === 'delete_product') {
-                label = 'Produit supprimé'
+                label = t('products.journal_deleted')
                 detail = meta.product_name || log.target_id || '—'
               } else if (log.action === 'bulk_delete_products') {
-                label = 'Suppression en masse'
+                label = t('products.journal_bulk_delete')
                 const names = (meta.products_snapshot || []).map((p: any) => p.name).join(', ')
-                detail = `${meta.count} produit${meta.count > 1 ? 's' : ''}${names ? ` · ${names}` : ''}`
+                detail = t('products.journal_bulk_delete_detail', { count: meta.count, names: names ? ` · ${names}` : '' })
               } else if (log.action === 'create_product') {
                 Icon = Plus
                 iconColor = 'text-green-500'
-                label = meta.product_name || 'Produit créé'
-                detail = `${formatNaira(meta.selling_price)} · ${meta.quantity} unité${meta.quantity > 1 ? 's' : ''}`
+                label = meta.product_name || t('products.journal_created')
+                detail = t('products.journal_created_detail', { price: formatNaira(meta.selling_price), qty: meta.quantity })
               } else if (log.action === 'update_product') {
                 Icon = Edit2
                 iconColor = 'text-blue-400'
-                label = meta.product_name || 'Produit modifié'
+                label = meta.product_name || t('products.journal_updated')
                 const changes = meta.changes || {}
                 const parts: string[] = []
-                if (changes.name) parts.push(`Nom: "${changes.name.from}" → "${changes.name.to}"`)
-                if (changes.selling_price) parts.push(`Prix vente: ${changes.selling_price.from} → ${changes.selling_price.to} ${currencySymbol}`)
-                if (changes.buying_price) parts.push(`Prix achat: ${changes.buying_price.from} → ${changes.buying_price.to} ${currencySymbol}`)
-                if (changes.low_stock_threshold) parts.push(`Seuil d'alerte: ${changes.low_stock_threshold.from ?? '—'} → ${changes.low_stock_threshold.to ?? '—'}`)
-                if (changes.sku) parts.push(`SKU: ${changes.sku.from || '—'} → ${changes.sku.to || '—'}`)
-                if (changes.category_id) parts.push(`Catégorie: ${changes.category_id.from || '—'} → ${changes.category_id.to || '—'}`)
-                if (changes.supplier_id) parts.push(`Fournisseur: ${changes.supplier_id.from || '—'} → ${changes.supplier_id.to || '—'}`)
+                if (changes.name) parts.push(`${t('products.journal_field_name')}: "${changes.name.from}" → "${changes.name.to}"`)
+                if (changes.selling_price) parts.push(`${t('products.journal_field_selling_price')}: ${changes.selling_price.from} → ${changes.selling_price.to} ${currencySymbol}`)
+                if (changes.buying_price) parts.push(`${t('products.journal_field_buying_price')}: ${changes.buying_price.from} → ${changes.buying_price.to} ${currencySymbol}`)
+                if (changes.low_stock_threshold) parts.push(`${t('products.journal_field_threshold')}: ${changes.low_stock_threshold.from ?? '—'} → ${changes.low_stock_threshold.to ?? '—'}`)
+                if (changes.sku) parts.push(`${t('products.journal_field_sku')}: ${changes.sku.from || '—'} → ${changes.sku.to || '—'}`)
+                if (changes.category_id) parts.push(`${t('products.journal_field_category')}: ${changes.category_id.from || '—'} → ${changes.category_id.to || '—'}`)
+                if (changes.supplier_id) parts.push(`${t('products.journal_field_supplier')}: ${changes.supplier_id.from || '—'} → ${changes.supplier_id.to || '—'}`)
                 detail = parts.join(' · ')
               } else if (log.action === 'archive_product') {
                 Icon = Archive
                 iconColor = 'text-amber-500'
-                label = 'Produit archivé'
+                label = t('products.journal_archived')
                 detail = meta.product_name || log.target_id || '—'
               } else if (log.action === 'restore_product') {
                 Icon = RotateCcw
                 iconColor = 'text-green-500'
-                label = 'Produit restauré'
+                label = t('products.journal_restored')
                 detail = meta.product_name || log.target_id || '—'
               } else {
-                label = 'Tous les produits supprimés'
-                detail = `${meta.count} produit${meta.count > 1 ? 's' : ''}`
+                label = t('products.all_deleted_toast')
+                detail = t('products.journal_all_deleted_detail', { count: meta.count })
               }
               return (
                 <div key={log.id} className="flex items-start gap-2.5 rounded-lg bg-muted/40 border px-3 py-2.5 text-xs">
@@ -1569,8 +1569,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       <PremiumDialog
         open={bulkDeleteDialog}
         onOpenChange={open => { if (!open) { setBulkDeleteDialog(false); setBulkDeleteAll(false); setBulkDeleteText('') } }}
-        category="Suppression définitive"
-        title={bulkDeleteAll ? `Supprimer tous les produits` : `Supprimer ${selectedIds.size} produit${selectedIds.size > 1 ? 's' : ''}`}
+        category={t('products.delete_warning_title_short')}
+        title={bulkDeleteAll ? t('products.delete_all_title') : t('products.delete_selected_title', { count: selectedIds.size })}
         icon={<Trash2 className="h-4 w-4 text-destructive" />}
       >
         <PremiumDialogBody>
@@ -1580,24 +1580,24 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               <div className="text-sm text-red-700 dark:text-red-400">
                 <p className="font-semibold mb-1">
                   {bulkDeleteAll
-                    ? `${products.length} produit${products.length > 1 ? 's' : ''} seront supprimés définitivement.`
-                    : `${selectedIds.size} produit${selectedIds.size > 1 ? 's' : ''} sélectionné${selectedIds.size > 1 ? 's seront supprimés' : ' sera supprimé'} définitivement.`
+                    ? t('products.bulk_delete_all_warning', { count: products.length })
+                    : t('products.bulk_delete_selected_warning', { count: selectedIds.size })
                   }
                 </p>
                 <ul className="text-xs space-y-1 text-red-600 dark:text-red-400">
-                  <li>• Les données de ventes associées sont conservées.</li>
-                  <li>• Cette action est irréversible.</li>
+                  <li>• {t('products.sales_data_kept')}</li>
+                  <li>• {t('products.irreversible_action')}</li>
                 </ul>
               </div>
             </div>
           </div>
           {bulkDeleteAll && (
             <div className="space-y-1.5 mt-2">
-              <Label className="text-sm">Tapez <span className="font-mono font-bold">SUPPRIMER</span> pour confirmer</Label>
+              <Label className="text-sm">{t('products.type_to_confirm_prefix')} <span className="font-mono font-bold">{t('products.delete_confirm_word')}</span> {t('products.type_to_confirm_suffix')}</Label>
               <Input
                 value={bulkDeleteText}
                 onChange={e => setBulkDeleteText(e.target.value)}
-                placeholder="SUPPRIMER"
+                placeholder={t('products.delete_confirm_word')}
                 className="border-destructive/40 focus:border-destructive font-mono"
               />
             </div>
@@ -1847,7 +1847,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm px-4">
           <div className="flex items-center gap-2 rounded-2xl bg-card border shadow-xl px-4 py-3">
             <span className="text-sm font-medium flex-1 text-foreground">
-              {selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}
+              {t('products.selected_count', { count: selectedIds.size })}
             </span>
             <Button
               size="sm"

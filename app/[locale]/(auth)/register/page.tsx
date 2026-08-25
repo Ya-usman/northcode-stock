@@ -327,7 +327,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                     <Label>{t('full_name')}</Label>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-[#2e4460]" />
-                      <Input {...register('full_name')} placeholder="Malam Usman"
+                      <Input {...register('full_name')} placeholder={t('full_name_example')}
                         className="pl-9 dark:bg-[#060e1c] dark:border-[#1b2e48] dark:text-[#d8e8ff] dark:placeholder:text-[#2e4460]" />
                     </div>
                     {errors.full_name && <p className="text-xs text-destructive">{errors.full_name.message}</p>}
@@ -337,7 +337,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                     <Label>{t('email')}</Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-[#2e4460]" />
-                      <Input {...register('email')} type="email" placeholder="vous@email.com"
+                      <Input {...register('email')} type="email" placeholder={tAuth('email_placeholder')}
                         className="pl-9 dark:bg-[#060e1c] dark:border-[#1b2e48] dark:text-[#d8e8ff] dark:placeholder:text-[#2e4460]" />
                     </div>
                     {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
@@ -479,7 +479,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                     <Label>{t('shop_name')}</Label>
                     <div className="relative">
                       <Store className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-[#2e4460]" />
-                      <Input {...register('shop_name')} placeholder="Boutique Alhaji Musa"
+                      <Input {...register('shop_name')} placeholder={t('shop_name_example')}
                         className="pl-9 dark:bg-[#060e1c] dark:border-[#1b2e48] dark:text-[#d8e8ff] dark:placeholder:text-[#2e4460]" />
                     </div>
                     {errors.shop_name && <p className="text-xs text-destructive">{errors.shop_name.message}</p>}
@@ -505,21 +505,21 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label>Code de parrainage <span className="text-muted-foreground text-xs">({t('optional')})</span></Label>
+                    <Label>{t('referral_code_label')} <span className="text-muted-foreground text-xs">({t('optional')})</span></Label>
                     <Input
                       value={referralCode}
                       onChange={e => checkReferralCode(e.target.value.toUpperCase())}
-                      placeholder="ex: ALHAJI2025"
+                      placeholder={t('referral_code_placeholder')}
                       maxLength={20}
                       className="font-mono uppercase dark:bg-[#060e1c] dark:border-[#1b2e48] dark:text-[#d8e8ff] dark:placeholder:text-[#2e4460]"
                     />
                     {referralChecking && (
-                      <p className="text-xs text-muted-foreground">Vérification...</p>
+                      <p className="text-xs text-muted-foreground">{t('referral_checking')}</p>
                     )}
                     {!referralChecking && referralCode && (
                       referralAgent
-                        ? <p className="text-xs text-green-500 dark:text-green-400">✓ Agent : {referralAgent}</p>
-                        : <p className="text-xs text-amber-500 dark:text-amber-400">Code non reconnu (tu peux continuer sans)</p>
+                        ? <p className="text-xs text-green-500 dark:text-green-400">{t('referral_agent_found', { agent: referralAgent })}</p>
+                        : <p className="text-xs text-amber-500 dark:text-amber-400">{t('referral_code_not_found')}</p>
                     )}
                   </div>
 

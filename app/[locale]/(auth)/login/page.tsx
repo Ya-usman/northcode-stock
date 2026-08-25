@@ -52,15 +52,15 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
   const [showPwd, setShowPwd] = useState(false)
   const [mode, setMode] = useState<'login' | 'forgot'>('login')
   const [error, setError] = useState(
-    searchParams?.error === 'no_profile' ? 'Account not configured yet. Contact your administrator.' :
-    searchParams?.error === 'inactive' ? 'Your account has been deactivated. Contact your administrator.' :
-    searchParams?.error === 'use_email' ? 'Un compte existe déjà avec cet email. Connectez-vous avec votre email et mot de passe.' :
-    searchParams?.error === 'lien_invalide' ? 'Lien expiré ou déjà utilisé. Ouvre le lien de confirmation sur le même téléphone où tu t\'es inscrit(e), ou redemande un email de confirmation.' :
-    searchParams?.error ? `Erreur : ${searchParams.error}` :
+    searchParams?.error === 'no_profile' ? t('error_no_profile') :
+    searchParams?.error === 'inactive' ? t('error_inactive') :
+    searchParams?.error === 'use_email' ? t('error_use_email') :
+    searchParams?.error === 'lien_invalide' ? t('error_invalid_link') :
+    searchParams?.error ? t('error_generic', { error: searchParams.error }) :
     ''
   )
   const [success, setSuccess] = useState(
-    searchParams?.confirmed === '1' ? 'Adresse e-mail confirmée ! Vous pouvez maintenant vous connecter.' : ''
+    searchParams?.confirmed === '1' ? t('email_confirmed_success') : ''
   )
 
   useEffect(() => {
@@ -136,9 +136,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
       const msg = (lastError?.message || '').toLowerCase()
       const isNetworkError = !lastError?.status || lastError?.status === 0 ||
         msg.includes('fetch') || msg.includes('network') || msg.includes('failed') || msg.includes('timeout')
-      setError(isNetworkError
-        ? (locale === 'ha' ? 'Matsalar hanyar sadarwa. Da fatan a sake gwadawa.' : 'Problème de connexion. Vérifiez votre réseau et réessayez.')
-        : t('invalid_credentials'))
+      setError(isNetworkError ? t('network_error') : t('invalid_credentials'))
       return
     }
 
@@ -186,7 +184,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
         window.location.href = oauthUrl
       }
     } catch (e: any) {
-      setError(e?.message || 'Erreur inattendue')
+      setError(e?.message || t('unexpected_error'))
     }
   }
 
@@ -257,19 +255,17 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
           <div className="mx-auto flex-1 flex flex-col px-8">
             <div className="flex-1 flex flex-col justify-center">
               <h1 className="text-[26px] font-bold tracking-tight leading-snug text-[#0f172a] dark:text-[#e2ecff]">
-                Manage smarter.<br />Sell faster.<br />Grow bigger.
+                {t('hero_title_1')}<br />{t('hero_title_2')}<br />{t('hero_title_3')}
               </h1>
               <p className="mt-2.5 text-[13px] leading-relaxed text-[#607090] dark:text-[#5a7098]">
-                {locale === 'ha'
-                  ? 'Komai da kantin ku ke bukata — kaya, sayarwa, abokan ciniki da rahotanni.'
-                  : 'Tout ce dont votre boutique a besoin — stock, ventes, clients et rapports.'}
+                {t('hero_subtitle')}
               </p>
               <ul className="mt-8 space-y-3">
                 {[
-                  locale === 'ha' ? 'Yana aiki babu intanet' : 'Fonctionne hors ligne, même sans réseau',
-                  locale === 'ha' ? 'Kantunan da kuɗaɗe masu yawa' : 'Multi-boutiques, multi-devises',
-                  locale === 'ha' ? 'Rahotanni a lokaci gaskiya' : 'Rapports en temps réel',
-                  locale === 'ha' ? 'Hausa, Faransanci da Turanci' : 'Disponible en français, anglais et haoussa',
+                  t('hero_feature_offline'),
+                  t('hero_feature_multi_shop'),
+                  t('hero_feature_realtime_reports'),
+                  t('hero_feature_languages'),
                 ].map(f => (
                   <li key={f} className="flex items-center gap-3 text-[12.5px] text-[#5570a0] dark:text-[#6880a8]">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#1948cc] dark:bg-[#073e8a] flex-shrink-0" />
@@ -314,14 +310,14 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
                 <motion.div key="login" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
                   <h2 className="text-2xl font-bold text-[#0f172a] dark:text-[#e2ecff] mb-1">{t('welcome_back')}</h2>
                   <p className="text-sm text-[#607090] dark:text-[#5a7098] mb-6">
-                    {locale === 'ha' ? 'Shigar da imelinka da kalmar sirri' : 'Connectez-vous à votre compte'}
+                    {t('login_subtitle')}
                   </p>
 
                   <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-3">
                     <div className="space-y-1.5">
                       <Label htmlFor="email" className="text-[#374155] dark:text-[#8ba0c0]">{t('email')}</Label>
                       <Input id="email" type="email" autoComplete="email"
-                        placeholder={locale === 'ha' ? 'ku@misali.com' : 'vous@exemple.com'}
+                        placeholder={t('email_placeholder')}
                         className={inputCls}
                         {...loginForm.register('email')} />
                       {loginForm.formState.errors.email && <p className="text-xs text-destructive">{loginForm.formState.errors.email.message}</p>}
@@ -385,7 +381,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
                 <motion.div key="forgot" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                   <h2 className="text-2xl font-bold text-[#0f172a] dark:text-[#e2ecff] mb-1">{t('forgot_password')}</h2>
                   <p className="text-sm text-[#607090] dark:text-[#5a7098] mb-6">
-                    {locale === 'ha' ? 'Shigar da imelinka don sake saita kalmar sirri' : 'Entrez votre e-mail pour réinitialiser votre mot de passe'}
+                    {t('forgot_subtitle')}
                   </p>
 
                   {success ? (
@@ -402,7 +398,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
                       <div className="space-y-1.5">
                         <Label htmlFor="reset-email" className="text-[#374155] dark:text-[#8ba0c0]">{t('email')}</Label>
                         <Input id="reset-email" type="email"
-                          placeholder={locale === 'ha' ? 'ku@misali.com' : 'vous@exemple.com'}
+                          placeholder={t('email_placeholder')}
                           className={inputCls}
                           {...forgotForm.register('email')} />
                       </div>

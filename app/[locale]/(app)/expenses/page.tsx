@@ -76,6 +76,7 @@ export default function ExpensesPage() {
   const { toast } = useToast()
   const { fmt } = useCurrency()
   const t = useTranslations('expenses')
+  const tRoot = useTranslations()
   const { canAccess } = useRolePermissions()
   // manager/shop_manager keep unconditional access, matching the API route —
   // see DELETE_EXPENSES_ALWAYS_ALLOW in app/api/expenses/delete/route.ts.
@@ -185,7 +186,7 @@ export default function ExpensesPage() {
           .in('shop_id', effectiveShopIds)
           .eq('is_recurring', true)
           .order('description'),
-      ]), 20_000, 'Chargement des dépenses trop lent — réessayez.')
+      ]), 20_000, t('load_timeout'))
       if (expErr) {
         // Only alarm the user when there's nothing already on screen — a
         // silent background refresh (e.g. after returning from a backgrounded
@@ -369,10 +370,10 @@ export default function ExpensesPage() {
         })
         const updated = await getPendingExpenses(shop.id)
         setPendingExpenses(updated)
-        toast({ title: `${t('added')} · sera synchronisé à la reconnexion`, variant: 'success' })
+        toast({ title: t('added_offline', { added: t('added') }), variant: 'success' })
         setModalOpen(false)
       } catch (err: any) {
-        toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+        toast({ title: err.message || tRoot('toast.retry_error'), variant: 'destructive' })
       } finally {
         setSaving(false)
       }
@@ -454,7 +455,7 @@ export default function ExpensesPage() {
       setModalOpen(false)
       fetchExpenses()
     } catch (err: any) {
-      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+      toast({ title: err.message || tRoot('toast.retry_error'), variant: 'destructive' })
       setTimeout(() => fetchExpenses(), 3_000)
     } finally {
       setSaving(false)
@@ -482,7 +483,7 @@ export default function ExpensesPage() {
       fetchExpenses()
       fetchDeleteLogs()
     } catch (err: any) {
-      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+      toast({ title: err.message || tRoot('toast.retry_error'), variant: 'destructive' })
     } finally {
       setDeleting(null)
     }
@@ -512,7 +513,7 @@ export default function ExpensesPage() {
       setBudgetAmount('')
       fetchBudgets()
     } catch (err: any) {
-      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+      toast({ title: err.message || tRoot('toast.retry_error'), variant: 'destructive' })
     } finally {
       setSavingBudget(false)
     }
@@ -596,9 +597,9 @@ export default function ExpensesPage() {
       })
     } catch (err: any) {
       if (err?.name === 'OfflineError') {
-        toast({ title: 'Pas de connexion', description: 'Connectez-vous pour télécharger.', variant: 'destructive' })
+        toast({ title: t('no_connection'), description: t('no_connection_download'), variant: 'destructive' })
       } else if (err?.name !== 'AbortError') {
-        toast({ title: err.message || 'Erreur export', variant: 'destructive' })
+        toast({ title: err.message || t('export_error'), variant: 'destructive' })
       }
     } finally {
       setExporting(false)
@@ -621,7 +622,7 @@ export default function ExpensesPage() {
     try {
       await downloadOrShareCSV(csv, filename)
     } catch (err: any) {
-      toast({ title: 'Erreur de téléchargement', variant: 'destructive' })
+      toast({ title: t('download_error'), variant: 'destructive' })
     }
   }
 
@@ -637,7 +638,7 @@ export default function ExpensesPage() {
             size="icon"
             className="h-9 w-9"
             onClick={() => setFilter({ monthFilter: format(addMonths(new Date(monthFilter + '-01'), -1), 'yyyy-MM') })}
-            aria-label="Mois précédent"
+            aria-label={t('prev_month')}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -667,7 +668,7 @@ export default function ExpensesPage() {
             size="icon"
             className="h-9 w-9"
             onClick={() => setFilter({ monthFilter: format(addMonths(new Date(monthFilter + '-01'), 1), 'yyyy-MM') })}
-            aria-label="Mois suivant"
+            aria-label={t('next_month')}
             disabled={monthFilter >= format(new Date(), 'yyyy-MM')}
           >
             <ChevronRight className="h-4 w-4" />
@@ -683,7 +684,7 @@ export default function ExpensesPage() {
                 className="h-9 w-9"
                 loading={exporting}
                 onClick={() => setExportMenuOpen(v => !v)}
-                aria-label="Exporter"
+                aria-label={tA('export_csv')}
               >
                 <FileDown className="h-4 w-4" />
               </Button>
@@ -948,7 +949,7 @@ export default function ExpensesPage() {
                     {fmt(pexp.amount)}
                   </span>
                   <div className="flex-shrink-0 h-8 w-8 flex items-center justify-center text-amber-500">
-                    <Clock className="h-4 w-4" aria-label="En attente de synchronisation" />
+                    <Clock className="h-4 w-4" aria-label={t('pending_sync_aria')} />
                   </div>
                 </CardContent>
               </Card>
@@ -1266,7 +1267,7 @@ export default function ExpensesPage() {
         {!isReallyOnline && (editing || isRecurring) && (
           <div className="mx-4 mb-3 flex items-center gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 text-xs text-amber-700 dark:text-amber-300">
             <WifiOff className="h-4 w-4 flex-shrink-0" />
-            <span>{editing ? 'La modification nécessite une connexion internet.' : 'Les dépenses récurrentes nécessitent une connexion internet.'}</span>
+            <span>{editing ? t('edit_requires_connection') : t('recurring_requires_connection')}</span>
           </div>
         )}
         <PremiumDialogFooter onCancel={() => setModalOpen(false)}>

@@ -315,7 +315,7 @@ export default function SuppliersPage() {
       form.reset({ name: '', phone: '', city: '', email: '' })
       fetchSuppliers()
     } catch (err: any) {
-      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+      toast({ title: err.message || t('toast.retry_error'), variant: 'destructive' })
     } finally {
       setSaving(false)
     }
@@ -381,7 +381,7 @@ export default function SuppliersPage() {
       setAddPriceProduct(null)
       fetchProductPrices()
     } catch (err: any) {
-      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+      toast({ title: err.message || t('toast.retry_error'), variant: 'destructive' })
     } finally {
       setSavingPrice(false)
     }
@@ -524,7 +524,7 @@ export default function SuppliersPage() {
         unit_price: poUnitPrice(p),
       }))
     if (items.length === 0) {
-      toast({ title: 'Sélectionnez au moins un produit', variant: 'destructive' })
+      toast({ title: t('transfers.select_at_least_one_product'), variant: 'destructive' })
       return
     }
     setCreatingPo(true)
@@ -544,7 +544,7 @@ export default function SuppliersPage() {
       setShowPoDialog(false)
       fetchPurchaseOrders()
     } catch (err: any) {
-      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+      toast({ title: err.message || t('toast.retry_error'), variant: 'destructive' })
     } finally {
       setCreatingPo(false)
     }
@@ -621,7 +621,7 @@ export default function SuppliersPage() {
       fetchPurchaseOrders()
       fetchSuppliers()
     } catch (err: any) {
-      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+      toast({ title: err.message || t('toast.retry_error'), variant: 'destructive' })
     } finally {
       setReceivingLoading(false)
     }
@@ -655,7 +655,7 @@ export default function SuppliersPage() {
   const submitEditPo = async () => {
     if (!shop?.id || !editingPo) return
     if (editItems.length === 0) {
-      toast({ title: 'Le bon doit contenir au moins un produit', variant: 'destructive' })
+      toast({ title: t('suppliers.po_must_have_product'), variant: 'destructive' })
       return
     }
     setSavingEditPo(true)
@@ -677,7 +677,7 @@ export default function SuppliersPage() {
       setEditingPo(null)
       fetchPurchaseOrders()
     } catch (err: any) {
-      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+      toast({ title: err.message || t('toast.retry_error'), variant: 'destructive' })
     } finally {
       setSavingEditPo(false)
     }
@@ -727,7 +727,7 @@ export default function SuppliersPage() {
       setReorderPo(null)
       fetchPurchaseOrders()
     } catch (err: any) {
-      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+      toast({ title: err.message || t('toast.retry_error'), variant: 'destructive' })
     } finally {
       setCreatingReorder(false)
     }

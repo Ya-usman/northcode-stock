@@ -336,7 +336,7 @@ export default function ReportsPage() {
           headers: [t('reports.col_metric'), t('reports.col_value')],
           rows: [
             [t('reports.encaisse'), formatNaira(totals.revenue)],
-            ['Marge brute sur ventes', formatNaira(totals.profit)],
+            [t('reports.gross_margin_sales_pdf'), formatNaira(totals.profit)],
             [t('expenses.title'), formatNaira(totalExpenses)],
             [t('expenses.net_profit'), formatNaira(totals.profit - totalExpenses)],
             [t('reports.outstanding_debt'), formatNaira(outstandingDebt)],
@@ -436,7 +436,7 @@ export default function ReportsPage() {
                 <SelectItem value="quarter">{t('reports.this_quarter')}</SelectItem>
                 <SelectItem value="semester">{t('reports.this_semester')}</SelectItem>
                 <SelectItem value="year">{t('reports.this_year')}</SelectItem>
-                <SelectItem value="custom">Période personnalisée</SelectItem>
+                <SelectItem value="custom">{t('sales.filter_custom')}</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-[10px] text-muted-foreground px-1">{getDateLabel()}</p>
@@ -456,7 +456,7 @@ export default function ReportsPage() {
         {dateFilter === 'custom' && (
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 flex-1">
-              <span className="text-xs text-muted-foreground flex-shrink-0">Du</span>
+              <span className="text-xs text-muted-foreground flex-shrink-0">{t('reports.from_date')}</span>
               <input
                 type="date"
                 value={customStart}
@@ -466,7 +466,7 @@ export default function ReportsPage() {
               />
             </div>
             <div className="flex items-center gap-1.5 flex-1">
-              <span className="text-xs text-muted-foreground flex-shrink-0">Au</span>
+              <span className="text-xs text-muted-foreground flex-shrink-0">{t('reports.to_date')}</span>
               <input
                 type="date"
                 value={customEnd}
@@ -504,11 +504,11 @@ export default function ReportsPage() {
         {canAccess('widget_rep_marge_brute') && (
           <Card className="border-0 shadow-sm">
             <CardContent className="p-2 sm:p-3 text-center">
-              <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">Marge brute</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">{t('reports.gross_margin')}</p>
               <p className={`text-sm sm:text-base font-bold mt-0.5 truncate ${totals.profit >= 0 ? 'text-blue-400' : 'text-red-500'}`}>
                 {loading ? '…' : formatNaira(totals.profit)}
               </p>
-              <p className="text-[9px] text-muted-foreground mt-0.5 hidden sm:block">Ventes − coût achat</p>
+              <p className="text-[9px] text-muted-foreground mt-0.5 hidden sm:block">{t('reports.gross_margin_hint')}</p>
             </CardContent>
           </Card>
         )}
@@ -519,7 +519,7 @@ export default function ReportsPage() {
               <p className={`text-sm sm:text-base font-bold mt-0.5 truncate ${totals.profit - totalExpenses >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                 {loading ? '…' : formatNaira(totals.profit - totalExpenses)}
               </p>
-              <p className="text-[9px] text-muted-foreground mt-0.5 hidden sm:block">Marge − dépenses</p>
+              <p className="text-[9px] text-muted-foreground mt-0.5 hidden sm:block">{t('reports.net_profit_hint')}</p>
             </CardContent>
           </Card>
         )}
@@ -694,9 +694,9 @@ export default function ReportsPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="px-2 sm:px-4 whitespace-nowrap">Date</TableHead>
-                        <TableHead className="px-2 sm:px-4">Description</TableHead>
-                        <TableHead className="text-right px-2 sm:px-4">Montant</TableHead>
+                        <TableHead className="px-2 sm:px-4 whitespace-nowrap">{t('sales.date')}</TableHead>
+                        <TableHead className="px-2 sm:px-4">{t('expenses.description')}</TableHead>
+                        <TableHead className="text-right px-2 sm:px-4">{t('payment.amount')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -793,9 +793,9 @@ export default function ReportsPage() {
                     <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15">
                       <Download className="h-3.5 w-3.5 text-white" />
                     </div>
-                    <span className="text-xs font-semibold text-blue-200 uppercase tracking-wider">Rapport</span>
+                    <span className="text-xs font-semibold text-blue-200 uppercase tracking-wider">{t('reports.title')}</span>
                   </div>
-                  <p className="text-lg font-bold text-white leading-tight">PDF prêt</p>
+                  <p className="text-lg font-bold text-white leading-tight">{t('reports.pdf_ready')}</p>
                   <p className="text-xs text-blue-200/70 mt-0.5 truncate max-w-[240px]">{pdfSheet.name}</p>
                 </div>
                 <button
@@ -819,9 +819,9 @@ export default function ReportsPage() {
                   closePdfSheet()
                 } catch (err: any) {
                   if (err?.name === 'OfflineError') {
-                    toast({ title: 'Pas de connexion', description: 'Connectez-vous pour télécharger.', variant: 'destructive' })
+                    toast({ title: t('expenses.no_connection'), description: t('expenses.no_connection_download'), variant: 'destructive' })
                   } else if (err?.name !== 'AbortError') {
-                    toast({ title: 'Erreur de téléchargement', description: String(err), variant: 'destructive' })
+                    toast({ title: t('expenses.download_error'), description: String(err), variant: 'destructive' })
                   }
                 } finally {
                   setDownloading(false)
@@ -832,8 +832,8 @@ export default function ReportsPage() {
                 {downloading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
               </div>
               <div className="text-left">
-                <p className="font-semibold text-sm">{downloading ? 'Préparation…' : 'Télécharger'}</p>
-                <p className="text-xs opacity-70">Enregistrer dans les fichiers</p>
+                <p className="font-semibold text-sm">{downloading ? t('reports.preparing') : t('actions.download')}</p>
+                <p className="text-xs opacity-70">{t('reports.save_to_files')}</p>
               </div>
             </button>
 

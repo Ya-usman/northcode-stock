@@ -392,10 +392,10 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
               })}
             </div>
             <p className="text-xs text-muted-foreground mt-2 flex items-center justify-center gap-1">
-              {country.gateway === 'paystack' && <><CreditCard className="h-3.5 w-3.5" /> Paystack · Carte · Virement · USSD</>}
-              {country.gateway === 'notchpay' && <><CreditCard className="h-3.5 w-3.5" /> NotchPay · MTN MoMo · Orange Money · Visa / Mastercard</>}
-              {country.gateway === 'flutterwave' && <><Smartphone className="h-3.5 w-3.5" /> Flutterwave · Mobile Money · Visa / Mastercard</>}
-              {country.gateway === 'stripe' && <><CreditCard className="h-3.5 w-3.5" /> Stripe · Visa · Mastercard · PayPal</>}
+              {country.gateway === 'paystack' && <><CreditCard className="h-3.5 w-3.5" /> {t('payment_paystack')}</>}
+              {country.gateway === 'notchpay' && <><CreditCard className="h-3.5 w-3.5" /> {t('payment_notchpay')}</>}
+              {country.gateway === 'flutterwave' && <><Smartphone className="h-3.5 w-3.5" /> {t('payment_flutterwave')}</>}
+              {country.gateway === 'stripe' && <><CreditCard className="h-3.5 w-3.5" /> {t('payment_stripe')}</>}
             </p>
           </div>
 

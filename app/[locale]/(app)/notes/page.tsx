@@ -12,12 +12,14 @@ import { cn } from '@/lib/utils/cn'
 import { Plus, Pin, Pencil, Trash2, Store, Search, PinOff } from 'lucide-react'
 import { normalize } from '@/lib/utils/normalize'
 import { format } from 'date-fns'
-import { fr } from 'date-fns/locale'
+import type { Locale } from 'date-fns'
+import { fr, enUS } from 'date-fns/locale'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { withTimeout } from '@/lib/utils/with-timeout'
+import { useTranslations, useLocale } from 'next-intl'
 
 const supabase = createClient() as any
 
@@ -33,20 +35,27 @@ interface Note {
   updated_at: string
 }
 
-const COLORS: { key: string; bg: string; border: string; label: string }[] = [
-  { key: 'default', bg: 'bg-card',           border: 'border-border',      label: 'Blanc'   },
-  { key: 'yellow',  bg: 'bg-yellow-50 dark:bg-yellow-950/40',  border: 'border-yellow-200 dark:border-yellow-800',  label: 'Jaune'   },
-  { key: 'blue',    bg: 'bg-blue-50 dark:bg-blue-950/40',      border: 'border-blue-200 dark:border-blue-800',      label: 'Bleu'    },
-  { key: 'green',   bg: 'bg-green-50 dark:bg-green-950/40',    border: 'border-green-200 dark:border-green-800',    label: 'Vert'    },
-  { key: 'pink',    bg: 'bg-pink-50 dark:bg-pink-950/40',      border: 'border-pink-200 dark:border-pink-800',      label: 'Rose'    },
-  { key: 'purple',  bg: 'bg-purple-50 dark:bg-purple-950/40',  border: 'border-purple-200 dark:border-purple-800',  label: 'Violet'  },
-]
+const COLOR_KEYS = ['default', 'yellow', 'blue', 'green', 'pink', 'purple'] as const
+
+const COLOR_STYLES: Record<typeof COLOR_KEYS[number], { bg: string; border: string }> = {
+  default: { bg: 'bg-card',           border: 'border-border' },
+  yellow:  { bg: 'bg-yellow-50 dark:bg-yellow-950/40',  border: 'border-yellow-200 dark:border-yellow-800' },
+  blue:    { bg: 'bg-blue-50 dark:bg-blue-950/40',      border: 'border-blue-200 dark:border-blue-800' },
+  green:   { bg: 'bg-green-50 dark:bg-green-950/40',    border: 'border-green-200 dark:border-green-800' },
+  pink:    { bg: 'bg-pink-50 dark:bg-pink-950/40',      border: 'border-pink-200 dark:border-pink-800' },
+  purple:  { bg: 'bg-purple-50 dark:bg-purple-950/40',  border: 'border-purple-200 dark:border-purple-800' },
+}
 
 function colorFor(key: string) {
-  return COLORS.find(c => c.key === key) ?? COLORS[0]
+  return COLOR_STYLES[key as typeof COLOR_KEYS[number]] ?? COLOR_STYLES.default
 }
 
 export default function NotesPage() {
+  const t = useTranslations('notes')
+  const tRoot = useTranslations()
+  const locale = useLocale()
+  const dateFnsLocale = locale === 'fr' ? fr : enUS
+  const COLORS = COLOR_KEYS.map(key => ({ key, ...COLOR_STYLES[key], label: t(`color_${key}`) }))
   const { profile, shop, userShops } = useAuth()
   const { isOnline } = useOffline()
   const { toast } = useToast()
@@ -88,7 +97,7 @@ export default function NotesPage() {
       if (shopFilter !== 'all') q = q.eq('shop_id', shopFilter)
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave `loading` stuck true forever.
-      const { data, error } = await withTimeout<any>(q, 20_000, 'Chargement des notes trop lent — réessayez.')
+      const { data, error } = await withTimeout<any>(q, 20_000, t('load_timeout'))
       // A transient auth/RLS hiccup can resolve with data: null instead of
       // throwing — check explicitly so the catch below preserves the cache
       // already on screen instead of zeroing it out.
@@ -169,19 +178,19 @@ export default function NotesPage() {
           15_000
         )
         if (error) throw new Error(error.message)
-        toast({ title: 'Note modifiée', variant: 'success' })
+        toast({ title: t('updated_toast'), variant: 'success' })
       } else {
         const { error } = await withTimeout<any>(
           supabase.from('notes').insert(payload),
           15_000
         )
         if (error) throw new Error(error.message)
-        toast({ title: 'Note créée', variant: 'success' })
+        toast({ title: t('created_toast'), variant: 'success' })
       }
       closeModal()
       fetchNotes()
     } catch (err: any) {
-      toast({ title: err.message || 'Erreur, réessayez', variant: 'destructive' })
+      toast({ title: err.message || tRoot('toast.retry_error'), variant: 'destructive' })
       // La requête a peut-être abouti malgré le timeout — on rafraîchit quand même
       setTimeout(() => fetchNotes(), 3_000)
     } finally {
@@ -204,9 +213,9 @@ export default function NotesPage() {
       const { error } = await supabase.from('notes').delete().eq('id', id)
       if (error) throw new Error(error.message)
       setNotes(prev => prev.filter(n => n.id !== id))
-      toast({ title: 'Note supprimée', variant: 'success' })
+      toast({ title: t('deleted_toast'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur — réessayez', variant: 'destructive' })
+      toast({ title: tRoot('toast.retry_error'), variant: 'destructive' })
     } finally {
       setDeleting(null)
     }
@@ -230,7 +239,7 @@ export default function NotesPage() {
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Rechercher dans les notes…"
+            placeholder={t('search_placeholder')}
             value={search}
             onChange={e => setFilter({ search: e.target.value })}
             className="pl-9"
@@ -245,7 +254,7 @@ export default function NotesPage() {
               onChange={e => setFilter({ shopFilter: e.target.value })}
               className="h-10 rounded-lg border border-input bg-background pl-9 pr-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             >
-              <option value="all">Toutes les boutiques</option>
+              <option value="all">{tRoot('dashboard.all_shops')}</option>
               {userShops.map(s => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
@@ -255,7 +264,7 @@ export default function NotesPage() {
 
         <Button variant="stockshop" onClick={openCreate} className="gap-2 shrink-0">
           <Plus className="h-4 w-4" />
-          Nouvelle note
+          {t('new_note')}
         </Button>
       </div>
 
@@ -274,9 +283,9 @@ export default function NotesPage() {
           <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
             <Pencil className="h-7 w-7 text-muted-foreground" />
           </div>
-          <p className="font-medium text-foreground">Aucune note</p>
+          <p className="font-medium text-foreground">{t('empty_title')}</p>
           <p className="text-sm text-muted-foreground mt-1">
-            {search ? 'Aucun résultat pour cette recherche' : 'Créez votre première note avec le bouton ci-dessus'}
+            {search ? t('empty_no_results') : t('empty_create_hint')}
           </p>
         </div>
       )}
@@ -285,9 +294,9 @@ export default function NotesPage() {
       {pinned_notes.length > 0 && (
         <div className="space-y-2">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
-            Épinglées
+            {t('pinned_section')}
           </p>
-          <NoteGrid notes={pinned_notes} onEdit={openEdit} onPin={togglePin} onDelete={deleteNote} deleting={deleting} shopName={shopName} multiShop={userShops.length > 1} />
+          <NoteGrid notes={pinned_notes} onEdit={openEdit} onPin={togglePin} onDelete={deleteNote} deleting={deleting} shopName={shopName} multiShop={userShops.length > 1} dateFnsLocale={dateFnsLocale} />
         </div>
       )}
 
@@ -296,21 +305,21 @@ export default function NotesPage() {
         <div className="space-y-2">
           {pinned_notes.length > 0 && (
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
-              Autres
+              {t('other_section')}
             </p>
           )}
-          <NoteGrid notes={regular_notes} onEdit={openEdit} onPin={togglePin} onDelete={deleteNote} deleting={deleting} shopName={shopName} multiShop={userShops.length > 1} />
+          <NoteGrid notes={regular_notes} onEdit={openEdit} onPin={togglePin} onDelete={deleteNote} deleting={deleting} shopName={shopName} multiShop={userShops.length > 1} dateFnsLocale={dateFnsLocale} />
         </div>
       )}
 
       {/* Modal */}
-      <PremiumDialog open={modalOpen} onOpenChange={v => { if (!v) closeModal() }} title={editing ? 'Modifier la note' : 'Nouvelle note'}>
+      <PremiumDialog open={modalOpen} onOpenChange={v => { if (!v) closeModal() }} title={editing ? t('edit_title') : t('new_note')}>
         <PremiumDialogBody>
           <div className="space-y-3">
             {/* Title — uncontrolled to prevent re-render from killing Android IME suggestions */}
             <Input
               ref={titleRef}
-              placeholder="Titre (optionnel)"
+              placeholder={t('title_placeholder')}
               defaultValue=""
               inputMode="text"
               autoCorrect="on"
@@ -322,7 +331,7 @@ export default function NotesPage() {
             {/* Content — uncontrolled to preserve Android IME suggestions */}
             <textarea
               ref={contentRef}
-              placeholder="Écrivez votre note ici…"
+              placeholder={t('content_placeholder')}
               defaultValue={editing?.content ?? ''}
               onInput={e => { contentValueRef.current = (e.target as HTMLTextAreaElement).value }}
               rows={6}
@@ -335,7 +344,7 @@ export default function NotesPage() {
 
             {/* Color picker */}
             <div>
-              <p className="text-xs text-muted-foreground mb-2">Couleur</p>
+              <p className="text-xs text-muted-foreground mb-2">{t('color_label')}</p>
               <div className="flex gap-2">
                 {COLORS.map(c => (
                   <button
@@ -361,7 +370,7 @@ export default function NotesPage() {
             <div className="flex items-center gap-3">
               {userShops.length > 1 && (
                 <div className="flex-1">
-                  <p className="text-xs text-muted-foreground mb-1">Boutique</p>
+                  <p className="text-xs text-muted-foreground mb-1">{t('shop_label')}</p>
                   <select
                     value={noteShop}
                     onChange={e => setNoteShop(e.target.value)}
@@ -385,7 +394,7 @@ export default function NotesPage() {
                   )}
                 >
                   <Pin className="h-3.5 w-3.5" />
-                  {pinned ? 'Épinglée' : 'Épingler'}
+                  {pinned ? t('pinned_label') : t('pin_label')}
                 </button>
               </div>
             </div>
@@ -394,7 +403,7 @@ export default function NotesPage() {
         <PremiumDialogFooter
           onCancel={closeModal}
           onConfirm={save}
-          confirmLabel={editing ? 'Modifier' : 'Créer'}
+          confirmLabel={editing ? tRoot('actions.edit') : t('create_button')}
           confirmDisabled={saving}
           confirmLoading={saving}
         />
@@ -403,7 +412,7 @@ export default function NotesPage() {
   )
 }
 
-function NoteGrid({ notes, onEdit, onPin, onDelete, deleting, shopName, multiShop }: {
+function NoteGrid({ notes, onEdit, onPin, onDelete, deleting, shopName, multiShop, dateFnsLocale }: {
   notes: Note[]
   onEdit: (n: Note) => void
   onPin: (n: Note, e: React.MouseEvent) => void
@@ -411,6 +420,7 @@ function NoteGrid({ notes, onEdit, onPin, onDelete, deleting, shopName, multiSho
   deleting: string | null
   shopName: (id: string) => string
   multiShop: boolean
+  dateFnsLocale: Locale
 }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -476,7 +486,7 @@ function NoteGrid({ notes, onEdit, onPin, onDelete, deleting, shopName, multiSho
                 </span>
               )}
               <span className="text-[10px] text-muted-foreground ml-auto">
-                {format(new Date(note.updated_at), 'd MMM', { locale: fr })}
+                {format(new Date(note.updated_at), 'd MMM', { locale: dateFnsLocale })}
               </span>
             </div>
           </div>

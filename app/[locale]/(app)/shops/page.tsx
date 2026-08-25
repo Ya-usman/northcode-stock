@@ -97,7 +97,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
       const res = await withTimeout(fetch(`/api/shops/${shopId}`, { method: 'DELETE' }))
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || t('errors.generic'))
-      toast({ title: 'Boutique supprimée', variant: 'success' })
+      toast({ title: t('shops.deleted'), variant: 'success' })
       setConfirmDeleteId(null)
       if (activeShop?.id === shopId) {
         const next = userShops.find(s => s.id !== shopId)
@@ -159,7 +159,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
             />
           </div>
           <div className="space-y-1">
-            <Label>Pays</Label>
+            <Label>{t('shops.country_label')}</Label>
             <select
               value={newCountry}
               onChange={e => setNewCountry(e.target.value as CountryCode)}
@@ -258,9 +258,9 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
                 <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-900 flex items-start gap-3">
                   <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-red-600 dark:text-red-400">Supprimer « {shop.name} » ?</p>
+                    <p className="text-sm font-semibold text-red-600 dark:text-red-400">{t('shops.delete_confirm_title', { name: shop.name })}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Tous les produits, ventes, clients et données de cette boutique seront définitivement effacés. Cette action est irréversible.
+                      {t('shops.delete_warning')}
                     </p>
                     <div className="flex gap-2 mt-2">
                       <Button
@@ -270,7 +270,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
                         onClick={() => handleDelete(shop.id)}
                         className="text-xs h-7 px-3"
                       >
-                        Oui, supprimer
+                        {t('shops.confirm_delete_yes')}
                       </Button>
                       <Button
                         size="sm"

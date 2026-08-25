@@ -572,7 +572,7 @@ export default function DashboardPage() {
           setTodaySalesCount(prev => (prev ?? 0) + 1)
           // Revenue is added by onPaymentUpdate when the payment record is inserted.
         }
-        toast({ title: `Nouvelle vente: ${formatNaira(sale.total)}`, description: `#${sale.sale_number}`, variant: 'success' })
+        toast({ title: t('dashboard.new_sale_toast_title', { amount: formatNaira(sale.total) }), description: t('dashboard.new_sale_toast_number', { number: sale.sale_number }), variant: 'success' })
       }
     },
     onSaleCancelled: (sale) => {
@@ -622,9 +622,9 @@ export default function DashboardPage() {
     onProductUpdate: (product) => {
       const threshold = shop?.low_stock_threshold || 10
       if (product.quantity === 0) {
-        toast({ title: `⚠️ ${product.name} en rupture de stock!`, variant: 'destructive' })
+        toast({ title: t('dashboard.out_of_stock_toast', { product: product.name }), variant: 'destructive' })
       } else if (product.quantity <= threshold) {
-        toast({ title: `${product.name}: plus que ${product.quantity} en stock` })
+        toast({ title: t('dashboard.low_stock_toast', { product: product.name, qty: product.quantity }) })
       }
     },
   })

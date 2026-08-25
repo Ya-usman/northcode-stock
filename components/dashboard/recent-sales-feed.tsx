@@ -266,7 +266,7 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                             </Badge>
                             {repayments.length > 0 && (
                               <span className="flex items-center gap-0.5 text-[9px] text-muted-foreground">
-                                {repayments.length} paiement{repayments.length > 1 ? 's' : ''}
+                                {t('payments.payments_count', { count: repayments.length })}
                                 <ChevronDown className={cn('h-3 w-3 transition-transform duration-200', isExpanded && 'rotate-180')} />
                               </span>
                             )}
@@ -319,7 +319,7 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                               ))}
                               {role !== 'viewer' && repayments.length > 1 && (
                                 <div className="flex justify-between text-[10px] pt-1 border-t">
-                                  <span className="text-muted-foreground">Total remboursé</span>
+                                  <span className="text-muted-foreground">{t('payments.total_repaid')}</span>
                                   <span className="font-semibold text-green-600">+{formatNaira(totalRepaid)}</span>
                                 </div>
                               )}
@@ -359,7 +359,7 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                           </Badge>
                           {allR.length > 0 && (
                             <span className="flex items-center gap-0.5 text-[9px] text-muted-foreground">
-                              {allR.length} paiement{allR.length > 1 ? 's' : ''}
+                              {t('payments.payments_count', { count: allR.length })}
                               <ChevronDown className={cn('h-3 w-3 transition-transform duration-200', isExpanded && 'rotate-180')} />
                             </span>
                           )}
@@ -406,7 +406,7 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                             ))}
                             {role !== 'viewer' && allR.length > 1 && (
                               <div className="flex justify-between text-[10px] pt-1 border-t">
-                                <span className="text-muted-foreground">Total remboursé</span>
+                                <span className="text-muted-foreground">{t('payments.total_repaid')}</span>
                                 <span className="font-semibold text-green-600">+{formatNaira(totalPaidToday)}</span>
                               </div>
                             )}

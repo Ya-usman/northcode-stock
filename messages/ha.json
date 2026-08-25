@@ -30,7 +30,12 @@
     "notes": "Bayanan Kula",
     "help": "Taimako",
     "caisse": "Duba Kuɗin Kasuwanci",
-    "no_access": "Ba a ba da izini ba"
+    "no_access": "Ba a ba da izini ba",
+    "new_badge": "Sabo",
+    "admin_panel": "Admin Panel",
+    "unavailable_offline": "Ba ya samuwa ba tare da intanet ba",
+    "support": "Tallafi",
+    "admin": "Admin"
   },
   "auth": {
     "login": "Shiga",
@@ -48,7 +53,26 @@
     "register_link": "Ƙirƙiri asusun",
     "or_separator": "ko",
     "continue_google": "Ci gaba da Google",
-    "continue_apple": "Ci gaba da Apple"
+    "continue_apple": "Ci gaba da Apple",
+    "error_no_profile": "Ba a saita asusun ba tukuna. Tuntuɓi mai gudanarwa.",
+    "error_inactive": "An dakatar da asusunka. Tuntuɓi mai gudanarwa.",
+    "error_use_email": "Asusu ya riga ya wanzu da wannan imel. Shiga da imel da kalmar sirrinka.",
+    "error_invalid_link": "Hanyar haɗi ta ƙare ko an riga an yi amfani da ita. Buɗe hanyar tabbatarwa a wayar da ka yi rijista da ita, ko sake neman imel na tabbatarwa.",
+    "error_generic": "Kuskure: {error}",
+    "email_confirmed_success": "An tabbatar da adireshin imel! Yanzu za ka iya shiga.",
+    "network_error": "Matsalar hanyar sadarwa. Da fatan a sake gwadawa.",
+    "unexpected_error": "Kuskure ba zato",
+    "hero_title_1": "Sarrafa cikin hikima.",
+    "hero_title_2": "Sayar da sauri.",
+    "hero_title_3": "Bunƙasa kasuwancinka.",
+    "hero_subtitle": "Komai da kantin ku ke bukata — kaya, sayarwa, abokan ciniki da rahotanni.",
+    "hero_feature_offline": "Yana aiki babu intanet",
+    "hero_feature_multi_shop": "Kantunan da kuɗaɗe masu yawa",
+    "hero_feature_realtime_reports": "Rahotanni a lokaci gaskiya",
+    "hero_feature_languages": "Hausa, Faransanci da Turanci",
+    "login_subtitle": "Shigar da imelinka da kalmar sirri",
+    "email_placeholder": "ku@misali.com",
+    "forgot_subtitle": "Shigar da imelinka don sake saita kalmar sirri"
   },
   "dashboard": {
     "title": "Taswirar Aiki",
@@ -89,7 +113,11 @@
     "global_month_sales": "Jimlar Kuɗin Shagon Watan",
     "monthly_trend": "Kudaden vs Kashe Kuɗi (wata 6)",
     "revenue_label": "Kudade",
-    "expenses_label": "Kashe Kuɗi"
+    "expenses_label": "Kashe Kuɗi",
+    "new_sale_toast_title": "Sabon siyarwa: {amount}",
+    "new_sale_toast_number": "#{number}",
+    "out_of_stock_toast": "⚠️ {product} ya ƙare a kaya!",
+    "low_stock_toast": "{product}: {qty} ne kawai suka rage a kaya"
   },
   "dashboard_banner": {
     "beta_active": "Gwaji kyauta — cikakken damar amfani ya rage kwanaki {days}.",
@@ -101,7 +129,8 @@
     "expired": "Gwajin ku ya ƙare. Biyan kuɗi don ci gaba.",
     "upgrade": "Canza zuwa shiri mai biya",
     "renew": "Sabunta",
-    "subscribe": "Biyan kuɗi"
+    "subscribe": "Biyan kuɗi",
+    "dismiss": "Rufe"
   },
   "metrics": {
     "revenue": "Kudin Shiga",
@@ -286,7 +315,41 @@
     "delete_confirm_label": "Don tabbatarwa, rubuta sunan kaya daidai: {name}",
     "trash_section": "Sharan kaya — kaya {count} da aka goge",
     "trash_hint": "An goge waɗannan kayan amma ana iya dawo da su.",
-    "trash_deleted_at": "An goge a ranar {date}"
+    "trash_deleted_at": "An goge a ranar {date}",
+    "all_deleted_toast": "An share duk kayayyaki",
+    "bulk_deleted_toast": "An share kaya {count}",
+    "deselect_all": "Cire zaɓi duka",
+    "select_all": "Zaɓi duka",
+    "delete_all_count": "Share duk kayayyaki ({count})",
+    "reset_filters": "Sake saitawa",
+    "archived_on": "An adana a ranar {date}",
+    "journal_deleted": "An share kaya",
+    "journal_bulk_delete": "Sharewa da yawa",
+    "journal_bulk_delete_detail": "Kaya {count}{names}",
+    "journal_created": "An ƙirƙiri kaya",
+    "journal_created_detail": "{price} · {qty} naúra",
+    "journal_updated": "An gyara kaya",
+    "journal_field_name": "Suna",
+    "journal_field_selling_price": "Farashin sayarwa",
+    "journal_field_buying_price": "Farashin saye",
+    "journal_field_threshold": "Iyakar faɗakarwa",
+    "journal_field_sku": "SKU",
+    "journal_field_category": "Rukuni",
+    "journal_field_supplier": "Mai kaya",
+    "journal_archived": "An adana kaya",
+    "journal_restored": "An dawo da kaya",
+    "journal_all_deleted_detail": "Kaya {count}",
+    "delete_warning_title_short": "Sharewa ta dindindin",
+    "delete_all_title": "Share duk kayayyaki",
+    "delete_selected_title": "Share kaya {count}",
+    "bulk_delete_all_warning": "Za a share kaya {count} har abada.",
+    "bulk_delete_selected_warning": "Za a share kayan da aka zaɓa {count} har abada.",
+    "sales_data_kept": "Bayanan siyarwa masu alaƙa an ajiye su.",
+    "irreversible_action": "Ba za a iya soke wannan aiki ba.",
+    "type_to_confirm_prefix": "Rubuta",
+    "type_to_confirm_suffix": "don tabbatarwa",
+    "delete_confirm_word": "SHARE",
+    "selected_count": "An zaɓi {count}"
   },
   "sales": {
     "title": "Sayarwa",
@@ -378,7 +441,49 @@
     "pdf_total_revenue": "Jimlar kudade",
     "pdf_generated_by": "An kirkiro ta StockShop",
     "pdf_page": "Shafi",
-    "pdf_of": "daga"
+    "pdf_of": "daga",
+    "filter_method_label": "Hanya",
+    "filter_status_label": "Matsayi",
+    "filter_sale_label": "Siyarwa",
+    "split_covers_total_disable": "Wannan adadin ya riga ya rufe jimlar — kashe biyan gauraya",
+    "choose_second_method": "Zaɓi hanyar biya ta 2",
+    "sale_saved_reconnect": "An adana siyarwa · sake haɗawa don daidaitawa",
+    "sale_saved_offline": "An adana siyarwa ba tare da intanet ba · za a daidaita ta atomatik",
+    "create_error": "Kuskuren ƙirƙirar siyarwa",
+    "db_not_responding": "Ma'ajin bayanai ba ya amsawa — duba haɗin intanet sannan sake gwadawa.",
+    "unstable_connection_saved": "Haɗin intanet mara ƙarfi · an adana siyarwa a na'ura kuma za a daidaita ta atomatik idan haɗin ya tabbata",
+    "receipt_share_title": "Rasit #{number} — {shop}",
+    "no_products_found": "Ba a sami kaya ba",
+    "search_or_scan_hint": "Nemo ko sikan kaya don farawa",
+    "customer_name_placeholder": "Cikakken sunan abokin ciniki…",
+    "customer_phone_placeholder": "Lambar waya (na zaɓi)",
+    "existing_customer": "Abokin ciniki da ake da shi",
+    "no_phone": "babu waya",
+    "debt_due_inline": "Bashi: {amount}",
+    "include_debt_repayment": "Haɗa da biyan bashi",
+    "current_debt_label": "Bashin da ake da shi yanzu",
+    "amount_given_for_debt": "Adadin da abokin ciniki ya bayar don bashin",
+    "remaining_after": "Ragowa bayan haka",
+    "debt_settled_check": "✓ An biya bashin",
+    "total_to_collect": "Jimlar da za a karɓa",
+    "ref_placeholder_mobile": "Lambar ciniki / waya",
+    "ref_placeholder_card": "Lambar POS / rasit",
+    "ref_placeholder_transfer": "Lambar tunatarwa ta canja wuri",
+    "amount_to_receive": "Adadin da za a karɓa",
+    "adds_to_debt_of": "📝 Yana ƙara {amount} ga bashin",
+    "this_customer": "wannan abokin ciniki",
+    "enter_customer_for_credit": "Shigar da sunan abokin ciniki a sama don bashi",
+    "cancel_split_payment": "Soke biyan gauraya",
+    "split_payment_label": "Biyan gauraya (hanyoyi 2)",
+    "amount_paid_in": "Adadin da aka biya ta {method}",
+    "second_payment_method": "Hanyar biya ta 2",
+    "amount_covers_total_no_second": "Wannan adadin ya riga ya rufe jimlar — babu buƙatar biya ta 2",
+    "due_date_label": "Ranar biyan da ake tsammani",
+    "due_date_hint": "Ranar da ake tsammanin ragowar bashin — ana iya canzawa, ba wajibi ba ne.",
+    "notes_optional_label": "Bayanai (na zaɓi)",
+    "notes_placeholder": "Bayanai kan wannan siyarwar…",
+    "new_selling_price": "Sabon farashin sayarwa",
+    "pending_invoices_title": "Lissafin da ake jira"
   },
   "customers": {
     "title": "Abokan Ciniki",
@@ -497,7 +602,8 @@
     "po_payment_status_partial": "Wani ɓangare",
     "po_payment_status_credit": "A bashi",
     "po_payment_amount_placeholder": "Adadin da aka biya yanzu…",
-    "po_payment_credit_hint": "Ba a biya komai yanzu ba — jimlar adadin za ta bayyana a matsayin bashi a shafin Bashi."
+    "po_payment_credit_hint": "Ba a biya komai yanzu ba — jimlar adadin za ta bayyana a matsayin bashi a shafin Bashi.",
+    "po_must_have_product": "Bukatar oda dole ya ƙunshi aƙalla kaya ɗaya"
   },
   "transfers": {
     "load_timeout": "Loda canje-canjen kaya a hankali — sake gwadawa.",
@@ -599,7 +705,21 @@
     "remaining_label": "Sauran",
     "no_results": "Babu sakamako",
     "hide": "Ɓoye",
-    "view_orders": "Duba oda"
+    "view_orders": "Duba oda",
+    "unstable_connection_saved_locally": "Haɗin intanet mara ƙarfi · an ajiye biyan kuɗi a na'ura, za a daidaita ta atomatik idan an sake haɗawa",
+    "summary_total": "Jimla: {amount}",
+    "summary_paid": "An biya: {amount}",
+    "summary_remaining": "Ragowa: {amount}",
+    "view_invoices": "Duba lissafi",
+    "invoices_label": "Lissafi",
+    "invoices_count_plain": "Lissafi {count}",
+    "status_paid_check": "An biya ✓",
+    "receipt_share_title": "Rasit — {customer}",
+    "whatsapp_receipt_message": "Sannu {customer}, an rubuta biyan kuɗinka. Na gode!",
+    "debt_no_invoice_found": "An rubuta bashin {amount} amma ba a sami lissafin da ba a biya ba.",
+    "by_connector": "daga",
+    "payments_count": "Biyan kuɗi {count}",
+    "total_repaid": "Jimlar da aka mayar"
   },
   "receipt": {
     "receipt": "Rasiti",
@@ -679,7 +799,16 @@
     "col_buying_price": "Farashin siye",
     "col_selling_price": "Farashin sayarwa",
     "col_sold_qty": "Yakai",
-    "encaisse": "Jimlar Sayarwa"
+    "encaisse": "Jimlar Sayarwa",
+    "gross_margin_sales_pdf": "Riba a kan sayarwa",
+    "from_date": "Daga",
+    "to_date": "Zuwa",
+    "gross_margin": "Ribar gaba ɗaya",
+    "gross_margin_hint": "Sayarwa − farashin sayowa",
+    "net_profit_hint": "Riba − kashe kuɗi",
+    "pdf_ready": "PDF a shirye",
+    "preparing": "Ana shiryawa…",
+    "save_to_files": "Ajiye a cikin fayiloli"
   },
   "team": {
     "title": "Ma'aikata",
@@ -729,7 +858,12 @@
     "role_label": "Matsayi",
     "shop_label": "Kantin *",
     "invite_info": "Za a aika imel na gayyata. Ma'aikacin zai saita kalmar sirrinsa.",
-    "send_invite": "Aika Gayyata"
+    "send_invite": "Aika Gayyata",
+    "email_not_found": "Ba a sami imel na wannan ma'aikaci ba",
+    "invite_resent": "An sake aika gayyata zuwa {email}",
+    "invite_pending": "Gayyata na jira",
+    "resend": "Sake aikawa",
+    "email_confirmed_never_connected": "An tabbatar da imel · bai taɓa shiga ba"
   },
   "settings": {
     "title": "Saiti",
@@ -826,7 +960,25 @@
     "perm_widget_rep_credits": "Bashin da Ya Rage",
     "perm_widget_rep_payment_chart": "Zanen Hanyar Biya",
     "perm_widget_rep_top_products": "Kayan da Aka Fi Sayarwa",
-    "perm_widget_rep_cashier_perf": "Ayyukan Ma'aikatan Kuɗi"
+    "perm_widget_rep_cashier_perf": "Ayyukan Ma'aikatan Kuɗi",
+    "no_subscription_found": "Ba a sami biyan kuɗi ba. Kunna sanarwa da farko.",
+    "test_notification_sent": "An aika sanarwa! Duba wayarka.",
+    "shop_name_example": "Kantin Alpha",
+    "city_example": "Kano",
+    "state_example": "Jihar Kano",
+    "operating_country": "Ƙasar aiki",
+    "display_and_currency": "Nunawa da kuɗin app",
+    "currency_label": "Kuɗi",
+    "currency_auto_hint": "Ta atomatik bisa ƙasa",
+    "email_section_label": "Imel",
+    "push_new_sale_label": "Sanarwar sabon siyarwa",
+    "push_new_sale_hint": "Karɓi sanarwa idan ma'aikacin kuɗi ya yi siyarwa",
+    "sound_label": "Sauti",
+    "sound_hint": "Kunna sauti a kowace siyarwa",
+    "vibration_label": "Rawa",
+    "vibration_hint": "Yi rawa a kowace siyarwa",
+    "push_new_expense_label": "Sanarwar sabon kashewa",
+    "push_new_expense_hint": "Karɓi sanarwa idan Manaja ko Ma'aikacin kuɗi ya ƙara kashewa"
   },
   "movements": {
     "title": "Motsi na Kaya",
@@ -854,7 +1006,9 @@
     "products_tracked": "Kayayyaki",
     "products_count": "kayayyaki",
     "restock_history": "Tarihin sabuntawa",
-    "product": "Kaya"
+    "product": "Kaya",
+    "restocks_count_label": "Sabuntawa",
+    "total_added_label": "Jimlar da aka ƙara"
   },
   "inventoryCount": {
     "title": "Ƙidayar Kaya",
@@ -895,7 +1049,12 @@
   "offline": {
     "title": "Ba ka da intanet",
     "body": "Wasu ayyuka na iya iyakance. Ana nuna bayanan kaya na ƙarshen aiki anan.",
-    "cached": "Ana nuna bayanan da aka ajiye"
+    "cached": "Ana nuna bayanan da aka ajiye",
+    "offline_page_title": "Yanayin rashin intanet",
+    "no_internet": "Babu haɗin intanet.",
+    "sales_page_accessible": "Shafin sayarwa yana samuwa gaba ɗaya.",
+    "go_to_sale": "Je zuwa sayarwa",
+    "retry": "Sake gwadawa"
   },
   "saas": {
     "trial_expires_today": "Gwajin ku kyauta ya ƙare yau!",
@@ -929,13 +1088,16 @@
     "downgrade_shops_reactivated": "An sake kunna kantuna {count}",
     "downgrade_members_reactivated": "An sake kunna ma'aikata {count}",
     "downgrade_info": "Kantuna da ma'aikata da aka dakatar ana adana su. Ɗaga zuwa tsari mafi girma don dawo da su.",
-    "upgrade_to_recover": "Ɗaga don dawo"
+    "upgrade_to_recover": "Ɗaga don dawo",
+    "dismiss": "Rufe"
   },
   "error_page": {
     "title": "Wani abu ya faru",
     "body": "Aikace-aikacen ya sami kuskure. Bayananku na aminci.",
     "try_again": "Sake gwadawa",
-    "go_home": "Koma gida"
+    "go_home": "Koma gida",
+    "offline_title": "Shafin ba ya samuwa ba tare da intanet",
+    "offline_body": "Ba a iya loda wannan shafin ba tare da haɗin intanet ba. Tafi zuwa shafin da aka riga aka ajiye."
   },
   "categories": {
     "title": "Nau'ikan Kaya",
@@ -975,11 +1137,45 @@
     "city_label": "Gari",
     "members": "memba {count}",
     "no_shops": "Babu kantuna",
-    "no_shops_detail": "Ƙirƙiri kantin naka na farko don farawa."
+    "no_shops_detail": "Ƙirƙiri kantin naka na farko don farawa.",
+    "deleted": "An share kantin",
+    "country_label": "Ƙasa",
+    "delete_confirm_title": "Share \"{name}\"?",
+    "delete_warning": "Duk kayayyaki, siyarwa, abokan ciniki, da bayanan wannan kanti za a share su har abada. Wannan aiki ba za a iya soke shi ba.",
+    "confirm_delete_yes": "Ee, share"
+  },
+  "notes": {
+    "load_timeout": "Loda bayanan kula yana ɗaukar lokaci mai yawa — sake gwadawa.",
+    "updated_toast": "An gyara bayanin kula",
+    "created_toast": "An ƙirƙiri bayanin kula",
+    "deleted_toast": "An share bayanin kula",
+    "search_placeholder": "Nemo cikin bayanan kula…",
+    "new_note": "Sabon bayanin kula",
+    "empty_title": "Babu bayanin kula",
+    "empty_no_results": "Babu sakamako don wannan bincike",
+    "empty_create_hint": "Ƙirƙiri bayanin kulanka na farko da maɓallin da ke sama",
+    "pinned_section": "An kafa",
+    "other_section": "Sauran",
+    "edit_title": "Gyara bayanin kula",
+    "title_placeholder": "Take (na zaɓi)",
+    "content_placeholder": "Rubuta bayanin kulanka a nan…",
+    "color_label": "Launi",
+    "shop_label": "Kanti",
+    "pinned_label": "An kafa",
+    "pin_label": "Kafa",
+    "create_button": "Ƙirƙira",
+    "color_default": "Fari",
+    "color_yellow": "Rawaya",
+    "color_blue": "Shuɗi",
+    "color_green": "Kore",
+    "color_pink": "Ruwan hoda",
+    "color_purple": "Shunayya"
   },
   "toast": {
     "no_active_shop": "Babu kantin da ke aiki",
     "error": "Kuskure",
+    "retry_error": "Kuskure, sake gwadawa",
+    "network_error": "Kuskuren hanyar sadarwa",
     "product_added": "An ƙara kaya!",
     "product_updated": "An sabunta kaya!",
     "product_deleted": "An goge kaya har abada",
@@ -1078,7 +1274,14 @@
     "email_sent_note": "Duba akwatin spam idan ba ka karba ba cikin minti kadan.",
     "resend_email": "Sake aika imel",
     "resent_success": "An sake aika imel!",
-    "go_to_login": "Je zuwa shiga"
+    "go_to_login": "Je zuwa shiga",
+    "full_name_example": "Malam Usman",
+    "shop_name_example": "Kantin Alhaji Musa",
+    "referral_code_label": "Lambar tallafi",
+    "referral_code_placeholder": "misali: ALHAJI2025",
+    "referral_checking": "Ana bincike...",
+    "referral_agent_found": "✓ Wakili: {agent}",
+    "referral_code_not_found": "Ba a gane lambar ba (za ka iya ci gaba ba tare da ita ba)"
   },
   "landing": {
     "nav": {
@@ -1207,7 +1410,11 @@
       "rights": "© {year} StockShop. Duk hakkokin an kiyaye.",
       "legal": "Bayanin Shari'a",
       "privacy": "Manufar Sirri"
-    }
+    },
+    "payment_paystack": "Paystack · Kati · Canja wuri · USSD",
+    "payment_notchpay": "NotchPay · MTN MoMo · Orange Money · Visa / Mastercard",
+    "payment_flutterwave": "Flutterwave · Mobile Money · Visa / Mastercard",
+    "payment_stripe": "Stripe · Visa · Mastercard · PayPal"
   },
   "billing_page": {
     "title": "Biyan Kuɗi",
@@ -1272,7 +1479,19 @@
     "business_f3": "Ma'aikata 30 + owner",
     "business_f4": "Cikakken tarihi",
     "business_f5": "Tallafi na musamman",
-    "business_f6": "Tabbacin SLA"
+    "business_f6": "Tabbacin SLA",
+    "stripe_coming_soon_title": "Stripe zai zo nan ba da jimawa ba",
+    "stripe_coming_soon_desc": "Tuntube mu don kunna biyan kuɗi na {plan} da hannu.",
+    "online_payment_soon_title": "Biyan kuɗi ta yanar gizo zai zo nan ba da jimawa ba",
+    "online_payment_soon_desc": "Biyan kuɗi ta katin banki ta Stripe za a kunna nan ba da jimawa ba don {country}.",
+    "meanwhile_contact": "A halin yanzu, tuntube mu:",
+    "email_us_plan": "Aiko mana da imel tare da shirin da ka zaɓa ({plan} · {price}/wata) za mu kunna biyan kuɗinka da hannu.",
+    "secure_payment_stripe_soon": "Biyan kuɗi mai tsaro · Stripe (nan gaba)",
+    "payment_mode_label": "Hanyar biya",
+    "secure_payment_gateway": "Biyan kuɗi mai tsaro · {gateway}",
+    "auto_renew_label": "Sabuntawa ta atomatik",
+    "auto_renew_card_hint": "Za a cire kuɗi daga katinka ta atomatik kafin ranar biya",
+    "auto_renew_email_hint": "Za ka karɓi imel na tunatarwa kwana 3 kafin ranar biya"
   },
   "caisse": {
     "title": "Duba Kuɗin Kasuwanci",
@@ -1294,7 +1513,9 @@
     "section_repayments": "Dawowar Biya",
     "col_sales_total": "Jimlar Sayarwa",
     "col_repayments_count": "Yawan Dawowar",
-    "col_repayments_total": "Jimlar Dawowar"
+    "col_repayments_total": "Jimlar Dawowar",
+    "sale_abbr": "siyar",
+    "repayment_abbr": "dawo. bashi"
   },
   "expenses": {
     "title": "Kashe Kuɗi",
@@ -1380,7 +1601,18 @@
     "pdf_generated_by": "An kirkiro ta StockShop",
     "pdf_page": "Shafi",
     "pdf_of": "daga",
-    "csv_filename_prefix": "kashe-kashe"
+    "csv_filename_prefix": "kashe-kashe",
+    "load_timeout": "Loda kashe-kashe yana ɗaukar lokaci mai yawa — sake gwadawa.",
+    "added_offline": "{added} · za a daidaita idan an sake haɗawa da intanet",
+    "no_connection": "Babu haɗin intanet",
+    "no_connection_download": "Haɗa da intanet don saukewa.",
+    "export_error": "Kuskuren fitarwa",
+    "download_error": "Kuskuren saukewa",
+    "prev_month": "Watan da ya gabata",
+    "next_month": "Watan gaba",
+    "pending_sync_aria": "Ana jiran daidaitawa",
+    "edit_requires_connection": "Gyara yana buƙatar haɗin intanet.",
+    "recurring_requires_connection": "Kashe-kashe masu maimaitawa suna buƙatar haɗin intanet."
   },
   "import": {
     "title": "Shigo da Kayayyaki",
@@ -1420,5 +1652,137 @@
     "countdown": "Za a rufe cikin {time}",
     "extend_success": "An tsawaita rufewa da mintuna {minutes}",
     "extend_remaining": "Tsawaita {count} sun rage wa shago yau"
+  },
+  "app_layout": {
+    "new_sale_toast_title": "💰 Sabon siyarwa",
+    "incomplete_config_title": "Saitin bai cika ba",
+    "incomplete_config_body": "Ba a iya loda bayaninka ba. Duba haɗin intanet sannan sake gwadawa.",
+    "offline_title": "Ba a haɗe da intanet ba",
+    "sync_failed_title": "Daidaitawa ta kasa",
+    "blocked_signout_body": "Kana da ayyuka {count} da ba a daidaita ba tare da intanet. Haɗa da intanet kafin ka fita.",
+    "sync_failed_body": "Daidaitawa ta kasa. Ayyuka {count} na iya ɓacewa har abada idan ka fita yanzu.",
+    "signout_now_erases_data": "Fita yanzu zai share bayanan da ba a aika ba har abada.",
+    "syncing_ellipsis": "Ana daidaitawa…",
+    "retry_sync": "🔄 Sake gwada daidaitawa",
+    "signing_out_ellipsis": "Ana fita…",
+    "signout_anyway": "Fita duk da haka"
+  },
+  "reset_password": {
+    "verification_timeout": "Tabbatarwa ta ɗauki lokaci mai yawa. Koma zuwa imel ɗinka ka sake danna hanyar haɗin.",
+    "invalid_link": "Hanyar haɗi ba ta inganta ba ko ta ƙare. Nemi sabuwar hanyar sake saitawa.",
+    "password_too_short": "Kalmar sirri dole ta kai aƙalla haruffa 8",
+    "generic_error": "An sami kuskure",
+    "password_changed": "An canza kalmar sirri!",
+    "redirecting": "Ana tura zuwa shiga…",
+    "verifying_link": "Ana tabbatar da hanyar haɗi…",
+    "set_password_title": "Saita kalmar sirrinka",
+    "new_password_title": "Sabuwar kalmar sirri",
+    "set_password_subtitle": "Zaɓi kalmar sirri don kunna asusunka",
+    "new_password_subtitle": "Shigar da tabbatar da sabuwar kalmar sirrinka",
+    "new_password_label": "Sabuwar kalmar sirri",
+    "password_placeholder": "Aƙalla haruffa 8",
+    "activate_button": "Kunna asusuna",
+    "save_password_button": "Ajiye kalmar sirri"
+  },
+  "stock_transfers": {
+    "email_subject": "Takardar canja wuri {reference} — {source} → {destination}",
+    "email_greeting": "Sannu,",
+    "email_body": "Da fatan za a duba takardar canja wuri {reference} daga {source} zuwa {destination} da aka haɗa.",
+    "email_products_sent": "Kayayyakin da aka aika:",
+    "email_notes": "Bayanai: {notes}",
+    "email_regards": "Gaisuwa,"
+  },
+  "product_form": {
+    "code_scanned": "An sikan lamba: {code}",
+    "missing_shop_id": "Ba shop_id ba — ba za a iya loda ba",
+    "upload_error": "Kuskuren loda",
+    "upload_failed": "Lodawa ta kasa: {error}",
+    "sku_placeholder": "misali: 6001234567890",
+    "scan": "Sikan",
+    "scanner_hint": "Na'urar sikan Bluetooth/USB: danna filin sannan sikan kai tsaye.",
+    "product_photo": "Hoton kaya",
+    "uploading": "Ana lodawa…",
+    "photo_saved": "An ajiye hoto ✓",
+    "bucket_hint": "Duba cewa akwatin \"product-images\" yana akwai a Supabase Storage.",
+    "take_photo": "Ɗauki hoto",
+    "choose_photo": "Zaɓi hoto",
+    "save_and_add_another": "Ajiye kuma ƙara wani"
+  },
+  "banners": {
+    "cache": {
+      "just_now": "yanzu yanzu",
+      "minutes_ago": "shekaru {minutes} da suka wuce",
+      "hours_ago": "sa'o'i {hours} da suka wuce",
+      "days_ago": "kwanaki {days} da suka wuce",
+      "cached_label": "Bayanan da aka ajiye · {age}"
+    },
+    "sync": {
+      "synced_success": "An daidaita tallace-tallace {count} ✓",
+      "synced_partial": "{synced} an daidaita, {failed} sun kasa",
+      "pending": "Tallace-tallace {count} na jiran daidaitawa",
+      "sync_button": "Daidaita"
+    },
+    "offline": {
+      "synced_success": "An daidaita ayyuka {count} ✓",
+      "sync_error": "{count} sun kasa · {detail}",
+      "check_connection": "duba haɗin intanet",
+      "retry": "Sake gwadawa",
+      "offline_pending": "Yanayin rashin intanet · ayyuka {count} na jira",
+      "offline_saved_locally": "Yanayin rashin intanet · an ajiye bayanai a na'ura",
+      "pending_sync": "Ayyuka {count} na jiran daidaitawa",
+      "syncing": "Ana daidaitawa…",
+      "sync_button": "Daidaita"
+    },
+    "sw_update": {
+      "available": "Sabon sigar app yana samuwa.",
+      "refresh": "Sabunta",
+      "close": "Rufe"
+    },
+    "app_update": {
+      "title": "Sabuntawa tana samuwa",
+      "subtitle": "Sabon sigar StockShop yana samuwa",
+      "body": "Wannan sabuntawar tana da muhimman gyare-gyare. Muna ba da shawarar ka sabunta da wuri-wuri.",
+      "update_button": "Sabunta",
+      "later": "Daga baya"
+    },
+    "whats_new": {
+      "title": "Sabbin abubuwa",
+      "updates_count": "Sabuntawa {count} suna samuwa",
+      "continue": "Ci gaba"
+    }
+  },
+  "plan_usage": {
+    "shops": "Shaguna",
+    "employees": "Ma'aikata",
+    "products": "Kayayyaki",
+    "history": "Tarihi",
+    "days_unit": "kwanaki",
+    "title": "Amfani da shirin",
+    "renewal_in": "Sabuntawa a cikin",
+    "trial_expires_in": "Gwaji — zai ƙare a cikin",
+    "today": "Yau"
+  },
+  "barcode_scanner": {
+    "camera_denied": "An hana shiga kamara. Ba da izini a cikin saitunan na'ura.",
+    "camera_error": "Ba a iya shiga kamara ba.",
+    "close": "Rufe",
+    "hint": "Nuna zuwa lambar sanda"
+  },
+  "bulk_add": {
+    "title": "Ƙara kayayyaki cikin sauri",
+    "name_required": "Ana buƙatar suna",
+    "price_required": "Ana buƙatar farashi",
+    "added_count": "An ƙara kayayyaki {count}!",
+    "add_more": "Ƙara ƙarin kayayyaki",
+    "col_name": "Suna *",
+    "col_selling_price": "Farashin sayarwa *",
+    "col_buying_price": "Farashin saye",
+    "col_qty": "Yawa",
+    "col_unit": "Naúrar",
+    "row_placeholder": "Kaya {index}",
+    "add_row": "Ƙara layi",
+    "rows_to_add": "Kayayyaki {count} za a ƙara · Danna Enter don matsawa layi na gaba",
+    "save_button": "Ajiye kayayyaki {count}",
+    "saving": "Ana ajiyewa…"
   }
 }

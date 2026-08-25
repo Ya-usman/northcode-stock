@@ -56,7 +56,7 @@ export function TrialBanner({ daysLeft, locale }: TrialBannerProps) {
       <button
         onClick={() => setDismissed(true)}
         className="flex-shrink-0 opacity-80 hover:opacity-100 transition-opacity"
-        aria-label="Dismiss"
+        aria-label={t('dismiss')}
       >
         <X className="h-3.5 w-3.5" />
       </button>

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { X, Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { BrowserMultiFormatReader } from '@zxing/browser'
 import { NotFoundException } from '@zxing/library'
 
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export function BarcodeScanner({ onDetected, onClose }: Props) {
+  const t = useTranslations('barcode_scanner')
   const videoRef = useRef<HTMLVideoElement>(null)
   const controlsRef = useRef<{ stop: () => void } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -30,7 +32,7 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
         }
         if (err && !(err instanceof NotFoundException)) {
           if ((err as any)?.name === 'NotAllowedError') {
-            setError('Accès caméra refusé. Autorisez l\'accès dans les réglages.')
+            setError(t('camera_denied'))
           }
         }
       }
@@ -39,16 +41,16 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
       setReady(true)
     }).catch((err: any) => {
       if (err?.name === 'NotAllowedError') {
-        setError('Accès caméra refusé. Autorisez l\'accès dans les réglages.')
+        setError(t('camera_denied'))
       } else {
-        setError(err?.message || 'Impossible d\'accéder à la caméra.')
+        setError(err?.message || t('camera_error'))
       }
     })
 
     return () => {
       controlsRef.current?.stop()
     }
-  }, [onDetected])
+  }, [onDetected, t])
 
   return (
     <div className="mt-2 rounded-xl overflow-hidden border border-border relative bg-black">
@@ -62,7 +64,7 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
       {error ? (
         <div className="p-5 text-center space-y-2">
           <p className="text-sm text-red-400">{error}</p>
-          <button onClick={onClose} className="text-xs text-muted-foreground hover:underline">Fermer</button>
+          <button onClick={onClose} className="text-xs text-muted-foreground hover:underline">{t('close')}</button>
         </div>
       ) : (
         <>
@@ -85,7 +87,7 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
           </div>
 
           <p className="absolute bottom-2 inset-x-0 text-center text-xs text-white/70">
-            Pointez vers le code-barres
+            {t('hint')}
           </p>
         </>
       )}

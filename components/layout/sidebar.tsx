@@ -36,6 +36,7 @@ const ALL_NON_OWNER = ['owner', 'super_admin', 'manager', 'shop_manager', 'cashi
 
 export function Sidebar({ locale, role, profile, shop, onSignOut, signingOut = false, userEmail = '', hasUnreadAnnouncement = false, onOpenWhatsNew }: SidebarProps) {
   const t = useTranslations('nav')
+  const tRoot = useTranslations()
   const pathname = usePathname()
   const { userShops, switchShop, dashboardShopFilter, setDashboardShopFilter } = useAuthContext()
   const { isOnline } = useOffline()
@@ -125,7 +126,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut, signingOut = f
           </div>
           <div className="min-w-0 flex-1">
             {dashboardShopFilter === null && userShops.length > 1 ? (
-              <p className="text-xs font-semibold text-blue-200 italic truncate leading-none">Toutes les boutiques</p>
+              <p className="text-xs font-semibold text-blue-200 italic truncate leading-none">{tRoot('dashboard.all_shops')}</p>
             ) : (
               <>
                 <p className="text-xs font-semibold text-white truncate leading-none">{shop?.name}</p>
@@ -151,7 +152,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut, signingOut = f
               )}
             >
               <Layers className="h-3.5 w-3.5 flex-shrink-0" />
-              <span className="truncate italic">Toutes les boutiques</span>
+              <span className="truncate italic">{tRoot('dashboard.all_shops')}</span>
               {dashboardShopFilter === null && <Check className="ml-auto h-3.5 w-3.5 flex-shrink-0" />}
             </button>
             {userShops.map(s => (
@@ -216,7 +217,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut, signingOut = f
                     </div>
                     {item.label}
                     {showBadge && !isActive && (
-                      <span className="ml-auto text-[10px] font-semibold text-red-500">Nouveau</span>
+                      <span className="ml-auto text-[10px] font-semibold text-red-500">{t('new_badge')}</span>
                     )}
                     {isActive && !showBadge && <ChevronRight className="ml-auto h-3 w-3" />}
                   </Link>
@@ -238,7 +239,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut, signingOut = f
             className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20"
           >
             <ShieldCheck className="h-4 w-4 flex-shrink-0" />
-            Admin Panel
+            {t('admin_panel')}
           </a>
         </div>
       )}
@@ -260,7 +261,7 @@ export function Sidebar({ locale, role, profile, shop, onSignOut, signingOut = f
             size="icon"
             onClick={onSignOut}
             disabled={signingOut}
-            title="Log out"
+            title={t('logout')}
             className="h-8 w-8 flex-shrink-0"
           >
             {signingOut

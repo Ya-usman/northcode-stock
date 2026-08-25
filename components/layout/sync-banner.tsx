@@ -3,6 +3,7 @@
 import { Loader2, UploadCloud, CheckCircle2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import type { SyncResult } from '@/lib/offline/sync'
 
 interface Props {
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function SyncBanner({ pendingCount, syncing, onSync }: Props) {
+  const t = useTranslations('banners.sync')
   const [lastResult, setLastResult] = useState<SyncResult | null>(null)
   const [showResult, setShowResult] = useState(false)
 
@@ -43,8 +45,8 @@ export function SyncBanner({ pendingCount, syncing, onSync }: Props) {
         }
         <span>
           {allOk
-            ? `${lastResult.synced} vente${lastResult.synced > 1 ? 's' : ''} synchronisée${lastResult.synced > 1 ? 's' : ''} ✓`
-            : `${lastResult.synced} synchronisée${lastResult.synced > 1 ? 's' : ''}, ${lastResult.failed} échouée${lastResult.failed > 1 ? 's' : ''}`
+            ? t('synced_success', { count: lastResult.synced })
+            : t('synced_partial', { synced: lastResult.synced, failed: lastResult.failed })
           }
         </span>
       </div>
@@ -55,7 +57,7 @@ export function SyncBanner({ pendingCount, syncing, onSync }: Props) {
     <div className="flex items-center gap-2 px-3 py-1.5 mb-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 text-xs text-blue-700 dark:text-blue-400">
       <UploadCloud className="h-3.5 w-3.5 shrink-0" />
       <span className="flex-1">
-        {pendingCount} vente{pendingCount > 1 ? 's' : ''} en attente de synchronisation
+        {t('pending', { count: pendingCount })}
       </span>
       <Button
         size="sm"
@@ -66,7 +68,7 @@ export function SyncBanner({ pendingCount, syncing, onSync }: Props) {
       >
         {syncing
           ? <Loader2 className="h-3 w-3 animate-spin" />
-          : 'Synchroniser'
+          : t('sync_button')
         }
       </Button>
     </div>

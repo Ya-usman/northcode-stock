@@ -92,6 +92,7 @@ function parseCSV(text: string): Record<string, string>[] {
 
 export function ImportProductsModal({ open, onClose, shopId, onImported }: Props) {
   const t = useTranslations('import')
+  const tRoot = useTranslations()
   const fileRef = useRef<HTMLInputElement>(null)
   const [rows, setRows] = useState<Record<string, string>[]>([])
   const [fileName, setFileName] = useState('')
@@ -151,7 +152,7 @@ export function ImportProductsModal({ open, onClose, shopId, onImported }: Props
   const reset = () => { setRows([]); setFileName(''); setResult(null) }
 
   return (
-    <PremiumDialog open={open} onOpenChange={v => { if (!v) { reset(); onClose() } }} category="Stock" title={t('title')} icon={<Upload className="h-4 w-4" />}>
+    <PremiumDialog open={open} onOpenChange={v => { if (!v) { reset(); onClose() } }} category={tRoot('products.title')} title={t('title')} icon={<Upload className="h-4 w-4" />}>
       <PremiumDialogBody className="space-y-4">
 
         {/* Step 1 */}

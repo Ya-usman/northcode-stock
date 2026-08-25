@@ -383,9 +383,9 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
                   {/* Stats bar */}
                   <div className="relative mt-4 grid grid-cols-3 gap-2">
                     {[
-                      { label: 'Réappros', value: openProduct.restocks.length },
-                      { label: 'Total ajouté', value: `+${totalQty}` },
-                      { label: 'Stock actuel', value: openProduct.current_qty ?? '—' },
+                      { label: t('restocks_count_label'), value: openProduct.restocks.length },
+                      { label: t('total_added_label'), value: `+${totalQty}` },
+                      { label: t('current_stock'), value: openProduct.current_qty ?? '—' },
                     ].map(s => (
                       <div key={s.label} className="bg-white/10 rounded-xl px-3 py-2 text-center">
                         <p className="text-lg font-bold text-white tabular-nums">{s.value}</p>

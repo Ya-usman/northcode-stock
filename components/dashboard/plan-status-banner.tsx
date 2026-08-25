@@ -110,6 +110,7 @@ function Banner({
   onDismiss: () => void
   linkLabel?: string
 }) {
+  const t = useTranslations('dashboard_banner')
   return (
     <div className={cn('flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium', COLORS[color])}>
       {icon}
@@ -130,7 +131,7 @@ function Banner({
       <button
         onClick={onDismiss}
         className="flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity ml-1"
-        aria-label="Dismiss"
+        aria-label={t('dismiss')}
       >
         <X className="h-3 w-3" />
       </button>

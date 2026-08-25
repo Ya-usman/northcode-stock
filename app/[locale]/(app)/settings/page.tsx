@@ -218,9 +218,9 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       }))
       const data = await res.json()
       if (data.error === 'no_subscription') {
-        toast({ title: 'Aucun abonnement trouvé. Active d\'abord les notifications.', variant: 'destructive' })
+        toast({ title: t('settings.no_subscription_found'), variant: 'destructive' })
       } else if (data.ok) {
-        toast({ title: 'Notification envoyée ! Vérifie ton téléphone.', variant: 'success' })
+        toast({ title: t('settings.test_notification_sent'), variant: 'success' })
       } else {
         toast({ title: data.error || 'Erreur', variant: 'destructive' })
       }
@@ -267,7 +267,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
         body: JSON.stringify({ shop_id: shop.id, ...updates }),
       }))
       const json = await res.json()
-      if (!res.ok) { toast({ title: json.error || 'Erreur', variant: 'destructive' }); return }
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
       // Update local state immediately
       setShop(prev => prev ? { ...prev, ...updates } : prev)
       // Sync the global auth context — patchShop is the source of truth here
@@ -279,7 +279,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       setTimeout(() => refreshShop().catch(() => {}), 3000)
       toast({ title: t('settings.saved'), variant: 'success' })
     } catch (err: any) {
-      toast({ title: err.message || 'Erreur réseau', variant: 'destructive' })
+      toast({ title: err.message || t('toast.network_error'), variant: 'destructive' })
     } finally {
       setSaving(false)
     }
@@ -440,7 +440,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <Label>{t('settings.shop_name')} *</Label>
-                  <Input value={name} onChange={e => setName(e.target.value)} placeholder="Boutique Alpha" />
+                  <Input value={name} onChange={e => setName(e.target.value)} placeholder={t('settings.shop_name_example')} />
                 </div>
                 <div className="space-y-1">
                   <Label>{t('settings.whatsapp')}</Label>
@@ -448,18 +448,18 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                 </div>
                 <div className="space-y-1">
                   <Label>{t('settings.city')}</Label>
-                  <Input value={city} onChange={e => setCity(e.target.value)} placeholder="Kano" />
+                  <Input value={city} onChange={e => setCity(e.target.value)} placeholder={t('settings.city_example')} />
                 </div>
                 <div className="space-y-1">
                   <Label>{t('settings.state')}</Label>
-                  <Input value={state} onChange={e => setState(e.target.value)} placeholder="Kano State" />
+                  <Input value={state} onChange={e => setState(e.target.value)} placeholder={t('settings.state_example')} />
                 </div>
               </div>
 
               {/* Country + Currency */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <Label>Pays d'opération</Label>
+                  <Label>{t('settings.operating_country')}</Label>
                   <select
                     value={country}
                     onChange={e => {
@@ -480,16 +480,16 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                       </option>
                     ))}
                   </select>
-                  <p className="text-xs text-muted-foreground">Affichage et devise de l'app</p>
+                  <p className="text-xs text-muted-foreground">{t('settings.display_and_currency')}</p>
                 </div>
                 <div className="space-y-1">
-                  <Label>Devise</Label>
+                  <Label>{t('settings.currency_label')}</Label>
                   <div className="flex h-10 items-center gap-2 rounded-md border border-input bg-muted px-3">
                     <span className="text-lg">{COUNTRIES[country]?.flag || '🌐'}</span>
                     <span className="font-semibold text-foreground">{currency}</span>
                     <span className="text-xs text-muted-foreground ml-1">{COUNTRIES[country]?.currency || ''}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">Automatique selon le pays</p>
+                  <p className="text-xs text-muted-foreground">{t('settings.currency_auto_hint')}</p>
                 </div>
               </div>
             </CardContent>
@@ -602,7 +602,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
             <CardContent className="space-y-4">
               <p className="text-xs text-muted-foreground">{t('settings.notif_hint')}</p>
               <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Email</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('settings.email_section_label')}</p>
                 {[
                   { label: t('settings.alert_low_stock'), value: notifyEmailLowStock, setter: setNotifyEmailLowStock },
                   { label: t('settings.alert_daily'), value: notifyEmailDaily, setter: setNotifyEmailDaily },
@@ -639,9 +639,9 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                     <div className="space-y-2">
                       <div className="flex items-center justify-between py-1">
                         <div>
-                          <Label className="cursor-pointer">Alerte nouvelle vente</Label>
+                          <Label className="cursor-pointer">{t('settings.push_new_sale_label')}</Label>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            Recevoir une alerte quand un caissier fait une vente
+                            {t('settings.push_new_sale_hint')}
                           </p>
                         </div>
                         <Switch
@@ -653,9 +653,9 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                         <>
                           <div className="flex items-center justify-between py-1 pl-3 border-l-2 border-muted">
                             <div>
-                              <Label className="cursor-pointer text-sm text-muted-foreground">Son</Label>
+                              <Label className="cursor-pointer text-sm text-muted-foreground">{t('settings.sound_label')}</Label>
                               <p className="text-xs text-muted-foreground mt-0.5">
-                                Jouer un bip à chaque vente
+                                {t('settings.sound_hint')}
                               </p>
                             </div>
                             <Switch
@@ -668,9 +668,9 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                           </div>
                           <div className="flex items-center justify-between py-1 pl-3 border-l-2 border-muted">
                             <div>
-                              <Label className="cursor-pointer text-sm text-muted-foreground">Vibration</Label>
+                              <Label className="cursor-pointer text-sm text-muted-foreground">{t('settings.vibration_label')}</Label>
                               <p className="text-xs text-muted-foreground mt-0.5">
-                                Vibrer à chaque vente
+                                {t('settings.vibration_hint')}
                               </p>
                             </div>
                             <Switch
@@ -685,9 +685,9 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                       )}
                       <div className="flex items-center justify-between py-1">
                         <div>
-                          <Label className="cursor-pointer">Alerte nouvelle dépense</Label>
+                          <Label className="cursor-pointer">{t('settings.push_new_expense_label')}</Label>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            Recevoir une alerte quand un Responsable ou Caissier ajoute une dépense
+                            {t('settings.push_new_expense_hint')}
                           </p>
                         </div>
                         <Switch
