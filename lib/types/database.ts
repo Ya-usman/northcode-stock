@@ -235,6 +235,7 @@ export interface Customer {
   phone: string | null
   city: string | null
   total_debt: number
+  credit_limit: number | null
   created_at: string
   deleted_at: string | null
 }

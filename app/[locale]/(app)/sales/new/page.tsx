@@ -1348,6 +1348,11 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               {!selectedCustomer && !customerName && (
                 <p className="text-xs text-amber-600 mt-1">{t('sales.enter_customer_for_credit')}</p>
               )}
+              {selectedCustomer?.credit_limit != null && (Number(selectedCustomer.total_debt) + total) > selectedCustomer.credit_limit && (
+                <p className="text-xs text-red-600 font-semibold mt-1">
+                  {t('sales.exceeds_credit_limit', { limit: formatNaira(selectedCustomer.credit_limit) })}
+                </p>
+              )}
             </div>
           )}
 

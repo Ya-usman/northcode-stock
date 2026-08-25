@@ -61,7 +61,7 @@ export async function GET(request: Request) {
 
     let paymentsQuery = admin
       .from('payments')
-      .select('amount, paid_at, is_repayment, sales!inner(shop_id, sale_status, cashier_id)')
+      .select('amount, paid_at, is_repayment, is_cancelled, is_write_off, sales!inner(shop_id, sale_status, cashier_id)')
       .gte('paid_at', yearStart)
       .lte('paid_at', yearEnd)
 
@@ -70,6 +70,8 @@ export async function GET(request: Request) {
     const payments = (paymentsRaw || []).filter((p: any) =>
       shopIds.includes(p.sales?.shop_id) &&
       p.sales?.sale_status !== 'cancelled' &&
+      !p.is_cancelled &&
+      !p.is_write_off &&
       (!cashierId || p.sales?.cashier_id === cashierId)
     )
 

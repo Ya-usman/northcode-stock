@@ -3,9 +3,10 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslations } from 'next-intl'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
-import { generateDebtReceiptPDFBlob } from '@/lib/utils/pdf'
-import { sharePDFNative, printPDFNative, isCapacitor } from '@/lib/utils/native-share'
+import { generateDebtReceiptPDFBlob, generateReportPDFBlob } from '@/lib/utils/pdf'
+import { sharePDFNative, printPDFNative, isCapacitor, downloadOrShareCSV } from '@/lib/utils/native-share'
 import { normalize } from '@/lib/utils/normalize'
+import { cn } from '@/lib/utils/cn'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
@@ -20,7 +21,7 @@ import type { Customer, Supplier } from '@/lib/types/database'
 import {
   ChevronDown, ChevronUp, Clock, CheckCircle2,
   History, User, RefreshCw, Banknote, Store,
-  Printer, Share2, Search, CalendarDays,
+  Printer, Share2, Search, CalendarDays, Pencil, Ban, FileText, FileDown, Table2,
 } from 'lucide-react'
 import { DebtGauge } from '@/components/dashboard/recent-sales-feed'
 import { getCountry, getMethodType } from '@/lib/saas/countries'
@@ -68,6 +69,12 @@ interface PaymentRecord {
   reference: string | null
   notes: string | null
   received_by_name: string | null
+  received_by?: string | null
+  is_cancelled?: boolean
+  cancelled_at?: string | null
+  cancel_reason?: string | null
+  edited_at?: string | null
+  is_write_off?: boolean
 }
 
 interface SaleRecord {
@@ -185,7 +192,7 @@ function calcFifoPOs(amount: number, pos: UnpaidPO[]): POFifoLine[] {
   return lines
 }
 
-function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedId, openRepayDialog, openHistory, onPostpone, fmt, t, saving }: any) {
+function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedId, openRepayDialog, openHistory, onPostpone, onWriteOff, fmt, t, saving }: any) {
   const paidTotal = unpaidSales.reduce((s: number, sale: UnpaidSale) => s + sale.amount_paid, 0)
   const grandTotal = unpaidSales.reduce((s: number, sale: UnpaidSale) => s + sale.total, 0)
   const progress = grandTotal > 0 ? Math.min(100, (paidTotal / grandTotal) * 100) : 0
@@ -208,6 +215,11 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
             <div className="text-right flex-shrink-0">
               <p className="text-lg font-bold text-red-600">{fmt(totalDebt)}</p>
               <p className="text-xs text-muted-foreground">{t('payments.invoices_count', { count: unpaidSales.length })}</p>
+              {customer.credit_limit != null && (
+                <p className={cn('text-[10px]', totalDebt > customer.credit_limit ? 'text-red-600 font-semibold' : 'text-muted-foreground')}>
+                  {t('payments.credit_limit_inline', { limit: fmt(customer.credit_limit) })}
+                </p>
+              )}
             </div>
           </div>
 
@@ -278,13 +290,24 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
                       <Badge variant="destructive" className="text-[10px] px-1.5">{t('payments.overdue_badge')}</Badge>
                     )}
                   </div>
-                  <button
-                    type="button"
-                    className="text-[11px] text-stockshop-blue dark:text-blue-400 hover:underline flex items-center gap-1 flex-shrink-0"
-                    onClick={() => onPostpone(sale, customer)}
-                  >
-                    <CalendarDays className="h-3 w-3" /> {t('payments.postpone_action')}
-                  </button>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {onWriteOff && (
+                      <button
+                        type="button"
+                        className="text-[11px] text-muted-foreground hover:text-destructive hover:underline flex items-center gap-1"
+                        onClick={() => onWriteOff(sale, customer)}
+                      >
+                        <Ban className="h-3 w-3" /> {t('payments.write_off_action')}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="text-[11px] text-stockshop-blue dark:text-blue-400 hover:underline flex items-center gap-1"
+                      onClick={() => onPostpone(sale, customer)}
+                    >
+                      <CalendarDays className="h-3 w-3" /> {t('payments.postpone_action')}
+                    </button>
+                  </div>
                 </div>
                 {sale.cashier_name && <p className="text-[11px] text-muted-foreground">{t('payments.sold_by')} : <strong>{sale.cashier_name}</strong></p>}
                 {sale.sale_items && sale.sale_items.length > 0 && (
@@ -408,6 +431,7 @@ export default function CreditsPage() {
   const t = useTranslations()
   const { shop, profile, effectiveShopIds, userShops } = useAuth()
   const isMultiShop = effectiveShopIds.length > 1
+  const isManagerial = profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'shop_manager' || profile?.role === 'super_admin'
   const { fmt, symbol } = useCurrency()
   const { toast } = useToast()
   const { isOnline } = useOffline()
@@ -422,6 +446,8 @@ export default function CreditsPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [search, setSearch] = useState('')
   const [overdueOnly, setOverdueOnly] = useState(false)
+  const [exportMenuOpen, setExportMenuOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   // ── Repayment dialog ─────────────────────────────────────
   const [repayDebtor, setRepayDebtor] = useState<CustomerDebt | null>(null)
@@ -436,6 +462,11 @@ export default function CreditsPage() {
   const [postponeDate, setPostponeDate] = useState('')
   const [postponeReason, setPostponeReason] = useState('')
   const [postponingSaving, setPostponingSaving] = useState(false)
+
+  // ── Write off a debt ──────────────────────────────────────
+  const [writeOffSale, setWriteOffSale] = useState<{ sale: UnpaidSale; customer: Customer } | null>(null)
+  const [writeOffReason, setWriteOffReason] = useState('')
+  const [writeOffSaving, setWriteOffSaving] = useState(false)
   const [receiptResult, setReceiptResult] = useState<{ blob: Blob; fileName: string; customerName: string; phone?: string } | null>(null)
 
   // ── History dialog ───────────────────────────────────────
@@ -446,8 +477,20 @@ export default function CreditsPage() {
   const [loadingHistory, setLoadingHistory] = useState(false)
   const historyCache = useRef<Map<string, { sales: SaleRecord[]; payments: PaymentRecord[] }>>(new Map())
 
+  // ── Edit / cancel a past payment (from the history dialog) ─
+  const [editingPayment, setEditingPayment] = useState<PaymentRecord | null>(null)
+  const [editMethod, setEditMethod] = useState('cash')
+  const [editRef, setEditRef] = useState('')
+  const [editNotes, setEditNotes] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [cancellingPayment, setCancellingPayment] = useState<PaymentRecord | null>(null)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancellingSaving, setCancellingSaving] = useState(false)
+
   // ── Historique des crédits tab ────────────────────────────
-  const [activeTab, setActiveTab] = useState<'en-cours' | 'historique'>('en-cours')
+  const [activeTab, setActiveTab] = useState<'en-cours' | 'historique' | 'journal'>('en-cours')
+  const [journalLogs, setJournalLogs] = useState<any[]>([])
+  const [loadingJournal, setLoadingJournal] = useState(false)
   const [histAll, setHistAll] = useState<HistCustomerEntry[]>(() =>
     getPageCache<HistCustomerEntry[]>(`payments_hist_${effectiveShopIds.join(',')}`) || []
   )
@@ -847,6 +890,34 @@ export default function CreditsPage() {
     }
   }
 
+  // ── Write off a debt ──────────────────────────────────────
+  const openWriteOffDialog = (sale: UnpaidSale, customer: Customer) => {
+    setWriteOffSale({ sale, customer })
+    setWriteOffReason('')
+  }
+
+  const confirmWriteOff = async () => {
+    if (!writeOffSale || !shop?.id || !writeOffReason.trim()) return
+    setWriteOffSaving(true)
+    try {
+      const res = await withTimeout(fetch('/api/payments/write-off', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sale_id: writeOffSale.sale.id, shop_id: shop.id, reason: writeOffReason.trim() }),
+      }))
+      const data = await res.json()
+      if (!res.ok) { toast({ title: data.error || t('toast.error'), variant: 'destructive' }); return }
+      toast({ title: t('payments.write_off_success'), variant: 'success' })
+      setWriteOffSale(null)
+      setWriteOffReason('')
+      fetchDebtors(true)
+    } catch (e: any) {
+      toast({ title: e.message || t('toast.error'), variant: 'destructive' })
+    } finally {
+      setWriteOffSaving(false)
+    }
+  }
+
   // ── Record repayment ─────────────────────────────────────
   const recordRepayment = async () => {
     if (!repayDebtor || amount <= 0) {
@@ -925,24 +996,7 @@ export default function CreditsPage() {
           shop,
           appliedSales: data.applied.map((a: any) => ({ sale_number: a.sale_number, amount: a.amount })),
           remainingBalance: Math.max(0, remaining),
-          labels: {
-            title: t('receipt.debt_title'),
-            client: t('receipt.customer'),
-            receivedBy: t('receipt.received_by'),
-            mode: t('receipt.mode'),
-            ref: t('receipt.ref'),
-            invoicesSettled: t('receipt.invoices_settled'),
-            colInvoice: t('receipt.col_invoice'),
-            colAmountSettled: t('receipt.col_amount_settled'),
-            totalPaid: t('receipt.total_paid'),
-            remainingBalance: t('receipt.remaining_balance'),
-            debtCleared: t('receipt.debt_cleared'),
-            thankYou: t('receipt.thank_you'),
-            methodCash: t('receipt.method_cash'),
-            methodTransfer: t('receipt.method_transfer'),
-            methodMobile: t('receipt.method_mobile'),
-            methodPaystack: t('receipt.method_paystack'),
-          },
+          labels: buildReceiptLabels(),
         })
         setReceiptResult({ ...result, customerName: repayDebtor.customer.name, phone: repayDebtor.customer.phone || undefined })
       } else {
@@ -1021,6 +1075,205 @@ export default function CreditsPage() {
     }
   }
 
+  const refreshHistory = async () => {
+    if (!historyDebtor) return
+    historyCache.current.delete(historyDebtor.customer.id)
+    await openHistory(historyDebtor)
+    fetchDebtors(true)
+  }
+
+  const buildReceiptLabels = () => ({
+    title: t('receipt.debt_title'),
+    client: t('receipt.customer'),
+    receivedBy: t('receipt.received_by'),
+    mode: t('receipt.mode'),
+    ref: t('receipt.ref'),
+    invoicesSettled: t('receipt.invoices_settled'),
+    colInvoice: t('receipt.col_invoice'),
+    colAmountSettled: t('receipt.col_amount_settled'),
+    totalPaid: t('receipt.total_paid'),
+    remainingBalance: t('receipt.remaining_balance'),
+    debtCleared: t('receipt.debt_cleared'),
+    thankYou: t('receipt.thank_you'),
+    methodCash: t('receipt.method_cash'),
+    methodTransfer: t('receipt.method_transfer'),
+    methodMobile: t('receipt.method_mobile'),
+    methodPaystack: t('receipt.method_paystack'),
+  })
+
+  const printHistoryPayment = async (sale: SaleRecord, payment: PaymentRecord) => {
+    if (!shop) return
+    try {
+      const shopCountry = getCountry(shop.country)
+      const selectedMethod = shopCountry.paymentMethods.find(m => m.id === payment.method)
+      const result = await generateDebtReceiptPDFBlob({
+        customerName: historyDebtor?.customer.name || '',
+        amount: payment.amount,
+        method: payment.method,
+        methodLabel: selectedMethod?.label,
+        reference: payment.reference,
+        notes: payment.notes,
+        receivedBy: payment.received_by_name || t('receipt.cashier'),
+        shop,
+        appliedSales: [{ sale_number: sale.sale_number, amount: payment.amount }],
+        remainingBalance: Math.max(0, sale.balance),
+        paidAt: payment.paid_at,
+        cancelled: payment.is_cancelled,
+        cancelledLabel: t('payments.cancelled_stamp'),
+        writeOff: payment.is_write_off,
+        writeOffLabel: t('payments.write_off_stamp'),
+        totalPaidLabelOverride: payment.is_write_off ? t('payments.write_off_total_label') : undefined,
+        labels: buildReceiptLabels(),
+      })
+      printPDFNative(result.blob, result.fileName)
+    } catch (e: any) {
+      toast({ title: e.message, variant: 'destructive' })
+    }
+  }
+
+  const printAccountStatement = async () => {
+    if (!shop || !historyDebtor || historySales.length === 0) return
+    try {
+      type LedgerLine = { date: string; label: string; debit: number; credit: number }
+      const lines: LedgerLine[] = [
+        ...historySales.map(s => ({ date: s.created_at, label: `${t('payments.statement_sale_label')} #${s.sale_number}`, debit: s.total, credit: 0 })),
+        // Cancelled payments never actually reduced the balance — excluded
+        // so the running balance stays correct all the way to today's total_debt.
+        ...historyPayments.filter(p => !p.is_cancelled).map(p => ({
+          date: p.paid_at,
+          label: `${t('payments.statement_payment_label')} (${t(`payment.${p.method}` as any) || p.method})`,
+          debit: 0,
+          credit: p.amount,
+        })),
+      ].sort((a, b) => a.date.localeCompare(b.date))
+
+      let running = 0
+      const rows = lines.map(l => {
+        running += l.debit - l.credit
+        return [
+          format(new Date(l.date), 'dd/MM/yyyy'),
+          l.label,
+          l.debit ? fmt(l.debit) : '',
+          l.credit ? fmt(l.credit) : '',
+          fmt(running),
+        ]
+      })
+
+      const result = await generateReportPDFBlob({
+        shopName: shop.name,
+        dateRange: t('payments.statement_label'),
+        sections: [{
+          title: `${t('payments.statement_title')} — ${historyDebtor.customer.name}`,
+          headers: [
+            t('payments.statement_col_date'), t('payments.statement_col_desc'),
+            t('payments.statement_col_debit'), t('payments.statement_col_credit'), t('payments.statement_col_balance'),
+          ],
+          rows,
+        }],
+      })
+      printPDFNative(result.blob, `Releve-${historyDebtor.customer.name.replace(/\s+/g, '-')}-${Date.now()}.pdf`)
+    } catch (e: any) {
+      toast({ title: e.message, variant: 'destructive' })
+    }
+  }
+
+  const exportDebtorsPDF = async () => {
+    if (!shop) return
+    setExporting(true)
+    setExportMenuOpen(false)
+    try {
+      const result = await generateReportPDFBlob({
+        shopName: shop.name,
+        dateRange: format(new Date(), 'dd/MM/yyyy'),
+        sections: [{
+          title: t('payments.export_section_title'),
+          headers: [
+            t('payments.export_col_client'), t('payments.export_col_phone'),
+            t('payments.export_col_invoices'), t('payments.export_col_amount'),
+          ],
+          rows: filteredDebtors.map(({ customer, unpaidSales, totalDebt }) => [
+            customer.name, customer.phone || '—', unpaidSales.length, fmt(totalDebt),
+          ]),
+        }],
+      })
+      printPDFNative(result.blob, `Creances-${shop.name.replace(/\s+/g, '-')}-${Date.now()}.pdf`)
+    } catch (e: any) {
+      toast({ title: e.message, variant: 'destructive' })
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const exportDebtorsCSV = async () => {
+    setExportMenuOpen(false)
+    const header = [
+      t('payments.export_col_client'), t('payments.export_col_phone'),
+      t('payments.export_col_invoices'), t('payments.export_col_amount'),
+    ]
+    const rows = filteredDebtors.map(({ customer, unpaidSales, totalDebt }) => [
+      `"${customer.name.replace(/"/g, '""')}"`, customer.phone || '', String(unpaidSales.length), String(totalDebt),
+    ])
+    const csv = [header, ...rows].map(r => r.join(';')).join('\n')
+    try {
+      await downloadOrShareCSV(csv, `Creances-${shop?.name.replace(/\s+/g, '-')}-${Date.now()}.csv`)
+    } catch {
+      toast({ title: t('toast.retry_error'), variant: 'destructive' })
+    }
+  }
+
+  const openEditPayment = (payment: PaymentRecord) => {
+    setEditingPayment(payment)
+    setEditMethod(payment.method)
+    setEditRef(payment.reference || '')
+    setEditNotes(payment.notes || '')
+  }
+
+  const saveEditPayment = async () => {
+    if (!editingPayment || !shop) return
+    setSavingEdit(true)
+    try {
+      const res = await withTimeout(fetch('/api/payments/edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          payment_id: editingPayment.id, shop_id: shop.id,
+          method: editMethod, reference: editRef || null, notes: editNotes || null,
+        }),
+      }))
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast({ title: t('payments.payment_edited'), variant: 'success' })
+      setEditingPayment(null)
+      await refreshHistory()
+    } catch (e: any) {
+      toast({ title: e.message, variant: 'destructive' })
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  const confirmCancelPayment = async () => {
+    if (!cancellingPayment || !shop) return
+    setCancellingSaving(true)
+    try {
+      const res = await withTimeout(fetch('/api/payments/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payment_id: cancellingPayment.id, shop_id: shop.id, reason: cancelReason || null }),
+      }))
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast({ title: t('payments.payment_cancelled'), variant: 'success' })
+      setCancellingPayment(null)
+      setCancelReason('')
+      await refreshHistory()
+    } catch (e: any) {
+      toast({ title: e.message, variant: 'destructive' })
+    } finally {
+      setCancellingSaving(false)
+    }
+  }
+
   // ── Fetch all debt history ───────────────────────────────
   // quiet: skip the loading spinner — used for the silent background
   // refresh that follows an instant cache-first render, so a stale cached
@@ -1051,6 +1304,25 @@ export default function CreditsPage() {
     if (activeTab === 'historique') fetchHistAll(histAllDateFrom, histAllDateTo, histAllFetched)
   }, [activeTab, shopKey]) // eslint-disable-line react-hooks/exhaustive-deps
   useRefetchOnReconnect(() => { if (activeTab === 'historique') fetchHistAll(histAllDateFrom, histAllDateTo, true) }, isOnline)
+
+  const fetchJournal = async () => {
+    if (!shop?.id) return
+    setLoadingJournal(true)
+    try {
+      const res = await withTimeout(fetch(`/api/payments/audit?shop_id=${shop.id}`))
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setJournalLogs(data.logs || [])
+    } catch {
+      // journal stays empty/stale — non-critical secondary tab
+    } finally {
+      setLoadingJournal(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === 'journal') fetchJournal()
+  }, [activeTab, shop?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const filteredHistAll = useMemo(() => {
     let list = histAll
@@ -1139,7 +1411,62 @@ export default function CreditsPage() {
             </span>
           )}
         </button>
+        {isManagerial && (
+          <button
+            onClick={() => setActiveTab('journal')}
+            className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition-all duration-200 ${
+              activeTab === 'journal'
+                ? 'bg-card text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {t('payments.tab_journal')}
+          </button>
+        )}
       </div>
+
+      {activeTab === 'journal' && (
+        <div className="space-y-1.5">
+          {loadingJournal ? (
+            <p className="text-xs text-muted-foreground text-center py-3">{t('payments.journal_loading')}</p>
+          ) : journalLogs.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-3">{t('payments.journal_empty')}</p>
+          ) : (
+            journalLogs.map((log: any) => {
+              const meta = log.metadata || {}
+              const actor = log.actor_email || '—'
+              const when = new Date(log.created_at).toLocaleString('fr-FR', {
+                day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+              })
+              let label = ''
+              let detail = ''
+              if (log.action === 'payment.cancel') {
+                label = t('payments.journal_cancelled')
+                detail = `#${meta.sale_number || '—'} · ${fmt(meta.amount || 0)}${meta.reason ? ` · ${meta.reason}` : ''}`
+              } else if (log.action === 'payment.edit') {
+                label = t('payments.journal_edited')
+                detail = `${t(`payment.${meta.old_method}` as any) || meta.old_method} → ${t(`payment.${meta.new_method}` as any) || meta.new_method}`
+              } else if (log.action === 'payment.write_off') {
+                label = t('payments.journal_written_off')
+                detail = `#${meta.sale_number || '—'} · ${fmt(meta.amount || 0)}${meta.reason ? ` · ${meta.reason}` : ''}`
+              } else {
+                label = t('payments.journal_postponed')
+                detail = `#${meta.sale_number || '—'} · ${meta.old_due_date || '—'} → ${meta.new_due_date || '—'}${meta.reason ? ` · ${meta.reason}` : ''}`
+              }
+              return (
+                <div key={log.id} className="flex items-start gap-2.5 rounded-lg bg-muted/40 border px-3 py-2.5 text-xs">
+                  <Clock className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-foreground/80">{label}</p>
+                    <p className="text-muted-foreground truncate">{detail}</p>
+                    <p className="text-muted-foreground/70 mt-0.5">{actor} · {when}</p>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+      )}
 
       {activeTab === 'en-cours' && (
         <>
@@ -1160,6 +1487,41 @@ export default function CreditsPage() {
                 >
                   {t('payments.overdue_badge')} <span className={overdueOnly ? 'opacity-90' : 'opacity-70'}>{overdueDebtorsCount}</span>
                 </button>
+              )}
+              {filteredDebtors.length > 0 && (
+                <div className="relative flex-shrink-0">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9"
+                    loading={exporting}
+                    onClick={() => setExportMenuOpen(v => !v)}
+                    aria-label={t('actions.export_pdf')}
+                  >
+                    <FileDown className="h-4 w-4" />
+                  </Button>
+                  {exportMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setExportMenuOpen(false)} />
+                      <div className="absolute right-0 top-10 z-50 w-44 rounded-xl border bg-background shadow-lg p-1 flex flex-col gap-0.5">
+                        <button
+                          onClick={exportDebtorsPDF}
+                          className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left"
+                        >
+                          <FileText className="h-4 w-4 text-red-500 flex-shrink-0" />
+                          <span>{t('actions.export_pdf')}</span>
+                        </button>
+                        <button
+                          onClick={exportDebtorsCSV}
+                          className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left"
+                        >
+                          <Table2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                          <span>{t('actions.export_csv')}</span>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -1194,7 +1556,7 @@ export default function CreditsPage() {
                     {shopDebtors.map(({ customer, unpaidSales, totalDebt }) => (
                       <DebtorCard key={customer.id} customer={customer} unpaidSales={unpaidSales} totalDebt={totalDebt}
                         isExpanded={expandedId === customer.id} setExpandedId={setExpandedId}
-                        openRepayDialog={openRepayDialog} openHistory={openHistory} onPostpone={openPostponeDialog} fmt={fmt} t={t} saving={saving} />
+                        openRepayDialog={openRepayDialog} openHistory={openHistory} onPostpone={openPostponeDialog} onWriteOff={isManagerial ? openWriteOffDialog : undefined} fmt={fmt} t={t} saving={saving} />
                     ))}
                   </div>
                 )
@@ -1205,7 +1567,7 @@ export default function CreditsPage() {
               {filteredDebtors.map(({ customer, unpaidSales, totalDebt }) => (
                 <DebtorCard key={customer.id} customer={customer} unpaidSales={unpaidSales} totalDebt={totalDebt}
                   isExpanded={expandedId === customer.id} setExpandedId={setExpandedId}
-                  openRepayDialog={openRepayDialog} openHistory={openHistory} onPostpone={openPostponeDialog} fmt={fmt} t={t} />
+                  openRepayDialog={openRepayDialog} openHistory={openHistory} onPostpone={openPostponeDialog} onWriteOff={isManagerial ? openWriteOffDialog : undefined} fmt={fmt} t={t} />
               ))}
             </div>
           )}
@@ -1836,6 +2198,42 @@ export default function CreditsPage() {
         )}
       </PremiumDialog>
 
+      {/* ── Write off Dialog ── */}
+      <PremiumDialog
+        open={!!writeOffSale}
+        onOpenChange={open => { if (!open) { setWriteOffSale(null); setWriteOffReason('') } }}
+        category={t('nav.payments')}
+        title={t('payments.write_off_title')}
+        icon={<Ban className="h-4 w-4" />}
+      >
+        {writeOffSale && (
+          <>
+            <PremiumDialogBody>
+              <div className="flex items-center gap-2 -mt-1 mb-1">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">{writeOffSale.customer.name}</p>
+                <Badge variant="outline" className="text-[10px] font-mono">#{writeOffSale.sale.sale_number}</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {t('payments.write_off_confirm', { amount: fmt(writeOffSale.sale.balance) })}
+              </p>
+              <div className="space-y-1">
+                <Label>{t('payments.write_off_reason_label')} *</Label>
+                <Input value={writeOffReason} onChange={e => setWriteOffReason(e.target.value)} placeholder={t('payments.write_off_reason_placeholder')} />
+              </div>
+            </PremiumDialogBody>
+            <PremiumDialogFooter
+              onCancel={() => { setWriteOffSale(null); setWriteOffReason('') }}
+              cancelLabel={t('actions.cancel')}
+              onConfirm={confirmWriteOff}
+              confirmLabel={writeOffSaving ? t('payment.saving') : t('payments.write_off_confirm_btn')}
+              confirmDisabled={writeOffSaving || !writeOffReason.trim()}
+              confirmLoading={writeOffSaving}
+            />
+          </>
+        )}
+      </PremiumDialog>
+
       {/* ── History Dialog ── */}
       <PremiumDialog
         open={!!historyDebtor}
@@ -1849,7 +2247,17 @@ export default function CreditsPage() {
           <div className="flex-1 overflow-y-auto">
             <PremiumDialogBody>
               {historyDebtor && (
-                <p className="text-sm text-muted-foreground -mt-1 mb-1">{historyDebtor.customer.name}</p>
+                <div className="flex items-center justify-between -mt-1 mb-1">
+                  <p className="text-sm text-muted-foreground">{historyDebtor.customer.name}</p>
+                  <button
+                    type="button"
+                    onClick={printAccountStatement}
+                    disabled={historySales.length === 0}
+                    className="flex items-center gap-1 text-xs font-medium text-stockshop-blue dark:text-blue-400 hover:underline disabled:opacity-40 disabled:no-underline"
+                  >
+                    <FileText className="h-3.5 w-3.5" /> {t('payments.statement_action')}
+                  </button>
+                </div>
               )}
               {loadingHistory ? (
                 <div className="space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
@@ -1914,26 +2322,91 @@ export default function CreditsPage() {
                             <p className="text-xs text-muted-foreground italic">{t('payments.no_payments_recorded')}</p>
                           ) : (
                             <div className="space-y-1.5">
-                              {salePayments.map(p => (
-                                <div key={p.id} className="flex items-start justify-between gap-2 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900 px-2.5 py-2">
+                              {salePayments.map(p => {
+                                const canCancel = !p.is_cancelled && (isManagerial || (profile?.role === 'cashier' && p.received_by === profile.id))
+                                return (
+                                <div
+                                  key={p.id}
+                                  className={cn(
+                                    'flex items-start justify-between gap-2 rounded-lg border px-2.5 py-2',
+                                    p.is_cancelled
+                                      ? 'bg-muted/50 border-border opacity-60'
+                                      : p.is_write_off
+                                      ? 'bg-slate-50 dark:bg-slate-900/30 border-slate-200 dark:border-slate-800'
+                                      : 'bg-green-50 dark:bg-green-950/20 border-green-100 dark:border-green-900'
+                                  )}
+                                >
                                   <div className="space-y-0.5">
                                     <div className="flex items-center gap-1.5 flex-wrap">
-                                      <Badge variant="outline" className="text-[10px] px-1.5 bg-card">
-                                        {t(`payment.${p.method}` as any) || p.method}
-                                      </Badge>
+                                      {!p.is_write_off && (
+                                        <Badge variant="outline" className="text-[10px] px-1.5 bg-card">
+                                          {t(`payment.${p.method}` as any) || p.method}
+                                        </Badge>
+                                      )}
+                                      {p.is_write_off && (
+                                        <Badge variant="secondary" className="text-[10px] px-1.5" title={p.notes || undefined}>
+                                          {t('payments.write_off_badge')}
+                                        </Badge>
+                                      )}
+                                      {p.is_cancelled && (
+                                        <Badge variant="destructive" className="text-[10px] px-1.5" title={p.cancel_reason || undefined}>
+                                          {t('payments.cancelled_badge')}
+                                        </Badge>
+                                      )}
+                                      {p.edited_at && !p.is_cancelled && (
+                                        <span className="text-[10px] text-muted-foreground italic">{t('payments.edited_badge')}</span>
+                                      )}
                                       {p.received_by_name && (
                                         <span className="text-[11px] text-muted-foreground">{t('payments.by_connector')} <strong>{p.received_by_name}</strong></span>
                                       )}
                                     </div>
-                                    <p className="text-[11px] text-muted-foreground">
+                                    <p className={cn('text-[11px]', p.is_cancelled ? 'line-through text-muted-foreground' : 'text-muted-foreground')}>
                                       {format(new Date(p.paid_at), "dd MMM yyyy 'à' HH:mm", { locale: fr })}
                                     </p>
                                     {p.reference && <p className="text-[11px] text-muted-foreground">{t('payments.ref_label')}: {p.reference}</p>}
                                     {p.notes && <p className="text-[11px] text-muted-foreground italic">{p.notes}</p>}
                                   </div>
-                                  <span className="font-bold text-green-600 text-sm flex-shrink-0">+{fmt(p.amount)}</span>
+                                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                    <span className={cn(
+                                      'font-bold text-sm',
+                                      p.is_cancelled ? 'text-muted-foreground line-through' : p.is_write_off ? 'text-slate-500 dark:text-slate-400' : 'text-green-600'
+                                    )}>
+                                      {p.is_write_off ? '−' : '+'}{fmt(p.amount)}
+                                    </span>
+                                    <div className="flex items-center gap-0.5">
+                                      <button
+                                        type="button"
+                                        title={t('payments.print_action')}
+                                        onClick={() => printHistoryPayment(sale, p)}
+                                        className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                                      >
+                                        <Printer className="h-3.5 w-3.5" />
+                                      </button>
+                                      {!p.is_cancelled && !p.is_write_off && (
+                                        <button
+                                          type="button"
+                                          title={t('payments.edit_action')}
+                                          onClick={() => openEditPayment(p)}
+                                          className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                                        >
+                                          <Pencil className="h-3.5 w-3.5" />
+                                        </button>
+                                      )}
+                                      {canCancel && (
+                                        <button
+                                          type="button"
+                                          title={t('payments.cancel_action')}
+                                          onClick={() => setCancellingPayment(p)}
+                                          className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                                        >
+                                          <Ban className="h-3.5 w-3.5" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
-                              ))}
+                                )
+                              })}
                               <div className="flex justify-between text-xs pt-1 border-t">
                                 <span className="text-muted-foreground">{t('payments.total_paid')}</span>
                                 <span className="font-semibold text-green-600">{fmt(sale.amount_paid)}</span>
@@ -1961,6 +2434,103 @@ export default function CreditsPage() {
             cancelLabel={t('actions.close')}
           />
         </div>
+      </PremiumDialog>
+
+      {/* ── Edit payment Dialog ── */}
+      <PremiumDialog
+        open={!!editingPayment}
+        onOpenChange={open => { if (!open) setEditingPayment(null) }}
+        category={t('nav.payments')}
+        title={t('payments.edit_payment_title')}
+        icon={<Pencil className="h-4 w-4" />}
+      >
+        {editingPayment && (
+          <>
+            <PremiumDialogBody>
+              <div className="flex items-center gap-2 -mt-1 mb-1">
+                <Banknote className="h-4 w-4 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">{fmt(editingPayment.amount)}</p>
+                <span className="text-xs text-muted-foreground">
+                  {format(new Date(editingPayment.paid_at), "dd MMM yyyy 'à' HH:mm", { locale: fr })}
+                </span>
+              </div>
+
+              <div className="space-y-1">
+                <Label>{t('payment.method')}</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {getCountry(shop?.country).paymentMethods
+                    .filter(m => m.type !== 'credit')
+                    .map(m => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setEditMethod(m.id)}
+                        className={cn(
+                          'rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
+                          editMethod === m.id
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
+                            : 'border-input text-muted-foreground hover:bg-accent'
+                        )}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                </div>
+              </div>
+
+              {getMethodType(editMethod, getCountry(shop?.country)) !== 'cash' && (
+                <div className="space-y-1">
+                  <Label>{t('payment.reference')}</Label>
+                  <Input value={editRef} onChange={e => setEditRef(e.target.value)} placeholder={t('payment.reference_placeholder')} />
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <Label>{t('sales.note_label')} <span className="text-muted-foreground font-normal">({t('form.optional')})</span></Label>
+                <Input value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder={t('payment.notes_placeholder')} />
+              </div>
+            </PremiumDialogBody>
+            <PremiumDialogFooter
+              onCancel={() => setEditingPayment(null)}
+              cancelLabel={t('actions.cancel')}
+              onConfirm={saveEditPayment}
+              confirmLabel={savingEdit ? t('payment.saving') : `✓ ${t('actions.save')}`}
+              confirmDisabled={savingEdit}
+              confirmLoading={savingEdit}
+            />
+          </>
+        )}
+      </PremiumDialog>
+
+      {/* ── Cancel payment Dialog ── */}
+      <PremiumDialog
+        open={!!cancellingPayment}
+        onOpenChange={open => { if (!open) { setCancellingPayment(null); setCancelReason('') } }}
+        category={t('nav.payments')}
+        title={t('payments.cancel_payment_title')}
+        icon={<Ban className="h-4 w-4" />}
+      >
+        {cancellingPayment && (
+          <>
+            <PremiumDialogBody>
+              <p className="text-sm text-muted-foreground">
+                {t('payments.cancel_payment_confirm', { amount: fmt(cancellingPayment.amount) })}
+              </p>
+              <div className="space-y-1">
+                <Label>{t('payments.cancel_reason_label')} <span className="text-muted-foreground font-normal">({t('form.optional')})</span></Label>
+                <Input value={cancelReason} onChange={e => setCancelReason(e.target.value)} placeholder={t('payments.cancel_reason_placeholder')} />
+              </div>
+            </PremiumDialogBody>
+            <PremiumDialogFooter
+              onCancel={() => { setCancellingPayment(null); setCancelReason('') }}
+              cancelLabel={t('actions.close')}
+              onConfirm={confirmCancelPayment}
+              confirmLabel={cancellingSaving ? t('payment.saving') : t('payments.cancel_payment_confirm_btn')}
+              confirmDisabled={cancellingSaving}
+              confirmLoading={cancellingSaving}
+            />
+          </>
+        )}
       </PremiumDialog>
 
       {/* ── Supplier Repayment Dialog ── */}

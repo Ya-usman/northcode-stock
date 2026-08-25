@@ -33,8 +33,12 @@ function CustomerCard({ customer, profile, formatNaira, setEditingCustomer, form
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-semibold text-sm">{customer.name}</p>
             {customer.total_debt > 0 && (
-              <Badge variant="danger" className="text-[10px]">
+              <Badge
+                variant={customer.credit_limit != null && customer.total_debt > customer.credit_limit ? 'destructive' : 'danger'}
+                className="text-[10px]"
+              >
                 {t('customers.total_debt')}: {formatNaira(customer.total_debt)}
+                {customer.credit_limit != null && ` / ${formatNaira(customer.credit_limit)}`}
               </Badge>
             )}
           </div>
@@ -54,7 +58,7 @@ function CustomerCard({ customer, profile, formatNaira, setEditingCustomer, form
         {profile?.role === 'owner' && (
           <div className="flex gap-1">
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0"
-              onClick={() => { setEditingCustomer(customer); form.reset({ name: customer.name, phone: customer.phone || '', city: customer.city || '' }); setShowModal(true) }}>
+              onClick={() => { setEditingCustomer(customer); form.reset({ name: customer.name, phone: customer.phone || '', city: customer.city || '', credit_limit: customer.credit_limit != null ? String(customer.credit_limit) : '' }); setShowModal(true) }}>
               <Edit2 className="h-3.5 w-3.5" />
             </Button>
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
@@ -132,18 +136,19 @@ export default function CustomersPage() {
     setSaving(true)
     supabase.auth.getSession().catch(() => {})
     try {
+      const payload = { ...data, credit_limit: data.credit_limit ? Number(data.credit_limit) : null }
       if (editingCustomer) {
-        const { error } = await withTimeout<any>(supabase.from('customers').update(data).eq('id', editingCustomer.id))
+        const { error } = await withTimeout<any>(supabase.from('customers').update(payload).eq('id', editingCustomer.id))
         if (error) { toast({ title: error.message, variant: 'destructive' }); return }
         toast({ title: t('toast.customer_updated'), variant: 'success' })
       } else {
-        const { error } = await withTimeout<any>(supabase.from('customers').insert({ ...data, shop_id: shop!.id }))
+        const { error } = await withTimeout<any>(supabase.from('customers').insert({ ...payload, shop_id: shop!.id }))
         if (error) { toast({ title: error.message, variant: 'destructive' }); return }
         toast({ title: t('toast.customer_added'), variant: 'success' })
       }
       setShowModal(false)
       setEditingCustomer(null)
-      form.reset({ name: '', phone: '', city: '' })
+      form.reset({ name: '', phone: '', city: '', credit_limit: '' })
       fetchCustomers()
     } catch (err: any) {
       toast({ title: err.message || t('toast.retry_error'), variant: 'destructive' })
@@ -177,7 +182,7 @@ export default function CustomersPage() {
             variant="stockshop"
             className="h-9 gap-1"
             size="sm"
-            onClick={() => { form.reset({ name: '', phone: '', city: '' }); setEditingCustomer(null); setShowModal(true) }}
+            onClick={() => { form.reset({ name: '', phone: '', city: '', credit_limit: '' }); setEditingCustomer(null); setShowModal(true) }}
           >
             <Plus className="h-4 w-4" />
             {t('customers.add_customer')}
@@ -216,7 +221,7 @@ export default function CustomersPage() {
 
       <PremiumDialog
         open={showModal}
-        onOpenChange={open => { if (!open) { setShowModal(false); setEditingCustomer(null); form.reset({ name: '', phone: '', city: '' }) } }}
+        onOpenChange={open => { if (!open) { setShowModal(false); setEditingCustomer(null); form.reset({ name: '', phone: '', city: '', credit_limit: '' }) } }}
         category={t('nav.customers')}
         title={editingCustomer ? t('actions.edit') : t('customers.add_customer')}
         icon={<User className="h-4 w-4" />}
@@ -236,6 +241,11 @@ export default function CustomersPage() {
             <div className="space-y-1.5">
               <Label>{t('customers.city')}</Label>
               <Input {...form.register('city')} placeholder={t('customers.city_placeholder')} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{t('customers.credit_limit')} <span className="text-muted-foreground font-normal">({t('form.optional')})</span></Label>
+              <Input {...form.register('credit_limit')} type="number" min="0" placeholder={t('customers.credit_limit_placeholder')} />
+              {form.formState.errors.credit_limit && <p className="text-xs text-destructive">{form.formState.errors.credit_limit.message}</p>}
             </div>
           </PremiumDialogBody>
           <PremiumDialogFooter

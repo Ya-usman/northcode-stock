@@ -123,6 +123,8 @@ export default function CaissePage() {
         .from('payments')
         .select('sale_id, amount, sales!inner(shop_id, sale_status)')
         .eq('is_repayment', false)
+        .eq('is_cancelled', false)
+        .eq('is_write_off', false)
         .gte('paid_at', dayStart)
         .lte('paid_at', dayEnd),
 
@@ -130,6 +132,8 @@ export default function CaissePage() {
         .from('payments')
         .select('id, amount, received_by, paid_at, method, sales!inner(shop_id, sale_number, sale_status)')
         .eq('is_repayment', true)
+        .eq('is_cancelled', false)
+        .eq('is_write_off', false)
         .gte('paid_at', dayStart)
         .lte('paid_at', dayEnd)
         .order('paid_at', { ascending: false }),

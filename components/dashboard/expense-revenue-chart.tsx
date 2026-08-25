@@ -69,6 +69,8 @@ export function ExpenseRevenueChart() {
           .select('paid_at, amount, sales!inner(shop_id, sale_status)')
           .in('sales.shop_id', effectiveShopIds)
           .eq('sales.sale_status', 'active')
+          .eq('is_cancelled', false)
+          .eq('is_write_off', false)
           .gte('paid_at', sixMonthsAgo.toISOString())
           .lte('paid_at', endOfMonth(today).toISOString()),
       ])

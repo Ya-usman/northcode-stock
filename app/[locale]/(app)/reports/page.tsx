@@ -206,6 +206,8 @@ export default function ReportsPage() {
         .select('amount, received_by, sales!inner(shop_id, sale_status)')
         .in('sales.shop_id', effectiveShopIds)
         .eq('sales.sale_status', 'active')
+        .eq('is_cancelled', false)
+        .eq('is_write_off', false)
         .not('received_by', 'is', null)
         .gte('paid_at', start)
         .lte('paid_at', end),

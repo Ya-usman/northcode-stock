@@ -379,13 +379,26 @@ interface DebtReceiptData {
   appliedSales: { sale_number: string; amount: number }[]
   remainingBalance: number
   labels?: DebtReceiptLabels
+  /** The payment's actual paid_at — when reprinting a past payment from
+   * history, so the receipt shows when it really happened, not today. */
+  paidAt?: string
+  /** Stamps the receipt "CANCELLED" — for reprinting a payment that was
+   * later soft-cancelled, so a reprint never reads as a valid receipt. */
+  cancelled?: boolean
+  cancelledLabel?: string
+  /** Stamps the receipt "WRITTEN OFF" — for a bad-debt write-off, which is
+   * a payments row but never actual cash received. */
+  writeOff?: boolean
+  writeOffLabel?: string
+  /** Overrides the "TOTAL PAID" line's label, e.g. "AMOUNT WRITTEN OFF". */
+  totalPaidLabelOverride?: string
 }
 
 async function buildDebtReceiptDoc(data: DebtReceiptData) {
   const { jsPDF } = await import('jspdf')
   const autoTable = (await import('jspdf-autotable')).default
 
-  const { customerName, amount, method, methodLabel, reference, notes, receivedBy, shop, appliedSales, remainingBalance, labels } = data
+  const { customerName, amount, method, methodLabel, reference, notes, receivedBy, shop, appliedSales, remainingBalance, labels, paidAt, cancelled, cancelledLabel, writeOff, writeOffLabel, totalPaidLabelOverride } = data
   const DL: DebtReceiptLabels = {
     title: labels?.title ?? 'DEBT REPAYMENT RECEIPT',
     client: labels?.client ?? 'Client',
@@ -475,10 +488,25 @@ async function buildDebtReceiptDoc(data: DebtReceiptData) {
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(80, 80, 80)
   doc.text(
-    new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    (paidAt ? new Date(paidAt) : new Date()).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
     pageWidth / 2, y, { align: 'center' }
   )
   y += 8
+
+  // ─── CANCELLED / WRITE-OFF STAMP ──────────────
+  if (cancelled) {
+    doc.setFontSize(22)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(220, 38, 38)
+    doc.text(cancelledLabel ?? 'CANCELLED', pageWidth / 2, 70, { align: 'center', angle: 25 })
+    doc.setTextColor(0, 0, 0)
+  } else if (writeOff) {
+    doc.setFontSize(22)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(100, 116, 139)
+    doc.text(writeOffLabel ?? 'WRITTEN OFF', pageWidth / 2, 70, { align: 'center', angle: 25 })
+    doc.setTextColor(0, 0, 0)
+  }
 
   // ─── CUSTOMER + RECEIVER ─────────────────────
   doc.setFontSize(9)
@@ -529,7 +557,7 @@ async function buildDebtReceiptDoc(data: DebtReceiptData) {
   doc.setFontSize(12)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(10, 47, 110)
-  doc.text(DL.totalPaid, labelCol, y)
+  doc.text(totalPaidLabelOverride ?? DL.totalPaid, labelCol, y)
   doc.text(fmtAmt(amount), rightCol, y, { align: 'right' })
   y += 6
 

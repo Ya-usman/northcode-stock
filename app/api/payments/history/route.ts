@@ -55,7 +55,7 @@ export async function GET(request: Request) {
     const [paymentsRes, cashierProfilesRes] = await Promise.all([
       admin
         .from('payments')
-        .select('id, sale_id, amount, method, reference, notes, paid_at, received_by')
+        .select('id, sale_id, amount, method, reference, notes, paid_at, received_by, is_cancelled, cancelled_at, cancel_reason, edited_at, is_write_off')
         .in('sale_id', saleIds)
         .order('paid_at', { ascending: false }),
       cashierIds.length > 0

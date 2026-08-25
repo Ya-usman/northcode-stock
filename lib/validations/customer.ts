@@ -9,6 +9,11 @@ export const customerSchema = z.object({
     .optional()
     .or(z.literal('')),
   city: z.string().max(100).optional().or(z.literal('')),
+  credit_limit: z
+    .string()
+    .optional()
+    .or(z.literal(''))
+    .refine(v => !v || (!isNaN(Number(v)) && Number(v) >= 0), { message: 'Enter a valid credit limit' }),
 })
 
 export type CustomerFormData = z.infer<typeof customerSchema>

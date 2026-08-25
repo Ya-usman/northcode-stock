@@ -236,6 +236,8 @@ export default function SalesHistoryPage() {
       .from('payments')
       .select('amount, sales!inner(shop_id, sale_status)')
       .in('sales.shop_id', effectiveShopIds)
+      .eq('is_cancelled', false)
+      .eq('is_write_off', false)
       .gte('paid_at', start.toISOString())
       .lte('paid_at', end.toISOString())
     if (saleStatusFilter !== 'all') q = q.eq('sales.sale_status', saleStatusFilter)

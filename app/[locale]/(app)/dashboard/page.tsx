@@ -281,6 +281,8 @@ export default function DashboardPage() {
           .select('amount, sales!inner(shop_id, sale_status)')
           .in('sales.shop_id', shopIds)
           .eq('sales.sale_status', 'active')
+          .eq('is_cancelled', false)
+          .eq('is_write_off', false)
           .eq('received_by', cashierId)
           .gte('paid_at', startOfMonth(today).toISOString())
           .lte('paid_at', endOfMonth(today).toISOString()),
@@ -291,6 +293,8 @@ export default function DashboardPage() {
           .select('amount, sales!inner(shop_id, sale_status)')
           .in('sales.shop_id', shopIds)
           .eq('sales.sale_status', 'active')
+          .eq('is_cancelled', false)
+          .eq('is_write_off', false)
           .gte('paid_at', startOfMonth(today).toISOString())
           .lte('paid_at', endOfMonth(today).toISOString()),
 
