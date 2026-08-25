@@ -608,6 +608,7 @@ export default function SalesHistoryPage() {
           paid: t('status.paid'),
           partial: t('status.partial'),
           pending: t('status.pending'),
+          cancelled: t('status.cancelled'),
         },
         fmtAmt,
         labels: {
@@ -622,6 +623,7 @@ export default function SalesHistoryPage() {
           summary: t('sales.pdf_summary'),
           totalSales: t('sales.pdf_total_sales'),
           totalRevenue: t('sales.pdf_total_revenue'),
+          cancelledCount: t('sales.pdf_cancelled_count'),
           generatedBy: t('sales.pdf_generated_by'),
           page: t('sales.pdf_page'),
           of: t('sales.pdf_of'),
