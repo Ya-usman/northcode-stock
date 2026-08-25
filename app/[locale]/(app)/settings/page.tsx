@@ -50,6 +50,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const [threshold, setThreshold] = useState<string>('10')
   const [taxRate, setTaxRate] = useState<string>('0')
   const [expiryAlertDays, setExpiryAlertDays] = useState<string>('14')
+  const [defaultCreditTermDays, setDefaultCreditTermDays] = useState<string>('30')
 
   const [hoursEnabled, setHoursEnabled] = useState(false)
   const [openingTime, setOpeningTime] = useState('08:00')
@@ -152,6 +153,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       setThreshold(String(shopData.low_stock_threshold))
       setTaxRate(String(shopData.tax_rate))
       setExpiryAlertDays(String((shopData as any).expiry_alert_days ?? 14))
+      setDefaultCreditTermDays(String((shopData as any).default_credit_term_days ?? 30))
       setHoursEnabled(shopData.hours_enabled ?? false)
       setOpeningTime((shopData.opening_time ?? '08:00').slice(0, 5))
       setClosingTime((shopData.closing_time ?? '20:00').slice(0, 5))
@@ -244,6 +246,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       low_stock_threshold: Math.max(1, Number(threshold) || 1),
       tax_rate: Math.max(0, Number(taxRate) || 0),
       expiry_alert_days: Math.max(1, Number(expiryAlertDays) || 1),
+      default_credit_term_days: Math.max(1, Number(defaultCreditTermDays) || 1),
 
       hours_enabled: hoursEnabled,
       opening_time: openingTime,
@@ -516,6 +519,11 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                   <Label>{t('settings.expiry_alert_days')}</Label>
                   <Input type="number" min={1} value={expiryAlertDays} onChange={e => setExpiryAlertDays(e.target.value)} />
                   <p className="text-xs text-muted-foreground">{t('settings.expiry_alert_hint')}</p>
+                </div>
+                <div className="space-y-1">
+                  <Label>{t('settings.default_credit_term_days')}</Label>
+                  <Input type="number" min={1} value={defaultCreditTermDays} onChange={e => setDefaultCreditTermDays(e.target.value)} />
+                  <p className="text-xs text-muted-foreground">{t('settings.default_credit_term_hint')}</p>
                 </div>
               </div>
             </CardContent>

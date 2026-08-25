@@ -22,7 +22,7 @@ export async function PATCH(request: Request) {
     // exclu — figé à l'inscription, seul le super_admin le modifie (cf. migration 064).
     const ALLOWED_FIELDS = [
       'name', 'city', 'state', 'country', 'currency', 'whatsapp',
-      'low_stock_threshold', 'tax_rate', 'expiry_alert_days',
+      'low_stock_threshold', 'tax_rate', 'expiry_alert_days', 'default_credit_term_days',
       'notify_email_low_stock', 'notify_email_daily', 'notify_email_expiry',
       'notify_push_new_sale', 'notify_push_new_expense', 'notify_push_expiry',
       ...HOURS_FIELDS,

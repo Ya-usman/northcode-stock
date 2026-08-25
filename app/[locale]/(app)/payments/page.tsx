@@ -41,6 +41,7 @@ interface UnpaidSale {
   balance: number
   amount_paid: number
   payment_status: string
+  due_date?: string | null
   cashier_name?: string | null
   sale_items?: { product_name: string; quantity: number; subtotal: number }[]
 }
@@ -49,6 +50,13 @@ interface CustomerDebt {
   customer: Customer
   unpaidSales: UnpaidSale[]
   totalDebt: number
+}
+
+// Retard calculé à la volée à partir d'une simple colonne date — même
+// principe que expected_delivery_date côté bons de commande fournisseurs.
+function isSaleOverdue(sale: UnpaidSale): boolean {
+  if (!sale.due_date || sale.balance <= 0) return false
+  return sale.due_date < new Date().toISOString().slice(0, 10)
 }
 
 interface PaymentRecord {
@@ -177,7 +185,7 @@ function calcFifoPOs(amount: number, pos: UnpaidPO[]): POFifoLine[] {
   return lines
 }
 
-function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedId, openRepayDialog, openHistory, fmt, t, saving }: any) {
+function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedId, openRepayDialog, openHistory, onPostpone, fmt, t, saving }: any) {
   const paidTotal = unpaidSales.reduce((s: number, sale: UnpaidSale) => s + sale.amount_paid, 0)
   const grandTotal = unpaidSales.reduce((s: number, sale: UnpaidSale) => s + sale.total, 0)
   const progress = grandTotal > 0 ? Math.min(100, (paidTotal / grandTotal) * 100) : 0
@@ -257,6 +265,27 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
                     <span className="text-xs font-bold text-red-600">{t('payment.due')}: {fmt(sale.balance)}</span>
                   </div>
                 )}
+                <div className="flex items-center justify-between pt-1">
+                  <div className="flex items-center gap-1.5">
+                    {sale.due_date ? (
+                      <span className={`text-[11px] ${isSaleOverdue(sale) ? 'text-red-600 font-semibold' : 'text-muted-foreground'}`}>
+                        {t('payments.due_date_label')} : {format(new Date(sale.due_date), 'dd MMM yyyy', { locale: fr })}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground">{t('payments.no_due_date')}</span>
+                    )}
+                    {isSaleOverdue(sale) && (
+                      <Badge variant="destructive" className="text-[10px] px-1.5">{t('payments.overdue_badge')}</Badge>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="text-[11px] text-stockshop-blue dark:text-blue-400 hover:underline flex items-center gap-1 flex-shrink-0"
+                    onClick={() => onPostpone(sale, customer)}
+                  >
+                    <CalendarDays className="h-3 w-3" /> {t('payments.postpone_action')}
+                  </button>
+                </div>
                 {sale.cashier_name && <p className="text-[11px] text-muted-foreground">{t('payments.sold_by')} : <strong>{sale.cashier_name}</strong></p>}
                 {sale.sale_items && sale.sale_items.length > 0 && (
                   <div className="pt-1 border-t space-y-0.5">
@@ -392,6 +421,7 @@ export default function CreditsPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [search, setSearch] = useState('')
+  const [overdueOnly, setOverdueOnly] = useState(false)
 
   // ── Repayment dialog ─────────────────────────────────────
   const [repayDebtor, setRepayDebtor] = useState<CustomerDebt | null>(null)
@@ -400,6 +430,12 @@ export default function CreditsPage() {
   const [repayRef, setRepayRef] = useState('')
   const [repayNotes, setRepayNotes] = useState('')
   const [saving, setSaving] = useState(false)
+
+  // ── Postpone due date dialog ──────────────────────────────
+  const [postponeSale, setPostponeSale] = useState<{ sale: UnpaidSale; customer: Customer } | null>(null)
+  const [postponeDate, setPostponeDate] = useState('')
+  const [postponeReason, setPostponeReason] = useState('')
+  const [postponingSaving, setPostponingSaving] = useState(false)
   const [receiptResult, setReceiptResult] = useState<{ blob: Blob; fileName: string; customerName: string; phone?: string } | null>(null)
 
   // ── History dialog ───────────────────────────────────────
@@ -729,15 +765,19 @@ export default function CreditsPage() {
 
   const totalOutstanding = debtors.reduce((s, d) => s + d.totalDebt, 0)
 
+  const overdueDebtorsCount = useMemo(() => debtors.filter(d => d.unpaidSales.some(isSaleOverdue)).length, [debtors])
+
   const filteredDebtors = useMemo(() => {
-    if (!search.trim()) return debtors
+    let list = debtors
+    if (overdueOnly) list = list.filter(d => d.unpaidSales.some(isSaleOverdue))
+    if (!search.trim()) return list
     const q = normalize(search)
-    return debtors.filter(d =>
+    return list.filter(d =>
       normalize(d.customer.name).includes(q) ||
       d.customer.phone?.includes(q) ||
       normalize(d.customer.city ?? '').includes(q)
     )
-  }, [debtors, search])
+  }, [debtors, search, overdueOnly])
 
   // ── FIFO preview ─────────────────────────────────────────
   const amount = Number(repayAmount) || 0
@@ -767,6 +807,44 @@ export default function CreditsPage() {
     // perceived delay (jsPDF is dynamically imported on first use).
     import('jspdf').catch(() => {})
     import('jspdf-autotable').catch(() => {})
+  }
+
+  // ── Postpone due date ─────────────────────────────────────
+  const openPostponeDialog = (sale: UnpaidSale, customer: Customer) => {
+    setPostponeSale({ sale, customer })
+    setPostponeDate(sale.due_date ? sale.due_date.slice(0, 10) : new Date().toISOString().slice(0, 10))
+    setPostponeReason('')
+  }
+
+  const submitPostpone = async () => {
+    if (!postponeSale || !postponeDate || !shop?.id) return
+    setPostponingSaving(true)
+    try {
+      const res = await withTimeout(fetch('/api/sales/postpone-due-date', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sale_id: postponeSale.sale.id,
+          shop_id: shop.id,
+          new_due_date: postponeDate,
+          reason: postponeReason || null,
+        }),
+      }))
+      const data = await res.json()
+      if (!res.ok) { toast({ title: data.error || t('toast.error'), variant: 'destructive' }); return }
+      // Met à jour l'échéance localement — évite un refetch complet pour un seul champ.
+      setDebtors(prev => prev.map(d =>
+        d.customer.id === postponeSale.customer.id
+          ? { ...d, unpaidSales: d.unpaidSales.map(s => s.id === postponeSale.sale.id ? { ...s, due_date: postponeDate } : s) }
+          : d
+      ))
+      toast({ title: t('payments.postpone_success'), variant: 'success' })
+      setPostponeSale(null)
+    } catch (e: any) {
+      toast({ title: e.message || t('toast.error'), variant: 'destructive' })
+    } finally {
+      setPostponingSaving(false)
+    }
   }
 
   // ── Record repayment ─────────────────────────────────────
@@ -1065,11 +1143,24 @@ export default function CreditsPage() {
 
       {activeTab === 'en-cours' && (
         <>
-          {/* Search */}
+          {/* Search + filtre en retard */}
           {!loading && debtors.length > 0 && (
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('actions.search')} className="pl-9 h-9" />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('actions.search')} className="pl-9 h-9" />
+              </div>
+              {overdueDebtorsCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setOverdueOnly(v => !v)}
+                  className={`h-9 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 flex-shrink-0 border transition-colors ${
+                    overdueOnly ? 'bg-red-600 border-red-600 text-white' : 'border-red-200 dark:border-red-900 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40'
+                  }`}
+                >
+                  {t('payments.overdue_badge')} <span className={overdueOnly ? 'opacity-90' : 'opacity-70'}>{overdueDebtorsCount}</span>
+                </button>
+              )}
             </div>
           )}
 
@@ -1103,7 +1194,7 @@ export default function CreditsPage() {
                     {shopDebtors.map(({ customer, unpaidSales, totalDebt }) => (
                       <DebtorCard key={customer.id} customer={customer} unpaidSales={unpaidSales} totalDebt={totalDebt}
                         isExpanded={expandedId === customer.id} setExpandedId={setExpandedId}
-                        openRepayDialog={openRepayDialog} openHistory={openHistory} fmt={fmt} t={t} saving={saving} />
+                        openRepayDialog={openRepayDialog} openHistory={openHistory} onPostpone={openPostponeDialog} fmt={fmt} t={t} saving={saving} />
                     ))}
                   </div>
                 )
@@ -1114,7 +1205,7 @@ export default function CreditsPage() {
               {filteredDebtors.map(({ customer, unpaidSales, totalDebt }) => (
                 <DebtorCard key={customer.id} customer={customer} unpaidSales={unpaidSales} totalDebt={totalDebt}
                   isExpanded={expandedId === customer.id} setExpandedId={setExpandedId}
-                  openRepayDialog={openRepayDialog} openHistory={openHistory} fmt={fmt} t={t} />
+                  openRepayDialog={openRepayDialog} openHistory={openHistory} onPostpone={openPostponeDialog} fmt={fmt} t={t} />
               ))}
             </div>
           )}
@@ -1703,6 +1794,43 @@ export default function CreditsPage() {
               confirmLabel={saving ? t('payment.saving') : `✓ ${t('payment.confirm_repayment')}`}
               confirmDisabled={saving || !repayDebtor || repayDebtor.unpaidSales.length === 0 || amount <= 0}
               confirmLoading={saving}
+            />
+          </>
+        )}
+      </PremiumDialog>
+
+      {/* ── Postpone due date Dialog ── */}
+      <PremiumDialog
+        open={!!postponeSale}
+        onOpenChange={open => { if (!open) setPostponeSale(null) }}
+        category={t('nav.payments')}
+        title={t('payments.postpone_action')}
+        icon={<CalendarDays className="h-4 w-4" />}
+      >
+        {postponeSale && (
+          <>
+            <PremiumDialogBody>
+              <div className="flex items-center gap-2 -mt-1 mb-1">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">{postponeSale.customer.name}</p>
+                <Badge variant="outline" className="text-[10px] font-mono">#{postponeSale.sale.sale_number}</Badge>
+              </div>
+              <div className="space-y-1">
+                <Label>{t('payments.due_date_label')}</Label>
+                <Input type="date" value={postponeDate} onChange={e => setPostponeDate(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label>{t('payments.postpone_reason_label')} <span className="text-muted-foreground font-normal">({t('form.optional')})</span></Label>
+                <Input value={postponeReason} onChange={e => setPostponeReason(e.target.value)} placeholder={t('payments.postpone_reason_placeholder')} />
+              </div>
+            </PremiumDialogBody>
+            <PremiumDialogFooter
+              onCancel={() => setPostponeSale(null)}
+              cancelLabel={t('actions.cancel')}
+              onConfirm={submitPostpone}
+              confirmLabel={postponingSaving ? t('payment.saving') : `✓ ${t('actions.save')}`}
+              confirmDisabled={postponingSaving || !postponeDate}
+              confirmLoading={postponingSaving}
             />
           </>
         )}

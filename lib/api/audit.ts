@@ -17,6 +17,7 @@ export type AuditAction =
   | 'sale.validate_payment'
   | 'sale.edit'
   | 'sale.delete'
+  | 'sale.postpone_due_date'
   | 'expense.delete'
   | 'supplier.delete'
   | 'purchase_order.cancel'

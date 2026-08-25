@@ -16,6 +16,7 @@ export interface Shop {
   low_stock_threshold: number
   tax_rate: number
   expiry_alert_days: number
+  default_credit_term_days: number
   notify_whatsapp_low_stock: boolean
   notify_whatsapp_daily: boolean
   notify_whatsapp_each_sale: boolean
@@ -258,6 +259,8 @@ export interface Sale {
   // Idempotency key — same value reused across retries of the same checkout
   // attempt so a duplicate insert is rejected instead of creating a second sale.
   client_request_id?: string | null
+  // Échéance de paiement — pertinente seulement si balance > 0, jamais obligatoire.
+  due_date?: string | null
   // Cancellation
   sale_status: SaleStatus
   cancelled_by: string | null

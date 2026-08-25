@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       shop_id, customer_id, customer_name, customer_phone,
       subtotal, discount, tax, total,
       payment_method, notes, paystack_reference, client_request_id,
-      items, payments,
+      items, payments, due_date,
     } = await request.json()
 
     if (!shop_id || !Array.isArray(items) || items.length === 0) {
@@ -56,6 +56,7 @@ export async function POST(request: Request) {
       p_client_request_id: client_request_id,
       p_items: items,
       p_payments: payments || [],
+      p_due_date: due_date || null,
     })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })

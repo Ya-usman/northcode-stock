@@ -121,6 +121,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const [splitPayment, setSplitPayment] = useState(false)
   const [splitMethod2, setSplitMethod2] = useState<string>('')
   const [notes, setNotes] = useState('')
+  const [dueDate, setDueDate] = useState('')
   const { isOnline, refreshPendingCount } = useOffline()
   const [completing, setCompleting] = useState(false)
   const [completedSale, setCompletedSale] = useState<Sale & { sale_items: SaleItem[] } | null>(null)
@@ -385,6 +386,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     setDebtRepayEnabled(false)
     setDebtRepayAmount('')
     setCustomerUnpaidSales([])
+    setDueDate('')
+    dueDateTouchedRef.current = false
   }
 
   // ── DRAFTS ─────────────────────────────────────────────
@@ -473,6 +476,24 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     : methodType === 'credit' ? 0 : total
   const change = methodType === 'cash' ? Math.max(0, (Number(amountPaid) || 0) - totalToCollect) : 0
   const balance = Math.max(0, total - paid)
+
+  // Pré-remplit l'échéance dès qu'un solde apparaît, avec le délai par
+  // défaut de la boutique — jamais si le caissier a déjà touché le champ
+  // (y compris pour le vider volontairement), et remis à vide quand le
+  // solde retombe à 0 pour ne pas laisser une échéance orpheline sur une
+  // vente finalement payée intégralement.
+  const dueDateTouchedRef = useRef(false)
+  useEffect(() => {
+    if (balance <= 0) {
+      if (dueDate) setDueDate('')
+      dueDateTouchedRef.current = false
+      return
+    }
+    if (dueDateTouchedRef.current || dueDate) return
+    const days = selectedShop?.default_credit_term_days ?? 30
+    setDueDate(new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [balance > 0, selectedShop?.id])
 
   const filteredCustomers = customerName
     ? customers.filter(c =>
@@ -660,6 +681,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             notes: notes || null,
             paystack_reference: methodType === 'card' ? `PAY-${Date.now()}` : null,
             client_request_id: clientRequestId,
+            due_date: balance > 0 ? (dueDate || null) : null,
             items: cart.map((item: any) => ({
               product_id: item.product.id,
               product_name: item.product.name,
@@ -1449,6 +1471,19 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             </div>
           )}
 
+
+          {/* Échéance de paiement — uniquement si la vente laisse un solde */}
+          {balance > 0 && (
+            <div className="space-y-1.5">
+              <Label>Échéance de paiement</Label>
+              <Input
+                type="date"
+                value={dueDate}
+                onChange={e => { dueDateTouchedRef.current = true; setDueDate(e.target.value) }}
+              />
+              <p className="text-xs text-muted-foreground">Date à laquelle le solde restant est attendu — modifiable, jamais obligatoire.</p>
+            </div>
+          )}
 
           {/* Notes */}
           <div className="space-y-1.5">

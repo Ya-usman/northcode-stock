@@ -48,7 +48,7 @@ export async function GET(request: Request) {
     const customerIds = customers.map((c: any) => c.id)
     const { data: shopSales, error: salesErr } = await admin
       .from('sales')
-      .select('id, sale_number, created_at, total, balance, amount_paid, payment_status, customer_id, cashier_id, sale_items(product_name, quantity, subtotal)')
+      .select('id, sale_number, created_at, total, balance, amount_paid, payment_status, due_date, customer_id, cashier_id, sale_items(product_name, quantity, subtotal)')
       .in('shop_id', allowedIds)
       .in('customer_id', customerIds)
       .gt('balance', 0)
