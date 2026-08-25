@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
+import { ShopSelector } from '@/components/layout/shop-selector'
 import { cn } from '@/lib/utils/cn'
 import { Plus, Pin, Pencil, Trash2, Store, Search, PinOff } from 'lucide-react'
 import { normalize } from '@/lib/utils/normalize'
@@ -56,14 +57,14 @@ export default function NotesPage() {
   const locale = useLocale()
   const dateFnsLocale = locale === 'fr' ? fr : enUS
   const COLORS = COLOR_KEYS.map(key => ({ key, ...COLOR_STYLES[key], label: t(`color_${key}`) }))
-  const { profile, shop, userShops } = useAuth()
+  const { profile, shop, userShops, effectiveShopIds } = useAuth()
   const { isOnline } = useOffline()
   const { toast } = useToast()
 
   const [notes, setNotes] = useState<Note[]>([])
   const [loading, setLoading] = useState(true)
-  const [{ search, shopFilter }, setFilter] = usePersistedFilters(
-    'notes', shop?.id, { search: '', shopFilter: 'all' }
+  const [{ search }, setFilter] = usePersistedFilters(
+    'notes', shop?.id, { search: '' }
   )
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Note | null>(null)
@@ -79,22 +80,19 @@ export default function NotesPage() {
   // Both title and content are uncontrolled — avoids Android IME re-render interrupting suggestions
   const contentValueRef = useRef('')
 
-  const effectiveShopIds = userShops.map(s => s.id)
-
   const fetchNotes = async () => {
     if (!effectiveShopIds.length) return
-    const cacheKey = `notes_${effectiveShopIds.join(',')}_${shopFilter}`
+    const cacheKey = `notes_${effectiveShopIds.join(',')}`
     const cached = getPageCache<Note[]>(cacheKey)
     if (cached) { setNotes(cached); setLoading(false) }
     else setLoading(true)
     try {
-      let q = supabase
+      const q = supabase
         .from('notes')
         .select('*')
         .in('shop_id', effectiveShopIds)
         .order('pinned', { ascending: false })
         .order('updated_at', { ascending: false })
-      if (shopFilter !== 'all') q = q.eq('shop_id', shopFilter)
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave `loading` stuck true forever.
       const { data, error } = await withTimeout<any>(q, 20_000, t('load_timeout'))
@@ -111,7 +109,7 @@ export default function NotesPage() {
     }
   }
 
-  useEffect(() => { fetchNotes() }, [effectiveShopIds.join(','), shopFilter])
+  useEffect(() => { fetchNotes() }, [effectiveShopIds.join(',')])
 
   // Refresh when the user comes back to this tab — catches notes added/edited
   // by other team members in the meantime.
@@ -246,21 +244,7 @@ export default function NotesPage() {
           />
         </div>
 
-        {userShops.length > 1 && (
-          <div className="relative">
-            <Store className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <select
-              value={shopFilter}
-              onChange={e => setFilter({ shopFilter: e.target.value })}
-              className="h-10 rounded-lg border border-input bg-background pl-9 pr-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="all">{tRoot('dashboard.all_shops')}</option>
-              {userShops.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
+        <ShopSelector variant="compact" className="w-auto" />
 
         <Button variant="stockshop" onClick={openCreate} className="gap-2 shrink-0">
           <Plus className="h-4 w-4" />

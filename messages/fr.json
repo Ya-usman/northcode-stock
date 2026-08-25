@@ -427,6 +427,7 @@
     "pending_sync_title": "En attente de synchronisation ({count})",
     "pending_sync_badge": "En attente",
     "invoices_pending": "{count} facture(s) en attente",
+    "selling_at": "Vendre dans",
     "balance_due": "Solde dû",
     "new_sale_cta": "Nouvelle vente →",
     "customer_label": "Client",

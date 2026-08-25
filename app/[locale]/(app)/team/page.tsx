@@ -4,11 +4,12 @@ import { useState, useEffect, useCallback } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import {
   UserPlus, Shield, Mail, ShieldOff, ShieldCheck,
-  AlertTriangle, Trash2, Store, ChevronDown, RotateCcw,
+  AlertTriangle, Trash2, Store, RotateCcw,
   CheckCircle2, Clock,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
+import { ShopSelector } from '@/components/layout/shop-selector'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -76,12 +77,13 @@ export default function TeamPage() {
   const t = useTranslations()
   const locale = useLocale()
   const dateFnsLocale = locale === 'fr' ? fr : enUS
-  const { profile: myProfile, shop, userShops, effectiveShopIds, dashboardShopFilter } = useAuth()
+  const { profile: myProfile, shop, userShops, effectiveShopIds } = useAuth()
   const { isOnline } = useOffline()
   const { toast } = useToast()
+  // The shop whose team is shown/managed — the single global active shop, shared
+  // with the sidebar/header selector (no more page-local shop state to drift out of sync).
+  const shopId = shop?.id
 
-  const [viewShopId, setViewShopId] = useState<string>(shop?.id || '')
-  const [shopPickerOpen, setShopPickerOpen] = useState(false)
   const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
@@ -116,14 +118,8 @@ export default function TeamPage() {
     isFullOwner || (isSubManager && SUBORDINATE_ROLES.includes(member.role))
 
   useEffect(() => {
-    if (dashboardShopFilter) {
-      setViewShopId(dashboardShopFilter)
-      setInviteShopId(dashboardShopFilter)
-    } else if (shop?.id) {
-      if (!viewShopId) setViewShopId(shop.id)
-      if (!inviteShopId) setInviteShopId(shop.id)
-    }
-  }, [shop?.id, dashboardShopFilter])
+    if (shop?.id) setInviteShopId(id => id || shop.id)
+  }, [shop?.id])
 
   const fetchMembers = useCallback(async () => {
     if (!effectiveShopIds.length) return
@@ -172,12 +168,12 @@ export default function TeamPage() {
       setPageCache(cacheKey, membersArray)
 
       // Fetch auth status (email confirmed, last sign in) for owners/managers only
-      if (isOwner && viewShopId) {
+      if (isOwner && shopId) {
         try {
           const res = await withTimeout(fetch('/api/team/status', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_ids: userIds, shop_id: viewShopId }),
+            body: JSON.stringify({ user_ids: userIds, shop_id: shopId }),
           }), 15_000)
           if (res.ok) {
             const { status } = await res.json()
@@ -195,7 +191,7 @@ export default function TeamPage() {
     } finally {
       setLoading(false)
     }
-  }, [effectiveShopIds.join(','), isOwner, viewShopId])
+  }, [effectiveShopIds.join(','), isOwner, shopId])
 
   useEffect(() => { fetchMembers() }, [effectiveShopIds.join(',')])
 
@@ -205,7 +201,7 @@ export default function TeamPage() {
   useRefetchOnReconnect(fetchMembers, isOnline)
 
   const fetchAuditLogs = useCallback(async () => {
-    if (!viewShopId) return
+    if (!shopId) return
     setLoadingJournal(true)
     try {
       // Bounded so a stale connection/session after the app sat backgrounded
@@ -213,7 +209,7 @@ export default function TeamPage() {
       const { data } = await withTimeout<any>(supabase
         .from('audit_logs')
         .select('*')
-        .eq('shop_id', viewShopId)
+        .eq('shop_id', shopId)
         .in('action', ['member.invite', 'member.delete', 'member.role_change', 'member.toggle_active'])
         .order('created_at', { ascending: false })
         .limit(50), 20_000, 'Chargement du journal trop lent — réessayez.')
@@ -223,7 +219,7 @@ export default function TeamPage() {
     } finally {
       setLoadingJournal(false)
     }
-  }, [viewShopId])
+  }, [shopId])
 
   useEffect(() => { if (view === 'journal') fetchAuditLogs() }, [view, fetchAuditLogs])
 
@@ -325,7 +321,7 @@ export default function TeamPage() {
       setShowInviteModal(false)
       setInviteEmail('')
       setInviteFullName('')
-      if (inviteShopId === viewShopId) fetchMembers()
+      if (inviteShopId === shopId) fetchMembers()
     } catch (err: any) {
       toast({ title: err.message, variant: 'destructive' })
     } finally {
@@ -356,14 +352,13 @@ export default function TeamPage() {
     }
   }
 
-  const displayedMembers = (viewShopId
-    ? members.filter(m => m.shop_id === viewShopId)
+  const displayedMembers = (shopId
+    ? members.filter(m => m.shop_id === shopId)
     : members
   ).filter(m => !(isSubManager && m.role === 'owner'))
 
   const activeCount = displayedMembers.filter(m => m.is_active).length
   const pendingCount = displayedMembers.filter(m => m.authStatus && !m.authStatus.email_confirmed_at).length
-  const viewShopName = userShops.find(s => s.id === viewShopId)?.name || shop?.name || ''
 
   const renderMemberStatus = (member: Member) => {
     const p = member.profiles
@@ -556,47 +551,15 @@ export default function TeamPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Shop selector */}
-          {isOwner && userShops.length > 1 && (
-            <div className="relative">
-              <button
-                onClick={() => setShopPickerOpen(o => !o)}
-                className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm font-medium shadow-sm hover:bg-accent transition-colors"
-              >
-                <Store className="h-4 w-4 text-stockshop-blue dark:text-blue-400" />
-                <span className="max-w-[120px] truncate">{viewShopName}</span>
-                <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform', shopPickerOpen && 'rotate-180')} />
-              </button>
-              {shopPickerOpen && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setShopPickerOpen(false)} />
-                  <div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-xl border bg-card shadow-lg p-1.5">
-                    {userShops.map(s => (
-                      <button
-                        key={s.id}
-                        onClick={() => { setViewShopId(s.id); setShopPickerOpen(false) }}
-                        className={cn(
-                          'w-full text-left rounded-lg px-3 py-2 text-sm transition-colors',
-                          viewShopId === s.id
-                            ? 'bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400 font-medium'
-                            : 'hover:bg-accent text-foreground/80'
-                        )}
-                      >
-                        {s.name}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
+          {/* Shop selector — same shared control as everywhere else in the app */}
+          {isOwner && <ShopSelector variant="compact" allowAllShops={false} className="w-auto" />}
 
           {isOwner && (
             <Button
               variant="stockshop"
               className="gap-2"
               disabled={inviting}
-              onClick={() => { setInviteShopId(viewShopId); setShowInviteModal(true) }}
+              onClick={() => { setInviteShopId(shopId ?? ''); setShowInviteModal(true) }}
             >
               <UserPlus className="h-4 w-4" />
               {t('team.invite_btn')}

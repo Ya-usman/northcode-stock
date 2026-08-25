@@ -427,6 +427,7 @@
     "pending_sync_title": "Ana jiran daidaitawa ({count})",
     "pending_sync_badge": "Ana jira",
     "invoices_pending": "takardun {count} da ke jira",
+    "selling_at": "Ana sayarwa a",
     "balance_due": "Saura Da Ake Bashi",
     "new_sale_cta": "Sayarwa Sabuwa →",
     "customer_label": "Abokin Ciniki",

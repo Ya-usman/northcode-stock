@@ -427,6 +427,7 @@
     "pending_sync_title": "Waiting to sync ({count})",
     "pending_sync_badge": "Pending",
     "invoices_pending": "{count} invoice(s) on hold",
+    "selling_at": "Selling at",
     "balance_due": "Balance Due",
     "new_sale_cta": "New Sale →",
     "customer_label": "Customer",

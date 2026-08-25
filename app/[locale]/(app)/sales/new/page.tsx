@@ -5,10 +5,11 @@ import { useTranslations, useLocale } from 'next-intl'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, Plus, Minus, Trash2, CheckCircle, MessageCircle, Printer, Share2,
-  Scan, X, User, Store, ChevronDown, Clock, PauseCircle, PlayCircle, Edit2,
+  Scan, X, User, Clock, PauseCircle, PlayCircle, Edit2,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
+import { ShopSelector } from '@/components/layout/shop-selector'
 import { cn } from '@/lib/utils/cn'
 import { normalize } from '@/lib/utils/normalize'
 import { useToast } from '@/components/ui/use-toast'
@@ -91,12 +92,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const locale = useLocale()
   const { profile, shop, userShops } = useAuth()
   const isOwner = profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'shop_manager' || profile?.role === 'super_admin'
-  const [selectedShopId, setSelectedShopId] = useState<string | null>(null)
-  const [shopPickerOpen, setShopPickerOpen] = useState(false)
-  const selectedShop = userShops.find(s => s.id === (selectedShopId || shop?.id)) || shop
   const { fmt: _fmtGlobal, symbol: _globalSymbol } = useCurrency()
-  // Always derive symbol from selectedShop so prices stay in sync with the shop picker
-  const symbol = selectedShop?.currency || _globalSymbol
+  // Always derive symbol from shop so prices stay in sync with the shop switcher
+  const symbol = shop?.currency || _globalSymbol
   const formatNaira = (amount: number | string | null | undefined) => formatCurrency(amount, symbol)
   const supabase = createClient()
   const { toast } = useToast()
@@ -160,11 +158,11 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const checkoutIdRef = useRef<string | null>(null)
 
   const loadShopData = useCallback(async () => {
-    if (!selectedShop?.id) return
+    if (!shop?.id) return
     // Always show IndexedDB cache immediately (stale-while-revalidate)
     const [cachedProds, cachedCusts] = await Promise.all([
-      getCachedProducts(selectedShop.id),
-      getCachedCustomers(selectedShop.id),
+      getCachedProducts(shop.id),
+      getCachedCustomers(shop.id),
     ])
     if (cachedProds.length > 0) {
       setProducts(cachedProds as unknown as Product[])
@@ -183,12 +181,12 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       // visibilitychange/reconnect trigger hit the exact same hang again.
       const [prodsRes, custsRes, catsRes, batchesRes] = await withTimeout(Promise.all([
         supabase.from('products').select('*, categories(name), suppliers(name)')
-          .eq('shop_id', selectedShop.id).eq('is_active', true).gt('quantity', 0).order('name'),
-        supabase.from('customers').select('*').eq('shop_id', selectedShop.id).order('name'),
-        supabase.from('categories').select('*').eq('shop_id', selectedShop.id).order('name'),
+          .eq('shop_id', shop.id).eq('is_active', true).gt('quantity', 0).order('name'),
+        supabase.from('customers').select('*').eq('shop_id', shop.id).order('name'),
+        supabase.from('categories').select('*').eq('shop_id', shop.id).order('name'),
         supabase.from('product_batches')
           .select('product_id, expiry_date, received_at, promo_price, promo_until')
-          .eq('shop_id', selectedShop.id).gt('quantity', 0)
+          .eq('shop_id', shop.id).gt('quantity', 0)
           .order('expiry_date', { ascending: true, nullsFirst: false })
           .order('received_at', { ascending: true }),
       ]), 20_000, 'Chargement des produits trop lent — réessayez.')
@@ -220,20 +218,20 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       setFrontBatchPromo(promoMap)
       // Refresh IndexedDB cache
       await Promise.all([
-        cacheProducts(selectedShop.id, safeProds.map((p: any) => ({
-          id: p.id, shop_id: selectedShop.id, name: p.name, sku: p.sku ?? null,
+        cacheProducts(shop.id, safeProds.map((p: any) => ({
+          id: p.id, shop_id: shop.id, name: p.name, sku: p.sku ?? null,
           selling_price: Number(p.selling_price), buying_price: Number(p.buying_price),
           quantity: Number(p.quantity), category_id: p.category_id ?? null, is_active: p.is_active,
         }))),
-        cacheCustomers(selectedShop.id, (custs || []).map((c: any) => ({
-          id: c.id, shop_id: selectedShop.id, name: c.name,
+        cacheCustomers(shop.id, (custs || []).map((c: any) => ({
+          id: c.id, shop_id: shop.id, name: c.name,
           phone: c.phone ?? null, total_debt: Number(c.total_debt ?? 0),
         }))),
       ])
     } catch {
       // Cache already applied above — nothing to do
     }
-  }, [selectedShop?.id, isOnline])
+  }, [shop?.id, isOnline])
 
   useEffect(() => { loadShopData() }, [loadShopData])
 
@@ -399,7 +397,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     const draft: Draft = {
       id: activeDraftId || `draft_${Date.now()}`,
       createdAt: new Date().toISOString(),
-      shopId: selectedShop?.id || '',
+      shopId: shop?.id || '',
       cart,
       customerName: selectedCustomer ? selectedCustomer.name : customerName,
       customerPhone,
@@ -436,7 +434,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   }
 
   // Drafts for current shop
-  const shopDrafts = drafts.filter(d => d.shopId === selectedShop?.id)
+  const shopDrafts = drafts.filter(d => d.shopId === shop?.id)
 
   // Fetch unpaid sales when customer with debt is selected
   // Uses /api/payments/debts to bypass RLS for multi-shop accounts
@@ -444,8 +442,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     setDebtRepayEnabled(false)
     setDebtRepayAmount('')
     setCustomerUnpaidSales([])
-    if (!selectedCustomer || Number(selectedCustomer.total_debt) <= 0 || !selectedShop?.id) return
-    fetch(`/api/payments/debts?shop_id=${selectedShop.id}`)
+    if (!selectedCustomer || Number(selectedCustomer.total_debt) <= 0 || !shop?.id) return
+    fetch(`/api/payments/debts?shop_id=${shop.id}`)
       .then(r => r.json())
       .then(({ debtors }) => {
         const debtor = (debtors || []).find((d: any) => d.customer.id === selectedCustomer.id)
@@ -457,17 +455,17 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         }
       })
       .catch(() => {/* keep empty */})
-  }, [selectedCustomer?.id, selectedShop?.id])
+  }, [selectedCustomer?.id, shop?.id])
 
   // ── TOTALS ─────────────────────────────────────────────
   const subtotal = cart.reduce((s, i) => s + i.subtotal, 0)
   const discountAmt = discount
-  const tax = Number(selectedShop?.tax_rate || 0) > 0 ? (subtotal - discountAmt) * (selectedShop!.tax_rate / 100) : 0
+  const tax = Number(shop?.tax_rate || 0) > 0 ? (subtotal - discountAmt) * (shop!.tax_rate / 100) : 0
   const total = subtotal - discountAmt + tax
   // Montant total à encaisser = vente + remboursement crédit si activé
   const debtAmt = debtRepayEnabled ? (Number(debtRepayAmount) || 0) : 0
   const totalToCollect = total + debtAmt
-  const shopCountry = getCountry(selectedShop?.country)
+  const shopCountry = getCountry(shop?.country)
   const methodType = getMethodType(paymentMethod, shopCountry)
   // For credit: customer pays nothing now → paid = 0, balance = total
   // For cash: cap at total — the change given back is NOT revenue
@@ -490,10 +488,10 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       return
     }
     if (dueDateTouchedRef.current || dueDate) return
-    const days = selectedShop?.default_credit_term_days ?? 30
+    const days = shop?.default_credit_term_days ?? 30
     setDueDate(new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [balance > 0, selectedShop?.id])
+  }, [balance > 0, shop?.id])
 
   const filteredCustomers = customerName
     ? customers.filter(c =>
@@ -529,7 +527,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
     // Snapshot values NOW (before any async wait) so they stay valid
     // even if auth context updates during the 10s network timeout.
-    const _shopId = selectedShop?.id
+    const _shopId = shop?.id
     const _cashierId = profile?.id
     const _cart = cart.map((item: any) => ({ ...item }))
 
@@ -672,7 +670,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            shop_id: selectedShop!.id,
+            shop_id: shop!.id,
             customer_id: selectedCustomer?.id || null,
             customer_name: !selectedCustomer && customerName.trim() ? customerName.trim() : null,
             customer_phone: !selectedCustomer && customerPhone.trim() ? customerPhone.trim() : null,
@@ -724,7 +722,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             method: methodType === 'credit' ? 'cash' : paymentMethod,
             reference: methodType === 'transfer' ? transferRef : null,
             notes: `Inclus dans la vente #${(sale as any).sale_number}`,
-            shop_id: selectedShop!.id,
+            shop_id: shop!.id,
             client_request_id: clientRequestId,
           }),
         }))
@@ -743,19 +741,19 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       toast({ title: t('sales.receipt_ready'), variant: 'success' })
       // Invalidate related page caches so next visit to history/stock shows fresh data
       clearPageCacheByPrefix('sales_history_v2_')
-      clearPageCache(`stock_${selectedShop?.id}`)
-      if (selectedCustomer) clearPageCache(`debtors_${selectedShop?.id}`)
+      clearPageCache(`stock_${shop?.id}`)
+      if (selectedCustomer) clearPageCache(`debtors_${shop?.id}`)
 
       // Fire-and-forget: notify admin of new sale + check low stock
       const soldProductIds = cart.map(item => item.product.id)
       notifyNewSale({
-        shopId: selectedShop!.id,
+        shopId: shop!.id,
         total: totalToCollect,
-        currencySymbol: selectedShop!.currency || '₦',
+        currencySymbol: shop!.currency || '₦',
         cashierName: profile?.full_name || undefined,
         paymentLabel: shopCountry.paymentMethods.find(m => m.id === paymentMethod)?.label || paymentMethod,
       })
-      checkAndNotifyLowStock(selectedShop!.id, soldProductIds).catch(() => {})
+      checkAndNotifyLowStock(shop!.id, soldProductIds).catch(() => {})
     } catch (err: any) {
       if (sale) {
         // The sale record was already written to the DB. Going offline here would create
@@ -798,7 +796,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     const { generateReceiptPDFBlob } = await import('@/lib/utils/pdf')
     const blob = await generateReceiptPDFBlob({
       sale: completedSale as any,
-      shop: selectedShop as any,
+      shop: shop as any,
       cashierName: profile?.full_name || '',
       customerName: (completedSale as any).customers?.name,
       labels: receiptLabels,
@@ -813,7 +811,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       const { generateReceiptPDFBlob } = await import('@/lib/utils/pdf')
       const blob = await generateReceiptPDFBlob({
         sale: completedSale as any,
-        shop: selectedShop as any,
+        shop: shop as any,
         cashierName: profile?.full_name || '',
         customerName: (completedSale as any).customers?.name,
         labels: receiptLabels,
@@ -821,7 +819,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       await sharePDFNative(
         blob,
         fileName,
-        t('sales.receipt_share_title', { number: completedSale.sale_number, shop: selectedShop?.name || '' }),
+        t('sales.receipt_share_title', { number: completedSale.sale_number, shop: shop?.name || '' }),
       )
       return
     } catch (err: any) {
@@ -830,7 +828,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     }
     // Last resort: WhatsApp text message
     const message = buildReceiptWhatsAppMessage({
-      shopName: selectedShop?.name || '',
+      shopName: shop?.name || '',
       saleNumber: completedSale.sale_number,
       date: new Date(completedSale.created_at).toLocaleString(locale, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }),
       items: ((completedSale as any).sale_items || []).map((i: any) => ({ name: i.product_name, qty: i.quantity, price: i.unit_price })),
@@ -839,7 +837,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       balance: completedSale.balance,
       method: completedSale.payment_method,
       customerName: (completedSale as any).customers?.name,
-      currencySymbol: selectedShop?.currency || symbol,
+      currencySymbol: shop?.currency || symbol,
     })
     shareReceiptWhatsApp(message)
   }
@@ -851,41 +849,14 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       {/* ── LEFT column: search + products ── */}
       <div className="flex flex-col md:flex-1 md:overflow-hidden md:border-r md:border-border md:min-h-0">
 
-      {/* Shop selector */}
-      {isOwner && userShops.length > 1 && (
-        <div className="relative">
-          <button
-            onClick={() => setShopPickerOpen(o => !o)}
-            className="w-full flex items-center justify-between gap-2 rounded-xl border bg-card px-4 py-3 text-sm font-medium shadow-sm hover:bg-accent transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <Store className="h-4 w-4 text-stockshop-blue dark:text-blue-400" />
-              <span>Vendre dans : <strong>{selectedShop?.name || shop?.name}</strong></span>
-            </div>
-            <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', shopPickerOpen && 'rotate-180')} />
-          </button>
-          {shopPickerOpen && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setShopPickerOpen(false)} />
-              <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-xl border bg-card shadow-lg p-1.5">
-                {userShops.map(s => (
-                  <button key={s.id}
-                    onClick={() => { setSelectedShopId(s.id); setCart([]); setShopPickerOpen(false) }}
-                    className={cn('w-full flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-left transition-colors',
-                      (selectedShopId || shop?.id) === s.id ? 'bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400 font-medium' : 'hover:bg-accent text-foreground/80'
-                    )}
-                  >
-                    <Store className="h-3.5 w-3.5 flex-shrink-0" />
-                    <div>
-                      <p className="font-medium">{s.name}</p>
-                      {s.city && <p className="text-xs text-muted-foreground">{s.city}</p>}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+      {/* Shop selector — same shared control as everywhere else in the app, restricted to a single concrete shop (a sale can't target "all shops") */}
+      {isOwner && (
+        <ShopSelector
+          variant="compact"
+          allowAllShops={false}
+          onShopChange={() => setCart([])}
+          label={t('sales.selling_at')}
+        />
       )}
 
       {/* Held invoices banner */}
@@ -1126,9 +1097,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               <div className="flex items-center gap-3">
                 <Label className="text-sm w-24 flex-shrink-0">{t('sales.discount')}</Label>
                 <div className="flex flex-1 rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-0">
-                  <span className="flex items-center px-2.5 bg-muted border-r text-sm text-muted-foreground font-medium whitespace-nowrap select-none">{selectedShop?.currency || '₦'}</span>
+                  <span className="flex items-center px-2.5 bg-muted border-r text-sm text-muted-foreground font-medium whitespace-nowrap select-none">{shop?.currency || '₦'}</span>
                   <input type="text" inputMode="numeric" pattern="[0-9]*"
-                    value={formatInputValue(discount, selectedShop?.currency || '₦')}
+                    value={formatInputValue(discount, shop?.currency || '₦')}
                     onChange={e => {
                       const digits = e.target.value.replace(/\D/g, '')
                       setDiscount(Math.min(Number(digits) || 0, subtotal))
@@ -1243,12 +1214,12 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                     <div className="space-y-1">
                       <Label className="text-xs text-orange-800">{t('sales.amount_given_for_debt')}</Label>
                       <div className="flex rounded-md border border-orange-200 overflow-hidden focus-within:ring-2 focus-within:ring-orange-300">
-                        <span className="flex items-center px-2.5 bg-orange-50 border-r border-orange-200 text-sm text-muted-foreground font-medium whitespace-nowrap select-none">{selectedShop?.currency || '₦'}</span>
+                        <span className="flex items-center px-2.5 bg-orange-50 border-r border-orange-200 text-sm text-muted-foreground font-medium whitespace-nowrap select-none">{shop?.currency || '₦'}</span>
                         <input
                           type="text"
                           inputMode="numeric"
                           pattern="[0-9]*"
-                          value={formatInputValue(debtRepayAmount, selectedShop?.currency || '₦')}
+                          value={formatInputValue(debtRepayAmount, shop?.currency || '₦')}
                           onChange={e => setDebtRepayAmount(e.target.value.replace(/\D/g, ''))}
                           className="flex-1 h-11 px-3 text-base font-bold bg-card outline-none"
                           placeholder="0"
@@ -1290,7 +1261,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               {splitPayment && <span className="text-xs text-muted-foreground ml-1">(1er paiement)</span>}
             </Label>
             <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
-              {getCountry(selectedShop?.country).paymentMethods.map(method => (
+              {getCountry(shop?.country).paymentMethods.map(method => (
                 <button key={method.id}
                   onClick={() => {
                     setPaymentMethod(method.id)
@@ -1325,12 +1296,12 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               <div className="space-y-1.5">
                 <Label>{t('payment.amount_paid')}</Label>
                 <div className="flex rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
-                  <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">{selectedShop?.currency || '₦'}</span>
+                  <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">{shop?.currency || '₦'}</span>
                   <input type="text" inputMode="numeric" pattern="[0-9]*"
-                    value={formatInputValue(amountPaid, selectedShop?.currency || '₦')}
+                    value={formatInputValue(amountPaid, shop?.currency || '₦')}
                     onChange={e => setAmountPaid(e.target.value.replace(/\D/g, ''))}
                     className="flex-1 h-12 px-3 text-lg font-bold bg-card outline-none"
-                    placeholder={formatInputValue(totalToCollect, selectedShop?.currency || '₦') || '0'} />
+                    placeholder={formatInputValue(totalToCollect, shop?.currency || '₦') || '0'} />
                 </div>
               </div>
               {Number(amountPaid) > 0 && Number(amountPaid) >= totalToCollect && (
@@ -1386,7 +1357,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               type="button"
               onClick={() => {
                 if (!splitPayment) {
-                  const other = getCountry(selectedShop?.country).paymentMethods
+                  const other = getCountry(shop?.country).paymentMethods
                     .find(m => m.id !== paymentMethod && m.id !== 'credit')
                   setSplitMethod2(other?.id || '')
                 }
@@ -1406,12 +1377,12 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               {/* Amount for method 1 */}
               <div className="space-y-1.5">
                 <Label className="text-sm">
-                  {t('sales.amount_paid_in', { method: getCountry(selectedShop?.country).paymentMethods.find(m => m.id === paymentMethod)?.label || paymentMethod })}
+                  {t('sales.amount_paid_in', { method: getCountry(shop?.country).paymentMethods.find(m => m.id === paymentMethod)?.label || paymentMethod })}
                 </Label>
                 <div className="flex rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
-                  <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">{selectedShop?.currency || '₦'}</span>
+                  <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">{shop?.currency || '₦'}</span>
                   <input type="text" inputMode="numeric" pattern="[0-9]*"
-                    value={formatInputValue(amountPaid, selectedShop?.currency || '₦')}
+                    value={formatInputValue(amountPaid, shop?.currency || '₦')}
                     onChange={e => setAmountPaid(e.target.value.replace(/\D/g, ''))}
                     className="flex-1 h-11 px-3 text-lg font-bold bg-card outline-none"
                     placeholder="0" />
@@ -1422,7 +1393,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               <div className="space-y-1.5">
                 <Label className="text-sm">{t('sales.second_payment_method')}</Label>
                 <div className="grid grid-cols-3 gap-2.5">
-                  {getCountry(selectedShop?.country).paymentMethods
+                  {getCountry(shop?.country).paymentMethods
                     .filter(m => m.id !== paymentMethod && m.id !== 'credit')
                     .map(method => (
                       <button key={method.id} type="button" onClick={() => setSplitMethod2(method.id)}
@@ -1454,7 +1425,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               {splitMethod2 && (
                 <div className="rounded-lg bg-muted p-3 flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">
-                    Montant {getCountry(selectedShop?.country).paymentMethods.find(m => m.id === splitMethod2)?.label || splitMethod2}
+                    Montant {getCountry(shop?.country).paymentMethods.find(m => m.id === splitMethod2)?.label || splitMethod2}
                   </span>
                   <span className="font-bold text-lg text-stockshop-blue dark:text-blue-400">
                     {formatNaira(Math.max(0, totalToCollect - (Number(amountPaid) || 0)))}
@@ -1541,17 +1512,17 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   <p className="text-xs text-muted-foreground mb-2 font-medium">{t('sales.new_selling_price')}</p>
                   <div className="flex rounded-xl border-2 border-stockshop-blue overflow-hidden shadow-sm">
                     <span className="flex items-center px-4 bg-stockshop-blue/5 border-r border-stockshop-blue/30 text-sm font-bold text-stockshop-blue whitespace-nowrap select-none">
-                      {selectedShop?.currency || '₦'}
+                      {shop?.currency || '₦'}
                     </span>
                     <input
                       type="text"
                       inputMode="numeric"
                       pattern="[0-9]*"
                       autoFocus
-                      value={formatInputValue(priceModalInput, selectedShop?.currency || '₦')}
+                      value={formatInputValue(priceModalInput, shop?.currency || '₦')}
                       onChange={e => setPriceModalInput(e.target.value.replace(/\D/g, ''))}
                       className="flex-1 h-14 px-4 text-2xl font-bold bg-card outline-none tracking-tight"
-                      placeholder={formatInputValue(minPrice, selectedShop?.currency || '₦')}
+                      placeholder={formatInputValue(minPrice, shop?.currency || '₦')}
                     />
                   </div>
                   <div className="h-5 mt-1.5">
@@ -1649,16 +1620,16 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             <div className="space-y-4">
               <div className="rounded-lg bg-muted/40 border p-4 text-sm space-y-2">
                 <div className="flex items-center gap-2 pb-2 border-b">
-                  {selectedShop?.logo_url ? (
-                    <img src={selectedShop.logo_url} alt={selectedShop.name} className="h-8 w-8 object-contain rounded" />
+                  {shop?.logo_url ? (
+                    <img src={shop.logo_url} alt={shop.name} className="h-8 w-8 object-contain rounded" />
                   ) : (
                     <div className="h-8 w-8 rounded bg-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                      {selectedShop?.name?.slice(0, 2).toUpperCase() || 'SS'}
+                      {shop?.name?.slice(0, 2).toUpperCase() || 'SS'}
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="font-bold text-xs truncate">{selectedShop?.name}</p>
-                    {selectedShop?.city && <p className="text-[10px] text-muted-foreground">{selectedShop.city}</p>}
+                    <p className="font-bold text-xs truncate">{shop?.name}</p>
+                    {shop?.city && <p className="text-[10px] text-muted-foreground">{shop.city}</p>}
                   </div>
                 </div>
                 <div className="flex justify-between font-bold">

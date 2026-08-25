@@ -443,7 +443,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         <ShopClosedWall locale={locale} shopName={shop?.name} openingTime={shop!.opening_time!} closingTime={shop!.closing_time!} />
       )}
 
-      <Sidebar locale={locale} role={roleInActiveShop ?? profile.role} profile={profile} shop={shop} onSignOut={handleSignOut} signingOut={signingOut} userEmail={user.email ?? ''} hasUnreadAnnouncement={hasUnreadAnnouncement} onOpenWhatsNew={() => setWhatsNewOpen(true)} />
+      <Sidebar locale={locale} role={roleInActiveShop ?? profile.role} profile={profile} onSignOut={handleSignOut} signingOut={signingOut} userEmail={user.email ?? ''} hasUnreadAnnouncement={hasUnreadAnnouncement} onOpenWhatsNew={() => setWhatsNewOpen(true)} />
 
       <div className="sm:pl-64 flex flex-col min-h-screen">
         <OfflineBanner />
@@ -462,7 +462,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
           />
         )}
 
-        <Header title={title} shop={shop} locale={locale} onSignOut={handleSignOut} crispUnread={crispUnread} onOpenChat={handleOpenChat} />
+        <Header title={title} locale={locale} onSignOut={handleSignOut} />
 
         {profile.role === 'owner' && accessAllowed && !isBillingPage && (
           <PlanLimitAlert
