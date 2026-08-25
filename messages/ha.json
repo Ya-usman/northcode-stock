@@ -1791,7 +1791,10 @@
     "wave_not_configured": "Ba a saita Wave ba",
     "flutterwave_not_configured": "Ba a saita Flutterwave ba",
     "payment_gateway_error": "Kuskuren hanyar biyan kuɗi",
-    "unknown_gateway": "Hanyar biyan kuɗi ba a sani ba"
+    "unknown_gateway": "Hanyar biyan kuɗi ba a sani ba",
+    "shop_access_denied": "An hana izini zuwa wasu kantuna",
+    "no_data": "Babu bayanai",
+    "invalid_request": "Buƙata ba ta inganta ba"
   },
   "product_form": {
     "code_scanned": "An sikan lamba: {code}",

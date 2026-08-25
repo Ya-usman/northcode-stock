@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { subMonths, startOfMonth, endOfMonth, format } from 'date-fns'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 // GET /api/dashboard/revenue-yearly?shop_ids=x,y&cashier_id=
 // Monthly revenue for the last 12 months (current month included), for the
@@ -12,18 +13,19 @@ import { subMonths, startOfMonth, endOfMonth, format } from 'date-fns'
 // `sales` count still comes from the sales table (by created_at), same split
 // as the 7-day version.
 export async function GET(request: Request) {
+  const t = getApiTranslator(request)
   try {
     const supabase = await createClient() as any
     const { data: { user } } = await supabase.auth.getUser()
 
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { searchParams } = new URL(request.url)
     const shopIdsParam = searchParams.get('shop_ids')
     const cashierId = searchParams.get('cashier_id')
 
     if (!shopIdsParam) {
-      return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 })
+      return NextResponse.json({ error: t('missing_params') }, { status: 400 })
     }
     const shopIds = shopIdsParam.split(',').filter(Boolean)
 
@@ -38,7 +40,7 @@ export async function GET(request: Request) {
     const accessibleShopIds = (memberRows || []).map((r: any) => r.shop_id)
     const unauthorizedShops = shopIds.filter(id => !accessibleShopIds.includes(id))
     if (unauthorizedShops.length > 0) {
-      return NextResponse.json({ error: 'Accès refusé à certains magasins' }, { status: 403 })
+      return NextResponse.json({ error: t('shop_access_denied') }, { status: 403 })
     }
 
     const admin = await createAdminClient() as any

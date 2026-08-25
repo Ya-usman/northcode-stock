@@ -1791,7 +1791,10 @@
     "wave_not_configured": "Wave n'est pas configuré",
     "flutterwave_not_configured": "Flutterwave n'est pas configuré",
     "payment_gateway_error": "Erreur de la passerelle de paiement",
-    "unknown_gateway": "Passerelle de paiement inconnue"
+    "unknown_gateway": "Passerelle de paiement inconnue",
+    "shop_access_denied": "Accès refusé à certains magasins",
+    "no_data": "Aucune donnée",
+    "invalid_request": "Requête invalide"
   },
   "product_form": {
     "code_scanned": "Code scanné : {code}",

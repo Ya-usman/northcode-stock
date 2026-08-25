@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { randomUUID } from 'crypto'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 const BUCKET = 'temp-pdfs'
 
@@ -9,6 +10,7 @@ const BUCKET = 'temp-pdfs'
 // Works on ALL Android devices (Samsung, Chrome, PWA standalone mode)
 // Supports any file type: PDF, CSV, etc.
 export async function POST(req: NextRequest) {
+  const t = getApiTranslator(req)
   try {
     const reqContentType = req.headers.get('content-type') ?? ''
     let data: string, filename: string, mimeType: string
@@ -26,7 +28,7 @@ export async function POST(req: NextRequest) {
       mimeType = body.contentType ?? 'application/pdf'
     }
 
-    if (!data) return NextResponse.json({ error: 'No data' }, { status: 400 })
+    if (!data) return NextResponse.json({ error: t('no_data') }, { status: 400 })
 
     const ext = mimeType.includes('csv') ? 'csv' : mimeType.includes('pdf') ? 'pdf' : 'bin'
     const buffer = Buffer.from(data, 'base64')
