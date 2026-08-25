@@ -23,6 +23,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { createRestockSchema, type RestockFormData, type ProductFormData } from '@/lib/validations/product'
 import type { Product, Category, Supplier } from '@/lib/types/database'
 import { ProductForm } from '@/components/stock/product-form'
+import { ProductThumbnail } from '@/components/stock/product-thumbnail'
 import { ImportProductsModal } from '@/components/stock/import-products-modal'
 import { BulkAddModal } from '@/components/stock/bulk-add-modal'
 import { setPageCache, getPageCache, getPageCacheAge } from '@/lib/offline/page-cache'
@@ -895,16 +896,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 }
               </div>
             )}
-            {product.image_url && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={product.image_url}
-                alt={product.name}
-                loading="lazy"
-                decoding="async"
-                className="h-10 w-10 rounded-lg object-cover border border-border shrink-0"
-              />
-            )}
+            <ProductThumbnail src={product.image_url} alt={product.name} className="h-10 w-10" />
             <div className="min-w-0 flex-1">
               <p className="font-medium text-sm truncate">{product.name}</p>
               {product.sku && (

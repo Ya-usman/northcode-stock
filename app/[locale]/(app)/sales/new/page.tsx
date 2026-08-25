@@ -10,6 +10,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { ShopSelector } from '@/components/layout/shop-selector'
+import { ProductThumbnail } from '@/components/stock/product-thumbnail'
 import { cn } from '@/lib/utils/cn'
 import { normalize } from '@/lib/utils/normalize'
 import { useToast } from '@/components/ui/use-toast'
@@ -969,37 +970,39 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto md:max-h-none md:grid-cols-3">
               {filteredProducts.slice(0, 50).map(product => (
                 <button key={product.id} onClick={() => addToCart(product)}
-                  className="flex flex-col items-start text-left rounded-lg border bg-card p-3 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors tap-target"
+                  className="flex flex-col items-stretch text-left rounded-lg border bg-card overflow-hidden hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors tap-target"
                 >
-                  <div className="flex items-start gap-2 w-full">
-                    {product.image_url && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={product.image_url} alt={product.name} loading="lazy" decoding="async" className="h-9 w-9 object-cover rounded border border-border shrink-0" />
-                    )}
-                    <p className="text-sm font-medium truncate flex-1 text-foreground">{product.name}</p>
-                  </div>
-                  {product.sku && <p className="text-[10px] text-muted-foreground font-mono">{product.sku}</p>}
-                  <div className="flex items-center justify-between w-full mt-1">
-                    {effectivePrice(product, frontBatchPromo) !== product.selling_price ? (
-                      <span className="flex items-center gap-1 flex-wrap">
-                        <span className="text-sm font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(effectivePrice(product, frontBatchPromo))}</span>
-                        <span className="text-[10px] text-muted-foreground line-through">{formatNaira(product.selling_price)}</span>
-                      </span>
-                    ) : (
-                      <span className="text-sm font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(product.selling_price)}</span>
-                    )}
-                    <Badge
-                      variant={
-                        product.quantity === 0
-                          ? 'destructive'
-                          : product.quantity <= ((product as any).low_stock_threshold || shop?.low_stock_threshold || 10)
-                          ? 'warning'
-                          : 'success'
-                      }
-                      className="text-[10px] px-1.5"
-                    >
-                      {product.quantity} {product.unit}
-                    </Badge>
+                  <ProductThumbnail
+                    src={product.image_url}
+                    alt={product.name}
+                    className="w-full aspect-square rounded-none border-0"
+                    iconClassName="h-1/3 w-1/3"
+                  />
+                  <div className="flex flex-col p-2.5">
+                    <p className="text-sm font-medium truncate text-foreground">{product.name}</p>
+                    {product.sku && <p className="text-[10px] text-muted-foreground font-mono">{product.sku}</p>}
+                    <div className="flex items-center justify-between w-full mt-1">
+                      {effectivePrice(product, frontBatchPromo) !== product.selling_price ? (
+                        <span className="flex items-center gap-1 flex-wrap">
+                          <span className="text-sm font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(effectivePrice(product, frontBatchPromo))}</span>
+                          <span className="text-[10px] text-muted-foreground line-through">{formatNaira(product.selling_price)}</span>
+                        </span>
+                      ) : (
+                        <span className="text-sm font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(product.selling_price)}</span>
+                      )}
+                      <Badge
+                        variant={
+                          product.quantity === 0
+                            ? 'destructive'
+                            : product.quantity <= ((product as any).low_stock_threshold || shop?.low_stock_threshold || 10)
+                            ? 'warning'
+                            : 'success'
+                        }
+                        className="text-[10px] px-1.5"
+                      >
+                        {product.quantity} {product.unit}
+                      </Badge>
+                    </div>
                   </div>
                 </button>
               ))}
