@@ -1689,7 +1689,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <Button variant="outline" onClick={handleWhatsAppReceipt} className="gap-2">
-                  <MessageCircle className="h-4 w-4" /> WhatsApp
+                  <MessageCircle className="h-4 w-4" /> {t('actions.whatsapp')}
                 </Button>
                 <Button variant="outline" onClick={handlePrintReceipt} className="gap-2">
                   {isCapacitor() ? <Share2 className="h-4 w-4" /> : <Printer className="h-4 w-4" />}

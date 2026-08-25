@@ -1656,7 +1656,7 @@ export default function CreditsPage() {
                   {isCapacitor() ? t('actions.share') : t('actions.print_receipt')}
                 </Button>
                 <Button className="gap-2 h-11 bg-green-600 hover:bg-green-700" onClick={() => sharePDFNative(receiptResult.blob, receiptResult.fileName, t('payments.receipt_share_title', { customer: receiptResult.customerName }))}>
-                  <Share2 className="h-4 w-4" />WhatsApp
+                  <Share2 className="h-4 w-4" />{t('actions.whatsapp')}
                 </Button>
               </div>
               {receiptResult.phone && (
