@@ -423,6 +423,8 @@
     "validate_payment_dialog_title": "Tabbatar Biya",
     "balance_summary": "Saura",
     "sales_count_label": "sayarwa",
+    "search_results_count": "sakamako {count}",
+    "paid_label_inline": "an biya",
     "remaining_balance_label": "Saura",
     "walk_in_short": "Abokin Yau",
     "pending_sync_title": "Ana jiran daidaitawa ({count})",

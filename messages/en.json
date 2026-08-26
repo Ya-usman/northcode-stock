@@ -423,6 +423,8 @@
     "validate_payment_dialog_title": "Validate Payment",
     "balance_summary": "Balance due",
     "sales_count_label": "sales",
+    "search_results_count": "{count} result(s)",
+    "paid_label_inline": "paid",
     "remaining_balance_label": "Remaining balance",
     "walk_in_short": "Walk-in",
     "pending_sync_title": "Waiting to sync ({count})",

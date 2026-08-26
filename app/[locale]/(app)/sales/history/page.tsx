@@ -541,6 +541,20 @@ export default function SalesHistoryPage() {
     )
   })
 
+  // periodStats comes from accurate server-side aggregates (payments ledger
+  // for "collected", not just amount_paid) and has no notion of the search
+  // text — it stayed correct for the date/method/status filters but silently
+  // kept showing period-wide totals while the table below was narrowed by
+  // search, disagreeing with what's on screen. When search is active, swap
+  // to a search-scoped summary computed from the same rows the table shows.
+  const searchActive = search.trim().length > 0
+  const searchStats = searchActive ? {
+    count: filtered.length,
+    total: filtered.reduce((s, x) => s + Number(x.total), 0),
+    paid: filtered.reduce((s, x) => s + Number(x.amount_paid), 0),
+    balance: filtered.reduce((s, x) => s + Number(x.balance), 0),
+  } : null
+
   const exportCSV = async () => {
     setExportMenuOpen(false)
     const pmLabels = Object.fromEntries(
@@ -1076,7 +1090,26 @@ export default function SalesHistoryPage() {
       })()}
 
       {/* ── Sales view ──────────────────────────────────────── */}
-      {view === 'sales' && isOwner && periodStats !== null && (
+      {view === 'sales' && isOwner && searchActive && searchStats && (
+        <div className="flex gap-x-4 gap-y-0.5 text-sm flex-wrap">
+          <span className="text-muted-foreground">
+            {t('sales.search_results_count', { count: searchStats.count })} ·{' '}
+            <span className="font-semibold text-foreground">{formatNaira(searchStats.paid)}</span>
+            <span className="text-muted-foreground font-normal"> {t('sales.paid_label_inline')}</span>
+          </span>
+          {searchStats.total !== searchStats.paid && (
+            <span className="text-muted-foreground text-xs self-center">
+              CA : {formatNaira(searchStats.total)}
+            </span>
+          )}
+          {searchStats.balance > 0 && (
+            <span className="text-red-500">
+              {t('sales.balance_summary')}: {formatNaira(searchStats.balance)}
+            </span>
+          )}
+        </div>
+      )}
+      {view === 'sales' && isOwner && !searchActive && periodStats !== null && (
         <div className="flex gap-x-4 gap-y-0.5 text-sm flex-wrap">
           <span className="text-muted-foreground">
             {periodStats.count} {t('sales.sales_count_label')} ·{' '}
