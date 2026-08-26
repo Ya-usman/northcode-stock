@@ -6,7 +6,7 @@ import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
 import { motion } from 'framer-motion'
-import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag, PackageX, PackageMinus, CalendarClock, TrendingDown, ShoppingCart } from 'lucide-react'
+import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag, PackageX, PackageMinus, CalendarClock, TrendingDown, ShoppingCart, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils/cn'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -2220,50 +2220,54 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       {/* Barre flottante de sélection */}
       {selectionMode && selectedIds.size > 0 && (
         <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm px-4">
-          <div className="flex items-center gap-2 rounded-2xl bg-card border shadow-xl px-4 py-3">
-            <span className="text-sm font-medium flex-1 text-foreground">
-              {t('products.selected_count', { count: selectedIds.size })}
-            </span>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 text-xs"
-              onClick={() => setSelectedIds(new Set())}
-            >
-              Vider
-            </Button>
-            {canAccess('categories') && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5 text-xs"
-                onClick={() => { setBulkCategoryId(null); setBulkCategoryDialog(true) }}
+          <div className="rounded-2xl bg-card border shadow-xl px-4 py-3 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-foreground">
+                {t('products.selected_count', { count: selectedIds.size })}
+              </span>
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="h-7 w-7 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex-shrink-0"
+                title={t('actions.cancel')}
+                aria-label={t('actions.cancel')}
               >
-                <Settings2 className="h-3.5 w-3.5" />
-                {t('products.assign_category_action')}
-              </Button>
-            )}
-            {canWriteStock && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5 text-xs"
-                onClick={() => { setBulkPromoPercent(''); setBulkPromoUntil(''); setBulkPromoStart(''); setBulkPromoDialog(true) }}
-              >
-                <Tag className="h-3.5 w-3.5" />
-                {t('products.assign_promo_action')}
-              </Button>
-            )}
-            {canDeleteProducts && (
-              <Button
-                size="sm"
-                className="h-8 gap-1.5 bg-destructive hover:bg-destructive/90 text-white text-xs"
-                onClick={() => { setBulkDeleteAll(false); setBulkDeleteDialog(true) }}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Supprimer
-              </Button>
-            )}
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              {canAccess('categories') && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 flex-1 gap-1.5 text-xs"
+                  onClick={() => { setBulkCategoryId(null); setBulkCategoryDialog(true) }}
+                >
+                  <Settings2 className="h-3.5 w-3.5" />
+                  {t('products.assign_category_action')}
+                </Button>
+              )}
+              {canWriteStock && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 flex-1 gap-1.5 text-xs"
+                  onClick={() => { setBulkPromoPercent(''); setBulkPromoUntil(''); setBulkPromoStart(''); setBulkPromoDialog(true) }}
+                >
+                  <Tag className="h-3.5 w-3.5" />
+                  {t('products.assign_promo_action')}
+                </Button>
+              )}
+              {canDeleteProducts && (
+                <Button
+                  size="sm"
+                  className="h-9 flex-1 gap-1.5 bg-destructive hover:bg-destructive/90 text-white text-xs"
+                  onClick={() => { setBulkDeleteAll(false); setBulkDeleteDialog(true) }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Supprimer
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       )}
