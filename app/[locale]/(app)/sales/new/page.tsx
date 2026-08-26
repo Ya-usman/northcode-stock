@@ -972,7 +972,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       <AnimatePresence>
         {(products.length > 0 || searchQuery) && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-            <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto md:max-h-none md:grid-cols-3">
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
               {filteredProducts.slice(0, visibleCount).map(product => (
                 <button key={product.id} onClick={() => addToCart(product)}
                   className="flex flex-col items-stretch text-left rounded-lg border bg-card overflow-hidden hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors tap-target"
@@ -1037,7 +1037,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
       {/* Cart */}
       {cart.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-center py-12 text-muted-foreground md:py-20">
+        <div className="flex flex-col items-center text-center py-10 text-muted-foreground md:flex-1 md:justify-center md:py-20">
           <div className="text-4xl mb-3">🛒</div>
           <p className="font-medium">{t('sales.cart_empty')}</p>
           <p className="text-sm mt-1">{t('sales.search_or_scan_hint')}</p>
