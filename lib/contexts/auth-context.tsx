@@ -529,6 +529,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (raw.hours_extension_until !== undefined) (patch as any).hours_extension_until = raw.hours_extension_until
         if (raw.hours_extension_count !== undefined) (patch as any).hours_extension_count = raw.hours_extension_count
         if (raw.hours_extension_count_date !== undefined) (patch as any).hours_extension_count_date = raw.hours_extension_count_date
+        // Champs de Réglages qui pilotent des calculs/affichages ailleurs dans
+        // l'app (ex. tax_rate pour la taxe à l'encaissement, low_stock_threshold
+        // pour les alertes stock) — sans ça, un onglet déjà ouvert sur un autre
+        // appareil continuait à utiliser l'ancienne valeur jusqu'à un rechargement
+        // complet, avec un vrai risque de mauvais montant facturé pour tax_rate.
+        if (raw.currency !== undefined) (patch as any).currency = raw.currency
+        if (raw.low_stock_threshold !== undefined) (patch as any).low_stock_threshold = raw.low_stock_threshold
+        if (raw.tax_rate !== undefined) (patch as any).tax_rate = raw.tax_rate
+        if (raw.expiry_alert_days !== undefined) (patch as any).expiry_alert_days = raw.expiry_alert_days
+        if (raw.default_credit_term_days !== undefined) (patch as any).default_credit_term_days = raw.default_credit_term_days
+        if (raw.logo_url !== undefined) (patch as any).logo_url = raw.logo_url
+        if (raw.whatsapp !== undefined) (patch as any).whatsapp = raw.whatsapp
+        if (raw.city !== undefined) patch.city = raw.city
+        if (raw.state !== undefined) (patch as any).state = raw.state
+        if (raw.country !== undefined) (patch as any).country = raw.country
         if (Object.keys(patch).length === 0) return
         setState(prev => ({
           ...prev,
