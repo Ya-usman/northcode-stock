@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useTranslations } from 'next-intl'
-import { Plus, Trash2, Tag, Search, RotateCcw, ChevronDown, ChevronRight, Package, Store, AlertTriangle } from 'lucide-react'
+import { Plus, Trash2, Tag, Search, RotateCcw, ChevronDown, ChevronRight, Package, Store, AlertTriangle, Edit2, Check } from 'lucide-react'
+import { CATEGORY_COLORS } from '@/lib/constants/category-colors'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { useCurrency } from '@/lib/hooks/use-currency'
@@ -22,7 +23,26 @@ import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { withTimeout } from '@/lib/utils/with-timeout'
 
-function CategoryCard({ cat, products, expandedId, setExpandedId, canEdit, deleteCategory, t, fmt }: any) {
+function ColorPicker({ value, onChange }: { value: string | null; onChange: (color: string) => void }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {CATEGORY_COLORS.map(color => (
+        <button
+          key={color}
+          type="button"
+          onClick={() => onChange(color)}
+          className="h-8 w-8 rounded-full flex items-center justify-center transition-transform hover:scale-110"
+          style={{ backgroundColor: color }}
+          aria-label={color}
+        >
+          {value === color && <Check className="h-4 w-4 text-white" />}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function CategoryCard({ cat, products, expandedId, setExpandedId, canEdit, deleteCategory, openEdit, t, fmt }: any) {
   const catProducts = products.filter((p: any) => p.category_id === cat.id)
   const isExpanded = expandedId === cat.id
   return (
@@ -32,21 +52,33 @@ function CategoryCard({ cat, products, expandedId, setExpandedId, canEdit, delet
         onClick={() => setExpandedId(isExpanded ? null : cat.id)}
       >
         <div className="flex items-center gap-3 min-w-0">
-          <div className="h-8 w-8 rounded-md bg-blue-50 dark:bg-blue-950/30 flex items-center justify-center shrink-0">
-            <Tag className="h-4 w-4 text-stockshop-blue dark:text-blue-400" />
+          <div
+            className={cn('h-8 w-8 rounded-md flex items-center justify-center shrink-0', !cat.color && 'bg-blue-50 dark:bg-blue-950/30')}
+            style={cat.color ? { backgroundColor: `${cat.color}20` } : undefined}
+          >
+            <Tag className={cn('h-4 w-4', !cat.color && 'text-stockshop-blue dark:text-blue-400')} style={cat.color ? { color: cat.color } : undefined} />
           </div>
           <span className="font-medium text-sm truncate">{cat.name}</span>
           <Badge variant="secondary" className="text-xs shrink-0">{catProducts.length}</Badge>
         </div>
         <div className="flex items-center gap-1 ml-2 shrink-0">
           {canEdit && (
-            <span
-              role="button"
-              className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-              onClick={(e: any) => { e.stopPropagation(); deleteCategory(cat) }}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </span>
+            <>
+              <span
+                role="button"
+                className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                onClick={(e: any) => { e.stopPropagation(); openEdit(cat) }}
+              >
+                <Edit2 className="h-3.5 w-3.5" />
+              </span>
+              <span
+                role="button"
+                className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                onClick={(e: any) => { e.stopPropagation(); deleteCategory(cat) }}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </span>
+            </>
           )}
           {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
         </div>
@@ -138,6 +170,7 @@ export default function CategoriesPage() {
     !getPageCache(`categories_${effectiveShopIds.join(',')}`)
   )
   const [newName, setNewName] = useState('')
+  const [newColor, setNewColor] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -145,6 +178,10 @@ export default function CategoriesPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [confirmDeleteCat, setConfirmDeleteCat] = useState<Category | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [editingCat, setEditingCat] = useState<Category | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editColor, setEditColor] = useState<string | null>(null)
+  const [editSaving, setEditSaving] = useState(false)
 
   const fetchData = async () => {
     if (!effectiveShopIds.length) return
@@ -183,6 +220,7 @@ export default function CategoriesPage() {
 
   const openDialog = () => {
     setNewName('')
+    setNewColor(CATEGORY_COLORS[0])
     setDialogOpen(true)
     setTimeout(() => inputRef.current?.focus(), 50)
   }
@@ -194,7 +232,7 @@ export default function CategoriesPage() {
       const res = await withTimeout(fetch('/api/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shop_id: shop.id, name: newName.trim() }),
+        body: JSON.stringify({ shop_id: shop.id, name: newName.trim(), color: newColor }),
       }))
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
@@ -206,6 +244,33 @@ export default function CategoriesPage() {
       toast({ title: err.message || t('toast.retry_error'), variant: 'destructive' })
     } finally {
       setSaving(false)
+    }
+  }
+
+  const openEdit = (cat: Category) => {
+    setEditingCat(cat)
+    setEditName(cat.name)
+    setEditColor(cat.color || CATEGORY_COLORS[0])
+  }
+
+  const saveEdit = async () => {
+    if (!editingCat || !shop?.id || !editName.trim()) return
+    setEditSaving(true)
+    try {
+      const res = await withTimeout(fetch('/api/categories', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editingCat.id, shop_id: shop.id, name: editName.trim(), color: editColor }),
+      }))
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      setEditingCat(null)
+      fetchData()
+      toast({ title: t('categories.updated'), variant: 'success' })
+    } catch (err: any) {
+      toast({ title: err.message || t('toast.retry_error'), variant: 'destructive' })
+    } finally {
+      setEditSaving(false)
     }
   }
 
@@ -312,14 +377,14 @@ export default function CategoriesPage() {
                   <span className="text-xs font-semibold text-stockshop-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
                   <div className="flex-1 h-px bg-border" />
                 </div>
-                {shopCats.map(cat => <CategoryCard key={cat.id} cat={cat} products={products} expandedId={expandedId} setExpandedId={setExpandedId} canEdit={canEdit} deleteCategory={setConfirmDeleteCat} t={t} fmt={fmt} />)}
+                {shopCats.map(cat => <CategoryCard key={cat.id} cat={cat} products={products} expandedId={expandedId} setExpandedId={setExpandedId} canEdit={canEdit} deleteCategory={setConfirmDeleteCat} openEdit={openEdit} t={t} fmt={fmt} />)}
                 {shopUncategorized.length > 0 && <UncategorizedCard products={shopUncategorized} shopId={shopEntry.id} expandedId={expandedId} setExpandedId={setExpandedId} t={t} fmt={fmt} />}
               </div>
             )
           })
         ) : (
           <>
-            {filtered.map(cat => <CategoryCard key={cat.id} cat={cat} products={products} expandedId={expandedId} setExpandedId={setExpandedId} canEdit={canEdit} deleteCategory={setConfirmDeleteCat} t={t} fmt={fmt} />)}
+            {filtered.map(cat => <CategoryCard key={cat.id} cat={cat} products={products} expandedId={expandedId} setExpandedId={setExpandedId} canEdit={canEdit} deleteCategory={setConfirmDeleteCat} openEdit={openEdit} t={t} fmt={fmt} />)}
             {!search && uncategorized.length > 0 && <UncategorizedCard products={uncategorized} shopId={shop?.id || ''} expandedId={expandedId} setExpandedId={setExpandedId} t={t} fmt={fmt} />}
           </>
         )}
@@ -352,6 +417,10 @@ export default function CategoriesPage() {
               autoFocus
             />
           </div>
+          <div className="space-y-1.5">
+            <Label>{t('categories.color_label')}</Label>
+            <ColorPicker value={newColor} onChange={setNewColor} />
+          </div>
         </PremiumDialogBody>
         <PremiumDialogFooter
           onCancel={() => setDialogOpen(false)}
@@ -360,6 +429,41 @@ export default function CategoriesPage() {
           confirmLabel={t('categories.add')}
           confirmDisabled={!newName.trim()}
           confirmLoading={saving}
+        />
+      </PremiumDialog>
+
+      {/* Edit category dialog */}
+      <PremiumDialog
+        open={!!editingCat}
+        onOpenChange={open => { if (!open) setEditingCat(null) }}
+        category={t('nav.categories')}
+        title={t('categories.edit_dialog_title')}
+        icon={<Edit2 className="h-4 w-4" />}
+      >
+        <PremiumDialogBody>
+          <div className="space-y-1.5">
+            <Label htmlFor="cat-edit-name">{t('categories.add_dialog_label')}</Label>
+            <Input
+              id="cat-edit-name"
+              value={editName}
+              onChange={e => setEditName(e.target.value)}
+              placeholder={t('categories.add_placeholder')}
+              onKeyDown={e => e.key === 'Enter' && saveEdit()}
+              autoFocus
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>{t('categories.color_label')}</Label>
+            <ColorPicker value={editColor} onChange={setEditColor} />
+          </div>
+        </PremiumDialogBody>
+        <PremiumDialogFooter
+          onCancel={() => setEditingCat(null)}
+          cancelLabel={t('actions.cancel')}
+          onConfirm={saveEdit}
+          confirmLabel={t('actions.save')}
+          confirmDisabled={!editName.trim()}
+          confirmLoading={editSaving}
         />
       </PremiumDialog>
 

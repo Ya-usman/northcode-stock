@@ -1141,7 +1141,10 @@
     "add_dialog_label": "Nom de la catégorie",
     "added": "Catégorie ajoutée",
     "deleted": "Catégorie supprimée",
-    "delete_error": "Erreur lors de la suppression"
+    "delete_error": "Erreur lors de la suppression",
+    "color_label": "Couleur",
+    "edit_dialog_title": "Modifier la catégorie",
+    "updated": "Catégorie modifiée"
   },
   "shops": {
     "title": "Mes boutiques",

@@ -181,7 +181,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       // left this function stuck, with nothing retrying until the next
       // visibilitychange/reconnect trigger hit the exact same hang again.
       const [prodsRes, custsRes, catsRes, batchesRes] = await withTimeout(Promise.all([
-        supabase.from('products').select('*, categories(name), suppliers(name)')
+        supabase.from('products').select('*, categories(name, color), suppliers(name)')
           .eq('shop_id', shop.id).eq('is_active', true).gt('quantity', 0).order('name'),
         supabase.from('customers').select('*').eq('shop_id', shop.id).order('name'),
         supabase.from('categories').select('*').eq('shop_id', shop.id).order('name'),
@@ -947,12 +947,13 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             <button
               key={cat.id}
               onClick={() => setCategoryFilter(cat.id)}
-              className={`flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              className={`flex-shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                 categoryFilter === cat.id
                   ? 'bg-stockshop-blue text-white'
                   : 'bg-muted text-muted-foreground hover:bg-muted'
               }`}
             >
+              {cat.color && <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />}
               {cat.name}
             </button>
           ))}
@@ -971,6 +972,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               {filteredProducts.slice(0, 50).map(product => (
                 <button key={product.id} onClick={() => addToCart(product)}
                   className="flex flex-col items-stretch text-left rounded-lg border bg-card overflow-hidden hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors tap-target"
+                  style={product.categories?.color ? { borderTopColor: product.categories.color, borderTopWidth: 3 } : undefined}
                 >
                   <ProductThumbnail
                     src={product.image_url}

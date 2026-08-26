@@ -1141,7 +1141,10 @@
     "add_dialog_label": "Category name",
     "added": "Category added",
     "deleted": "Category deleted",
-    "delete_error": "Error while deleting"
+    "delete_error": "Error while deleting",
+    "color_label": "Color",
+    "edit_dialog_title": "Edit category",
+    "updated": "Category updated"
   },
   "shops": {
     "title": "My Shops",

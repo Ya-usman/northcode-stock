@@ -185,12 +185,12 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       // a while can never leave `loading` stuck true forever.
       const [prodsRes, archivedRes, catsRes, supsRes] = await withTimeout(Promise.all([
         supabase.from('products')
-          .select('*, categories(name), suppliers(name)')
+          .select('*, categories(name, color), suppliers(name)')
           .in('shop_id', effectiveShopIds)
           .eq('is_active', true)
           .order('name'),
         supabase.from('products')
-          .select('*, categories(name), suppliers(name)')
+          .select('*, categories(name, color), suppliers(name)')
           .in('shop_id', effectiveShopIds)
           .eq('is_active', false)
           .order('name'),
@@ -880,6 +880,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         className={`rounded-lg border bg-card shadow-sm p-4 space-y-2 transition-colors ${
           selectionMode ? 'cursor-pointer select-none' : ''
         } ${isSelected ? 'border-blue-400 dark:border-blue-500 bg-blue-50/60 dark:bg-blue-950/25' : ''}`}
+        style={!isSelected && product.categories?.color ? { borderTopColor: product.categories.color, borderTopWidth: 3 } : undefined}
         onClick={selectionMode ? () => setSelectedIds(prev => {
           const next = new Set(prev)
           next.has(product.id) ? next.delete(product.id) : next.add(product.id)
@@ -1088,7 +1089,14 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               <SelectTrigger className="w-[130px] h-9"><SelectValue placeholder={t('products.all_categories')} /></SelectTrigger>
               <SelectContent className="max-h-80">
                 <SelectItem value="all">{t('products.all_categories')}</SelectItem>
-                {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                {categories.map(c => (
+                  <SelectItem key={c.id} value={c.id}>
+                    <span className="flex items-center gap-1.5">
+                      {c.color && <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.color }} />}
+                      {c.name}
+                    </span>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             {canAccess('categories') && (

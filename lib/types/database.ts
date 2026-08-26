@@ -107,6 +107,7 @@ export interface Category {
   shop_id: string
   name: string
   name_hausa: string | null
+  color: string | null
   created_at: string
 }
 

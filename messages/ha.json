@@ -1176,7 +1176,10 @@
     "add_dialog_label": "Sunan nau'i",
     "added": "An ƙara nau'i",
     "deleted": "An goge nau'i",
-    "delete_error": "Kuskure wajen goge"
+    "delete_error": "Kuskure wajen goge",
+    "color_label": "Launi",
+    "edit_dialog_title": "Gyara rukuni",
+    "updated": "An gyara rukunin"
   },
   "shops": {
     "title": "Kantunana",

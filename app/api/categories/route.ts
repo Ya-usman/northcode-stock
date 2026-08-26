@@ -77,13 +77,39 @@ export async function POST(request: Request) {
   try {
     const { user, supabase } = await getAuthedUser()
     if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
-    const { shop_id, name } = await request.json()
+    const { shop_id, name, color } = await request.json()
     if (!shop_id || !name) return NextResponse.json({ error: t('shop_name_required') }, { status: 400 })
     const role = await checkShopRole(supabase, user.id, shop_id)
     if (!role || !(await hasRolePermission(supabase, role, shop_id, 'categories')))
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     const admin = await createAdminClient()
-    const { data, error } = await (admin as any).from('categories').insert({ shop_id, name }).select().single()
+    const { data, error } = await (admin as any).from('categories').insert({ shop_id, name, color: color || null }).select().single()
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    return NextResponse.json({ data })
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
+}
+
+// PATCH /api/categories — modifier le nom/la couleur d'une catégorie
+export async function PATCH(request: Request) {
+  const t = getApiTranslator(request)
+  try {
+    const { user, supabase } = await getAuthedUser()
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
+    const { id, shop_id, name, color } = await request.json()
+    if (!id || !shop_id || !name) return NextResponse.json({ error: t('id_shop_id_required') }, { status: 400 })
+    const role = await checkShopRole(supabase, user.id, shop_id)
+    if (!role || !(await hasRolePermission(supabase, role, shop_id, 'categories')))
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+    const admin = await createAdminClient()
+    const { data, error } = await (admin as any)
+      .from('categories')
+      .update({ name, color: color || null })
+      .eq('id', id)
+      .eq('shop_id', shop_id)
+      .select()
+      .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
     return NextResponse.json({ data })
   } catch (e: any) {
