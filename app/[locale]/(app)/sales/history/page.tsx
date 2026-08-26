@@ -217,7 +217,7 @@ export default function SalesHistoryPage() {
   const buildStatsQuery = (start: Date, end: Date) => {
     let q = supabase
       .from('sales')
-      .select('total, amount_paid, balance')
+      .select('total, amount_paid, balance, sale_status')
       .in('shop_id', effectiveShopIds)
       .gte('created_at', start.toISOString())
       .lte('created_at', end.toISOString())
@@ -311,7 +311,7 @@ export default function SalesHistoryPage() {
         throw listResult.error || statsResult.error || collectedResult.error
       }
       const salesData = (listResult.data || []) as Sale[]
-      const statsRows = (statsResult.data || []) as Array<{ total: number; amount_paid: number; balance: number }>
+      const statsRows = (statsResult.data || []) as Array<{ total: number; amount_paid: number; balance: number; sale_status: string }>
       const collectedRows = (collectedResult.data || []) as Array<{ amount: number }>
       setSales(salesData)
       setHasMoreSales(!isSearchMode && salesData.length === PAGE_SIZE)
@@ -321,7 +321,13 @@ export default function SalesHistoryPage() {
         count:     statsRows.length,
         ca:        statsRows.reduce((s, r) => s + Number(r.total), 0),
         collected: collectedRows.reduce((s, r) => s + Number(r.amount), 0),
-        balance:   statsRows.reduce((s, r) => s + Number(r.balance), 0),
+        // A cancelled sale's balance is never real debt — cancelling already
+        // reverses customers.total_debt (cancel_sale RPC), but sales.balance
+        // itself is a generated column (total - amount_paid) that keeps
+        // reflecting the sale's own arithmetic regardless of sale_status.
+        // Summing it blindly here would double-count debt that no longer
+        // exists whenever "Toutes ventes" includes cancelled rows.
+        balance:   statsRows.filter(r => r.sale_status !== 'cancelled').reduce((s, r) => s + Number(r.balance), 0),
       })
     } catch {
       // cache already applied if available
@@ -552,7 +558,9 @@ export default function SalesHistoryPage() {
     count: filtered.length,
     total: filtered.reduce((s, x) => s + Number(x.total), 0),
     paid: filtered.reduce((s, x) => s + Number(x.amount_paid), 0),
-    balance: filtered.reduce((s, x) => s + Number(x.balance), 0),
+    // Same rule as periodStats: a cancelled sale's balance was already
+    // reversed off the customer's real debt — never sum it as owed.
+    balance: filtered.filter(x => x.sale_status !== 'cancelled').reduce((s, x) => s + Number(x.balance), 0),
   } : null
 
   const exportCSV = async () => {
