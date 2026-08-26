@@ -1237,11 +1237,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 ))}
               </SelectContent>
             </Select>
-            {canAccess('categories') && (
-              <Button variant="outline" size="sm" className="h-9 px-2" onClick={() => router.push(`/${locale}/categories`)} title={t('products.manage_categories')}>
-                <Settings2 className="h-4 w-4" />
-              </Button>
-            )}
           </div>
         </div>
         <div className="flex flex-col gap-0.5">
