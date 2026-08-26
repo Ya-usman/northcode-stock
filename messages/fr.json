@@ -398,6 +398,7 @@
     "scan_hint": "Tape le nom, SKU ou scanne le code-barres avec un lecteur USB/Bluetooth",
     "cart_empty": "Votre panier est vide",
     "add_items": "Recherchez et ajoutez des produits ci-dessus",
+    "cart_items_count": "{count} article(s)",
     "receipt": "Reçu",
     "receipt_ready": "Vente terminée ! Reçu prêt.",
     "filter_today": "Aujourd'hui",

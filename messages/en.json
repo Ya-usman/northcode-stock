@@ -398,6 +398,7 @@
     "scan_hint": "Type the name, SKU or scan barcode with a USB/Bluetooth reader",
     "cart_empty": "Your cart is empty",
     "add_items": "Search and add products above",
+    "cart_items_count": "{count} item(s)",
     "receipt": "Receipt",
     "receipt_ready": "Sale completed! Receipt ready.",
     "filter_today": "Today",

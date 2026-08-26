@@ -5,7 +5,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, Plus, Minus, Trash2, CheckCircle, MessageCircle, Printer, Share2,
-  Scan, X, User, Clock, PauseCircle, PlayCircle, Edit2,
+  Scan, X, User, Clock, PauseCircle, PlayCircle, Edit2, ShoppingCart, ChevronUp,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -100,6 +100,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const supabase = createClient()
   const { toast } = useToast()
   const searchRef = useRef<HTMLInputElement>(null)
+  const cartSectionRef = useRef<HTMLDivElement>(null)
 
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
@@ -1032,7 +1033,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       </div>{/* end LEFT column */}
 
       {/* ── RIGHT column: cart + payment ── */}
-      <div className="flex flex-col gap-3 pb-24 md:pb-0 md:w-[400px] md:overflow-y-auto md:p-5 md:shrink-0 md:min-h-0">
+      <div ref={cartSectionRef} className="flex flex-col gap-3 pb-32 md:pb-0 md:w-[400px] md:overflow-y-auto md:p-5 md:shrink-0 md:min-h-0">
 
       {/* Cart */}
       {cart.length === 0 ? (
@@ -1697,6 +1698,26 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           )}
         </PremiumDialogBody>
       </PremiumDialog>
+
+      {/* Mobile-only fixed cart bar — on desktop the cart is already a
+          permanent side column, no need for this. Without it, reaching the
+          cart/checkout meant scrolling past the entire product grid below. */}
+      {cart.length > 0 && (
+        <button
+          type="button"
+          onClick={() => cartSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          className="fixed bottom-16 left-0 right-0 z-30 flex items-center justify-between gap-3 bg-stockshop-blue text-white px-4 py-3 shadow-lg sm:hidden"
+        >
+          <span className="flex items-center gap-2 font-semibold text-sm">
+            <ShoppingCart className="h-4 w-4" />
+            {t('sales.cart_items_count', { count: cart.length })}
+          </span>
+          <span className="flex items-center gap-1.5 font-bold text-sm">
+            {formatNaira(total)}
+            <ChevronUp className="h-4 w-4" />
+          </span>
+        </button>
+      )}
     </div>
   )
 }

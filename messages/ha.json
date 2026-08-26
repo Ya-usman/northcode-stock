@@ -398,6 +398,7 @@
     "scan_hint": "Shigar da suna, SKU ko duba barcode da na'urar USB/Bluetooth",
     "cart_empty": "Kwandon sayan ya fanko",
     "add_items": "Nemi kaya a sama domin ƙarawa",
+    "cart_items_count": "kaya {count}",
     "receipt": "Rasit",
     "receipt_ready": "An kammala sayarwa! Rasit ya shirya.",
     "filter_today": "Yau",
