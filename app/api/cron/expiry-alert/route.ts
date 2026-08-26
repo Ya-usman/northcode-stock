@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import webpush from 'web-push'
 import { Resend } from 'resend'
 import { createAdminClient } from '@/lib/supabase/server'
+import { getExpiryAlertDays } from '@/lib/utils/expiry'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -33,23 +34,29 @@ export async function GET(request: Request) {
     const todayStr = today.toISOString().slice(0, 10)
 
     for (const shop of shops) {
-      const alertDays = shop.expiry_alert_days ?? 14
-      const cutoff = new Date(today.getTime() + alertDays * 86_400_000)
-      const cutoffStr = cutoff.toISOString().slice(0, 10)
+      const shopAlertDays = shop.expiry_alert_days ?? 14
 
-      // Batches expiring within the window, still in stock
+      // Toutes les lots avec péremption connue encore en stock — le seuil
+      // n'étant plus unique par boutique (une catégorie peut le surcharger,
+      // migration 118), le filtre de fenêtre se fait ci-dessous en JS,
+      // lot par lot, plutôt que côté requête.
       const { data: batches } = await admin
         .from('product_batches')
-        .select('product_id, quantity, expiry_date, products(name, name_hausa, unit)')
+        .select('product_id, quantity, expiry_date, products(name, name_hausa, unit, categories(expiry_alert_days))')
         .eq('shop_id', shop.id)
         .gt('quantity', 0)
         .not('expiry_date', 'is', null)
-        .lte('expiry_date', cutoffStr)
+
+      const relevantBatches = (batches ?? []).filter((b: any) => {
+        const alertDays = getExpiryAlertDays(b.products?.categories?.expiry_alert_days, shopAlertDays)
+        const cutoffStr = new Date(today.getTime() + alertDays * 86_400_000).toISOString().slice(0, 10)
+        return b.expiry_date <= cutoffStr
+      })
 
       // Collapse multiple batches of the same product into one alert row —
       // keep the earliest expiry date, sum the affected quantity.
       const grouped: Record<string, { product_id: string; name: string; name_hausa: string | null; unit: string | null; quantity: number; expiry_date: string }> = {}
-      for (const b of batches ?? []) {
+      for (const b of relevantBatches) {
         const p = b.products
         const existing = grouped[b.product_id]
         if (!existing || b.expiry_date < existing.expiry_date) {

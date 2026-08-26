@@ -171,6 +171,7 @@ export default function CategoriesPage() {
   )
   const [newName, setNewName] = useState('')
   const [newColor, setNewColor] = useState<string | null>(null)
+  const [newAlertDays, setNewAlertDays] = useState('')
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -181,6 +182,7 @@ export default function CategoriesPage() {
   const [editingCat, setEditingCat] = useState<Category | null>(null)
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState<string | null>(null)
+  const [editAlertDays, setEditAlertDays] = useState('')
   const [editSaving, setEditSaving] = useState(false)
 
   const fetchData = async () => {
@@ -221,6 +223,7 @@ export default function CategoriesPage() {
   const openDialog = () => {
     setNewName('')
     setNewColor(CATEGORY_COLORS[0])
+    setNewAlertDays('')
     setDialogOpen(true)
     setTimeout(() => inputRef.current?.focus(), 50)
   }
@@ -232,7 +235,7 @@ export default function CategoriesPage() {
       const res = await withTimeout(fetch('/api/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shop_id: shop.id, name: newName.trim(), color: newColor }),
+        body: JSON.stringify({ shop_id: shop.id, name: newName.trim(), color: newColor, expiry_alert_days: newAlertDays ? Number(newAlertDays) : null }),
       }))
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
@@ -251,6 +254,7 @@ export default function CategoriesPage() {
     setEditingCat(cat)
     setEditName(cat.name)
     setEditColor(cat.color || CATEGORY_COLORS[0])
+    setEditAlertDays(cat.expiry_alert_days != null ? String(cat.expiry_alert_days) : '')
   }
 
   const saveEdit = async () => {
@@ -260,7 +264,7 @@ export default function CategoriesPage() {
       const res = await withTimeout(fetch('/api/categories', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: editingCat.id, shop_id: shop.id, name: editName.trim(), color: editColor }),
+        body: JSON.stringify({ id: editingCat.id, shop_id: shop.id, name: editName.trim(), color: editColor, expiry_alert_days: editAlertDays ? Number(editAlertDays) : null }),
       }))
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
@@ -421,6 +425,17 @@ export default function CategoriesPage() {
             <Label>{t('categories.color_label')}</Label>
             <ColorPicker value={newColor} onChange={setNewColor} />
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="cat-alert-days">{t('categories.expiry_alert_days_label')}</Label>
+            <Input
+              id="cat-alert-days"
+              type="number"
+              min={1}
+              value={newAlertDays}
+              onChange={e => setNewAlertDays(e.target.value)}
+              placeholder={t('categories.expiry_alert_days_placeholder', { days: shop?.expiry_alert_days ?? 14 })}
+            />
+          </div>
         </PremiumDialogBody>
         <PremiumDialogFooter
           onCancel={() => setDialogOpen(false)}
@@ -455,6 +470,17 @@ export default function CategoriesPage() {
           <div className="space-y-1.5">
             <Label>{t('categories.color_label')}</Label>
             <ColorPicker value={editColor} onChange={setEditColor} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="cat-edit-alert-days">{t('categories.expiry_alert_days_label')}</Label>
+            <Input
+              id="cat-edit-alert-days"
+              type="number"
+              min={1}
+              value={editAlertDays}
+              onChange={e => setEditAlertDays(e.target.value)}
+              placeholder={t('categories.expiry_alert_days_placeholder', { days: shop?.expiry_alert_days ?? 14 })}
+            />
           </div>
         </PremiumDialogBody>
         <PremiumDialogFooter

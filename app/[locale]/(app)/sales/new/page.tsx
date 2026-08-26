@@ -107,6 +107,10 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [products, setProducts] = useState<Product[]>([])
   const [frontBatchPromo, setFrontBatchPromo] = useState<Record<string, { price: number; until: string }>>({})
+  // Lot le plus proche de la péremption (FEFO) déjà périmé → la prochaine
+  // vente de ce produit y puisera forcément en premier. Purement informatif
+  // (voir plafond de crédit) : jamais bloquant, la vente reste possible.
+  const [frontBatchExpired, setFrontBatchExpired] = useState<Record<string, boolean>>({})
   const [categories, setCategories] = useState<Category[]>([])
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
   const PRODUCTS_PAGE_SIZE = 50
@@ -223,12 +227,16 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       // la caisse, jamais celui d'un lot plus tardif.
       const frontSeen = new Set<string>()
       const promoMap: Record<string, { price: number; until: string }> = {}
+      const expiredMap: Record<string, boolean> = {}
+      const todayStr = new Date().toISOString().slice(0, 10)
       for (const b of (batches || []) as any[]) {
         if (frontSeen.has(b.product_id)) continue
         frontSeen.add(b.product_id)
         if (b.promo_price && b.promo_until) promoMap[b.product_id] = { price: Number(b.promo_price), until: b.promo_until }
+        if (b.expiry_date && b.expiry_date < todayStr) expiredMap[b.product_id] = true
       }
       setFrontBatchPromo(promoMap)
+      setFrontBatchExpired(expiredMap)
       // Refresh IndexedDB cache
       await Promise.all([
         cacheProducts(shop.id, safeProds.map((p: any) => ({
@@ -1021,6 +1029,11 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   <div className="flex flex-col p-2.5">
                     <p className="text-sm font-medium truncate text-foreground">{product.name}</p>
                     {product.sku && <p className="text-[10px] text-muted-foreground font-mono">{product.sku}</p>}
+                    {frontBatchExpired[product.id] && (
+                      <span className="mt-0.5 inline-flex w-fit items-center text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400">
+                        {t('sales.expired_batch_warning')}
+                      </span>
+                    )}
                     <div className="flex items-center justify-between w-full mt-1">
                       {effectivePrice(product, frontBatchPromo) !== product.selling_price ? (
                         <span className="flex items-center gap-1 flex-wrap">
@@ -1086,6 +1099,11 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                     {/* Row 1 : nom + corbeille */}
                     <div className="flex items-center gap-2">
                       <p className="flex-1 text-sm font-medium truncate">{item.product.name}</p>
+                      {frontBatchExpired[item.product.id] && (
+                        <span className="shrink-0 text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400">
+                          {t('sales.expired_batch_warning')}
+                        </span>
+                      )}
                       <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
                         onClick={() => removeFromCart(item.product.id)}>
                         <Trash2 className="h-3.5 w-3.5" />

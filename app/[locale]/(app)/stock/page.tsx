@@ -39,6 +39,7 @@ import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 import { useStockRealtime } from '@/lib/hooks/use-realtime'
 import { StockTabs } from '@/components/stock/stock-tabs'
 import { withTimeout } from '@/lib/utils/with-timeout'
+import { getExpiryAlertDays } from '@/lib/utils/expiry'
 
 
 function StockBadge({ quantity, threshold }: { quantity: number; threshold: number }) {
@@ -102,6 +103,13 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [batchesProduct, setBatchesProduct] = useState<Product | null>(null)
   const [productBatches, setProductBatches] = useState<any[]>([])
   const [loadingBatches, setLoadingBatches] = useState(false)
+  const [adjustBatch, setAdjustBatch] = useState<any | null>(null)
+  const [adjustQuantity, setAdjustQuantity] = useState('')
+  const [adjustReason, setAdjustReason] = useState('correction')
+  const [savingAdjust, setSavingAdjust] = useState(false)
+  const [deleteBatchConfirm, setDeleteBatchConfirm] = useState<any | null>(null)
+  const [deleteBatchReason, setDeleteBatchReason] = useState('correction')
+  const [deletingBatch, setDeletingBatch] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [addFormKey, setAddFormKey] = useState(0)
   const [sessionAddCount, setSessionAddCount] = useState(0)
@@ -336,10 +344,15 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   })
 
   const todayStr = new Date().toISOString().slice(0, 10)
-  const expiryAlertDays = shop?.expiry_alert_days ?? 14
-  const expiryCutoffStr = new Date(Date.now() + expiryAlertDays * 86_400_000).toISOString().slice(0, 10)
+  // Seuil par catégorie (catégorie.expiry_alert_days) si défini, sinon le
+  // réglage de la boutique — voir lib/utils/expiry.ts.
+  const getExpiryCutoffFor = (p: Product) => {
+    const cat = categories.find(c => c.id === p.category_id)
+    const alertDays = getExpiryAlertDays(cat?.expiry_alert_days, shop?.expiry_alert_days)
+    return new Date(Date.now() + alertDays * 86_400_000).toISOString().slice(0, 10)
+  }
   const isExpired = (p: Product) => { const exp = expiryByProduct[p.id]; return !!exp && exp < todayStr }
-  const isExpiringSoon = (p: Product) => { const exp = expiryByProduct[p.id]; return !!exp && exp >= todayStr && exp <= expiryCutoffStr }
+  const isExpiringSoon = (p: Product) => { const exp = expiryByProduct[p.id]; return !!exp && exp >= todayStr && exp <= getExpiryCutoffFor(p) }
   const isDormant = (p: Product) => soldQtyLoaded && p.quantity > 0 && !(soldQtyByProduct[p.id] > 0)
 
   // Suggestion de promo — jamais pour un produit déjà périmé (à retirer de
@@ -665,6 +678,52 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     }
   }
 
+  const submitAdjustQuantity = async () => {
+    if (!adjustBatch || !shop?.id || adjustQuantity === '') return
+    setSavingAdjust(true)
+    try {
+      const res = await withTimeout(fetch('/api/product-batches/adjust', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: adjustBatch.id, shop_id: shop.id, new_quantity: Number(adjustQuantity), reason_code: adjustReason }),
+      }))
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      toast({ title: t('products.batch_quantity_adjusted_toast'), variant: 'success' })
+      setAdjustBatch(null)
+      fetchProducts()
+      fetchStockSignals()
+      if (batchesProduct) openProductBatches(batchesProduct)
+    } catch (err: any) {
+      toast({ title: err.message || t('toast.error'), variant: 'destructive' })
+    } finally {
+      setSavingAdjust(false)
+    }
+  }
+
+  const submitDeleteBatch = async () => {
+    if (!deleteBatchConfirm || !shop?.id) return
+    setDeletingBatch(true)
+    try {
+      const res = await withTimeout(fetch('/api/product-batches', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: deleteBatchConfirm.id, shop_id: shop.id, reason_code: deleteBatchReason }),
+      }))
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      toast({ title: t('products.batch_deleted_toast'), variant: 'success' })
+      setDeleteBatchConfirm(null)
+      fetchProducts()
+      fetchStockSignals()
+      if (batchesProduct) openProductBatches(batchesProduct)
+    } catch (err: any) {
+      toast({ title: err.message || t('toast.error'), variant: 'destructive' })
+    } finally {
+      setDeletingBatch(false)
+    }
+  }
+
   const archiveProduct = async () => {
     if (!archiveConfirmProduct) return
     setArchiving(true)
@@ -858,7 +917,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     const promoActive = !!product.promo_price && !!product.promo_until && product.promo_until >= new Date().toISOString()
     const expiry = expiryByProduct[product.id]
     const expired = expiry ? expiry < todayStr : false
-    const expiringSoonBadge = expiry && !expired ? expiry <= expiryCutoffStr : false
+    const expiringSoonBadge = expiry && !expired ? expiry <= getExpiryCutoffFor(product) : false
     return (
       <motion.div
         key={product.id}
@@ -1696,8 +1755,17 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                     return (
                       <div key={b.id} className="rounded-lg border px-3 py-2.5 space-y-1">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-semibold">
+                          <span className="text-sm font-semibold flex items-center gap-1">
                             {b.quantity} {batchesProduct.unit}
+                            {canWriteStock && (
+                              <button
+                                className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-stockshop-blue"
+                                title={t('products.adjust_quantity_action')}
+                                onClick={() => { setAdjustBatch(b); setAdjustQuantity(String(b.quantity)); setAdjustReason('correction') }}
+                              >
+                                <Edit2 className="h-3 w-3" />
+                              </button>
+                            )}
                           </span>
                           <div className="flex items-center gap-1.5">
                             <span className="text-[10px] font-medium rounded-full px-2 py-0.5 bg-muted text-muted-foreground">
@@ -1717,6 +1785,15 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                                 }}
                               >
                                 <Tag className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            {canWriteStock && (
+                              <button
+                                className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-red-600"
+                                title={t('products.delete_batch_action')}
+                                onClick={() => { setDeleteBatchConfirm(b); setDeleteBatchReason('correction') }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
                               </button>
                             )}
                           </div>
@@ -1783,6 +1860,84 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               )}
               <Button variant="stockshop" className="flex-1 h-11 rounded-xl font-semibold" onClick={submitExpiry} loading={savingExpiry} disabled={!expiryDate}>
                 {t('actions.save')}
+              </Button>
+            </PremiumDialogFooter>
+          </>
+        )}
+      </PremiumDialog>
+
+      {/* Correction de la quantité d'un lot */}
+      <PremiumDialog
+        open={!!adjustBatch}
+        onOpenChange={open => { if (!open) setAdjustBatch(null) }}
+        category={t('nav.stock')}
+        title={t('products.adjust_quantity_action')}
+        icon={<Edit2 className="h-4 w-4" />}
+      >
+        {adjustBatch && (
+          <>
+            <PremiumDialogBody>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label>{t('products.new_quantity_label')}</Label>
+                  <Input type="number" min={0} value={adjustQuantity} onChange={e => setAdjustQuantity(e.target.value)} className="h-9" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{t('products.adjustment_reason')}</Label>
+                  {/* select natif — un Select Radix imbriqué dans ce Dialog laisse
+                      pointer-events bloqué après fermeture (même bug que dans
+                      Inventaire physique) */}
+                  <select
+                    value={adjustReason}
+                    onChange={e => setAdjustReason(e.target.value)}
+                    className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  >
+                    {(['correction', 'damage', 'loss', 'theft', 'expiry', 'other'] as const).map(code => (
+                      <option key={code} value={code}>{t(`products.${code}` as any)}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </PremiumDialogBody>
+            <PremiumDialogFooter onCancel={() => setAdjustBatch(null)} cancelLabel={t('actions.cancel')}>
+              <Button variant="stockshop" className="flex-1 h-11 rounded-xl font-semibold" onClick={submitAdjustQuantity} loading={savingAdjust} disabled={adjustQuantity === ''}>
+                {t('actions.save')}
+              </Button>
+            </PremiumDialogFooter>
+          </>
+        )}
+      </PremiumDialog>
+
+      {/* Suppression d'un lot */}
+      <PremiumDialog
+        open={!!deleteBatchConfirm}
+        onOpenChange={open => { if (!open) setDeleteBatchConfirm(null) }}
+        category={t('nav.stock')}
+        title={t('products.delete_batch_action')}
+        icon={<Trash2 className="h-4 w-4" />}
+      >
+        {deleteBatchConfirm && (
+          <>
+            <PremiumDialogBody>
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">{t('products.delete_batch_confirm')}</p>
+                <div className="space-y-1.5">
+                  <Label>{t('products.adjustment_reason')}</Label>
+                  <select
+                    value={deleteBatchReason}
+                    onChange={e => setDeleteBatchReason(e.target.value)}
+                    className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  >
+                    {(['correction', 'damage', 'loss', 'theft', 'expiry', 'other'] as const).map(code => (
+                      <option key={code} value={code}>{t(`products.${code}` as any)}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </PremiumDialogBody>
+            <PremiumDialogFooter onCancel={() => setDeleteBatchConfirm(null)} cancelLabel={t('actions.cancel')}>
+              <Button variant="destructive" className="flex-1 h-11 rounded-xl font-semibold" onClick={submitDeleteBatch} loading={deletingBatch}>
+                {t('products.delete_batch_action')}
               </Button>
             </PremiumDialogFooter>
           </>

@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { OfflineLink as Link } from '@/components/ui/offline-link'
 import { useTranslations } from 'next-intl'
-import { Package, ArrowRightLeft, ArrowLeftRight, ClipboardCheck } from 'lucide-react'
+import { Package, ArrowRightLeft, ArrowLeftRight, ClipboardCheck, CalendarClock } from 'lucide-react'
 import { useRolePermissions, type PermFeature } from '@/lib/hooks/use-role-permissions'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useOffline } from '@/lib/offline/use-offline'
@@ -23,6 +23,7 @@ export function StockTabs({ locale }: { locale: string }) {
   const tabs = [
     { href: `/${locale}/stock`, label: t('stock'), icon: Package, show: canAccess('stock' as PermFeature) },
     { href: `/${locale}/stock/movements`, label: t('movements'), icon: ArrowLeftRight, show: canAccess('movements' as PermFeature) },
+    { href: `/${locale}/stock/expiry`, label: t('expiry'), icon: CalendarClock, show: canAccess('expiry_list' as PermFeature) },
     {
       href: `/${locale}/stock/inventory-count`,
       label: t('inventory_count'),

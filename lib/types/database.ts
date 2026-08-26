@@ -108,6 +108,7 @@ export interface Category {
   name: string
   name_hausa: string | null
   color: string | null
+  expiry_alert_days: number | null
   created_at: string
 }
 

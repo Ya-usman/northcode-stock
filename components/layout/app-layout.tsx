@@ -40,6 +40,7 @@ function usePageTitle(pathname: string, locale: string) {
     '/sales/new': t('sales.new_title'),
     '/sales/history': t('sales.history_title'),
     '/stock/movements': t('movements.title'),
+    '/stock/expiry': t('expiry.title'),
     '/stock': t('products.title'),
     '/payments': t('nav.payments'),
     '/customers': t('customers.title'),

@@ -2,7 +2,7 @@ import { useAuthContext } from '@/lib/contexts/auth-context'
 
 export type PermFeature =
   | 'new_sale' | 'sales_history' | 'payments' | 'customers'
-  | 'stock' | 'movements' | 'categories' | 'suppliers' | 'transfers' | 'reports'
+  | 'stock' | 'movements' | 'categories' | 'suppliers' | 'transfers' | 'reports' | 'expiry_list'
   | 'revenue_chart' | 'notes' | 'expenses' | 'delete_products' | 'delete_expenses' | 'caisse'
   | 'inventory_count' | 'extend_hours'
   // Dashboard widgets — finer-grained than the page-level flags above
@@ -27,6 +27,7 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     customers: true,
     stock: true,
     movements: true,
+    expiry_list: true,
     categories: true,
     suppliers: true,
     transfers: true,
@@ -65,6 +66,7 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     customers: true,
     stock: true,
     movements: true,
+    expiry_list: true,
     categories: true,
     suppliers: true,
     transfers: true,
@@ -103,6 +105,7 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     customers: true,
     stock: false,
     movements: false,
+    expiry_list: false,
     categories: false,
     suppliers: false,
     transfers: false,
@@ -141,6 +144,7 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     customers: true,
     stock: true,
     movements: true,
+    expiry_list: true,
     categories: true,
     suppliers: true,
     transfers: true,
@@ -179,6 +183,7 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     customers: false,
     stock: true,
     movements: true,
+    expiry_list: true,
     categories: true,
     suppliers: true,
     transfers: true,
