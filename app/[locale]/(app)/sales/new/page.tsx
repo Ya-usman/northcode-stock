@@ -41,6 +41,7 @@ import { triggerSaleFeedback, unlockAudio } from '@/lib/utils/sale-feedback'
 import { getCountry, getMethodType } from '@/lib/saas/countries'
 import { withTimeout, refreshSessionBeforeWrite } from '@/lib/utils/with-timeout'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
+import { useStockRealtime } from '@/lib/hooks/use-realtime'
 import { queryClient } from '@/lib/query-client'
 import { invalidateSalesData } from '@/lib/query-keys'
 import { formatInputValue, formatCurrency } from '@/lib/utils/currency'
@@ -246,6 +247,28 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   // why the raw browser 'online' event isn't trustworthy on Capacitor/Android),
   // so the mount effect above re-runs it whenever isOnline flips back to true.
   useRefetchOnVisible(loadShopData)
+
+  // Live stock updates — this screen races other cashiers/devices selling
+  // the same products, so waiting for a tab-revisit/reconnect to notice a
+  // quantity change is the actual overselling risk called out above.
+  // complete_sale still re-validates stock atomically server-side (the real
+  // safety net); this just keeps the grid itself from offering an item
+  // another device already sold out from under it. Realtime payloads are
+  // raw rows without the categories(name, color)/suppliers(name) joins —
+  // merging preserves them on an existing product; a newly-sellable product
+  // is added without them until the next full refresh (same trade-off
+  // already accepted in stock/page.tsx's own realtime handler).
+  useStockRealtime(shop?.id || null, (product) => {
+    const isSellable = (product as any).is_active !== false && Number((product as any).quantity) > 0
+    setProducts(prev => {
+      const idx = prev.findIndex(p => p.id === product.id)
+      if (!isSellable) return idx === -1 ? prev : prev.filter(p => p.id !== product.id)
+      if (idx === -1) return [...prev, product as Product]
+      const next = [...prev]
+      next[idx] = { ...next[idx], ...product }
+      return next
+    })
+  })
 
   useEffect(() => {
     let list = products
