@@ -57,9 +57,12 @@ export function ShopHoursCountdownBanner({
   if (msLeft === null) return null
 
   const remaining = Math.max(0, 2 - extensionCount)
-  const showExtendControls = canExtend && !manualOverride && remaining > 0
-
   const urgency = msLeft <= CRITICAL_THRESHOLD_MS ? 'critical' : msLeft <= WARNING_THRESHOLD_MS ? 'warning' : 'normal'
+  // Only offer to extend once closing is actually approaching (same
+  // threshold as the banner's own warning color) — showing it all day,
+  // hours before closing, invited spending one of the 2 daily extensions
+  // with no real need.
+  const showExtendControls = canExtend && !manualOverride && remaining > 0 && urgency !== 'normal'
   const urgencyClass = {
     normal: 'bg-stockshop-blue',
     warning: 'bg-amber-600',
