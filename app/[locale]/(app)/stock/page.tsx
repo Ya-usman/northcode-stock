@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl'
 import { motion } from 'framer-motion'
 import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag, PackageX, PackageMinus, CalendarClock, TrendingDown, ShoppingCart } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { cn } from '@/lib/utils/cn'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
@@ -110,16 +111,12 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [restockProduct, setRestockProduct] = useState<Product | null>(null)
   const [saving, setSaving] = useState(false)
-  const [showCatModal, setShowCatModal] = useState(false)
-  const [newCatName, setNewCatName] = useState('')
-  const [savingCat, setSavingCat] = useState(false)
   const [archivedProducts, setArchivedProducts] = useState<Product[]>([])
   const [deleteConfirmProduct, setDeleteConfirmProduct] = useState<Product | null>(null)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [archiveConfirmProduct, setArchiveConfirmProduct] = useState<Product | null>(null)
   const [archiving, setArchiving] = useState(false)
-  const [deleteCatConfirmId, setDeleteCatConfirmId] = useState<string | null>(null)
 
   // ── Suppression en masse ────────────────────────────────────────────────
   const canDeleteProducts = canAccess('delete_products')
@@ -137,6 +134,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [bulkDeleteAll, setBulkDeleteAll] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const [bulkDeleteText, setBulkDeleteText] = useState('')
+  const [bulkCategoryDialog, setBulkCategoryDialog] = useState(false)
+  const [bulkCategoryId, setBulkCategoryId] = useState<string | null>(null)
+  const [bulkAssigningCategory, setBulkAssigningCategory] = useState(false)
 
   // ── Journal de suppressions ─────────────────────────────────────────────
   const [view, setView] = useState<'products' | 'archived' | 'journal'>('products')
@@ -380,7 +380,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         const q = normalize(search)
         if (!normalize(p.name).includes(q)) return false
       }
-      if (categoryFilter !== 'all' && p.category_id !== categoryFilter) return false
+      if (categoryFilter === 'uncategorized' && p.category_id) return false
+      if (categoryFilter !== 'all' && categoryFilter !== 'uncategorized' && p.category_id !== categoryFilter) return false
       const threshold = p.low_stock_threshold || shop?.low_stock_threshold || 10
       if (statusFilter === 'out' && p.quantity !== 0) return false
       if (statusFilter === 'low' && (p.quantity === 0 || p.quantity > threshold)) return false
@@ -749,43 +750,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     await downloadOrShareCSV(csv, `${t('actions.csv_stock')}-${shop?.name?.replace(/\s+/g, '-') || 'export'}-${Date.now()}.csv`)
   }
 
-  const catInputRef = useRef<HTMLInputElement>(null)
-
-  const addCategory = async () => {
-    if (!shop?.id) { toast({ title: t('toast.no_active_shop'), variant: 'destructive' }); return }
-    if (!newCatName.trim()) return
-    setSavingCat(true)
-    try {
-      const res = await withTimeout(fetch('/api/categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shop_id: shop.id, name: newCatName.trim() }),
-      }))
-      const json = await res.json()
-      if (!res.ok) { toast({ title: json.error || t('errors.generic'), variant: 'destructive' }); return }
-      toast({ title: t('categories.added'), variant: 'success' })
-      setNewCatName('')
-      fetchProducts()
-      setTimeout(() => catInputRef.current?.focus(), 50)
-    } catch (err: any) {
-      toast({ title: err.message || t('errors.generic'), variant: 'destructive' })
-    } finally {
-      setSavingCat(false)
-    }
-  }
-
-  const deleteCategory = async (catId: string) => {
-    try {
-      await withTimeout(fetch(`/api/categories?id=${catId}&shop_id=${shop?.id}`, { method: 'DELETE' }))
-    } catch (err: any) {
-      toast({ title: err.message || t('errors.generic'), variant: 'destructive' })
-      return
-    }
-    if (categoryFilter === catId) setFilter({ categoryFilter: 'all' })
-    setDeleteCatConfirmId(null)
-    fetchProducts()
-  }
-
   const toggleSelectAll = () => {
     if (selectedIds.size === filtered.length && filtered.length > 0) {
       setSelectedIds(new Set())
@@ -831,6 +795,30 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     setSelectedIds(new Set())
     setSelectionMode(false)
     fetchProducts()
+  }
+
+  const bulkAssignCategory = async () => {
+    if (!shop?.id || selectedIds.size === 0) return
+    setBulkAssigningCategory(true)
+    try {
+      const res = await withTimeout(fetch('/api/products', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop_id: shop.id, ids: Array.from(selectedIds), category_id: bulkCategoryId }),
+      }), 30_000)
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      toast({ title: t('products.bulk_category_assigned_toast', { count: json.updated ?? selectedIds.size }), variant: 'success' })
+      setBulkCategoryDialog(false)
+      setBulkCategoryId(null)
+      setSelectedIds(new Set())
+      setSelectionMode(false)
+      fetchProducts()
+    } catch (err: any) {
+      toast({ title: err.message || t('toast.error'), variant: 'destructive' })
+    } finally {
+      setBulkAssigningCategory(false)
+    }
   }
 
   const fetchAuditLogs = async () => {
@@ -1089,6 +1077,11 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               <SelectTrigger className="w-[130px] h-9"><SelectValue placeholder={t('products.all_categories')} /></SelectTrigger>
               <SelectContent className="max-h-80">
                 <SelectItem value="all">{t('products.all_categories')}</SelectItem>
+                {products.some(p => !p.category_id) && (
+                  <SelectItem value="uncategorized">
+                    {t('categories.uncategorized')} ({products.filter(p => !p.category_id).length})
+                  </SelectItem>
+                )}
                 {categories.map(c => (
                   <SelectItem key={c.id} value={c.id}>
                     <span className="flex items-center gap-1.5">
@@ -1100,7 +1093,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               </SelectContent>
             </Select>
             {canAccess('categories') && (
-              <Button variant="outline" size="sm" className="h-9 px-2" onClick={() => setShowCatModal(true)} title={t('products.manage_categories')}>
+              <Button variant="outline" size="sm" className="h-9 px-2" onClick={() => router.push(`/${locale}/categories`)} title={t('products.manage_categories')}>
                 <Settings2 className="h-4 w-4" />
               </Button>
             )}
@@ -1448,53 +1441,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         )}
       </PremiumDialog>
 
-      {/* Categories Modal */}
-      <PremiumDialog open={showCatModal} onOpenChange={setShowCatModal} category={t('nav.stock')} title={t('products.manage_categories')} icon={<Settings2 className="h-4 w-4" />}>
-        <PremiumDialogBody>
-          <div className="flex gap-2">
-            <Input
-              ref={catInputRef}
-              value={newCatName}
-              onChange={e => setNewCatName(e.target.value)}
-              placeholder={t('categories.add_placeholder')}
-              onKeyDown={e => e.key === 'Enter' && addCategory()}
-              autoFocus
-            />
-            <Button
-              onClick={addCategory}
-              loading={savingCat}
-              disabled={!newCatName.trim() || savingCat}
-              variant="stockshop"
-              className="shrink-0 rounded-xl"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="space-y-1 max-h-80 overflow-y-auto">
-            {categories.filter(c => c.shop_id === shop?.id).length === 0 && <p className="text-sm text-muted-foreground text-center py-4">{t('categories.none')}</p>}
-            {categories.filter(c => c.shop_id === shop?.id).map(c => (
-              <div key={c.id} className="rounded-lg border bg-muted/30 text-sm overflow-hidden">
-                <div className="flex items-center justify-between px-3 py-2">
-                  <span>{c.name}</span>
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => setDeleteCatConfirmId(deleteCatConfirmId === c.id ? null : c.id)}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-                {deleteCatConfirmId === c.id && (
-                  <div className="px-3 pb-2 flex items-center justify-between gap-2 border-t border-border/50 pt-2">
-                    <p className="text-xs text-muted-foreground">Supprimer « {c.name} » ?</p>
-                    <div className="flex gap-1.5">
-                      <Button size="sm" variant="destructive" className="h-6 text-xs px-2" onClick={() => deleteCategory(c.id)}>Oui</Button>
-                      <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={() => setDeleteCatConfirmId(null)}>Non</Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </PremiumDialogBody>
-        <PremiumDialogFooter onCancel={() => setShowCatModal(false)} cancelLabel={t('actions.close')} />
-      </PremiumDialog>
 
       {/* Archive confirmation dialog */}
       <PremiumDialog
@@ -1842,6 +1788,51 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           </>
         )}
       </PremiumDialog>
+      {/* Bulk category assignment dialog */}
+      <PremiumDialog
+        open={bulkCategoryDialog}
+        onOpenChange={open => { if (!open) { setBulkCategoryDialog(false); setBulkCategoryId(null) } }}
+        category={t('nav.stock')}
+        title={t('products.assign_category_title', { count: selectedIds.size })}
+        icon={<Settings2 className="h-4 w-4" />}
+      >
+        <PremiumDialogBody>
+          <div className="space-y-1 max-h-80 overflow-y-auto">
+            <button
+              type="button"
+              onClick={() => setBulkCategoryId(null)}
+              className={cn(
+                'w-full flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-left transition-colors border',
+                bulkCategoryId === null ? 'border-stockshop-blue bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400 font-medium' : 'border-transparent hover:bg-accent text-foreground/80'
+              )}
+            >
+              {t('categories.uncategorized')}
+            </button>
+            {categories.filter(c => c.shop_id === shop?.id).map(c => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setBulkCategoryId(c.id)}
+                className={cn(
+                  'w-full flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-left transition-colors border',
+                  bulkCategoryId === c.id ? 'border-stockshop-blue bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400 font-medium' : 'border-transparent hover:bg-accent text-foreground/80'
+                )}
+              >
+                {c.color && <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: c.color }} />}
+                {c.name}
+              </button>
+            ))}
+          </div>
+        </PremiumDialogBody>
+        <PremiumDialogFooter
+          onCancel={() => { setBulkCategoryDialog(false); setBulkCategoryId(null) }}
+          cancelLabel={t('actions.cancel')}
+          onConfirm={bulkAssignCategory}
+          confirmLabel={bulkAssigningCategory ? t('payment.saving') : t('actions.save')}
+          confirmLoading={bulkAssigningCategory}
+        />
+      </PremiumDialog>
+
       {/* Barre flottante de sélection */}
       {selectionMode && selectedIds.size > 0 && (
         <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm px-4">
@@ -1857,6 +1848,17 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             >
               Vider
             </Button>
+            {canAccess('categories') && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 text-xs"
+                onClick={() => { setBulkCategoryId(null); setBulkCategoryDialog(true) }}
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+                {t('products.assign_category_action')}
+              </Button>
+            )}
             <Button
               size="sm"
               className="h-8 gap-1.5 bg-destructive hover:bg-destructive/90 text-white text-xs"

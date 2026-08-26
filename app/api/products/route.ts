@@ -77,12 +77,58 @@ export async function POST(request: Request) {
 }
 
 // PATCH /api/products — update a product
+// — Single: body { id, shop_id, ...fields }
+// — Bulk category assignment: body { shop_id, ids: string[], category_id }
+//   (same shape family as DELETE's single-vs-bulk split above — the only
+//   bulk field supported is category_id, not a general bulk field-update)
 export async function PATCH(request: Request) {
   const t = getApiTranslator(request)
   try {
     const { user, supabase } = await getAuthedUser()
     if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
-    const { id, shop_id, ...updates } = await request.json()
+    const body = await request.json()
+
+    if (Array.isArray(body.ids)) {
+      const { shop_id, ids, category_id } = body as { shop_id?: string; ids: string[]; category_id: string | null }
+      if (!shop_id || !ids.length) return NextResponse.json({ error: t('id_shop_id_required') }, { status: 400 })
+      const role = await checkShopRole(supabase, user.id, shop_id)
+      if (!role || !(await canWriteProducts(supabase, role, shop_id)))
+        return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+
+      const admin = await createAdminClient()
+      const { data: updated, error } = await (admin as any)
+        .from('products')
+        .update({ category_id: category_id || null })
+        .in('id', ids)
+        .eq('shop_id', shop_id)
+        .select('id')
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+      let categoryName: string | null = null
+      if (category_id) {
+        const { data: cat } = await (admin as any).from('categories').select('name').eq('id', category_id).single()
+        categoryName = cat?.name ?? null
+      }
+      const { data: actorProfile } = await (admin as any).from('profiles').select('full_name').eq('id', user.id).single()
+      await writeAuditLog({
+        action: 'bulk_update_category',
+        shop_id,
+        actor_id: user.id,
+        actor_email: user.email,
+        target_id: null,
+        target_type: 'product',
+        ip: getClientIp(request),
+        metadata: {
+          actor_name: actorProfile?.full_name || user.email,
+          count: updated?.length ?? 0,
+          category_name: categoryName,
+        },
+      })
+
+      return NextResponse.json({ ok: true, updated: updated?.length ?? 0 })
+    }
+
+    const { id, shop_id, ...updates } = body
     if (!id || !shop_id) return NextResponse.json({ error: t('id_shop_id_required') }, { status: 400 })
     const role = await checkShopRole(supabase, user.id, shop_id)
     if (!role || !(await canWriteProducts(supabase, role, shop_id)))
