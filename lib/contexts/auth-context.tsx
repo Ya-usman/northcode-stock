@@ -8,6 +8,7 @@ import { attachOwnerPlan } from '@/lib/saas/resolve-owner-plan'
 import { setLocaleCookie, getLocaleCookie } from '@/lib/utils/cookies'
 import { isCapacitor } from '@/lib/utils/native-share'
 import { ensureFreshSession } from '@/lib/session-refresh'
+import { withTimeout } from '@/lib/utils/with-timeout'
 
 interface AuthState {
   user: User | null
@@ -314,7 +315,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (cached) {
         // Render instantly with cached data, then always refresh in background
         applyUserData(session.user, cached.profile, cached.userShops, cached.memberships, activeShopIdRef.current, true)
-        fetchUserData(session.user.id).then(({ profile, userShops, memberships: rows }) => {
+        withTimeout(fetchUserData(session.user.id)).then(({ profile, userShops, memberships: rows }) => {
           if (!cancelled && profile) {
             applyUserData(session.user, profile, userShops, rows, activeShopIdRef.current)
           }
@@ -327,7 +328,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       for (let attempt = 0; attempt < 8; attempt++) {
         if (cancelled) return
         try {
-          const { profile, userShops, memberships: rows } = await fetchUserData(session.user.id)
+          const { profile, userShops, memberships: rows } = await withTimeout(fetchUserData(session.user.id))
           if (cancelled) return
           // Only stop retrying when profile is found — profile:null means data not ready yet
           if (profile) {
@@ -351,7 +352,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         bgRetryInterval = setInterval(async () => {
           if (cancelled) { clearInterval(bgRetryInterval!); return }
           try {
-            const { profile, userShops, memberships: rows } = await fetchUserData(session.user.id)
+            const { profile, userShops, memberships: rows } = await withTimeout(fetchUserData(session.user.id))
             if (cancelled) { clearInterval(bgRetryInterval!); return }
             if (profile) {
               applyUserData(session.user, profile, userShops, rows, activeShopIdRef.current)
@@ -424,7 +425,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         for (let attempt = 0; attempt < 6; attempt++) {
           if (cancelled) return
           try {
-            const { profile, userShops, memberships: rows } = await fetchUserData(session.user.id)
+            const { profile, userShops, memberships: rows } = await withTimeout(fetchUserData(session.user.id))
             if (cancelled) return
             if (profile) {
               applyUserData(session.user, profile, userShops, rows, activeShopIdRef.current)
@@ -486,7 +487,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     try {
-      const { profile, userShops, memberships: rows } = await fetchUserData(user.id)
+      const { profile, userShops, memberships: rows } = await withTimeout(fetchUserData(user.id))
       if (profile) applyUserData(user, profile, userShops, rows, activeShopIdRef.current)
     } catch { /* keep */ }
   }, [applyUserData])
