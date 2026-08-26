@@ -30,6 +30,8 @@ import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
+import { useShopLoadTimeout } from '@/lib/hooks/use-shop-load-timeout'
+import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { getPendingSales, type PendingSale } from '@/lib/offline/db'
 import { invalidateSalesData } from '@/lib/query-keys'
 import { queryClient } from '@/lib/query-client'
@@ -537,6 +539,7 @@ export default function SalesHistoryPage() {
   // Refresh when tab regains focus (e.g. after recording a payment on the debts page)
   useRefetchOnVisible(fetchSales)
   useRefetchOnReconnect(fetchSales, isOnline)
+  const shopLoadTimedOut = useShopLoadTimeout(effectiveShopIds.length)
 
   const filtered = sales.filter(s => {
     if (!search) return true
@@ -1166,7 +1169,9 @@ export default function SalesHistoryPage() {
 
       {/* Table */}
       {view === 'sales' && (
-        loading ? (
+        loading && shopLoadTimedOut && effectiveShopIds.length === 0 ? (
+          <LoadErrorFallback />
+        ) : loading ? (
           <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
             <div className="p-4 space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
           </div>

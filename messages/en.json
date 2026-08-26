@@ -175,6 +175,7 @@
     "remove": "Remove",
     "update": "Update",
     "refresh": "Refresh",
+    "retry": "Retry",
     "view": "View",
     "back": "Back",
     "next": "Next",
@@ -1147,6 +1148,7 @@
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",
+    "load_timeout": "Loading is taking too long. Check your connection and try again.",
     "not_found": "Not found.",
     "unauthorized": "You don't have permission to do this.",
     "required_field": "This field is required.",

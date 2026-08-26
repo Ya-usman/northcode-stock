@@ -13,6 +13,8 @@ import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
+import { useShopLoadTimeout } from '@/lib/hooks/use-shop-load-timeout'
+import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { getExpiryAlertDays } from '@/lib/utils/expiry'
 import { generateReportPDFBlob } from '@/lib/utils/pdf'
@@ -98,6 +100,7 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
   useEffect(() => { fetchData() }, [effectiveShopIds.join(',')])
   useRefetchOnVisible(() => fetchData())
   useRefetchOnReconnect(() => fetchData(), isOnline)
+  const shopLoadTimedOut = useShopLoadTimeout(effectiveShopIds.length)
 
   const submitAdjustQuantity = async () => {
     if (!adjustBatch || !shop?.id || adjustQuantity === '') return
@@ -293,7 +296,9 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
         )}
       </div>
 
-      {loading ? (
+      {loading && shopLoadTimedOut && effectiveShopIds.length === 0 ? (
+        <LoadErrorFallback />
+      ) : loading ? (
         <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">

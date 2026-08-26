@@ -175,6 +175,7 @@
     "remove": "Retirer",
     "update": "Mettre à jour",
     "refresh": "Actualiser",
+    "retry": "Réessayer",
     "view": "Voir",
     "back": "Retour",
     "next": "Suivant",
@@ -1147,6 +1148,7 @@
   },
   "errors": {
     "generic": "Une erreur s'est produite. Veuillez réessayer.",
+    "load_timeout": "Le chargement prend trop de temps. Vérifiez votre connexion et réessayez.",
     "not_found": "Introuvable.",
     "unauthorized": "Vous n'avez pas la permission de faire cela.",
     "required_field": "Ce champ est obligatoire.",

@@ -11,6 +11,8 @@ import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
+import { useShopLoadTimeout } from '@/lib/hooks/use-shop-load-timeout'
+import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -99,6 +101,7 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
   // adjustments made by other team members in the meantime.
   useRefetchOnVisible(fetchMovements)
   useRefetchOnReconnect(fetchMovements, isOnline)
+  const shopLoadTimedOut = useShopLoadTimeout(effectiveShopIds.length)
 
   const products = useMemo<ProductSummary[]>(() => {
     const map = new Map<string, ProductSummary>()
@@ -209,7 +212,9 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
       <p className="text-xs text-muted-foreground">{products.length} {t('products_count')}</p>
 
       {/* Table */}
-      {loading ? (
+      {loading && shopLoadTimedOut && effectiveShopIds.length === 0 ? (
+        <LoadErrorFallback />
+      ) : loading ? (
         <div className="space-y-1">
           {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-11" />)}
         </div>

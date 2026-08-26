@@ -19,6 +19,8 @@ import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
+import { useShopLoadTimeout } from '@/lib/hooks/use-shop-load-timeout'
+import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { useTranslations, useLocale } from 'next-intl'
 
@@ -115,6 +117,7 @@ export default function NotesPage() {
   // by other team members in the meantime.
   useRefetchOnVisible(fetchNotes)
   useRefetchOnReconnect(fetchNotes, isOnline)
+  const shopLoadTimedOut = useShopLoadTimeout(effectiveShopIds.length)
 
   const openCreate = () => {
     setEditing(null)
@@ -253,7 +256,8 @@ export default function NotesPage() {
       </div>
 
       {/* Loading */}
-      {loading && (
+      {loading && shopLoadTimedOut && effectiveShopIds.length === 0 && <LoadErrorFallback />}
+      {loading && !(shopLoadTimedOut && effectiveShopIds.length === 0) && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {[...Array(6)].map((_, i) => (
             <div key={i} className="h-40 rounded-xl border bg-muted animate-pulse" />

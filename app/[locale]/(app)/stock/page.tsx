@@ -31,6 +31,8 @@ import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
+import { useShopLoadTimeout } from '@/lib/hooks/use-shop-load-timeout'
+import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 
 import { savePendingMovement, updateCachedProductQuantity } from '@/lib/offline/db'
 import { registerBackgroundSync } from '@/lib/offline/sync'
@@ -335,6 +337,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   // made by other team members while this page sat in the background.
   useRefetchOnVisible(() => { fetchProducts(); fetchStockSignals() })
   useRefetchOnReconnect(() => { fetchProducts(); fetchStockSignals() }, isOnline)
+  const shopLoadTimedOut = useShopLoadTimeout(effectiveShopIds.length)
 
   // Live stock updates (quantity, price, archive status) for the active shop.
   // Realtime payloads are raw rows without the categories(name)/suppliers(name)
@@ -1353,7 +1356,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       )}
 
       {/* Product grid */}
-      {loading ? (
+      {loading && shopLoadTimedOut && effectiveShopIds.length === 0 ? (
+        <LoadErrorFallback />
+      ) : loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-32 rounded-lg" />)}
         </div>

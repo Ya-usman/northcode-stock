@@ -27,6 +27,8 @@ import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
+import { useShopLoadTimeout } from '@/lib/hooks/use-shop-load-timeout'
+import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { withTimeout } from '@/lib/utils/with-timeout'
 
 const supabase = createClient() as any
@@ -199,6 +201,7 @@ export default function TeamPage() {
   // (new invites, role/status changes) made while this page sat in the background.
   useRefetchOnVisible(fetchMembers)
   useRefetchOnReconnect(fetchMembers, isOnline)
+  const shopLoadTimedOut = useShopLoadTimeout(effectiveShopIds.length)
 
   const fetchAuditLogs = useCallback(async () => {
     if (!shopId) return
@@ -588,7 +591,9 @@ export default function TeamPage() {
 
       {/* Member list */}
       {view === 'team' && (
-        loading ? (
+        loading && shopLoadTimedOut && effectiveShopIds.length === 0 ? (
+          <LoadErrorFallback />
+        ) : loading ? (
           <div className="space-y-2.5">
             {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-[72px] rounded-xl" />)}
           </div>

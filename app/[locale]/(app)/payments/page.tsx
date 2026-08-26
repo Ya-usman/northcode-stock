@@ -33,6 +33,8 @@ import { useOffline } from '@/lib/offline/use-offline'
 import { savePendingCustomerPayment, savePendingSupplierPayment } from '@/lib/offline/db'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
+import { useShopLoadTimeout } from '@/lib/hooks/use-shop-load-timeout'
+import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 
 interface UnpaidSale {
   id: string
@@ -799,6 +801,7 @@ export default function CreditsPage() {
 
   const shopKey = effectiveShopIds.join(',')
   useEffect(() => { fetchDebtors() }, [shopKey])
+  const shopLoadTimedOut = useShopLoadTimeout(effectiveShopIds.length)
   useRefetchOnVisible(() => fetchDebtors(true))
   // Refresh on reconnect — debts/repayments are money-critical like the
   // dashboard, so a stale debt total right after coming back online is risky.
@@ -1527,7 +1530,9 @@ export default function CreditsPage() {
           )}
 
           {/* Debtors list */}
-          {loading ? (
+          {loading && shopLoadTimedOut && effectiveShopIds.length === 0 ? (
+            <LoadErrorFallback />
+          ) : loading ? (
             <div className="space-y-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-32" />)}</div>
           ) : debtors.length === 0 ? (
             <div className="flex h-48 flex-col items-center justify-center text-muted-foreground">
@@ -1794,7 +1799,9 @@ export default function CreditsPage() {
             </div>
           )}
 
-          {loadingSuppliers ? (
+          {loadingSuppliers && shopLoadTimedOut && effectiveShopIds.length === 0 ? (
+            <LoadErrorFallback />
+          ) : loadingSuppliers ? (
             <div className="space-y-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-32" />)}</div>
           ) : supplierDebtors.length === 0 ? (
             <div className="flex h-48 flex-col items-center justify-center text-muted-foreground">

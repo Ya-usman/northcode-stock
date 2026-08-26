@@ -26,6 +26,8 @@ import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
+import { useShopLoadTimeout } from '@/lib/hooks/use-shop-load-timeout'
+import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { generatePurchaseOrderPDF } from '@/lib/utils/pdf'
 import { withTimeout } from '@/lib/utils/with-timeout'
 
@@ -268,6 +270,7 @@ export default function SuppliersPage() {
   // bons de commande ajoutés ou modifiés par un autre membre de l'équipe.
   useRefetchOnVisible(() => { fetchSuppliers(); fetchProductPrices(); fetchPurchaseOrders() })
   useRefetchOnReconnect(() => { fetchSuppliers(); fetchProductPrices(); fetchPurchaseOrders() }, isOnline)
+  const shopLoadTimedOut = useShopLoadTimeout(effectiveShopIds.length)
 
   const productCounts = useMemo(() => {
     const counts: Record<string, number> = {}
@@ -925,7 +928,9 @@ export default function SuppliersPage() {
         )}
       </div>
 
-      {loading ? (
+      {loading && shopLoadTimedOut && effectiveShopIds.length === 0 ? (
+        <LoadErrorFallback />
+      ) : loading ? (
         <div className="space-y-2">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
       ) : filtered.length === 0 ? (
         <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">

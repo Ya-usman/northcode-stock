@@ -23,6 +23,8 @@ import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
+import { useShopLoadTimeout } from '@/lib/hooks/use-shop-load-timeout'
+import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { withTimeout } from '@/lib/utils/with-timeout'
 
 function CustomerCard({ customer, profile, formatNaira, setEditingCustomer, form, setShowModal, deleteCustomer, t }: any) {
@@ -125,6 +127,7 @@ export default function CustomersPage() {
   // added or edited by other team members while this page sat in the background.
   useRefetchOnVisible(fetchCustomers)
   useRefetchOnReconnect(fetchCustomers, isOnline)
+  const shopLoadTimedOut = useShopLoadTimeout(effectiveShopIds.length)
 
   const filtered = customers.filter(c => {
     if (!search) return true
@@ -190,7 +193,9 @@ export default function CustomersPage() {
         )}
       </div>
 
-      {loading ? (
+      {loading && shopLoadTimedOut && effectiveShopIds.length === 0 ? (
+        <LoadErrorFallback />
+      ) : loading ? (
         <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
       ) : filtered.length === 0 ? (
         <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">

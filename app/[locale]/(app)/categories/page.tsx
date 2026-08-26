@@ -21,6 +21,8 @@ import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
+import { useShopLoadTimeout } from '@/lib/hooks/use-shop-load-timeout'
+import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { withTimeout } from '@/lib/utils/with-timeout'
 
 function ColorPicker({ value, onChange }: { value: string | null; onChange: (color: string) => void }) {
@@ -219,6 +221,7 @@ export default function CategoriesPage() {
   // added or edited by other team members while this page sat in the background.
   useRefetchOnVisible(fetchData)
   useRefetchOnReconnect(fetchData, isOnline)
+  const shopLoadTimedOut = useShopLoadTimeout(effectiveShopIds.length)
 
   const openDialog = () => {
     setNewName('')
@@ -360,7 +363,9 @@ export default function CategoriesPage() {
 
       {/* Category list with products */}
       <div className="space-y-2">
-        {loading ? (
+        {loading && shopLoadTimedOut && effectiveShopIds.length === 0 ? (
+          <LoadErrorFallback />
+        ) : loading ? (
           [...Array(4)].map((_, i) => <Skeleton key={i} className="h-14 rounded-lg" />)
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">

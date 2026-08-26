@@ -175,6 +175,7 @@
     "remove": "Cire",
     "update": "Sabunta",
     "refresh": "Sabunta",
+    "retry": "Sake gwadawa",
     "view": "Duba",
     "back": "Koma",
     "next": "Ci gaba",
@@ -1147,6 +1148,7 @@
   },
   "errors": {
     "generic": "Wani abu ya faru. Don Allah a sake gwadawa.",
+    "load_timeout": "Ana ɗaukar lokaci mai tsawo don loda. Duba haɗin intanet ɗinka sannan a sake gwadawa.",
     "not_found": "Ba a same shi ba.",
     "unauthorized": "Ba ka da izinin yin wannan.",
     "required_field": "Ana buƙatar wannan filin.",
