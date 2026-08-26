@@ -110,9 +110,10 @@ function clearCache() {
 // Wipe read-only caches (localStorage). Safe to call anytime — no write data at risk.
 function clearReadCaches(): void {
   try {
-    const keys = Object.keys(localStorage).filter(k =>
-      k.startsWith('pc_') || k === 'dashboard_cache_v1'
-    )
+    // Every page's read cache (dashboard included) now goes through the
+    // same lib/offline/page-cache.ts helpers, all under the pc_ prefix —
+    // no more special-cased keys to remember here.
+    const keys = Object.keys(localStorage).filter(k => k.startsWith('pc_'))
     keys.forEach(k => localStorage.removeItem(k))
   } catch { /* ignore */ }
 }

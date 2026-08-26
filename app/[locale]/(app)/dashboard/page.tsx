@@ -27,37 +27,23 @@ import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { getPendingSales, type PendingSale } from '@/lib/offline/db'
 import { withTimeout } from '@/lib/utils/with-timeout'
-import { setPageCache } from '@/lib/offline/page-cache'
+import { getPageCache, setPageCache } from '@/lib/offline/page-cache'
 import { runIdlePrefetch, type PrefetchTask } from '@/lib/utils/idle-prefetch'
 import { onSalesDataChanged } from '@/lib/data-refresh'
 
 const supabase = createClient() as any
 
 // ── Dashboard cache (stale-while-revalidate) ────────────────────────────────
-const DASH_CACHE_KEY = 'dashboard_cache_v1'
+// Same shared cache as every other page (lib/offline/page-cache.ts) — the
+// key itself is scoped per shop, so no per-entry shopKey/comparison logic
+// is needed, and it inherits the standard 7-day hard cutoff instead of
+// being read unboundedly stale.
 interface DashCache {
-  shopKey: string
   todayRevenue: number; todaySalesCount: number; outstandingDebt: number
   revenueData: RevenueDataPoint[]; topProducts: TopProduct[]
   lowStock: Product[]; outOfStock: Product[]
   recentSales: Sale[]; repaymentItems: RepaymentFeedItem[]
   monthExpenses?: number; monthRevenue?: number; monthGlobalRevenue?: number
-  savedAt: number
-}
-// Stale-only read: used at mount to pre-fill UI immediately.
-// Ignores TTL — loadDashboard will always refresh in background anyway.
-function readDashCacheStale(shopKey: string): DashCache | null {
-  try {
-    const raw = localStorage.getItem(DASH_CACHE_KEY)
-    if (!raw) return null
-    const c: DashCache = JSON.parse(raw)
-    if (c.shopKey !== shopKey) return null
-    return c
-  } catch { return null }
-}
-function writeDashCache(data: Omit<DashCache, 'savedAt'>) {
-  try { localStorage.setItem(DASH_CACHE_KEY, JSON.stringify({ ...data, savedAt: Date.now() })) }
-  catch { /* ignore */ }
 }
 
 export default function DashboardPage() {
@@ -72,11 +58,11 @@ export default function DashboardPage() {
     ? [dashboardShopFilter]
     : userShops.map(s => s.id).filter(Boolean)
 
-  // Read stale cache synchronously at mount — shows data instantly even if TTL expired.
-  // loadDashboard always refreshes in background, so stale data is fine here.
+  // Read cache synchronously at mount — shows data instantly. loadDashboard
+  // always refreshes in background, so up-to-7-day-old data is fine here.
   const [mountCache] = useState<DashCache | null>(() => {
     if (!profile?.id || shopIds.length === 0) return null
-    return readDashCacheStale(`${profile.id}:${shopIds.join(',')}`)
+    return getPageCache<DashCache>(`dashboard_${profile.id}:${shopIds.join(',')}`)
   })
 
   const [firstLoad, setFirstLoad] = useState(!mountCache && shopIds.length > 0)
@@ -140,13 +126,14 @@ export default function DashboardPage() {
     if (quiet) setFirstLoad(false)
 
     const shopKey = `${profile?.id}:${shopIds.join(',')}`
+    const cacheKey = `dashboard_${shopKey}`
 
     // ── Serve cache immediately (stale-while-revalidate) ──────────────────
-    // On initial load: use stale read (ignores 10-min TTL) so any existing
-    // cache clears the skeleton instantly while fresh data loads in the background.
+    // On initial load: any existing cache (up to the standard 7-day cutoff)
+    // clears the skeleton instantly while fresh data loads in the background.
     // On manual refresh (quiet=true): skip cache — user wants fresh data now.
     if (!quiet) {
-      const cached = readDashCacheStale(shopKey)
+      const cached = getPageCache<DashCache>(cacheKey)
       if (cached) {
         applyDashData(cached.todaySalesCount, cached.todayRevenue, cached.outstandingDebt,
           cached.recentSales, cached.repaymentItems ?? [], cached.revenueData, cached.topProducts, cached.lowStock, cached.outOfStock,
@@ -404,7 +391,7 @@ export default function DashboardPage() {
 
       applyDashData(salesCount, revenue, debt, salesArr, repaymentItems, revData, tops, lowSt, outOf, expensesTotal, monthRevenueTotal, monthGlobalRevenueTotal)
 
-      writeDashCache({ shopKey, todaySalesCount: salesCount, todayRevenue: revenue,
+      setPageCache<DashCache>(cacheKey, { todaySalesCount: salesCount, todayRevenue: revenue,
         outstandingDebt: debt, recentSales: salesArr, repaymentItems,
         revenueData: revData, topProducts: tops, lowStock: lowSt, outOfStock: outOf,
         monthExpenses: expensesTotal, monthRevenue: monthRevenueTotal, monthGlobalRevenue: monthGlobalRevenueTotal })

@@ -1,4 +1,22 @@
-// localStorage cache for page-level data — used as fallback when offline
+// localStorage cache for page-level data — used as fallback when offline.
+// This is the default, standard caching mechanism: every page's read cache
+// (dashboard included, since it was migrated onto this) should use
+// getPageCache/setPageCache unless it has a specific reason not to. Two
+// pages deliberately don't, for reasons that don't apply anywhere else:
+//   - sales/new/page.tsx uses IndexedDB (lib/offline/db.ts) instead, because
+//     it needs to keep SELLING while offline (not just viewing stale data),
+//     which needs a real write-queue-and-sync-later store, not a read cache
+//     — and IndexedDB's much higher storage ceiling matters for a shop with
+//     a large catalog. Its product/customer cache mirrors this module's
+//     shape (image_url and category color/name included precisely so the
+//     instant-paint-from-cache never looks visually incomplete — see the
+//     git history for the bug this fixed).
+//   - reports/page.tsx uses react-query + a persister instead, for its own
+//     multi-query invalidation needs (lib/query-client.ts has the details).
+//     A couple of the sales pages also import queryClient, but only to
+//     broadcast "a sale just happened, refetch" signals across open tabs
+//     (lib/data-refresh.ts) — that's a cross-page invalidation bus, not a
+//     second data cache competing with this one.
 
 interface CacheEntry<T> {
   data: T
