@@ -36,20 +36,6 @@ export function getPageCache<T>(key: string, maxAgeMs = PAGE_CACHE_MAX_AGE_MS): 
   }
 }
 
-export function getPageCacheAge(key: string): number | null {
-  try {
-    const raw = localStorage.getItem(`pc_${key}`)
-    if (!raw) return null
-    const entry = JSON.parse(raw)
-    if (entry && typeof entry === 'object' && 'cached_at' in entry) {
-      return Date.now() - entry.cached_at
-    }
-    return null
-  } catch {
-    return null
-  }
-}
-
 export function clearPageCache(key: string): void {
   try { localStorage.removeItem(`pc_${key}`) } catch {}
 }

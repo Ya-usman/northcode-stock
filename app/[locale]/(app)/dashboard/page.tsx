@@ -44,18 +44,6 @@ interface DashCache {
   monthExpenses?: number; monthRevenue?: number; monthGlobalRevenue?: number
   savedAt: number
 }
-function readDashCache(shopKey: string): DashCache | null {
-  try {
-    const raw = localStorage.getItem(DASH_CACHE_KEY)
-    if (!raw) return null
-    const c: DashCache = JSON.parse(raw)
-    // Online: cache valid 10 min (stale-while-revalidate). Offline: accept up to 24h.
-    const ttl = navigator.onLine ? 600_000 : 24 * 60 * 60 * 1000
-    if (c.shopKey !== shopKey || Date.now() - c.savedAt > ttl) return null
-    return c
-  } catch { return null }
-}
-
 // Stale-only read: used at mount to pre-fill UI immediately.
 // Ignores TTL — loadDashboard will always refresh in background anyway.
 function readDashCacheStale(shopKey: string): DashCache | null {
