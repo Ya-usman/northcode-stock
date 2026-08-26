@@ -70,8 +70,17 @@ export default function CaissePage() {
   const isAuthorized = (role === 'owner' || role === 'super_admin' || role === 'manager' || role === 'shop_manager') && canAccess('caisse')
 
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date())
-  const [loading, setLoading] = useState(true)
-  const [cashierSummaries, setCashierSummaries] = useState<CashierSummary[]>([])
+  // Lazy initializers: read the page cache synchronously on mount (same
+  // pattern as stock/dashboard) so a returning user sees the day's already-
+  // known totals instantly instead of a skeleton, even before the auth
+  // context has finished resolving effectiveShopIds.
+  const [cashierSummaries, setCashierSummaries] = useState<CashierSummary[]>(() => {
+    const c = getPageCache<CashierSummary[]>(`caisse_${effectiveShopIds.join(',')}_${format(new Date(), 'yyyy-MM-dd')}`)
+    return c || []
+  })
+  const [loading, setLoading] = useState(() =>
+    !getPageCache(`caisse_${effectiveShopIds.join(',')}_${format(new Date(), 'yyyy-MM-dd')}`)
+  )
   const [expandedCashier, setExpandedCashier] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
 
