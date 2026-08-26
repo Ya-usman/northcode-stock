@@ -343,6 +343,7 @@
     "bulk_deleted_toast": "{count} product(s) deleted",
     "deselect_all": "Deselect all",
     "select_all": "Select all",
+    "select_action": "Select",
     "delete_all_count": "Delete all products ({count})",
     "reset_filters": "Reset",
     "archived_on": "Archived on {date}",

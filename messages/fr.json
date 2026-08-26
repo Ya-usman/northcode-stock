@@ -343,6 +343,7 @@
     "bulk_deleted_toast": "{count} produit(s) supprimé(s)",
     "deselect_all": "Tout désélectionner",
     "select_all": "Tout sélectionner",
+    "select_action": "Sélectionner",
     "delete_all_count": "Supprimer tous les produits ({count})",
     "reset_filters": "Réinitialiser",
     "archived_on": "Archivé le {date}",

@@ -343,6 +343,7 @@
     "bulk_deleted_toast": "An share kaya {count}",
     "deselect_all": "Cire zaɓi duka",
     "select_all": "Zaɓi duka",
+    "select_action": "Zaɓa",
     "delete_all_count": "Share duk kayayyaki ({count})",
     "reset_filters": "Sake saitawa",
     "archived_on": "An adana a ranar {date}",

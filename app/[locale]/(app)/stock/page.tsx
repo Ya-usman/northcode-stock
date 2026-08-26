@@ -1286,9 +1286,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             </div>
           </>
         )}
-        {canDeleteProducts && (
+        {(canWriteStock || canAccess('categories') || canDeleteProducts) && (
           <Button
-            variant={selectionMode ? 'destructive' : 'outline'}
+            variant="outline"
             size="sm"
             className="h-9 gap-1.5"
             onClick={() => {
@@ -1296,7 +1296,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               else setSelectionMode(true)
             }}
           >
-            {selectionMode ? <><Square className="h-3.5 w-3.5" /> Annuler</> : <><Trash2 className="h-3.5 w-3.5" /> Supprimer produit(s)</>}
+            {selectionMode ? <><Square className="h-3.5 w-3.5" /> {t('actions.cancel')}</> : <><CheckSquare className="h-3.5 w-3.5" /> {t('products.select_action')}</>}
           </Button>
         )}
       </div>
@@ -2254,14 +2254,16 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 {t('products.assign_promo_action')}
               </Button>
             )}
-            <Button
-              size="sm"
-              className="h-8 gap-1.5 bg-destructive hover:bg-destructive/90 text-white text-xs"
-              onClick={() => { setBulkDeleteAll(false); setBulkDeleteDialog(true) }}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Supprimer
-            </Button>
+            {canDeleteProducts && (
+              <Button
+                size="sm"
+                className="h-8 gap-1.5 bg-destructive hover:bg-destructive/90 text-white text-xs"
+                onClick={() => { setBulkDeleteAll(false); setBulkDeleteDialog(true) }}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Supprimer
+              </Button>
+            )}
           </div>
         </div>
       )}
