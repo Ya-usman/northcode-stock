@@ -93,6 +93,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [promoProduct, setPromoProduct] = useState<Product | null>(null)
   const [promoPrice, setPromoPrice] = useState('')
   const [promoUntil, setPromoUntil] = useState('')
+  const [promoStart, setPromoStart] = useState('')
+  const [promoInputMode, setPromoInputMode] = useState<'price' | 'percent'>('price')
   const [savingPromo, setSavingPromo] = useState(false)
   const [promoSuggestionReason, setPromoSuggestionReason] = useState<string | null>(null)
   const [promoSuggestionKey, setPromoSuggestionKey] = useState<'expiry' | 'dormant' | null>(null)
@@ -145,6 +147,11 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [bulkCategoryDialog, setBulkCategoryDialog] = useState(false)
   const [bulkCategoryId, setBulkCategoryId] = useState<string | null>(null)
   const [bulkAssigningCategory, setBulkAssigningCategory] = useState(false)
+  const [bulkPromoDialog, setBulkPromoDialog] = useState(false)
+  const [bulkPromoPercent, setBulkPromoPercent] = useState('')
+  const [bulkPromoUntil, setBulkPromoUntil] = useState('')
+  const [bulkPromoStart, setBulkPromoStart] = useState('')
+  const [bulkApplyingPromo, setBulkApplyingPromo] = useState(false)
 
   // ── Journal de suppressions ─────────────────────────────────────────────
   const [view, setView] = useState<'products' | 'archived' | 'journal'>('products')
@@ -153,6 +160,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [journalDateFrom, setJournalDateFrom] = useState('')
   const [journalDateTo, setJournalDateTo] = useState('')
   const [journalSearch, setJournalSearch] = useState('')
+  // Ventes pendant une promo passée — calculé à la demande (bouton par
+  // entrée de Journal), pas au chargement, pour éviter une requête par ligne.
+  const [promoSalesResult, setPromoSalesResult] = useState<Record<string, { loading: boolean; qty: number | null }>>({})
   const [archiveDateFrom, setArchiveDateFrom] = useState('')
   const [archiveDateTo, setArchiveDateTo] = useState('')
   const [archiveSearch, setArchiveSearch] = useState('')
@@ -354,6 +364,11 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const isExpired = (p: Product) => { const exp = expiryByProduct[p.id]; return !!exp && exp < todayStr }
   const isExpiringSoon = (p: Product) => { const exp = expiryByProduct[p.id]; return !!exp && exp >= todayStr && exp <= getExpiryCutoffFor(p) }
   const isDormant = (p: Product) => soldQtyLoaded && p.quantity > 0 && !(soldQtyByProduct[p.id] > 0)
+  // Partagé produit/lot (les deux ont promo_price/promo_until) — un seul
+  // endroit à faire évoluer quand promo_start (Étape 4) sera ajouté.
+  const isPromoActive = (o: { promo_price?: number | null; promo_until?: string | null; promo_start?: string | null }) =>
+    !!o.promo_price && !!o.promo_until && o.promo_until >= new Date().toISOString()
+    && (!o.promo_start || o.promo_start <= new Date().toISOString())
 
   // Suggestion de promo — jamais pour un produit déjà périmé (à retirer de
   // la vente, pas à brader), un rabais plus fort à mesure que l'échéance
@@ -380,7 +395,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   // n'est plus justifiée si le lot/la situation qui l'a déclenchée n'existe
   // plus — mais on ne la retire jamais automatiquement (voir migration 094).
   const promoStale = (p: Product) => {
-    const active = !!p.promo_price && !!p.promo_until && p.promo_until >= new Date().toISOString()
+    const active = isPromoActive(p)
     if (!active || !p.promo_reason) return false
     if (p.promo_reason === 'expiry') return !isExpiringSoon(p)
     if (p.promo_reason === 'dormant') return !isDormant(p)
@@ -401,6 +416,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       if (statusFilter === 'ok' && p.quantity <= threshold) return false
       if (statusFilter === 'expiry' && !isExpired(p) && !isExpiringSoon(p)) return false
       if (statusFilter === 'dormant' && !isDormant(p)) return false
+      if (statusFilter === 'promo' && !isPromoActive(p)) return false
       return true
     })
 
@@ -408,6 +424,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const lowCount = products.filter(p => p.quantity > 0 && p.quantity <= (p.low_stock_threshold || shop?.low_stock_threshold || 10)).length
   const expiringCount = products.filter(isExpired).length + products.filter(isExpiringSoon).length
   const dormantCount = products.filter(isDormant).length
+  const promoCount = products.filter(isPromoActive).length
 
   const saveProduct = async (data: ProductFormData) => {
     if (!shop?.id) { toast({ title: t('toast.no_active_shop'), variant: 'destructive' }); return false }
@@ -569,11 +586,12 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     setSavingPromo(true)
     try {
       const until = new Date(`${promoUntil}T23:59:59`).toISOString()
+      const start = promoStart ? new Date(`${promoStart}T00:00:00`).toISOString() : null
       const res = promoBatch
         ? await withTimeout(fetch('/api/product-batches/promo', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: promoBatch.id, shop_id: shop.id, promo_price: price, promo_until: until }),
+            body: JSON.stringify({ id: promoBatch.id, shop_id: shop.id, promo_price: price, promo_until: until, promo_start: start }),
           }))
         : await withTimeout(fetch('/api/products', {
             method: 'PATCH',
@@ -583,6 +601,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               shop_id: shop.id,
               promo_price: price,
               promo_until: until,
+              promo_start: start,
               // Uniquement quand la promo vient d'une suggestion fraîche —
               // sinon on ne touche pas au motif déjà enregistré (édition).
               ...(promoSuggestionKey ? { promo_reason: promoSuggestionKey } : {}),
@@ -612,12 +631,12 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         ? await withTimeout(fetch('/api/product-batches/promo', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: promoBatch.id, shop_id: shop.id, promo_price: null, promo_until: null }),
+            body: JSON.stringify({ id: promoBatch.id, shop_id: shop.id, promo_price: null, promo_until: null, promo_start: null }),
           }))
         : await withTimeout(fetch('/api/products', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: promoProduct.id, shop_id: shop.id, promo_price: null, promo_until: null, promo_reason: null }),
+            body: JSON.stringify({ id: promoProduct.id, shop_id: shop.id, promo_price: null, promo_until: null, promo_start: null, promo_reason: null }),
           }))
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
@@ -880,6 +899,47 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     }
   }
 
+  // Un % appliqué au prix catalogue de CHAQUE produit sélectionné — pas un
+  // prix absolu partagé, qui n'aurait aucun sens entre des produits à des
+  // prix différents. Le calcul se fait ici, côté client, puis chaque
+  // (id, promo_price) est envoyé — voir app/api/products/route.ts.
+  const bulkApplyPromo = async () => {
+    if (!shop?.id || selectedIds.size === 0) return
+    const pct = Number(bulkPromoPercent)
+    if (!pct || pct <= 0 || pct >= 100 || !bulkPromoUntil) {
+      toast({ title: t('products.promo_invalid'), variant: 'destructive' })
+      return
+    }
+    setBulkApplyingPromo(true)
+    try {
+      const items = Array.from(selectedIds)
+        .map(id => products.find(p => p.id === id))
+        .filter((p): p is Product => !!p)
+        .map(p => ({ id: p.id, promo_price: Math.max(1, Math.round(p.selling_price * (1 - pct / 100))) }))
+      const until = new Date(`${bulkPromoUntil}T23:59:59`).toISOString()
+      const start = bulkPromoStart ? new Date(`${bulkPromoStart}T00:00:00`).toISOString() : null
+      const res = await withTimeout(fetch('/api/products', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop_id: shop.id, items, promo_until: until, promo_start: start, percent: pct }),
+      }), 30_000)
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      toast({ title: t('products.bulk_promo_applied_toast', { count: json.updated ?? items.length }), variant: 'success' })
+      setBulkPromoDialog(false)
+      setBulkPromoPercent('')
+      setBulkPromoUntil('')
+      setBulkPromoStart('')
+      setSelectedIds(new Set())
+      setSelectionMode(false)
+      fetchProducts()
+    } catch (err: any) {
+      toast({ title: err.message || t('toast.error'), variant: 'destructive' })
+    } finally {
+      setBulkApplyingPromo(false)
+    }
+  }
+
   const fetchAuditLogs = async () => {
     if (!shop?.id) return
     setLoadingJournal(true)
@@ -887,7 +947,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       .from('audit_logs')
       .select('*')
       .eq('shop_id', shop.id)
-      .in('action', ['delete_product', 'bulk_delete_products', 'delete_all_products', 'create_product', 'update_product', 'archive_product', 'restore_product'])
+      .in('action', ['delete_product', 'bulk_delete_products', 'delete_all_products', 'create_product', 'update_product', 'archive_product', 'restore_product', 'update_batch_promo', 'bulk_update_promo'])
       .order('created_at', { ascending: false })
       .limit(100)
     if (journalDateFrom) query = query.gte('created_at', `${journalDateFrom}T00:00:00`)
@@ -904,6 +964,29 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     }
   }
 
+  // Quantité vendue d'un produit entre le début d'une promo (created_at de
+  // l'entrée de Journal) et sa date de fin — réponse directe à "est-ce que
+  // la promo a vraiment fait vendre", calculée à la demande uniquement.
+  const fetchPromoSales = async (logId: string, productId: string, from: string, until: string) => {
+    setPromoSalesResult(prev => ({ ...prev, [logId]: { loading: true, qty: null } }))
+    try {
+      const { data } = await withTimeout<any>(
+        (supabase as any)
+          .from('sale_items')
+          .select('quantity, sales!inner(created_at, sale_status)')
+          .eq('product_id', productId)
+          .gte('sales.created_at', from)
+          .lte('sales.created_at', until)
+          .eq('sales.sale_status', 'active'),
+        15_000
+      )
+      const qty = (data || []).reduce((sum: number, row: any) => sum + row.quantity, 0)
+      setPromoSalesResult(prev => ({ ...prev, [logId]: { loading: false, qty } }))
+    } catch {
+      setPromoSalesResult(prev => ({ ...prev, [logId]: { loading: false, qty: null } }))
+    }
+  }
+
   useEffect(() => { if (view === 'journal') fetchAuditLogs() }, [view, journalDateFrom, journalDateTo])
 
   // Refresh the Journal when the user comes back to this tab or regains
@@ -914,7 +997,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const renderProductCard = (product: Product, idx: number) => {
     const threshold = product.low_stock_threshold || shop?.low_stock_threshold || 10
     const isSelected = selectedIds.has(product.id)
-    const promoActive = !!product.promo_price && !!product.promo_until && product.promo_until >= new Date().toISOString()
+    const promoActive = isPromoActive(product)
     const expiry = expiryByProduct[product.id]
     const expired = expiry ? expiry < todayStr : false
     const expiringSoonBadge = expiry && !expired ? expiry <= getExpiryCutoffFor(product) : false
@@ -1033,14 +1116,17 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                     onClick={() => {
                       setPromoProduct(product)
                       setPromoBatch(null)
+                      setPromoInputMode('price')
                       if (product.promo_price) {
                         setPromoPrice(String(product.promo_price))
                         setPromoUntil(product.promo_until ? product.promo_until.slice(0, 10) : '')
+                        setPromoStart(product.promo_start ? product.promo_start.slice(0, 10) : '')
                         setPromoSuggestionReason(null)
                         setPromoSuggestionKey(null)
                       } else {
                         setPromoPrice(suggestion ? String(suggestion.price) : '')
                         setPromoUntil(suggestion ? suggestion.until : '')
+                        setPromoStart('')
                         setPromoSuggestionReason(suggestion ? suggestion.reason : null)
                         setPromoSuggestionKey(suggestion ? suggestion.key : null)
                       }
@@ -1169,6 +1255,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               <SelectItem value="out">{t('status.out_of_stock')}</SelectItem>
               <SelectItem value="expiry">{t('products.card_expiry')}</SelectItem>
               <SelectItem value="dormant">{t('products.card_dormant')}</SelectItem>
+              <SelectItem value="promo">{t('products.promo_badge')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -1221,6 +1308,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           { key: 'low', count: lowCount, label: t('products.card_low_stock'), icon: PackageMinus, color: 'text-amber-600 border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/20', badge: 'bg-amber-100 dark:bg-amber-900/40' },
           { key: 'expiry', count: expiringCount, label: t('products.card_expiry'), icon: CalendarClock, color: 'text-orange-600 border-orange-200 dark:border-orange-900 bg-orange-50/50 dark:bg-orange-950/20', badge: 'bg-orange-100 dark:bg-orange-900/40' },
           { key: 'dormant', count: dormantCount, label: t('products.card_dormant'), icon: TrendingDown, color: 'text-blue-600 border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20', badge: 'bg-blue-100 dark:bg-blue-900/40' },
+          { key: 'promo', count: promoCount, label: t('products.promo_badge'), icon: Tag, color: 'text-purple-600 border-purple-200 dark:border-purple-900 bg-purple-50/50 dark:bg-purple-950/20', badge: 'bg-purple-100 dark:bg-purple-900/40' },
         ].map(card => (
           <button
             key={card.key}
@@ -1433,6 +1521,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 if (changes.sku) parts.push(`${t('products.journal_field_sku')}: ${changes.sku.from || '—'} → ${changes.sku.to || '—'}`)
                 if (changes.category_id) parts.push(`${t('products.journal_field_category')}: ${changes.category_id.from || '—'} → ${changes.category_id.to || '—'}`)
                 if (changes.supplier_id) parts.push(`${t('products.journal_field_supplier')}: ${changes.supplier_id.from || '—'} → ${changes.supplier_id.to || '—'}`)
+                if (changes.promo_price) parts.push(`${t('products.journal_field_promo_price')}: ${changes.promo_price.from ? formatNaira(changes.promo_price.from) : '—'} → ${changes.promo_price.to ? formatNaira(changes.promo_price.to) : '—'}`)
+                if (changes.promo_until) parts.push(`${t('products.journal_field_promo_until')}: ${changes.promo_until.from ? new Date(changes.promo_until.from).toLocaleDateString('fr-FR') : '—'} → ${changes.promo_until.to ? new Date(changes.promo_until.to).toLocaleDateString('fr-FR') : '—'}`)
                 detail = parts.join(' · ')
               } else if (log.action === 'archive_product') {
                 Icon = Archive
@@ -1444,10 +1534,34 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 iconColor = 'text-green-500'
                 label = t('products.journal_restored')
                 detail = meta.product_name || log.target_id || '—'
+              } else if (log.action === 'update_batch_promo') {
+                Icon = Tag
+                iconColor = 'text-purple-500'
+                label = meta.product_name || t('products.journal_batch_promo_updated')
+                detail = meta.new_price
+                  ? t('products.journal_batch_promo_detail_set', { price: formatNaira(meta.new_price), date: meta.new_until ? new Date(meta.new_until).toLocaleDateString('fr-FR') : '—' })
+                  : t('products.journal_batch_promo_detail_cleared')
+              } else if (log.action === 'bulk_update_promo') {
+                Icon = Tag
+                iconColor = 'text-purple-500'
+                label = t('products.journal_bulk_promo_updated')
+                detail = t('products.journal_bulk_promo_detail', { count: meta.count, percent: meta.percent ?? 0 })
               } else {
                 label = t('products.all_deleted_toast')
                 detail = t('products.journal_all_deleted_detail', { count: meta.count })
               }
+
+              // Bouton "ventes pendant la promo" — seulement pour une entrée
+              // qui active concrètement une promo sur UN produit précis
+              // (pas les entrées "en masse", trop de produits à agréger ici).
+              let promoQuery: { productId: string; from: string; until: string } | null = null
+              if (log.action === 'update_product' && meta.changes?.promo_price?.to && meta.changes?.promo_until?.to) {
+                promoQuery = { productId: log.target_id, from: log.created_at, until: meta.changes.promo_until.to }
+              } else if (log.action === 'update_batch_promo' && meta.new_price && meta.new_until && meta.product_id) {
+                promoQuery = { productId: meta.product_id, from: log.created_at, until: meta.new_until }
+              }
+              const promoSales = promoSalesResult[log.id]
+
               return (
                 <div key={log.id} className="flex items-start gap-2.5 rounded-lg bg-muted/40 border px-3 py-2.5 text-xs">
                   <Icon className={`h-3.5 w-3.5 ${iconColor} flex-shrink-0 mt-0.5`} />
@@ -1455,6 +1569,24 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                     <p className="font-medium text-foreground/80">{label}</p>
                     <p className="text-muted-foreground truncate">{detail}</p>
                     <p className="text-muted-foreground/70 mt-0.5">{actor} · {when}</p>
+                    {promoQuery && (
+                      promoSales ? (
+                        <p className="text-purple-600 dark:text-purple-400 font-medium mt-1">
+                          {promoSales.loading
+                            ? t('products.journal_promo_sales_loading')
+                            : promoSales.qty !== null
+                              ? t('products.journal_promo_sales_result', { count: promoSales.qty })
+                              : t('products.journal_promo_sales_error')}
+                        </p>
+                      ) : (
+                        <button
+                          className="text-purple-600 dark:text-purple-400 hover:underline mt-1"
+                          onClick={() => promoQuery && fetchPromoSales(log.id, promoQuery.productId, promoQuery.from, promoQuery.until)}
+                        >
+                          {t('products.journal_promo_sales_button')}
+                        </button>
+                      )
+                    )}
                   </div>
                 </div>
               )
@@ -1695,14 +1827,72 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               <p className="text-xs text-muted-foreground">
                 {t('products.promo_hint', { price: formatNaira(promoProduct.selling_price) })}
               </p>
+              {(() => {
+                const sellingPrice = promoProduct.selling_price
+                const costPrice = Number(promoBatch ? promoBatch.buying_price : promoProduct.buying_price) || 0
+                const priceNum = Number(promoPrice) || 0
+                const percentOff = priceNum > 0 ? Math.round((1 - priceNum / sellingPrice) * 100) : null
+                const belowCost = priceNum > 0 && costPrice > 0 && priceNum < costPrice
+                const percentDisplayValue = promoPrice
+                  ? String(Math.round((1 - Number(promoPrice) / sellingPrice) * 100))
+                  : ''
+                return (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label>{(promoInputMode === 'percent' ? t('products.promo_percent_label') : t('products.promo_price_label'))} *</Label>
+                      <div className="flex gap-0.5 rounded-md border bg-muted/30 p-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setPromoInputMode('price')}
+                          className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${promoInputMode === 'price' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'}`}
+                        >
+                          {t('products.promo_mode_price')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPromoInputMode('percent')}
+                          className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${promoInputMode === 'percent' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'}`}
+                        >
+                          %
+                        </button>
+                      </div>
+                    </div>
+                    {promoInputMode === 'percent' ? (
+                      <Input
+                        type="number" min={1} max={99}
+                        value={percentDisplayValue}
+                        onChange={e => {
+                          if (!e.target.value) { setPromoPrice(''); return }
+                          const pct = Number(e.target.value)
+                          setPromoPrice(String(Math.max(1, Math.round(sellingPrice * (1 - pct / 100)))))
+                        }}
+                        placeholder="20"
+                      />
+                    ) : (
+                      <Input
+                        type="number" min={0} max={sellingPrice - 1}
+                        value={promoPrice}
+                        onChange={e => setPromoPrice(e.target.value)}
+                        placeholder={String(sellingPrice)}
+                      />
+                    )}
+                    {priceNum > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {t('products.promo_derived_hint', { percent: percentOff ?? 0, price: formatNaira(priceNum) })}
+                      </p>
+                    )}
+                    {belowCost && (
+                      <div className="rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 px-3 py-2 text-xs text-red-700 dark:text-red-400">
+                        {t('products.promo_below_cost_warning', { cost: formatNaira(costPrice) })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
               <div className="space-y-1.5">
-                <Label>{t('products.promo_price_label')} *</Label>
-                <Input
-                  type="number" min={0} max={promoProduct.selling_price - 1}
-                  value={promoPrice}
-                  onChange={e => setPromoPrice(e.target.value)}
-                  placeholder={String(promoProduct.selling_price)}
-                />
+                <Label>{t('products.promo_start_label')}</Label>
+                <Input type="date" value={promoStart} onChange={e => setPromoStart(e.target.value)} placeholder={t('products.promo_start_placeholder')} />
+                <p className="text-[11px] text-muted-foreground">{t('products.promo_start_hint')}</p>
               </div>
               <div className="space-y-1.5">
                 <Label>{t('products.promo_until_label')} *</Label>
@@ -1751,7 +1941,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                     const today = new Date().toISOString().slice(0, 10)
                     const isExpired = b.expiry_date && b.expiry_date < today
                     const sourceLabel = t(`products.batch_source_${b.source}` as any) || b.source
-                    const batchPromoActive = !!b.promo_price && !!b.promo_until && b.promo_until >= new Date().toISOString()
+                    const batchPromoActive = isPromoActive(b)
                     return (
                       <div key={b.id} className="rounded-lg border px-3 py-2.5 space-y-1">
                         <div className="flex items-center justify-between gap-2">
@@ -1778,8 +1968,10 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                                 onClick={() => {
                                   setPromoProduct(batchesProduct)
                                   setPromoBatch(b)
+                                  setPromoInputMode('price')
                                   setPromoPrice(b.promo_price ? String(b.promo_price) : '')
                                   setPromoUntil(b.promo_until ? b.promo_until.slice(0, 10) : '')
+                                  setPromoStart(b.promo_start ? b.promo_start.slice(0, 10) : '')
                                   setPromoSuggestionReason(null)
                                   setPromoSuggestionKey(null)
                                 }}
@@ -1988,6 +2180,43 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         />
       </PremiumDialog>
 
+      {/* Bulk promo dialog */}
+      <PremiumDialog
+        open={bulkPromoDialog}
+        onOpenChange={open => { if (!open) setBulkPromoDialog(false) }}
+        category={t('nav.stock')}
+        title={t('products.assign_promo_title', { count: selectedIds.size })}
+        icon={<Tag className="h-4 w-4" />}
+      >
+        <PremiumDialogBody>
+          <div className="space-y-1.5">
+            <Label>{t('products.promo_percent_label')} *</Label>
+            <Input
+              type="number" min={1} max={99}
+              value={bulkPromoPercent}
+              onChange={e => setBulkPromoPercent(e.target.value)}
+              placeholder="20"
+            />
+            <p className="text-xs text-muted-foreground">{t('products.bulk_promo_hint')}</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label>{t('products.promo_start_label')}</Label>
+            <Input type="date" value={bulkPromoStart} onChange={e => setBulkPromoStart(e.target.value)} placeholder={t('products.promo_start_placeholder')} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>{t('products.promo_until_label')} *</Label>
+            <Input type="date" value={bulkPromoUntil} onChange={e => setBulkPromoUntil(e.target.value)} />
+          </div>
+        </PremiumDialogBody>
+        <PremiumDialogFooter
+          onCancel={() => setBulkPromoDialog(false)}
+          cancelLabel={t('actions.cancel')}
+          onConfirm={bulkApplyPromo}
+          confirmLabel={t('actions.save')}
+          confirmLoading={bulkApplyingPromo}
+        />
+      </PremiumDialog>
+
       {/* Barre flottante de sélection */}
       {selectionMode && selectedIds.size > 0 && (
         <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm px-4">
@@ -2012,6 +2241,17 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               >
                 <Settings2 className="h-3.5 w-3.5" />
                 {t('products.assign_category_action')}
+              </Button>
+            )}
+            {canWriteStock && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 text-xs"
+                onClick={() => { setBulkPromoPercent(''); setBulkPromoUntil(''); setBulkPromoStart(''); setBulkPromoDialog(true) }}
+              >
+                <Tag className="h-3.5 w-3.5" />
+                {t('products.assign_promo_action')}
               </Button>
             )}
             <Button

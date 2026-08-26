@@ -85,6 +85,7 @@ export default function SalesHistoryPage() {
     via: t('receipt.via'),
     balanceDue: t('receipt.balance_due'),
     thankYou: t('receipt.thank_you'),
+    promoWas: t('receipt.promo_was'),
   }
 
   const printSale = async (sale: Sale) => {

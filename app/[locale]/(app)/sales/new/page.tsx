@@ -54,12 +54,13 @@ import { checkAndNotifyLowStock, notifyNewSale } from '@/lib/push'
 // au prix produit/catalogue dès que ce lot est épuisé, puisque
 // frontBatchPromo n'est construit qu'à partir des lots avec quantity > 0 —
 // aucune action manuelle nécessaire (voir migration 095).
-function effectivePrice(product: Product, frontBatchPromo?: Record<string, { price: number; until: string }>): number {
+function effectivePrice(product: Product, frontBatchPromo?: Record<string, { price: number; until: string; start: string | null }>): number {
+  const now = new Date().toISOString()
   const batchPromo = frontBatchPromo?.[product.id]
-  if (batchPromo && batchPromo.until >= new Date().toISOString()) {
+  if (batchPromo && batchPromo.until >= now && (!batchPromo.start || batchPromo.start <= now)) {
     return batchPromo.price
   }
-  if (product.promo_price && product.promo_until && product.promo_until >= new Date().toISOString()) {
+  if (product.promo_price && product.promo_until && product.promo_until >= now && (!product.promo_start || product.promo_start <= now)) {
     return product.promo_price
   }
   return product.selling_price
@@ -106,7 +107,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [products, setProducts] = useState<Product[]>([])
-  const [frontBatchPromo, setFrontBatchPromo] = useState<Record<string, { price: number; until: string }>>({})
+  const [frontBatchPromo, setFrontBatchPromo] = useState<Record<string, { price: number; until: string; start: string | null }>>({})
   // Lot le plus proche de la péremption (FEFO) déjà périmé → la prochaine
   // vente de ce produit y puisera forcément en premier. Purement informatif
   // (voir plafond de crédit) : jamais bloquant, la vente reste possible.
@@ -202,7 +203,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         supabase.from('customers').select('*').eq('shop_id', shop.id).order('name'),
         supabase.from('categories').select('*').eq('shop_id', shop.id).order('name'),
         supabase.from('product_batches')
-          .select('product_id, expiry_date, received_at, promo_price, promo_until')
+          .select('product_id, expiry_date, received_at, promo_price, promo_until, promo_start')
           .eq('shop_id', shop.id).gt('quantity', 0)
           .order('expiry_date', { ascending: true, nullsFirst: false })
           .order('received_at', { ascending: true }),
@@ -226,13 +227,13 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       // celui qui sera vendu en premier — seul son prix promo compte pour
       // la caisse, jamais celui d'un lot plus tardif.
       const frontSeen = new Set<string>()
-      const promoMap: Record<string, { price: number; until: string }> = {}
+      const promoMap: Record<string, { price: number; until: string; start: string | null }> = {}
       const expiredMap: Record<string, boolean> = {}
       const todayStr = new Date().toISOString().slice(0, 10)
       for (const b of (batches || []) as any[]) {
         if (frontSeen.has(b.product_id)) continue
         frontSeen.add(b.product_id)
-        if (b.promo_price && b.promo_until) promoMap[b.product_id] = { price: Number(b.promo_price), until: b.promo_until }
+        if (b.promo_price && b.promo_until) promoMap[b.product_id] = { price: Number(b.promo_price), until: b.promo_until, start: b.promo_start ?? null }
         if (b.expiry_date && b.expiry_date < todayStr) expiredMap[b.product_id] = true
       }
       setFrontBatchPromo(promoMap)
@@ -612,6 +613,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               product_name: item.product.name,
               quantity: item.quantity,
               unit_price: item.unit_price,
+              original_price: item.product.selling_price,
               subtotal: item.quantity * item.unit_price,
             })),
             payment_amount: methodType !== 'credit' ? paid : 0,
@@ -650,6 +652,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           product_name: item.product.name,
           quantity: item.quantity,
           unit_price: item.unit_price,
+          original_price: item.product.selling_price,
           subtotal: item.quantity * item.unit_price,
         })),
       } as any)
@@ -733,6 +736,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               quantity: Math.round(item.quantity),
               unit_price: item.unit_price,
               buying_price: Number(item.product.buying_price) || 0,
+              original_price: item.product.selling_price,
             })),
             payments: paymentsPayload,
           }),
@@ -836,6 +840,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     via: t('receipt.via'),
     balanceDue: t('receipt.balance_due'),
     thankYou: t('receipt.thank_you'),
+    promoWas: t('receipt.promo_was'),
   }
 
   const handlePrintReceipt = async () => {

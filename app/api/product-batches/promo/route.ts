@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { hasRolePermission } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 
 // Same permission as /api/products' promo fields — stock/pricing concern.
 // cashier is trusted unconditionally there too (see STOCK_ALWAYS_ALLOW).
@@ -12,14 +13,15 @@ const PROMO_ALWAYS_ALLOW = ['stock_manager', 'cashier']
 // batch. Deliberately a dedicated route rather than a direct client update:
 // product_batches' UPDATE RLS is open to any shop member (needed for the
 // FEFO depletion trigger on sale), so a role check has to live here instead.
-// body: { id, shop_id, promo_price, promo_until } — pass both null to clear.
+// body: { id, shop_id, promo_price, promo_until, promo_start? } — pass
+// promo_price/promo_until null to clear. promo_start null = starts now.
 export async function PATCH(request: Request) {
   const t = getApiTranslator(request)
   try {
     const { user, supabase } = await getAuthedUser()
     if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
-    const { id, shop_id, promo_price, promo_until } = await request.json()
+    const { id, shop_id, promo_price, promo_until, promo_start } = await request.json()
     if (!id || !shop_id) return NextResponse.json({ error: t('id_shop_id_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
@@ -30,15 +32,43 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: t('invalid_promo_price') }, { status: 400 })
 
     const admin = await createAdminClient() as any
+
+    const { data: before } = await admin
+      .from('product_batches')
+      .select('promo_price, promo_until, product_id')
+      .eq('id', id)
+      .eq('shop_id', shop_id)
+      .single()
+
     const { data, error } = await admin
       .from('product_batches')
-      .update({ promo_price: promo_price ?? null, promo_until: promo_until ?? null })
+      .update({ promo_price: promo_price ?? null, promo_until: promo_until ?? null, promo_start: promo_start ?? null })
       .eq('id', id)
       .eq('shop_id', shop_id)
       .select()
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
     if (!data) return NextResponse.json({ error: t('batch_not_found') }, { status: 404 })
+
+    if (before) {
+      const { data: product } = await admin.from('products').select('name').eq('id', before.product_id).single()
+      const { data: actorProfile } = await admin.from('profiles').select('full_name').eq('id', user.id).single()
+      await writeAuditLog({
+        action: 'update_batch_promo',
+        shop_id, actor_id: user.id, actor_email: user.email,
+        target_id: id, target_type: 'product_batch',
+        ip: getClientIp(request),
+        metadata: {
+          actor_name: actorProfile?.full_name || user.email,
+          product_name: product?.name || null,
+          product_id: before.product_id,
+          old_price: before.promo_price ?? null,
+          new_price: data.promo_price ?? null,
+          old_until: before.promo_until ?? null,
+          new_until: data.promo_until ?? null,
+        },
+      })
+    }
 
     return NextResponse.json({ data })
   } catch (e: any) {

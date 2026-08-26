@@ -89,6 +89,7 @@ export interface PendingSaleItem {
   product_name: string
   quantity: number
   unit_price: number
+  original_price?: number | null
   subtotal: number
 }
 

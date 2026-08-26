@@ -222,6 +222,7 @@ export interface Product {
   is_active: boolean
   promo_price: number | null
   promo_until: string | null
+  promo_start: string | null
   promo_reason: 'expiry' | 'dormant' | null
   created_at: string
   updated_at: string
@@ -282,6 +283,7 @@ export interface SaleItem {
   product_name: string
   quantity: number
   unit_price: number
+  original_price: number | null
   subtotal: number
 }
 

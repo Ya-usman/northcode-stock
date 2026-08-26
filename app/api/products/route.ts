@@ -79,14 +79,61 @@ export async function POST(request: Request) {
 // PATCH /api/products — update a product
 // — Single: body { id, shop_id, ...fields }
 // — Bulk category assignment: body { shop_id, ids: string[], category_id }
-//   (same shape family as DELETE's single-vs-bulk split above — the only
-//   bulk field supported is category_id, not a general bulk field-update)
+// — Bulk promo assignment: body { shop_id, ids: string[], promo_price, promo_until, promo_start? }
+//   (same shape family as DELETE's single-vs-bulk split above — dispatched
+//   by which key is present, since the two bulk modes update different
+//   fields; not a general bulk field-update)
 export async function PATCH(request: Request) {
   const t = getApiTranslator(request)
   try {
     const { user, supabase } = await getAuthedUser()
     if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
     const body = await request.json()
+
+    // Bulk promo: a distinct % off applies to each product's OWN selling
+    // price (not one shared absolute price) — the client computes
+    // promo_price per item from the % it displays, since products in a
+    // category rarely share the same catalogue price.
+    if (Array.isArray(body.items)) {
+      const { shop_id, items, promo_until, promo_start, percent } = body as {
+        shop_id?: string; items: { id: string; promo_price: number }[]; promo_until: string | null; promo_start?: string | null; percent?: number
+      }
+      if (!shop_id || !items.length) return NextResponse.json({ error: t('id_shop_id_required') }, { status: 400 })
+      const role = await checkShopRole(supabase, user.id, shop_id)
+      if (!role || !(await canWriteProducts(supabase, role, shop_id)))
+        return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+      if (items.some(it => !it.id || !Number.isFinite(Number(it.promo_price)) || Number(it.promo_price) <= 0))
+        return NextResponse.json({ error: t('invalid_promo_price') }, { status: 400 })
+
+      const admin = await createAdminClient()
+      let updatedCount = 0
+      for (const it of items) {
+        const { error } = await (admin as any)
+          .from('products')
+          .update({ promo_price: it.promo_price, promo_until: promo_until ?? null, promo_start: promo_start ?? null })
+          .eq('id', it.id)
+          .eq('shop_id', shop_id)
+        if (!error) updatedCount++
+      }
+
+      const { data: actorProfile } = await (admin as any).from('profiles').select('full_name').eq('id', user.id).single()
+      await writeAuditLog({
+        action: 'bulk_update_promo',
+        shop_id,
+        actor_id: user.id,
+        actor_email: user.email,
+        target_id: null,
+        target_type: 'product',
+        ip: getClientIp(request),
+        metadata: {
+          actor_name: actorProfile?.full_name || user.email,
+          count: updatedCount,
+          percent: percent ?? null,
+        },
+      })
+
+      return NextResponse.json({ ok: true, updated: updatedCount })
+    }
 
     if (Array.isArray(body.ids)) {
       const { shop_id, ids, category_id } = body as { shop_id?: string; ids: string[]; category_id: string | null }
@@ -140,7 +187,7 @@ export async function PATCH(request: Request) {
     const PATCHABLE = new Set([
       'name', 'description', 'selling_price', 'buying_price', 'sku',
       'category_id', 'unit', 'image_url', 'low_stock_threshold', 'barcode',
-      'supplier_name', 'supplier_id', 'promo_price', 'promo_until', 'promo_reason',
+      'supplier_name', 'supplier_id', 'promo_price', 'promo_until', 'promo_start', 'promo_reason',
     ])
     const safeUpdates: Record<string, unknown> = Object.fromEntries(
       Object.entries(updates).filter(([k]) => PATCHABLE.has(k))
@@ -161,7 +208,7 @@ export async function PATCH(request: Request) {
     const admin = await createAdminClient()
 
     // Snapshot avant modification, pour le journal d'audit
-    const TRACKED_FIELDS = ['name', 'selling_price', 'buying_price', 'low_stock_threshold', 'sku', 'category_id', 'supplier_id'] as const
+    const TRACKED_FIELDS = ['name', 'selling_price', 'buying_price', 'low_stock_threshold', 'sku', 'category_id', 'supplier_id', 'promo_price', 'promo_until', 'promo_start'] as const
     const trackedChange = TRACKED_FIELDS.some(f => f in safeUpdates)
     let before: Record<string, unknown> | null = null
     if (trackedChange) {

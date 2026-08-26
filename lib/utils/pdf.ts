@@ -49,6 +49,7 @@ interface ReceiptLabels {
   via: string
   balanceDue: string
   thankYou: string
+  promoWas?: string
 }
 
 interface ReceiptData {
@@ -80,6 +81,7 @@ async function buildReceiptDoc(data: ReceiptData) {
     via: labels?.via ?? 'via',
     balanceDue: labels?.balanceDue ?? 'Balance Due',
     thankYou: labels?.thankYou ?? 'Thank you for your business',
+    promoWas: labels?.promoWas ?? 'Was',
   }
 
   // Currency formatter — jsPDF Helvetica can't render ₦, use sanitizePDF
@@ -175,12 +177,13 @@ async function buildReceiptDoc(data: ReceiptData) {
   autoTable(doc, {
     startY: y,
     head: [[L.colItem, L.colQty, L.colUnitPrice, L.colTotal]],
-    body: items.map((item) => [
-      item.product_name,
-      item.quantity.toString(),
-      fmtAmt(Number(item.unit_price)),
-      fmtAmt(Number(item.subtotal)),
-    ]),
+    body: items.map((item) => {
+      const hadPromo = item.original_price != null && Number(item.original_price) > Number(item.unit_price)
+      const nameCell = hadPromo
+        ? `${sanitizePDF(item.product_name)}\n${L.promoWas} ${fmtAmt(Number(item.original_price))}`
+        : item.product_name
+      return [nameCell, item.quantity.toString(), fmtAmt(Number(item.unit_price)), fmtAmt(Number(item.subtotal))]
+    }),
     margin: { left: margin, right: margin },
     styles: {
       fontSize: 8,

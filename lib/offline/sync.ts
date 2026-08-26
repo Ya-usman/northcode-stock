@@ -336,6 +336,7 @@ export async function syncPendingSales(shopId: string): Promise<SyncResult> {
             product_name: item.product_name,
             quantity: item.quantity,
             unit_price: item.unit_price,
+            original_price: item.original_price ?? null,
             // subtotal is GENERATED (quantity * unit_price) — do not insert it
           })))
         if (itemsError) throw new Error(itemsError.message)

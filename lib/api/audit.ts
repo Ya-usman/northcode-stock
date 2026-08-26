@@ -35,6 +35,8 @@ export type AuditAction =
   | 'archive_product'
   | 'restore_product'
   | 'bulk_update_category'
+  | 'update_batch_promo'
+  | 'bulk_update_promo'
   | 'admin.suspend_shop'
   | 'admin.reactivate_shop'
   | 'admin.extend_access'
