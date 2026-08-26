@@ -170,8 +170,16 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       getCachedCustomers(shop.id),
     ])
     if (cachedProds.length > 0) {
-      setProducts(cachedProds as unknown as Product[])
-      setFilteredProducts(cachedProds as unknown as Product[])
+      // Rebuild the nested categories(name, color) shape the rest of the
+      // page expects — the IndexedDB cache stores it flattened.
+      const shaped = cachedProds.map((p: any) => ({
+        ...p,
+        categories: (p.category_name || p.category_color)
+          ? { name: p.category_name, color: p.category_color }
+          : undefined,
+      })) as unknown as Product[]
+      setProducts(shaped)
+      setFilteredProducts(shaped)
     }
     if (cachedCusts.length > 0) setCustomers(cachedCusts as unknown as Customer[])
 
@@ -227,6 +235,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           id: p.id, shop_id: shop.id, name: p.name, sku: p.sku ?? null,
           selling_price: Number(p.selling_price), buying_price: Number(p.buying_price),
           quantity: Number(p.quantity), category_id: p.category_id ?? null, is_active: p.is_active,
+          image_url: p.image_url ?? null,
+          category_name: p.categories?.name ?? null,
+          category_color: p.categories?.color ?? null,
         }))),
         cacheCustomers(shop.id, (custs || []).map((c: any) => ({
           id: c.id, shop_id: shop.id, name: c.name,

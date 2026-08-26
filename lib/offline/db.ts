@@ -14,6 +14,13 @@ export interface CachedProduct {
   category_id: string | null
   is_active: boolean
   tax_rate?: number
+  // Display-only fields (image, category name/color) — not needed to sell
+  // offline, but caching them too means the instant-paint-from-cache on
+  // mount looks visually complete instead of briefly showing plain boxes
+  // and no category color until the live fetch lands.
+  image_url?: string | null
+  category_name?: string | null
+  category_color?: string | null
   cached_at: number
 }
 
