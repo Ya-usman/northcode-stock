@@ -460,6 +460,7 @@
     "unstable_connection_saved": "Haɗin intanet mara ƙarfi · an adana siyarwa a na'ura kuma za a daidaita ta atomatik idan haɗin ya tabbata",
     "receipt_share_title": "Rasit #{number} — {shop}",
     "no_products_found": "Ba a sami kaya ba",
+    "show_more_products": "Nuna ƙarin kaya {count}",
     "search_or_scan_hint": "Nemo ko sikan kaya don farawa",
     "customer_name_placeholder": "Cikakken sunan abokin ciniki…",
     "customer_phone_placeholder": "Lambar waya (na zaɓi)",

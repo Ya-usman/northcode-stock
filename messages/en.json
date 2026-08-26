@@ -460,6 +460,7 @@
     "unstable_connection_saved": "Unstable connection · sale saved locally and will sync automatically once the connection is stable",
     "receipt_share_title": "Receipt #{number} — {shop}",
     "no_products_found": "No products found",
+    "show_more_products": "Show {count} more product(s)",
     "search_or_scan_hint": "Search or scan a product to get started",
     "customer_name_placeholder": "Customer's full name…",
     "customer_phone_placeholder": "Phone number (optional)",

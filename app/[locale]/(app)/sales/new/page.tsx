@@ -107,6 +107,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const [frontBatchPromo, setFrontBatchPromo] = useState<Record<string, { price: number; until: string }>>({})
   const [categories, setCategories] = useState<Category[]>([])
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
+  const PRODUCTS_PAGE_SIZE = 50
+  const [visibleCount, setVisibleCount] = useState(PRODUCTS_PAGE_SIZE)
   const [cart, setCart] = useState<CartItem[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
@@ -257,6 +259,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       )
     }
     setFilteredProducts(list)
+    setVisibleCount(PRODUCTS_PAGE_SIZE)
   }, [searchQuery, categoryFilter, products])
 
   useEffect(() => {
@@ -969,7 +972,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         {(products.length > 0 || searchQuery) && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
             <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto md:max-h-none md:grid-cols-3">
-              {filteredProducts.slice(0, 50).map(product => (
+              {filteredProducts.slice(0, visibleCount).map(product => (
                 <button key={product.id} onClick={() => addToCart(product)}
                   className="flex flex-col items-stretch text-left rounded-lg border bg-card overflow-hidden hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors tap-target"
                   style={product.categories?.color ? { borderTopColor: product.categories.color, borderTopWidth: 3 } : undefined}
@@ -1012,6 +1015,15 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 <p className="col-span-2 text-sm text-muted-foreground text-center py-4">{t('sales.no_products_found')}</p>
               )}
             </div>
+            {filteredProducts.length > visibleCount && (
+              <button
+                type="button"
+                onClick={() => setVisibleCount(c => c + PRODUCTS_PAGE_SIZE)}
+                className="w-full mt-2 py-2 rounded-lg border border-dashed text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              >
+                {t('sales.show_more_products', { count: filteredProducts.length - visibleCount })}
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
