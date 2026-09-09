@@ -50,6 +50,7 @@ export type AuditAction =
   | 'admin.create_owner'
   | 'admin.repair_orphan_shop'
   | 'admin.orphan_shop_alert'
+  | 'admin.send_notification'
 
 interface AuditParams {
   action: AuditAction

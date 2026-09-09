@@ -26,6 +26,7 @@ const ACTION_CONFIG: Record<string, { label: string; color: string; icon: React.
   'member.invite':         { label: 'Invitation',        color: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',     icon: UserPlus },
   'member.delete':         { label: 'Membre supprimé',   color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',     icon: Trash2 },
   'admin.notify':          { label: 'Notification',      color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400', icon: Bell },
+  'admin.send_notification': { label: 'Message envoyé',  color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400', icon: Bell },
   'admin.note':            { label: 'Note interne',      color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',   icon: StickyNote },
 }
 
@@ -123,6 +124,7 @@ export default function AuditPage() {
     if (m.name) parts.push(m.name)
     if (m.city) parts.push(`Ville: ${m.city}`)
     if (m.currency) parts.push(`Devise: ${m.currency}`)
+    if (m.title) parts.push(`« ${m.title} »`)
     return parts.length ? parts.join(' · ') : null
   }
 

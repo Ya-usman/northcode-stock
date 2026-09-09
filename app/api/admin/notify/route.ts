@@ -1,12 +1,17 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/api/require-admin'
+import { writeAuditLog, getClientIp } from '@/lib/api/audit'
+import { Resend } from 'resend'
+
+const resend = new Resend(process.env.RESEND_API_KEY)
 
 // POST /api/admin/notify — envoyer une notification in-app à un owner
 export async function POST(req: Request) {
   try {
     const auth = await requireAdmin({ tier: 'super_admin' })
     if (auth.error) return auth.error
+    const { user } = auth
 
     const { shop_id, type, title, message } = await req.json()
     if (!shop_id || !title?.trim() || !message?.trim())
@@ -22,6 +27,52 @@ export async function POST(req: Request) {
       .single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+    const { data: shop } = await admin.from('shops').select('name').eq('id', shop_id).single()
+
+    await writeAuditLog({
+      action: 'admin.send_notification',
+      shop_id,
+      actor_id: user.id,
+      actor_email: user.email,
+      target_id: shop_id,
+      target_type: 'shop',
+      metadata: { type: type || 'info', title: title.trim() },
+      ip: getClientIp(req),
+    })
+
+    // Un message "urgent" ne doit pas dépendre du seul fait que le owner
+    // ouvre l'app — filet de secours par email, comme les rappels de
+    // renouvellement/péremption (mêmes Resend/expéditeur).
+    if (type === 'urgent' && process.env.RESEND_API_KEY) {
+      try {
+        const { data: ownerMember } = await admin
+          .from('shop_members').select('user_id').eq('shop_id', shop_id).eq('role', 'owner').eq('is_active', true).maybeSingle()
+        if (ownerMember?.user_id) {
+          const { data: ownerAuth } = await admin.auth.admin.getUserById(ownerMember.user_id)
+          const ownerEmail = ownerAuth?.user?.email
+          if (ownerEmail) {
+            const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.stockshop.tech'
+            await resend.emails.send({
+              from: 'StockShop <no-reply@stockshop.tech>',
+              to: ownerEmail,
+              subject: `🔴 ${title.trim()} — ${shop?.name || 'StockShop'}`,
+              html: `
+                <p>Bonjour,</p>
+                <p>Le support StockShop vous a envoyé un message urgent concernant <strong>${shop?.name || 'votre boutique'}</strong> :</p>
+                <blockquote style="border-left:3px solid #dc2626;margin:12px 0;padding:8px 16px;background:#fef2f2;">
+                  <strong>${title.trim()}</strong><br/>${message.trim()}
+                </blockquote>
+                <p><a href="${appUrl}" style="background:#073e8a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">Ouvrir StockShop</a></p>
+              `,
+            })
+          }
+        }
+      } catch {
+        // Email de secours non-bloquant — la notification in-app existe déjà
+      }
+    }
+
     return NextResponse.json(data)
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })

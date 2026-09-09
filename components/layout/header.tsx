@@ -8,6 +8,7 @@ import {
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { ShopSelector } from '@/components/layout/shop-selector'
+import { NotificationBell } from '@/components/layout/notification-bell'
 import { useTheme } from '@/lib/hooks/use-theme'
 
 const LOCALE_FLAGS: Record<string, string> = {
@@ -46,6 +47,9 @@ export function Header({ title, locale }: HeaderProps) {
             the header has no room for the shop name next to the title (see the dropdown
             for the full name/list). */}
         <ShopSelector variant="compact" iconOnly className="flex sm:hidden w-auto" />
+
+        {/* Messages du support — visible seulement pour le owner (voir notification-bell.tsx) */}
+        <NotificationBell />
 
         {/* Dark / Light toggle */}
         <Button variant="ghost" size="icon" onClick={toggle} className="h-8 w-8 text-muted-foreground hover:text-foreground">
