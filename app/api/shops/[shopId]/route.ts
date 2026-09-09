@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { getAuthedUser, isSuperAdminUser } from '@/lib/api/shop-auth'
+import { getAuthedUser } from '@/lib/api/shop-auth'
+import { requireAdmin } from '@/lib/api/require-admin'
 import { getApiTranslator } from '@/lib/api/i18n'
 
 // DELETE /api/shops/[shopId] — soft-delete par l'owner
@@ -75,13 +76,11 @@ export async function POST(
   const t = getApiTranslator(request)
   try {
     const { shopId } = params
-    const { user, supabase } = await getAuthedUser()
-    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
-
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-    if (!isSuperAdminUser(user.email, (profile as any)?.role)) {
-      return NextResponse.json({ error: t('support_only') }, { status: 403 })
-    }
+    // Suppression définitive — source de vérité admin_users (requireAdmin),
+    // plus l'ancien allowlist email/profiles.role qui pouvait rester actif
+    // même après une révocation dans admin_users (voir migration 124).
+    const auth = await requireAdmin({ tier: 'super_admin' })
+    if (auth.error) return auth.error
 
     const admin = createAdminClient() as any
     const { data: shop } = await admin.from('shops').select('id, deleted_at').eq('id', shopId).single()
@@ -110,13 +109,8 @@ export async function PATCH(
   const t = getApiTranslator(request)
   try {
     const { shopId } = params
-    const { user, supabase } = await getAuthedUser()
-    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
-
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-    if (!isSuperAdminUser(user.email, (profile as any)?.role)) {
-      return NextResponse.json({ error: t('support_only') }, { status: 403 })
-    }
+    const auth = await requireAdmin({ tier: 'super_admin' })
+    if (auth.error) return auth.error
 
     const admin = createAdminClient() as any
     const { error } = await admin.from('shops').update({ deleted_at: null }).eq('id', shopId)

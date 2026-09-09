@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { getCountry } from '@/lib/saas/countries'
 import { withTimeout } from '@/lib/utils/with-timeout'
+import type { AdminTier } from '@/lib/api/require-admin'
 
 interface DeletedShop {
   id: string
@@ -22,13 +23,15 @@ interface DeletedShop {
 
 interface Props {
   shops: DeletedShop[]
+  tier: AdminTier
 }
 
 function daysSince(date: string) {
   return Math.floor((Date.now() - new Date(date).getTime()) / 86400000)
 }
 
-export function DeletedShopsPanel({ shops: initialShops }: Props) {
+export function DeletedShopsPanel({ shops: initialShops, tier }: Props) {
+  const canWrite = tier === 'super_admin'
   const { toast } = useToast()
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -127,35 +130,37 @@ export function DeletedShopsPanel({ shops: initialShops }: Props) {
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 gap-1.5 text-xs border-green-700/50 text-green-400 hover:bg-green-900/20"
-                      disabled={!!restoring || !!deleting || isConfirming}
-                      onClick={() => handleRestore(shop.id, shop.name)}
-                    >
-                      <RotateCcw className={`h-3 w-3 ${restoring === shop.id ? 'animate-spin' : ''}`} />
-                      Restaurer
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 gap-1.5 text-xs text-red-500 hover:text-red-600 hover:bg-red-950/30"
-                      disabled={!!restoring || !!deleting}
-                      onClick={() => {
-                        setConfirmPermanentId(isConfirming ? null : shop.id)
-                        setConfirmText('')
-                      }}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                      Suppr. définitive
-                    </Button>
-                  </div>
+                  {canWrite && (
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 gap-1.5 text-xs border-green-700/50 text-green-400 hover:bg-green-900/20"
+                        disabled={!!restoring || !!deleting || isConfirming}
+                        onClick={() => handleRestore(shop.id, shop.name)}
+                      >
+                        <RotateCcw className={`h-3 w-3 ${restoring === shop.id ? 'animate-spin' : ''}`} />
+                        Restaurer
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 gap-1.5 text-xs text-red-500 hover:text-red-600 hover:bg-red-950/30"
+                        disabled={!!restoring || !!deleting}
+                        onClick={() => {
+                          setConfirmPermanentId(isConfirming ? null : shop.id)
+                          setConfirmText('')
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        Suppr. définitive
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Confirmation suppression définitive */}
-                {isConfirming && (
+                {canWrite && isConfirming && (
                   <div className="ml-11 p-3 rounded-lg bg-red-950/30 border border-red-800/40 space-y-2">
                     <p className="text-xs text-red-300 font-medium flex items-center gap-1.5">
                       <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />

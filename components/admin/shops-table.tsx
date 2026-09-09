@@ -26,6 +26,7 @@ import {
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { computeHealthScore } from '@/lib/saas/health-score'
 import { StatusBadge, type BillingStatus } from '@/components/admin/ui/status-badge'
+import type { AdminTier } from '@/lib/api/require-admin'
 
 interface Shop {
   id: string
@@ -48,6 +49,7 @@ interface Shop {
 interface Props {
   shops: Shop[]
   locale: string
+  tier: AdminTier
 }
 
 
@@ -119,10 +121,11 @@ function ExpiryCell({ daysRemaining, isExpired }: { daysRemaining: number | null
   return <span className="text-xs text-muted-foreground">—</span>
 }
 
-function ActionButtons({ shop, isSuspended, loading, locale, onConfirm }: {
-  shop: Shop; isSuspended: boolean; loading: string | null; locale: string
+function ActionButtons({ shop, isSuspended, loading, locale, tier, onConfirm }: {
+  shop: Shop; isSuspended: boolean; loading: string | null; locale: string; tier: AdminTier
   onConfirm: (action: ActionType, shop: Shop) => void
 }) {
+  const canWrite = tier === 'super_admin'
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -140,49 +143,53 @@ function ActionButtons({ shop, isSuspended, loading, locale, onConfirm }: {
             <span>Inspecter</span>
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={() => onConfirm('extend', shop)}
-          disabled={!!loading}
-          className="flex items-center gap-2 cursor-pointer"
-        >
-          <Clock className="h-3.5 w-3.5 text-amber-400" />
-          <span>Prolonger l'accès</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => onConfirm('grant_plan', shop)}
-          disabled={!!loading}
-          className="flex items-center gap-2 cursor-pointer"
-        >
-          <CreditCard className="h-3.5 w-3.5 text-blue-400" />
-          <span>Attribuer un plan</span>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        {isSuspended ? (
-          <DropdownMenuItem
-            onClick={() => onConfirm('reactivate', shop)}
-            disabled={!!loading}
-            className="flex items-center gap-2 cursor-pointer text-green-500 focus:text-green-500"
-          >
-            <ShieldCheck className="h-3.5 w-3.5" />
-            <span>Réactiver</span>
-          </DropdownMenuItem>
-        ) : (
-          <DropdownMenuItem
-            onClick={() => onConfirm('suspend', shop)}
-            disabled={!!loading}
-            className="flex items-center gap-2 cursor-pointer text-red-500 focus:text-red-500"
-          >
-            <ShieldOff className="h-3.5 w-3.5" />
-            <span>Suspendre</span>
-          </DropdownMenuItem>
+        {canWrite && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => onConfirm('extend', shop)}
+              disabled={!!loading}
+              className="flex items-center gap-2 cursor-pointer"
+            >
+              <Clock className="h-3.5 w-3.5 text-amber-400" />
+              <span>Prolonger l'accès</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onConfirm('grant_plan', shop)}
+              disabled={!!loading}
+              className="flex items-center gap-2 cursor-pointer"
+            >
+              <CreditCard className="h-3.5 w-3.5 text-blue-400" />
+              <span>Attribuer un plan</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {isSuspended ? (
+              <DropdownMenuItem
+                onClick={() => onConfirm('reactivate', shop)}
+                disabled={!!loading}
+                className="flex items-center gap-2 cursor-pointer text-green-500 focus:text-green-500"
+              >
+                <ShieldCheck className="h-3.5 w-3.5" />
+                <span>Réactiver</span>
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                onClick={() => onConfirm('suspend', shop)}
+                disabled={!!loading}
+                className="flex items-center gap-2 cursor-pointer text-red-500 focus:text-red-500"
+              >
+                <ShieldOff className="h-3.5 w-3.5" />
+                <span>Suspendre</span>
+              </DropdownMenuItem>
+            )}
+          </>
         )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
 }
 
-function PaymentHistory({ shop }: { shop: Shop }) {
+function PaymentHistory({ shop, tier }: { shop: Shop; tier: AdminTier }) {
   return (
     <div className="space-y-2">
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Historique des paiements</p>
@@ -212,12 +219,13 @@ function PaymentHistory({ shop }: { shop: Shop }) {
           <ExternalLink className="h-3 w-3" /> WhatsApp owner
         </a>
       )}
-      <ShopRestorePanel shopId={shop.id} shopName={shop.name} />
+      {tier === 'super_admin' && <ShopRestorePanel shopId={shop.id} shopName={shop.name} />}
     </div>
   )
 }
 
-export function AdminShopsTable({ shops, locale }: Props) {
+export function AdminShopsTable({ shops, locale, tier }: Props) {
+  const canWrite = tier === 'super_admin'
   const { toast } = useToast()
   const router = useRouter()
   const [search, setSearch] = useState('')
@@ -373,8 +381,8 @@ export function AdminShopsTable({ shops, locale }: Props) {
           </div>
         </div>
 
-        {/* Bulk action bar */}
-        {selected.size > 0 && (
+        {/* Bulk action bar — actions de mutation, réservées au niveau super_admin */}
+        {canWrite && selected.size > 0 && (
           <div className="mx-4 mb-2 flex items-center gap-2 flex-wrap bg-blue-950/40 border border-blue-500/30 rounded-xl px-4 py-2.5">
             <span className="text-sm font-semibold text-blue-300 mr-1">
               {selected.size} boutique{selected.size > 1 ? 's' : ''} sélectionnée{selected.size > 1 ? 's' : ''}
@@ -425,12 +433,14 @@ export function AdminShopsTable({ shops, locale }: Props) {
             <thead>
               <tr className="border-b border-border">
                 <th className="pl-4 pr-1 py-3 w-8">
-                  <button onClick={toggleAll} className="text-muted-foreground hover:text-foreground transition-colors">
-                    {selected.size === filtered.length && filtered.length > 0
-                      ? <CheckSquare className="h-4 w-4 text-blue-400" />
-                      : <Square className="h-4 w-4" />
-                    }
-                  </button>
+                  {canWrite && (
+                    <button onClick={toggleAll} className="text-muted-foreground hover:text-foreground transition-colors">
+                      {selected.size === filtered.length && filtered.length > 0
+                        ? <CheckSquare className="h-4 w-4 text-blue-400" />
+                        : <Square className="h-4 w-4" />
+                      }
+                    </button>
+                  )}
                 </th>
                 {COLUMNS.map(col => (
                   <th key={col.key} className="text-left px-5 py-3 text-foreground/70 font-semibold text-xs uppercase tracking-wide whitespace-nowrap">
@@ -470,12 +480,14 @@ export function AdminShopsTable({ shops, locale }: Props) {
                     >
                       {/* Checkbox */}
                       <td className="pl-4 pr-1 py-3 w-8">
-                        <button onClick={() => toggleSelect(shop.id)} className="text-muted-foreground hover:text-foreground transition-colors">
-                          {selected.has(shop.id)
-                            ? <CheckSquare className="h-4 w-4 text-blue-400" />
-                            : <Square className="h-4 w-4" />
-                          }
-                        </button>
+                        {canWrite && (
+                          <button onClick={() => toggleSelect(shop.id)} className="text-muted-foreground hover:text-foreground transition-colors">
+                            {selected.has(shop.id)
+                              ? <CheckSquare className="h-4 w-4 text-blue-400" />
+                              : <Square className="h-4 w-4" />
+                            }
+                          </button>
+                        )}
                       </td>
 
                       {/* Shop + owner */}
@@ -532,7 +544,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
 
                       {/* Actions */}
                       <td className="px-5 py-3">
-                        <ActionButtons shop={shop} isSuspended={!!isSuspended} loading={loading} locale={locale} onConfirm={openConfirm} />
+                        <ActionButtons shop={shop} isSuspended={!!isSuspended} loading={loading} locale={locale} tier={tier} onConfirm={openConfirm} />
                       </td>
                     </tr>
 
@@ -540,7 +552,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
                     {isExpanded && (
                       <tr key={`${shop.id}-expanded`} className="border-b border-border/50 bg-muted/20">
                         <td colSpan={COLUMNS.length + 1} className="px-8 py-4">
-                          <PaymentHistory shop={shop} />
+                          <PaymentHistory shop={shop} tier={tier} />
                         </td>
                       </tr>
                     )}
@@ -579,12 +591,14 @@ export function AdminShopsTable({ shops, locale }: Props) {
                   {/* Top row: name + status */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-start gap-2 min-w-0 flex-1">
-                      <button onClick={() => toggleSelect(shop.id)} className="mt-0.5 text-muted-foreground hover:text-foreground transition-colors flex-shrink-0">
-                        {selected.has(shop.id)
-                          ? <CheckSquare className="h-4 w-4 text-blue-400" />
-                          : <Square className="h-4 w-4" />
-                        }
-                      </button>
+                      {canWrite && (
+                        <button onClick={() => toggleSelect(shop.id)} className="mt-0.5 text-muted-foreground hover:text-foreground transition-colors flex-shrink-0">
+                          {selected.has(shop.id)
+                            ? <CheckSquare className="h-4 w-4 text-blue-400" />
+                            : <Square className="h-4 w-4" />
+                          }
+                        </button>
+                      )}
                       <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-semibold text-foreground text-sm">{shop.name}</p>
@@ -617,7 +631,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
 
                   {/* Actions */}
                   <div className="flex flex-wrap gap-1.5 pt-1">
-                    <ActionButtons shop={shop} isSuspended={!!isSuspended} loading={loading} locale={locale} onConfirm={openConfirm} />
+                    <ActionButtons shop={shop} isSuspended={!!isSuspended} loading={loading} locale={locale} tier={tier} onConfirm={openConfirm} />
                   </div>
 
                   {/* Expand toggle */}
@@ -633,7 +647,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
                 {/* Expanded payment history */}
                 {isExpanded && (
                   <div className="px-4 pb-4 bg-muted/20 space-y-2">
-                    <PaymentHistory shop={shop} />
+                    <PaymentHistory shop={shop} tier={tier} />
                   </div>
                 )}
               </div>

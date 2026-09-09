@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation'
 import { NextIntlClientProvider } from 'next-intl'
 import { getMessages } from 'next-intl/server'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
+import { getAdminTier } from '@/lib/api/require-admin'
 import { AdminBottomNav } from '@/components/admin/admin-bottom-nav'
 import { AdminSidebar } from '@/components/admin/admin-sidebar'
 
@@ -28,18 +29,9 @@ export default async function AdminLayout({
 
   // Même source de vérité que les routes API (lib/api/require-admin.ts) —
   // table admin_users, plus de variable d'environnement à maintenir en
-  // parallèle. Requête directe (pas requireAdmin(), qui attend une
-  // Request/renvoie une NextResponse) : même logique, adaptée au contexte
-  // layout serveur.
-  const admin = await createAdminClient() as any
-  const { data: adminEntry } = await admin
-    .from('admin_users')
-    .select('tier')
-    .eq('user_id', user.id)
-    .is('revoked_at', null)
-    .maybeSingle()
-
-  if (!adminEntry) {
+  // parallèle.
+  const tier = await getAdminTier(user.id)
+  if (!tier) {
     redirect(`/${locale}/dashboard`)
   }
 
@@ -52,7 +44,7 @@ export default async function AdminLayout({
     <NextIntlClientProvider locale={locale} messages={messages}>
       <div className="min-h-screen bg-background text-foreground flex">
         {/* Sidebar desktop */}
-        <AdminSidebar locale={locale} userEmail={user!.email ?? ''} tier={adminEntry?.tier ?? 'super_admin'} />
+        <AdminSidebar locale={locale} userEmail={user!.email ?? ''} tier={tier} />
 
         {/* Mobile header */}
         <div

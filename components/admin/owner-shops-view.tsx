@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { StatusBadge } from '@/components/admin/ui/status-badge'
+import type { AdminTier } from '@/lib/api/require-admin'
 
 interface Shop {
   id: string
@@ -34,6 +35,7 @@ interface Owner {
 interface Props {
   owners: Owner[]
   locale: string
+  tier: AdminTier
 }
 
 function daysSince(date: string | null) {
@@ -52,7 +54,8 @@ function ShopStatusBadge({ shop }: { shop: Shop }) {
   return <StatusBadge status="expired" />
 }
 
-export function OwnerShopsView({ owners: initialOwners, locale }: Props) {
+export function OwnerShopsView({ owners: initialOwners, locale, tier }: Props) {
+  const canWrite = tier === 'super_admin'
   const { toast } = useToast()
   const router = useRouter()
   const [owners, setOwners] = useState(initialOwners)
@@ -179,21 +182,23 @@ export function OwnerShopsView({ owners: initialOwners, locale }: Props) {
                   </div>
                 </button>
 
-                {/* Delete owner button */}
-                <button
-                  onClick={() => {
-                    setConfirmDeleteId(isConfirming ? null : owner.id)
-                    setConfirmText('')
-                  }}
-                  className="p-2 rounded-lg hover:bg-red-950/30 text-muted-foreground hover:text-red-400 transition-colors flex-shrink-0"
-                  title="Supprimer ce propriétaire"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                {/* Delete owner button — réservé au niveau super_admin */}
+                {canWrite && (
+                  <button
+                    onClick={() => {
+                      setConfirmDeleteId(isConfirming ? null : owner.id)
+                      setConfirmText('')
+                    }}
+                    className="p-2 rounded-lg hover:bg-red-950/30 text-muted-foreground hover:text-red-400 transition-colors flex-shrink-0"
+                    title="Supprimer ce propriétaire"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
 
               {/* Confirmation suppression définitive */}
-              {isConfirming && (
+              {canWrite && isConfirming && (
                 <div className="mx-4 mb-3 rounded-xl border border-red-500/30 bg-card overflow-hidden">
                   <div className="bg-red-500/10 px-4 py-3 flex items-start gap-2.5">
                     <AlertTriangle className="h-4 w-4 text-red-400 flex-shrink-0 mt-0.5" />

@@ -1,4 +1,5 @@
-import { createAdminClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { getAdminTier } from '@/lib/api/require-admin'
 import { ShopsViewToggle } from '@/components/admin/shops-view-toggle'
 import { DeletedShopsPanel } from '@/components/admin/deleted-shops-panel'
 import { CreateOwnerModal } from '@/components/admin/create-owner-modal'
@@ -9,6 +10,10 @@ export const dynamic = 'force-dynamic'
 
 export default async function AdminShopsPage({ params: { locale } }: { params: { locale: string } }) {
   const supabase = createAdminClient() as any
+
+  const userClient = await createClient()
+  const { data: { user } } = await userClient.auth.getUser()
+  const tier = (user ? await getAdminTier(user.id) : null) ?? 'support'
 
   const [{ data: shops }, { data: deletedShops }, { data: subs }, { data: profiles }] = await Promise.all([
     supabase.from('shops').select('id, name, city, country, currency, created_at, whatsapp, owner_id')
@@ -110,14 +115,14 @@ export default async function AdminShopsPage({ params: { locale } }: { params: {
           `${(shops || []).length} boutiques · ${ownersList.filter(o => o.id !== '__no_owner__').length} propriétaires · tous pays` +
           (enrichedDeletedShops.length > 0 ? ` · ${enrichedDeletedShops.length} supprimée${enrichedDeletedShops.length > 1 ? 's' : ''}` : '')
         }
-        actions={<CreateOwnerModal />}
+        actions={<CreateOwnerModal tier={tier} />}
       />
 
       {enrichedDeletedShops.length > 0 && (
-        <DeletedShopsPanel shops={enrichedDeletedShops} />
+        <DeletedShopsPanel shops={enrichedDeletedShops} tier={tier} />
       )}
 
-      <ShopsViewToggle shops={enrichedShops} owners={ownersList} locale={locale} />
+      <ShopsViewToggle shops={enrichedShops} owners={ownersList} locale={locale} tier={tier} />
     </div>
   )
 }

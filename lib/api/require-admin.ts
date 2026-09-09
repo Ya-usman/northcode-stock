@@ -45,3 +45,20 @@ export async function requireAdmin(opts?: { tier?: 'super_admin' }): Promise<Req
 
   return { user, tier: entry.tier as AdminTier }
 }
+
+/**
+ * Variante pour les Server Components (layout, pages) : pas de Request/
+ * NextResponse à manipuler, juste le niveau (ou null si pas admin) pour
+ * décider quoi afficher/passer en props aux composants client (ex. cacher
+ * les boutons de mutation pour le niveau `support`).
+ */
+export async function getAdminTier(userId: string): Promise<AdminTier | null> {
+  const admin = await createAdminClient() as any
+  const { data: entry } = await admin
+    .from('admin_users')
+    .select('tier')
+    .eq('user_id', userId)
+    .is('revoked_at', null)
+    .maybeSingle()
+  return (entry?.tier as AdminTier) ?? null
+}

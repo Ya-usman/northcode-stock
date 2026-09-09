@@ -1,9 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
+import { getAdminTier } from '@/lib/api/require-admin'
 import { ShopInspector } from '@/components/admin/shop-inspector'
 
 // Autorisation déjà vérifiée par le layout parent (app/[locale]/(admin)/layout.tsx,
 // table admin_users) — pas besoin de la revérifier ici, juste récupérer
-// l'email pour l'affichage/l'attribution des actions de cette page.
+// l'email + le niveau d'accès pour l'affichage/la visibilité des actions.
 export default async function ShopInspectorPage({
   params: { locale, shopId },
 }: {
@@ -11,6 +12,7 @@ export default async function ShopInspectorPage({
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  const tier = user ? await getAdminTier(user.id) : null
 
-  return <ShopInspector shopId={shopId} locale={locale} adminEmail={user?.email ?? ''} />
+  return <ShopInspector shopId={shopId} locale={locale} adminEmail={user?.email ?? ''} tier={tier ?? 'support'} />
 }

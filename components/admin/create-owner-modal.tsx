@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { useToast } from '@/components/ui/use-toast'
 import { COUNTRIES } from '@/lib/saas/countries'
 import { withTimeout } from '@/lib/utils/with-timeout'
+import type { AdminTier } from '@/lib/api/require-admin'
 
 const COUNTRY_OPTIONS = Object.values(COUNTRIES).map(c => ({
   code: c.code,
@@ -15,7 +16,7 @@ const COUNTRY_OPTIONS = Object.values(COUNTRIES).map(c => ({
   currency: c.currencySymbol,
 }))
 
-export function CreateOwnerModal() {
+export function CreateOwnerModal({ tier }: { tier: AdminTier }) {
   const { toast } = useToast()
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -70,6 +71,11 @@ export function CreateOwnerModal() {
   }
 
   const inputCls = 'w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary'
+
+  // Création de compte — mutation réservée au niveau super_admin. Le check
+  // vient après les hooks (jamais avant un return conditionnel — règle des
+  // hooks React), même si `tier` ne change pas pendant la vie du composant.
+  if (tier !== 'super_admin') return null
 
   return (
     <>

@@ -5,14 +5,16 @@ import { Store, Users } from 'lucide-react'
 import { AdminShopsTable } from './shops-table'
 import { OwnerShopsView } from './owner-shops-view'
 import { CsvExportBtn } from './csv-export-btn'
+import type { AdminTier } from '@/lib/api/require-admin'
 
 interface Props {
   shops: any[]
   owners: any[]
   locale: string
+  tier: AdminTier
 }
 
-export function ShopsViewToggle({ shops, owners, locale }: Props) {
+export function ShopsViewToggle({ shops, owners, locale, tier }: Props) {
   const [view, setView] = useState<'shops' | 'owners'>('shops')
 
   return (
@@ -47,8 +49,8 @@ export function ShopsViewToggle({ shops, owners, locale }: Props) {
       </div>
 
       {view === 'shops'
-        ? <AdminShopsTable shops={shops} locale={locale} />
-        : <OwnerShopsView owners={owners} locale={locale} />
+        ? <AdminShopsTable shops={shops} locale={locale} tier={tier} />
+        : <OwnerShopsView owners={owners} locale={locale} tier={tier} />
       }
     </div>
   )

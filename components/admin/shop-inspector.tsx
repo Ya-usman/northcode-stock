@@ -10,22 +10,50 @@ import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { ShopRestorePanel } from '@/components/admin/shop-restore-panel'
 import { withTimeout } from '@/lib/utils/with-timeout'
+import type { AdminTier } from '@/lib/api/require-admin'
 import {
   ArrowLeft, ShoppingBag, Users, Package, TrendingUp, Clock,
   MessageSquare, Send, Trash2, Phone, ExternalLink, Shield,
   ShieldOff, ShieldCheck, RefreshCw, AlertTriangle, CheckCircle2,
-  Bell, StickyNote, Activity, CreditCard, ChevronRight, Pencil,
+  Bell, StickyNote, Activity, CreditCard, ChevronRight, Pencil, Lock,
 } from 'lucide-react'
 
 interface Props {
   shopId: string
   locale: string
   adminEmail: string
+  tier: AdminTier
 }
 
-export function ShopInspector({ shopId, locale, adminEmail }: Props) {
+// Bandeau rappelant que la facturation est gérée au niveau du propriétaire,
+// pas de la boutique — affecte toutes ses boutiques, pas seulement celle-ci.
+function OwnerScopeWarning({ ownerShopNames, actionsLabel }: { ownerShopNames: string[]; actionsLabel: string }) {
+  if (ownerShopNames.length <= 1) return null
+  return (
+    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-400 mb-3">
+      <p className="font-medium">Le plan est géré au niveau du propriétaire.</p>
+      <p className="mt-0.5">
+        {actionsLabel} ci-dessous affecte les {ownerShopNames.length} boutiques de ce compte : {ownerShopNames.join(', ')}.
+      </p>
+    </div>
+  )
+}
+
+// Rappel visible quand le niveau `support` (lecture seule) masque des
+// actions — évite qu'un support se demande pourquoi rien n'est cliquable.
+function ReadOnlyNotice() {
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground mb-3">
+      <Lock className="h-3.5 w-3.5 flex-shrink-0" />
+      Niveau support — lecture seule. Ces actions sont réservées aux administrateurs complets.
+    </div>
+  )
+}
+
+export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
   const router = useRouter()
   const { toast } = useToast()
+  const canWrite = tier === 'super_admin'
   const [data, setData] = useState<any>(null)
   const [notes, setNotes] = useState<any[]>([])
   const [notifications, setNotifications] = useState<any[]>([])
@@ -37,7 +65,7 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
   const [notifMsg, setNotifMsg] = useState('')
   const [sendingNotif, setSendingNotif] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'overview' | 'notes' | 'notifications' | 'restore' | 'edit'>('overview')
+  const [activeTab, setActiveTab] = useState<'apercu' | 'facturation' | 'equipe' | 'activite' | 'notes' | 'danger'>('apercu')
   const [editForm, setEditForm] = useState({ name: '', city: '', country: '', whatsapp: '', currency: '' })
   const [savingEdit, setSavingEdit] = useState(false)
 
@@ -210,11 +238,12 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
         : <span className="px-2 py-0.5 rounded text-xs bg-amber-500/20 text-amber-400 font-medium">TRIAL {trialDays}j</span>
 
   const tabs = [
-    { id: 'overview', label: 'Vue générale', icon: Activity },
+    { id: 'apercu', label: 'Aperçu', icon: Activity },
+    { id: 'facturation', label: 'Facturation', icon: CreditCard },
+    { id: 'equipe', label: `Équipe (${members.length})`, icon: Users },
+    { id: 'activite', label: `Activité (${notifications.length})`, icon: Bell },
     { id: 'notes', label: `Notes (${notes.length})`, icon: StickyNote },
-    { id: 'notifications', label: `Notifications (${notifications.length})`, icon: Bell },
-    { id: 'restore', label: 'Restauration', icon: RefreshCw },
-    { id: 'edit', label: 'Modifier', icon: Pencil },
+    { id: 'danger', label: 'Zone de danger', icon: ShieldOff },
   ] as const
 
   return (
@@ -280,12 +309,12 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-border">
+      <div className="flex gap-1 border-b border-border overflow-x-auto">
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => setActiveTab(id as any)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               activeTab === id
                 ? 'border-blue-500 text-foreground'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -297,8 +326,8 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
         ))}
       </div>
 
-      {/* Tab: Vue générale */}
-      {activeTab === 'overview' && (
+      {/* Tab: Aperçu */}
+      {activeTab === 'apercu' && (
         <div className="space-y-5">
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -334,8 +363,12 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
               <p className="text-xs text-muted-foreground mt-1">Dans la corbeille</p>
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Plan */}
+      {/* Tab: Facturation */}
+      {activeTab === 'facturation' && (
+        <div className="space-y-5">
           <div className="bg-card rounded-xl border border-border shadow-sm p-5">
             <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-muted-foreground" />
@@ -381,217 +414,128 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
             )}
           </div>
 
-          {/* Membres de l'équipe */}
-          {members.length > 0 && (
-            <div className="bg-card rounded-xl border border-border shadow-sm p-5">
-              <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                Équipe ({members.filter((m: any) => m.is_active).length} actif(s))
-              </h3>
-              <div className="space-y-2">
-                {members.map((m: any) => (
-                  <div key={m.user_id} className="flex items-center justify-between bg-muted rounded-lg px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <span className={`h-2 w-2 rounded-full ${m.is_active ? 'bg-green-400' : 'bg-gray-600'}`} />
-                      <span className="text-sm text-foreground">{m.profiles?.full_name || 'Inconnu'}</span>
-                      <span className="text-xs text-muted-foreground capitalize">{m.role}</span>
-                    </div>
-                    {m.profiles?.last_seen && (
-                      <span className="text-xs text-muted-foreground">
-                        Vu {new Date(m.profiles.last_seen).toLocaleDateString('fr-FR')}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Actions rapides */}
+          {/* Actions de plan */}
           <div className="bg-card rounded-xl border border-border shadow-sm p-5">
             <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-              <Shield className="h-4 w-4 text-muted-foreground" />
-              Actions Support
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              Accorder de l'accès
             </h3>
-            {ownerShopNames.length > 1 && (
-              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-400 mb-3">
-                <p className="font-medium">Le plan est géré au niveau du propriétaire.</p>
-                <p className="mt-0.5">
-                  Suspendre/Prolonger/Attribuer un plan ci-dessous affecte les {ownerShopNames.length} boutiques de ce compte : {ownerShopNames.join(', ')}.
-                </p>
+            {!canWrite && <ReadOnlyNotice />}
+            {canWrite && <OwnerScopeWarning ownerShopNames={ownerShopNames} actionsLabel="Prolonger/Attribuer un plan" />}
+            {canWrite && (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm" variant="outline"
+                  className="border-blue-700 text-blue-400 hover:bg-blue-900/30"
+                  disabled={actionLoading}
+                  onClick={() => shopAction('extend', { days: 30 })}
+                >
+                  <Clock className="h-3.5 w-3.5 mr-1.5" />
+                  +30 jours trial
+                </Button>
+                <Button
+                  size="sm" variant="outline"
+                  className="border-amber-700 text-amber-400 hover:bg-amber-900/30"
+                  disabled={actionLoading}
+                  onClick={() => shopAction('extend', { days: 7 })}
+                >
+                  <Clock className="h-3.5 w-3.5 mr-1.5" />
+                  +7 jours
+                </Button>
+                <Button
+                  size="sm" variant="outline"
+                  className="border-purple-700 text-purple-400 hover:bg-purple-900/30"
+                  disabled={actionLoading}
+                  onClick={() => shopAction('grant_plan', { plan: 'starter' })}
+                >
+                  <CreditCard className="h-3.5 w-3.5 mr-1.5" />
+                  Activer Starter
+                </Button>
               </div>
             )}
-            <div className="flex flex-wrap gap-2">
-              {!isSuspended ? (
-                <Button
-                  size="sm" variant="outline"
-                  className="border-red-700 text-red-400 hover:bg-red-900/30"
-                  disabled={actionLoading}
-                  onClick={() => shopAction('suspend')}
-                >
-                  <ShieldOff className="h-3.5 w-3.5 mr-1.5" />
-                  Suspendre
-                </Button>
-              ) : (
-                <Button
-                  size="sm" variant="outline"
-                  className="border-green-700 text-green-400 hover:bg-green-900/30"
-                  disabled={actionLoading}
-                  onClick={() => shopAction('reactivate')}
-                >
-                  <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />
-                  Réactiver
-                </Button>
-              )}
-              <Button
-                size="sm" variant="outline"
-                className="border-blue-700 text-blue-400 hover:bg-blue-900/30"
-                disabled={actionLoading}
-                onClick={() => shopAction('extend', { days: 30 })}
-              >
-                <Clock className="h-3.5 w-3.5 mr-1.5" />
-                +30 jours trial
-              </Button>
-              <Button
-                size="sm" variant="outline"
-                className="border-amber-700 text-amber-400 hover:bg-amber-900/30"
-                disabled={actionLoading}
-                onClick={() => shopAction('extend', { days: 7 })}
-              >
-                <Clock className="h-3.5 w-3.5 mr-1.5" />
-                +7 jours
-              </Button>
-              <Button
-                size="sm" variant="outline"
-                className="border-purple-700 text-purple-400 hover:bg-purple-900/30"
-                disabled={actionLoading}
-                onClick={() => shopAction('grant_plan', { plan: 'starter' })}
-              >
-                <CreditCard className="h-3.5 w-3.5 mr-1.5" />
-                Activer Starter
-              </Button>
-              <Button
-                size="sm" variant="outline"
-                className={shop.is_internal
-                  ? 'border-emerald-700 text-emerald-400 hover:bg-emerald-900/30'
-                  : 'border-gray-700 text-gray-400 hover:bg-gray-900/30'}
-                disabled={actionLoading}
-                onClick={() => shopAction('set_internal', { internal: !shop.is_internal })}
-                title="Exempte définitivement ce owner (et toutes ses boutiques) de la facturation — pour les comptes de test superadmin. N'apparaît pas comme abonnement payant dans les stats."
-              >
-                <Shield className="h-3.5 w-3.5 mr-1.5" />
-                {shop.is_internal ? 'Compte interne ✓' : 'Marquer compte interne'}
-              </Button>
-              {shop.whatsapp && (
-                <a
-                  href={`https://wa.me/${shop.whatsapp.replace(/\D/g, '')}?text=Bonjour depuis StockShop Support`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <Button size="sm" variant="outline" className="border-green-700 text-green-400 hover:bg-green-900/30">
-                    <Phone className="h-3.5 w-3.5 mr-1.5" />
-                    WhatsApp
-                  </Button>
-                </a>
-              )}
-            </div>
           </div>
         </div>
       )}
 
-      {/* Tab: Notes internes */}
-      {activeTab === 'notes' && (
-        <div className="space-y-4">
-          <div className="bg-card rounded-xl border border-border shadow-sm p-5">
-            <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-              <StickyNote className="h-4 w-4 text-amber-400" />
-              Ajouter une note interne
-            </h3>
-            <textarea
-              value={noteText}
-              onChange={e => setNoteText(e.target.value)}
-              placeholder="Ex : Client a appelé le 10 mai pour perte de données. Restauré via admin. À surveiller."
-              className="w-full bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none"
-              rows={4}
-            />
-            <div className="flex justify-between items-center mt-2">
-              <span className="text-xs text-muted-foreground">{adminEmail}</span>
-              <Button size="sm" disabled={savingNote || !noteText.trim()} onClick={saveNote}>
-                <Send className="h-3.5 w-3.5 mr-1.5" />
-                {savingNote ? 'Enregistrement…' : 'Enregistrer'}
-              </Button>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {notes.length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-6">Aucune note pour cette boutique.</p>
-            )}
-            {notes.map((note: any) => (
-              <div key={note.id} className="bg-card rounded-xl border border-border shadow-sm p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">
-                      {note.author_email} · {new Date(note.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                    <p className="text-sm text-foreground whitespace-pre-wrap">{note.content}</p>
+      {/* Tab: Équipe */}
+      {activeTab === 'equipe' && (
+        <div className="bg-card rounded-xl border border-border shadow-sm p-5">
+          <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            Équipe ({members.filter((m: any) => m.is_active).length} actif(s))
+          </h3>
+          {members.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-6">Aucun membre pour cette boutique.</p>
+          ) : (
+            <div className="space-y-2">
+              {members.map((m: any) => (
+                <div key={m.user_id} className="flex items-center justify-between bg-muted rounded-lg px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`h-2 w-2 rounded-full ${m.is_active ? 'bg-green-400' : 'bg-gray-600'}`} />
+                    <span className="text-sm text-foreground">{m.profiles?.full_name || 'Inconnu'}</span>
+                    <span className="text-xs text-muted-foreground capitalize">{m.role}</span>
                   </div>
-                  <button onClick={() => deleteNote(note.id)} className="text-muted-foreground hover:text-red-400 transition-colors shrink-0">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  {m.profiles?.last_seen && (
+                    <span className="text-xs text-muted-foreground">
+                      Vu {new Date(m.profiles.last_seen).toLocaleDateString('fr-FR')}
+                    </span>
+                  )}
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Tab: Notifications in-app */}
-      {activeTab === 'notifications' && (
+      {/* Tab: Activité (notifications in-app) */}
+      {activeTab === 'activite' && (
         <div className="space-y-4">
           <div className="bg-card rounded-xl border border-border shadow-sm p-5">
             <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
               <Bell className="h-4 w-4 text-blue-400" />
               Envoyer un message au owner
             </h3>
-            <div className="space-y-3">
-              <div className="flex gap-2">
-                {(['info', 'warning', 'urgent'] as const).map(t => (
-                  <button
-                    key={t}
-                    onClick={() => setNotifType(t)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                      notifType === t
-                        ? t === 'urgent' ? 'bg-red-500/20 border-red-500 text-red-400'
-                          : t === 'warning' ? 'bg-amber-500/20 border-amber-500 text-amber-400'
-                          : 'bg-blue-500/20 border-blue-500 text-blue-400'
-                        : 'border-border text-muted-foreground hover:border-gray-500'
-                    }`}
-                  >
-                    {t === 'info' ? 'Info' : t === 'warning' ? 'Avertissement' : 'Urgent'}
-                  </button>
-                ))}
+            {!canWrite && <ReadOnlyNotice />}
+            {canWrite && (
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  {(['info', 'warning', 'urgent'] as const).map(t => (
+                    <button
+                      key={t}
+                      onClick={() => setNotifType(t)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                        notifType === t
+                          ? t === 'urgent' ? 'bg-red-500/20 border-red-500 text-red-400'
+                            : t === 'warning' ? 'bg-amber-500/20 border-amber-500 text-amber-400'
+                            : 'bg-blue-500/20 border-blue-500 text-blue-400'
+                          : 'border-border text-muted-foreground hover:border-gray-500'
+                      }`}
+                    >
+                      {t === 'info' ? 'Info' : t === 'warning' ? 'Avertissement' : 'Urgent'}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  value={notifTitle}
+                  onChange={e => setNotifTitle(e.target.value)}
+                  placeholder="Titre du message"
+                  className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                />
+                <textarea
+                  value={notifMsg}
+                  onChange={e => setNotifMsg(e.target.value)}
+                  placeholder="Contenu du message visible par le owner dans son dashboard…"
+                  className="w-full bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none"
+                  rows={3}
+                />
+                <div className="flex justify-end">
+                  <Button size="sm" disabled={sendingNotif || !notifTitle.trim() || !notifMsg.trim()} onClick={sendNotification}>
+                    <Send className="h-3.5 w-3.5 mr-1.5" />
+                    {sendingNotif ? 'Envoi…' : 'Envoyer'}
+                  </Button>
+                </div>
               </div>
-              <input
-                value={notifTitle}
-                onChange={e => setNotifTitle(e.target.value)}
-                placeholder="Titre du message"
-                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder-gray-500 focus:outline-none focus:border-blue-500"
-              />
-              <textarea
-                value={notifMsg}
-                onChange={e => setNotifMsg(e.target.value)}
-                placeholder="Contenu du message visible par le owner dans son dashboard…"
-                className="w-full bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none"
-                rows={3}
-              />
-              <div className="flex justify-end">
-                <Button size="sm" disabled={sendingNotif || !notifTitle.trim() || !notifMsg.trim()} onClick={sendNotification}>
-                  <Send className="h-3.5 w-3.5 mr-1.5" />
-                  {sendingNotif ? 'Envoi…' : 'Envoyer'}
-                </Button>
-              </div>
-            </div>
+            )}
           </div>
 
           <div className="space-y-3">
@@ -618,104 +562,212 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
                   <p className="text-sm font-medium text-foreground">{n.title}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">{n.message}</p>
                 </div>
-                <button onClick={() => deleteNotif(n.id)} className="text-muted-foreground hover:text-red-400 transition-colors shrink-0">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                {canWrite && (
+                  <button onClick={() => deleteNotif(n.id)} className="text-muted-foreground hover:text-red-400 transition-colors shrink-0">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Tab: Restauration */}
-      {activeTab === 'restore' && (
-        <div className="bg-card rounded-xl border border-border shadow-sm p-5">
-          <h3 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
-            <RefreshCw className="h-4 w-4 text-amber-400" />
-            Restauration des données
-          </h3>
-          <p className="text-xs text-muted-foreground mb-4">Restaurez les produits supprimés, archivés, et les clients supprimés pour cette boutique.</p>
-          <ShopRestorePanel shopId={shopId} shopName={shop.name} />
+      {/* Tab: Notes internes */}
+      {activeTab === 'notes' && (
+        <div className="space-y-4">
+          <div className="bg-card rounded-xl border border-border shadow-sm p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+              <StickyNote className="h-4 w-4 text-amber-400" />
+              Ajouter une note interne
+            </h3>
+            {!canWrite && <ReadOnlyNotice />}
+            {canWrite && (
+              <>
+                <textarea
+                  value={noteText}
+                  onChange={e => setNoteText(e.target.value)}
+                  placeholder="Ex : Client a appelé le 10 mai pour perte de données. Restauré via admin. À surveiller."
+                  className="w-full bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none"
+                  rows={4}
+                />
+                <div className="flex justify-between items-center mt-2">
+                  <span className="text-xs text-muted-foreground">{adminEmail}</span>
+                  <Button size="sm" disabled={savingNote || !noteText.trim()} onClick={saveNote}>
+                    <Send className="h-3.5 w-3.5 mr-1.5" />
+                    {savingNote ? 'Enregistrement…' : 'Enregistrer'}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            {notes.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-6">Aucune note pour cette boutique.</p>
+            )}
+            {notes.map((note: any) => (
+              <div key={note.id} className="bg-card rounded-xl border border-border shadow-sm p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">
+                      {note.author_email} · {new Date(note.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                    <p className="text-sm text-foreground whitespace-pre-wrap">{note.content}</p>
+                  </div>
+                  {canWrite && (
+                    <button onClick={() => deleteNote(note.id)} className="text-muted-foreground hover:text-red-400 transition-colors shrink-0">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Tab: Modifier */}
-      {activeTab === 'edit' && (
-        <div className="bg-card rounded-xl border border-border shadow-sm p-5 space-y-4">
-          <div>
-            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <Pencil className="h-4 w-4 text-blue-400" />
-              Modifier les informations de la boutique
+      {/* Tab: Zone de danger */}
+      {activeTab === 'danger' && (
+        <div className="space-y-5">
+          {/* Suspension / compte interne */}
+          <div className="bg-card rounded-xl border border-red-500/20 shadow-sm p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Shield className="h-4 w-4 text-red-400" />
+              Accès de la boutique
             </h3>
-            <p className="text-xs text-muted-foreground mt-1">Les modifications sont appliquées immédiatement.</p>
+            {!canWrite && <ReadOnlyNotice />}
+            {canWrite && <OwnerScopeWarning ownerShopNames={ownerShopNames} actionsLabel="Suspendre" />}
+            {canWrite && (
+              <div className="flex flex-wrap gap-2">
+                {!isSuspended ? (
+                  <Button
+                    size="sm" variant="outline"
+                    className="border-red-700 text-red-400 hover:bg-red-900/30"
+                    disabled={actionLoading}
+                    onClick={() => shopAction('suspend')}
+                  >
+                    <ShieldOff className="h-3.5 w-3.5 mr-1.5" />
+                    Suspendre
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm" variant="outline"
+                    className="border-green-700 text-green-400 hover:bg-green-900/30"
+                    disabled={actionLoading}
+                    onClick={() => shopAction('reactivate')}
+                  >
+                    <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />
+                    Réactiver
+                  </Button>
+                )}
+                <Button
+                  size="sm" variant="outline"
+                  className={shop.is_internal
+                    ? 'border-emerald-700 text-emerald-400 hover:bg-emerald-900/30'
+                    : 'border-gray-700 text-gray-400 hover:bg-gray-900/30'}
+                  disabled={actionLoading}
+                  onClick={() => shopAction('set_internal', { internal: !shop.is_internal })}
+                  title="Exempte définitivement ce owner (et toutes ses boutiques) de la facturation — pour les comptes de test superadmin. N'apparaît pas comme abonnement payant dans les stats."
+                >
+                  <Shield className="h-3.5 w-3.5 mr-1.5" />
+                  {shop.is_internal ? 'Compte interne ✓' : 'Marquer compte interne'}
+                </Button>
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs text-muted-foreground block mb-1">Nom de la boutique</label>
-              <input
-                value={editForm.name}
-                onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
-                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
-                placeholder="Nom de la boutique"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground block mb-1">Ville</label>
-              <input
-                value={editForm.city}
-                onChange={e => setEditForm(f => ({ ...f, city: e.target.value }))}
-                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
-                placeholder="Lagos, Douala…"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground block mb-1">Pays</label>
-              <select
-                value={editForm.country}
-                onChange={e => {
-                  const code = e.target.value as CountryCode
-                  const auto = COUNTRIES[code]?.currencySymbol || ''
-                  setEditForm(f => ({ ...f, country: code, currency: auto }))
-                }}
-                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
-              >
-                {Object.values(COUNTRIES).map(c => (
-                  <option key={c.code} value={c.code}>{c.flag} {c.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground block mb-1">WhatsApp (format international)</label>
-              <input
-                value={editForm.whatsapp}
-                onChange={e => setEditForm(f => ({ ...f, whatsapp: e.target.value }))}
-                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
-                placeholder="+2348012345678"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground block mb-1">Devise</label>
-              <input
-                value={editForm.currency}
-                onChange={e => setEditForm(f => ({ ...f, currency: e.target.value }))}
-                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
-                placeholder="₦, FCFA…"
-              />
-            </div>
-          </div>
+          {/* Modifier les informations */}
+          {canWrite && (
+            <div className="bg-card rounded-xl border border-border shadow-sm p-5 space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <Pencil className="h-4 w-4 text-blue-400" />
+                  Modifier les informations de la boutique
+                </h3>
+                <p className="text-xs text-muted-foreground mt-1">Les modifications sont appliquées immédiatement.</p>
+              </div>
 
-          <div className="flex justify-end pt-2">
-            <Button
-              size="sm"
-              disabled={savingEdit}
-              onClick={saveEdit}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              <Send className="h-3.5 w-3.5 mr-1.5" />
-              {savingEdit ? 'Enregistrement…' : 'Enregistrer les modifications'}
-            </Button>
-          </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Nom de la boutique</label>
+                  <input
+                    value={editForm.name}
+                    onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                    className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
+                    placeholder="Nom de la boutique"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Ville</label>
+                  <input
+                    value={editForm.city}
+                    onChange={e => setEditForm(f => ({ ...f, city: e.target.value }))}
+                    className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
+                    placeholder="Lagos, Douala…"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Pays</label>
+                  <select
+                    value={editForm.country}
+                    onChange={e => {
+                      const code = e.target.value as CountryCode
+                      const auto = COUNTRIES[code]?.currencySymbol || ''
+                      setEditForm(f => ({ ...f, country: code, currency: auto }))
+                    }}
+                    className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
+                  >
+                    {Object.values(COUNTRIES).map(c => (
+                      <option key={c.code} value={c.code}>{c.flag} {c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">WhatsApp (format international)</label>
+                  <input
+                    value={editForm.whatsapp}
+                    onChange={e => setEditForm(f => ({ ...f, whatsapp: e.target.value }))}
+                    className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
+                    placeholder="+2348012345678"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Devise</label>
+                  <input
+                    value={editForm.currency}
+                    onChange={e => setEditForm(f => ({ ...f, currency: e.target.value }))}
+                    className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
+                    placeholder="₦, FCFA…"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <Button
+                  size="sm"
+                  disabled={savingEdit}
+                  onClick={saveEdit}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <Send className="h-3.5 w-3.5 mr-1.5" />
+                  {savingEdit ? 'Enregistrement…' : 'Enregistrer les modifications'}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Restauration des données */}
+          {canWrite && (
+            <div className="bg-card rounded-xl border border-border shadow-sm p-5">
+              <h3 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
+                <RefreshCw className="h-4 w-4 text-amber-400" />
+                Restauration des données
+              </h3>
+              <p className="text-xs text-muted-foreground mb-4">Restaurez les produits supprimés, archivés, et les clients supprimés pour cette boutique.</p>
+              <ShopRestorePanel shopId={shopId} shopName={shop.name} />
+            </div>
+          )}
         </div>
       )}
     </div>
