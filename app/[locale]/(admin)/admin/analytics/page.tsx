@@ -7,6 +7,7 @@ import { GrowthChart } from '@/components/admin/growth-chart'
 import { CountryFilter } from '@/components/admin/country-filter'
 import { COUNTRIES } from '@/lib/saas/countries'
 import { attachOwnerPlan } from '@/lib/saas/resolve-owner-plan'
+import { computeHealthScore } from '@/lib/saas/health-score'
 import Link from 'next/link'
 import { TrendingUp, Users, ShoppingBag, Activity } from 'lucide-react'
 
@@ -48,19 +49,6 @@ function buildMonthlyGrowth(shops: any[], subs: any[]) {
     })
   }
   return months
-}
-
-function computeHealthScore(shop: any, owner: any) {
-  const lastSeen = owner?.last_seen ? new Date(owner.last_seen) : null
-  const daysSince = lastSeen ? Math.floor((Date.now() - lastSeen.getTime()) / 86400000) : 999
-  let score = 0
-  if (daysSince <= 7)       score += 30
-  else if (daysSince <= 14) score += 15
-  if (hasActiveSubscription(shop.plan, shop.plan_expires_at)) score += 40
-  else if (getTrialDaysLeft(shop.trial_ends_at) >= 0)         score += 10
-  if (daysSince <= 30)      score += 20
-  else if (daysSince <= 60) score += 10
-  return Math.min(100, score)
 }
 
 export default async function AnalyticsPage({

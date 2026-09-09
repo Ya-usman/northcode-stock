@@ -2,15 +2,18 @@ export const dynamic = 'force-dynamic'
 
 import { createAdminClient } from '@/lib/supabase/server'
 import { getTrialDaysLeft, hasActiveSubscription, PLANS } from '@/lib/saas/plans'
+import { computeHealthScore } from '@/lib/saas/health-score'
 import { formatAdminRevenue, formatCurrency } from '@/lib/utils/currency'
 import {
   TrendingUp, ShoppingBag, Users, AlertTriangle, DollarSign,
-  ArrowUpRight, Package, Activity, Clock, UserCheck, TrendingDown,
+  ArrowUpRight, Package, Activity, Clock, UserCheck, TrendingDown, HeartPulse,
 } from 'lucide-react'
 import { COUNTRIES } from '@/lib/saas/countries'
 import { RevenueChart } from '@/components/admin/revenue-chart'
 import { RecentPayments } from '@/components/admin/recent-payments'
 import { attachOwnerPlan } from '@/lib/saas/resolve-owner-plan'
+import { AdminPageHeader } from '@/components/admin/ui/admin-page-header'
+import { KpiTile } from '@/components/admin/ui/kpi-tile'
 import Link from 'next/link'
 
 async function getData(supabase: any) {
@@ -144,6 +147,14 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
     return !hasActiveSubscription(s.plan, s.plan_expires_at) && days >= 0 && days <= 3
   })
 
+  // Boutiques à risque de churn — même formule que Analytics
+  // (lib/saas/health-score.ts), pas une seconde définition qui pourrait
+  // diverger : score < 40 et pas encore payantes.
+  const atRiskShops = shops
+    .map((s: any) => ({ ...s, health: computeHealthScore(s, ownersByShop[s.id]) }))
+    .filter((s: any) => s.health < 40 && !hasActiveSubscription(s.plan, s.plan_expires_at))
+    .sort((a: any, b: any) => a.health - b.health)
+
   const chartData = buildRevenueChart(allSubs)
   const recentPayments = allSubs.slice(0, 10)
 
@@ -158,17 +169,11 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
 
   return (
     <div className="space-y-6 max-w-6xl">
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Command Center</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs text-muted-foreground">StockShop Admin</p>
-          <div className="flex gap-1.5 mt-1 justify-end flex-wrap">
+      <AdminPageHeader
+        title="Command Center"
+        description={new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+        actions={
+          <div className="flex gap-1.5 flex-wrap justify-end">
             {Object.entries(countryCounts).map(([country, count]) => {
               const cfg = COUNTRIES[country as keyof typeof COUNTRIES]
               return (
@@ -178,12 +183,12 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
               )
             })}
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Alertes prioritaires */}
-      {(inactiveShops.length > 0 || expiringTrials.length > 0) && (
-        <div className="grid md:grid-cols-2 gap-3">
+      {(inactiveShops.length > 0 || expiringTrials.length > 0 || atRiskShops.length > 0) && (
+        <div className="grid md:grid-cols-3 gap-3">
           {expiringTrials.length > 0 && (
             <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl shadow-sm p-4">
               <div className="flex items-center gap-2 mb-2">
@@ -214,6 +219,25 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
                   </Link>
                 ))}
               </div>
+            </div>
+          )}
+          {atRiskShops.length > 0 && (
+            <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl shadow-sm p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <HeartPulse className="h-4 w-4 text-violet-400" />
+                <span className="text-sm font-semibold text-violet-400">{atRiskShops.length} boutique(s) à risque de churn</span>
+              </div>
+              <div className="space-y-1">
+                {atRiskShops.slice(0, 3).map((s: any) => (
+                  <Link key={s.id} href={`/${locale}/admin/shops/${s.id}`} className="flex items-center justify-between hover:bg-violet-500/10 rounded px-2 py-1 transition-colors">
+                    <span className="text-xs text-foreground">{s.name}</span>
+                    <span className="text-xs text-violet-400">{s.health}/100 →</span>
+                  </Link>
+                ))}
+              </div>
+              <Link href={`/${locale}/admin/analytics`} className="text-[11px] text-violet-400 hover:underline mt-2 inline-block">
+                Voir l'analyse complète →
+              </Link>
             </div>
           )}
         </div>
@@ -279,61 +303,20 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
         )
       })()}
 
-      {/* KPI cards — finances */}
+      {/* KPI — finances */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-card rounded-xl border border-border shadow-sm p-4">
-          <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-green-400/10 mb-3">
-            <DollarSign className="h-4 w-4 text-green-400" />
-          </div>
-          <p className="text-lg font-bold text-foreground leading-tight">{formatAdminRevenue(totalNGN, totalCFA)}</p>
-          <p className="text-muted-foreground text-xs mt-0.5">Revenue total</p>
-          <p className="text-xs mt-1 text-green-400">All time</p>
-        </div>
-        <div className="bg-card rounded-xl border border-border shadow-sm p-4">
-          <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-blue-400/10 mb-3">
-            <TrendingUp className="h-4 w-4 text-blue-400" />
-          </div>
-          <p className="text-lg font-bold text-foreground leading-tight">{formatAdminRevenue(thisMonthNGN, thisMonthCFA)}</p>
-          <p className="text-muted-foreground text-xs mt-0.5">Ce mois-ci</p>
-          <p className={`text-xs mt-1 ${revenueGrowth >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-            {revenueGrowth >= 0 ? '+' : ''}{revenueGrowth}% vs mois dernier
-          </p>
-        </div>
-        <div className="bg-card rounded-xl border border-border shadow-sm p-4">
-          <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-purple-400/10 mb-3">
-            <ShoppingBag className="h-4 w-4 text-purple-400" />
-          </div>
-          <p className="text-xl font-bold text-foreground">{shops.length}</p>
-          <p className="text-muted-foreground text-xs mt-0.5">Total boutiques</p>
-          <p className="text-xs mt-1 text-purple-400">+{newShopsThisMonth} ce mois</p>
-        </div>
-        <div className="bg-card rounded-xl border border-border shadow-sm p-4">
-          <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-yellow-400/10 mb-3">
-            <UserCheck className="h-4 w-4 text-stockshop-gold" />
-          </div>
-          <p className="text-xl font-bold text-foreground">{conversionRate}%</p>
-          <p className="text-muted-foreground text-xs mt-0.5">Taux de conversion</p>
-          <p className="text-xs mt-1 text-stockshop-gold">{activeSubscriptions} payants / {shops.length}</p>
-        </div>
+        <KpiTile icon={DollarSign} tone="success" label="Revenue total" value={formatAdminRevenue(totalNGN, totalCFA)} />
+        <KpiTile icon={TrendingUp} tone="default" label="Ce mois-ci" value={formatAdminRevenue(thisMonthNGN, thisMonthCFA)} trend={revenueGrowth} />
+        <KpiTile icon={ShoppingBag} tone="default" label="Total boutiques" value={shops.length} />
+        <KpiTile icon={UserCheck} tone="default" label="Taux de conversion" value={`${conversionRate}%`} />
       </div>
 
-      {/* KPI cards — activité produit */}
+      {/* KPI — activité produit */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: 'Produits gérés', value: totalProducts.toLocaleString(), sub: 'Toutes boutiques · tous pays', icon: Package, color: 'text-cyan-400', bg: 'bg-cyan-400/10' },
-          { label: 'Clients enregistrés', value: totalCustomers.toLocaleString(), sub: 'Toutes boutiques · tous pays', icon: Users, color: 'text-violet-400', bg: 'bg-violet-400/10' },
-          { label: "Ventes aujourd'hui", value: salesToday.toLocaleString(), sub: `${sales7d} sur 7 jours`, icon: Activity, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
-          { label: 'Abonnés actifs', value: activeSubscriptions, sub: `${activeTrials} trials · ${expired} expirés`, icon: ArrowUpRight, color: 'text-blue-400', bg: 'bg-blue-400/10' },
-        ].map(({ label, value, sub, icon: Icon, color, bg }) => (
-          <div key={label} className="bg-card rounded-xl border border-border shadow-sm p-4">
-            <div className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${bg} mb-3`}>
-              <Icon className={`h-4 w-4 ${color}`} />
-            </div>
-            <p className="text-xl font-bold text-foreground">{value}</p>
-            <p className="text-muted-foreground text-xs mt-0.5">{label}</p>
-            <p className={`text-xs mt-1 ${color}`}>{sub}</p>
-          </div>
-        ))}
+        <KpiTile icon={Package} label="Produits gérés" value={totalProducts.toLocaleString()} />
+        <KpiTile icon={Users} label="Clients enregistrés" value={totalCustomers.toLocaleString()} />
+        <KpiTile icon={Activity} tone="success" label="Ventes aujourd'hui" value={salesToday.toLocaleString()} />
+        <KpiTile icon={ArrowUpRight} label="Abonnés actifs" value={activeSubscriptions} />
       </div>
 
       {/* Statut boutiques */}
