@@ -24,19 +24,8 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { withTimeout } from '@/lib/utils/with-timeout'
-
-function healthScore(owner: { last_seen: string | null } | null, subscribed: boolean) {
-  const lastSeen = owner?.last_seen ? new Date(owner.last_seen) : null
-  const days = lastSeen ? Math.floor((Date.now() - lastSeen.getTime()) / 86400000) : 999
-  let score = 0
-  if (days <= 7) score += 30
-  else if (days <= 14) score += 15
-  if (subscribed) score += 40
-  else score += 10
-  if (days <= 30) score += 20
-  else if (days <= 60) score += 10
-  return Math.min(100, score)
-}
+import { computeHealthScore } from '@/lib/saas/health-score'
+import { StatusBadge, type BillingStatus } from '@/components/admin/ui/status-badge'
 
 interface Shop {
   id: string
@@ -106,14 +95,14 @@ const COLUMNS = [
   { key: 'actions', label: 'Actions' },
 ]
 
-function StatusBadge({ isSuspended, subscribed, trialDays }: { isSuspended: boolean; subscribed: boolean; trialDays: number }) {
-  if (isSuspended)
-    return <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400 bg-red-400/10 px-2 py-0.5 rounded-full whitespace-nowrap">● Suspendu</span>
-  if (subscribed)
-    return <span className="inline-flex items-center gap-1 text-xs font-medium text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full whitespace-nowrap">● Abonné</span>
-  if (trialDays >= 0)
-    return <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full whitespace-nowrap">● Essai</span>
-  return <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400 bg-red-400/10 px-2 py-0.5 rounded-full whitespace-nowrap">● Expiré</span>
+// Statut → BillingStatus partagé (components/admin/ui/status-badge.tsx) —
+// une seule palette de couleurs pour ce statut dans tout l'admin, au lieu
+// d'un mapping par composant (ex. owner-shops-view.tsx avait le sien).
+function billingStatus(isSuspended: boolean, subscribed: boolean, trialDays: number): BillingStatus {
+  if (isSuspended) return 'suspended'
+  if (subscribed) return 'active'
+  if (trialDays >= 0) return 'trial'
+  return 'expired'
 }
 
 function ExpiryCell({ daysRemaining, isExpired }: { daysRemaining: number | null; isExpired: boolean }) {
@@ -460,7 +449,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
                 const isSuspended = shop.owner && !shop.owner.is_active
                 const totalRevenue = shop.subscriptions.reduce((s, sub) => s + Number(sub.amount), 0)
                 const isExpanded = expandedShop === shop.id
-                const health = healthScore(shop.owner, subscribed)
+                const health = computeHealthScore(shop, shop.owner)
                 const healthColor = health >= 70 ? 'bg-green-400' : health >= 40 ? 'bg-amber-400' : 'bg-red-400'
 
                 let daysRemaining: number | null = null
@@ -525,7 +514,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
 
                       {/* Status */}
                       <td className="px-5 py-3">
-                        <StatusBadge isSuspended={!!isSuspended} subscribed={subscribed} trialDays={trialDays} />
+                        <StatusBadge status={billingStatus(!!isSuspended, subscribed, trialDays)} />
                       </td>
 
                       {/* Expiry */}
@@ -571,7 +560,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
             const isSuspended = shop.owner && !shop.owner.is_active
             const totalRevenue = shop.subscriptions.reduce((s, sub) => s + Number(sub.amount), 0)
             const isExpanded = expandedShop === shop.id
-            const health = healthScore(shop.owner, subscribed)
+            const health = computeHealthScore(shop, shop.owner)
             const healthColor = health >= 70 ? 'bg-green-400' : health >= 40 ? 'bg-amber-400' : 'bg-red-400'
 
             let daysRemaining: number | null = null
@@ -603,7 +592,7 @@ export function AdminShopsTable({ shops, locale }: Props) {
                       <p className="text-xs text-muted-foreground">{shop.owner?.full_name || '—'}</p>
                       </div>
                     </div>
-                    <StatusBadge isSuspended={!!isSuspended} subscribed={subscribed} trialDays={trialDays} />
+                    <StatusBadge status={billingStatus(!!isSuspended, subscribed, trialDays)} />
                   </div>
 
                   {/* Middle row: city, country, plan, expiry */}

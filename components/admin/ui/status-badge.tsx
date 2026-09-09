@@ -16,7 +16,7 @@ const STATUS_CONFIG: Record<BillingStatus, { variant: NonNullable<BadgeProps['va
   internal:  { variant: 'secondary',   label: 'Interne' },
 }
 
-export function StatusBadge({ status, className }: { status: BillingStatus; className?: string }) {
+export function StatusBadge({ status, detail, className }: { status: BillingStatus; detail?: string; className?: string }) {
   const cfg = STATUS_CONFIG[status]
-  return <Badge variant={cfg.variant} className={className}>{cfg.label}</Badge>
+  return <Badge variant={cfg.variant} className={className}>{cfg.label}{detail ? ` — ${detail}` : ''}</Badge>
 }

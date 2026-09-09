@@ -9,6 +9,7 @@ import { getCountry } from '@/lib/saas/countries'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { withTimeout } from '@/lib/utils/with-timeout'
+import { StatusBadge } from '@/components/admin/ui/status-badge'
 
 interface Shop {
   id: string
@@ -40,12 +41,15 @@ function daysSince(date: string | null) {
   return Math.floor((Date.now() - new Date(date).getTime()) / 86400000)
 }
 
+// Statut → StatusBadge partagé (components/admin/ui/status-badge.tsx),
+// même palette que shops-table.tsx — plus de mapping de couleurs propre à
+// cette vue.
 function ShopStatusBadge({ shop }: { shop: Shop }) {
   const subscribed = hasActiveSubscription(shop.plan, shop.plan_expires_at)
   const trialDays = getTrialDaysLeft(shop.trial_ends_at)
-  if (subscribed) return <span className="text-[10px] bg-green-400/10 text-green-400 rounded-full px-2 py-0.5 font-medium">Payant</span>
-  if (trialDays >= 0) return <span className="text-[10px] bg-amber-400/10 text-amber-400 rounded-full px-2 py-0.5 font-medium">Trial {trialDays}j</span>
-  return <span className="text-[10px] bg-red-400/10 text-red-400 rounded-full px-2 py-0.5 font-medium">Expiré</span>
+  if (subscribed) return <StatusBadge status="active" />
+  if (trialDays >= 0) return <StatusBadge status="trial" detail={`${trialDays}j`} />
+  return <StatusBadge status="expired" />
 }
 
 export function OwnerShopsView({ owners: initialOwners, locale }: Props) {
