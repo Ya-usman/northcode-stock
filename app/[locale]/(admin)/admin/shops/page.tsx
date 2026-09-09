@@ -39,20 +39,25 @@ export default async function AdminShopsPage({ params: { locale } }: { params: {
     subsByShop[s.shop_id].push(s)
   }
 
-  // Enrich active shops for the flat table view
-  const enrichedShops = (shops || []).map((shop: any) => ({
-    ...shop,
-    owner: ownersByShop[shop.id] || profileById[shop.owner_id] || null,
-    subscriptions: subsByShop[shop.id] || [],
-  }))
-
-  // Build owners list for the grouped view
+  // Boutiques groupées par owner_id — pour la vue "Par propriétaire" ET pour
+  // que chaque ligne de la vue à plat sache quelles autres boutiques
+  // partagent le même abonnement (facturation au niveau propriétaire, pas
+  // boutique — une action de suspension/prolongation affecte tout ce
+  // groupe, pas seulement la boutique cliquée).
   const shopsByOwner: Record<string, any[]> = {}
   for (const shop of shops || []) {
     const key = shop.owner_id || '__no_owner__'
     if (!shopsByOwner[key]) shopsByOwner[key] = []
     shopsByOwner[key].push(shop)
   }
+
+  // Enrich active shops for the flat table view
+  const enrichedShops = (shops || []).map((shop: any) => ({
+    ...shop,
+    owner: ownersByShop[shop.id] || profileById[shop.owner_id] || null,
+    subscriptions: subsByShop[shop.id] || [],
+    ownerShopNames: (shopsByOwner[shop.owner_id || '__no_owner__'] || []).map((s: any) => s.name),
+  }))
 
   const ownersList = Object.entries(shopsByOwner).map(([ownerId, ownerShops]) => {
     const profile = profileById[ownerId] || null

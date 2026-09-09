@@ -48,6 +48,8 @@ export type AuditAction =
   | 'admin.restore_product'
   | 'admin.restore_customer'
   | 'admin.create_owner'
+  | 'admin.repair_orphan_shop'
+  | 'admin.orphan_shop_alert'
 
 interface AuditParams {
   action: AuditAction

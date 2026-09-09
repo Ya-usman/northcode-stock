@@ -192,7 +192,7 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
     )
   }
 
-  const { shop, owner, members, stats, subscriptions, health, daysSinceLastSeen } = data
+  const { shop, owner, members, stats, subscriptions, health, daysSinceLastSeen, ownerShopNames = [] } = data
   const trialDays = getTrialDaysLeft(shop.trial_ends_at)
   const isPaid = hasActiveSubscription(shop.plan, shop.plan_expires_at)
   const isExpired = !isPaid && trialDays < 0
@@ -413,6 +413,14 @@ export function ShopInspector({ shopId, locale, adminEmail }: Props) {
               <Shield className="h-4 w-4 text-muted-foreground" />
               Actions Support
             </h3>
+            {ownerShopNames.length > 1 && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-400 mb-3">
+                <p className="font-medium">Le plan est géré au niveau du propriétaire.</p>
+                <p className="mt-0.5">
+                  Suspendre/Prolonger/Attribuer un plan ci-dessous affecte les {ownerShopNames.length} boutiques de ce compte : {ownerShopNames.join(', ')}.
+                </p>
+              </div>
+            )}
             <div className="flex flex-wrap gap-2">
               {!isSuspended ? (
                 <Button

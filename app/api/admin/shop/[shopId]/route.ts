@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { attachOwnerPlan } from '@/lib/saas/resolve-owner-plan'
 import { requireAdmin } from '@/lib/api/require-admin'
+import { getOwnerShopIds } from '@/lib/api/shop-auth'
 
 // GET /api/admin/shop/[shopId] — données complètes pour le Shop Inspector
 export async function GET(_req: Request, { params }: { params: { shopId: string } }) {
@@ -11,6 +12,18 @@ export async function GET(_req: Request, { params }: { params: { shopId: string 
 
     const admin = await createAdminClient() as any
     const { shopId } = params
+
+    // Résout le propriétaire via shop_members (source de vérité) — PAS
+    // profiles.shop_id = shopId, qui ne pointe que vers LA boutique
+    // "principale" d'un propriétaire : pour une deuxième boutique du même
+    // compte, cette requête ne trouvait aucun owner (le formulaire
+    // affichait "propriétaire introuvable" alors qu'il existe bien, sur
+    // shop_members). shops.owner_id en dernier repli seulement (peut être
+    // périmé, voir lib/api/shop-auth.ts:getOwnerShopIds).
+    const { data: ownerMember } = await admin
+      .from('shop_members').select('user_id').eq('shop_id', shopId).eq('role', 'owner').eq('is_active', true).maybeSingle()
+    const { data: shopRow } = await admin.from('shops').select('owner_id').eq('id', shopId).maybeSingle()
+    const resolvedOwnerId: string | null = ownerMember?.user_id ?? shopRow?.owner_id ?? null
 
     const [
       { data: shop },
@@ -25,7 +38,9 @@ export async function GET(_req: Request, { params }: { params: { shopId: string 
       { count: deletedCustCount },
     ] = await Promise.all([
       admin.from('shops').select('*').eq('id', shopId).single(),
-      admin.from('profiles').select('id, full_name, email:id, is_active, last_seen').eq('shop_id', shopId).eq('role', 'owner').maybeSingle(),
+      resolvedOwnerId
+        ? admin.from('profiles').select('id, full_name, email:id, is_active, last_seen').eq('id', resolvedOwnerId).eq('role', 'owner').maybeSingle()
+        : Promise.resolve({ data: null }),
       admin.from('shop_members').select('user_id, role, is_active, profiles(full_name, last_seen)').eq('shop_id', shopId),
       admin.from('products').select('id', { count: 'exact', head: false }).eq('shop_id', shopId).eq('is_active', true),
       admin.from('customers').select('id', { count: 'exact', head: false }).eq('shop_id', shopId).is('deleted_at', null),
@@ -44,6 +59,19 @@ export async function GET(_req: Request, { params }: { params: { shopId: string 
     if (owner?.id) {
       const { data: authUser } = await admin.auth.admin.getUserById(owner.id)
       ownerEmail = authUser?.user?.email || null
+    }
+
+    // Autres boutiques du même propriétaire — la facturation est au niveau
+    // du compte, pas de la boutique ; le Shop Inspector doit pouvoir
+    // avertir avant une action Suspendre/Prolonger/Attribuer un plan que
+    // ça affecte aussi ces boutiques-là.
+    let ownerShopNames: string[] = []
+    if (resolvedOwnerId) {
+      const siblingIds = await getOwnerShopIds(admin, resolvedOwnerId)
+      if (siblingIds.length > 0) {
+        const { data: siblingShops } = await admin.from('shops').select('name').in('id', siblingIds)
+        ownerShopNames = (siblingShops || []).map((s: any) => s.name)
+      }
     }
 
     // Ventes today et 7 derniers jours
@@ -88,6 +116,7 @@ export async function GET(_req: Request, { params }: { params: { shopId: string 
       subscriptions: subs || [],
       health,
       daysSinceLastSeen: daysSinceLastSeen === 999 ? null : daysSinceLastSeen,
+      ownerShopNames,
     })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })

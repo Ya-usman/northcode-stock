@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { ScrollText, Search, RefreshCw, ShieldOff, ShieldCheck, CreditCard, Trash2, UserPlus, Pencil, RotateCcw, Bell, StickyNote, X } from 'lucide-react'
+import { ScrollText, Search, RefreshCw, ShieldOff, ShieldCheck, CreditCard, Trash2, UserPlus, Pencil, RotateCcw, Bell, StickyNote, X, Wrench, AlertTriangle } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -21,6 +21,8 @@ const ACTION_CONFIG: Record<string, { label: string; color: string; icon: React.
   'admin.restore_product': { label: 'Produit restauré',  color: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400', icon: RotateCcw },
   'admin.restore_customer':{ label: 'Client restauré',   color: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400', icon: RotateCcw },
   'admin.create_owner':    { label: 'Nouveau propriétaire', color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400', icon: UserPlus },
+  'admin.repair_orphan_shop': { label: 'Boutique réparée', color: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400', icon: Wrench },
+  'admin.orphan_shop_alert':  { label: 'Boutique orpheline', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', icon: AlertTriangle },
   'member.invite':         { label: 'Invitation',        color: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',     icon: UserPlus },
   'member.delete':         { label: 'Membre supprimé',   color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',     icon: Trash2 },
   'admin.notify':          { label: 'Notification',      color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400', icon: Bell },
@@ -34,6 +36,7 @@ const ACTION_FILTERS = [
   { value: 'admin.grant_plan,admin.extend_access', label: 'Plans / Accès' },
   { value: 'member.invite,member.delete', label: 'Équipe' },
   { value: 'admin.restore_product,admin.restore_customer', label: 'Restaurations' },
+  { value: 'admin.repair_orphan_shop,admin.orphan_shop_alert', label: 'Boutiques orphelines' },
 ]
 
 interface AuditLog {

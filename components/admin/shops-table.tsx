@@ -40,6 +40,9 @@ interface Shop {
   whatsapp: string | null
   owner: { full_name: string; is_active: boolean; last_seen: string | null } | null
   subscriptions: { amount: number; plan: string; status: string; created_at: string; paystack_reference: string | null }[]
+  /** Toutes les boutiques du même propriétaire (facturation au niveau
+   *  propriétaire — voir bandeau d'avertissement dans les dialogues). */
+  ownerShopNames?: string[]
 }
 
 interface Props {
@@ -653,6 +656,11 @@ export function AdminShopsTable({ shops, locale }: Props) {
           <p className="text-muted-foreground text-sm">
             Action sur <strong className="text-foreground">{selected.size} boutique{selected.size > 1 ? 's' : ''}</strong>.
           </p>
+          {bulkConfirm && bulkConfirm.action !== 'reactivate' && shops.some(s => selected.has(s.id) && (s.ownerShopNames?.length ?? 0) > 1) && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
+              Le plan est géré au niveau du propriétaire — au moins une boutique sélectionnée a d'autres boutiques sur le même compte, qui seront aussi affectées.
+            </div>
+          )}
           {bulkConfirm?.action === 'extend' && (
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Jours à ajouter</label>
@@ -719,6 +727,19 @@ export function AdminShopsTable({ shops, locale }: Props) {
               <>Attribuer un plan payant à <strong className="text-foreground">{confirmDialog.shop?.name}</strong> pour 31 jours.</>
             )}
           </p>
+
+          {/* La facturation est au niveau du propriétaire, pas de la
+              boutique — cette action affecte donc TOUTES ses boutiques,
+              pas seulement celle-ci. Le rendre explicite avant confirmation. */}
+          {(confirmDialog.shop?.ownerShopNames?.length ?? 0) > 1 && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
+              <p className="font-medium">Le plan est géré au niveau du propriétaire.</p>
+              <p className="mt-0.5">
+                Cette action affecte les {confirmDialog.shop!.ownerShopNames!.length} boutiques de ce compte :{' '}
+                {confirmDialog.shop!.ownerShopNames!.join(', ')}.
+              </p>
+            </div>
+          )}
 
           {confirmDialog.action === 'extend' && (
             <div className="mt-2">
