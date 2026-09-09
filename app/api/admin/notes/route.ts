@@ -1,19 +1,11 @@
-﻿import { NextResponse } from 'next/server'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
-
-const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim())
-
-async function authAdmin() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user || !SUPER_ADMIN_EMAILS.includes(user.email || '')) return { user: null, email: null }
-  return { user, email: user.email! }
-}
+import { NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import { requireAdmin } from '@/lib/api/require-admin'
 
 // GET /api/admin/notes?shop_id=xxx
 export async function GET(req: Request) {
-  const { user } = await authAdmin()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
 
   const { searchParams } = new URL(req.url)
   const shop_id = searchParams.get('shop_id')
@@ -32,8 +24,9 @@ export async function GET(req: Request) {
 
 // POST /api/admin/notes — créer une note
 export async function POST(req: Request) {
-  const { user, email } = await authAdmin()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  const auth = await requireAdmin({ tier: 'super_admin' })
+  if (auth.error) return auth.error
+  const { user } = auth
 
   const { shop_id, content } = await req.json()
   if (!shop_id || !content?.trim()) return NextResponse.json({ error: 'shop_id et content requis' }, { status: 400 })
@@ -41,7 +34,7 @@ export async function POST(req: Request) {
   const admin = await createAdminClient() as any
   const { data, error } = await admin
     .from('shop_notes')
-    .insert({ shop_id, content: content.trim(), author_email: email })
+    .insert({ shop_id, content: content.trim(), author_email: user.email })
     .select()
     .single()
 
@@ -51,8 +44,8 @@ export async function POST(req: Request) {
 
 // DELETE /api/admin/notes?id=xxx
 export async function DELETE(req: Request) {
-  const { user } = await authAdmin()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  const auth = await requireAdmin({ tier: 'super_admin' })
+  if (auth.error) return auth.error
 
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')

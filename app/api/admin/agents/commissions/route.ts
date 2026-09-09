@@ -1,21 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { createClient } from '@/lib/supabase/server'
-
-const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean)
-
-async function checkSuperAdmin() {
-  const supabase = await createClient() as any
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  if (!SUPER_ADMIN_EMAILS.includes(user.email ?? '')) return null
-  return user
-}
+import { requireAdmin } from '@/lib/api/require-admin'
 
 // GET /api/admin/agents/commissions?agent_id=xxx&status=pending
 export async function GET(request: NextRequest) {
-  const user = await checkSuperAdmin()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
 
   const agent_id = request.nextUrl.searchParams.get('agent_id')
   const status = request.nextUrl.searchParams.get('status')
@@ -40,8 +30,8 @@ export async function GET(request: NextRequest) {
 
 // POST /api/admin/agents/commissions — créer une commission manuellement
 export async function POST(request: NextRequest) {
-  const user = await checkSuperAdmin()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAdmin({ tier: 'super_admin' })
+  if (auth.error) return auth.error
 
   const body = await request.json()
   const { agent_id, shop_id, subscription_amount, commission_amount, plan_id, billing_period, notes } = body
@@ -79,8 +69,8 @@ export async function POST(request: NextRequest) {
 
 // PATCH /api/admin/agents/commissions — marquer commissions comme payées
 export async function PATCH(request: NextRequest) {
-  const user = await checkSuperAdmin()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAdmin({ tier: 'super_admin' })
+  if (auth.error) return auth.error
 
   const { ids } = await request.json()
   if (!ids || !Array.isArray(ids) || ids.length === 0) {

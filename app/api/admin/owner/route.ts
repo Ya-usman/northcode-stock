@@ -1,18 +1,15 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { getAuthedUser, isSuperAdminUser } from '@/lib/api/shop-auth'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
+import { requireAdmin } from '@/lib/api/require-admin'
 
 // POST /api/admin/owner — créer un nouveau propriétaire depuis l'admin
 export async function POST(request: Request) {
   try {
-    const { user, supabase } = await getAuthedUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-    if (!isSuperAdminUser(user.email, (profile as any)?.role)) {
-      return NextResponse.json({ error: 'Réservé au support StockShop' }, { status: 403 })
-    }
+    // Crée un compte + boutique — mutation, réservée au niveau super_admin.
+    const auth = await requireAdmin({ tier: 'super_admin' })
+    if (auth.error) return auth.error
+    const { user } = auth
 
     const body = await request.json()
     const { email, full_name, shop_name, city, country, currency } = body

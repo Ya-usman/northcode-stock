@@ -1,21 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { createClient } from '@/lib/supabase/server'
-
-const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean)
-
-async function checkSuperAdmin() {
-  const supabase = await createClient() as any
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  if (!SUPER_ADMIN_EMAILS.includes(user.email ?? '')) return null
-  return user
-}
+import { requireAdmin } from '@/lib/api/require-admin'
 
 // GET /api/admin/agents — liste tous les agents avec stats
 export async function GET(request: NextRequest) {
-  const user = await checkSuperAdmin()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
 
   const supabase = await createAdminClient() as any
   const { data, error } = await supabase
@@ -33,8 +23,8 @@ export async function GET(request: NextRequest) {
 
 // POST /api/admin/agents — créer un agent
 export async function POST(request: NextRequest) {
-  const user = await checkSuperAdmin()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAdmin({ tier: 'super_admin' })
+  if (auth.error) return auth.error
 
   const body = await request.json()
   const { name, email, phone, city, referral_code, commission_rate = 10 } = body
@@ -63,8 +53,8 @@ export async function POST(request: NextRequest) {
 
 // PATCH /api/admin/agents — mettre à jour un agent
 export async function PATCH(request: NextRequest) {
-  const user = await checkSuperAdmin()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAdmin({ tier: 'super_admin' })
+  if (auth.error) return auth.error
 
   const body = await request.json()
   const { id, ...updates } = body

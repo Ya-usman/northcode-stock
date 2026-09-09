@@ -1,15 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { createClient } from '@/lib/supabase/server'
-
-const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean)
+import { requireAdmin } from '@/lib/api/require-admin'
 
 // GET /api/admin/agents/shops — liste minimale pour le formulaire commission
 export async function GET() {
-  const supabase = await createClient() as any
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user || !SUPER_ADMIN_EMAILS.includes(user.email ?? ''))
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
 
   const admin = await createAdminClient() as any
   const { data, error } = await admin

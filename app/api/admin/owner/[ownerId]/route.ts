@@ -1,23 +1,19 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { getAuthedUser, isSuperAdminUser } from '@/lib/api/shop-auth'
+import { requireAdmin } from '@/lib/api/require-admin'
 
 // DELETE /api/admin/owner/[ownerId]
 // Suppression définitive d'un propriétaire et de toutes ses boutiques.
-// Réservé au super_admin (email allowlist OU rôle DB).
+// Réservé au niveau super_admin.
 export async function DELETE(
   _request: Request,
   { params }: { params: { ownerId: string } }
 ) {
   try {
     const { ownerId } = params
-    const { user, supabase } = await getAuthedUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-    if (!isSuperAdminUser(user.email, (profile as any)?.role)) {
-      return NextResponse.json({ error: 'Réservé au support StockShop' }, { status: 403 })
-    }
+    const auth = await requireAdmin({ tier: 'super_admin' })
+    if (auth.error) return auth.error
+    const { user } = auth
 
     if (ownerId === user.id) {
       return NextResponse.json({ error: 'Impossible de supprimer votre propre compte.' }, { status: 400 })

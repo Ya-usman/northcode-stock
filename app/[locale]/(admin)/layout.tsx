@@ -1,11 +1,9 @@
 import { redirect } from 'next/navigation'
 import { NextIntlClientProvider } from 'next-intl'
 import { getMessages } from 'next-intl/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { AdminBottomNav } from '@/components/admin/admin-bottom-nav'
 import { AdminSidebar } from '@/components/admin/admin-sidebar'
-
-const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean)
 
 export default async function AdminLayout({
   children,
@@ -28,7 +26,20 @@ export default async function AdminLayout({
     redirect(`/${locale}/login`)
   }
 
-  if (!SUPER_ADMIN_EMAILS.includes(user.email || '')) {
+  // Même source de vérité que les routes API (lib/api/require-admin.ts) —
+  // table admin_users, plus de variable d'environnement à maintenir en
+  // parallèle. Requête directe (pas requireAdmin(), qui attend une
+  // Request/renvoie une NextResponse) : même logique, adaptée au contexte
+  // layout serveur.
+  const admin = await createAdminClient() as any
+  const { data: adminEntry } = await admin
+    .from('admin_users')
+    .select('tier')
+    .eq('user_id', user.id)
+    .is('revoked_at', null)
+    .maybeSingle()
+
+  if (!adminEntry) {
     redirect(`/${locale}/dashboard`)
   }
 

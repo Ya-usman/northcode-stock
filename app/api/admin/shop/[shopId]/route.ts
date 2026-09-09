@@ -1,16 +1,13 @@
 import { NextResponse } from 'next/server'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { attachOwnerPlan } from '@/lib/saas/resolve-owner-plan'
-
-const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean)
+import { requireAdmin } from '@/lib/api/require-admin'
 
 // GET /api/admin/shop/[shopId] — données complètes pour le Shop Inspector
 export async function GET(_req: Request, { params }: { params: { shopId: string } }) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user || !SUPER_ADMIN_EMAILS.includes(user.email || ''))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    const auth = await requireAdmin()
+    if (auth.error) return auth.error
 
     const admin = await createAdminClient() as any
     const { shopId } = params

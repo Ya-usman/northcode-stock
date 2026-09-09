@@ -1,15 +1,12 @@
-﻿import { NextResponse } from 'next/server'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
-
-const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim())
+import { NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import { requireAdmin } from '@/lib/api/require-admin'
 
 // POST /api/admin/notify — envoyer une notification in-app à un owner
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user || !SUPER_ADMIN_EMAILS.includes(user.email || ''))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    const auth = await requireAdmin({ tier: 'super_admin' })
+    if (auth.error) return auth.error
 
     const { shop_id, type, title, message } = await req.json()
     if (!shop_id || !title?.trim() || !message?.trim())
@@ -34,10 +31,8 @@ export async function POST(req: Request) {
 // GET /api/admin/notify?shop_id=xxx — lister les notifications d'une boutique
 export async function GET(req: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user || !SUPER_ADMIN_EMAILS.includes(user.email || ''))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    const auth = await requireAdmin()
+    if (auth.error) return auth.error
 
     const { searchParams } = new URL(req.url)
     const shop_id = searchParams.get('shop_id')
@@ -61,10 +56,8 @@ export async function GET(req: Request) {
 // DELETE /api/admin/notify?id=xxx — supprimer une notification
 export async function DELETE(req: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user || !SUPER_ADMIN_EMAILS.includes(user.email || ''))
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    const auth = await requireAdmin({ tier: 'super_admin' })
+    if (auth.error) return auth.error
 
     const { searchParams } = new URL(req.url)
     const id = searchParams.get('id')
