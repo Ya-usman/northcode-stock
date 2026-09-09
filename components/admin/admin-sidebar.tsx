@@ -33,7 +33,7 @@ const navSections = (locale: string) => [
     items: [
       { href: `/${locale}/admin/shops`,     label: 'Boutiques',      icon: ShoppingBag },
       { href: `/${locale}/admin/stock`,     label: 'Stock',          icon: Package },
-      { href: `/${locale}/admin/payments`,  label: 'Paiements',      icon: CreditCard },
+      { href: `/${locale}/admin/payments`,  label: 'Facturation',    icon: CreditCard },
       { href: `/${locale}/admin/agents`,    label: 'Agents terrain', icon: UserCheck },
       { href: `/${locale}/admin/managers`,  label: 'Équipe & accès', icon: Users },
     ],

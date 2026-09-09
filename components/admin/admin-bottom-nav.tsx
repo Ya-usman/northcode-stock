@@ -22,7 +22,7 @@ export function AdminBottomNav({ locale }: AdminBottomNavProps) {
   const primaryItems = [
     { href: `/${locale}/admin`,           label: 'Dashboard',  icon: LayoutDashboard },
     { href: `/${locale}/admin/shops`,     label: 'Boutiques',  icon: ShoppingBag },
-    { href: `/${locale}/admin/payments`,  label: 'Paiements',  icon: CreditCard },
+    { href: `/${locale}/admin/payments`,  label: 'Facturation', icon: CreditCard },
     { href: `/${locale}/admin/analytics`, label: 'Analytics',  icon: TrendingUp },
   ]
 

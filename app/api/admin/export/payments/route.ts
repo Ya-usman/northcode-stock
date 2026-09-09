@@ -25,7 +25,7 @@ export async function GET(request: Request) {
 
   const q = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`
 
-  const headers = ['Date', 'Boutique', 'Ville', 'Pays', 'Devise', 'Plan', 'Montant', 'Statut', 'Référence', 'Début', 'Expiration']
+  const headers = ['Date', 'Boutique', 'Ville', 'Pays', 'Devise', 'Plan', 'Montant', 'Fournisseur', 'Renouvellement auto', 'Statut', 'Référence', 'Début', 'Expiration']
   const csvRows = rows.map((p: any) => {
     const shop = shopMap[p.shop_id] || {}
     const fmt = (d: string) => d ? new Date(d).toLocaleDateString('fr-FR') : ''
@@ -37,6 +37,8 @@ export async function GET(request: Request) {
       q(shop.currency || '₦'),
       q(p.plan || ''),
       q(p.amount || 0),
+      q(p.gateway || 'paystack (historique)'),
+      q(p.auto_renew ? 'Oui' : 'Non'),
       q(p.status || ''),
       q(p.paystack_reference || ''),
       q(fmt(p.starts_at)),
