@@ -69,7 +69,11 @@ export async function GET(_req: Request, { params }: { params: { shopId: string 
     if (resolvedOwnerId) {
       const siblingIds = await getOwnerShopIds(admin, resolvedOwnerId)
       if (siblingIds.length > 0) {
-        const { data: siblingShops } = await admin.from('shops').select('name').in('id', siblingIds)
+        // getOwnerShopIds résout via shop_members, qui n'est pas nettoyé
+        // à la suppression d'une boutique (deleted_at) — sans ce filtre,
+        // une boutique déjà supprimée réapparaissait ici comme si elle
+        // était toujours active pour ce propriétaire.
+        const { data: siblingShops } = await admin.from('shops').select('name').in('id', siblingIds).is('deleted_at', null)
         ownerShopNames = (siblingShops || []).map((s: any) => s.name)
       }
     }

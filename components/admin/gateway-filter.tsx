@@ -2,19 +2,7 @@
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-
-// Libellé + couleur par fournisseur de paiement — utilisé à la fois par le
-// filtre ci-dessous et par les badges de la page Facturation. 'legacy' =
-// lignes créées avant la colonne `gateway` (migration 071), toutes via
-// Paystack à l'époque (seul fournisseur existant alors).
-export const GATEWAY_LABELS: Record<string, { name: string; color: string }> = {
-  paystack:    { name: 'Paystack',    color: 'text-blue-400 bg-blue-400/10' },
-  flutterwave: { name: 'Flutterwave', color: 'text-orange-400 bg-orange-400/10' },
-  wave:        { name: 'Wave',        color: 'text-cyan-400 bg-cyan-400/10' },
-  notchpay:    { name: 'NotchPay',    color: 'text-purple-400 bg-purple-400/10' },
-  stripe:      { name: 'Stripe',      color: 'text-indigo-400 bg-indigo-400/10' },
-  legacy:      { name: 'Paystack (historique)', color: 'text-muted-foreground bg-muted' },
-}
+import { GATEWAY_LABELS } from '@/lib/saas/gateways'
 
 const GATEWAY_OPTIONS = [
   { value: 'all', label: '💳 Tous les fournisseurs' },
