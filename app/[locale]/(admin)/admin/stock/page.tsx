@@ -1,9 +1,11 @@
 export const dynamic = 'force-dynamic'
 
 import { createAdminClient } from '@/lib/supabase/server'
-import { Package, AlertTriangle, TrendingDown, Store } from 'lucide-react'
+import { Package, AlertTriangle, TrendingDown, Store, Boxes } from 'lucide-react'
 import { CountryFilter } from '@/components/admin/country-filter'
 import { COUNTRIES } from '@/lib/saas/countries'
+import { AdminPageHeader } from '@/components/admin/ui/admin-page-header'
+import { KpiTile } from '@/components/admin/ui/kpi-tile'
 
 export default async function AdminStockPage({
   searchParams,
@@ -43,28 +45,19 @@ export default async function AdminStockPage({
 
   return (
     <div className="space-y-6 max-w-7xl">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Stock</h1>
-          <p className="text-muted-foreground text-sm mt-1">{shops.length} boutique(s) · {countryFilter === 'all' ? 'tous pays' : (COUNTRIES[countryFilter as keyof typeof COUNTRIES]?.name || countryFilter)}</p>
-        </div>
-        <CountryFilter current={countryFilter} availableCountries={availableCountries} />
-      </div>
+      <AdminPageHeader
+        title="Stock"
+        description={`${shops.length} boutique(s) · ${countryFilter === 'all' ? 'tous pays' : (COUNTRIES[countryFilter as keyof typeof COUNTRIES]?.name || countryFilter)}`}
+        actions={<CountryFilter current={countryFilter} availableCountries={availableCountries} />}
+      />
 
       {/* KPIs cumulés */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: 'Boutiques', value: (shops ?? []).length, color: 'text-purple-400', bg: 'bg-purple-400/10' },
-          { label: 'Produits actifs', value: totalProducts, color: 'text-blue-400', bg: 'bg-blue-400/10' },
-          { label: 'Unités totales', value: totalUnits.toLocaleString('fr-FR'), color: 'text-green-400', bg: 'bg-green-400/10' },
-          { label: 'Stock faible', value: lowStock, color: 'text-amber-400', bg: 'bg-amber-400/10' },
-          { label: 'Rupture', value: outOfStock, color: 'text-red-400', bg: 'bg-red-400/10' },
-        ].map(({ label, value, color, bg }) => (
-          <div key={label} className="bg-card rounded-xl border border-border shadow-sm p-4">
-            <p className={`text-2xl font-extrabold ${color}`}>{value}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
-          </div>
-        ))}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <KpiTile label="Boutiques" value={shops.length} icon={Store} tone="default" />
+        <KpiTile label="Produits actifs" value={totalProducts} icon={Package} tone="default" />
+        <KpiTile label="Unités totales" value={totalUnits.toLocaleString('fr-FR')} icon={Boxes} tone="success" />
+        <KpiTile label="Stock faible" value={lowStock} icon={AlertTriangle} tone={lowStock > 0 ? 'warning' : 'success'} />
+        <KpiTile label="Rupture" value={outOfStock} icon={TrendingDown} tone={outOfStock > 0 ? 'danger' : 'success'} />
       </div>
 
       {/* Par boutique */}

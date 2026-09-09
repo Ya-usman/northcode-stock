@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, ShoppingBag, CreditCard, Package,
-  TrendingUp, MoreHorizontal, X, LogOut, Sun, Moon, UserCheck, ScrollText, Users,
+  TrendingUp, MoreHorizontal, X, LogOut, Sun, Moon, UserCheck, ScrollText, Users, Activity,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { useTheme } from '@/lib/hooks/use-theme'
@@ -31,6 +31,7 @@ export function AdminBottomNav({ locale }: AdminBottomNavProps) {
     { href: `/${locale}/admin/agents`,    label: 'Agents',  icon: UserCheck },
     { href: `/${locale}/admin/managers`,  label: 'Équipe',  icon: Users },
     { href: `/${locale}/admin/audit`,     label: 'Journal', icon: ScrollText },
+    { href: `/${locale}/admin/system`,    label: 'Système', icon: Activity },
   ]
 
   const isActive = (href: string) =>

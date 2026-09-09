@@ -2,13 +2,15 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { ScrollText, Search, RefreshCw, ShieldOff, ShieldCheck, CreditCard, Trash2, UserPlus, Pencil, RotateCcw, Bell, StickyNote, X, Wrench, AlertTriangle } from 'lucide-react'
+import { ScrollText, Search, RefreshCw, ShieldOff, ShieldCheck, CreditCard, Trash2, UserPlus, Pencil, RotateCcw, Bell, StickyNote, X, Wrench, AlertTriangle, Store } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { AdminPageHeader } from '@/components/admin/ui/admin-page-header'
 
 const supabase = createClient() as any
 
@@ -59,9 +61,19 @@ export default function AuditPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [actionFilter, setActionFilter] = useState('')
+  const [shopFilter, setShopFilter] = useState('')
+  const [shops, setShops] = useState<{ id: string; name: string }[]>([])
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+
+  // Filtrage par boutique — lit ?shop=<id> au chargement pour permettre un
+  // lien direct depuis l'inspecteur de boutique ("Voir dans le journal").
+  useEffect(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get('shop')
+    if (fromUrl) setShopFilter(fromUrl)
+    supabase.from('shops').select('id, name').is('deleted_at', null).order('name').then(({ data }: any) => setShops(data || []))
+  }, [])
 
   const fetchLogs = useCallback(async (reset = false) => {
     if (reset) setPage(0)
@@ -80,6 +92,7 @@ export default function AuditPage() {
         ? query.eq('action', actions[0])
         : query.in('action', actions)
     }
+    if (shopFilter) query = query.eq('shop_id', shopFilter)
 
     const { data, error } = await query
     if (!error) {
@@ -89,9 +102,9 @@ export default function AuditPage() {
     }
     setLoading(false)
     setRefreshing(false)
-  }, [page, actionFilter])
+  }, [page, actionFilter, shopFilter])
 
-  useEffect(() => { fetchLogs(true) }, [actionFilter])
+  useEffect(() => { fetchLogs(true) }, [actionFilter, shopFilter])
 
   const refresh = () => {
     setRefreshing(true)
@@ -130,20 +143,16 @@ export default function AuditPage() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="font-bold text-lg flex items-center gap-2">
-            <ScrollText className="h-5 w-5 text-muted-foreground" />
-            Journal d'audit
-          </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Toutes les actions admin enregistrées</p>
-        </div>
-        <Button variant="outline" size="sm" onClick={refresh} disabled={refreshing} className="gap-2 h-8">
-          <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-          Actualiser
-        </Button>
-      </div>
+      <AdminPageHeader
+        title="Journal d'audit"
+        description="Toutes les actions admin enregistrées"
+        actions={
+          <Button variant="outline" size="sm" onClick={refresh} disabled={refreshing} className="gap-2 h-8">
+            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            Actualiser
+          </Button>
+        }
+      />
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
@@ -161,6 +170,20 @@ export default function AuditPage() {
             </button>
           )}
         </div>
+
+        <Select value={shopFilter || 'all'} onValueChange={v => setShopFilter(v === 'all' ? '' : v)}>
+          <SelectTrigger className="h-8 text-xs w-44 bg-muted border-border flex-shrink-0">
+            <Store className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+            <SelectValue placeholder="Boutique" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Toutes les boutiques</SelectItem>
+            {shops.map(s => (
+              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <div className="flex flex-wrap gap-1.5">
           {ACTION_FILTERS.map(f => (
             <button

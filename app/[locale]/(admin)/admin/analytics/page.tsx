@@ -9,7 +9,9 @@ import { COUNTRIES } from '@/lib/saas/countries'
 import { attachOwnerPlan } from '@/lib/saas/resolve-owner-plan'
 import { computeHealthScore } from '@/lib/saas/health-score'
 import Link from 'next/link'
-import { TrendingUp, Users, ShoppingBag, Activity } from 'lucide-react'
+import { Users, ShoppingBag, Activity, Wallet } from 'lucide-react'
+import { AdminPageHeader } from '@/components/admin/ui/admin-page-header'
+import { KpiTile } from '@/components/admin/ui/kpi-tile'
 
 async function getData(supabase: any) {
   const [{ data: shops }, { data: subs }, { data: owners }] = await Promise.all([
@@ -115,36 +117,18 @@ export default async function AnalyticsPage({
 
   return (
     <div className="space-y-6 max-w-6xl">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Analytics & Croissance</h1>
-          <p className="text-muted-foreground text-sm mt-1">Vue sur 12 mois · {shops.length} boutiques</p>
-        </div>
-        <CountryFilter current={countryFilter} availableCountries={availableCountries} />
-      </div>
+      <AdminPageHeader
+        title="Analytics & Croissance"
+        description={`Vue sur 12 mois · ${shops.length} boutiques`}
+        actions={<CountryFilter current={countryFilter} availableCountries={availableCountries} />}
+      />
 
       {/* Résumé global */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-card rounded-xl border border-border shadow-sm p-4">
-          <div className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-green-400/10 mb-2">
-            <TrendingUp className="h-4 w-4 text-green-400" />
-          </div>
-          <p className="text-lg font-bold text-foreground leading-tight">{formatAdminRevenue(totalNGN, totalCFA)}</p>
-          <p className="text-muted-foreground text-xs mt-0.5">Revenue total</p>
-        </div>
-        {[
-          { label: 'Payants', value: activeSubscriptions, icon: Users, color: 'text-blue-400', bg: 'bg-blue-400/10' },
-          { label: 'En trial', value: activeTrials, icon: ShoppingBag, color: 'text-amber-400', bg: 'bg-amber-400/10' },
-          { label: 'Expirés', value: expired, icon: Activity, color: 'text-red-400', bg: 'bg-red-400/10' },
-        ].map(({ label, value, icon: Icon, color, bg }) => (
-          <div key={label} className="bg-card rounded-xl border border-border shadow-sm p-4">
-            <div className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${bg} mb-2`}>
-              <Icon className={`h-4 w-4 ${color}`} />
-            </div>
-            <p className="text-xl font-bold text-foreground">{value}</p>
-            <p className="text-muted-foreground text-xs mt-0.5">{label}</p>
-          </div>
-        ))}
+        <KpiTile label="Revenue total" value={formatAdminRevenue(totalNGN, totalCFA)} icon={Wallet} tone="success" />
+        <KpiTile label="Payants" value={activeSubscriptions} icon={Users} tone="default" />
+        <KpiTile label="En trial" value={activeTrials} icon={ShoppingBag} tone="warning" />
+        <KpiTile label="Expirés" value={expired} icon={Activity} tone={expired > 0 ? 'danger' : 'success'} />
       </div>
 
       {/* Graphique de croissance 12 mois */}

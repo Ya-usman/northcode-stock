@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { buildMorningCheckHtml, type ServiceCheck, type ServiceStatus } from '@/lib/email/morning-check-template'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { logCronRun } from '@/lib/api/cron-log'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -147,13 +148,12 @@ export async function GET(request: Request) {
     })
     if (sendError) throw new Error(sendError.message)
 
-    return NextResponse.json({
-      ok: true,
-      services: services.map(s => ({ name: s.name, status: s.status })),
-      metrics,
-    })
+    const summary = { services: services.map(s => ({ name: s.name, status: s.status })), metrics }
+    await logCronRun('morning-check', 'success', summary)
+    return NextResponse.json({ ok: true, ...summary })
   } catch (err: any) {
     console.error('[morning-check]', err)
+    await logCronRun('morning-check', 'error', undefined, err.message)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

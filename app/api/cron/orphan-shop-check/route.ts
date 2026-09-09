@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { writeAuditLog } from '@/lib/api/audit'
+import { logCronRun } from '@/lib/api/cron-log'
 
 /**
  * Filet de sécurité contre les boutiques orphelines (`shops.owner_id` NULL
@@ -31,7 +32,10 @@ export async function GET(request: Request) {
       .is('deleted_at', null)
 
     if (shopsError) throw new Error(shopsError.message)
-    if (!shops?.length) return NextResponse.json({ checked: 0, repaired: 0, flagged: 0 })
+    if (!shops?.length) {
+      await logCronRun('orphan-shop-check', 'success', { checked: 0, repaired: 0, flagged: 0 })
+      return NextResponse.json({ checked: 0, repaired: 0, flagged: 0 })
+    }
 
     let repaired = 0
     let flagged = 0
@@ -78,8 +82,10 @@ export async function GET(request: Request) {
       }
     }
 
+    await logCronRun('orphan-shop-check', 'success', { checked: shops.length, repaired, flagged })
     return NextResponse.json({ checked: shops.length, repaired, flagged })
   } catch (err: any) {
+    await logCronRun('orphan-shop-check', 'error', undefined, err.message)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

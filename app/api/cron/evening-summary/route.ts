@@ -3,6 +3,7 @@ import { Resend } from 'resend'
 import { createAdminClient } from '@/lib/supabase/server'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { logCronRun } from '@/lib/api/cron-log'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -25,7 +26,10 @@ export async function GET(request: Request) {
       .select('id, name, owner_id, currency, low_stock_threshold, notify_email_daily')
       .eq('notify_email_daily', true)
 
-    if (!shops?.length) return NextResponse.json({ ok: true, sent: 0 })
+    if (!shops?.length) {
+      await logCronRun('evening-summary', 'success', { sent: 0 })
+      return NextResponse.json({ ok: true, sent: 0 })
+    }
 
     const results: Record<string, string> = {}
 
@@ -103,9 +107,11 @@ export async function GET(request: Request) {
       results[shop.name] = sendError ? `error: ${sendError.message}` : 'sent'
     }
 
+    await logCronRun('evening-summary', 'success', { shops: shops.length, results })
     return NextResponse.json({ ok: true, shops: shops.length, results })
   } catch (err: any) {
     console.error('[cron/evening-summary]', err)
+    await logCronRun('evening-summary', 'error', undefined, err.message)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

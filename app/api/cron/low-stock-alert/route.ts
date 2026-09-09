@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import webpush from 'web-push'
 import { Resend } from 'resend'
 import { createAdminClient } from '@/lib/supabase/server'
+import { logCronRun } from '@/lib/api/cron-log'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -27,7 +28,10 @@ export async function GET(request: Request) {
       .select('id, name, owner_id, currency, low_stock_threshold, notify_push_low_stock, notify_email_low_stock')
 
     if (shopsError) throw new Error(shopsError.message)
-    if (!shops?.length) return NextResponse.json({ ok: true, shops: 0 })
+    if (!shops?.length) {
+      await logCronRun('low-stock-alert', 'success', { shops: 0 })
+      return NextResponse.json({ ok: true, shops: 0 })
+    }
 
     const results: Record<string, any> = {}
 
@@ -122,9 +126,11 @@ export async function GET(request: Request) {
       }
     }
 
+    await logCronRun('low-stock-alert', 'success', { shops: shops.length, results })
     return NextResponse.json({ ok: true, shops: shops.length, results })
   } catch (err: any) {
     console.error('[cron/low-stock-alert]', err)
+    await logCronRun('low-stock-alert', 'error', undefined, err.message)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

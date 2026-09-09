@@ -5,6 +5,8 @@ import { Users, Plus, Copy, CheckCheck, TrendingUp, DollarSign, Edit2, ToggleLef
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { AdminPageHeader } from '@/components/admin/ui/admin-page-header'
+import { KpiTile } from '@/components/admin/ui/kpi-tile'
 
 interface Agent {
   id: string
@@ -254,43 +256,32 @@ export default function AgentsPage() {
 
   return (
     <div className="space-y-6 max-w-5xl">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Agents de terrain</h1>
-          <p className="text-muted-foreground text-sm mt-1">Gérer les parrains et leurs commissions</p>
-        </div>
-        <Button onClick={() => { setShowForm(true); setEditAgent(null) }} className="bg-stockshop-blue">
-          <Plus className="h-4 w-4 mr-1" /> Nouvel agent
-        </Button>
-      </div>
+      <AdminPageHeader
+        title="Agents de terrain"
+        description="Gérer les parrains et leurs commissions"
+        actions={
+          <Button onClick={() => { setShowForm(true); setEditAgent(null) }} className="bg-stockshop-blue">
+            <Plus className="h-4 w-4 mr-1" /> Nouvel agent
+          </Button>
+        }
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-card rounded-xl border p-4">
-          <Users className="h-4 w-4 text-blue-400 mb-2" />
-          <p className="text-2xl font-bold">{agents.filter(a => a.is_active).length}</p>
-          <p className="text-xs text-muted-foreground">Agents actifs</p>
-        </div>
-        <div className="bg-card rounded-xl border p-4">
-          <TrendingUp className="h-4 w-4 text-green-400 mb-2" />
-          <p className="text-2xl font-bold">{commissions.length}</p>
-          <p className="text-xs text-muted-foreground">Commissions totales</p>
-        </div>
-        <div className="bg-card rounded-xl border p-4">
-          <DollarSign className="h-4 w-4 text-amber-400 mb-2" />
-          <p className="text-2xl font-bold text-amber-400">
-            {totalPending.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}
-          </p>
-          <p className="text-xs text-muted-foreground">À payer (₦)</p>
-        </div>
-        <div className="bg-card rounded-xl border p-4">
-          <DollarSign className="h-4 w-4 text-green-400 mb-2" />
-          <p className="text-2xl font-bold text-green-400">
-            {agents.reduce((acc, a) => acc + Number(a.total_paid), 0).toLocaleString('fr-FR', { maximumFractionDigits: 0 })}
-          </p>
-          <p className="text-xs text-muted-foreground">Déjà payé (₦)</p>
-        </div>
+        <KpiTile label="Agents actifs" value={agents.filter(a => a.is_active).length} icon={Users} tone="default" />
+        <KpiTile label="Commissions totales" value={commissions.length} icon={TrendingUp} tone="success" />
+        <KpiTile
+          label="À payer (₦)"
+          value={totalPending.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}
+          icon={DollarSign}
+          tone="warning"
+        />
+        <KpiTile
+          label="Déjà payé (₦)"
+          value={agents.reduce((acc, a) => acc + Number(a.total_paid), 0).toLocaleString('fr-FR', { maximumFractionDigits: 0 })}
+          icon={DollarSign}
+          tone="success"
+        />
       </div>
 
       {/* Formulaire création/édition */}

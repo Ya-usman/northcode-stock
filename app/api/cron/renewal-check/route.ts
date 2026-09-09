@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getPeriodDays, type BillingPeriod } from '@/lib/saas/countries'
 import { fetchWithTimeout } from '@/lib/api/fetch'
+import { logCronRun } from '@/lib/api/cron-log'
 import { Resend } from 'resend'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
@@ -12,6 +13,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  try {
   const supabase = await createAdminClient() as any
   const now = new Date()
   const in3Days = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString()
@@ -29,6 +31,7 @@ export async function GET(request: NextRequest) {
     .or(`last_renewal_attempt_at.is.null,last_renewal_attempt_at.lt.${oneDayAgo}`)
 
   if (!subs?.length) {
+    await logCronRun('renewal-check', 'success', { processed: 0 })
     return NextResponse.json({ processed: 0 })
   }
 
@@ -131,5 +134,12 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ processed: subs.length, charged, reminded, failed })
+  const summary = { processed: subs.length, charged, reminded, failed }
+  await logCronRun('renewal-check', 'success', summary)
+  return NextResponse.json(summary)
+  } catch (err: any) {
+    console.error('[renewal-check]', err)
+    await logCronRun('renewal-check', 'error', undefined, err.message)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
 }

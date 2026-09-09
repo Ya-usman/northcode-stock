@@ -15,7 +15,7 @@ import {
   ArrowLeft, ShoppingBag, Users, Package, TrendingUp, Clock,
   MessageSquare, Send, Trash2, Phone, ExternalLink, Shield,
   ShieldOff, ShieldCheck, RefreshCw, AlertTriangle, CheckCircle2,
-  Bell, StickyNote, Activity, CreditCard, ChevronRight, Pencil, Lock,
+  Bell, StickyNote, Activity, CreditCard, ChevronRight, Pencil, Lock, ScrollText,
 } from 'lucide-react'
 
 interface Props {
@@ -249,10 +249,16 @@ export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
   return (
     <div className="max-w-5xl space-y-5">
       {/* Back */}
-      <Link href={`/${locale}/admin/shops`} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-        <ArrowLeft className="h-4 w-4" />
-        Toutes les boutiques
-      </Link>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <Link href={`/${locale}/admin/shops`} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="h-4 w-4" />
+          Toutes les boutiques
+        </Link>
+        <Link href={`/${locale}/admin/audit?shop=${shopId}`} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+          <ScrollText className="h-3.5 w-3.5" />
+          Voir dans le journal d'audit
+        </Link>
+      </div>
 
       {/* Header identité */}
       <div className="bg-card rounded-xl border border-border shadow-sm p-5">
