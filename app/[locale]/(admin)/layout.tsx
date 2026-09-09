@@ -52,7 +52,7 @@ export default async function AdminLayout({
     <NextIntlClientProvider locale={locale} messages={messages}>
       <div className="min-h-screen bg-background text-foreground flex">
         {/* Sidebar desktop */}
-        <AdminSidebar locale={locale} userEmail={user!.email ?? ''} />
+        <AdminSidebar locale={locale} userEmail={user!.email ?? ''} tier={adminEntry?.tier ?? 'super_admin'} />
 
         {/* Mobile header */}
         <div

@@ -43,6 +43,8 @@ export type AuditAction =
   | 'admin.grant_plan'
   | 'admin.edit_shop'
   | 'admin.set_internal'
+  | 'admin.grant_admin_access'
+  | 'admin.revoke_admin_access'
   | 'admin.restore_product'
   | 'admin.restore_customer'
   | 'admin.create_owner'

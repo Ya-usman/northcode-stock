@@ -1,5 +1,7 @@
-import { createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { ManagersView } from '@/components/admin/managers-view'
+import { AdminAccessPanel } from '@/components/admin/admin-access-panel'
+import { AdminPageHeader } from '@/components/admin/ui/admin-page-header'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,5 +44,32 @@ export default async function AdminManagersPage() {
     })
   )
 
-  return <ManagersView shops={shops ?? []} managers={managers} />
+  // Session courante — autorisation déjà vérifiée par le layout parent
+  // (admin_users), on récupère juste qui c'est et son niveau pour
+  // afficher/masquer les actions de gestion des admins.
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  let canManageAdmins = false
+  if (user) {
+    const { data: entry } = await (supabase as any)
+      .from('admin_users')
+      .select('tier')
+      .eq('user_id', user.id)
+      .is('revoked_at', null)
+      .maybeSingle()
+    canManageAdmins = entry?.tier === 'super_admin'
+  }
+
+  return (
+    <div className="max-w-4xl">
+      <AdminPageHeader
+        title="Équipe & accès"
+        description="Responsables de boutique et administrateurs de la plateforme."
+      />
+      <div className="space-y-5">
+        <AdminAccessPanel currentUserId={user?.id ?? ''} canManage={canManageAdmins} />
+        <ManagersView shops={shops ?? []} managers={managers} />
+      </div>
+    </div>
+  )
 }

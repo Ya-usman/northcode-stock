@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, ShoppingBag, CreditCard, Package,
-  TrendingUp, LogOut, ChevronRight, ShieldCheck, Sun, Moon, UserCheck, ScrollText,
+  TrendingUp, LogOut, ChevronRight, ShieldCheck, Sun, Moon, UserCheck, ScrollText, Users,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { useTheme } from '@/lib/hooks/use-theme'
@@ -12,6 +12,7 @@ import { useTheme } from '@/lib/hooks/use-theme'
 interface AdminSidebarProps {
   locale: string
   userEmail: string
+  tier?: 'super_admin' | 'support'
 }
 
 const navSections = (locale: string) => [
@@ -34,6 +35,7 @@ const navSections = (locale: string) => [
       { href: `/${locale}/admin/stock`,     label: 'Stock',          icon: Package },
       { href: `/${locale}/admin/payments`,  label: 'Paiements',      icon: CreditCard },
       { href: `/${locale}/admin/agents`,    label: 'Agents terrain', icon: UserCheck },
+      { href: `/${locale}/admin/managers`,  label: 'Équipe & accès', icon: Users },
     ],
   },
   {
@@ -44,7 +46,7 @@ const navSections = (locale: string) => [
   },
 ]
 
-export function AdminSidebar({ locale, userEmail }: AdminSidebarProps) {
+export function AdminSidebar({ locale, userEmail, tier = 'super_admin' }: AdminSidebarProps) {
   const pathname = usePathname()
   const { isDark, toggle } = useTheme()
 
@@ -145,7 +147,9 @@ export function AdminSidebar({ locale, userEmail }: AdminSidebarProps) {
             <p className="text-xs text-foreground font-medium truncate">{userEmail}</p>
             <span className="inline-flex items-center gap-1 mt-0.5">
               <ShieldCheck className="h-2.5 w-2.5 text-stockshop-gold" />
-              <span className="text-[9px] font-bold text-stockshop-gold tracking-wide">SUPER ADMIN</span>
+              <span className="text-[9px] font-bold text-stockshop-gold tracking-wide">
+                {tier === 'support' ? 'SUPPORT' : 'SUPER ADMIN'}
+              </span>
             </span>
           </div>
           <Link

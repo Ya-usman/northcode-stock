@@ -108,19 +108,22 @@ export function ManagersView({ shops: initialShops, managers: initialManagers }:
   }
 
   return (
-    <div className="space-y-5 max-w-4xl">
+    <div className="space-y-5">
 
       {/* ── Header ── */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground leading-tight">Responsables</h1>
-          <p className="text-muted-foreground text-xs sm:text-sm mt-1">
+          <h2 className="font-semibold text-foreground text-sm flex items-center gap-2">
+            <Store className="h-4 w-4 text-primary" /> Responsables de boutique
+          </h2>
+          <p className="text-muted-foreground text-xs mt-0.5">
             Assignés via l'onglet Équipe · apparaissent ici automatiquement.
           </p>
         </div>
         <Button
           onClick={() => setAdding(v => !v)}
-          className="gap-2 bg-stockshop-blue hover:bg-stockshop-blue-light shrink-0 h-9 text-sm"
+          size="sm"
+          className="gap-1.5 bg-stockshop-blue hover:bg-stockshop-blue-light shrink-0 h-9 text-sm"
         >
           <Plus className="h-4 w-4" />
           <span className="hidden xs:inline sm:inline">Assigner</span>
