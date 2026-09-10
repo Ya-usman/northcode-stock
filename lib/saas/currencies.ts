@@ -45,6 +45,9 @@ export const REFERRAL_CURRENCIES: CurrencyRef[] = buildCurrencies()
 const SYMBOL_BY_CODE: Record<string, string> = Object.fromEntries(REFERRAL_CURRENCIES.map((c) => [c.code, c.symbol]))
 const SUPPORTED_CODES = new Set(REFERRAL_CURRENCIES.map((c) => c.code))
 
+/** Codes ISO de toutes les devises supportées par StockShop. */
+export const SUPPORTED_CURRENCY_CODES: string[] = REFERRAL_CURRENCIES.map((c) => c.code)
+
 /** Code ISO de la devise d'un pays (`getCountry` est la source de vérité). */
 export function currencyCodeForCountry(countryCode: string | null | undefined): string {
   return getCountry(countryCode || 'NG').currency
