@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { Save, Upload, Globe, Moon, Sun, ShoppingCart, History, CreditCard, Users, Package, ArrowLeftRight, Tag, Truck, BarChart2, ShieldCheck, Bell, Receipt, NotebookPen, Trash2, ClipboardList, ClipboardCheck, TrendingUp, AlertTriangle, CalendarDays, Clock } from 'lucide-react'
+import { Save, Upload, Globe, Moon, Sun, ShoppingCart, History, CreditCard, Users, Package, ArrowLeftRight, Tag, Truck, BarChart2, ShieldCheck, Bell, Receipt, NotebookPen, Trash2, ClipboardList, ClipboardCheck, TrendingUp, AlertTriangle, CalendarDays, Clock, Gift, ChevronRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
@@ -413,6 +414,22 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       {/* Owner-only sections: shop info, business settings, notifications */}
       {isOwner && (
         <>
+          {/* Parrainage & récompenses */}
+          <Link href={`/${locale}/settings/referrals`}>
+            <Card className="border-0 shadow-sm hover:bg-accent/40 transition-colors cursor-pointer">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-stockshop-blue/10 flex items-center justify-center flex-shrink-0">
+                  <Gift className="h-5 w-5 text-stockshop-blue" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">{t('settings.referrals_title')}</p>
+                  <p className="text-xs text-muted-foreground">{t('settings.referrals_subtitle')}</p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              </CardContent>
+            </Card>
+          </Link>
+
           {/* Shop Info */}
           <Card className="border-0 shadow-sm">
             <CardHeader className="pb-3">
