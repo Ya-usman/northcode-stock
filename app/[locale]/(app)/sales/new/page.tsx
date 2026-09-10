@@ -95,10 +95,11 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const locale = useLocale()
   const { profile, shop, userShops } = useAuth()
   const isOwner = profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'shop_manager' || profile?.role === 'super_admin'
-  const { fmt: _fmtGlobal, symbol: _globalSymbol } = useCurrency()
-  // Always derive symbol from shop so prices stay in sync with the shop switcher
-  const symbol = shop?.currency || _globalSymbol
-  const formatNaira = (amount: number | string | null | undefined) => formatCurrency(amount, symbol)
+  const { fmt: _fmtGlobal, code: currencyCode, symbol } = useCurrency()
+  // Code ISO + symbole résolus depuis la boutique active (via useCurrency,
+  // qui normalise shop.currency + shop.country). Les prix restent en phase
+  // avec le sélecteur de boutique.
+  const formatNaira = (amount: number | string | null | undefined) => formatCurrency(amount, currencyCode)
   const supabase = createClient()
   const { toast } = useToast()
   const searchRef = useRef<HTMLInputElement>(null)
@@ -800,7 +801,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       notifyNewSale({
         shopId: shop!.id,
         total: totalToCollect,
-        currencySymbol: shop!.currency || '₦',
+        currencySymbol: symbol,
         cashierName: profile?.full_name || undefined,
         paymentLabel: shopCountry.paymentMethods.find(m => m.id === paymentMethod)?.label || paymentMethod,
       })
@@ -889,7 +890,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       balance: completedSale.balance,
       method: completedSale.payment_method,
       customerName: (completedSale as any).customers?.name,
-      currencySymbol: shop?.currency || symbol,
+      currencySymbol: symbol,
     })
     shareReceiptWhatsApp(message)
   }
@@ -1172,9 +1173,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               <div className="flex items-center gap-3">
                 <Label className="text-sm w-24 flex-shrink-0">{t('sales.discount')}</Label>
                 <div className="flex flex-1 rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-0">
-                  <span className="flex items-center px-2.5 bg-muted border-r text-sm text-muted-foreground font-medium whitespace-nowrap select-none">{shop?.currency || '₦'}</span>
+                  <span className="flex items-center px-2.5 bg-muted border-r text-sm text-muted-foreground font-medium whitespace-nowrap select-none">{symbol}</span>
                   <input type="text" inputMode="numeric" pattern="[0-9]*"
-                    value={formatInputValue(discount, shop?.currency || '₦')}
+                    value={formatInputValue(discount, currencyCode)}
                     onChange={e => {
                       const digits = e.target.value.replace(/\D/g, '')
                       setDiscount(Math.min(Number(digits) || 0, subtotal))
@@ -1289,12 +1290,12 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                     <div className="space-y-1">
                       <Label className="text-xs text-orange-800">{t('sales.amount_given_for_debt')}</Label>
                       <div className="flex rounded-md border border-orange-200 overflow-hidden focus-within:ring-2 focus-within:ring-orange-300">
-                        <span className="flex items-center px-2.5 bg-orange-50 border-r border-orange-200 text-sm text-muted-foreground font-medium whitespace-nowrap select-none">{shop?.currency || '₦'}</span>
+                        <span className="flex items-center px-2.5 bg-orange-50 border-r border-orange-200 text-sm text-muted-foreground font-medium whitespace-nowrap select-none">{symbol}</span>
                         <input
                           type="text"
                           inputMode="numeric"
                           pattern="[0-9]*"
-                          value={formatInputValue(debtRepayAmount, shop?.currency || '₦')}
+                          value={formatInputValue(debtRepayAmount, currencyCode)}
                           onChange={e => setDebtRepayAmount(e.target.value.replace(/\D/g, ''))}
                           className="flex-1 h-11 px-3 text-base font-bold bg-card outline-none"
                           placeholder="0"
@@ -1371,12 +1372,12 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               <div className="space-y-1.5">
                 <Label>{t('payment.amount_paid')}</Label>
                 <div className="flex rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
-                  <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">{shop?.currency || '₦'}</span>
+                  <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">{symbol}</span>
                   <input type="text" inputMode="numeric" pattern="[0-9]*"
-                    value={formatInputValue(amountPaid, shop?.currency || '₦')}
+                    value={formatInputValue(amountPaid, currencyCode)}
                     onChange={e => setAmountPaid(e.target.value.replace(/\D/g, ''))}
                     className="flex-1 h-12 px-3 text-lg font-bold bg-card outline-none"
-                    placeholder={formatInputValue(totalToCollect, shop?.currency || '₦') || '0'} />
+                    placeholder={formatInputValue(totalToCollect, currencyCode) || '0'} />
                 </div>
               </div>
               {Number(amountPaid) > 0 && Number(amountPaid) >= totalToCollect && (
@@ -1460,9 +1461,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   {t('sales.amount_paid_in', { method: getCountry(shop?.country).paymentMethods.find(m => m.id === paymentMethod)?.label || paymentMethod })}
                 </Label>
                 <div className="flex rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
-                  <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">{shop?.currency || '₦'}</span>
+                  <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">{symbol}</span>
                   <input type="text" inputMode="numeric" pattern="[0-9]*"
-                    value={formatInputValue(amountPaid, shop?.currency || '₦')}
+                    value={formatInputValue(amountPaid, currencyCode)}
                     onChange={e => setAmountPaid(e.target.value.replace(/\D/g, ''))}
                     className="flex-1 h-11 px-3 text-lg font-bold bg-card outline-none"
                     placeholder="0" />
@@ -1592,17 +1593,17 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   <p className="text-xs text-muted-foreground mb-2 font-medium">{t('sales.new_selling_price')}</p>
                   <div className="flex rounded-xl border-2 border-stockshop-blue overflow-hidden shadow-sm">
                     <span className="flex items-center px-4 bg-stockshop-blue/5 border-r border-stockshop-blue/30 text-sm font-bold text-stockshop-blue whitespace-nowrap select-none">
-                      {shop?.currency || '₦'}
+                      {symbol}
                     </span>
                     <input
                       type="text"
                       inputMode="numeric"
                       pattern="[0-9]*"
                       autoFocus
-                      value={formatInputValue(priceModalInput, shop?.currency || '₦')}
+                      value={formatInputValue(priceModalInput, currencyCode)}
                       onChange={e => setPriceModalInput(e.target.value.replace(/\D/g, ''))}
                       className="flex-1 h-14 px-4 text-2xl font-bold bg-card outline-none tracking-tight"
-                      placeholder={formatInputValue(minPrice, shop?.currency || '₦')}
+                      placeholder={formatInputValue(minPrice, currencyCode)}
                     />
                   </div>
                   <div className="h-5 mt-1.5">

@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getTrialDaysLeft, hasActiveSubscription, PLANS } from '@/lib/saas/plans'
 import { computeHealthScore } from '@/lib/saas/health-score'
 import { formatAdminRevenue, formatCurrency } from '@/lib/utils/currency'
+import { isFrancCfaCurrency } from '@/lib/saas/currencies'
 import {
   TrendingUp, ShoppingBag, Users, AlertTriangle, DollarSign,
   ArrowUpRight, Package, Activity, Clock, UserCheck, TrendingDown, HeartPulse,
@@ -69,7 +70,7 @@ function splitRevenueByCurrency(subs: any[], shopCurrencyMap: Record<string, str
   let cfa = 0
   for (const s of subs) {
     const currency = shopCurrencyMap[s.shop_id] || '₦'
-    if (currency.includes('CFA') || currency === 'FCFA') {
+    if (isFrancCfaCurrency(currency)) {
       cfa += Number(s.amount)
     } else {
       ngn += Number(s.amount)

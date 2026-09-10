@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils/cn'
+import { displayMetaFor } from '@/lib/saas/currencies'
 
 interface NumericInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'value' | 'onChange'> {
   value?: number | string
@@ -11,7 +12,9 @@ interface NumericInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElem
 
 function fmt(n: number, currency?: string): string {
   if (!n) return ''
-  const locale = currency === 'FCFA' ? 'fr-FR' : 'en-NG'
+  // Sépare seulement les milliers (pas de symbole) — locale du registre
+  // central (code ISO ou ancien symbole tolérés).
+  const locale = currency ? displayMetaFor(currency).numberLocale : 'en-NG'
   return n.toLocaleString(locale, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 }
 

@@ -100,6 +100,16 @@ export function isSupportedCurrencyCode(code: string | null | undefined): boolea
   return !!code && SUPPORTED_CODES.has(code)
 }
 
+/**
+ * `true` si la valeur désigne un franc CFA (code XAF/XOF **ou** un ancien
+ * symbole). Utile pour les regroupements admin tolérants pendant la
+ * transition V3 — évite un `.includes('CFA')` dispersé (§29).
+ */
+export function isFrancCfaCurrency(value: string | null | undefined): boolean {
+  const v = (value ?? '').trim()
+  return v === 'XAF' || v === 'XOF' || CFA_SYMBOLS.has(v)
+}
+
 /** Métadonnées d'une devise par code ISO (repli : NGN). */
 export function getCurrency(code: string | null | undefined): CurrencyDef {
   return (code && CURRENCIES[code]) || CURRENCIES.NGN

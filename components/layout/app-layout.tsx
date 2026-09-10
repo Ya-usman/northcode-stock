@@ -5,6 +5,8 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext } from '@/lib/contexts/auth-context'
+import { formatCurrency } from '@/lib/utils/currency'
+import { resolveCurrencyCode } from '@/lib/saas/currencies'
 import { Sidebar } from './sidebar'
 import { BottomNav } from './bottom-nav'
 import { Header } from './header'
@@ -335,7 +337,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         if ((shop as any).notify_push_new_sale === false) return
 
         triggerSaleFeedback()
-        const amount = `${Number(sale.total ?? 0).toLocaleString('fr-FR')} ${shop.currency || ''}`
+        const amount = formatCurrency(Number(sale.total ?? 0), resolveCurrencyCode(shop.currency, (shop as any).country))
         toast({
           title: t('app_layout.new_sale_toast_title'),
           description: `${amount}${sale.sale_number ? ` · #${sale.sale_number}` : ''}`,

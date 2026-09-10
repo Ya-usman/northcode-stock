@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/server'
 import { PLANS, hasActiveSubscription } from '@/lib/saas/plans'
 import { formatCurrency, formatAdminRevenue } from '@/lib/utils/currency'
+import { isFrancCfaCurrency } from '@/lib/saas/currencies'
 import { CountryFilter } from '@/components/admin/country-filter'
 import { GatewayFilter } from '@/components/admin/gateway-filter'
 import { GATEWAY_LABELS } from '@/lib/saas/gateways'
@@ -105,7 +106,7 @@ export default async function AdminPaymentsPage({
   let totalNGN = 0, totalCFA = 0
   for (const p of matchingRows) {
     const currency = shopMap[p.shop_id]?.currency || '₦'
-    if (currency.includes('CFA') || currency === 'FCFA') totalCFA += Number(p.amount)
+    if (isFrancCfaCurrency(currency)) totalCFA += Number(p.amount)
     else totalNGN += Number(p.amount)
   }
 
@@ -123,7 +124,7 @@ export default async function AdminPaymentsPage({
     if (!gatewayStats[key]) gatewayStats[key] = { count: 0, ngn: 0, cfa: 0 }
     gatewayStats[key].count++
     const currency = shopMap[p.shop_id]?.currency || '₦'
-    if (currency.includes('CFA') || currency === 'FCFA') gatewayStats[key].cfa += Number(p.amount)
+    if (isFrancCfaCurrency(currency)) gatewayStats[key].cfa += Number(p.amount)
     else gatewayStats[key].ngn += Number(p.amount)
   }
   const gatewayRows = Object.entries(gatewayStats).sort((a, b) => b[1].count - a[1].count)

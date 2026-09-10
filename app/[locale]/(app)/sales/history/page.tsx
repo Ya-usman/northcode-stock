@@ -597,11 +597,7 @@ export default function SalesHistoryPage() {
     setExportMenuOpen(false)
     try {
       const { generateSalesReportPDF } = await import('@/lib/utils/pdf')
-      const currency = shop.currency || 'XOF'
-      const isNGN = currency === 'NGN'
-      const fmtAmt = (n: number) => isNGN
-        ? `NGN ${n.toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-        : `${n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${currency}`
+      const fmtAmt = (n: number) => formatNaira(Math.round(n))
       const now = new Date()
       const periodLabel = dateFilter === 'today'
         ? format(now, 'dd/MM/yyyy')

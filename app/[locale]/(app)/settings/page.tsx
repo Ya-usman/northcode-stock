@@ -7,6 +7,7 @@ import { Save, Upload, Globe, Moon, Sun, ShoppingCart, History, CreditCard, User
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
+import { resolveCurrencyCode, currencySymbol } from '@/lib/saas/currencies'
 import { useToast } from '@/components/ui/use-toast'
 import { isPushSupported, subscribeToPush, unsubscribeFromPush, getPushPermission } from '@/lib/push'
 import { useTheme } from '@/lib/hooks/use-theme'
@@ -149,7 +150,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       setCity(shopData.city)
       setState(shopData.state)
       setCountry((shopData.country as CountryCode) || 'NG')
-      setCurrency(shopData.currency || COUNTRIES[(shopData.country as CountryCode) || 'NG']?.currencySymbol || '₦')
+      setCurrency(resolveCurrencyCode(shopData.currency, shopData.country))
       setWhatsapp(shopData.whatsapp || COUNTRIES[(shopData.country as CountryCode) || 'NG']?.phonePrefix.replace('+', '') || '')
       setThreshold(String(shopData.low_stock_threshold))
       setTaxRate(String(shopData.tax_rate))
@@ -487,7 +488,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                         setWhatsapp(COUNTRIES[code]?.phonePrefix.replace('+', '') || '')
                       }
                       setCountry(code)
-                      setCurrency(COUNTRIES[code]?.currencySymbol || '')
+                      setCurrency(COUNTRIES[code]?.currency || 'NGN')
                     }}
                     className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                   >
@@ -503,8 +504,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                   <Label>{t('settings.currency_label')}</Label>
                   <div className="flex h-10 items-center gap-2 rounded-md border border-input bg-muted px-3">
                     <span className="text-lg">{COUNTRIES[country]?.flag || '🌐'}</span>
-                    <span className="font-semibold text-foreground">{currency}</span>
-                    <span className="text-xs text-muted-foreground ml-1">{COUNTRIES[country]?.currency || ''}</span>
+                    <span className="font-semibold text-foreground">{currencySymbol(currency) || currency}</span>
+                    <span className="text-xs text-muted-foreground ml-1">{currency}</span>
                   </div>
                   <p className="text-xs text-muted-foreground">{t('settings.currency_auto_hint')}</p>
                 </div>

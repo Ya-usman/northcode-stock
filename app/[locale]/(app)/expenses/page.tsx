@@ -426,11 +426,7 @@ export default function ExpensesPage() {
       // Notify owner when a non-owner creates a new (non-recurring) expense
       const role = profile?.role
       if (!editing && !isRecurring && role && role !== 'owner' && role !== 'super_admin') {
-        const currency = shop?.currency || 'XOF'
-        const isNGN = currency === 'NGN'
-        const amountStr = isNGN
-          ? `NGN ${Number(amount).toLocaleString('en-NG', { maximumFractionDigits: 0 })}`
-          : `${Number(amount).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} ${currency}`
+        const amountStr = fmt(Math.round(Number(amount)))
         fetch('/api/push/new-expense', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -566,11 +562,7 @@ export default function ExpensesPage() {
     setExporting(true)
     setExportMenuOpen(false)
     try {
-      const currency = shop.currency || 'XOF'
-      const isNGN = currency === 'NGN'
-      const fmtAmt = (n: number) => isNGN
-        ? `NGN ${n.toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-        : `${n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${currency}`
+      const fmtAmt = (n: number) => fmt(Math.round(n))
       await generateExpensesReportPDF({
         shopName: shop.name,
         month: monthLabel,

@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
 import { formatAdminRevenue } from '@/lib/utils/currency'
+import { isFrancCfaCurrency } from '@/lib/saas/currencies'
 import { GrowthChart } from '@/components/admin/growth-chart'
 import { CountryFilter } from '@/components/admin/country-filter'
 import { COUNTRIES } from '@/lib/saas/countries'
@@ -77,7 +78,7 @@ export default async function AnalyticsPage({
   let totalNGN = 0, totalCFA = 0
   for (const s of activeSubs) {
     const cur = shopCurrencyMap[s.shop_id] || '₦'
-    if (cur.includes('CFA') || cur === 'FCFA') totalCFA += Number(s.amount)
+    if (isFrancCfaCurrency(cur)) totalCFA += Number(s.amount)
     else totalNGN += Number(s.amount)
   }
   const activeSubscriptions = shops.filter((s: any) => hasActiveSubscription(s.plan, s.plan_expires_at)).length
