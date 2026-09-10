@@ -2013,6 +2013,8 @@
     "unknown_gateway": "Hanyar biyan kuɗi ba a sani ba",
     "shop_access_denied": "An hana izini zuwa wasu kantuna",
     "no_data": "Babu bayanai",
+    "invalid_currency": "Kuɗin da ba a gane ba",
+    "currency_change_blocked_history": "Ba za ka iya canza kuɗin kanti da ke da tallace-tallace ko kashe kuɗi ba. Tuntuɓi tallafi.",
     "invalid_request": "Buƙata ba ta inganta ba"
   },
   "product_form": {

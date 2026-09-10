@@ -89,7 +89,7 @@ export async function POST(request: Request) {
           owner_id: user.id,
           city: '',
           state: '',
-          currency: countryConfig.currencySymbol,
+          currency: countryConfig.currency, // code ISO (V3)
           country: countryConfig.code,
           billing_country: countryConfig.code,
         })

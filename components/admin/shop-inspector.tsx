@@ -719,7 +719,7 @@ export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
                     value={editForm.country}
                     onChange={e => {
                       const code = e.target.value as CountryCode
-                      const auto = COUNTRIES[code]?.currencySymbol || ''
+                      const auto = COUNTRIES[code]?.currency || 'NGN' // code ISO (V3)
                       setEditForm(f => ({ ...f, country: code, currency: auto }))
                     }}
                     className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
@@ -739,12 +739,12 @@ export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground block mb-1">Devise</label>
+                  <label className="text-xs text-muted-foreground block mb-1">Devise (code ISO)</label>
                   <input
                     value={editForm.currency}
-                    onChange={e => setEditForm(f => ({ ...f, currency: e.target.value }))}
+                    onChange={e => setEditForm(f => ({ ...f, currency: e.target.value.toUpperCase() }))}
                     className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
-                    placeholder="₦, FCFA…"
+                    placeholder="XAF, XOF, NGN, EUR…"
                   />
                 </div>
               </div>

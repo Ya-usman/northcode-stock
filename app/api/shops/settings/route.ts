@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { normalizeCurrency, currencyCodeForCountry } from '@/lib/saas/currencies'
 
 const HOURS_FIELDS = ['hours_enabled', 'opening_time', 'closing_time', 'hours_manual_override'] as const
 
@@ -55,6 +56,45 @@ export async function PATCH(request: Request) {
     }
 
     const admin = await createAdminClient() as any
+
+    // ── Devise / pays (V3) ────────────────────────────────────────────────
+    // La devise est toujours un CODE ISO en base. On normalise ce qui arrive
+    // (compat : le frontend envoie déjà un code depuis la Phase B, mais un
+    // vieux client pourrait envoyer un symbole). On BLOQUE un changement de
+    // devise sur une boutique qui a déjà un historique financier (§10) —
+    // aucune conversion automatique de l'historique. Le super_admin garde
+    // la main pour un cas légitime.
+    if ('currency' in updates || 'country' in updates) {
+      const { data: current } = await admin
+        .from('shops').select('currency, country').eq('id', shop_id).single()
+
+      const nextCountry = ('country' in updates ? updates.country : current?.country) as string | null
+
+      // Devise explicitement fournie par le client → doit être reconnue telle
+      // quelle (code ISO, symbole non ambigu, ou variante CFA levée par le
+      // pays). Si SEUL le pays change, on re-dérive la devise du nouveau pays.
+      const iso = 'currency' in updates
+        ? normalizeCurrency(updates.currency as string | null, nextCountry)
+        : currencyCodeForCountry(nextCountry)
+      if (!iso) {
+        return NextResponse.json({ error: t('invalid_currency') }, { status: 400 })
+      }
+      updates.currency = iso
+
+      // `current.currency` est déjà un code ISO (migration 141). Un simple
+      // écart de code suffit à détecter un vrai changement de devise.
+      const currencyChanges = iso !== (current?.currency ?? null)
+
+      if (currencyChanges && member.role !== 'super_admin') {
+        const [{ count: salesCount }, { count: expensesCount }] = await Promise.all([
+          admin.from('sales').select('id', { count: 'exact', head: true }).eq('shop_id', shop_id),
+          admin.from('expenses').select('id', { count: 'exact', head: true }).eq('shop_id', shop_id),
+        ])
+        if ((salesCount ?? 0) > 0 || (expensesCount ?? 0) > 0) {
+          return NextResponse.json({ error: t('currency_change_blocked_history') }, { status: 403 })
+        }
+      }
+    }
 
     // Les horaires ont besoin de l'état actuel : pour valider fermeture >
     // ouverture même si un seul des deux champs est envoyé dans cette

@@ -25,25 +25,22 @@ export async function POST(request: Request) {
       .eq('id', user.id)
       .single()
 
-    const { getCountry } = await import('@/lib/saas/countries')
+    const { currencyCodeForCountry } = await import('@/lib/saas/currencies')
 
-    // If the owner explicitly chose a country, use it; otherwise inherit from profile/primary shop
+    // If the owner explicitly chose a country, use it; otherwise inherit from profile/primary shop.
+    // `currency` = code ISO (V3), toujours dérivé du pays.
     let country: string
-    let currency: string
     if (requestCountry) {
       country = requestCountry
-      currency = getCountry(requestCountry).currencySymbol
     } else if ((profile as any)?.country) {
       country = (profile as any).country
-      currency = getCountry(country).currencySymbol
     } else if (profile?.shop_id) {
-      const { data: primaryShop } = await supabase.from('shops').select('currency, country').eq('id', profile.shop_id).single()
+      const { data: primaryShop } = await supabase.from('shops').select('country').eq('id', profile.shop_id).single()
       country = (primaryShop as any)?.country ?? 'NG'
-      currency = (primaryShop as any)?.currency ?? '₦'
     } else {
       country = 'NG'
-      currency = '₦'
     }
+    const currency = currencyCodeForCountry(country)
 
     // Read plan from owner profile — the single source of truth for billing
     // (profiles.plan has a DB DEFAULT 'trial', always populated).

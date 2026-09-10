@@ -2013,6 +2013,8 @@
     "unknown_gateway": "Passerelle de paiement inconnue",
     "shop_access_denied": "Accès refusé à certains magasins",
     "no_data": "Aucune donnée",
+    "invalid_currency": "Devise non reconnue",
+    "currency_change_blocked_history": "Impossible de changer la devise d'une boutique qui a déjà des ventes ou des dépenses. Contactez le support.",
     "invalid_request": "Requête invalide"
   },
   "product_form": {

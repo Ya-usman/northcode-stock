@@ -83,7 +83,7 @@ export async function POST(request: Request) {
         city,
         state: city,
         whatsapp: phone || null,
-        currency: countryConfig.currencySymbol,
+        currency: countryConfig.currency, // code ISO (V3) — jamais le symbole
         country: countryConfig.code,
         billing_country: countryConfig.code,
         agent_id: agentId,

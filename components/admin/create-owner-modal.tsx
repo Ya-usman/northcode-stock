@@ -55,7 +55,7 @@ export function CreateOwnerModal({ tier }: { tier: AdminTier }) {
           shop_name: form.shop_name.trim(),
           city: form.city.trim() || null,
           country: form.country,
-          currency: selectedCountry.currencySymbol,
+          // la devise est dérivée du pays côté serveur (code ISO — V3)
         }),
       }))
       const data = await res.json()

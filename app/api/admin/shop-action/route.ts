@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getOwnerShopIds } from '@/lib/api/shop-auth'
 import { requireAdmin } from '@/lib/api/require-admin'
+import { normalizeCurrency, currencyCodeForCountry } from '@/lib/saas/currencies'
 
 export async function POST(request: Request) {
   try {
@@ -120,7 +121,16 @@ export async function POST(request: Request) {
         if (city !== undefined)     updates.city     = city
         if (country !== undefined)  updates.country  = country
         if (whatsapp !== undefined) updates.whatsapp = whatsapp
-        if (currency !== undefined) updates.currency = currency
+        // Devise (V3) : toujours un code ISO. Normalise ce qui est fourni,
+        // sinon dérive du pays si le pays change. Le super_admin peut
+        // changer la devise même avec un historique (garde manuelle).
+        if (currency !== undefined) {
+          const iso = normalizeCurrency(currency, country)
+          if (!iso) return NextResponse.json({ error: `Devise non reconnue : ${currency}` }, { status: 400 })
+          updates.currency = iso
+        } else if (country !== undefined) {
+          updates.currency = currencyCodeForCountry(country)
+        }
         if (Object.keys(updates).length === 0) {
           return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
         }

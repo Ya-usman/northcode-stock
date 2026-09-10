@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { requireAdmin } from '@/lib/api/require-admin'
+import { currencyCodeForCountry } from '@/lib/saas/currencies'
 
 // POST /api/admin/owner — créer un nouveau propriétaire depuis l'admin
 export async function POST(request: Request) {
@@ -12,7 +13,7 @@ export async function POST(request: Request) {
     const { user } = auth
 
     const body = await request.json()
-    const { email, full_name, shop_name, city, country, currency } = body
+    const { email, full_name, shop_name, city, country } = body
 
     if (!email || !full_name || !shop_name) {
       return NextResponse.json({ error: 'email, full_name et shop_name sont requis' }, { status: 400 })
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
       state: '',
       country: country || 'NG',
       billing_country: country || 'NG',
-      currency: currency || '₦',
+      currency: currencyCodeForCountry(country || 'NG'), // code ISO dérivé du pays (V3)
       owner_id: userId,
     }).select('id').single()
 

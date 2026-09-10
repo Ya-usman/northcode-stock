@@ -2013,6 +2013,8 @@
     "unknown_gateway": "Unknown payment gateway",
     "shop_access_denied": "Access denied to some shops",
     "no_data": "No data",
+    "invalid_currency": "Unrecognised currency",
+    "currency_change_blocked_history": "You cannot change the currency of a shop that already has sales or expenses. Please contact support.",
     "invalid_request": "Invalid request"
   },
   "product_form": {

@@ -165,9 +165,11 @@ export function currencyCodeForCountry(countryCode: string | null | undefined): 
  *   normalizeCurrency('F CFA', 'CM')         → 'XAF'
  *   normalizeCurrency('FCFA', 'SN')          → 'XOF'
  *   normalizeCurrency('F CFA')               → null   (ambigu, pas de pays)
- *   normalizeCurrency('???')                 → null   (inconnu)
+ *   normalizeCurrency('???', 'CM')           → null   (entrée non reconnue)
  *
- * @returns code ISO, ou `null` si indéterminable (anomalie à tracer).
+ * STRICTE : ne « devine » jamais depuis le seul pays si l'entrée est
+ * inconnue (c'est le rôle de `resolveCurrencyCode`). Renvoie `null` =
+ * anomalie à tracer / à rejeter.
  */
 export function normalizeCurrency(
   value: string | null | undefined,
@@ -180,7 +182,7 @@ export function normalizeCurrency(
   const upper = raw.toUpperCase()
   if (SUPPORTED_CODES.has(upper)) return upper
 
-  // 2. Symbole « franc CFA » (ambigu) → départage par le pays
+  // 2. Symbole « franc CFA » (ambigu) → départage UNIQUEMENT par le pays
   if (CFA_SYMBOLS.has(raw) || CFA_SYMBOLS.has(upper)) {
     if (country) {
       const iso = currencyCodeForCountry(country)
@@ -191,12 +193,6 @@ export function normalizeCurrency(
 
   // 3. Symbole non ambigu connu
   if (CODE_BY_SYMBOL[raw]) return CODE_BY_SYMBOL[raw]
-
-  // 4. Dernier recours : le pays
-  if (country) {
-    const iso = currencyCodeForCountry(country)
-    if (SUPPORTED_CODES.has(iso)) return iso
-  }
 
   return null
 }
