@@ -6,21 +6,27 @@ import { Search, Gift, Users, TrendingUp, Wallet, CreditCard, Banknote, Ban, Sno
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/use-toast'
-import { formatNaira } from '@/lib/utils/currency'
+import { formatCurrency } from '@/lib/utils/currency'
+import { currencySymbol } from '@/lib/saas/currencies'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { KpiTile } from '@/components/admin/ui/kpi-tile'
+import { MoneyTile } from '@/components/admin/money-by-currency'
 import type { AdminTier } from '@/lib/api/require-admin'
+
+type ByCurrency = Record<string, number>
 
 interface Overview {
   active_codes: number
   total_referrals: number
   converted: number
   conversion_rate: number
-  total_rewards: number
-  total_used: number
-  total_withdrawn: number
-  revenue_generated: number
   pending_payouts: number
+  rewards_total: ByCurrency
+  rewards_available: ByCurrency
+  rewards_pending: ByCurrency
+  credit_used: ByCurrency
+  withdrawn: ByCurrency
+  revenue_generated: ByCurrency
 }
 
 interface LookupResult {
@@ -149,17 +155,21 @@ export function ReferralAdminPanel({ tier, locale }: { tier: AdminTier; locale: 
       {/* Stats */}
       {overview && (
         <>
+          {/* Compteurs */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <KpiTile label="Codes actifs" value={overview.active_codes} icon={Gift} tone="default" />
             <KpiTile label="Filleuls" value={overview.total_referrals} icon={Users} tone="default" />
             <KpiTile label="Taux de conversion" value={`${overview.conversion_rate}%`} icon={TrendingUp} tone={overview.conversion_rate >= 20 ? 'success' : 'default'} />
-            <KpiTile label="Retraits en attente" value={overview.pending_payouts} icon={Banknote} tone={overview.pending_payouts > 0 ? 'warning' : 'default'} />
+            <KpiTile label="Demandes de retrait en attente" value={overview.pending_payouts} icon={Banknote} tone={overview.pending_payouts > 0 ? 'warning' : 'default'} />
           </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <KpiTile label="Récompenses totales" value={formatNaira(overview.total_rewards)} icon={Wallet} tone="default" />
-            <KpiTile label="Utilisé sur abonnements" value={formatNaira(overview.total_used)} icon={CreditCard} tone="default" />
-            <KpiTile label="Total retiré" value={formatNaira(overview.total_withdrawn)} icon={Banknote} tone="default" />
-            <KpiTile label="Revenu généré par le programme" value={formatNaira(overview.revenue_generated)} icon={TrendingUp} tone="success" />
+          {/* Montants — ventilés par devise, jamais additionnés */}
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+            <MoneyTile label="Récompenses totales" amounts={overview.rewards_total} icon={Wallet} tone="default" />
+            <MoneyTile label="Récompenses disponibles" amounts={overview.rewards_available} icon={Wallet} tone="success" />
+            <MoneyTile label="Récompenses en attente" amounts={overview.rewards_pending} icon={Wallet} tone="warning" />
+            <MoneyTile label="Utilisé sur abonnements" amounts={overview.credit_used} icon={CreditCard} tone="default" />
+            <MoneyTile label="Total retiré" amounts={overview.withdrawn} icon={Banknote} tone="default" />
+            <MoneyTile label="Revenu généré par le programme" amounts={overview.revenue_generated} icon={TrendingUp} tone="success" />
           </div>
         </>
       )}
@@ -189,7 +199,7 @@ export function ReferralAdminPanel({ tier, locale }: { tier: AdminTier; locale: 
                       <span className="text-muted-foreground">Filleul :</span> {item.referred.shop_name} · {item.referred.email}
                     </p>
                     {item.reward && (
-                      <p className="text-green-400 font-semibold pt-0.5">Récompense en attente : +{formatNaira(item.reward.amount)}</p>
+                      <p className="text-green-400 font-semibold pt-0.5">Récompense en attente : +{formatCurrency(item.reward.amount, currencySymbol(item.reward.currency))}</p>
                     )}
                   </div>
                   {canWrite && (
@@ -281,8 +291,8 @@ export function ReferralAdminPanel({ tier, locale }: { tier: AdminTier; locale: 
                 <div>
                   <p className="text-xs text-muted-foreground">Portefeuille {result.wallet.frozen && <span className="text-red-400 font-semibold">· GELÉ</span>}</p>
                   <p className="text-sm font-bold text-foreground">
-                    {formatNaira(result.wallet.available_balance)} <span className="text-xs font-normal text-muted-foreground">dispo</span>
-                    {result.wallet.pending_balance > 0 && <span className="text-xs font-normal text-amber-400 ml-2">+ {formatNaira(result.wallet.pending_balance)} en attente</span>}
+                    {formatCurrency(result.wallet.available_balance, currencySymbol(result.wallet.currency))} <span className="text-xs font-normal text-muted-foreground">dispo</span>
+                    {result.wallet.pending_balance > 0 && <span className="text-xs font-normal text-amber-400 ml-2">+ {formatCurrency(result.wallet.pending_balance, currencySymbol(result.wallet.currency))} en attente</span>}
                   </p>
                 </div>
                 {canWrite && (
@@ -319,7 +329,7 @@ export function ReferralAdminPanel({ tier, locale }: { tier: AdminTier; locale: 
                         {r.reward && (
                           <>
                             <span className={`font-semibold ${r.reward.status === 'reversed' ? 'text-muted-foreground line-through' : 'text-green-400'}`}>
-                              +{formatNaira(r.reward.amount)}
+                              +{formatCurrency(r.reward.amount, currencySymbol(r.reward.currency))}
                             </span>
                             {canWrite && r.reward.status !== 'reversed' && (
                               <button onClick={() => cancelReward(r.reward!.id)} className="text-red-400 hover:underline" title="Annuler la récompense">
@@ -343,7 +353,7 @@ export function ReferralAdminPanel({ tier, locale }: { tier: AdminTier; locale: 
                   {result.payouts.map(p => (
                     <div key={p.id} className="flex items-center justify-between gap-2 text-xs py-1">
                       <span className="text-muted-foreground">
-                        {new Date(p.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: '2-digit' })} · {formatNaira(p.amount)}
+                        {new Date(p.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: '2-digit' })} · {formatCurrency(p.amount, currencySymbol(p.currency))}
                       </span>
                       <span className="text-muted-foreground">{p.status}</span>
                     </div>

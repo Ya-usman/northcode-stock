@@ -4,9 +4,11 @@ import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, Wallet, Clock, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
-import { formatNaira } from '@/lib/utils/currency'
+import { formatCurrency } from '@/lib/utils/currency'
+import { currencySymbol } from '@/lib/saas/currencies'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { KpiTile } from '@/components/admin/ui/kpi-tile'
+import { MoneyTile } from '@/components/admin/money-by-currency'
 import type { AdminTier } from '@/lib/api/require-admin'
 
 interface PayoutRequest {
@@ -89,17 +91,27 @@ export function ReferralPayoutsPanel({ tier }: { tier: AdminTier }) {
     }
   }
 
-  // KPIs — sur la liste chargée (filtre "Tous" pour une vue complète)
+  // KPIs — sur la liste chargée (dépend du filtre courant). Les montants sont
+  // ventilés PAR DEVISE, jamais additionnés entre devises (V1, pas de conversion).
   const pendingCount = requests.filter(r => ['requested', 'under_review', 'approved'].includes(r.status)).length
-  const pendingAmount = requests.filter(r => ['requested', 'under_review', 'approved'].includes(r.status)).reduce((s, r) => s + Number(r.amount), 0)
-  const paidAmount = requests.filter(r => r.status === 'paid').reduce((s, r) => s + Number(r.amount), 0)
+  const groupBy = (predicate: (r: PayoutRequest) => boolean) => {
+    const acc: Record<string, number> = {}
+    for (const r of requests) {
+      if (!predicate(r)) continue
+      const c = r.currency || 'NGN'
+      acc[c] = (acc[c] || 0) + Number(r.amount)
+    }
+    return acc
+  }
+  const pendingAmount = groupBy(r => ['requested', 'under_review', 'approved'].includes(r.status))
+  const paidAmount = groupBy(r => r.status === 'paid')
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-3">
         <KpiTile label="Demandes en cours" value={pendingCount} icon={Clock} tone={pendingCount > 0 ? 'warning' : 'default'} />
-        <KpiTile label="Montant en attente" value={formatNaira(pendingAmount)} icon={Wallet} tone="default" />
-        <KpiTile label="Total payé (vue actuelle)" value={formatNaira(paidAmount)} icon={CheckCircle2} tone="success" />
+        <MoneyTile label="Montant en attente (vue actuelle)" amounts={pendingAmount} icon={Wallet} tone="default" />
+        <MoneyTile label="Total payé (vue actuelle)" amounts={paidAmount} icon={CheckCircle2} tone="success" />
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
@@ -136,7 +148,7 @@ export function ReferralPayoutsPanel({ tier }: { tier: AdminTier }) {
                 <div key={r.id} className="px-4 py-3 flex items-start justify-between gap-3 flex-wrap">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-foreground">{formatNaira(r.amount)}</span>
+                      <span className="text-sm font-bold text-foreground">{formatCurrency(r.amount, currencySymbol(r.currency))}</span>
                       <span className="text-xs text-muted-foreground">{r.currency}</span>
                       <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${st.color}`}>{st.label}</span>
                     </div>
