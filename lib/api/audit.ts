@@ -62,6 +62,7 @@ export type AuditAction =
   | 'referral.reward_cancelled'
   | 'referral.wallet_adjusted'
   | 'referral.reviewed'
+  | 'referral.config_updated'
 
 interface AuditParams {
   action: AuditAction

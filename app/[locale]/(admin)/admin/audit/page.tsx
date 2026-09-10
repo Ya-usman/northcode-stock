@@ -41,6 +41,7 @@ const ACTION_CONFIG: Record<string, { label: string; color: string; icon: React.
   'referral.wallet_moderated':{ label: 'Portefeuille gelé',  color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', icon: ShieldOff },
   'referral.wallet_adjusted': { label: 'Ajustement solde',   color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400', icon: Pencil },
   'referral.reviewed':        { label: 'Parrainage vérifié', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400', icon: ShieldCheck },
+  'referral.config_updated':  { label: 'Config parrainage',  color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300', icon: Wrench },
 }
 
 const ACTION_FILTERS = [
@@ -51,7 +52,7 @@ const ACTION_FILTERS = [
   { value: 'member.invite,member.delete', label: 'Équipe' },
   { value: 'admin.restore_product,admin.restore_customer', label: 'Restaurations' },
   { value: 'admin.repair_orphan_shop,admin.orphan_shop_alert', label: 'Boutiques orphelines' },
-  { value: 'referral.associated,referral.reward_created,referral.credit_applied,referral.payout_requested,referral.payout_resolved,referral.payout_cancelled,referral.reward_cancelled,referral.code_moderated,referral.wallet_moderated,referral.wallet_adjusted,referral.reviewed', label: 'Parrainage' },
+  { value: 'referral.associated,referral.reward_created,referral.credit_applied,referral.payout_requested,referral.payout_resolved,referral.payout_cancelled,referral.reward_cancelled,referral.code_moderated,referral.wallet_moderated,referral.wallet_adjusted,referral.reviewed,referral.config_updated', label: 'Parrainage' },
 ]
 
 interface AuditLog {
