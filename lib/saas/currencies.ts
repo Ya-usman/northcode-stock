@@ -1,50 +1,61 @@
-import { COUNTRIES } from './countries'
+import { COUNTRIES, getCountry } from './countries'
 
-// Devises supportées par StockShop, dérivées de la liste des pays (source
-// unique de vérité — lib/saas/countries.ts). La CLÉ métier est le SYMBOLE
-// (`₦`, `F CFA`, `€`…) car c'est ce que `shops.currency` — et donc
-// `referral_wallets.currency` — stocke partout dans l'app. Plusieurs codes
-// ISO peuvent partager un symbole (XOF et XAF = « F CFA »).
+// Devises supportées par StockShop.
+//
+// La CLÉ MÉTIER est le CODE ISO (`NGN`, `XOF`, `XAF`, `EUR`…) — stable, non
+// ambigu (XOF ≠ XAF alors qu'ils partagent le symbole « F CFA »), et
+// indépendant de toute chaîne d'affichage. Le symbole n'est qu'un libellé.
+//
+// ⚠️ `shops.currency` stocke encore le SYMBOLE (dette historique, utilisée
+// partout dans l'app pour l'affichage). Le module Parrainage, lui, résout
+// toujours la devise depuis `shops.country` via `currencyCodeForCountry()`
+// et stocke des codes ISO dans `referral_wallets.currency` /
+// `referral_program_config.min_payout_by_currency`. La migration complète
+// de `shops.currency` vers ISO est un chantier V2 (voir memory projet).
 
-export interface SupportedCurrency {
-  /** Symbole — clé métier utilisée par le moteur (wallets, min. de retrait). */
+export interface CurrencyRef {
+  /** Code ISO 4217 — clé métier. */
+  code: string
+  /** Symbole d'affichage. */
   symbol: string
-  /** Codes ISO regroupés sous ce symbole. */
-  codes: string[]
-  /** Libellé lisible pour l'admin, ex. « F CFA — Franc CFA (XOF · XAF) ». */
+  /** Libellé lisible pour l'admin. */
   label: string
 }
 
-function buildSupportedCurrencies(): SupportedCurrency[] {
-  const bySymbol = new Map<string, { codes: Set<string>; countries: Set<string> }>()
-  for (const c of Object.values(COUNTRIES)) {
-    const entry = bySymbol.get(c.currencySymbol) ?? { codes: new Set(), countries: new Set() }
-    entry.codes.add(c.currency)
-    entry.countries.add(c.name)
-    bySymbol.set(c.currencySymbol, entry)
-  }
-
-  const NAMES: Record<string, string> = {
-    NGN: 'Naira', XOF: 'Franc CFA', XAF: 'Franc CFA', GHS: 'Cedi', GNF: 'Franc guinéen',
-    GMD: 'Dalasi', SLE: 'Leone', LRD: 'Dollar libérien', CVE: 'Escudo', MRU: 'Ouguiya',
-    CDF: 'Franc congolais', EUR: 'Euro', USD: 'Dollar US', CAD: 'Dollar canadien',
-  }
-
-  return Array.from(bySymbol.entries()).map(([symbol, { codes }]) => {
-    const codeList = Array.from(codes).sort()
-    const name = NAMES[codeList[0]] ?? codeList[0]
-    return {
-      symbol,
-      codes: codeList,
-      label: `${symbol} — ${name} (${codeList.join(' · ')})`,
-    }
-  }).sort((a, b) => a.label.localeCompare(b.label))
+const CURRENCY_NAMES: Record<string, string> = {
+  NGN: 'Naira', XOF: 'Franc CFA (Afrique de l’Ouest)', XAF: 'Franc CFA (Afrique centrale)',
+  GHS: 'Cedi ghanéen', GNF: 'Franc guinéen', GMD: 'Dalasi', SLE: 'Leone', LRD: 'Dollar libérien',
+  CVE: 'Escudo cap-verdien', MRU: 'Ouguiya', CDF: 'Franc congolais', EUR: 'Euro',
+  USD: 'Dollar américain', CAD: 'Dollar canadien',
 }
 
-export const SUPPORTED_CURRENCIES: SupportedCurrency[] = buildSupportedCurrencies()
+function buildCurrencies(): CurrencyRef[] {
+  const byCode = new Map<string, string>() // code ISO -> symbole
+  for (const c of Object.values(COUNTRIES)) {
+    if (!byCode.has(c.currency)) byCode.set(c.currency, c.currencySymbol)
+  }
+  return Array.from(byCode.entries())
+    .map(([code, symbol]) => ({ code, symbol, label: `${CURRENCY_NAMES[code] ?? code} — ${code} (${symbol})` }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'fr'))
+}
 
-export const SUPPORTED_CURRENCY_SYMBOLS: string[] = SUPPORTED_CURRENCIES.map((c) => c.symbol)
+/** Toutes les devises supportées, indexées par code ISO. */
+export const REFERRAL_CURRENCIES: CurrencyRef[] = buildCurrencies()
 
-export function isSupportedCurrencySymbol(symbol: string): boolean {
-  return SUPPORTED_CURRENCY_SYMBOLS.includes(symbol)
+const SYMBOL_BY_CODE: Record<string, string> = Object.fromEntries(REFERRAL_CURRENCIES.map((c) => [c.code, c.symbol]))
+const SUPPORTED_CODES = new Set(REFERRAL_CURRENCIES.map((c) => c.code))
+
+/** Code ISO de la devise d'un pays (`getCountry` est la source de vérité). */
+export function currencyCodeForCountry(countryCode: string | null | undefined): string {
+  return getCountry(countryCode || 'NG').currency
+}
+
+/** Symbole d'affichage pour un code ISO (repli : le code lui-même). */
+export function currencySymbol(code: string | null | undefined): string {
+  if (!code) return ''
+  return SYMBOL_BY_CODE[code] ?? code
+}
+
+export function isSupportedCurrencyCode(code: string | null | undefined): boolean {
+  return !!code && SUPPORTED_CODES.has(code)
 }

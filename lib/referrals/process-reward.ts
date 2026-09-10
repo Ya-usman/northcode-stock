@@ -18,6 +18,7 @@ export async function processReferralReward(
   params: {
     ownerId: string
     subscriptionId: string
+    /** Code ISO de la devise (NGN, XOF, XAF…), résolu depuis shops.country. */
     shopCurrency: string
     planId: string
     amount: number

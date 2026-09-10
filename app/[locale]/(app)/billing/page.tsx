@@ -184,7 +184,8 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
 
   // Prévisualisation pure (aucune écriture) — le crédit réel n'est jamais
   // débité avant confirmation du paiement, voir lib/referrals/apply-credit.ts.
-  const walletMatchesCountry = !!rewardWallet && rewardWallet.currency === country.currencySymbol && rewardWallet.available_balance > 0
+  // rewardWallet.currency est un code ISO (NGN, XOF…) — cf. /api/referrals/summary.
+  const walletMatchesCountry = !!rewardWallet && rewardWallet.currency === country.currency && rewardWallet.available_balance > 0
   const creditPreview = (planId: PlanId) => {
     if (!walletMatchesCountry || !useCredit) return null
     const price = getPeriodPrice(country.prices[planId], period, country.periodPrices?.[planId])

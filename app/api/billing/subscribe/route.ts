@@ -101,7 +101,7 @@ export async function POST(request: Request) {
         .from('shop_members').select('user_id').eq('shop_id', shop_id).eq('role', 'owner').eq('is_active', true).maybeSingle()
       const owner_id = ownerMember?.user_id ?? (shopData as any)?.owner_id
       if (owner_id) {
-        const preview = await previewWalletCredit(supabase, owner_id, amount, (shopData as any)?.currency || '₦')
+        const preview = await previewWalletCredit(supabase, owner_id, amount, country.currency)
         creditApplied = preview.creditApplied
         amountDue = preview.amountDue
 
@@ -126,7 +126,7 @@ export async function POST(request: Request) {
           if (newSub?.id) {
             await applyWalletCredit(supabase, {
               userId: owner_id, intendedAmount: creditApplied,
-              currency: (shopData as any)?.currency || '₦', subscriptionId: newSub.id,
+              currency: country.currency, subscriptionId: newSub.id,
             })
             await writeAuditLog({
               action: 'billing.verify',

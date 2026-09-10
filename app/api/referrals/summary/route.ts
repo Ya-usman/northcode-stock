@@ -4,6 +4,7 @@ import { getAuthedUser } from '@/lib/api/shop-auth'
 import { generateUniqueReferralCode } from '@/lib/referrals/generate-code'
 import { getOrCreateWallet } from '@/lib/referrals/wallet'
 import { getReferralConfig } from '@/lib/referrals/config'
+import { currencySymbol } from '@/lib/saas/currencies'
 
 // GET /api/referrals/summary — tout ce qu'il faut pour la page
 // Paramètres > Parrainage & récompenses en un seul aller-retour client.
@@ -131,6 +132,7 @@ export async function GET() {
       code_active: codeRow?.active ?? true,
       wallet: {
         currency: wallet.currency,
+        currency_symbol: currencySymbol(wallet.currency),
         available_balance: Number(wallet.available_balance),
         pending_balance: Number(wallet.pending_balance),
         frozen: wallet.frozen,

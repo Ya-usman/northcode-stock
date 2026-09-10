@@ -6,6 +6,9 @@ import { notifyReferral, formatRefAmount } from '@/lib/referrals/notify'
  * PURE, ne modifie rien. Utilisée à l'initiation du paiement
  * (app/api/billing/subscribe) pour savoir combien facturer réellement à la
  * passerelle (ou si on peut la sauter entièrement).
+ *
+ * `currency` est un code ISO (celui du montant facturé). Aucun crédit si la
+ * devise du portefeuille du parrain diffère — pas de conversion en V1.
  */
 export async function previewWalletCredit(
   admin: any,

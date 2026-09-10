@@ -5,6 +5,7 @@ import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { fetchWithTimeout } from '@/lib/api/fetch'
 import { processReferralReward } from '@/lib/referrals/process-reward'
 import { applyWalletCredit } from '@/lib/referrals/apply-credit'
+import { currencyCodeForCountry } from '@/lib/saas/currencies'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
@@ -94,7 +95,7 @@ export async function GET(request: NextRequest) {
       await processReferralReward(supabase, {
         ownerId: owner_id,
         subscriptionId: newSub.id,
-        shopCurrency: (shopRow as any)?.currency || '₦',
+        shopCurrency: currencyCodeForCountry((shopRow as any)?.country),
         planId: plan_id,
         amount: paidAmount,
         country: (shopRow as any)?.country ?? null,
@@ -105,7 +106,7 @@ export async function GET(request: NextRequest) {
       await applyWalletCredit(supabase, {
         userId: owner_id,
         intendedAmount: credit_amount,
-        currency: (shopRow as any)?.currency || '₦',
+        currency: currencyCodeForCountry((shopRow as any)?.country),
         subscriptionId: newSub.id,
       })
     }

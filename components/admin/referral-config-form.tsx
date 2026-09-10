@@ -23,9 +23,9 @@ interface Config {
 interface Catalog {
   plans: Array<{ id: string; name: string }>
   countries: Array<{ code: string; name: string; flag: string }>
-  currencies: Array<{ symbol: string; codes: string[]; label: string }>
+  currencies: Array<{ code: string; symbol: string; label: string }>
 }
-type PayoutRow = { symbol: string; amount: string }
+type PayoutRow = { code: string; amount: string }
 
 function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
   return (
@@ -75,7 +75,7 @@ export function ReferralConfigForm({ tier }: { tier: AdminTier }) {
       setCfg(c)
       setUpdatedAt(json.updated_at)
       setAllCountries(c.eligible_countries === null)
-      setPayoutRows(Object.entries(c.min_payout_by_currency).map(([symbol, amount]) => ({ symbol, amount: String(amount) })))
+      setPayoutRows(Object.entries(c.min_payout_by_currency).map(([code, amount]) => ({ code, amount: String(amount) })))
     } catch {
       toast({ title: 'Chargement impossible', variant: 'destructive' })
     } finally {
@@ -89,8 +89,8 @@ export function ReferralConfigForm({ tier }: { tier: AdminTier }) {
   const payoutRecord = useMemo(() => {
     const out: Record<string, number> = {}
     for (const r of payoutRows) {
-      if (!r.symbol) continue
-      out[r.symbol] = Number(r.amount)
+      if (!r.code) continue
+      out[r.code] = Number(r.amount)
     }
     return out
   }, [payoutRows])
@@ -125,24 +125,23 @@ export function ReferralConfigForm({ tier }: { tier: AdminTier }) {
     set('eligible_countries', has ? list.filter((c) => c !== code) : [...list, code])
   }
 
-  const usedSymbols = new Set(payoutRows.map((r) => r.symbol).filter(Boolean))
-  const availableCurrencies = (catalog?.currencies ?? []).filter((c) => !usedSymbols.has(c.symbol))
+  const usedCodes = new Set(payoutRows.map((r) => r.code).filter(Boolean))
+  const availableCurrencies = (catalog?.currencies ?? []).filter((c) => !usedCodes.has(c.code))
 
   const clientValidate = (): string | null => {
     if (!draft) return 'Configuration non chargée'
     if (draft.reward_percentage < 0.5 || draft.reward_percentage > 100) return 'Le pourcentage de récompense doit être entre 0,5 et 100'
     if (draft.validation_days < 0 || draft.validation_days > 365) return 'Le délai de validation doit être entre 0 et 365 jours'
-    if (draft.association_window_days < 0 || draft.association_window_days > 365) return "La fenêtre d'association doit être entre 0 et 365 jours"
     if (draft.max_referrals_per_day < 1 || draft.max_referrals_per_day > 1000) return 'Le plafond de filleuls / jour doit être entre 1 et 1000'
     if (draft.eligible_plans.length === 0) return 'Sélectionnez au moins un plan éligible'
     if (!allCountries && (draft.eligible_countries ?? []).length === 0) return 'Sélectionnez au moins un pays, ou activez « Tous les pays »'
     const seen = new Set<string>()
     for (const r of payoutRows) {
-      if (!r.symbol) return 'Une ligne de minimum de retrait n\'a pas de devise'
-      if (seen.has(r.symbol)) return `Devise en double : ${r.symbol}`
-      seen.add(r.symbol)
+      if (!r.code) return 'Une ligne de minimum de retrait n\'a pas de devise'
+      if (seen.has(r.code)) return `Devise en double : ${r.code}`
+      seen.add(r.code)
       const n = Number(r.amount)
-      if (!Number.isFinite(n) || n < 0) return `Montant invalide pour ${r.symbol}`
+      if (!Number.isFinite(n) || n < 0) return `Montant invalide pour ${r.code}`
     }
     if (payoutRows.length === 0) return 'Renseignez au moins un minimum de retrait'
     return null
@@ -166,7 +165,7 @@ export function ReferralConfigForm({ tier }: { tier: AdminTier }) {
       const c: Config = json.config
       setInitial(c); setCfg(c); setUpdatedAt(new Date().toISOString())
       setAllCountries(c.eligible_countries === null)
-      setPayoutRows(Object.entries(c.min_payout_by_currency).map(([symbol, amount]) => ({ symbol, amount: String(amount) })))
+      setPayoutRows(Object.entries(c.min_payout_by_currency).map(([code, amount]) => ({ code, amount: String(amount) })))
     } catch (e: any) {
       toast({ title: e?.message || 'Erreur réseau', variant: 'destructive' })
     } finally {
@@ -209,7 +208,7 @@ export function ReferralConfigForm({ tier }: { tier: AdminTier }) {
       </Section>
 
       {/* ── Validation ── */}
-      <Section title="Validation" description="Délais avant qu'un gain devienne disponible">
+      <Section title="Validation" description="Délai avant qu'un gain devienne disponible">
         <Row label="Délai avant disponibilité du gain" hint="Nombre de jours entre « en attente » et « disponible » après le paiement du filleul.">
           <div className="flex items-center gap-1.5">
             <Input type="number" min={0} max={365} disabled={!canWrite} value={cfg.validation_days}
@@ -217,16 +216,10 @@ export function ReferralConfigForm({ tier }: { tier: AdminTier }) {
             <span className="text-sm text-muted-foreground">jours</span>
           </div>
         </Row>
-        <Row
-          label="Fenêtre d'association du code"
-          hint="Délai maximum pour rattacher un code de parrainage après l'inscription. Non appliqué aujourd'hui : le code n'est saisi qu'au moment de l'inscription."
-        >
-          <div className="flex items-center gap-1.5">
-            <Input type="number" min={0} max={365} disabled={!canWrite} value={cfg.association_window_days}
-              onChange={(e) => set('association_window_days', Math.trunc(Number(e.target.value)))} className="w-24 h-9 text-right" />
-            <span className="text-sm text-muted-foreground">jours</span>
-          </div>
-        </Row>
+        {/* « Fenêtre d'association du code » : champ conservé en base pour une V2
+            (rattacher un code après l'inscription), mais sans effet fonctionnel
+            aujourd'hui — le code n'est saisi qu'au formulaire d'inscription —
+            donc retiré de l'UI. Sa valeur est renvoyée telle quelle au serveur. */}
       </Section>
 
       {/* ── Éligibilité ── */}
@@ -273,46 +266,47 @@ export function ReferralConfigForm({ tier }: { tier: AdminTier }) {
       </Section>
 
       {/* ── Retraits ── */}
-      <Section title="Retraits" description="Montant minimum d'une demande de retrait, par devise (symbole utilisé par les portefeuilles)">
+      <Section title="Retraits" description="Montant minimum d'une demande de retrait, par devise (code ISO — clé utilisée par les portefeuilles)">
         <div className="space-y-2">
-          {payoutRows.map((row, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <select
-                value={row.symbol} disabled={!canWrite}
-                onChange={(e) => setPayoutRows((rows) => rows.map((r, j) => j === i ? { ...r, symbol: e.target.value } : r))}
-                className="h-9 flex-1 min-w-0 rounded-md border border-input bg-background px-2 text-sm disabled:opacity-60"
-              >
-                {(catalog.currencies.find((c) => c.symbol === row.symbol)
-                  ? [catalog.currencies.find((c) => c.symbol === row.symbol)!]
-                  : []
-                ).concat(availableCurrencies).map((c) => (
-                  <option key={c.symbol} value={c.symbol}>{c.label}</option>
-                ))}
-              </select>
-              <Input
-                type="number" min={0} step="any" disabled={!canWrite}
-                value={row.amount}
-                onChange={(e) => setPayoutRows((rows) => rows.map((r, j) => j === i ? { ...r, amount: e.target.value } : r))}
-                className="w-32 h-9 text-right"
-              />
-              {canWrite && (
-                <button type="button" onClick={() => setPayoutRows((rows) => rows.filter((_, j) => j !== i))}
-                  className="text-muted-foreground hover:text-red-500 flex-shrink-0" title="Retirer">
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          ))}
+          {payoutRows.map((row, i) => {
+            const current = catalog.currencies.find((c) => c.code === row.code)
+            const options = (current ? [current] : []).concat(availableCurrencies)
+            return (
+              <div key={i} className="flex items-center gap-2">
+                <select
+                  value={row.code} disabled={!canWrite}
+                  onChange={(e) => setPayoutRows((rows) => rows.map((r, j) => j === i ? { ...r, code: e.target.value } : r))}
+                  className="h-9 flex-1 min-w-0 rounded-md border border-input bg-background px-2 text-sm disabled:opacity-60"
+                >
+                  {options.map((c) => (
+                    <option key={c.code} value={c.code}>{c.label}</option>
+                  ))}
+                </select>
+                <Input
+                  type="number" min={0} step="any" disabled={!canWrite}
+                  value={row.amount}
+                  onChange={(e) => setPayoutRows((rows) => rows.map((r, j) => j === i ? { ...r, amount: e.target.value } : r))}
+                  className="w-32 h-9 text-right"
+                />
+                {canWrite && (
+                  <button type="button" onClick={() => setPayoutRows((rows) => rows.filter((_, j) => j !== i))}
+                    className="text-muted-foreground hover:text-red-500 flex-shrink-0" title="Retirer">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            )
+          })}
         </div>
         {canWrite && availableCurrencies.length > 0 && (
           <Button variant="outline" size="sm" className="h-8 text-xs"
-            onClick={() => setPayoutRows((rows) => [...rows, { symbol: availableCurrencies[0].symbol, amount: '0' }])}>
+            onClick={() => setPayoutRows((rows) => [...rows, { code: availableCurrencies[0].code, amount: '0' }])}>
             <Plus className="h-3.5 w-3.5 mr-1" /> Ajouter une devise
           </Button>
         )}
         <p className="text-[11px] text-muted-foreground flex items-start gap-1.5">
           <Info className="h-3 w-3 flex-shrink-0 mt-0.5" />
-          XOF et XAF partagent le symbole « F CFA » — un seul minimum commun.
+          XOF (Afrique de l'Ouest) et XAF (Afrique centrale) sont distincts, bien qu'affichés « F CFA ».
         </p>
       </Section>
 

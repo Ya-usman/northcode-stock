@@ -6,7 +6,7 @@ import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getReferralConfig } from '@/lib/referrals/config'
 import { PLANS } from '@/lib/saas/plans'
 import { COUNTRIES } from '@/lib/saas/countries'
-import { SUPPORTED_CURRENCIES, SUPPORTED_CURRENCY_SYMBOLS } from '@/lib/saas/currencies'
+import { REFERRAL_CURRENCIES, isSupportedCurrencyCode } from '@/lib/saas/currencies'
 
 const CONFIG_ROW_ID = '00000000-0000-0000-0000-000000000001'
 const PAID_PLAN_IDS = ['starter', 'pro', 'business'] as const
@@ -36,11 +36,11 @@ function normalizeCountries(input: string[] | null): { value: string[] | null; e
 
 function validateMinPayout(input: Record<string, number>): { value: Record<string, number>; error?: string } {
   const out: Record<string, number> = {}
-  for (const [sym, amount] of Object.entries(input)) {
-    if (!sym.trim()) return { value: {}, error: 'Une devise est vide' }
-    if (!SUPPORTED_CURRENCY_SYMBOLS.includes(sym)) return { value: {}, error: `Devise non supportée : « ${sym} »` }
-    if (!Number.isFinite(amount) || amount < 0) return { value: {}, error: `Montant invalide pour ${sym}` }
-    out[sym] = Math.round(amount * 100) / 100
+  for (const [code, amount] of Object.entries(input)) {
+    if (!code.trim()) return { value: {}, error: 'Une devise est vide' }
+    if (!isSupportedCurrencyCode(code)) return { value: {}, error: `Devise non supportée : « ${code} »` }
+    if (!Number.isFinite(amount) || amount < 0) return { value: {}, error: `Montant invalide pour ${code}` }
+    out[code] = Math.round(amount * 100) / 100
   }
   if (Object.keys(out).length === 0) return { value: {}, error: 'Renseignez au moins un minimum de retrait' }
   return { value: out }
@@ -62,7 +62,7 @@ export async function GET() {
     catalog: {
       plans: PAID_PLAN_IDS.map((id) => ({ id, name: PLANS[id].name })),
       countries: COUNTRY_CODES.map((code) => ({ code, name: COUNTRIES[code as keyof typeof COUNTRIES].name, flag: COUNTRIES[code as keyof typeof COUNTRIES].flag })),
-      currencies: SUPPORTED_CURRENCIES,
+      currencies: REFERRAL_CURRENCIES,
     },
   })
 }

@@ -1,4 +1,5 @@
 import { createTranslator } from 'next-intl'
+import { currencySymbol } from '@/lib/saas/currencies'
 import fr from '@/messages/fr.json'
 import en from '@/messages/en.json'
 import ha from '@/messages/ha.json'
@@ -25,11 +26,14 @@ const EVENT_TYPE: Record<ReferralNotifEvent, 'info' | 'warning'> = {
   reward_cancelled: 'warning',
 }
 
-/** "2 000 ₦" — montant lisible pour le corps d'une notification. */
+/**
+ * "2 000 ₦" — montant lisible pour le corps d'une notification.
+ * `currency` est un code ISO (`NGN`, `XOF`…) ; on affiche le symbole.
+ */
 export function formatRefAmount(amount: number | string, currency: string): string {
   const n = typeof amount === 'string' ? Number(amount) : amount
   const rounded = Number.isFinite(n) ? Math.round(n) : 0
-  return `${new Intl.NumberFormat('fr-FR').format(rounded)} ${currency}`.trim()
+  return `${new Intl.NumberFormat('fr-FR').format(rounded)} ${currencySymbol(currency) || currency}`.trim()
 }
 
 /**

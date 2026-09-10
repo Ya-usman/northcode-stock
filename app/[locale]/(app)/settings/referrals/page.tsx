@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatCurrency } from '@/lib/utils/currency'
+import { currencySymbol } from '@/lib/saas/currencies'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { getPageCache, setPageCache } from '@/lib/offline/page-cache'
 
@@ -24,6 +25,7 @@ interface Summary {
   code_active?: boolean
   wallet?: {
     currency: string
+    currency_symbol?: string
     available_balance: number
     pending_balance: number
     frozen: boolean
@@ -279,11 +281,11 @@ export default function ReferralsPage({ params: { locale } }: { params: { locale
           <Card className="bg-gradient-to-br from-stockshop-blue to-blue-700 border-0 text-white overflow-hidden">
             <CardContent className="p-5">
               <p className="text-xs font-medium text-blue-100 uppercase tracking-wide">{t('available_balance')}</p>
-              <p className="text-3xl font-extrabold mt-1">{formatCurrency(data.wallet?.available_balance ?? 0, data.wallet?.currency || '₦')}</p>
+              <p className="text-3xl font-extrabold mt-1">{formatCurrency(data.wallet?.available_balance ?? 0, data.wallet?.currency_symbol || '₦')}</p>
               <div className="flex items-center gap-4 mt-3 text-xs text-blue-100">
                 <span className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  {t('pending')}: {formatCurrency(data.wallet?.pending_balance ?? 0, data.wallet?.currency || '₦')}
+                  {t('pending')}: {formatCurrency(data.wallet?.pending_balance ?? 0, data.wallet?.currency_symbol || '₦')}
                 </span>
               </div>
             </CardContent>
@@ -314,9 +316,9 @@ export default function ReferralsPage({ params: { locale } }: { params: { locale
 
           {/* 4. Statistiques */}
           <div className="grid grid-cols-2 gap-3">
-            <StatTile icon={Wallet} label={t('total_earned')} value={formatCurrency(data.totals?.total_earned ?? 0, data.wallet?.currency || '₦')} />
-            <StatTile icon={CreditCard} label={t('total_used')} value={formatCurrency(data.totals?.total_used ?? 0, data.wallet?.currency || '₦')} />
-            <StatTile icon={Banknote} label={t('total_withdrawn')} value={formatCurrency(data.totals?.total_withdrawn ?? 0, data.wallet?.currency || '₦')} />
+            <StatTile icon={Wallet} label={t('total_earned')} value={formatCurrency(data.totals?.total_earned ?? 0, data.wallet?.currency_symbol || '₦')} />
+            <StatTile icon={CreditCard} label={t('total_used')} value={formatCurrency(data.totals?.total_used ?? 0, data.wallet?.currency_symbol || '₦')} />
+            <StatTile icon={Banknote} label={t('total_withdrawn')} value={formatCurrency(data.totals?.total_withdrawn ?? 0, data.wallet?.currency_symbol || '₦')} />
             <StatTile icon={Users} label={t('my_referrals')} value={String(data.referrals?.length ?? 0)} />
           </div>
 
@@ -356,7 +358,7 @@ export default function ReferralsPage({ params: { locale } }: { params: { locale
               {data.open_payout ? (
                 <div className="bg-muted/50 rounded-lg px-3 py-2.5 flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-foreground">{formatCurrency(data.open_payout.amount, data.open_payout.currency)}</p>
+                    <p className="text-sm font-bold text-foreground">{formatCurrency(data.open_payout.amount, currencySymbol(data.open_payout.currency))}</p>
                     <p className="text-xs text-muted-foreground">
                       {new Date(data.open_payout.created_at).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })}
                     </p>
@@ -404,7 +406,7 @@ export default function ReferralsPage({ params: { locale } }: { params: { locale
               ) : (
                 <p className="text-xs text-muted-foreground">
                   {data.min_payout
-                    ? t('min_payout_note', { amount: formatCurrency(data.min_payout, data.wallet?.currency || '₦') })
+                    ? t('min_payout_note', { amount: formatCurrency(data.min_payout, data.wallet?.currency_symbol || '₦') })
                     : t('payout_unavailable')}
                 </p>
               )}
@@ -415,7 +417,7 @@ export default function ReferralsPage({ params: { locale } }: { params: { locale
                   {(data.payouts || []).filter(p => p.id !== data.open_payout?.id).map(p => (
                     <div key={p.id} className="flex items-center justify-between gap-2 text-xs py-1 border-t border-border/50 first:border-0">
                       <span className="text-muted-foreground">
-                        {new Date(p.created_at).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: '2-digit' })} · {formatCurrency(p.amount, p.currency)}
+                        {new Date(p.created_at).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: '2-digit' })} · {formatCurrency(p.amount, currencySymbol(p.currency))}
                       </span>
                       <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${PAYOUT_STATUS_COLORS[p.status] || 'bg-muted text-muted-foreground'}`}>
                         {t(PAYOUT_STATUS_KEYS[p.status] || 'payout_status_requested')}
@@ -449,7 +451,7 @@ export default function ReferralsPage({ params: { locale } }: { params: { locale
                         </span>
                         {r.reward && (
                           <span className="text-xs font-bold text-green-500">
-                            +{formatCurrency(r.reward.amount, r.reward.currency)}
+                            +{formatCurrency(r.reward.amount, currencySymbol(r.reward.currency))}
                           </span>
                         )}
                       </div>
@@ -480,7 +482,7 @@ export default function ReferralsPage({ params: { locale } }: { params: { locale
                           </p>
                         </div>
                         <span className={`text-sm font-bold flex-shrink-0 ${isCredit ? 'text-green-500' : 'text-foreground'}`}>
-                          {isCredit ? '+' : ''}{formatCurrency(tx.amount, tx.currency)}
+                          {isCredit ? '+' : ''}{formatCurrency(tx.amount, currencySymbol(tx.currency))}
                         </span>
                       </div>
                     )
