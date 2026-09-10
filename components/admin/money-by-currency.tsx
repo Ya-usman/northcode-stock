@@ -24,27 +24,31 @@ export function MoneyByCurrency({
   className,
   emptyLabel = '—',
   size = 'lg',
+  approx = false,
 }: {
   amounts: Amounts
   className?: string
   emptyLabel?: string
   size?: 'sm' | 'lg'
+  /** Préfixe « ≈ » — pour un montant issu d'une conversion de reporting. */
+  approx?: boolean
 }) {
   const rows = entries(amounts)
   const textSize = size === 'lg' ? 'text-2xl' : 'text-sm'
+  const prefix = approx ? '≈ ' : ''
 
   if (rows.length === 0) {
     return <p className={cn(textSize, 'font-bold text-foreground', className)}>{emptyLabel}</p>
   }
   if (rows.length === 1) {
     const [code, v] = rows[0]
-    return <p className={cn(textSize, 'font-bold text-foreground tabular-nums', className)}>{formatCurrency(v, currencySymbol(code))}</p>
+    return <p className={cn(textSize, 'font-bold text-foreground tabular-nums', className)}>{prefix}{formatCurrency(v, currencySymbol(code))}</p>
   }
   return (
     <div className={cn('space-y-0.5', className)}>
       {rows.map(([code, v]) => (
         <p key={code} className={cn(size === 'lg' ? 'text-base' : 'text-sm', 'font-bold text-foreground tabular-nums')}>
-          {formatCurrency(v, currencySymbol(code))}
+          {prefix}{formatCurrency(v, currencySymbol(code))}
         </p>
       ))}
     </div>
@@ -68,12 +72,14 @@ export function MoneyTile({
   icon: Icon,
   tone = 'default',
   className,
+  approx = false,
 }: {
   label: string
   amounts: Amounts
   icon?: LucideIcon
   tone?: 'default' | 'success' | 'warning' | 'danger'
   className?: string
+  approx?: boolean
 }) {
   return (
     <div className={cn('rounded-xl border bg-card p-4', className)}>
@@ -86,7 +92,7 @@ export function MoneyTile({
         )}
       </div>
       <div className="mt-1.5">
-        <MoneyByCurrency amounts={amounts} />
+        <MoneyByCurrency amounts={amounts} approx={approx} />
       </div>
     </div>
   )

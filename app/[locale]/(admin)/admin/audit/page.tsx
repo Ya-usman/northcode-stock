@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { ScrollText, Search, RefreshCw, ShieldOff, ShieldCheck, CreditCard, Trash2, UserPlus, Pencil, RotateCcw, Bell, StickyNote, X, Wrench, AlertTriangle, Store, Gift } from 'lucide-react'
+import { ScrollText, Search, RefreshCw, ShieldOff, ShieldCheck, CreditCard, Trash2, UserPlus, Pencil, RotateCcw, Bell, StickyNote, X, Wrench, AlertTriangle, Store, Gift, TrendingUp } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -42,6 +42,7 @@ const ACTION_CONFIG: Record<string, { label: string; color: string; icon: React.
   'referral.wallet_adjusted': { label: 'Ajustement solde',   color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400', icon: Pencil },
   'referral.reviewed':        { label: 'Parrainage vérifié', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400', icon: ShieldCheck },
   'referral.config_updated':  { label: 'Config parrainage',  color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300', icon: Wrench },
+  'referral.rates_updated':   { label: 'Taux de change',     color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300', icon: TrendingUp },
 }
 
 const ACTION_FILTERS = [
@@ -52,7 +53,7 @@ const ACTION_FILTERS = [
   { value: 'member.invite,member.delete', label: 'Équipe' },
   { value: 'admin.restore_product,admin.restore_customer', label: 'Restaurations' },
   { value: 'admin.repair_orphan_shop,admin.orphan_shop_alert', label: 'Boutiques orphelines' },
-  { value: 'referral.associated,referral.reward_created,referral.credit_applied,referral.payout_requested,referral.payout_resolved,referral.payout_cancelled,referral.reward_cancelled,referral.code_moderated,referral.wallet_moderated,referral.wallet_adjusted,referral.reviewed,referral.config_updated', label: 'Parrainage' },
+  { value: 'referral.associated,referral.reward_created,referral.credit_applied,referral.payout_requested,referral.payout_resolved,referral.payout_cancelled,referral.reward_cancelled,referral.code_moderated,referral.wallet_moderated,referral.wallet_adjusted,referral.reviewed,referral.config_updated,referral.rates_updated', label: 'Parrainage' },
 ]
 
 interface AuditLog {

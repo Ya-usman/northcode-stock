@@ -63,6 +63,7 @@ export type AuditAction =
   | 'referral.wallet_adjusted'
   | 'referral.reviewed'
   | 'referral.config_updated'
+  | 'referral.rates_updated'
 
 interface AuditParams {
   action: AuditAction

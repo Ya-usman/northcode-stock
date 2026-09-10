@@ -7,13 +7,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/use-toast'
 import { formatCurrency } from '@/lib/utils/currency'
-import { currencySymbol } from '@/lib/saas/currencies'
+import { currencySymbol, REFERRAL_CURRENCIES } from '@/lib/saas/currencies'
+import { convertByCurrency, type RateMap } from '@/lib/saas/exchange'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { KpiTile } from '@/components/admin/ui/kpi-tile'
 import { MoneyTile } from '@/components/admin/money-by-currency'
 import type { AdminTier } from '@/lib/api/require-admin'
 
 type ByCurrency = Record<string, number>
+const REPORT_CCY_KEY = 'referral_report_currency'
 
 interface Overview {
   active_codes: number
@@ -67,6 +69,8 @@ export function ReferralAdminPanel({ tier, locale }: { tier: AdminTier; locale: 
   const [acting, setActing] = useState(false)
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([])
   const [reviewing, setReviewing] = useState<string | null>(null)
+  const [rates, setRates] = useState<RateMap>({})
+  const [reportCcy, setReportCcy] = useState<string>('by_currency')
 
   const loadReview = () => {
     withTimeout(fetch('/api/admin/referrals/review')).then(async r => {
@@ -75,11 +79,51 @@ export function ReferralAdminPanel({ tier, locale }: { tier: AdminTier; locale: 
   }
 
   useEffect(() => {
+    try {
+      const saved = localStorage.getItem(REPORT_CCY_KEY)
+      if (saved) setReportCcy(saved)
+    } catch { /* localStorage indisponible */ }
+
     withTimeout(fetch('/api/admin/referrals/overview')).then(async r => {
       if (r.ok) setOverview(await r.json())
     }).catch(() => {})
+    withTimeout(fetch('/api/admin/referrals/rates')).then(async r => {
+      if (r.ok) setRates((await r.json()).rates || {})
+    }).catch(() => {})
     loadReview()
   }, [])
+
+  const setReport = (v: string) => {
+    setReportCcy(v)
+    try { localStorage.setItem(REPORT_CCY_KEY, v) } catch { /* ignore */ }
+  }
+
+  // Conversion cosmétique pour le reporting — ne touche à aucune donnée
+  // source. « by_currency » = ventilation d'origine (aucune conversion).
+  const converting = reportCcy !== 'by_currency'
+  const convertTile = (amounts: ByCurrency): { amounts: ByCurrency; missing: string[]; asOf: string | null } => {
+    if (!converting) return { amounts, missing: [], asOf: null }
+    const { value, missing, oldest_as_of } = convertByCurrency(amounts, reportCcy, rates)
+    return { amounts: { [reportCcy]: value }, missing, asOf: oldest_as_of }
+  }
+  const convMeta = converting && overview
+    ? convertByCurrency(
+        {
+          ...overview.rewards_total, ...overview.rewards_available, ...overview.rewards_pending,
+          ...overview.credit_used, ...overview.withdrawn, ...overview.revenue_generated,
+        },
+        reportCcy, rates,
+      )
+    : null
+  const anyMissing = convMeta?.missing ? Array.from(new Set(convMeta.missing)) : []
+  const convAsOf = convMeta?.oldest_as_of ?? null
+  const convStale = convMeta?.worst_freshness === 'stale' || convMeta?.worst_freshness === 'very_stale'
+  const convSources = converting
+    ? Array.from(new Set(
+        Object.values(rates).map((r) => r.provider).filter(Boolean).map((p) =>
+          p === 'frankfurter' ? 'Frankfurter' : p === 'er-api' ? 'ExchangeRate-API' : p === 'manual' ? 'taux manuel' : String(p)),
+      ))
+    : []
 
   const review = async (referralId: string, decision: 'approve' | 'reject') => {
     if (decision === 'reject' && !window.confirm('Rejeter ce parrainage ? Toute récompense en attente sera annulée.')) return
@@ -162,15 +206,57 @@ export function ReferralAdminPanel({ tier, locale }: { tier: AdminTier; locale: 
             <KpiTile label="Taux de conversion" value={`${overview.conversion_rate}%`} icon={TrendingUp} tone={overview.conversion_rate >= 20 ? 'success' : 'default'} />
             <KpiTile label="Demandes de retrait en attente" value={overview.pending_payouts} icon={Banknote} tone={overview.pending_payouts > 0 ? 'warning' : 'default'} />
           </div>
-          {/* Montants — ventilés par devise, jamais additionnés */}
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-            <MoneyTile label="Récompenses totales" amounts={overview.rewards_total} icon={Wallet} tone="default" />
-            <MoneyTile label="Récompenses disponibles" amounts={overview.rewards_available} icon={Wallet} tone="success" />
-            <MoneyTile label="Récompenses en attente" amounts={overview.rewards_pending} icon={Wallet} tone="warning" />
-            <MoneyTile label="Utilisé sur abonnements" amounts={overview.credit_used} icon={CreditCard} tone="default" />
-            <MoneyTile label="Total retiré" amounts={overview.withdrawn} icon={Banknote} tone="default" />
-            <MoneyTile label="Revenu généré par le programme" amounts={overview.revenue_generated} icon={TrendingUp} tone="success" />
+          {/* Montants — ventilés par devise (jamais additionnés) ou convertis
+              vers une devise de reporting choisie (conversion cosmétique). */}
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Montants</p>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              Devise de reporting
+              <select
+                value={reportCcy}
+                onChange={(e) => setReport(e.target.value)}
+                className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+              >
+                <option value="by_currency">Par devise (aucune conversion)</option>
+                {REFERRAL_CURRENCIES.map((c) => (
+                  <option key={c.code} value={c.code}>{c.code} — {c.symbol}</option>
+                ))}
+              </select>
+            </label>
           </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+            {([
+              ['Récompenses totales', overview.rewards_total, Wallet, 'default'],
+              ['Récompenses disponibles', overview.rewards_available, Wallet, 'success'],
+              ['Récompenses en attente', overview.rewards_pending, Wallet, 'warning'],
+              ['Utilisé sur abonnements', overview.credit_used, CreditCard, 'default'],
+              ['Total retiré', overview.withdrawn, Banknote, 'default'],
+              ['Revenu généré par le programme', overview.revenue_generated, TrendingUp, 'success'],
+            ] as Array<[string, ByCurrency, typeof Wallet, 'default' | 'success' | 'warning']>).map(([label, amounts, Icon, tone]) => (
+              <MoneyTile key={label} label={label} amounts={convertTile(amounts).amounts} icon={Icon} tone={tone} approx={converting} />
+            ))}
+          </div>
+
+          {converting && (
+            <div className="text-[11px] text-muted-foreground space-y-1">
+              <p title={convAsOf ? `Taux daté du ${new Date(convAsOf).toLocaleString('fr-FR')}` : undefined}>
+                <span className="font-medium">≈</span> Montants convertis à titre de reporting selon les taux enregistrés
+                {convAsOf && <> · taux mis à jour le {new Date(convAsOf).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</>}
+                {convSources.length > 0 && <> · source : {convSources.join(', ')}</>}.
+              </p>
+              {convStale && (
+                <p className="text-amber-600 dark:text-amber-400">
+                  Certains taux sont anciens — l'admin peut les actualiser dans Configuration → Taux de change.
+                </p>
+              )}
+              {anyMissing.length > 0 && (
+                <p className="text-amber-600 dark:text-amber-400">
+                  Conversion partielle — devise(s) sans taux exclue(s) du total : {anyMissing.join(', ')}.
+                </p>
+              )}
+            </div>
+          )}
         </>
       )}
 

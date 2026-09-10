@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getAdminTier } from '@/lib/api/require-admin'
 import { AdminPageHeader } from '@/components/admin/ui/admin-page-header'
 import { ReferralConfigForm } from '@/components/admin/referral-config-form'
+import { ReferralRatesForm } from '@/components/admin/referral-rates-form'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +30,7 @@ export default async function ReferralConfigPage({ params: { locale } }: { param
       />
 
       <ReferralConfigForm tier={tier} />
+      <ReferralRatesForm tier={tier} />
     </div>
   )
 }
