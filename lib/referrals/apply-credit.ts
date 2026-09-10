@@ -1,4 +1,5 @@
 import { writeAuditLog } from '@/lib/api/audit'
+import { notifyReferral, formatRefAmount } from '@/lib/referrals/notify'
 
 /**
  * Prévisualise l'application du crédit de parrainage à un montant donné —
@@ -54,6 +55,11 @@ export async function applyWalletCredit(
         target_id: params.subscriptionId,
         target_type: 'subscription',
         metadata: { amount: data.debited, currency: params.currency },
+      })
+      await notifyReferral(admin, {
+        userId: params.userId,
+        event: 'reward_used',
+        vars: { amount: formatRefAmount(data.debited, params.currency) },
       })
     }
   } catch (err: any) {

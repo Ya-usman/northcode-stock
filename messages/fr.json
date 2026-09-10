@@ -1140,7 +1140,21 @@
     "payout_status_approved": "Approuvé",
     "payout_status_paid": "Payé",
     "payout_status_rejected": "Rejeté",
-    "payout_status_cancelled": "Annulé"
+    "payout_status_cancelled": "Annulé",
+    "notif_new_referral_title": "Nouveau filleul 🎉",
+    "notif_new_referral_body": "Quelqu'un vient de créer un compte avec ton code de parrainage.",
+    "notif_reward_pending_title": "Récompense en attente",
+    "notif_reward_pending_body": "Ton filleul est devenu client. Ta récompense de {amount} sera disponible après la période de validation.",
+    "notif_reward_available_title": "Récompense disponible 💰",
+    "notif_reward_available_body": "Ta récompense de {amount} est maintenant disponible. Utilise-la sur ton abonnement ou demande un retrait.",
+    "notif_reward_used_title": "Crédit de parrainage appliqué",
+    "notif_reward_used_body": "{amount} de tes gains de parrainage ont été appliqués à ton abonnement.",
+    "notif_payout_approved_title": "Retrait approuvé",
+    "notif_payout_approved_body": "Ta demande de retrait de {amount} a été approuvée. Le paiement est en cours de traitement.",
+    "notif_payout_paid_title": "Retrait payé ✅",
+    "notif_payout_paid_body": "Ton retrait de {amount} a été payé. Merci de faire grandir StockShop !",
+    "notif_reward_cancelled_title": "Récompense annulée",
+    "notif_reward_cancelled_body": "Une récompense de parrainage de {amount} a été annulée. Contacte le support pour toute question."
   },
   "movements": {
     "title": "Mouvements de stock",

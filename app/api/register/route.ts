@@ -4,6 +4,7 @@ import { getCountry } from '@/lib/saas/countries'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { validateBody, uuid, email as emailSchema, shortText } from '@/lib/api/validate'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
+import { notifyReferral } from '@/lib/referrals/notify'
 import { z } from 'zod'
 
 const registerSchema = z.object({
@@ -167,6 +168,7 @@ export async function POST(request: Request) {
           metadata: { referral_code: referral_code?.toUpperCase() ?? null },
           ip: getClientIp(request),
         })
+        await notifyReferral(supabase, { userId: referrerCodeRow.owner_user_id, event: 'new_referral' })
       } catch (err: any) {
         console.error('[register] referral association failed', err.message)
       }

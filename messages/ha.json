@@ -1140,7 +1140,21 @@
     "payout_status_approved": "An amince",
     "payout_status_paid": "An biya",
     "payout_status_rejected": "An ƙi",
-    "payout_status_cancelled": "An soke"
+    "payout_status_cancelled": "An soke",
+    "notif_new_referral_title": "Sabon wanda aka kawo 🎉",
+    "notif_new_referral_body": "Wani ya buɗe asusu da lambar tallafi ta ka.",
+    "notif_reward_pending_title": "Lada na jira",
+    "notif_reward_pending_body": "Wanda ka kawo ya zama abokin ciniki. Ladan ka na {amount} zai kasance a shirye bayan lokacin tabbatarwa.",
+    "notif_reward_available_title": "Lada a shirye 💰",
+    "notif_reward_available_body": "Ladan ka na {amount} yanzu yana a shirye. Yi amfani da shi akan biyan kuɗin ka ko ka nemi cirewa.",
+    "notif_reward_used_title": "An yi amfani da ladan tallafi",
+    "notif_reward_used_body": "An yi amfani da {amount} na ladan tallafin ka akan biyan kuɗin ka.",
+    "notif_payout_approved_title": "An amince da cirewa",
+    "notif_payout_approved_body": "An amince da buƙatar cirewar ka ta {amount}. Ana sarrafa biyan kuɗi.",
+    "notif_payout_paid_title": "An biya cirewa ✅",
+    "notif_payout_paid_body": "An biya cirewar ka ta {amount}. Na gode da taimakon haɓaka StockShop!",
+    "notif_reward_cancelled_title": "An soke lada",
+    "notif_reward_cancelled_body": "An soke ladan tallafi na {amount}. Tuntuɓi tallafi don kowace tambaya."
   },
   "movements": {
     "title": "Motsi na Kaya",

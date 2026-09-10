@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/api/require-admin'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
+import { notifyReferral, formatRefAmount } from '@/lib/referrals/notify'
 
 // POST /api/admin/referrals/moderate — actions de modération (super_admin).
 //   suspend_code / reactivate_code — active/désactive un code
@@ -61,6 +62,15 @@ export async function POST(request: Request) {
           target_id: rewardId, target_type: 'referral_reward',
           metadata: { clawed_back: data.clawed_back, reason }, ip: getClientIp(request),
         })
+        const { data: reward } = await admin
+          .from('referral_rewards').select('referrer_user_id, amount, currency').eq('id', rewardId).maybeSingle()
+        if (reward?.referrer_user_id) {
+          await notifyReferral(admin, {
+            userId: reward.referrer_user_id,
+            event: 'reward_cancelled',
+            vars: { amount: formatRefAmount(reward.amount, reward.currency) },
+          })
+        }
         return NextResponse.json({ success: true, clawed_back: data.clawed_back })
       }
 

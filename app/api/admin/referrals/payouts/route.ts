@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/api/require-admin'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
+import { notifyReferral, formatRefAmount } from '@/lib/referrals/notify'
 
 // GET /api/admin/referrals/payouts — liste des demandes de retrait.
 // Lecture ouverte aux deux niveaux admin (comme le reste de /api/admin en lecture).
@@ -70,6 +71,19 @@ export async function POST(request: Request) {
       metadata: { status },
       ip: getClientIp(request),
     })
+
+    // Notifier le demandeur quand sa demande avance (approuvée / payée).
+    if (status === 'approved' || status === 'paid') {
+      const { data: req } = await admin
+        .from('referral_payout_requests').select('user_id, amount, currency').eq('id', request_id).maybeSingle()
+      if (req?.user_id) {
+        await notifyReferral(admin, {
+          userId: req.user_id,
+          event: status === 'paid' ? 'payout_paid' : 'payout_approved',
+          vars: { amount: formatRefAmount(req.amount, req.currency) },
+        })
+      }
+    }
 
     return NextResponse.json({ success: true, status })
   } catch (err: any) {

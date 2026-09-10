@@ -1140,7 +1140,21 @@
     "payout_status_approved": "Approved",
     "payout_status_paid": "Paid",
     "payout_status_rejected": "Rejected",
-    "payout_status_cancelled": "Cancelled"
+    "payout_status_cancelled": "Cancelled",
+    "notif_new_referral_title": "New referral 🎉",
+    "notif_new_referral_body": "Someone just signed up with your referral code.",
+    "notif_reward_pending_title": "Reward pending",
+    "notif_reward_pending_body": "Your referral became a paying customer. Your {amount} reward will be available after the validation period.",
+    "notif_reward_available_title": "Reward available 💰",
+    "notif_reward_available_body": "Your {amount} reward is now available. Use it on your subscription or request a payout.",
+    "notif_reward_used_title": "Referral credit applied",
+    "notif_reward_used_body": "{amount} of your referral rewards was applied to your subscription.",
+    "notif_payout_approved_title": "Payout approved",
+    "notif_payout_approved_body": "Your {amount} payout request has been approved. Payment is being processed.",
+    "notif_payout_paid_title": "Payout paid ✅",
+    "notif_payout_paid_body": "Your {amount} payout has been paid. Thanks for helping StockShop grow!",
+    "notif_reward_cancelled_title": "Reward cancelled",
+    "notif_reward_cancelled_body": "A {amount} referral reward has been cancelled. Contact support with any questions."
   },
   "movements": {
     "title": "Stock Movements",

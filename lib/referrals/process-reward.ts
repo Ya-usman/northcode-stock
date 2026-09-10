@@ -1,4 +1,5 @@
 import { writeAuditLog } from '@/lib/api/audit'
+import { notifyReferral, formatRefAmount } from '@/lib/referrals/notify'
 
 /**
  * Déclenche la création d'une récompense de parrainage après un paiement
@@ -46,6 +47,17 @@ export async function processReferralReward(
         target_type: 'referral_reward',
         metadata: { amount: data.amount, currency: data.currency, subscription_id: params.subscriptionId },
       })
+
+      // Notifier le parrain — récompense en attente de validation.
+      const { data: reward } = await admin
+        .from('referral_rewards').select('referrer_user_id').eq('id', data.reward_id).maybeSingle()
+      if (reward?.referrer_user_id) {
+        await notifyReferral(admin, {
+          userId: reward.referrer_user_id,
+          event: 'reward_pending',
+          vars: { amount: formatRefAmount(data.amount, data.currency) },
+        })
+      }
     }
     // data.created === false (disabled / not_referred / already_qualified /
     // plan_not_eligible / country_not_eligible / currency_mismatch) n'est
