@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getPeriodDays, type BillingPeriod } from '@/lib/saas/countries'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { fetchWithTimeout } from '@/lib/api/fetch'
+import { processReferralReward } from '@/lib/referrals/process-reward'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
@@ -57,7 +58,7 @@ export async function GET(request: NextRequest) {
     // null (voir lib/api/shop-auth.ts:getOwnerShopIds).
     const { data: ownerMember } = await supabase
       .from('shop_members').select('user_id').eq('shop_id', shop_id).eq('role', 'owner').eq('is_active', true).maybeSingle()
-    const { data: shopRow } = await supabase.from('shops').select('owner_id').eq('id', shop_id).single()
+    const { data: shopRow } = await supabase.from('shops').select('owner_id, currency, country').eq('id', shop_id).single()
     const owner_id = ownerMember?.user_id ?? (shopRow as any)?.owner_id
 
     if (owner_id) {
@@ -71,10 +72,12 @@ export async function GET(request: NextRequest) {
       console.error('[billing/wave/verify] no resolvable owner for shop', shop_id)
     }
 
-    await supabase.from('subscriptions').insert({
+    const paidAmount = Number(data.amount) || 0
+
+    const { data: newSub } = await supabase.from('subscriptions').insert({
       shop_id,
       plan: plan_id,
-      amount: Number(data.amount) || 0,
+      amount: paidAmount,
       paystack_reference: checkout_id,
       billing_period,
       starts_at: new Date().toISOString(),
@@ -83,7 +86,18 @@ export async function GET(request: NextRequest) {
       auto_renew,
       gateway: 'wave',
       gateway_email: data.client_phone ?? null,
-    } as any)
+    } as any).select('id').single()
+
+    if (owner_id && newSub?.id) {
+      await processReferralReward(supabase, {
+        ownerId: owner_id,
+        subscriptionId: newSub.id,
+        shopCurrency: (shopRow as any)?.currency || '₦',
+        planId: plan_id,
+        amount: paidAmount,
+        country: (shopRow as any)?.country ?? null,
+      })
+    }
 
     await writeAuditLog({
       action: 'billing.verify',

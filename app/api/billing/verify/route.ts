@@ -5,6 +5,7 @@ import { getPeriodDays, type BillingPeriod } from '@/lib/saas/countries'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { fetchWithTimeout } from '@/lib/api/fetch'
 import { enforceOwnerPlanLimits } from '@/lib/saas/enforce-limits'
+import { processReferralReward } from '@/lib/referrals/process-reward'
 
 // inline=1 → appelé depuis le callback PaystackPop (client-side fetch) → retourne JSON
 // inline absent → appelé depuis le redirect navigateur Paystack → retourne redirect
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
     const plan_expires_at = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
 
     // Get owner_id and agent_id to update profile (owner-level billing)
-    const { data: shopRow } = await supabase.from('shops').select('owner_id, agent_id').eq('id', shop_id).single()
+    const { data: shopRow } = await supabase.from('shops').select('owner_id, agent_id, currency, country').eq('id', shop_id).single()
     const owner_id = (shopRow as any)?.owner_id
     const agent_id = (shopRow as any)?.agent_id
 
@@ -93,10 +94,12 @@ export async function GET(request: NextRequest) {
     const gatewayEmail = data.data.customer?.email ?? null
     const canAutoCharge = auto_renew && auth?.reusable === true
 
-    await supabase.from('subscriptions').insert({
+    const paidAmount = data.data.amount / 100
+
+    const { data: newSub } = await supabase.from('subscriptions').insert({
       shop_id,
       plan: plan_id,
-      amount: data.data.amount / 100,
+      amount: paidAmount,
       paystack_reference: reference,
       billing_period,
       starts_at: new Date().toISOString(),
@@ -107,7 +110,24 @@ export async function GET(request: NextRequest) {
       gateway_authorization: canAutoCharge ? auth.authorization_code : null,
       gateway_email: gatewayEmail,
       gateway_last4: auth?.last4 ?? null,
-    } as any)
+    } as any).select('id').single()
+
+    // Programme de parrainage utilisateur — récompense si ce owner a été
+    // parrainé et que c'est son tout premier paiement (idempotent, jamais
+    // bloquant, voir lib/referrals/process-reward.ts).
+    if (owner_id && newSub?.id) {
+      // Awaité (pas fire-and-forget) : une promesse non attendue peut être
+      // coupée par le runtime serverless dès la réponse envoyée. La
+      // fonction garantit déjà de ne jamais lever d'exception.
+      await processReferralReward(supabase, {
+        ownerId: owner_id,
+        subscriptionId: newSub.id,
+        shopCurrency: (shopRow as any)?.currency || '₦',
+        planId: plan_id,
+        amount: paidAmount,
+        country: (shopRow as any)?.country ?? null,
+      })
+    }
 
     // Créer une commission pour l'agent qui a parrainé cette boutique
     if (agent_id) {

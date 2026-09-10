@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getPeriodDays, type BillingPeriod } from '@/lib/saas/countries'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { fetchWithTimeout } from '@/lib/api/fetch'
+import { processReferralReward } from '@/lib/referrals/process-reward'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest) {
     // voir lib/api/shop-auth.ts:getOwnerShopIds).
     const { data: ownerMember } = await supabase
       .from('shop_members').select('user_id').eq('shop_id', shop_id).eq('role', 'owner').eq('is_active', true).maybeSingle()
-    const { data: shopRow } = await supabase.from('shops').select('owner_id').eq('id', shop_id).single()
+    const { data: shopRow } = await supabase.from('shops').select('owner_id, currency, country').eq('id', shop_id).single()
     const owner_id = ownerMember?.user_id ?? (shopRow as any)?.owner_id
 
     if (owner_id) {
@@ -76,11 +77,12 @@ export async function GET(request: NextRequest) {
 
     const cardToken = data.data?.card?.token ?? null
     const last4 = data.data?.card?.last_4digits ?? null
+    const paidAmount = data.data?.amount || 0
 
-    await supabase.from('subscriptions').insert({
+    const { data: newSub } = await supabase.from('subscriptions').insert({
       shop_id,
       plan: plan_id,
-      amount: data.data?.amount || 0,
+      amount: paidAmount,
       billing_period,
       paystack_reference: tx_ref,
       starts_at: new Date().toISOString(),
@@ -91,7 +93,18 @@ export async function GET(request: NextRequest) {
       gateway_authorization: auto_renew && cardToken ? cardToken : null,
       gateway_email: data.data?.customer?.email ?? null,
       gateway_last4: last4,
-    } as any)
+    } as any).select('id').single()
+
+    if (owner_id && newSub?.id) {
+      await processReferralReward(supabase, {
+        ownerId: owner_id,
+        subscriptionId: newSub.id,
+        shopCurrency: (shopRow as any)?.currency || '₦',
+        planId: plan_id,
+        amount: paidAmount,
+        country: (shopRow as any)?.country ?? null,
+      })
+    }
 
     await writeAuditLog({
       action: 'billing.verify',

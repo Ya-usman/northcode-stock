@@ -16,6 +16,7 @@ const CRON_JOBS = [
   { name: 'renewal-check',     label: 'Renouvellement abonnements',  schedule: '09h00, quotidien' },
   { name: 'evening-summary',   label: 'Résumé du soir',              schedule: '17h00, quotidien' },
   { name: 'orphan-shop-check', label: 'Boutiques orphelines',        schedule: '04h00, quotidien' },
+  { name: 'referral-maturity', label: 'Maturation récompenses parrainage', schedule: '05h00, quotidien' },
 ]
 
 // Marge de sécurité avant de considérer une tâche quotidienne "en retard"
