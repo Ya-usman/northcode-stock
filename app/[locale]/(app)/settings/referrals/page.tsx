@@ -5,12 +5,13 @@ import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import {
   ArrowLeft, Copy, Check, MessageCircle, Users, Wallet, Clock, Gift,
-  CreditCard, Banknote, Info,
+  CreditCard, Banknote,
 } from 'lucide-react'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
+import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatCurrency } from '@/lib/utils/currency'
@@ -45,7 +46,41 @@ interface Summary {
     description: string | null
     created_at: string
   }>
+  payouts?: Array<{
+    id: string
+    amount: number
+    currency: string
+    method: string | null
+    status: string
+    created_at: string
+  }>
+  open_payout?: {
+    id: string
+    amount: number
+    currency: string
+    method: string | null
+    status: string
+    created_at: string
+  } | null
   min_payout?: number | null
+}
+
+const PAYOUT_STATUS_KEYS: Record<string, string> = {
+  requested: 'payout_status_requested',
+  under_review: 'payout_status_under_review',
+  approved: 'payout_status_approved',
+  paid: 'payout_status_paid',
+  rejected: 'payout_status_rejected',
+  cancelled: 'payout_status_cancelled',
+}
+
+const PAYOUT_STATUS_COLORS: Record<string, string> = {
+  requested: 'bg-amber-500/10 text-amber-500',
+  under_review: 'bg-blue-500/10 text-blue-500',
+  approved: 'bg-blue-500/10 text-blue-500',
+  paid: 'bg-green-500/10 text-green-500',
+  rejected: 'bg-red-500/10 text-red-500',
+  cancelled: 'bg-muted text-muted-foreground',
 }
 
 const STATUS_KEYS: Record<string, string> = {
@@ -85,6 +120,13 @@ export default function ReferralsPage({ params: { locale } }: { params: { locale
   const [copiedCode, setCopiedCode] = useState(false)
   const [copiedLink, setCopiedLink] = useState(false)
   const [togglingAuto, setTogglingAuto] = useState(false)
+
+  // Formulaire de retrait
+  const [payoutOpen, setPayoutOpen] = useState(false)
+  const [payoutAmount, setPayoutAmount] = useState('')
+  const [payoutMethod, setPayoutMethod] = useState('mobile_money')
+  const [payoutDetails, setPayoutDetails] = useState('')
+  const [payoutSubmitting, setPayoutSubmitting] = useState(false)
 
   const load = useCallback(async () => {
     const cached = getPageCache<Summary>(cacheKey)
@@ -152,6 +194,51 @@ export default function ReferralsPage({ params: { locale } }: { params: { locale
       toast({ title: t('update_failed'), variant: 'destructive' })
     } finally {
       setTogglingAuto(false)
+    }
+  }
+
+  const openPayoutForm = () => {
+    setPayoutAmount(String(data?.wallet?.available_balance ?? ''))
+    setPayoutMethod('mobile_money')
+    setPayoutDetails('')
+    setPayoutOpen(true)
+  }
+
+  const requestPayout = async () => {
+    const amount = Number(payoutAmount)
+    if (!Number.isFinite(amount) || amount <= 0) { toast({ title: t('payout_invalid_amount'), variant: 'destructive' }); return }
+    if (!payoutDetails.trim()) { toast({ title: t('payout_details_required'), variant: 'destructive' }); return }
+    setPayoutSubmitting(true)
+    try {
+      const res = await withTimeout(fetch('/api/referrals/payout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, method: payoutMethod, payment_details: payoutDetails.trim() }),
+      }))
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error || t('update_failed'), variant: 'destructive' }); return }
+      toast({ title: t('payout_requested_ok'), variant: 'success' })
+      setPayoutOpen(false)
+      load()
+    } catch {
+      toast({ title: t('update_failed'), variant: 'destructive' })
+    } finally {
+      setPayoutSubmitting(false)
+    }
+  }
+
+  const cancelPayout = async (requestId: string) => {
+    try {
+      const res = await withTimeout(fetch('/api/referrals/payout/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ request_id: requestId }),
+      }))
+      if (!res.ok) throw new Error()
+      toast({ title: t('payout_cancelled_ok'), variant: 'success' })
+      load()
+    } catch {
+      toast({ title: t('update_failed'), variant: 'destructive' })
     }
   }
 
@@ -248,6 +335,98 @@ export default function ReferralsPage({ params: { locale } }: { params: { locale
             </CardContent>
           </Card>
 
+          {/* Retrait des gains */}
+          <Card>
+            <CardContent className="p-5 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('payout_title')}</p>
+                {!data.open_payout && !payoutOpen && (
+                  data.wallet?.frozen ? null
+                  : (data.min_payout && (data.wallet?.available_balance ?? 0) >= data.min_payout) ? (
+                    <Button size="sm" variant="outline" onClick={openPayoutForm}>{t('payout_request')}</Button>
+                  ) : null
+                )}
+              </div>
+
+              {data.wallet?.frozen && (
+                <p className="text-xs text-red-500">{t('payout_wallet_frozen')}</p>
+              )}
+
+              {/* Demande en cours */}
+              {data.open_payout ? (
+                <div className="bg-muted/50 rounded-lg px-3 py-2.5 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-foreground">{formatCurrency(data.open_payout.amount, data.open_payout.currency)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(data.open_payout.created_at).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${PAYOUT_STATUS_COLORS[data.open_payout.status] || 'bg-muted text-muted-foreground'}`}>
+                      {t(PAYOUT_STATUS_KEYS[data.open_payout.status] || 'payout_status_requested')}
+                    </span>
+                    {['requested', 'under_review'].includes(data.open_payout.status) && (
+                      <button onClick={() => cancelPayout(data.open_payout!.id)} className="text-xs text-red-500 hover:underline">
+                        {t('payout_cancel')}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : payoutOpen ? (
+                /* Formulaire */
+                <div className="space-y-2.5 border rounded-lg p-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">{t('payout_amount_label')}</label>
+                    <Input type="number" inputMode="decimal" value={payoutAmount} onChange={e => setPayoutAmount(e.target.value)}
+                      max={data.wallet?.available_balance} className="h-9" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">{t('payout_method_label')}</label>
+                    <select value={payoutMethod} onChange={e => setPayoutMethod(e.target.value)}
+                      className="w-full h-9 bg-muted border border-border rounded-lg px-3 text-sm text-foreground focus:outline-none focus:border-primary">
+                      <option value="mobile_money">{t('payout_method_mobile_money')}</option>
+                      <option value="bank_transfer">{t('payout_method_bank')}</option>
+                      <option value="other">{t('payout_method_other')}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">{t('payout_details_label')}</label>
+                    <Input value={payoutDetails} onChange={e => setPayoutDetails(e.target.value)}
+                      placeholder={t('payout_details_placeholder')} className="h-9" maxLength={200} />
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <Button size="sm" onClick={requestPayout} disabled={payoutSubmitting} className="flex-1">
+                      {payoutSubmitting ? t('payout_sending') : t('payout_submit')}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setPayoutOpen(false)}>{t('payout_cancel_form')}</Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {data.min_payout
+                    ? t('min_payout_note', { amount: formatCurrency(data.min_payout, data.wallet?.currency || '₦') })
+                    : t('payout_unavailable')}
+                </p>
+              )}
+
+              {/* Historique des retraits (non-ouverts) */}
+              {(data.payouts || []).filter(p => p.id !== data.open_payout?.id).length > 0 && (
+                <div className="space-y-1.5 pt-1">
+                  {(data.payouts || []).filter(p => p.id !== data.open_payout?.id).map(p => (
+                    <div key={p.id} className="flex items-center justify-between gap-2 text-xs py-1 border-t border-border/50 first:border-0">
+                      <span className="text-muted-foreground">
+                        {new Date(p.created_at).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: '2-digit' })} · {formatCurrency(p.amount, p.currency)}
+                      </span>
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${PAYOUT_STATUS_COLORS[p.status] || 'bg-muted text-muted-foreground'}`}>
+                        {t(PAYOUT_STATUS_KEYS[p.status] || 'payout_status_requested')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* 5. Mes filleuls */}
           <Card>
             <CardContent className="p-5">
@@ -310,13 +489,6 @@ export default function ReferralsPage({ params: { locale } }: { params: { locale
               )}
             </CardContent>
           </Card>
-
-          {data.min_payout && (
-            <p className="flex items-start gap-2 text-xs text-muted-foreground px-1">
-              <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
-              {t('min_payout_note', { amount: formatCurrency(data.min_payout, data.wallet?.currency || '₦') })}
-            </p>
-          )}
         </>
       )}
     </div>

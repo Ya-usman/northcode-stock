@@ -32,9 +32,9 @@ export async function GET() {
       return NextResponse.json({ enabled: false })
     }
 
-    // Vague 2 — code, portefeuille et filleuls ne dépendent que de user.id,
-    // aucun des trois ne dépend d'un autre.
-    const [{ data: codeRow0 }, wallet, { data: referrals }] = await Promise.all([
+    // Vague 2 — code, portefeuille, filleuls et demandes de retrait ne
+    // dépendent que de user.id, aucun ne dépend d'un autre.
+    const [{ data: codeRow0 }, wallet, { data: referrals }, { data: payouts }] = await Promise.all([
       admin.from('referral_codes').select('code, active').eq('owner_user_id', user.id).maybeSingle(),
       getOrCreateWallet(admin, user.id),
       admin.from('referrals')
@@ -42,6 +42,11 @@ export async function GET() {
         .eq('referrer_user_id', user.id)
         .order('registered_at', { ascending: false })
         .limit(50),
+      admin.from('referral_payout_requests')
+        .select('id, amount, currency, method, status, created_at, reviewed_at, paid_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(20),
     ])
 
     // Cas rare (première visite jamais faite) — get-or-create du code,
@@ -134,6 +139,8 @@ export async function GET() {
       totals,
       referrals: enrichedReferrals,
       transactions: transactions || [],
+      payouts: payouts || [],
+      open_payout: (payouts || []).find((p: any) => ['requested', 'under_review', 'approved'].includes(p.status)) || null,
       min_payout: config.min_payout_by_currency[wallet.currency] ?? null,
     })
   } catch (err: any) {

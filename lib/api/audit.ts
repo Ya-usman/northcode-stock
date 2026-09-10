@@ -54,6 +54,9 @@ export type AuditAction =
   | 'referral.associated'
   | 'referral.reward_created'
   | 'referral.credit_applied'
+  | 'referral.payout_requested'
+  | 'referral.payout_cancelled'
+  | 'referral.payout_resolved'
 
 interface AuditParams {
   action: AuditAction

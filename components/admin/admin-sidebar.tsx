@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, ShoppingBag, CreditCard, Package,
-  TrendingUp, LogOut, ChevronRight, ShieldCheck, Sun, Moon, UserCheck, ScrollText, Users, Activity,
+  TrendingUp, LogOut, ChevronRight, ShieldCheck, Sun, Moon, UserCheck, ScrollText, Users, Activity, Gift,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { useTheme } from '@/lib/hooks/use-theme'
@@ -35,6 +35,7 @@ const navSections = (locale: string) => [
       { href: `/${locale}/admin/stock`,     label: 'Stock',          icon: Package },
       { href: `/${locale}/admin/payments`,  label: 'Facturation',    icon: CreditCard },
       { href: `/${locale}/admin/agents`,    label: 'Agents terrain', icon: UserCheck },
+      { href: `/${locale}/admin/referrals`, label: 'Parrainage',     icon: Gift },
       { href: `/${locale}/admin/managers`,  label: 'Équipe & accès', icon: Users },
     ],
   },
