@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { ScrollText, Search, RefreshCw, ShieldOff, ShieldCheck, CreditCard, Trash2, UserPlus, Pencil, RotateCcw, Bell, StickyNote, X, Wrench, AlertTriangle, Store } from 'lucide-react'
+import { ScrollText, Search, RefreshCw, ShieldOff, ShieldCheck, CreditCard, Trash2, UserPlus, Pencil, RotateCcw, Bell, StickyNote, X, Wrench, AlertTriangle, Store, Gift } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -30,6 +30,16 @@ const ACTION_CONFIG: Record<string, { label: string; color: string; icon: React.
   'admin.notify':          { label: 'Notification',      color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400', icon: Bell },
   'admin.send_notification': { label: 'Message envoyé',  color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400', icon: Bell },
   'admin.note':            { label: 'Note interne',      color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',   icon: StickyNote },
+  'referral.associated':      { label: 'Parrainage associé', color: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400', icon: Gift },
+  'referral.reward_created':  { label: 'Récompense créée',   color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', icon: Gift },
+  'referral.credit_applied':  { label: 'Crédit parrainage',  color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', icon: CreditCard },
+  'referral.payout_requested':{ label: 'Retrait demandé',    color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400', icon: CreditCard },
+  'referral.payout_resolved': { label: 'Retrait traité',     color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', icon: CreditCard },
+  'referral.payout_cancelled':{ label: 'Retrait annulé',     color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300', icon: X },
+  'referral.reward_cancelled':{ label: 'Récompense annulée', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', icon: X },
+  'referral.code_moderated':  { label: 'Code modéré',        color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', icon: ShieldOff },
+  'referral.wallet_moderated':{ label: 'Portefeuille gelé',  color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', icon: ShieldOff },
+  'referral.wallet_adjusted': { label: 'Ajustement solde',   color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400', icon: Pencil },
 }
 
 const ACTION_FILTERS = [
@@ -40,6 +50,7 @@ const ACTION_FILTERS = [
   { value: 'member.invite,member.delete', label: 'Équipe' },
   { value: 'admin.restore_product,admin.restore_customer', label: 'Restaurations' },
   { value: 'admin.repair_orphan_shop,admin.orphan_shop_alert', label: 'Boutiques orphelines' },
+  { value: 'referral.associated,referral.reward_created,referral.credit_applied,referral.payout_requested,referral.payout_resolved,referral.payout_cancelled,referral.reward_cancelled,referral.code_moderated,referral.wallet_moderated,referral.wallet_adjusted', label: 'Parrainage' },
 ]
 
 interface AuditLog {

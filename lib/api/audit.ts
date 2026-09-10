@@ -57,6 +57,10 @@ export type AuditAction =
   | 'referral.payout_requested'
   | 'referral.payout_cancelled'
   | 'referral.payout_resolved'
+  | 'referral.code_moderated'
+  | 'referral.wallet_moderated'
+  | 'referral.reward_cancelled'
+  | 'referral.wallet_adjusted'
 
 interface AuditParams {
   action: AuditAction
