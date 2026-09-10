@@ -1154,7 +1154,14 @@
     "notif_payout_paid_title": "An biya cirewa ✅",
     "notif_payout_paid_body": "An biya cirewar ka ta {amount}. Na gode da taimakon haɓaka StockShop!",
     "notif_reward_cancelled_title": "An soke lada",
-    "notif_reward_cancelled_body": "An soke ladan tallafi na {amount}. Tuntuɓi tallafi don kowace tambaya."
+    "notif_reward_cancelled_body": "An soke ladan tallafi na {amount}. Tuntuɓi tallafi don kowace tambaya.",
+    "add_code_title": "Kana da lambar tallafi?",
+    "add_code_subtitle": "Ƙara ta don haɗa asusun ka da wanda ya kawo ka.",
+    "add_code_placeholder": "Lambar tallafi",
+    "add_code_button": "Ƙara lamba",
+    "add_code_deadline": "Kana iya ƙara lamba har zuwa {date}.",
+    "add_code_success": "An ƙara lambar tallafi ✅",
+    "add_code_review": "An ƙara lamba — ana bincike daga ƙungiyar mu."
   },
   "movements": {
     "title": "Motsi na Kaya",

@@ -65,6 +65,9 @@ interface Summary {
     created_at: string
   } | null
   min_payout?: number | null
+  is_referred?: boolean
+  can_associate?: boolean
+  association_deadline?: string | null
 }
 
 const PAYOUT_STATUS_KEYS: Record<string, string> = {
@@ -130,6 +133,10 @@ export default function ReferralsPage({ params: { locale } }: { params: { locale
   const [payoutDetails, setPayoutDetails] = useState('')
   const [payoutSubmitting, setPayoutSubmitting] = useState(false)
 
+  // Ajout tardif d'un code de parrainage
+  const [assocCode, setAssocCode] = useState('')
+  const [assocSubmitting, setAssocSubmitting] = useState(false)
+
   const load = useCallback(async () => {
     const cached = getPageCache<Summary>(cacheKey)
     if (cached) { setData(cached); setLoading(false) } else { setLoading(true) }
@@ -163,6 +170,31 @@ export default function ReferralsPage({ params: { locale } }: { params: { locale
   const shareWhatsApp = () => {
     const message = t('whatsapp_message', { link: referralLink })
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank')
+  }
+
+  const addReferralCode = async () => {
+    const code = assocCode.trim()
+    if (!code || assocSubmitting) return
+    setAssocSubmitting(true)
+    try {
+      const res = await withTimeout(fetch('/api/referrals/associate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      }))
+      const json = await res.json()
+      if (!res.ok) {
+        toast({ title: json.error || t('update_failed'), variant: 'destructive' })
+        return
+      }
+      toast({ title: json.needs_review ? t('add_code_review') : t('add_code_success'), variant: 'success' })
+      setAssocCode('')
+      await load()
+    } catch (err: any) {
+      toast({ title: err?.message || t('update_failed'), variant: 'destructive' })
+    } finally {
+      setAssocSubmitting(false)
+    }
   }
 
   const toggleAutoApply = async (checked: boolean) => {
@@ -313,6 +345,38 @@ export default function ReferralsPage({ params: { locale } }: { params: { locale
               </div>
             </CardContent>
           </Card>
+
+          {/* 3bis. Ajouter un code de parrainage (fenêtre post-inscription) */}
+          {!data.is_referred && data.can_associate && (
+            <Card>
+              <CardContent className="p-5 space-y-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{t('add_code_title')}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{t('add_code_subtitle')}</p>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input
+                    value={assocCode}
+                    onChange={(e) => setAssocCode(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => e.key === 'Enter' && addReferralCode()}
+                    placeholder={t('add_code_placeholder')}
+                    className="font-mono uppercase"
+                    disabled={assocSubmitting}
+                  />
+                  <Button onClick={addReferralCode} disabled={assocSubmitting || !assocCode.trim()} className="sm:w-auto w-full flex-shrink-0">
+                    {t('add_code_button')}
+                  </Button>
+                </div>
+                {data.association_deadline && (
+                  <p className="text-xs text-muted-foreground">
+                    {t('add_code_deadline', {
+                      date: new Date(data.association_deadline).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' }),
+                    })}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* 4. Statistiques */}
           <div className="grid grid-cols-2 gap-3">

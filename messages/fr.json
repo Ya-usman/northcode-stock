@@ -1154,7 +1154,14 @@
     "notif_payout_paid_title": "Retrait payé ✅",
     "notif_payout_paid_body": "Ton retrait de {amount} a été payé. Merci de faire grandir StockShop !",
     "notif_reward_cancelled_title": "Récompense annulée",
-    "notif_reward_cancelled_body": "Une récompense de parrainage de {amount} a été annulée. Contacte le support pour toute question."
+    "notif_reward_cancelled_body": "Une récompense de parrainage de {amount} a été annulée. Contacte le support pour toute question.",
+    "add_code_title": "Vous avez un code de parrainage ?",
+    "add_code_subtitle": "Ajoutez-le pour lier votre compte à votre parrain.",
+    "add_code_placeholder": "Code de parrainage",
+    "add_code_button": "Ajouter le code",
+    "add_code_deadline": "Vous pouvez ajouter un code jusqu’au {date}.",
+    "add_code_success": "Code de parrainage ajouté ✅",
+    "add_code_review": "Code ajouté — en cours de vérification par notre équipe."
   },
   "movements": {
     "title": "Mouvements de stock",

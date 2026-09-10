@@ -1154,7 +1154,14 @@
     "notif_payout_paid_title": "Payout paid ✅",
     "notif_payout_paid_body": "Your {amount} payout has been paid. Thanks for helping StockShop grow!",
     "notif_reward_cancelled_title": "Reward cancelled",
-    "notif_reward_cancelled_body": "A {amount} referral reward has been cancelled. Contact support with any questions."
+    "notif_reward_cancelled_body": "A {amount} referral reward has been cancelled. Contact support with any questions.",
+    "add_code_title": "Have a referral code?",
+    "add_code_subtitle": "Add it to link your account to the person who referred you.",
+    "add_code_placeholder": "Referral code",
+    "add_code_button": "Add code",
+    "add_code_deadline": "You can add a code until {date}.",
+    "add_code_success": "Referral code added ✅",
+    "add_code_review": "Code added — under review by our team."
   },
   "movements": {
     "title": "Stock Movements",

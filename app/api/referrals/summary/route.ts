@@ -22,7 +22,7 @@ export async function GET() {
 
     // Vague 1 — indépendantes l'une de l'autre
     const [{ data: profile }, config] = await Promise.all([
-      supabase.from('profiles').select('role, full_name').eq('id', user.id).single(),
+      supabase.from('profiles').select('role, full_name, created_at').eq('id', user.id).single(),
       getReferralConfig(admin),
     ])
 
@@ -35,7 +35,7 @@ export async function GET() {
 
     // Vague 2 — code, portefeuille, filleuls et demandes de retrait ne
     // dépendent que de user.id, aucun ne dépend d'un autre.
-    const [{ data: codeRow0 }, wallet, { data: referrals }, { data: payouts }] = await Promise.all([
+    const [{ data: codeRow0 }, wallet, { data: referrals }, { data: payouts }, { data: myReferral }] = await Promise.all([
       admin.from('referral_codes').select('code, active').eq('owner_user_id', user.id).maybeSingle(),
       getOrCreateWallet(admin, user.id),
       admin.from('referrals')
@@ -48,7 +48,22 @@ export async function GET() {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(20),
+      admin.from('referrals').select('id, status').eq('referred_user_id', user.id).maybeSingle(),
     ])
+
+    // Ajout tardif d'un code de parrainage — fenêtre `association_window_days`
+    // après la création du compte. Contrôle strict côté serveur dans
+    // POST /api/referrals/associate ; ici on décide seulement si le
+    // formulaire doit s'afficher (l'endpoint rejette proprement les cas
+    // limites : abonnement déjà payé, course concurrente, etc.).
+    const isReferred = !!myReferral
+    let associationDeadline: string | null = null
+    let canAssociate = false
+    if (!isReferred && config.association_window_days > 0 && (profile as any)?.created_at) {
+      const deadlineMs = new Date((profile as any).created_at).getTime() + config.association_window_days * 86_400_000
+      associationDeadline = new Date(deadlineMs).toISOString()
+      canAssociate = Date.now() < deadlineMs
+    }
 
     // Cas rare (première visite jamais faite) — get-or-create du code,
     // hors de la vague parallèle puisqu'il dépend de son résultat.
@@ -144,6 +159,9 @@ export async function GET() {
       payouts: payouts || [],
       open_payout: (payouts || []).find((p: any) => ['requested', 'under_review', 'approved'].includes(p.status)) || null,
       min_payout: config.min_payout_by_currency[wallet.currency] ?? null,
+      is_referred: isReferred,
+      can_associate: canAssociate,
+      association_deadline: associationDeadline,
     })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
