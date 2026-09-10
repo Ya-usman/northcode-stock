@@ -5,6 +5,8 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { validateBody, uuid, email as emailSchema, shortText } from '@/lib/api/validate'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { notifyReferral } from '@/lib/referrals/notify'
+import { getReferralConfig } from '@/lib/referrals/config'
+import { assessReferralRisk } from '@/lib/referrals/fraud'
 import { z } from 'zod'
 
 const registerSchema = z.object({
@@ -152,11 +154,28 @@ export async function POST(request: Request) {
     // jamais priver le filleul de son compte.
     if (referrerCodeRow) {
       try {
+        // Évaluation anti-fraude multi-signaux (jamais l'IP seule) — si le
+        // score dépasse le seuil, l'association est retenue pour revue :
+        // la récompense sera créée mais ne mûrira pas sans validation admin.
+        const config = await getReferralConfig(supabase)
+        const risk = config.fraud_auto_hold
+          ? await assessReferralRisk(supabase, {
+              referrerUserId: referrerCodeRow.owner_user_id,
+              referredUserId: user_id,
+              referredEmail: email,
+              referredPhone: phone ?? null,
+              referredIp: getClientIp(request),
+              maxPerDay: config.max_referrals_per_day,
+            })
+          : { needsReview: false, flags: [] }
+
         await supabase.from('referrals').insert({
           referral_code_id: referrerCodeRow.id,
           referrer_user_id: referrerCodeRow.owner_user_id,
           referred_user_id: user_id,
           status: 'registered',
+          needs_review: risk.needsReview,
+          risk_flags: risk.flags,
         } as any)
         await writeAuditLog({
           action: 'referral.associated',
@@ -165,7 +184,11 @@ export async function POST(request: Request) {
           actor_email: email,
           target_id: referrerCodeRow.owner_user_id,
           target_type: 'profile',
-          metadata: { referral_code: referral_code?.toUpperCase() ?? null },
+          metadata: {
+            referral_code: referral_code?.toUpperCase() ?? null,
+            needs_review: risk.needsReview,
+            risk_flags: risk.flags.map((f) => f.code),
+          },
           ip: getClientIp(request),
         })
         await notifyReferral(supabase, { userId: referrerCodeRow.owner_user_id, event: 'new_referral' })

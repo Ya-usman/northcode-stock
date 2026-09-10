@@ -10,6 +10,8 @@ export interface ReferralConfig {
   min_payout_by_currency: Record<string, number>
   eligible_plans: string[]
   eligible_countries: string[] | null
+  fraud_auto_hold: boolean
+  max_referrals_per_day: number
 }
 
 const CONFIG_ROW_ID = '00000000-0000-0000-0000-000000000001'
@@ -31,5 +33,7 @@ export async function getReferralConfig(admin: any): Promise<ReferralConfig> {
     min_payout_by_currency: data?.min_payout_by_currency ?? {},
     eligible_plans: data?.eligible_plans ?? ['starter', 'pro', 'business'],
     eligible_countries: data?.eligible_countries ?? null,
+    fraud_auto_hold: data?.fraud_auto_hold ?? true,
+    max_referrals_per_day: data?.max_referrals_per_day ?? 20,
   }
 }

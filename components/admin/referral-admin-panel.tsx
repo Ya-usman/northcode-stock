@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Search, Gift, Users, TrendingUp, Wallet, CreditCard, Banknote, Ban, Snowflake, Sun, X, Loader2 } from 'lucide-react'
+import { Search, Gift, Users, TrendingUp, Wallet, CreditCard, Banknote, Ban, Snowflake, Sun, X, Loader2, ShieldAlert, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/use-toast'
@@ -32,6 +32,25 @@ interface LookupResult {
   payouts?: Array<{ id: string; amount: number; currency: string; status: string; created_at: string }>
 }
 
+interface ReviewItem {
+  id: string
+  status: string
+  registered_at: string
+  risk_flags: Array<{ code: string; detail?: string }>
+  referrer: { user_id: string; full_name: string | null; email: string | null; code: string | null }
+  referred: { user_id: string; full_name: string | null; email: string | null; shop_name: string }
+  reward: { amount: number; currency: string; status: string } | null
+}
+
+const FLAG_LABELS: Record<string, string> = {
+  same_ip: 'Même IP',
+  same_phone: 'Même téléphone',
+  similar_email: 'Email similaire',
+  referrer_too_new: 'Parrain très récent',
+  velocity: 'Trop de filleuls / 24h',
+  disposable_email: 'Email jetable',
+}
+
 export function ReferralAdminPanel({ tier, locale }: { tier: AdminTier; locale: string }) {
   const { toast } = useToast()
   const canWrite = tier === 'super_admin'
@@ -40,12 +59,40 @@ export function ReferralAdminPanel({ tier, locale }: { tier: AdminTier; locale: 
   const [result, setResult] = useState<LookupResult | null>(null)
   const [searching, setSearching] = useState(false)
   const [acting, setActing] = useState(false)
+  const [reviewItems, setReviewItems] = useState<ReviewItem[]>([])
+  const [reviewing, setReviewing] = useState<string | null>(null)
+
+  const loadReview = () => {
+    withTimeout(fetch('/api/admin/referrals/review')).then(async r => {
+      if (r.ok) setReviewItems((await r.json()).referrals || [])
+    }).catch(() => {})
+  }
 
   useEffect(() => {
     withTimeout(fetch('/api/admin/referrals/overview')).then(async r => {
       if (r.ok) setOverview(await r.json())
     }).catch(() => {})
+    loadReview()
   }, [])
+
+  const review = async (referralId: string, decision: 'approve' | 'reject') => {
+    if (decision === 'reject' && !window.confirm('Rejeter ce parrainage ? Toute récompense en attente sera annulée.')) return
+    setReviewing(referralId)
+    try {
+      const res = await withTimeout(fetch('/api/admin/referrals/review', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ referral_id: referralId, decision }),
+      }))
+      const json = await res.json()
+      if (!res.ok) { toast({ title: json.error || 'Action impossible', variant: 'destructive' }); return }
+      toast({ title: decision === 'approve' ? '✅ Parrainage approuvé' : '✅ Parrainage rejeté', variant: 'success' })
+      setReviewItems(prev => prev.filter(i => i.id !== referralId))
+    } catch (err: any) {
+      toast({ title: err.message || 'Erreur', variant: 'destructive' })
+    } finally {
+      setReviewing(null)
+    }
+  }
 
   const search = async () => {
     if (!query.trim()) return
@@ -115,6 +162,66 @@ export function ReferralAdminPanel({ tier, locale }: { tier: AdminTier; locale: 
             <KpiTile label="Revenu généré par le programme" value={formatNaira(overview.revenue_generated)} icon={TrendingUp} tone="success" />
           </div>
         </>
+      )}
+
+      {/* Filleuls à vérifier (anti-fraude) */}
+      {reviewItems.length > 0 && (
+        <div className="bg-card rounded-xl border border-amber-500/40 shadow-sm p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <ShieldAlert className="h-4 w-4 text-amber-500" />
+            Filleuls à vérifier
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-500">{reviewItems.length}</span>
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            Associations retenues par l'analyse anti-fraude. La récompense est créée mais ne sera versée qu'après approbation.
+          </p>
+          <div className="divide-y divide-border/50">
+            {reviewItems.map(item => (
+              <div key={item.id} className="py-3 space-y-2 first:pt-0 last:pb-0">
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div className="min-w-0 text-xs space-y-0.5">
+                    <p className="text-foreground">
+                      <span className="text-muted-foreground">Parrain :</span> {item.referrer.full_name || '—'}
+                      {item.referrer.code && <span className="font-mono ml-1.5">{item.referrer.code}</span>}
+                    </p>
+                    <p className="text-muted-foreground truncate">{item.referrer.email}</p>
+                    <p className="text-foreground pt-1">
+                      <span className="text-muted-foreground">Filleul :</span> {item.referred.shop_name} · {item.referred.email}
+                    </p>
+                    {item.reward && (
+                      <p className="text-green-400 font-semibold pt-0.5">Récompense en attente : +{formatNaira(item.reward.amount)}</p>
+                    )}
+                  </div>
+                  {canWrite && (
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <Button
+                        size="sm" variant="outline" disabled={reviewing === item.id}
+                        onClick={() => review(item.id, 'approve')}
+                        className="h-7 text-xs border-green-700 text-green-400 hover:bg-green-900/30"
+                      >
+                        {reviewing === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Check className="h-3 w-3 mr-1" />Approuver</>}
+                      </Button>
+                      <Button
+                        size="sm" variant="outline" disabled={reviewing === item.id}
+                        onClick={() => review(item.id, 'reject')}
+                        className="h-7 text-xs border-red-700 text-red-400 hover:bg-red-900/30"
+                      >
+                        <X className="h-3 w-3 mr-1" />Rejeter
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {item.risk_flags.map((f, i) => (
+                    <span key={i} className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-500" title={f.detail || ''}>
+                      {FLAG_LABELS[f.code] || f.code}{f.detail ? ` (${f.detail})` : ''}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* Recherche de code */}
