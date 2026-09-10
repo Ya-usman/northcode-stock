@@ -53,6 +53,7 @@ export type AuditAction =
   | 'admin.send_notification'
   | 'referral.associated'
   | 'referral.reward_created'
+  | 'referral.credit_applied'
 
 interface AuditParams {
   action: AuditAction

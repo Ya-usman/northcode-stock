@@ -1654,7 +1654,15 @@
     "secure_payment_gateway": "Paiement sécurisé · {gateway}",
     "auto_renew_label": "Renouvellement automatique",
     "auto_renew_card_hint": "Votre carte sera débitée automatiquement avant l'échéance",
-    "auto_renew_email_hint": "Vous recevrez un email de rappel 3 jours avant l'échéance"
+    "auto_renew_email_hint": "Vous recevrez un email de rappel 3 jours avant l'échéance",
+    "checkout_pay": "Payer",
+    "checkout_confirm_free": "Confirmer — 0 à payer",
+    "use_reward_credit_label": "Utiliser mes gains de parrainage",
+    "reward_balance_hint": "Solde disponible : {amount}",
+    "checkout_subtotal": "Sous-total",
+    "checkout_credit": "Crédit StockShop",
+    "checkout_due": "À payer",
+    "checkout_remaining_balance": "Solde restant après paiement : {amount}"
   },
   "caisse": {
     "title": "Contrôle de caisse",

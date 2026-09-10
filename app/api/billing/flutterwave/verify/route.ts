@@ -4,6 +4,7 @@ import { getPeriodDays, type BillingPeriod } from '@/lib/saas/countries'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { fetchWithTimeout } from '@/lib/api/fetch'
 import { processReferralReward } from '@/lib/referrals/process-reward'
+import { applyWalletCredit } from '@/lib/referrals/apply-credit'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL(`/${locale}/billing?error=payment_failed`, baseUrl))
     }
 
-    const { shop_id, plan_id, billing_period = 'monthly', auto_renew = false } = data.data?.meta || {}
+    const { shop_id, plan_id, billing_period = 'monthly', auto_renew = false, credit_amount = 0 } = data.data?.meta || {}
 
     if (!shop_id || !plan_id) {
       return NextResponse.redirect(new URL(`/${locale}/billing?error=invalid_meta`, baseUrl))
@@ -103,6 +104,15 @@ export async function GET(request: NextRequest) {
         planId: plan_id,
         amount: paidAmount,
         country: (shopRow as any)?.country ?? null,
+      })
+    }
+
+    if (owner_id && newSub?.id && Number(credit_amount) > 0) {
+      await applyWalletCredit(supabase, {
+        userId: owner_id,
+        intendedAmount: Number(credit_amount),
+        currency: (shopRow as any)?.currency || '₦',
+        subscriptionId: newSub.id,
       })
     }
 

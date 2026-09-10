@@ -1654,7 +1654,15 @@
     "secure_payment_gateway": "Biyan kuɗi mai tsaro · {gateway}",
     "auto_renew_label": "Sabuntawa ta atomatik",
     "auto_renew_card_hint": "Za a cire kuɗi daga katinka ta atomatik kafin ranar biya",
-    "auto_renew_email_hint": "Za ka karɓi imel na tunatarwa kwana 3 kafin ranar biya"
+    "auto_renew_email_hint": "Za ka karɓi imel na tunatarwa kwana 3 kafin ranar biya",
+    "checkout_pay": "Biya",
+    "checkout_confirm_free": "Tabbatar — babu abin biya",
+    "use_reward_credit_label": "Yi amfani da ladan tallafi na",
+    "reward_balance_hint": "Ma'aunin da ke akwai: {amount}",
+    "checkout_subtotal": "Jimillar farko",
+    "checkout_credit": "Kirdit na StockShop",
+    "checkout_due": "Abin biya",
+    "checkout_remaining_balance": "Ma'aunin da ya rage bayan biya: {amount}"
   },
   "caisse": {
     "title": "Duba Kuɗin Kasuwanci",

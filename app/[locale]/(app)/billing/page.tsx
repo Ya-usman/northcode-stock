@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
-import { CheckCircle2, Clock, Crown, Sparkles, Building2, ShieldCheck, Mail, RefreshCw } from 'lucide-react'
+import { CheckCircle2, Clock, Crown, Sparkles, Building2, ShieldCheck, Mail, RefreshCw, Gift } from 'lucide-react'
 import { PlanUsageCard } from '@/components/saas/plan-usage-card'
 import { DowngradeNotice } from '@/components/saas/downgrade-notice'
 import { cn } from '@/lib/utils/cn'
@@ -44,6 +44,22 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   const [checkoutPlan, setCheckoutPlan] = useState<PlanId | null>(null)
   const [selectedMethod, setSelectedMethod] = useState<string>('')
   const [autoRenew, setAutoRenew] = useState(false)
+
+  // Crédit de parrainage — soldé récupéré une fois, réutilisé pour la
+  // prévisualisation du crédit à l'ouverture de chaque checkout.
+  const [rewardWallet, setRewardWallet] = useState<{ available_balance: number; currency: string; auto_apply_to_subscription: boolean } | null>(null)
+  const [useCredit, setUseCredit] = useState(false)
+
+  useEffect(() => {
+    withTimeout(fetch('/api/referrals/summary')).then(async res => {
+      if (!res.ok) return
+      const json = await res.json()
+      if (json?.enabled && json.wallet) {
+        setRewardWallet(json.wallet)
+        setUseCredit(!!json.wallet.auto_apply_to_subscription)
+      }
+    }).catch(() => {})
+  }, [])
 
   const PLAN_DETAILS = [
     {
@@ -157,12 +173,24 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   const openCheckout = (planId: PlanId) => {
     setCheckoutPlan(planId)
     setSelectedMethod(subscriptionMethods[0]?.id || '')
+    setUseCredit(!!rewardWallet?.auto_apply_to_subscription)
   }
 
   const closeCheckout = () => {
     setCheckoutPlan(null)
     setSelectedMethod('')
     setAutoRenew(false)
+  }
+
+  // Prévisualisation pure (aucune écriture) — le crédit réel n'est jamais
+  // débité avant confirmation du paiement, voir lib/referrals/apply-credit.ts.
+  const walletMatchesCountry = !!rewardWallet && rewardWallet.currency === country.currencySymbol && rewardWallet.available_balance > 0
+  const creditPreview = (planId: PlanId) => {
+    if (!walletMatchesCountry || !useCredit) return null
+    const price = getPeriodPrice(country.prices[planId], period, country.periodPrices?.[planId])
+    const applied = Math.min(rewardWallet!.available_balance, price)
+    const due = Math.round((price - applied) * 100) / 100
+    return { price, applied, due, remaining: rewardWallet!.available_balance - applied }
   }
 
   const handlePay = useCallback(async () => {
@@ -180,6 +208,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
           billing_period: period,
           payment_method: selectedMethod,
           auto_renew: autoRenew,
+          use_credit: useCredit,
         }),
       }))
       const data = await res.json()
@@ -195,6 +224,14 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
 
       closeCheckout()
 
+      if (data.fully_paid) {
+        // Entièrement couvert par le crédit de parrainage — aucune
+        // passerelle de paiement n'a été appelée, le plan est déjà actif.
+        toast({ title: t('payment_success'), description: t('payment_success_desc'), variant: 'success' })
+        setTimeout(() => { window.location.replace(`/${locale}/billing?checked=1`) }, 1200)
+        return
+      }
+
       // Always redirect to Paystack/gateway hosted page — more reliable than
       // the PaystackPop inline popup which requires a <form> element and is
       // prone to CSP/script-init failures.
@@ -203,7 +240,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
       toast({ title: err.message, variant: 'destructive' })
       setLoading(false)
     }
-  }, [shop, user, checkoutPlan, selectedMethod, country, locale, toast, refreshShop, period, t, isNigeria])
+  }, [shop, user, checkoutPlan, selectedMethod, country, locale, toast, refreshShop, period, t, isNigeria, useCredit])
 
   const faqItems = [
     { q: t('faq_1_q'), a: t('faq_1_a') },
@@ -458,6 +495,53 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                 })()}
               </div>
 
+              {/* Crédit de parrainage */}
+              {walletMatchesCountry && (() => {
+                const preview = creditPreview(checkoutPlan)
+                return (
+                  <div className="rounded-xl border-2 border-green-500/30 bg-green-50/50 dark:bg-green-950/20 px-4 py-3 space-y-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setUseCredit(v => !v)}
+                      className="w-full flex items-center gap-3 text-left"
+                    >
+                      <Gift className={cn('h-4 w-4 shrink-0', useCredit ? 'text-green-600' : 'text-muted-foreground')} />
+                      <div className="flex-1 min-w-0">
+                        <p className={cn('text-sm font-semibold', useCredit ? 'text-green-700 dark:text-green-400' : 'text-foreground')}>
+                          {t('use_reward_credit_label')}
+                        </p>
+                        <p className="text-xs text-muted-foreground leading-tight mt-0.5">
+                          {t('reward_balance_hint', { amount: formatAmount(rewardWallet!.available_balance) })}
+                        </p>
+                      </div>
+                      <div className={cn('h-5 w-9 rounded-full transition-colors shrink-0 relative', useCredit ? 'bg-green-500' : 'bg-muted')}>
+                        <span className={cn('absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform', useCredit ? 'translate-x-4' : 'translate-x-0.5')} />
+                      </div>
+                    </button>
+
+                    {preview && (
+                      <div className="pt-2.5 border-t border-green-500/20 space-y-1 text-sm">
+                        <div className="flex items-center justify-between text-muted-foreground">
+                          <span>{t('checkout_subtotal')}</span>
+                          <span>{formatAmount(preview.price)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-green-600 dark:text-green-400 font-medium">
+                          <span>{t('checkout_credit')}</span>
+                          <span>-{formatAmount(preview.applied)}</span>
+                        </div>
+                        <div className="flex items-center justify-between font-bold text-foreground pt-1">
+                          <span>{t('checkout_due')}</span>
+                          <span>{formatAmount(preview.due)}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground pt-1">
+                          {t('checkout_remaining_balance', { amount: formatAmount(preview.remaining) })}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+
               {/* Key features (top 3) */}
               <div className="grid grid-cols-1 gap-1.5">
                 {checkoutPlanDetails.features.slice(0, 3).map(f => (
@@ -602,7 +686,12 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                   variant="stockshop"
                   className="flex-1 h-11 rounded-xl font-semibold"
                 >
-                  Payer {formatPrice(checkoutPlan)}
+                  {(() => {
+                    const preview = creditPreview(checkoutPlan)
+                    if (preview && preview.due === 0) return t('checkout_confirm_free')
+                    if (preview) return `${t('checkout_pay')} ${formatAmount(preview.due)}`
+                    return `${t('checkout_pay')} ${formatPrice(checkoutPlan)}`
+                  })()}
                 </Button>
               )}
             </PremiumDialogFooter>

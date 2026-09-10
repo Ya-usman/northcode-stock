@@ -6,6 +6,7 @@ import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { fetchWithTimeout } from '@/lib/api/fetch'
 import { enforceOwnerPlanLimits } from '@/lib/saas/enforce-limits'
 import { processReferralReward } from '@/lib/referrals/process-reward'
+import { applyWalletCredit } from '@/lib/referrals/apply-credit'
 
 // inline=1 → appelé depuis le callback PaystackPop (client-side fetch) → retourne JSON
 // inline absent → appelé depuis le redirect navigateur Paystack → retourne redirect
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
       return reply(inline, locale, baseUrl, false, 'payment_failed')
     }
 
-    const { shop_id, plan_id, billing_period = 'monthly', auto_renew = false } = data.data.metadata
+    const { shop_id, plan_id, billing_period = 'monthly', auto_renew = false, credit_amount = 0 } = data.data.metadata
     const plan = PLANS[plan_id as keyof typeof PLANS]
 
     if (!plan || plan.id === 'trial') {
@@ -126,6 +127,17 @@ export async function GET(request: NextRequest) {
         planId: plan_id,
         amount: paidAmount,
         country: (shopRow as any)?.country ?? null,
+      })
+    }
+
+    // Débite le crédit réservé à l'initiation du paiement (app/api/billing/subscribe)
+    // — seulement maintenant que le paiement est confirmé.
+    if (owner_id && newSub?.id && Number(credit_amount) > 0) {
+      await applyWalletCredit(supabase, {
+        userId: owner_id,
+        intendedAmount: Number(credit_amount),
+        currency: (shopRow as any)?.currency || '₦',
+        subscriptionId: newSub.id,
       })
     }
 

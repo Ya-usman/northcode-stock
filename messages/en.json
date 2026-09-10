@@ -1654,7 +1654,15 @@
     "secure_payment_gateway": "Secure payment · {gateway}",
     "auto_renew_label": "Auto-renewal",
     "auto_renew_card_hint": "Your card will be charged automatically before the due date",
-    "auto_renew_email_hint": "You'll receive a reminder email 3 days before the due date"
+    "auto_renew_email_hint": "You'll receive a reminder email 3 days before the due date",
+    "checkout_pay": "Pay",
+    "checkout_confirm_free": "Confirm — nothing to pay",
+    "use_reward_credit_label": "Use my referral rewards",
+    "reward_balance_hint": "Available balance: {amount}",
+    "checkout_subtotal": "Subtotal",
+    "checkout_credit": "StockShop credit",
+    "checkout_due": "Amount due",
+    "checkout_remaining_balance": "Remaining balance after payment: {amount}"
   },
   "caisse": {
     "title": "Cash Audit",

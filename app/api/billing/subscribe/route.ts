@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { getCountry, getPeriodPrice, type BillingPeriod } from '@/lib/saas/countries'
+import { getCountry, getPeriodPrice, getPeriodDays, type BillingPeriod } from '@/lib/saas/countries'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { validateBody, uuid, email as emailSchema, billingPeriodEnum, planEnum } from '@/lib/api/validate'
 import { fetchWithTimeout } from '@/lib/api/fetch'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { writeAuditLog, getClientIp } from '@/lib/api/audit'
+import { enforceOwnerPlanLimits } from '@/lib/saas/enforce-limits'
+import { previewWalletCredit, applyWalletCredit } from '@/lib/referrals/apply-credit'
 import { z } from 'zod'
 
 const subscribeSchema = z.object({
@@ -15,6 +18,7 @@ const subscribeSchema = z.object({
   billing_period: billingPeriodEnum.default('monthly'),
   payment_method: z.string().max(50).default(''),
   auto_renew: z.boolean().default(false),
+  use_credit: z.boolean().default(false),
 })
 
 // Map our internal payment method IDs to Paystack channels.
@@ -65,12 +69,12 @@ export async function POST(request: Request) {
     const body = await request.json()
     const validated = validateBody(subscribeSchema, body)
     if ('error' in validated) return validated.error
-    const { plan_id, shop_id, email, locale, billing_period, payment_method, auto_renew } = validated.data
+    const { plan_id, shop_id, email, locale, billing_period, payment_method, auto_renew, use_credit } = validated.data
 
     const period = billing_period as BillingPeriod
-    const supabase = await createAdminClient()
+    const supabase = await createAdminClient() as any
     const { data: shopData } = await supabase
-      .from('shops').select('country, billing_country').eq('id', shop_id).single()
+      .from('shops').select('country, billing_country, currency, owner_id').eq('id', shop_id).single()
 
     // billing_country (figé à l'inscription) fait foi pour le montant/la devise/la
     // passerelle — pas `country` (modifiable par l'owner dans Paramètres), sinon le
@@ -85,6 +89,62 @@ export async function POST(request: Request) {
 
     const amount = getPeriodPrice(monthlyPrice, period)
 
+    // ── Crédit de parrainage ────────────────────────────────────────────────
+    // Réduit ce qui est envoyé à la passerelle (jamais le prix affiché
+    // avant) — voir lib/referrals/apply-credit.ts. Le débit réel du wallet
+    // n'a lieu qu'à la confirmation du paiement (ou immédiatement ici si le
+    // crédit couvre 100% du prix, auquel cas aucune passerelle n'est appelée).
+    let amountDue = amount
+    let creditApplied = 0
+    if (use_credit) {
+      const { data: ownerMember } = await supabase
+        .from('shop_members').select('user_id').eq('shop_id', shop_id).eq('role', 'owner').eq('is_active', true).maybeSingle()
+      const owner_id = ownerMember?.user_id ?? (shopData as any)?.owner_id
+      if (owner_id) {
+        const preview = await previewWalletCredit(supabase, owner_id, amount, (shopData as any)?.currency || '₦')
+        creditApplied = preview.creditApplied
+        amountDue = preview.amountDue
+
+        if (creditApplied > 0 && amountDue === 0) {
+          // 100% couvert par le crédit — aucune passerelle de paiement n'est
+          // jamais appelée. Réplique ce que fait normalement chaque route
+          // billing/*/verify après confirmation d'un paiement.
+          const days = getPeriodDays(period)
+          const plan_expires_at = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
+
+          await supabase.from('profiles').update({
+            plan: plan_id, plan_expires_at, trial_ends_at: null,
+          } as any).eq('id', owner_id)
+
+          const { data: newSub } = await supabase.from('subscriptions').insert({
+            shop_id, plan: plan_id, amount: 0, billing_period: period,
+            paystack_reference: `CREDIT-${shop_id.slice(0, 8)}-${Date.now()}`,
+            starts_at: new Date().toISOString(), expires_at: plan_expires_at,
+            status: 'active', auto_renew: false, gateway: 'wallet_credit',
+          } as any).select('id').single()
+
+          if (newSub?.id) {
+            await applyWalletCredit(supabase, {
+              userId: owner_id, intendedAmount: creditApplied,
+              currency: (shopData as any)?.currency || '₦', subscriptionId: newSub.id,
+            })
+            await writeAuditLog({
+              action: 'billing.verify',
+              shop_id, actor_id: owner_id, target_id: newSub.id, target_type: 'subscription',
+              metadata: { plan_id, billing_period: period, amount: 0, credit_applied: creditApplied, fully_covered: true },
+              ip: getClientIp(request),
+            })
+            // Pas d'appel à processReferralReward ici : aucun paiement réel
+            // (montant facturé = 0) ne doit consommer le "premier paiement"
+            // du filleul — voir lib/referrals/process-reward.ts.
+            enforceOwnerPlanLimits(supabase, owner_id).catch(() => {})
+          }
+
+          return NextResponse.json({ fully_paid: true, credit_applied: creditApplied })
+        }
+      }
+    }
+
     // ── Nigeria → Paystack ──────────────────────────────────────────────────
     if (country.gateway === 'paystack') {
       const secret = process.env.PAYSTACK_SECRET_KEY
@@ -97,9 +157,9 @@ export async function POST(request: Request) {
         headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email,
-          amount: amount * 100,
+          amount: amountDue * 100,
           callback_url: `${baseUrl}/api/billing/verify?locale=${locale}`,
-          metadata: { shop_id, plan_id, locale, billing_period: period, gateway: 'paystack', auto_renew },
+          metadata: { shop_id, plan_id, locale, billing_period: period, gateway: 'paystack', auto_renew, credit_amount: creditApplied },
           channels,
         }),
       })
@@ -110,7 +170,7 @@ export async function POST(request: Request) {
         authorization_url: data.data.authorization_url,
         reference: data.data.reference,
         public_key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '',
-        amount_kobo: amount * 100,
+        amount_kobo: amountDue * 100,
         channels,
       })
     }
@@ -129,11 +189,11 @@ export async function POST(request: Request) {
         },
         body: JSON.stringify({
           email,
-          amount,
+          amount: amountDue,
           currency: country.currency,
           callback: `${baseUrl}/api/billing/notchpay/verify?locale=${locale}`,
           description: `Abonnement StockShop Plan ${plan_id}`,
-          meta: { shop_id, plan_id, locale, billing_period: period, auto_renew },
+          meta: { shop_id, plan_id, locale, billing_period: period, auto_renew, credit_amount: creditApplied },
         }),
       })
       const data = await res.json()
@@ -153,11 +213,13 @@ export async function POST(request: Request) {
         method: 'POST',
         headers: { Authorization: `Bearer ${waveKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: String(amount),
+          amount: String(amountDue),
           currency: country.currency,
           success_url: `${baseUrl}/api/billing/wave/verify?locale=${locale}`,
           error_url: `${baseUrl}/${locale}/billing?error=payment_failed`,
-          client_reference: `${shop_id}|${plan_id}|${period}|${tx_ref}|${auto_renew ? '1' : '0'}`,
+          // Champs ajoutés en fin de chaîne uniquement — les index existants
+          // (parts[0..4]) ne doivent jamais bouger, wave/verify les lit par position.
+          client_reference: `${shop_id}|${plan_id}|${period}|${tx_ref}|${auto_renew ? '1' : '0'}|${creditApplied}`,
         }),
       })
       const data = await res.json()
@@ -180,11 +242,11 @@ export async function POST(request: Request) {
         headers: { Authorization: `Bearer ${secretKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tx_ref,
-          amount,
+          amount: amountDue,
           currency: country.currency,
           redirect_url: `${baseUrl}/api/billing/flutterwave/verify?locale=${locale}`,
           customer: { email },
-          meta: { shop_id, plan_id, locale, billing_period: period, auto_renew },
+          meta: { shop_id, plan_id, locale, billing_period: period, auto_renew, credit_amount: creditApplied },
           customizations: {
             title: 'StockShop',
             description: `Abonnement Plan ${plan_id}`,
