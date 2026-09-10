@@ -15,6 +15,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatCurrency } from '@/lib/utils/currency'
 import { withTimeout } from '@/lib/utils/with-timeout'
+import { getPageCache, setPageCache } from '@/lib/offline/page-cache'
 
 interface Summary {
   enabled: boolean
@@ -71,26 +72,33 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function ReferralsPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('referrals')
-  const { profile } = useAuth()
+  const { profile, user } = useAuth()
   const { toast } = useToast()
-  const [data, setData] = useState<Summary | null>(null)
-  const [loading, setLoading] = useState(true)
+
+  // Même clé de cache local que le reste de l'app (caisse, stock,
+  // dashboard...) : affiche instantanément les dernières données connues
+  // au lieu du squelette, puis rafraîchit en arrière-plan — cette page
+  // était la seule à ne pas encore suivre ce pattern.
+  const cacheKey = `referrals_summary_${user?.id || 'anon'}`
+  const [data, setData] = useState<Summary | null>(() => getPageCache<Summary>(cacheKey))
+  const [loading, setLoading] = useState(() => !getPageCache<Summary>(cacheKey))
   const [copiedCode, setCopiedCode] = useState(false)
   const [copiedLink, setCopiedLink] = useState(false)
   const [togglingAuto, setTogglingAuto] = useState(false)
 
   const load = useCallback(async () => {
-    setLoading(true)
+    const cached = getPageCache<Summary>(cacheKey)
+    if (cached) { setData(cached); setLoading(false) } else { setLoading(true) }
     try {
       const res = await withTimeout(fetch('/api/referrals/summary'))
       const json = await res.json()
-      if (res.ok) setData(json)
+      if (res.ok) { setData(json); setPageCache(cacheKey, json) }
     } catch {
-      // silencieux — l'état de chargement retombe simplement à "aucune donnée"
+      // silencieux — le cache déjà affiché (s'il existe) reste visible
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [cacheKey])
 
   useEffect(() => { load() }, [load])
 
@@ -114,6 +122,18 @@ export default function ReferralsPage({ params: { locale } }: { params: { locale
   }
 
   const toggleAutoApply = async (checked: boolean) => {
+    const previous = data?.wallet?.auto_apply_to_subscription ?? false
+
+    // Optimiste : le switch bouge tout de suite, avant même la réponse
+    // serveur — l'utilisateur ne doit jamais attendre un aller-retour
+    // réseau pour voir un simple interrupteur réagir. On revient en
+    // arrière seulement si la requête échoue.
+    setData(prev => {
+      if (!prev?.wallet) return prev
+      const next = { ...prev, wallet: { ...prev.wallet, auto_apply_to_subscription: checked } }
+      setPageCache(cacheKey, next)
+      return next
+    })
     setTogglingAuto(true)
     try {
       const res = await withTimeout(fetch('/api/referrals/settings', {
@@ -122,8 +142,13 @@ export default function ReferralsPage({ params: { locale } }: { params: { locale
         body: JSON.stringify({ auto_apply_to_subscription: checked }),
       }))
       if (!res.ok) throw new Error()
-      setData(prev => prev?.wallet ? { ...prev, wallet: { ...prev.wallet, auto_apply_to_subscription: checked } } : prev)
     } catch {
+      setData(prev => {
+        if (!prev?.wallet) return prev
+        const reverted = { ...prev, wallet: { ...prev.wallet, auto_apply_to_subscription: previous } }
+        setPageCache(cacheKey, reverted)
+        return reverted
+      })
       toast({ title: t('update_failed'), variant: 'destructive' })
     } finally {
       setTogglingAuto(false)
@@ -187,12 +212,12 @@ export default function ReferralsPage({ params: { locale } }: { params: { locale
                   {copiedCode ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" size="sm" onClick={() => copy(referralLink, 'link')} className="gap-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Button variant="outline" size="sm" onClick={() => copy(referralLink, 'link')} className="gap-1.5 w-full">
                   {copiedLink ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
                   {t('copy_link')}
                 </Button>
-                <Button size="sm" onClick={shareWhatsApp} className="gap-1.5 bg-[#25D366] hover:bg-[#1ea952] text-white">
+                <Button size="sm" onClick={shareWhatsApp} className="gap-1.5 w-full bg-[#25D366] hover:bg-[#1ea952] text-white">
                   <MessageCircle className="h-3.5 w-3.5" />
                   {t('share_whatsapp')}
                 </Button>

@@ -5,23 +5,30 @@ import { getOrCreateWallet } from '@/lib/referrals/wallet'
 
 // PATCH /api/referrals/settings — bascule "utiliser automatiquement mes
 // récompenses au prochain renouvellement" (OFF par défaut, point 14).
+// Requêtes indépendantes groupées (profil + portefeuille + lecture du
+// corps de la requête) — un simple interrupteur ne doit jamais imposer
+// plusieurs aller-retours séquentiels avant de répondre.
 export async function PATCH(request: Request) {
   try {
     const { user, supabase } = await getAuthedUser()
     if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+    const admin = await createAdminClient() as any
+
+    const [{ data: profile }, wallet, body] = await Promise.all([
+      supabase.from('profiles').select('role').eq('id', user.id).single(),
+      getOrCreateWallet(admin, user.id),
+      request.json(),
+    ])
+
     if ((profile as any)?.role !== 'owner') {
       return NextResponse.json({ error: 'Réservé aux propriétaires de boutique' }, { status: 403 })
     }
 
-    const { auto_apply_to_subscription } = await request.json()
+    const { auto_apply_to_subscription } = body
     if (typeof auto_apply_to_subscription !== 'boolean') {
       return NextResponse.json({ error: 'auto_apply_to_subscription doit être un booléen' }, { status: 400 })
     }
-
-    const admin = await createAdminClient() as any
-    const wallet = await getOrCreateWallet(admin, user.id)
 
     if (wallet.frozen) {
       return NextResponse.json({ error: 'Portefeuille gelé — contactez le support' }, { status: 403 })
