@@ -1,64 +1,213 @@
 import { COUNTRIES, getCountry } from './countries'
 
-// Devises supportées par StockShop.
+// ════════════════════════════════════════════════════════════════════════
+// SOURCE DE VÉRITÉ CENTRALE DES DEVISES — StockShop V3
+// ════════════════════════════════════════════════════════════════════════
 //
 // La CLÉ MÉTIER est le CODE ISO (`NGN`, `XOF`, `XAF`, `EUR`…) — stable, non
 // ambigu (XOF ≠ XAF alors qu'ils partagent le symbole « F CFA »), et
-// indépendant de toute chaîne d'affichage. Le symbole n'est qu'un libellé.
+// indépendant de toute chaîne d'affichage. Le symbole ne sert QU'À
+// l'affichage, via le formatter central (`lib/utils/currency.ts`).
 //
-// ⚠️ `shops.currency` stocke encore le SYMBOLE (dette historique, utilisée
-// partout dans l'app pour l'affichage). Le module Parrainage, lui, résout
-// toujours la devise depuis `shops.country` via `currencyCodeForCountry()`
-// et stocke des codes ISO dans `referral_wallets.currency` /
-// `referral_program_config.min_payout_by_currency`. La migration complète
-// de `shops.currency` vers ISO est un chantier V2 (voir memory projet).
+// Migration en cours (V3, progressive) :
+//   Phase A — cette couche + `normalizeCurrency()` + formatter compatible
+//             (accepte ancien symbole ET code ISO). AUCUNE migration data.
+//   Phase B — `shops.currency` symbole → code ISO.
+//   Phases C-E — écritures ISO only, nettoyage, contrainte base.
+//
+// Tant que la Phase B n'est pas faite, `shops.currency` contient encore un
+// SYMBOLE pour la plupart des boutiques : toujours passer par
+// `normalizeCurrency(value, shop.country)` avant toute logique métier.
 
-export interface CurrencyRef {
+export interface CurrencyDef {
   /** Code ISO 4217 — clé métier. */
   code: string
+  /** Libellé lisible (admin, sélecteurs). */
+  label: string
   /** Symbole d'affichage. */
   symbol: string
-  /** Libellé lisible pour l'admin. */
-  label: string
+  /** Décimales par convention (XAF/XOF = 0, la plupart des autres = 2). */
+  decimals: number
+  /** Position du symbole relativement au montant. */
+  symbolPosition: 'before' | 'after'
+  /** Locale de formatage numérique par défaut (séparateurs). */
+  numberLocale: string
+  /** Pays StockShop utilisant cette devise (codes pays). */
+  countries: string[]
+  /** Devise proposée / utilisable. */
+  active: boolean
 }
 
-const CURRENCY_NAMES: Record<string, string> = {
-  NGN: 'Naira', XOF: 'Franc CFA (Afrique de l’Ouest)', XAF: 'Franc CFA (Afrique centrale)',
-  GHS: 'Cedi ghanéen', GNF: 'Franc guinéen', GMD: 'Dalasi', SLE: 'Leone', LRD: 'Dollar libérien',
-  CVE: 'Escudo cap-verdien', MRU: 'Ouguiya', CDF: 'Franc congolais', EUR: 'Euro',
-  USD: 'Dollar américain', CAD: 'Dollar canadien',
+// Métadonnées par devise. `countries` est complété automatiquement depuis
+// COUNTRIES plus bas — ne pas dupliquer la liste ici.
+const CURRENCY_META: Record<string, Omit<CurrencyDef, 'code' | 'countries'>> = {
+  NGN: { label: 'Naira nigérian',            symbol: '₦',     decimals: 2, symbolPosition: 'before', numberLocale: 'en-NG', active: true },
+  XOF: { label: 'Franc CFA BCEAO (Ouest)',   symbol: 'F CFA', decimals: 0, symbolPosition: 'after',  numberLocale: 'fr-FR', active: true },
+  XAF: { label: 'Franc CFA BEAC (Centrale)', symbol: 'F CFA', decimals: 0, symbolPosition: 'after',  numberLocale: 'fr-FR', active: true },
+  GHS: { label: 'Cedi ghanéen',              symbol: 'GH₵',   decimals: 2, symbolPosition: 'before', numberLocale: 'en-GH', active: true },
+  GNF: { label: 'Franc guinéen',             symbol: 'FG',    decimals: 0, symbolPosition: 'after',  numberLocale: 'fr-FR', active: true },
+  GMD: { label: 'Dalasi gambien',            symbol: 'D',     decimals: 2, symbolPosition: 'before', numberLocale: 'en-GM', active: true },
+  SLE: { label: 'Leone sierra-léonais',      symbol: 'Le',    decimals: 2, symbolPosition: 'before', numberLocale: 'en-SL', active: true },
+  LRD: { label: 'Dollar libérien',           symbol: 'L$',    decimals: 2, symbolPosition: 'before', numberLocale: 'en-LR', active: true },
+  CVE: { label: 'Escudo cap-verdien',        symbol: 'Esc',   decimals: 0, symbolPosition: 'after',  numberLocale: 'pt-CV', active: true },
+  MRU: { label: 'Ouguiya mauritanien',       symbol: 'UM',    decimals: 2, symbolPosition: 'after',  numberLocale: 'fr-FR', active: true },
+  CDF: { label: 'Franc congolais',           symbol: 'FC',    decimals: 0, symbolPosition: 'after',  numberLocale: 'fr-FR', active: true },
+  EUR: { label: 'Euro',                      symbol: '€',     decimals: 2, symbolPosition: 'after',  numberLocale: 'fr-FR', active: true },
+  USD: { label: 'Dollar américain',          symbol: '$',     decimals: 2, symbolPosition: 'before', numberLocale: 'en-US', active: true },
+  CAD: { label: 'Dollar canadien',           symbol: 'CA$',   decimals: 2, symbolPosition: 'before', numberLocale: 'en-CA', active: true },
 }
 
-function buildCurrencies(): CurrencyRef[] {
-  const byCode = new Map<string, string>() // code ISO -> symbole
+function buildRegistry(): Record<string, CurrencyDef> {
+  const countriesByCode: Record<string, string[]> = {}
   for (const c of Object.values(COUNTRIES)) {
-    if (!byCode.has(c.currency)) byCode.set(c.currency, c.currencySymbol)
+    ;(countriesByCode[c.currency] ??= []).push(c.code)
   }
-  return Array.from(byCode.entries())
-    .map(([code, symbol]) => ({ code, symbol, label: `${CURRENCY_NAMES[code] ?? code} — ${code} (${symbol})` }))
-    .sort((a, b) => a.label.localeCompare(b.label, 'fr'))
+  const out: Record<string, CurrencyDef> = {}
+  for (const [code, meta] of Object.entries(CURRENCY_META)) {
+    out[code] = { code, ...meta, countries: countriesByCode[code] ?? [] }
+  }
+  return out
 }
 
-/** Toutes les devises supportées, indexées par code ISO. */
-export const REFERRAL_CURRENCIES: CurrencyRef[] = buildCurrencies()
+/** Registre central, indexé par code ISO. */
+export const CURRENCIES: Record<string, CurrencyDef> = buildRegistry()
 
-const SYMBOL_BY_CODE: Record<string, string> = Object.fromEntries(REFERRAL_CURRENCIES.map((c) => [c.code, c.symbol]))
-const SUPPORTED_CODES = new Set(REFERRAL_CURRENCIES.map((c) => c.code))
+/** Liste triée par libellé (sélecteurs admin). */
+export const CURRENCY_LIST: CurrencyDef[] = Object.values(CURRENCIES).sort((a, b) =>
+  a.label.localeCompare(b.label, 'fr'),
+)
 
-/** Codes ISO de toutes les devises supportées par StockShop. */
-export const SUPPORTED_CURRENCY_CODES: string[] = REFERRAL_CURRENCIES.map((c) => c.code)
+/** Codes ISO de toutes les devises supportées. */
+export const SUPPORTED_CURRENCY_CODES: string[] = Object.keys(CURRENCIES)
 
-/** Code ISO de la devise d'un pays (`getCountry` est la source de vérité). */
-export function currencyCodeForCountry(countryCode: string | null | undefined): string {
-  return getCountry(countryCode || 'NG').currency
+const SUPPORTED_CODES = new Set(SUPPORTED_CURRENCY_CODES)
+
+// ── Résolution symbole → code(s) ────────────────────────────────────────
+// Symboles NON ambigus → un seul code. « F CFA » (et variantes) est
+// ambigu XAF/XOF : géré séparément dans normalizeCurrency via le pays.
+const CODE_BY_SYMBOL: Record<string, string> = {}
+for (const def of Object.values(CURRENCIES)) {
+  // le 1er code rencontré pour un symbole donné gagne ; les cas ambigus
+  // (F CFA) sont écartés juste après.
+  if (!(def.symbol in CODE_BY_SYMBOL)) CODE_BY_SYMBOL[def.symbol] = def.code
 }
+delete CODE_BY_SYMBOL['F CFA'] // ambigu — jamais résolu sans pays
 
-/** Symbole d'affichage pour un code ISO (repli : le code lui-même). */
-export function currencySymbol(code: string | null | undefined): string {
-  if (!code) return ''
-  return SYMBOL_BY_CODE[code] ?? code
-}
+/** Variantes historiques d'un symbole ambigu « franc CFA ». */
+const CFA_SYMBOLS = new Set(['F CFA', 'FCFA', 'CFA', 'FRS CFA', 'FR CFA'])
 
 export function isSupportedCurrencyCode(code: string | null | undefined): boolean {
   return !!code && SUPPORTED_CODES.has(code)
 }
+
+/** Métadonnées d'une devise par code ISO (repli : NGN). */
+export function getCurrency(code: string | null | undefined): CurrencyDef {
+  return (code && CURRENCIES[code]) || CURRENCIES.NGN
+}
+
+/** Symbole d'affichage pour un code ISO — ou renvoie l'entrée telle quelle
+ *  si c'est déjà un symbole / inconnu (compat transition). */
+export function currencySymbol(codeOrSymbol: string | null | undefined): string {
+  if (!codeOrSymbol) return ''
+  if (CURRENCIES[codeOrSymbol]) return CURRENCIES[codeOrSymbol].symbol
+  return codeOrSymbol
+}
+
+const META_BY_SYMBOL: Record<string, Omit<CurrencyDef, 'code' | 'countries'>> = {}
+for (const def of Object.values(CURRENCIES)) {
+  if (!(def.symbol in META_BY_SYMBOL)) META_BY_SYMBOL[def.symbol] = def
+}
+
+/**
+ * Métadonnées d'affichage pour n'importe quelle entrée devise : code ISO,
+ * symbole connu, variante CFA, ou chaîne inconnue (repli heuristique — même
+ * comportement que l'ancien formatter). Utilisé par `formatCurrency`.
+ */
+export function displayMetaFor(
+  codeOrSymbol: string | null | undefined,
+): Pick<CurrencyDef, 'symbol' | 'decimals' | 'symbolPosition' | 'numberLocale'> {
+  const raw = (codeOrSymbol ?? '').trim()
+  if (!raw) return CURRENCIES.NGN
+  if (CURRENCIES[raw]) return CURRENCIES[raw]
+  if (CURRENCIES[raw.toUpperCase()]) return CURRENCIES[raw.toUpperCase()]
+  if (CFA_SYMBOLS.has(raw)) return CURRENCIES.XOF // XAF/XOF partagent l'affichage
+  if (META_BY_SYMBOL[raw]) return META_BY_SYMBOL[raw]
+  // Inconnu : replique l'ancienne heuristique (symbole long = suffixe).
+  return {
+    symbol: raw,
+    decimals: 2,
+    symbolPosition: raw.length > 2 ? 'after' : 'before',
+    numberLocale: raw.includes('CFA') ? 'fr-FR' : 'en-US',
+  }
+}
+
+/** Code ISO de la devise par défaut d'un pays (`getCountry` fait foi). */
+export function currencyCodeForCountry(countryCode: string | null | undefined): string {
+  return getCountry(countryCode || 'NG').currency
+}
+
+/**
+ * Normalise une valeur devise (ancien symbole, variante CFA, ou code ISO)
+ * vers un CODE ISO canonique. Cœur de la compatibilité transitoire V3.
+ *
+ *   normalizeCurrency('NGN')                 → 'NGN'
+ *   normalizeCurrency('₦')                   → 'NGN'
+ *   normalizeCurrency('F CFA', 'CM')         → 'XAF'
+ *   normalizeCurrency('FCFA', 'SN')          → 'XOF'
+ *   normalizeCurrency('F CFA')               → null   (ambigu, pas de pays)
+ *   normalizeCurrency('???')                 → null   (inconnu)
+ *
+ * @returns code ISO, ou `null` si indéterminable (anomalie à tracer).
+ */
+export function normalizeCurrency(
+  value: string | null | undefined,
+  country?: string | null,
+): string | null {
+  const raw = (value ?? '').trim()
+  if (!raw) return null
+
+  // 1. Déjà un code ISO supporté ?
+  const upper = raw.toUpperCase()
+  if (SUPPORTED_CODES.has(upper)) return upper
+
+  // 2. Symbole « franc CFA » (ambigu) → départage par le pays
+  if (CFA_SYMBOLS.has(raw) || CFA_SYMBOLS.has(upper)) {
+    if (country) {
+      const iso = currencyCodeForCountry(country)
+      if (iso === 'XAF' || iso === 'XOF') return iso
+    }
+    return null // ambigu sans pays fiable — anomalie
+  }
+
+  // 3. Symbole non ambigu connu
+  if (CODE_BY_SYMBOL[raw]) return CODE_BY_SYMBOL[raw]
+
+  // 4. Dernier recours : le pays
+  if (country) {
+    const iso = currencyCodeForCountry(country)
+    if (SUPPORTED_CODES.has(iso)) return iso
+  }
+
+  return null
+}
+
+/**
+ * Comme `normalizeCurrency` mais ne renvoie jamais `null` : retombe sur le
+ * pays puis sur NGN. À utiliser pour l'AFFICHAGE (jamais pour une décision
+ * métier sensible, où un `null` doit être traité comme une anomalie).
+ */
+export function resolveCurrencyCode(
+  value: string | null | undefined,
+  country?: string | null,
+): string {
+  return normalizeCurrency(value, country) ?? currencyCodeForCountry(country) ?? 'NGN'
+}
+
+// ── Rétro-compat V2 (module Parrainage) — ne pas retirer avant nettoyage ─
+export interface CurrencyRef { code: string; symbol: string; label: string }
+/** @deprecated V2 — utiliser CURRENCY_LIST. Conservé pour le module Parrainage. */
+export const REFERRAL_CURRENCIES: CurrencyRef[] = CURRENCY_LIST.map((c) => ({
+  code: c.code,
+  symbol: c.symbol,
+  label: `${c.label} — ${c.code} (${c.symbol})`,
+}))
