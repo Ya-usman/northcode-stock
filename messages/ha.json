@@ -1402,6 +1402,7 @@
     "referral_code_placeholder": "misali: ALHAJI2025",
     "referral_checking": "Ana bincike...",
     "referral_agent_found": "✓ Wakili: {agent}",
+    "referral_referrer_found": "✓ Wanda ya shigo da kai: {name}",
     "referral_code_not_found": "Ba a gane lambar ba (za ka iya ci gaba ba tare da ita ba)"
   },
   "landing": {

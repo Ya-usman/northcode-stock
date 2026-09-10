@@ -1367,6 +1367,7 @@
     "referral_code_placeholder": "ex: ALHAJI2025",
     "referral_checking": "Vérification...",
     "referral_agent_found": "✓ Agent : {agent}",
+    "referral_referrer_found": "✓ Parrainé par {name}",
     "referral_code_not_found": "Code non reconnu (tu peux continuer sans)"
   },
   "saas": {

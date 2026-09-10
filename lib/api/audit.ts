@@ -51,6 +51,7 @@ export type AuditAction =
   | 'admin.repair_orphan_shop'
   | 'admin.orphan_shop_alert'
   | 'admin.send_notification'
+  | 'referral.associated'
 
 interface AuditParams {
   action: AuditAction

@@ -44,16 +44,31 @@ export async function POST(request: Request) {
     }
     const user_id: string = authData.user.id
 
-    // Validate referral code and get agent_id if provided
+    // Validate referral code — agent de terrain (existant) OU parrainage
+    // utilisateur (migration 127). Les deux systèmes partagent le même
+    // espace de codes (voir lib/referrals/generate-code.ts) : un code ne
+    // peut jamais matcher les deux à la fois.
     let agentId: string | null = null
+    let referrerCodeRow: { id: string; owner_user_id: string } | null = null
     if (referral_code) {
+      const codeUpper = referral_code.toUpperCase()
       const { data: agent } = await supabase
         .from('agents')
         .select('id')
-        .eq('referral_code', referral_code.toUpperCase())
+        .eq('referral_code', codeUpper)
         .eq('is_active', true)
         .maybeSingle()
       agentId = agent?.id ?? null
+
+      if (!agentId) {
+        const { data: refCode } = await supabase
+          .from('referral_codes')
+          .select('id, owner_user_id')
+          .eq('code', codeUpper)
+          .eq('active', true)
+          .maybeSingle()
+        referrerCodeRow = refCode ?? null
+      }
     }
 
     // Create shop
@@ -129,6 +144,33 @@ export async function POST(request: Request) {
       metadata: { shop_name, country, city, referral_code: referral_code ?? null, agent_id: agentId },
       ip: getClientIp(request),
     })
+
+    // Association parrain/filleul — après que le compte est entièrement créé
+    // et confirmé fonctionnel. Ne doit jamais faire échouer l'inscription :
+    // un souci ici prive seulement le parrain d'une récompense, ça ne doit
+    // jamais priver le filleul de son compte.
+    if (referrerCodeRow) {
+      try {
+        await supabase.from('referrals').insert({
+          referral_code_id: referrerCodeRow.id,
+          referrer_user_id: referrerCodeRow.owner_user_id,
+          referred_user_id: user_id,
+          status: 'registered',
+        } as any)
+        await writeAuditLog({
+          action: 'referral.associated',
+          shop_id: shop.id,
+          actor_id: user_id,
+          actor_email: email,
+          target_id: referrerCodeRow.owner_user_id,
+          target_type: 'profile',
+          metadata: { referral_code: referral_code?.toUpperCase() ?? null },
+          ip: getClientIp(request),
+        })
+      } catch (err: any) {
+        console.error('[register] referral association failed', err.message)
+      }
+    }
 
     return NextResponse.json({ success: true, shop_id: shop.id })
   } catch (err: any) {

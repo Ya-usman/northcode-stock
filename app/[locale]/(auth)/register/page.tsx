@@ -63,7 +63,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
   const [resendLoading, setResendLoading] = useState(false)
   const [resendSuccess, setResendSuccess] = useState(false)
   const [referralCode, setReferralCode] = useState('')
-  const [referralAgent, setReferralAgent] = useState<string | null>(null)
+  const [referralMatch, setReferralMatch] = useState<{ kind: 'agent' | 'referrer'; name: string | null } | null>(null)
   const [referralChecking, setReferralChecking] = useState(false)
   const referralTimeout = useRef<NodeJS.Timeout | null>(null)
 
@@ -129,7 +129,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
 
   const checkReferralCode = (code: string) => {
     setReferralCode(code)
-    setReferralAgent(null)
+    setReferralMatch(null)
     if (referralTimeout.current) clearTimeout(referralTimeout.current)
     if (!code.trim()) return
     setReferralChecking(true)
@@ -137,14 +137,31 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
       try {
         const res = await fetch(`/api/referral/validate?code=${encodeURIComponent(code.trim())}`)
         const data = await res.json()
-        setReferralAgent(data.valid ? data.agent.name : null)
+        if (!data.valid) { setReferralMatch(null); return }
+        setReferralMatch(
+          data.kind === 'agent'
+            ? { kind: 'agent', name: data.agent.name }
+            : { kind: 'referrer', name: data.referrer.name }
+        )
       } catch {
-        setReferralAgent(null)
+        setReferralMatch(null)
       } finally {
         setReferralChecking(false)
       }
     }, 500)
   }
+
+  // Pré-remplit le code de parrainage depuis le lien /ref/CODE (?ref= sur
+  // cette page, ou cookie posé par app/ref/[code]/route.ts si l'utilisateur
+  // revient plus tard sans le paramètre) — un seul chemin de validation,
+  // le même que la saisie manuelle.
+  useEffect(() => {
+    const fromQuery = new URLSearchParams(window.location.search).get('ref')
+    const fromCookie = document.cookie.split('; ').find(c => c.startsWith('referral_code='))?.split('=')[1]
+    const code = fromQuery || (fromCookie ? decodeURIComponent(fromCookie) : null)
+    if (code) checkReferralCode(code.toUpperCase())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const goStep2 = async () => {
     const ok = await trigger(['full_name', 'email', 'password', 'confirm_password'])
@@ -517,8 +534,12 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                       <p className="text-xs text-muted-foreground">{t('referral_checking')}</p>
                     )}
                     {!referralChecking && referralCode && (
-                      referralAgent
-                        ? <p className="text-xs text-green-500 dark:text-green-400">{t('referral_agent_found', { agent: referralAgent })}</p>
+                      referralMatch
+                        ? <p className="text-xs text-green-500 dark:text-green-400">
+                            {referralMatch.kind === 'agent'
+                              ? t('referral_agent_found', { agent: referralMatch.name || '' })
+                              : t('referral_referrer_found', { name: referralMatch.name || referralCode })}
+                          </p>
                         : <p className="text-xs text-amber-500 dark:text-amber-400">{t('referral_code_not_found')}</p>
                     )}
                   </div>
