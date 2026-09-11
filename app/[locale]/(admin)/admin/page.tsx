@@ -3,11 +3,9 @@ export const dynamic = 'force-dynamic'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getTrialDaysLeft, hasActiveSubscription, PLANS } from '@/lib/saas/plans'
 import { computeHealthScore } from '@/lib/saas/health-score'
-import { formatMoneyByCurrency } from '@/lib/utils/currency'
 import { getCountry, getBillingCurrency } from '@/lib/saas/countries'
 import {
-  TrendingUp, ShoppingBag, Users, AlertTriangle, DollarSign,
-  ArrowUpRight, Package, Activity, Clock, UserCheck, TrendingDown, HeartPulse,
+  Users, AlertTriangle, ArrowUpRight, Package, Activity, Clock, HeartPulse,
 } from 'lucide-react'
 import { COUNTRIES } from '@/lib/saas/countries'
 import { RevenueChart } from '@/components/admin/revenue-chart'
@@ -15,6 +13,9 @@ import { RecentPayments } from '@/components/admin/recent-payments'
 import { attachOwnerPlan } from '@/lib/saas/resolve-owner-plan'
 import { AdminPageHeader } from '@/components/admin/ui/admin-page-header'
 import { KpiTile } from '@/components/admin/ui/kpi-tile'
+import { CommandCenterFinancePanel } from '@/components/admin/command-center-finance-panel'
+import { buildRevenueChart } from '@/lib/saas/admin-charts'
+import { ReportingCurrencyProvider } from '@/components/admin/reporting-currency-context'
 import Link from 'next/link'
 
 async function getData(supabase: any) {
@@ -80,27 +81,6 @@ function sumByCurrency(subs: any[], shopCurrencyMap: Record<string, string>): Re
 const grandTotal = (byCode: Record<string, number>) =>
   Object.values(byCode).reduce((a, b) => a + b, 0)
 
-function buildRevenueChart(subs: any[]) {
-  const months: { month: string; revenue: number; count: number }[] = []
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date()
-    d.setMonth(d.getMonth() - i)
-    const label = d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })
-    const start = new Date(d.getFullYear(), d.getMonth(), 1)
-    const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59)
-    const matching = subs.filter(s => {
-      const c = new Date(s.created_at)
-      return c >= start && c <= end && s.status === 'active'
-    })
-    months.push({
-      month: label,
-      revenue: matching.reduce((acc: number, s: any) => acc + Number(s.amount), 0),
-      count: matching.length,
-    })
-  }
-  return months
-}
-
 export default async function AdminDashboard({ params: { locale } }: { params: { locale: string } }) {
   const supabase = await createAdminClient()
   const { shops, allSubs, owners, thisMonthSubs, lastMonthSubs, totalProducts, totalCustomers, salesToday, sales7d, cutoff14d } = await getData(supabase)
@@ -163,7 +143,7 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
     .filter((s: any) => s.health < 40 && !hasActiveSubscription(s.plan, s.plan_expires_at))
     .sort((a: any, b: any) => a.health - b.health)
 
-  const chartData = buildRevenueChart(allSubs)
+  const chartData = buildRevenueChart(allSubs, shopCurrencyMap)
   const recentPayments = allSubs.slice(0, 10)
 
   const conversionRate = shops.length > 0 ? Math.round((activeSubscriptions / shops.length) * 100) : 0
@@ -251,73 +231,22 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
         </div>
       )}
 
-      {/* Comparatif ce mois vs mois précédent */}
-      {(() => {
-        const pctShops = newShopsLastMonth > 0
-          ? Math.round(((newShopsThisMonth - newShopsLastMonth) / newShopsLastMonth) * 100)
-          : newShopsThisMonth > 0 ? 100 : 0
-        const pctPayments = lastMonthSubs.length > 0
-          ? Math.round(((thisMonthSubs.length - lastMonthSubs.length) / lastMonthSubs.length) * 100)
-          : thisMonthSubs.length > 0 ? 100 : 0
-
-        const rows = [
-          {
-            label: 'Revenue',
-            current: formatMoneyByCurrency(thisMonthByCurrency),
-            prev: formatMoneyByCurrency(lastMonthByCurrency),
-            pct: revenueGrowth,
-          },
-          {
-            label: 'Paiements reçus',
-            current: `${thisMonthSubs.length}`,
-            prev: `${lastMonthSubs.length}`,
-            pct: pctPayments,
-          },
-          {
-            label: 'Nouvelles boutiques',
-            current: `${newShopsThisMonth}`,
-            prev: `${newShopsLastMonth}`,
-            pct: pctShops,
-          },
-        ]
-
-        return (
-          <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-            <div className="px-5 py-3 border-b border-border">
-              <h2 className="text-sm font-semibold text-foreground">Ce mois vs mois précédent</h2>
-            </div>
-            <div className="grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border/50">
-              {rows.map(row => {
-                const up = row.pct >= 0
-                const Icon = up ? TrendingUp : TrendingDown
-                return (
-                  <div key={row.label} className="px-5 py-4">
-                    <p className="text-xs text-muted-foreground mb-2">{row.label}</p>
-                    <div className="flex items-end justify-between gap-2">
-                      <div>
-                        <p className="text-xl font-bold text-foreground leading-tight">{row.current}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">vs {row.prev} le mois dernier</p>
-                      </div>
-                      <div className={`flex items-center gap-1 text-sm font-semibold ${up ? 'text-green-400' : 'text-red-400'}`}>
-                        <Icon className="h-4 w-4" />
-                        {up ? '+' : ''}{row.pct}%
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )
-      })()}
-
-      {/* KPI — finances */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiTile icon={DollarSign} tone="success" label="Revenue total" value={formatMoneyByCurrency(totalByCurrency)} />
-        <KpiTile icon={TrendingUp} tone="default" label="Ce mois-ci" value={formatMoneyByCurrency(thisMonthByCurrency)} trend={revenueGrowth} />
-        <KpiTile icon={ShoppingBag} tone="default" label="Total boutiques" value={shops.length} />
-        <KpiTile icon={UserCheck} tone="default" label="Taux de conversion" value={`${conversionRate}%`} />
-      </div>
+      {/* Comparatif ce mois vs mois précédent + KPI finances — conversion de
+          reporting (XAF par défaut) vers la devise choisie par l'admin,
+          jamais de somme brute entre devises (politique de devise V4). */}
+      <ReportingCurrencyProvider>
+        <CommandCenterFinancePanel
+          totalByCurrency={totalByCurrency}
+          thisMonthByCurrency={thisMonthByCurrency}
+          lastMonthByCurrency={lastMonthByCurrency}
+          revenueGrowth={revenueGrowth}
+          shopsCount={shops.length}
+          conversionRate={conversionRate}
+          thisMonthSubsCount={thisMonthSubs.length}
+          lastMonthSubsCount={lastMonthSubs.length}
+          newShopsThisMonth={newShopsThisMonth}
+          newShopsLastMonth={newShopsLastMonth}
+        />
 
       {/* KPI — activité produit */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -377,10 +306,13 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
         </div>
         <div className="md:col-span-2 bg-card rounded-xl border border-border shadow-sm p-5">
           <h2 className="font-semibold text-foreground text-sm mb-1">Revenue — 6 derniers mois</h2>
-          <p className="text-xs text-muted-foreground mb-3">Montants en devises locales (₦ + FCFA agrégés)</p>
+          <p className="text-xs text-muted-foreground mb-3">
+            Converti vers la devise de reporting sélectionnée ci-dessus — chaque mois additionne des montants déjà convertis, jamais des devises différentes brutes.
+          </p>
           <RevenueChart data={chartData} />
         </div>
       </div>
+      </ReportingCurrencyProvider>
 
       {/* Paiements récents */}
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">

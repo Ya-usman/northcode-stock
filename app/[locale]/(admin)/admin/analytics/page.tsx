@@ -2,16 +2,18 @@ export const dynamic = 'force-dynamic'
 
 import { createAdminClient } from '@/lib/supabase/server'
 import { getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
-import { formatMoneyByCurrency } from '@/lib/utils/currency'
 import { GrowthChart } from '@/components/admin/growth-chart'
 import { CountryFilter } from '@/components/admin/country-filter'
 import { COUNTRIES, getCountry, getBillingCurrency } from '@/lib/saas/countries'
 import { attachOwnerPlan } from '@/lib/saas/resolve-owner-plan'
 import { computeHealthScore } from '@/lib/saas/health-score'
 import Link from 'next/link'
-import { Users, ShoppingBag, Activity, Wallet } from 'lucide-react'
+import { Users, ShoppingBag, Activity } from 'lucide-react'
 import { AdminPageHeader } from '@/components/admin/ui/admin-page-header'
 import { KpiTile } from '@/components/admin/ui/kpi-tile'
+import { AnalyticsRevenuePanel } from '@/components/admin/analytics-revenue-panel'
+import { ReportingCurrencyProvider } from '@/components/admin/reporting-currency-context'
+import { buildMonthlyGrowth } from '@/lib/saas/admin-charts'
 
 async function getData(supabase: any) {
   const [{ data: shops }, { data: subs }, { data: owners }] = await Promise.all([
@@ -22,35 +24,6 @@ async function getData(supabase: any) {
   // Plan/trial are owner-level (profiles), not columns on shops anymore.
   await attachOwnerPlan(supabase, shops || [])
   return { shops: shops || [], subs: subs || [], owners: owners || [] }
-}
-
-function buildMonthlyGrowth(shops: any[], subs: any[]) {
-  const months: { month: string; newShops: number; newPayments: number; revenue: number }[] = []
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date()
-    d.setMonth(d.getMonth() - i)
-    const label = d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })
-    const start = new Date(d.getFullYear(), d.getMonth(), 1)
-    const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59)
-
-    const newShops = shops.filter(s => {
-      const c = new Date(s.created_at)
-      return c >= start && c <= end
-    }).length
-
-    const monthSubs = subs.filter(s => {
-      const c = new Date(s.created_at)
-      return c >= start && c <= end && s.status === 'active'
-    })
-
-    months.push({
-      month: label,
-      newShops,
-      newPayments: monthSubs.length,
-      revenue: monthSubs.reduce((acc: number, s: any) => acc + Number(s.amount), 0),
-    })
-  }
-  return months
 }
 
 export default async function AnalyticsPage({
@@ -75,7 +48,7 @@ export default async function AnalyticsPage({
   const shopCurrencyMap: Record<string, string> = shops.reduce((acc: any, s: any) => {
     acc[s.id] = getBillingCurrency(getCountry(s.billing_country || s.country)); return acc
   }, {})
-  const monthlyData = buildMonthlyGrowth(shops, subs)
+  const monthlyData = buildMonthlyGrowth(shops, subs, shopCurrencyMap)
 
   const activeSubs = subs.filter((s: any) => s.status === 'active')
   const revenueByCurrency: Record<string, number> = {}
@@ -126,19 +99,22 @@ export default async function AnalyticsPage({
         actions={<CountryFilter current={countryFilter} availableCountries={availableCountries} />}
       />
 
-      {/* Résumé global */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiTile label="Revenue total" value={formatMoneyByCurrency(revenueByCurrency)} icon={Wallet} tone="success" />
-        <KpiTile label="Payants" value={activeSubscriptions} icon={Users} tone="default" />
-        <KpiTile label="En trial" value={activeTrials} icon={ShoppingBag} tone="warning" />
-        <KpiTile label="Expirés" value={expired} icon={Activity} tone={expired > 0 ? 'danger' : 'success'} />
-      </div>
+      {/* Résumé global + graphique — devise de reporting partagée (XAF par
+          défaut), même logique de conversion que Command Center. */}
+      <ReportingCurrencyProvider>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <AnalyticsRevenuePanel revenueByCurrency={revenueByCurrency} />
+          <KpiTile label="Payants" value={activeSubscriptions} icon={Users} tone="default" />
+          <KpiTile label="En trial" value={activeTrials} icon={ShoppingBag} tone="warning" />
+          <KpiTile label="Expirés" value={expired} icon={Activity} tone={expired > 0 ? 'danger' : 'success'} />
+        </div>
 
-      {/* Graphique de croissance 12 mois */}
-      <div className="bg-card rounded-xl border border-border shadow-sm p-5">
-        <h2 className="font-semibold text-foreground text-sm mb-4">Croissance — 12 derniers mois</h2>
-        <GrowthChart data={monthlyData} />
-      </div>
+        {/* Graphique de croissance 12 mois */}
+        <div className="bg-card rounded-xl border border-border shadow-sm p-5">
+          <h2 className="font-semibold text-foreground text-sm mb-4">Croissance — 12 derniers mois</h2>
+          <GrowthChart data={monthlyData} />
+        </div>
+      </ReportingCurrencyProvider>
 
       {/* Cohortes de conversion */}
       <div className="bg-card rounded-xl border border-border shadow-sm p-5">

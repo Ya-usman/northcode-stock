@@ -99,3 +99,30 @@ export function convertByCurrency(
 
   return { value: Math.round(value * 100) / 100, missing, oldest_as_of: oldest, worst_freshness: worst }
 }
+
+/**
+ * Convertit une SÉRIE (ex. un point par mois) vers `target` — même règle
+ * que `convertByCurrency`, appliquée point par point : chaque devise
+ * d'origine est convertie individuellement PUIS additionnée (jamais
+ * `XAF + NGN` avant conversion). Utilisé par les graphiques admin
+ * (Command Center, Analytics) pour que les KPI consolidés et les
+ * graphiques utilisent exactement la même logique.
+ *
+ * Limite documentée : un seul jeu de taux « courant » (`rates`), pas de
+ * taux historique par mois — l'architecture FX actuelle
+ * (lib/saas/exchange-service.ts) ne conserve que le dernier taux connu par
+ * devise, pas une série temporelle interrogeable par date. Un point de
+ * janvier et un point d'août sont donc convertis avec le MÊME taux
+ * (celui d'aujourd'hui). À revoir si une vraie table de taux historiques
+ * est introduite un jour.
+ */
+export function convertChartSeries<T extends { byCurrency: Record<string, number> }>(
+  points: T[],
+  target: string,
+  rates: RateMap,
+): Array<T & { value: number; missingCurrencies: string[] }> {
+  return points.map((p) => {
+    const { value, missing } = convertByCurrency(p.byCurrency, target, rates)
+    return { ...p, value, missingCurrencies: missing }
+  })
+}
