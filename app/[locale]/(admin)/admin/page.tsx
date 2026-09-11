@@ -3,8 +3,8 @@ export const dynamic = 'force-dynamic'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getTrialDaysLeft, hasActiveSubscription, PLANS } from '@/lib/saas/plans'
 import { computeHealthScore } from '@/lib/saas/health-score'
-import { formatAdminRevenue, formatCurrency } from '@/lib/utils/currency'
-import { isFrancCfaCurrency } from '@/lib/saas/currencies'
+import { formatMoneyByCurrency } from '@/lib/utils/currency'
+import { resolveCurrencyCode } from '@/lib/saas/currencies'
 import {
   TrendingUp, ShoppingBag, Users, AlertTriangle, DollarSign,
   ArrowUpRight, Package, Activity, Clock, UserCheck, TrendingDown, HeartPulse,
@@ -65,19 +65,20 @@ async function getData(supabase: any) {
   }
 }
 
-function splitRevenueByCurrency(subs: any[], shopCurrencyMap: Record<string, string>) {
-  let ngn = 0
-  let cfa = 0
+/** Ventile les montants d'abonnement par code devise ISO réel de la boutique. */
+function sumByCurrency(subs: any[], shopCurrencyMap: Record<string, string>): Record<string, number> {
+  const out: Record<string, number> = {}
   for (const s of subs) {
-    const currency = shopCurrencyMap[s.shop_id] || '₦'
-    if (isFrancCfaCurrency(currency)) {
-      cfa += Number(s.amount)
-    } else {
-      ngn += Number(s.amount)
-    }
+    const code = shopCurrencyMap[s.shop_id] || 'NGN'
+    out[code] = (out[code] || 0) + Number(s.amount)
   }
-  return { ngn, cfa }
+  return out
 }
+
+/** Somme brute tous montants confondus — signal directionnel approximatif
+ *  (croissance %), jamais affiché comme un total monétaire. */
+const grandTotal = (byCode: Record<string, number>) =>
+  Object.values(byCode).reduce((a, b) => a + b, 0)
 
 function buildRevenueChart(subs: any[]) {
   const months: { month: string; revenue: number; count: number }[] = []
@@ -105,14 +106,16 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
   const { shops, allSubs, owners, thisMonthSubs, lastMonthSubs, totalProducts, totalCustomers, salesToday, sales7d, cutoff14d } = await getData(supabase)
 
   const ownersByShop = owners.reduce((acc: any, o: any) => { acc[o.shop_id] = o; return acc }, {})
-  const shopCurrencyMap: Record<string, string> = shops.reduce((acc: any, s: any) => { acc[s.id] = s.currency || '₦'; return acc }, {})
+  const shopCurrencyMap: Record<string, string> = shops.reduce((acc: any, s: any) => {
+    acc[s.id] = resolveCurrencyCode(s.currency, s.country); return acc
+  }, {})
 
-  const { ngn: totalNGN, cfa: totalCFA } = splitRevenueByCurrency(allSubs, shopCurrencyMap)
-  const { ngn: thisMonthNGN, cfa: thisMonthCFA } = splitRevenueByCurrency(thisMonthSubs, shopCurrencyMap)
-  const { ngn: lastMonthNGN, cfa: lastMonthCFA } = splitRevenueByCurrency(lastMonthSubs, shopCurrencyMap)
+  const totalByCurrency = sumByCurrency(allSubs, shopCurrencyMap)
+  const thisMonthByCurrency = sumByCurrency(thisMonthSubs, shopCurrencyMap)
+  const lastMonthByCurrency = sumByCurrency(lastMonthSubs, shopCurrencyMap)
 
-  const lastMonthTotal = lastMonthNGN + lastMonthCFA
-  const thisMonthTotal = thisMonthNGN + thisMonthCFA
+  const lastMonthTotal = grandTotal(lastMonthByCurrency)
+  const thisMonthTotal = grandTotal(thisMonthByCurrency)
   const revenueGrowth = lastMonthTotal > 0
     ? Math.round(((thisMonthTotal - lastMonthTotal) / lastMonthTotal) * 100)
     : thisMonthTotal > 0 ? 100 : 0
@@ -256,8 +259,8 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
         const rows = [
           {
             label: 'Revenue',
-            current: formatAdminRevenue(thisMonthNGN, thisMonthCFA),
-            prev: formatAdminRevenue(lastMonthNGN, lastMonthCFA),
+            current: formatMoneyByCurrency(thisMonthByCurrency),
+            prev: formatMoneyByCurrency(lastMonthByCurrency),
             pct: revenueGrowth,
           },
           {
@@ -306,8 +309,8 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
 
       {/* KPI — finances */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiTile icon={DollarSign} tone="success" label="Revenue total" value={formatAdminRevenue(totalNGN, totalCFA)} />
-        <KpiTile icon={TrendingUp} tone="default" label="Ce mois-ci" value={formatAdminRevenue(thisMonthNGN, thisMonthCFA)} trend={revenueGrowth} />
+        <KpiTile icon={DollarSign} tone="success" label="Revenue total" value={formatMoneyByCurrency(totalByCurrency)} />
+        <KpiTile icon={TrendingUp} tone="default" label="Ce mois-ci" value={formatMoneyByCurrency(thisMonthByCurrency)} trend={revenueGrowth} />
         <KpiTile icon={ShoppingBag} tone="default" label="Total boutiques" value={shops.length} />
         <KpiTile icon={UserCheck} tone="default" label="Taux de conversion" value={`${conversionRate}%`} />
       </div>

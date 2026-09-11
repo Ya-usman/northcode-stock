@@ -3,8 +3,8 @@ export const dynamic = 'force-dynamic'
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/server'
 import { PLANS, hasActiveSubscription } from '@/lib/saas/plans'
-import { formatCurrency, formatAdminRevenue } from '@/lib/utils/currency'
-import { isFrancCfaCurrency } from '@/lib/saas/currencies'
+import { formatCurrency, formatMoneyByCurrency } from '@/lib/utils/currency'
+import { resolveCurrencyCode } from '@/lib/saas/currencies'
 import { CountryFilter } from '@/components/admin/country-filter'
 import { GatewayFilter } from '@/components/admin/gateway-filter'
 import { GATEWAY_LABELS } from '@/lib/saas/gateways'
@@ -103,11 +103,13 @@ export default async function AdminPaymentsPage({
   )
   const matchingRows = (allMatching || []) as any[]
 
-  let totalNGN = 0, totalCFA = 0
+  const shopCode = (shopId: string) =>
+    resolveCurrencyCode(shopMap[shopId]?.currency, shopMap[shopId]?.country)
+
+  const revenueByCurrency: Record<string, number> = {}
   for (const p of matchingRows) {
-    const currency = shopMap[p.shop_id]?.currency || '₦'
-    if (isFrancCfaCurrency(currency)) totalCFA += Number(p.amount)
-    else totalNGN += Number(p.amount)
+    const code = shopCode(p.shop_id)
+    revenueByCurrency[code] = (revenueByCurrency[code] || 0) + Number(p.amount)
   }
 
   // Renouvellement — calculé sur les abonnements actuellement actifs
@@ -117,15 +119,14 @@ export default async function AdminPaymentsPage({
   const autoRenewOn = activeSubs.filter(p => p.auto_renew).length
   const atRisk = activeSubs.filter(p => (p.renewal_failures || 0) > 0)
 
-  // Répartition par fournisseur
-  const gatewayStats: Record<string, { count: number; ngn: number; cfa: number }> = {}
+  // Répartition par fournisseur — montants ventilés par devise réelle
+  const gatewayStats: Record<string, { count: number; byCurrency: Record<string, number> }> = {}
   for (const p of matchingRows) {
     const key = p.gateway || 'legacy'
-    if (!gatewayStats[key]) gatewayStats[key] = { count: 0, ngn: 0, cfa: 0 }
+    if (!gatewayStats[key]) gatewayStats[key] = { count: 0, byCurrency: {} }
     gatewayStats[key].count++
-    const currency = shopMap[p.shop_id]?.currency || '₦'
-    if (isFrancCfaCurrency(currency)) gatewayStats[key].cfa += Number(p.amount)
-    else gatewayStats[key].ngn += Number(p.amount)
+    const code = shopCode(p.shop_id)
+    gatewayStats[key].byCurrency[code] = (gatewayStats[key].byCurrency[code] || 0) + Number(p.amount)
   }
   const gatewayRows = Object.entries(gatewayStats).sort((a, b) => b[1].count - a[1].count)
 
@@ -151,7 +152,7 @@ export default async function AdminPaymentsPage({
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiTile label="Revenus collectés" value={formatAdminRevenue(totalNGN, totalCFA)} icon={Wallet} tone="success" />
+        <KpiTile label="Revenus collectés" value={formatMoneyByCurrency(revenueByCurrency)} icon={Wallet} tone="success" />
         <KpiTile label="Abonnements payants actifs" value={activeOwners} icon={Users} tone="default" />
         <KpiTile label="Renouvellement auto activé" value={`${autoRenewOn}/${activeSubs.length || 0}`} icon={RefreshCw} tone="default" />
         <KpiTile
@@ -176,7 +177,7 @@ export default async function AdminPaymentsPage({
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded ${label.color}`}>{label.name}</span>
                     <p className="text-xs text-muted-foreground mt-1">{stats.count} paiement(s) · {share}%</p>
                   </div>
-                  <span className="text-sm font-bold text-green-400 flex-shrink-0">{formatAdminRevenue(stats.ngn, stats.cfa)}</span>
+                  <span className="text-sm font-bold text-green-400 flex-shrink-0">{formatMoneyByCurrency(stats.byCurrency)}</span>
                 </div>
               )
             })}
@@ -237,7 +238,7 @@ export default async function AdminPaymentsPage({
           const colorClass = PLAN_COLORS[p.plan] || 'text-muted-foreground bg-muted'
           const gwLabel = GATEWAY_LABELS[p.gateway || 'legacy'] || { name: p.gateway || '—', color: 'text-muted-foreground bg-muted' }
           const isExpired = p.expires_at && new Date(p.expires_at) < new Date()
-          const currency = shop?.currency || '₦'
+          const currency = resolveCurrencyCode(shop?.currency, shop?.country)
           const countryConfig = shop?.country ? COUNTRIES[shop.country as keyof typeof COUNTRIES] : null
           const flag = countryConfig?.flag || '🌐'
           return (
@@ -290,7 +291,7 @@ export default async function AdminPaymentsPage({
                 const colorClass = PLAN_COLORS[p.plan] || 'text-muted-foreground bg-muted'
                 const gwLabel = GATEWAY_LABELS[p.gateway || 'legacy'] || { name: p.gateway || '—', color: 'text-muted-foreground bg-muted' }
                 const isExpired = p.expires_at && new Date(p.expires_at) < new Date()
-                const currency = shop?.currency || '₦'
+                const currency = resolveCurrencyCode(shop?.currency, shop?.country)
                 const countryConfig = shop?.country ? COUNTRIES[shop.country as keyof typeof COUNTRIES] : null
                 const flag = countryConfig?.flag || '🌐'
                 return (

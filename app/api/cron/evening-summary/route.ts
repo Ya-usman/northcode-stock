@@ -4,6 +4,8 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { logCronRun } from '@/lib/api/cron-log'
+import { formatCurrency } from '@/lib/utils/currency'
+import { resolveCurrencyCode } from '@/lib/saas/currencies'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -23,7 +25,7 @@ export async function GET(request: Request) {
     // All shops that have daily email enabled
     const { data: shops } = await admin
       .from('shops')
-      .select('id, name, owner_id, currency, low_stock_threshold, notify_email_daily')
+      .select('id, name, owner_id, currency, country, low_stock_threshold, notify_email_daily')
       .eq('notify_email_daily', true)
 
     if (!shops?.length) {
@@ -90,8 +92,8 @@ export async function GET(request: Request) {
       const ownerEmail = ownerData?.user?.email
       if (!ownerEmail) { results[shop.name] = 'no_email'; continue }
 
-      const sym = shop.currency || 'F CFA'
-      const fmt2 = (n: number) => `${new Intl.NumberFormat('fr-FR').format(Math.round(n))} ${sym}`
+      const code = resolveCurrencyCode(shop.currency, shop.country)
+      const fmt2 = (n: number) => formatCurrency(Math.round(n), code)
 
       const { error: sendError } = await resend.emails.send({
         from: 'StockShop <onboarding@resend.dev>',
@@ -100,7 +102,7 @@ export async function GET(request: Request) {
         html: buildDailyEmailHtml(shop.name, dateStr, {
           salesCount, totalRevenue, totalCollected, outstanding,
           byMethod, topProduct: topProduct ? { name: topProduct[0], ...topProduct[1] } : null,
-          lowStockCount: lowStockCount ?? 0, totalDebt, totalExpenses, currency: sym,
+          lowStockCount: lowStockCount ?? 0, totalDebt, totalExpenses, currency: code,
         }),
       })
 
@@ -117,8 +119,7 @@ export async function GET(request: Request) {
 }
 
 function buildDailyEmailHtml(shopName: string, date: string, data: any): string {
-  const sym = data.currency || 'F CFA'
-  const fmt = (n: number) => `${new Intl.NumberFormat('fr-FR').format(Math.round(n))} ${sym}`
+  const fmt = (n: number) => formatCurrency(Math.round(n), data.currency || 'NGN')
   const net = data.totalRevenue - data.totalExpenses
 
   const methodRows = Object.entries(data.byMethod ?? {}).map(([m, v]: any) =>

@@ -75,15 +75,21 @@ export function formatNairaCompact(amount: number, currency = 'NGN'): string {
 }
 
 /**
- * @deprecated Somme naïve NGN vs CFA (fusionne XAF/XOF). À remplacer par
- * une ventilation par devise (`MoneyByCurrency`) — Phase D de la V3.
- * Conservé tel quel pour ne pas casser les 3 pages admin qui l'utilisent.
+ * Ventile un total multi-devise en une chaîne lisible, un segment par
+ * devise réelle (code ISO), du plus gros au plus petit montant.
+ *
+ *   formatMoneyByCurrency({ XAF: 120000, NGN: 99994 })  → "120 000 F CFA · ₦99,994"
+ *   formatMoneyByCurrency({})                            → "₦0"
+ *
+ * Ne JAMAIS additionner des devises différentes en un seul nombre
+ * (XAF + NGN n'a aucun sens financier). Chaque devise garde son segment.
  */
-export function formatAdminRevenue(ngn: number, cfa: number): string {
-  const parts: string[] = []
-  if (ngn > 0) parts.push(formatCurrency(ngn, 'NGN'))
-  if (cfa > 0) parts.push(formatCurrency(cfa, 'XOF'))
-  return parts.length > 0 ? parts.join(' | ') : formatCurrency(0, 'NGN')
+export function formatMoneyByCurrency(byCode: Record<string, number>): string {
+  const parts = Object.entries(byCode)
+    .filter(([, v]) => Number(v) > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([code, v]) => formatCurrency(v, code))
+  return parts.length > 0 ? parts.join(' · ') : formatCurrency(0, 'NGN')
 }
 
 /** Parse une chaîne monétaire vers un nombre (retire symboles + séparateurs). */

@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     // All shops — we need push AND email columns
     const { data: shops, error: shopsError } = await admin
       .from('shops')
-      .select('id, name, owner_id, currency, low_stock_threshold, notify_push_low_stock, notify_email_low_stock')
+      .select('id, name, owner_id, low_stock_threshold, notify_push_low_stock, notify_email_low_stock')
 
     if (shopsError) throw new Error(shopsError.message)
     if (!shops?.length) {
@@ -109,14 +109,13 @@ export async function GET(request: Request) {
         const ownerEmail = ownerData?.user?.email
 
         if (ownerEmail) {
-          const sym = shop.currency || 'F CFA'
           const dateStr = new Date().toLocaleDateString('fr-FR', { dateStyle: 'full' })
 
           const { error: sendError } = await resend.emails.send({
             from: 'StockShop <onboarding@resend.dev>',
             to: ownerEmail,
             subject: `🔴 Alerte stock — ${shop.name} (${alerts.length} produit${alerts.length > 1 ? 's' : ''})`,
-            html: buildLowStockEmailHtml(shop.name, dateStr, outOfStock, lowStock, threshold, sym),
+            html: buildLowStockEmailHtml(shop.name, dateStr, outOfStock, lowStock, threshold),
           })
 
           results[shop.name].email = sendError ? `error: ${sendError.message}` : 'sent'
@@ -141,7 +140,6 @@ function buildLowStockEmailHtml(
   outOfStock: any[],
   lowStock: any[],
   defaultThreshold: number,
-  currency: string
 ): string {
   const outRows = outOfStock.map(p => `
     <div style="background:#fff;border:1px solid #fecaca;border-left:4px solid #dc2626;border-radius:8px;padding:12px 14px;margin-bottom:8px;">

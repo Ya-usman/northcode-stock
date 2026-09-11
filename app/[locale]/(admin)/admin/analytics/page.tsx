@@ -2,8 +2,8 @@ export const dynamic = 'force-dynamic'
 
 import { createAdminClient } from '@/lib/supabase/server'
 import { getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
-import { formatAdminRevenue } from '@/lib/utils/currency'
-import { isFrancCfaCurrency } from '@/lib/saas/currencies'
+import { formatMoneyByCurrency } from '@/lib/utils/currency'
+import { resolveCurrencyCode } from '@/lib/saas/currencies'
 import { GrowthChart } from '@/components/admin/growth-chart'
 import { CountryFilter } from '@/components/admin/country-filter'
 import { COUNTRIES } from '@/lib/saas/countries'
@@ -71,15 +71,16 @@ export default async function AnalyticsPage({
   const subs = countryFilter === 'all' ? allSubs : allSubs.filter((s: any) => shopIds.has(s.shop_id))
 
   const ownersByShop = owners.reduce((acc: any, o: any) => { acc[o.shop_id] = o; return acc }, {})
-  const shopCurrencyMap: Record<string, string> = shops.reduce((acc: any, s: any) => { acc[s.id] = s.currency || '₦'; return acc }, {})
+  const shopCurrencyMap: Record<string, string> = shops.reduce((acc: any, s: any) => {
+    acc[s.id] = resolveCurrencyCode(s.currency, s.country); return acc
+  }, {})
   const monthlyData = buildMonthlyGrowth(shops, subs)
 
   const activeSubs = subs.filter((s: any) => s.status === 'active')
-  let totalNGN = 0, totalCFA = 0
+  const revenueByCurrency: Record<string, number> = {}
   for (const s of activeSubs) {
-    const cur = shopCurrencyMap[s.shop_id] || '₦'
-    if (isFrancCfaCurrency(cur)) totalCFA += Number(s.amount)
-    else totalNGN += Number(s.amount)
+    const code = shopCurrencyMap[s.shop_id] || 'NGN'
+    revenueByCurrency[code] = (revenueByCurrency[code] || 0) + Number(s.amount)
   }
   const activeSubscriptions = shops.filter((s: any) => hasActiveSubscription(s.plan, s.plan_expires_at)).length
   const activeTrials = shops.filter((s: any) => !hasActiveSubscription(s.plan, s.plan_expires_at) && getTrialDaysLeft(s.trial_ends_at) >= 0).length
@@ -126,7 +127,7 @@ export default async function AnalyticsPage({
 
       {/* Résumé global */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiTile label="Revenue total" value={formatAdminRevenue(totalNGN, totalCFA)} icon={Wallet} tone="success" />
+        <KpiTile label="Revenue total" value={formatMoneyByCurrency(revenueByCurrency)} icon={Wallet} tone="success" />
         <KpiTile label="Payants" value={activeSubscriptions} icon={Users} tone="default" />
         <KpiTile label="En trial" value={activeTrials} icon={ShoppingBag} tone="warning" />
         <KpiTile label="Expirés" value={expired} icon={Activity} tone={expired > 0 ? 'danger' : 'success'} />

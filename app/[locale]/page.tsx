@@ -16,6 +16,7 @@ import {
 import { cn } from '@/lib/utils/cn'
 import { useTranslations } from 'next-intl'
 import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
+import { formatCurrency } from '@/lib/utils/currency'
 import { useTheme } from '@/lib/hooks/use-theme'
 
 const LANGUAGES = [
@@ -96,22 +97,8 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
     },
   ]
 
-  const formatPrice = (n: number) => {
-    const { currency } = country
-    if (currency === 'NGN') return `₦${n.toLocaleString('en-NG')}`
-    if (currency === 'EUR') return `${n.toFixed(2).replace('.', ',')} €`
-    if (currency === 'USD') return `$${n.toFixed(2)}`
-    if (currency === 'CAD') return `CA$${n.toFixed(2)}`
-    if (currency === 'GHS') return `GH₵ ${n}`
-    if (currency === 'GNF') return `${n.toLocaleString('fr-FR')} FG`
-    if (currency === 'GMD') return `D ${n}`
-    if (currency === 'SLE') return `Le ${n}`
-    if (currency === 'LRD') return `L$${n.toLocaleString('en-US')}`
-    if (currency === 'CVE') return `${n.toLocaleString('fr-FR')} Esc`
-    if (currency === 'MRU') return `${n} UM`
-    if (currency === 'CDF') return `${n.toLocaleString('fr-FR')} FC`
-    return `${n.toLocaleString('fr-FR')} FCFA`
-  }
+  // Devise dérivée du pays sélectionné (code ISO) — formatage centralisé.
+  const formatPrice = (n: number) => formatCurrency(n, country.currency)
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
