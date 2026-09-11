@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { getCountry, getPeriodPrice, getPeriodDays, type BillingPeriod } from '@/lib/saas/countries'
+import { getCountry, getPeriodPrice, getPeriodDays, getBillingCurrency, type BillingPeriod } from '@/lib/saas/countries'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { validateBody, uuid, email as emailSchema, billingPeriodEnum, planEnum } from '@/lib/api/validate'
 import { fetchWithTimeout } from '@/lib/api/fetch'
@@ -81,6 +81,10 @@ export async function POST(request: Request) {
     // prix affiché sur la page billing (qui utilise déjà billing_country) diverge
     // silencieusement du montant réellement facturé ici.
     const country = getCountry((shopData as any)?.billing_country || (shopData as any)?.country)
+    // Devise de FACTURATION (jamais country.currency directement) : pour les
+    // 27 pays UE, StockShop facture toujours en EUR, quelle que soit la
+    // devise boutique du pays (PLN, SEK, CZK…) — voir getBillingCurrency.
+    const billingCurrency = getBillingCurrency(country)
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}`
     const monthlyPrice = country.prices[plan_id as keyof typeof country.prices]
     if (!monthlyPrice) {
@@ -101,7 +105,7 @@ export async function POST(request: Request) {
         .from('shop_members').select('user_id').eq('shop_id', shop_id).eq('role', 'owner').eq('is_active', true).maybeSingle()
       const owner_id = ownerMember?.user_id ?? (shopData as any)?.owner_id
       if (owner_id) {
-        const preview = await previewWalletCredit(supabase, owner_id, amount, country.currency)
+        const preview = await previewWalletCredit(supabase, owner_id, amount, billingCurrency)
         creditApplied = preview.creditApplied
         amountDue = preview.amountDue
 
@@ -126,7 +130,7 @@ export async function POST(request: Request) {
           if (newSub?.id) {
             await applyWalletCredit(supabase, {
               userId: owner_id, intendedAmount: creditApplied,
-              currency: country.currency, subscriptionId: newSub.id,
+              currency: billingCurrency, subscriptionId: newSub.id,
             })
             await writeAuditLog({
               action: 'billing.verify',
@@ -263,6 +267,10 @@ export async function POST(request: Request) {
     }
 
     if (country.gateway === 'stripe') {
+      // Pas encore implémenté. Quand ce sera fait : envoyer `billingCurrency`
+      // (EUR pour les 27 pays UE) à Stripe — JAMAIS country.currency, qui
+      // pour 6 pays UE (CZ/DK/HU/PL/RO/SE) est la devise boutique locale,
+      // pas la devise de facturation StockShop.
       return NextResponse.json({ error: 'stripe_coming_soon' }, { status: 400 })
     }
 

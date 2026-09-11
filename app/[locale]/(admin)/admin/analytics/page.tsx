@@ -3,10 +3,9 @@ export const dynamic = 'force-dynamic'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
 import { formatMoneyByCurrency } from '@/lib/utils/currency'
-import { resolveCurrencyCode } from '@/lib/saas/currencies'
 import { GrowthChart } from '@/components/admin/growth-chart'
 import { CountryFilter } from '@/components/admin/country-filter'
-import { COUNTRIES } from '@/lib/saas/countries'
+import { COUNTRIES, getCountry, getBillingCurrency } from '@/lib/saas/countries'
 import { attachOwnerPlan } from '@/lib/saas/resolve-owner-plan'
 import { computeHealthScore } from '@/lib/saas/health-score'
 import Link from 'next/link'
@@ -16,7 +15,7 @@ import { KpiTile } from '@/components/admin/ui/kpi-tile'
 
 async function getData(supabase: any) {
   const [{ data: shops }, { data: subs }, { data: owners }] = await Promise.all([
-    supabase.from('shops').select('id, name, owner_id, created_at, currency, country').is('deleted_at', null).order('created_at', { ascending: true }),
+    supabase.from('shops').select('id, name, owner_id, created_at, currency, country, billing_country').is('deleted_at', null).order('created_at', { ascending: true }),
     supabase.from('subscriptions').select('id, shop_id, plan, amount, status, created_at').order('created_at', { ascending: false }),
     supabase.from('profiles').select('id, shop_id, last_seen').eq('role', 'owner'),
   ])
@@ -71,8 +70,10 @@ export default async function AnalyticsPage({
   const subs = countryFilter === 'all' ? allSubs : allSubs.filter((s: any) => shopIds.has(s.shop_id))
 
   const ownersByShop = owners.reduce((acc: any, o: any) => { acc[o.shop_id] = o; return acc }, {})
+  // Devise de FACTURATION (billing_country), pas la devise boutique — un
+  // abonnement d'une boutique polonaise/suédoise est facturé en EUR.
   const shopCurrencyMap: Record<string, string> = shops.reduce((acc: any, s: any) => {
-    acc[s.id] = resolveCurrencyCode(s.currency, s.country); return acc
+    acc[s.id] = getBillingCurrency(getCountry(s.billing_country || s.country)); return acc
   }, {})
   const monthlyData = buildMonthlyGrowth(shops, subs)
 

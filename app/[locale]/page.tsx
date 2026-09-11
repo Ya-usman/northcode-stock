@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils/cn'
 import { useTranslations } from 'next-intl'
-import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
+import { COUNTRIES, getBillingCurrency, type CountryCode } from '@/lib/saas/countries'
 import { formatCurrency } from '@/lib/utils/currency'
 import { useTheme } from '@/lib/hooks/use-theme'
 
@@ -97,8 +97,10 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
     },
   ]
 
-  // Devise dérivée du pays sélectionné (code ISO) — formatage centralisé.
-  const formatPrice = (n: number) => formatCurrency(n, country.currency)
+  // Prix affiché = prix FACTURÉ par StockShop, donc en billingCurrency (pas
+  // la devise boutique du pays — pour 6 pays UE elles divergent : CZ/DK/HU/
+  // PL/RO/SE facturent en EUR malgré une devise locale CZK/DKK/HUF/PLN/RON/SEK).
+  const formatPrice = (n: number) => formatCurrency(n, getBillingCurrency(country))
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white">

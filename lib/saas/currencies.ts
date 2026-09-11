@@ -55,6 +55,15 @@ const CURRENCY_META: Record<string, Omit<CurrencyDef, 'code' | 'countries'>> = {
   EUR: { label: 'Euro',                      symbol: '€',     decimals: 2, symbolPosition: 'after',  numberLocale: 'fr-FR', active: true },
   USD: { label: 'Dollar américain',          symbol: '$',     decimals: 2, symbolPosition: 'before', numberLocale: 'en-US', active: true },
   CAD: { label: 'Dollar canadien',           symbol: 'CA$',   decimals: 2, symbolPosition: 'before', numberLocale: 'en-CA', active: true },
+  // Union européenne — pays hors zone euro (devise MÉTIER de la boutique
+  // uniquement ; la facturation StockShop reste en EUR pour les 27, voir
+  // CountryConfig.billingCurrency dans lib/saas/countries.ts).
+  CZK: { label: 'Couronne tchèque',          symbol: 'Kč',    decimals: 2, symbolPosition: 'after',  numberLocale: 'cs-CZ', active: true },
+  DKK: { label: 'Couronne danoise',          symbol: 'kr',    decimals: 2, symbolPosition: 'after',  numberLocale: 'da-DK', active: true },
+  HUF: { label: 'Forint hongrois',           symbol: 'Ft',    decimals: 2, symbolPosition: 'after',  numberLocale: 'hu-HU', active: true },
+  PLN: { label: 'Zloty polonais',            symbol: 'zł',    decimals: 2, symbolPosition: 'after',  numberLocale: 'pl-PL', active: true },
+  RON: { label: 'Leu roumain',               symbol: 'lei',   decimals: 2, symbolPosition: 'after',  numberLocale: 'ro-RO', active: true },
+  SEK: { label: 'Couronne suédoise',         symbol: 'kr',    decimals: 2, symbolPosition: 'after',  numberLocale: 'sv-SE', active: true },
 }
 
 function buildRegistry(): Record<string, CurrencyDef> {
@@ -92,6 +101,12 @@ for (const def of Object.values(CURRENCIES)) {
   if (!(def.symbol in CODE_BY_SYMBOL)) CODE_BY_SYMBOL[def.symbol] = def.code
 }
 delete CODE_BY_SYMBOL['F CFA'] // ambigu — jamais résolu sans pays
+delete CODE_BY_SYMBOL['kr']    // ambigu DKK/SEK — aucune des deux n'a de code
+                                // pays fiable comme le CFA ; on préfère un
+                                // repli `null` (anomalie) à un mauvais choix
+                                // silencieux. Aucune donnée existante n'utilise
+                                // ce symbole brut (DKK/SEK arrivent toujours en
+                                // code ISO depuis l'app).
 
 /** Variantes historiques d'un symbole ambigu « franc CFA ». */
 const CFA_SYMBOLS = new Set(['F CFA', 'FCFA', 'CFA', 'FRS CFA', 'FR CFA'])

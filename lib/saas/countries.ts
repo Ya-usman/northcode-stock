@@ -2,7 +2,12 @@ export type CountryCode =
   | 'NG' | 'CM' | 'CI' | 'ML' | 'NE' | 'SN' | 'BJ' | 'TG'
   | 'GH' | 'BF' | 'GN' | 'GW' | 'GM' | 'SL' | 'LR' | 'CV' | 'MR'
   | 'CD' | 'CG' | 'GA' | 'GQ' | 'CF' | 'TD'
-  | 'EU' | 'US' | 'CA'
+  | 'US' | 'CA'
+  // Union européenne — 27 pays individuels (jamais groupés sous "Europe" :
+  // l'UE n'est pas la zone euro, voir COUNTRIES ci-dessous et euCountry()).
+  | 'DE' | 'AT' | 'BE' | 'BG' | 'HR' | 'CY' | 'DK' | 'ES' | 'EE' | 'FI'
+  | 'FR' | 'GR' | 'HU' | 'IE' | 'IT' | 'LV' | 'LT' | 'LU' | 'MT' | 'NL'
+  | 'PL' | 'PT' | 'CZ' | 'RO' | 'SK' | 'SI' | 'SE'
 
 export type BillingPeriod = 'monthly' | 'quarterly' | 'annual'
 
@@ -48,8 +53,22 @@ export interface CountryConfig {
   name: string
   flag: string
   flagColor: string
+  /** Devise MÉTIER de la boutique (POS, stock, rapports, reçus) — ce que
+   *  `shops.currency` doit valoir pour ce pays. */
   currency: string
   currencySymbol: string
+  /**
+   * Devise de FACTURATION de l'abonnement StockShop (ce qui est envoyé à la
+   * passerelle de paiement / Stripe). Absente = identique à `currency`
+   * (cas de tous les marchés africains : on facture dans la devise locale).
+   * Les 27 pays de l'Union européenne sont le seul cas où elle diverge :
+   * la boutique opère dans sa devise nationale (`currency`, ex. PLN, SEK,
+   * CZK…) mais StockShop facture en EUR pour tous (§ V1 — pas de
+   * tarification locale hors zone euro pour l'instant). Ne jamais lire
+   * `currency` pour un montant facturé à la passerelle — utiliser
+   * `getBillingCurrency(country)`.
+   */
+  billingCurrency?: string
   gateway: 'paystack' | 'flutterwave' | 'notchpay' | 'stripe'
   prices: {
     starter: number
@@ -65,6 +84,13 @@ export interface CountryConfig {
   phonePrefix: string
   cityPlaceholder: string
   paymentMethods: PaymentMethod[]
+}
+
+/** Devise dans laquelle l'abonnement StockShop est réellement facturé —
+ *  jamais `country.currency` directement pour un montant envoyé à une
+ *  passerelle de paiement (voir `CountryConfig.billingCurrency`). */
+export function getBillingCurrency(country: CountryConfig): string {
+  return country.billingCurrency ?? country.currency
 }
 
 export function getMethodType(methodId: string, country: CountryConfig): PaymentMethodType {
@@ -100,6 +126,43 @@ const INTL_PERIOD_PRICES = {
   starter:  { quarterly: 41.99,  annual: 143.99 },
   pro:      { quarterly: 54.99,  annual: 191.99 },
   business: { quarterly: 82.99,  annual: 287.99 },
+}
+
+// Méthodes de paiement génériques pour les 27 pays de l'Union européenne —
+// mêmes rails partout (carte, virement, PayPal), pas de spécificité locale
+// modélisée pour l'instant.
+const EU_PAYMENT_METHODS: PaymentMethod[] = [
+  { id: 'cash',     label: 'Espèces',        icon: '💵', type: 'cash' },
+  { id: 'card',     label: 'Carte bancaire', icon: '💳', type: 'card' },
+  { id: 'transfer', label: 'Virement',       icon: '🏦', type: 'transfer' },
+  { id: 'paypal',   label: 'PayPal',         icon: '🔵', type: 'card' },
+  { id: 'credit',   label: 'Crédit',         icon: '📝', type: 'credit' },
+]
+
+/**
+ * Construit la config d'un pays de l'Union européenne. `currency` /
+ * `currencySymbol` sont la devise MÉTIER réelle du pays (EUR pour 21
+ * d'entre eux, devise nationale pour les 6 hors zone euro — ne jamais
+ * supposer que « UE » = « zone euro »). `billingCurrency` est TOUJOURS
+ * 'EUR' : StockShop facture l'abonnement en euros pour les 27, quelle que
+ * soit la devise boutique (V1 — pas de tarification locale PLN/SEK/CZK/
+ * DKK/HUF/RON tant qu'elle n'aura pas été fixée par l'équipe).
+ */
+function euCountry(
+  code: CountryCode, name: string, flag: string, flagColor: string,
+  currency: string, currencySymbol: string,
+  phonePrefix: string, cityPlaceholder: string,
+): CountryConfig {
+  return {
+    code, name, flag, flagColor,
+    currency, currencySymbol,
+    billingCurrency: 'EUR',
+    gateway: 'stripe',
+    prices: { starter: 14.99, pro: 19.99, business: 29.99 },
+    periodPrices: INTL_PERIOD_PRICES,
+    phonePrefix, cityPlaceholder,
+    paymentMethods: EU_PAYMENT_METHODS,
+  }
 }
 
 export const COUNTRIES: Record<CountryCode, CountryConfig> = {
@@ -496,22 +559,41 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
     ],
   },
 
-  // ── International ────────────────────────────────────────────────────────
+  // ── Union européenne — 27 pays individuels ──────────────────────────────
+  // UE ≠ zone euro : 21 pays en EUR, 6 dans leur devise nationale. La devise
+  // de facturation StockShop (billingCurrency) est EUR pour les 27 — voir
+  // euCountry(). Jamais de section "Europe" groupée : chaque pays a son
+  // propre code ISO 3166-1 alpha-2, mélangé avec les autres dans COUNTRIES.
 
-  EU: {
-    code: 'EU', name: 'Europe', flag: '🇪🇺', flagColor: '#003399',
-    currency: 'EUR', currencySymbol: '€', gateway: 'stripe',
-    prices: { starter: 14.99, pro: 19.99, business: 29.99 },
-    periodPrices: INTL_PERIOD_PRICES,
-    phonePrefix: '+', cityPlaceholder: 'Paris, Berlin, Madrid…',
-    paymentMethods: [
-      { id: 'cash',     label: 'Espèces',        icon: '💵', type: 'cash' },
-      { id: 'card',     label: 'Carte bancaire', icon: '💳', type: 'card' },
-      { id: 'transfer', label: 'Virement',       icon: '🏦', type: 'transfer' },
-      { id: 'paypal',   label: 'PayPal',         icon: '🔵', type: 'card' },
-      { id: 'credit',   label: 'Crédit',         icon: '📝', type: 'credit' },
-    ],
-  },
+  DE: euCountry('DE', 'Allemagne',          '🇩🇪', '#000000', 'EUR', '€',   '+49',  'Berlin, Munich, Hambourg…'),
+  AT: euCountry('AT', 'Autriche',           '🇦🇹', '#ED2939', 'EUR', '€',   '+43',  'Vienne, Graz, Linz…'),
+  BE: euCountry('BE', 'Belgique',           '🇧🇪', '#FDDA24', 'EUR', '€',   '+32',  'Bruxelles, Anvers, Gand…'),
+  BG: euCountry('BG', 'Bulgarie',           '🇧🇬', '#00966E', 'EUR', '€',   '+359', 'Sofia, Plovdiv, Varna…'),
+  HR: euCountry('HR', 'Croatie',            '🇭🇷', '#171796', 'EUR', '€',   '+385', 'Zagreb, Split, Rijeka…'),
+  CY: euCountry('CY', 'Chypre',             '🇨🇾', '#D57800', 'EUR', '€',   '+357', 'Nicosie, Limassol, Larnaca…'),
+  DK: euCountry('DK', 'Danemark',           '🇩🇰', '#C60C30', 'DKK', 'kr',  '+45',  'Copenhague, Aarhus, Odense…'),
+  ES: euCountry('ES', 'Espagne',            '🇪🇸', '#AA151B', 'EUR', '€',   '+34',  'Madrid, Barcelone, Valence…'),
+  EE: euCountry('EE', 'Estonie',            '🇪🇪', '#0072CE', 'EUR', '€',   '+372', 'Tallinn, Tartu, Narva…'),
+  FI: euCountry('FI', 'Finlande',           '🇫🇮', '#002F6C', 'EUR', '€',   '+358', 'Helsinki, Espoo, Tampere…'),
+  FR: euCountry('FR', 'France',             '🇫🇷', '#0055A4', 'EUR', '€',   '+33',  'Paris, Lyon, Marseille…'),
+  GR: euCountry('GR', 'Grèce',              '🇬🇷', '#0D5EAF', 'EUR', '€',   '+30',  'Athènes, Thessalonique, Patras…'),
+  HU: euCountry('HU', 'Hongrie',            '🇭🇺', '#436F4D', 'HUF', 'Ft',  '+36',  'Budapest, Debrecen, Szeged…'),
+  IE: euCountry('IE', 'Irlande',            '🇮🇪', '#169B62', 'EUR', '€',   '+353', 'Dublin, Cork, Galway…'),
+  IT: euCountry('IT', 'Italie',             '🇮🇹', '#009246', 'EUR', '€',   '+39',  'Rome, Milan, Naples…'),
+  LV: euCountry('LV', 'Lettonie',           '🇱🇻', '#9E3039', 'EUR', '€',   '+371', 'Riga, Daugavpils, Liepāja…'),
+  LT: euCountry('LT', 'Lituanie',           '🇱🇹', '#FDB913', 'EUR', '€',   '+370', 'Vilnius, Kaunas, Klaipėda…'),
+  LU: euCountry('LU', 'Luxembourg',         '🇱🇺', '#00A1DE', 'EUR', '€',   '+352', 'Luxembourg, Esch-sur-Alzette…'),
+  MT: euCountry('MT', 'Malte',              '🇲🇹', '#CF142B', 'EUR', '€',   '+356', 'La Valette, Birkirkara…'),
+  NL: euCountry('NL', 'Pays-Bas',           '🇳🇱', '#21468B', 'EUR', '€',   '+31',  'Amsterdam, Rotterdam, La Haye…'),
+  PL: euCountry('PL', 'Pologne',            '🇵🇱', '#DC143C', 'PLN', 'zł',  '+48',  'Varsovie, Cracovie, Wrocław…'),
+  PT: euCountry('PT', 'Portugal',           '🇵🇹', '#FF0000', 'EUR', '€',   '+351', 'Lisbonne, Porto, Braga…'),
+  CZ: euCountry('CZ', 'République tchèque', '🇨🇿', '#11457E', 'CZK', 'Kč',  '+420', 'Prague, Brno, Ostrava…'),
+  RO: euCountry('RO', 'Roumanie',           '🇷🇴', '#002B7F', 'RON', 'lei', '+40',  'Bucarest, Cluj-Napoca, Timișoara…'),
+  SK: euCountry('SK', 'Slovaquie',          '🇸🇰', '#0B4EA2', 'EUR', '€',   '+421', 'Bratislava, Košice, Žilina…'),
+  SI: euCountry('SI', 'Slovénie',           '🇸🇮', '#005DA4', 'EUR', '€',   '+386', 'Ljubljana, Maribor, Celje…'),
+  SE: euCountry('SE', 'Suède',              '🇸🇪', '#006AA7', 'SEK', 'kr',  '+46',  'Stockholm, Göteborg, Malmö…'),
+
+  // ── International (hors UE) ─────────────────────────────────────────────
 
   US: {
     code: 'US', name: 'United States', flag: '🇺🇸', flagColor: '#B22234',
@@ -550,23 +632,16 @@ export function getCountry(code: string | null | undefined): CountryConfig {
   return COUNTRIES[(code as CountryCode) ?? 'NG'] ?? COUNTRIES.NG
 }
 
-// États membres de l'UE (zone EUR) — pour mapper un code ISO fourni par la
-// géolocalisation IP (ex: header x-vercel-ip-country) vers notre code 'EU' unique.
-const EU_ISO_CODES = new Set([
-  'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR',
-  'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK',
-  'SI', 'ES', 'SE',
-])
-
 // Convertit un code pays ISO 3166-1 alpha-2 (ex: header x-vercel-ip-country)
-// en code interne CountryCode. Nos codes africains correspondent déjà à
-// l'ISO ; l'UE est regroupée sous 'EU'. Pays inconnu → 'NG' (marché
-// principal du produit), pour ne jamais laisser un utilisateur sans devise.
+// en code interne CountryCode. Tous nos codes (Afrique, UE, US, CA)
+// correspondent directement à l'ISO 3166-1 alpha-2 — chaque pays de l'UE a
+// son propre code depuis la V3, plus de regroupement "EU". Pays inconnu →
+// 'NG' (marché principal du produit), pour ne jamais laisser un
+// utilisateur sans devise.
 export function detectCountryFromIso(iso: string | null | undefined): CountryCode {
   if (!iso) return 'NG'
   const code = iso.toUpperCase()
   if (code in COUNTRIES) return code as CountryCode
-  if (EU_ISO_CODES.has(code)) return 'EU'
   return 'NG'
 }
 

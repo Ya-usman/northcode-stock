@@ -5,7 +5,9 @@ import { createClient } from '@/lib/supabase/client'
 import { useTranslations, useLocale } from 'next-intl'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { getPlan, getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
-import { getCountry, getPeriodPrice, BILLING_PERIODS, type BillingPeriod } from '@/lib/saas/countries'
+import { getCountry, getPeriodPrice, getBillingCurrency, BILLING_PERIODS, type BillingPeriod } from '@/lib/saas/countries'
+import { formatCurrency } from '@/lib/utils/currency'
+import { currencySymbol } from '@/lib/saas/currencies'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
@@ -157,6 +159,11 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   const isTrialActive = !isSubscribed && trialDaysLeft >= 0
 
   const country = getCountry(shop?.billing_country || shop?.country)
+  // Devise de FACTURATION de l'abonnement — jamais country.currency
+  // directement : pour les pays UE hors zone euro (CZ/DK/HU/PL/RO/SE),
+  // StockShop facture en EUR alors que la boutique opère dans sa propre
+  // devise (voir CountryConfig.billingCurrency).
+  const billingCurrency = getBillingCurrency(country)
   const isNigeria = country.code === 'NG'
   const isStripe = country.gateway === 'stripe'
   const gatewayLabel =
@@ -185,7 +192,10 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   // Prévisualisation pure (aucune écriture) — le crédit réel n'est jamais
   // débité avant confirmation du paiement, voir lib/referrals/apply-credit.ts.
   // rewardWallet.currency est un code ISO (NGN, XOF…) — cf. /api/referrals/summary.
-  const walletMatchesCountry = !!rewardWallet && rewardWallet.currency === country.currency && rewardWallet.available_balance > 0
+  // Comparaison contre la devise de FACTURATION (billingCurrency), pas la
+  // devise boutique : le crédit s'applique au montant envoyé à la
+  // passerelle, qui est en billingCurrency.
+  const walletMatchesCountry = !!rewardWallet && rewardWallet.currency === billingCurrency && rewardWallet.available_balance > 0
   const creditPreview = (planId: PlanId) => {
     if (!walletMatchesCountry || !useCredit) return null
     const price = getPeriodPrice(country.prices[planId], period, country.periodPrices?.[planId])
@@ -250,13 +260,9 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
     { q: t('faq_4_q'), a: t('faq_4_a') },
   ]
 
-  const formatAmount = (amount: number) => {
-    if (country.currency === 'NGN') return `₦${amount.toLocaleString('en-NG')}`
-    if (country.currency === 'EUR') return `${amount.toLocaleString('fr-FR')} €`
-    if (country.currency === 'USD') return `$${amount}`
-    if (country.currency === 'CAD') return `CA$${amount}`
-    return `${amount.toLocaleString('fr-FR')} ${country.currencySymbol}`
-  }
+  // Formate un montant FACTURÉ (plan, crédit parrainage restant…) — toujours
+  // en billingCurrency, jamais country.currency (cf. plus haut).
+  const formatAmount = (amount: number) => formatCurrency(amount, billingCurrency)
 
   const formatPrice = (planId: PlanId, forPeriod = period) =>
     formatAmount(getPeriodPrice(country.prices[planId], forPeriod, country.periodPrices?.[planId]))
@@ -285,7 +291,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
             <h1 className="font-bold text-lg">{t('title')}</h1>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span className="text-xl">{country.flag}</span>
-              <span>{country.name} · {country.currencySymbol}</span>
+              <span>{country.name} · {currencySymbol(billingCurrency)}</span>
             </div>
           </div>
           <div className="mt-4">

@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getTrialDaysLeft, hasActiveSubscription, PLANS } from '@/lib/saas/plans'
 import { computeHealthScore } from '@/lib/saas/health-score'
 import { formatMoneyByCurrency } from '@/lib/utils/currency'
-import { resolveCurrencyCode } from '@/lib/saas/currencies'
+import { getCountry, getBillingCurrency } from '@/lib/saas/countries'
 import {
   TrendingUp, ShoppingBag, Users, AlertTriangle, DollarSign,
   ArrowUpRight, Package, Activity, Clock, UserCheck, TrendingDown, HeartPulse,
@@ -37,7 +37,7 @@ async function getData(supabase: any) {
     { count: salesToday },
     { count: sales7d },
   ] = await Promise.all([
-    supabase.from('shops').select('id, name, owner_id, created_at, currency, country').is('deleted_at', null).order('created_at', { ascending: false }),
+    supabase.from('shops').select('id, name, owner_id, created_at, currency, country, billing_country').is('deleted_at', null).order('created_at', { ascending: false }),
     supabase.from('subscriptions').select('id, shop_id, plan, amount, status, paystack_reference, starts_at, created_at').order('created_at', { ascending: false }),
     supabase.from('subscriptions').select('shop_id, amount').eq('status', 'active').gte('created_at', startOfMonth),
     supabase.from('subscriptions').select('shop_id, amount').eq('status', 'active').gte('created_at', startOfLastMonth).lte('created_at', endOfLastMonth),
@@ -106,8 +106,12 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
   const { shops, allSubs, owners, thisMonthSubs, lastMonthSubs, totalProducts, totalCustomers, salesToday, sales7d, cutoff14d } = await getData(supabase)
 
   const ownersByShop = owners.reduce((acc: any, o: any) => { acc[o.shop_id] = o; return acc }, {})
+  // Le revenu d'abonnement est ventilé par devise de FACTURATION, pas la
+  // devise boutique (billing_country fait foi, comme dans
+  // app/api/billing/subscribe — sinon un abonnement facturé en EUR pour une
+  // boutique polonaise/suédoise apparaîtrait à tort en PLN/SEK ici).
   const shopCurrencyMap: Record<string, string> = shops.reduce((acc: any, s: any) => {
-    acc[s.id] = resolveCurrencyCode(s.currency, s.country); return acc
+    acc[s.id] = getBillingCurrency(getCountry(s.billing_country || s.country)); return acc
   }, {})
 
   const totalByCurrency = sumByCurrency(allSubs, shopCurrencyMap)

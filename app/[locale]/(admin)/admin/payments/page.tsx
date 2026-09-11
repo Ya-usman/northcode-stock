@@ -4,13 +4,12 @@ import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/server'
 import { PLANS, hasActiveSubscription } from '@/lib/saas/plans'
 import { formatCurrency, formatMoneyByCurrency } from '@/lib/utils/currency'
-import { resolveCurrencyCode } from '@/lib/saas/currencies'
 import { CountryFilter } from '@/components/admin/country-filter'
 import { GatewayFilter } from '@/components/admin/gateway-filter'
 import { GATEWAY_LABELS } from '@/lib/saas/gateways'
 import { PaymentsControls } from '@/components/admin/payments-controls'
 import { CsvExportBtn } from '@/components/admin/csv-export-btn'
-import { COUNTRIES } from '@/lib/saas/countries'
+import { COUNTRIES, getCountry, getBillingCurrency } from '@/lib/saas/countries'
 import { AdminPageHeader } from '@/components/admin/ui/admin-page-header'
 import { KpiTile } from '@/components/admin/ui/kpi-tile'
 import { Wallet, Users, RefreshCw, AlertTriangle, ChevronRight } from 'lucide-react'
@@ -39,7 +38,7 @@ export default async function AdminPaymentsPage({
   const page = Math.max(1, Number(searchParams.page || '1'))
 
   // Load all shops (small dataset — max a few thousand)
-  const { data: allShops } = await supabase.from('shops').select('id, name, city, country, currency, owner_id')
+  const { data: allShops } = await supabase.from('shops').select('id, name, city, country, currency, billing_country, owner_id')
   const shops = (allShops || []) as any[]
   const shopMap: Record<string, any> = {}
   for (const s of shops) shopMap[s.id] = s
@@ -103,8 +102,11 @@ export default async function AdminPaymentsPage({
   )
   const matchingRows = (allMatching || []) as any[]
 
+  // Devise de FACTURATION d'un abonnement (billing_country fait foi, pas la
+  // devise boutique — un abonnement facturé en EUR pour une boutique
+  // polonaise/suédoise ne doit jamais apparaître en PLN/SEK ici).
   const shopCode = (shopId: string) =>
-    resolveCurrencyCode(shopMap[shopId]?.currency, shopMap[shopId]?.country)
+    getBillingCurrency(getCountry(shopMap[shopId]?.billing_country || shopMap[shopId]?.country))
 
   const revenueByCurrency: Record<string, number> = {}
   for (const p of matchingRows) {
@@ -238,7 +240,7 @@ export default async function AdminPaymentsPage({
           const colorClass = PLAN_COLORS[p.plan] || 'text-muted-foreground bg-muted'
           const gwLabel = GATEWAY_LABELS[p.gateway || 'legacy'] || { name: p.gateway || '—', color: 'text-muted-foreground bg-muted' }
           const isExpired = p.expires_at && new Date(p.expires_at) < new Date()
-          const currency = resolveCurrencyCode(shop?.currency, shop?.country)
+          const currency = shopCode(p.shop_id) // devise de facturation (p.amount = montant facturé)
           const countryConfig = shop?.country ? COUNTRIES[shop.country as keyof typeof COUNTRIES] : null
           const flag = countryConfig?.flag || '🌐'
           return (
@@ -291,7 +293,7 @@ export default async function AdminPaymentsPage({
                 const colorClass = PLAN_COLORS[p.plan] || 'text-muted-foreground bg-muted'
                 const gwLabel = GATEWAY_LABELS[p.gateway || 'legacy'] || { name: p.gateway || '—', color: 'text-muted-foreground bg-muted' }
                 const isExpired = p.expires_at && new Date(p.expires_at) < new Date()
-                const currency = resolveCurrencyCode(shop?.currency, shop?.country)
+                const currency = shopCode(p.shop_id) // devise de facturation (p.amount = montant facturé)
                 const countryConfig = shop?.country ? COUNTRIES[shop.country as keyof typeof COUNTRIES] : null
                 const flag = countryConfig?.flag || '🌐'
                 return (
