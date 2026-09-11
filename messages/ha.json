@@ -1459,7 +1459,6 @@
     "next": "Na gaba →",
     "back": "← Komawa",
     "country_subtitle": "Yana ƙayyade kuɗi da hanyar biyan kuɗi",
-    "search_country": "Nemo ƙasa...",
     "phone": "Wayar tarho",
     "optional": "zaɓi",
     "create_shop": "Ƙirƙiri Kantin Na",
@@ -2156,5 +2155,10 @@
     "SK": "Slovakia",
     "SI": "Slovenia",
     "SE": "Sweden"
+  },
+  "country_picker": {
+    "search_placeholder": "Nemo ƙasa…",
+    "no_results": "Ba a sami wata ƙasa ba",
+    "select_country": "Zaɓi ƙasa"
   }
 }

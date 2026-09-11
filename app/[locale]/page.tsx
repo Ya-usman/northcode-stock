@@ -16,6 +16,7 @@ import {
 import { cn } from '@/lib/utils/cn'
 import { useTranslations } from 'next-intl'
 import { COUNTRIES, getBillingCurrency, type CountryCode } from '@/lib/saas/countries'
+import { CountrySelect } from '@/components/ui/country-select'
 import { formatCurrency } from '@/lib/utils/currency'
 import { useTheme } from '@/lib/hooks/use-theme'
 
@@ -360,25 +361,10 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
             <h2 className="text-2xl md:text-4xl font-bold text-gray-900 dark:text-white mb-3">{t('pricing.title')}</h2>
             <p className="text-base md:text-lg text-muted-foreground mb-5">{t('pricing.subtitle')}</p>
 
-            {/* Country toggle */}
-            <div className="inline-flex flex-wrap justify-center rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-1 gap-1">
-              {Object.values(COUNTRIES).map(c => {
-                const selected = pricingCountry === c.code
-                return (
-                  <button
-                    key={c.code}
-                    onClick={() => setPricingCountry(c.code)}
-                    className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all"
-                    style={selected
-                      ? { backgroundColor: isDark ? '#1e293b' : '#fff', boxShadow: `0 0 0 2px ${c.flagColor}`, color: c.flagColor }
-                      : { color: isDark ? '#9ca3af' : '#6b7280' }
-                    }
-                  >
-                    <span className="text-base">{c.flag}</span>
-                    <span className="hidden sm:inline">{c.name}</span>
-                  </button>
-                )
-              })}
+            {/* Sélecteur de pays — 52 pays (dont les 27 de l'UE individuellement)
+                ne tiennent plus dans une rangée de boutons (Phase 2 "pays UE"). */}
+            <div className="max-w-xs mx-auto">
+              <CountrySelect value={pricingCountry} onChange={setPricingCountry} />
             </div>
             <p className="text-xs text-muted-foreground mt-2 flex items-center justify-center gap-1">
               {country.gateway === 'paystack' && <><CreditCard className="h-3.5 w-3.5" /> {t('payment_paystack')}</>}

@@ -6,15 +6,10 @@ import { Plus, UserPlus, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
-import { COUNTRIES } from '@/lib/saas/countries'
+import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
+import { CountrySelect } from '@/components/ui/country-select'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import type { AdminTier } from '@/lib/api/require-admin'
-
-const COUNTRY_OPTIONS = Object.values(COUNTRIES).map(c => ({
-  code: c.code,
-  label: `${c.flag} ${c.name}`,
-  currency: c.currencySymbol,
-}))
 
 export function CreateOwnerModal({ tier }: { tier: AdminTier }) {
   const { toast } = useToast()
@@ -131,15 +126,10 @@ export function CreateOwnerModal({ tier }: { tier: AdminTier }) {
 
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Pays</label>
-                <select
-                  value={form.country}
-                  onChange={set('country')}
-                  className={inputCls}
-                >
-                  {COUNTRY_OPTIONS.map(c => (
-                    <option key={c.code} value={c.code}>{c.label}</option>
-                  ))}
-                </select>
+                <CountrySelect
+                  value={form.country as CountryCode}
+                  onChange={code => setForm(prev => ({ ...prev, country: code }))}
+                />
               </div>
 
               <div>

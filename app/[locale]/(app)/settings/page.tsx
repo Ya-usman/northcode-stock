@@ -7,6 +7,7 @@ import { Save, Upload, Globe, Moon, Sun, ShoppingCart, History, CreditCard, User
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
+import { CountrySelect } from '@/components/ui/country-select'
 import { resolveCurrencyCode, currencySymbol } from '@/lib/saas/currencies'
 import { useToast } from '@/components/ui/use-toast'
 import { isPushSupported, subscribeToPush, unsubscribeFromPush, getPushPermission } from '@/lib/push'
@@ -478,10 +479,9 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <Label>{t('settings.operating_country')}</Label>
-                  <select
+                  <CountrySelect
                     value={country}
-                    onChange={e => {
-                      const code = e.target.value as CountryCode
+                    onChange={code => {
                       const oldPrefix = COUNTRIES[country]?.phonePrefix.replace('+', '') || ''
                       // Only swap the dial code prefix if the field is still untouched (empty or just the previous prefix)
                       if (!whatsapp || whatsapp === oldPrefix) {
@@ -490,14 +490,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                       setCountry(code)
                       setCurrency(COUNTRIES[code]?.currency || 'NGN')
                     }}
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                  >
-                    {Object.values(COUNTRIES).map(c => (
-                      <option key={c.code} value={c.code}>
-                        {c.flag} {c.name}
-                      </option>
-                    ))}
-                  </select>
+                  />
                   <p className="text-xs text-muted-foreground">{t('settings.display_and_currency')}</p>
                 </div>
                 <div className="space-y-1">

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { formatNaira } from '@/lib/utils/currency'
 import { getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
 import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
+import { CountrySelect } from '@/components/ui/country-select'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { ShopRestorePanel } from '@/components/admin/shop-restore-panel'
@@ -715,19 +716,13 @@ export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">Pays</label>
-                  <select
-                    value={editForm.country}
-                    onChange={e => {
-                      const code = e.target.value as CountryCode
+                  <CountrySelect
+                    value={editForm.country as CountryCode || null}
+                    onChange={code => {
                       const auto = COUNTRIES[code]?.currency || 'NGN' // code ISO (V3)
                       setEditForm(f => ({ ...f, country: code, currency: auto }))
                     }}
-                    className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
-                  >
-                    {Object.values(COUNTRIES).map(c => (
-                      <option key={c.code} value={c.code}>{c.flag} {c.name}</option>
-                    ))}
-                  </select>
+                  />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">WhatsApp (format international)</label>
