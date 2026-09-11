@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/api/require-admin'
+import { getCountry, getBillingCurrency } from '@/lib/saas/countries'
 
 // GET /api/admin/agents/commissions?agent_id=xxx&status=pending
 export async function GET(request: NextRequest) {
@@ -41,6 +42,13 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = await createAdminClient() as any
+
+  // Devise de FACTURATION de la boutique (pas sa devise métier — le montant
+  // saisi ici est ce qui a été/sera réellement facturé), même règle que
+  // app/api/billing/subscribe : billing_country fait foi.
+  const { data: shopRow } = await supabase.from('shops').select('country, billing_country').eq('id', shop_id).single()
+  const commissionCurrency = getBillingCurrency(getCountry(shopRow?.billing_country || shopRow?.country))
+
   const { data, error } = await supabase
     .from('agent_commissions')
     .insert({
@@ -48,6 +56,7 @@ export async function POST(request: NextRequest) {
       shop_id,
       subscription_amount: Number(subscription_amount),
       commission_amount: Number(commission_amount),
+      currency: commissionCurrency,
       plan_id: plan_id || 'manual',
       billing_period: billing_period || 'manual',
       status: 'pending',

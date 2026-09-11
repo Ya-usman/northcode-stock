@@ -2,7 +2,7 @@
 
 import { formatCurrency } from '@/lib/utils/currency'
 import { PLANS } from '@/lib/saas/plans'
-import { COUNTRIES } from '@/lib/saas/countries'
+import { COUNTRIES, getCountry, getBillingCurrency } from '@/lib/saas/countries'
 
 interface Payment {
   id: string
@@ -21,6 +21,7 @@ interface Shop {
   city?: string
   country?: string
   currency?: string
+  billing_country?: string | null
 }
 
 interface Props {
@@ -51,7 +52,11 @@ export function RecentPayments({ payments, shops }: Props) {
         const shop = shopMap[payment.shop_id]
         const planLabel = PLANS[payment.plan as keyof typeof PLANS]?.name || payment.plan
         const colorClass = PLAN_COLORS[payment.plan] || 'text-muted-foreground bg-muted'
-        const currency = shop?.currency || '₦'
+        // payment.amount est un montant FACTURÉ — devise de facturation,
+        // pas la devise métier courante de la boutique (elles divergent
+        // pour les boutiques UE hors zone euro, ou après un changement de
+        // pays d'exploitation post-inscription).
+        const currency = shop ? getBillingCurrency(getCountry(shop.billing_country || shop.country)) : 'NGN'
         const countryConfig = shop?.country ? COUNTRIES[shop.country as keyof typeof COUNTRIES] : null
         const countryLabel = countryConfig ? `${countryConfig.flag} ${countryConfig.name}` : (shop?.country ? `🌐 ${shop.country}` : null)
 

@@ -137,7 +137,12 @@ export async function GET(request: NextRequest) {
       await applyWalletCredit(supabase, {
         userId: owner_id,
         intendedAmount: Number(credit_amount),
-        currency: currencyCodeForCountry((shopRow as any)?.country),
+        // Cette route est le callback Paystack, qui ne traite QUE des
+        // paiements NGN (seul billing_country='NG' route ici, cf.
+        // app/api/billing/subscribe:country.gateway==='paystack') — ne
+        // jamais dériver de shopRow.country, qui peut avoir changé depuis
+        // (ex. boutique inscrite au Nigeria puis passée au Cameroun).
+        currency: 'NGN',
         subscriptionId: newSub.id,
       })
     }
@@ -157,6 +162,7 @@ export async function GET(request: NextRequest) {
           shop_id,
           subscription_amount: paymentAmount,
           commission_amount: commissionAmount,
+          currency: 'NGN', // callback Paystack — toujours NGN, voir note plus haut
           plan_id,
           billing_period,
           paystack_reference: reference,

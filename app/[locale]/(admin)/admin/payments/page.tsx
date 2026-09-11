@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/server'
 import { PLANS, hasActiveSubscription } from '@/lib/saas/plans'
-import { formatCurrency, formatMoneyByCurrency } from '@/lib/utils/currency'
+import { formatCurrency } from '@/lib/utils/currency'
 import { CountryFilter } from '@/components/admin/country-filter'
 import { GatewayFilter } from '@/components/admin/gateway-filter'
 import { GATEWAY_LABELS } from '@/lib/saas/gateways'
@@ -12,8 +12,10 @@ import { CsvExportBtn } from '@/components/admin/csv-export-btn'
 import { COUNTRIES, getCountry, getBillingCurrency } from '@/lib/saas/countries'
 import { AdminPageHeader } from '@/components/admin/ui/admin-page-header'
 import { KpiTile } from '@/components/admin/ui/kpi-tile'
-import { Wallet, Users, RefreshCw, AlertTriangle, ChevronRight } from 'lucide-react'
+import { Users, RefreshCw, AlertTriangle, ChevronRight } from 'lucide-react'
 import { Suspense } from 'react'
+import { PaymentsRevenuePanel, GatewayRevenueAmount } from '@/components/admin/payments-revenue-panel'
+import { ReportingCurrencyProvider } from '@/components/admin/reporting-currency-context'
 
 const PLAN_COLORS: Record<string, string> = {
   starter: 'text-blue-400 bg-blue-400/10',
@@ -152,40 +154,42 @@ export default async function AdminPaymentsPage({
         }
       />
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiTile label="Revenus collectés" value={formatMoneyByCurrency(revenueByCurrency)} icon={Wallet} tone="success" />
-        <KpiTile label="Abonnements payants actifs" value={activeOwners} icon={Users} tone="default" />
-        <KpiTile label="Renouvellement auto activé" value={`${autoRenewOn}/${activeSubs.length || 0}`} icon={RefreshCw} tone="default" />
-        <KpiTile
-          label="Échecs de renouvellement"
-          value={atRisk.length}
-          icon={AlertTriangle}
-          tone={atRisk.length > 0 ? 'danger' : 'success'}
-        />
-      </div>
-
-      {/* Répartition par fournisseur */}
-      {gatewayRows.length > 0 && (
-        <div className="bg-card rounded-xl border border-border shadow-sm p-4">
-          <h3 className="text-sm font-semibold text-foreground mb-3">Répartition par fournisseur</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {gatewayRows.map(([key, stats]) => {
-              const label = GATEWAY_LABELS[key] || { name: key, color: 'text-muted-foreground bg-muted' }
-              const share = (totalCount ?? 0) > 0 ? Math.round((stats.count / matchingRows.length) * 100) : 0
-              return (
-                <div key={key} className="flex items-center justify-between gap-2 bg-muted/50 rounded-lg px-3 py-2.5">
-                  <div className="min-w-0">
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded ${label.color}`}>{label.name}</span>
-                    <p className="text-xs text-muted-foreground mt-1">{stats.count} paiement(s) · {share}%</p>
-                  </div>
-                  <span className="text-sm font-bold text-green-400 flex-shrink-0">{formatMoneyByCurrency(stats.byCurrency)}</span>
-                </div>
-              )
-            })}
-          </div>
+      <ReportingCurrencyProvider>
+        {/* KPIs */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <PaymentsRevenuePanel revenueByCurrency={revenueByCurrency} />
+          <KpiTile label="Abonnements payants actifs" value={activeOwners} icon={Users} tone="default" />
+          <KpiTile label="Renouvellement auto activé" value={`${autoRenewOn}/${activeSubs.length || 0}`} icon={RefreshCw} tone="default" />
+          <KpiTile
+            label="Échecs de renouvellement"
+            value={atRisk.length}
+            icon={AlertTriangle}
+            tone={atRisk.length > 0 ? 'danger' : 'success'}
+          />
         </div>
-      )}
+
+        {/* Répartition par fournisseur */}
+        {gatewayRows.length > 0 && (
+          <div className="bg-card rounded-xl border border-border shadow-sm p-4">
+            <h3 className="text-sm font-semibold text-foreground mb-3">Répartition par fournisseur</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {gatewayRows.map(([key, stats]) => {
+                const label = GATEWAY_LABELS[key] || { name: key, color: 'text-muted-foreground bg-muted' }
+                const share = (totalCount ?? 0) > 0 ? Math.round((stats.count / matchingRows.length) * 100) : 0
+                return (
+                  <div key={key} className="flex items-center justify-between gap-2 bg-muted/50 rounded-lg px-3 py-2.5">
+                    <div className="min-w-0">
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded ${label.color}`}>{label.name}</span>
+                      <p className="text-xs text-muted-foreground mt-1">{stats.count} paiement(s) · {share}%</p>
+                    </div>
+                    <GatewayRevenueAmount byCurrency={stats.byCurrency} />
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </ReportingCurrencyProvider>
 
       {/* Renouvellements à risque */}
       {atRisk.length > 0 && (

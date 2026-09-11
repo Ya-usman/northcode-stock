@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { RotateCcw, Package, Users, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
-import { formatNaira } from '@/lib/utils/currency'
+import { formatCurrency } from '@/lib/utils/currency'
 import { createClient } from '@/lib/supabase/client'
 import { withTimeout } from '@/lib/utils/with-timeout'
 
@@ -13,10 +13,14 @@ const supabase = createClient() as any
 interface Props {
   shopId: string
   shopName: string
+  /** Devise MÉTIER de la boutique — prix produits/soldes clients affichés
+   *  ici, jamais convertis ni supposés NGN (voir politique de devise). */
+  currency: string
 }
 
-export function ShopRestorePanel({ shopId, shopName }: Props) {
+export function ShopRestorePanel({ shopId, shopName, currency }: Props) {
   const { toast } = useToast()
+  const formatNaira = (amount: number | string | null | undefined) => formatCurrency(amount, currency)
 
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)

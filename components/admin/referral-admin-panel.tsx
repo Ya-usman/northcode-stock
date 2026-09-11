@@ -10,6 +10,7 @@ import { formatCurrency } from '@/lib/utils/currency'
 import { currencySymbol, REFERRAL_CURRENCIES } from '@/lib/saas/currencies'
 import { convertByCurrency, type RateMap } from '@/lib/saas/exchange'
 import { withTimeout } from '@/lib/utils/with-timeout'
+import { DEFAULT_REPORTING_CURRENCY } from '@/lib/hooks/use-reporting-currency'
 import { KpiTile } from '@/components/admin/ui/kpi-tile'
 import { MoneyTile } from '@/components/admin/money-by-currency'
 import type { AdminTier } from '@/lib/api/require-admin'
@@ -70,7 +71,13 @@ export function ReferralAdminPanel({ tier, locale }: { tier: AdminTier; locale: 
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([])
   const [reviewing, setReviewing] = useState<string | null>(null)
   const [rates, setRates] = useState<RateMap>({})
-  const [reportCcy, setReportCcy] = useState<string>('by_currency')
+  // XAF par défaut (politique de devise StockShop — reporting piloté depuis
+  // le Cameroun) ; « Par devise » reste sélectionnable pour voir la
+  // ventilation brute sans conversion. Préférence propre à ce panneau
+  // (REPORT_CCY_KEY) — volontairement distincte du sélecteur XAF partagé
+  // de Command Center/Analytics/Facturation/Agents, qui n'a pas de mode
+  // "aucune conversion".
+  const [reportCcy, setReportCcy] = useState<string>(DEFAULT_REPORTING_CURRENCY)
 
   const loadReview = () => {
     withTimeout(fetch('/api/admin/referrals/review')).then(async r => {
@@ -87,7 +94,7 @@ export function ReferralAdminPanel({ tier, locale }: { tier: AdminTier; locale: 
     withTimeout(fetch('/api/admin/referrals/overview')).then(async r => {
       if (r.ok) setOverview(await r.json())
     }).catch(() => {})
-    withTimeout(fetch('/api/admin/referrals/rates')).then(async r => {
+    withTimeout(fetch('/api/admin/exchange-rates')).then(async r => {
       if (r.ok) setRates((await r.json()).rates || {})
     }).catch(() => {})
     loadReview()

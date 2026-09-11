@@ -7,6 +7,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AdminPageHeader } from '@/components/admin/ui/admin-page-header'
 import { KpiTile } from '@/components/admin/ui/kpi-tile'
+import { ConsolidatedMoneyTile } from '@/components/admin/consolidated-money-tile'
+import { ReportingCurrencySelect } from '@/components/admin/reporting-currency-select'
+import { useReportingCurrency } from '@/lib/hooks/use-reporting-currency'
+import { useExchangeRates } from '@/lib/hooks/use-exchange-rates'
+import { formatCurrency } from '@/lib/utils/currency'
 
 interface Agent {
   id: string
@@ -29,6 +34,9 @@ interface Commission {
   shop_id: string
   subscription_amount: number
   commission_amount: number
+  /** Devise de facturation au moment de la commission (migration 144) —
+   *  jamais supposer NGN : n'importe quelle boutique peut avoir un agent. */
+  currency: string
   plan_id: string
   billing_period: string
   status: 'pending' | 'paid'
@@ -252,7 +260,18 @@ export default function AgentsPage() {
     return true
   })
 
-  const totalPending = commissions.filter(c => c.status === 'pending').reduce((acc, c) => acc + Number(c.commission_amount), 0)
+  // Ventilé par devise réelle — jamais une somme brute entre boutiques de
+  // devises différentes (politique de devise StockShop). Dérivé de
+  // agent_commissions.currency plutôt que du total agrégé agents.total_paid,
+  // qui n'a lui-même aucune notion de devise.
+  const pendingByCurrency: Record<string, number> = {}
+  const paidByCurrency: Record<string, number> = {}
+  for (const c of commissions) {
+    const bucket = c.status === 'pending' ? pendingByCurrency : paidByCurrency
+    bucket[c.currency] = (bucket[c.currency] || 0) + Number(c.commission_amount)
+  }
+  const { currency: reportCcy, setCurrency: setReportCcy } = useReportingCurrency()
+  const { rates } = useExchangeRates()
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -267,20 +286,19 @@ export default function AgentsPage() {
       />
 
       {/* Stats */}
+      <div className="flex justify-end">
+        <ReportingCurrencySelect value={reportCcy} onChange={setReportCcy} />
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <KpiTile label="Agents actifs" value={agents.filter(a => a.is_active).length} icon={Users} tone="default" />
         <KpiTile label="Commissions totales" value={commissions.length} icon={TrendingUp} tone="success" />
-        <KpiTile
-          label="À payer (₦)"
-          value={totalPending.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}
-          icon={DollarSign}
-          tone="warning"
+        <ConsolidatedMoneyTile
+          label="À payer" icon={DollarSign} tone="warning"
+          amounts={pendingByCurrency} reportingCurrency={reportCcy} rates={rates}
         />
-        <KpiTile
-          label="Déjà payé (₦)"
-          value={agents.reduce((acc, a) => acc + Number(a.total_paid), 0).toLocaleString('fr-FR', { maximumFractionDigits: 0 })}
-          icon={DollarSign}
-          tone="success"
+        <ConsolidatedMoneyTile
+          label="Déjà payé" icon={DollarSign} tone="success"
+          amounts={paidByCurrency} reportingCurrency={reportCcy} rates={rates}
         />
       </div>
 
@@ -555,10 +573,10 @@ export default function AgentsPage() {
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-semibold text-green-400">
-                    +{Number(c.commission_amount).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} ₦
+                    +{formatCurrency(c.commission_amount, c.currency)}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    sur {Number(c.subscription_amount).toLocaleString('fr-FR', { maximumFractionDigits: 0 })}
+                    sur {formatCurrency(c.subscription_amount, c.currency)}
                   </p>
                 </div>
                 <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${

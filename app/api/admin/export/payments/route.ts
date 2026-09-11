@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/api/require-admin'
+import { getCountry, getBillingCurrency } from '@/lib/saas/countries'
 
 export async function GET(request: Request) {
   const auth = await requireAdmin()
@@ -12,7 +13,7 @@ export async function GET(request: Request) {
 
   const [{ data: subs }, { data: shops }] = await Promise.all([
     admin.from('subscriptions').select('*').order('created_at', { ascending: false }),
-    admin.from('shops').select('id, name, city, country, currency'),
+    admin.from('shops').select('id, name, city, country, currency, billing_country'),
   ])
 
   const shopMap: Record<string, any> = {}
@@ -34,7 +35,9 @@ export async function GET(request: Request) {
       q(shop.name || ''),
       q(shop.city || ''),
       q(shop.country || 'NG'),
-      q(shop.currency || '₦'),
+      // Devise de FACTURATION (pas la devise métier de la boutique) : "Montant"
+      // ci-dessous est un montant d'abonnement réellement facturé.
+      q(shop.id ? getBillingCurrency(getCountry(shop.billing_country || shop.country)) : 'NGN'),
       q(p.plan || ''),
       q(p.amount || 0),
       q(p.gateway || 'paystack (historique)'),

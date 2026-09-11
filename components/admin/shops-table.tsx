@@ -4,7 +4,9 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getPlan, getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
-import { formatNaira } from '@/lib/utils/currency'
+import { formatCurrency } from '@/lib/utils/currency'
+import { resolveCurrencyCode } from '@/lib/saas/currencies'
+import { getCountry, getBillingCurrency } from '@/lib/saas/countries'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import {
@@ -34,6 +36,7 @@ interface Shop {
   city: string
   country?: string
   currency?: string
+  billing_country?: string | null
   plan: string | null
   trial_ends_at: string | null
   plan_expires_at: string | null
@@ -87,6 +90,15 @@ const COUNTRY_LABELS: Record<string, { flag: string; name: string }> = {
 function countryLabel(code: string) {
   const c = COUNTRY_LABELS[code]
   return c ? `${c.flag} ${c.name}` : `🌐 ${code}`
+}
+
+// Devise de FACTURATION d'une boutique (jamais shop.currency directement —
+// c'est la devise MÉTIER, qui peut diverger de ce qui a réellement été
+// facturé : boutiques UE hors zone euro, ou pays d'exploitation changé
+// après l'inscription). billing_country fait foi, comme
+// app/api/billing/subscribe.
+function shopBillingCurrency(shop: Pick<Shop, 'country' | 'billing_country'>): string {
+  return getBillingCurrency(getCountry(shop.billing_country || shop.country))
 }
 
 const COLUMNS = [
@@ -208,7 +220,7 @@ function PaymentHistory({ shop, tier }: { shop: Shop; tier: AdminTier }) {
                 <span className="text-xs font-mono text-muted-foreground hidden sm:inline">{sub.paystack_reference}</span>
               )}
             </div>
-            <span className="text-xs font-bold text-green-400 flex-shrink-0">{formatNaira(sub.amount)}</span>
+            <span className="text-xs font-bold text-green-400 flex-shrink-0">{formatCurrency(sub.amount, shopBillingCurrency(shop))}</span>
           </div>
         ))
       )}
@@ -219,7 +231,9 @@ function PaymentHistory({ shop, tier }: { shop: Shop; tier: AdminTier }) {
           <ExternalLink className="h-3 w-3" /> WhatsApp owner
         </a>
       )}
-      {tier === 'super_admin' && <ShopRestorePanel shopId={shop.id} shopName={shop.name} />}
+      {tier === 'super_admin' && (
+        <ShopRestorePanel shopId={shop.id} shopName={shop.name} currency={resolveCurrencyCode(shop.currency, shop.country)} />
+      )}
     </div>
   )
 }
@@ -539,7 +553,7 @@ export function AdminShopsTable({ shops, locale, tier }: Props) {
 
                       {/* Revenue */}
                       <td className="px-5 py-3 text-foreground text-xs font-medium">
-                        {totalRevenue > 0 ? formatNaira(totalRevenue) : <span className="text-muted-foreground">₦0</span>}
+                        {totalRevenue > 0 ? formatCurrency(totalRevenue, shopBillingCurrency(shop)) : <span className="text-muted-foreground">{formatCurrency(0, shopBillingCurrency(shop))}</span>}
                       </td>
 
                       {/* Actions */}
@@ -618,7 +632,7 @@ export function AdminShopsTable({ shops, locale, tier }: Props) {
                     {shop.country && <span>{countryLabel(shop.country)}</span>}
                     <span className="text-foreground font-medium capitalize">{getPlan(shop.plan).name}</span>
                     <ExpiryCell daysRemaining={daysRemaining} isExpired={isExpired} />
-                    {totalRevenue > 0 && <span className="text-green-400 font-medium">{formatNaira(totalRevenue)}</span>}
+                    {totalRevenue > 0 && <span className="text-green-400 font-medium">{formatCurrency(totalRevenue, shopBillingCurrency(shop))}</span>}
                   </div>
 
                   {/* Health bar */}

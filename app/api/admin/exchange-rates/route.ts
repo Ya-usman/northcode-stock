@@ -5,9 +5,14 @@ import { requireAdmin } from '@/lib/api/require-admin'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { rateFreshness, PIVOT_CURRENCY } from '@/lib/saas/exchange'
 import { getExchangeRates, refreshExchangeRates } from '@/lib/saas/exchange-service'
-import { REFERRAL_CURRENCIES, isSupportedCurrencyCode } from '@/lib/saas/currencies'
+import { CURRENCY_LIST, isSupportedCurrencyCode } from '@/lib/saas/currencies'
 
-// GET /api/admin/referrals/rates — taux courants + métadonnées (tout admin).
+// Taux de change pour le REPORTING agrégé (tout admin) — Command Center,
+// Analytics, Facturation, Agents, Parrainage. Généraliste depuis toujours
+// (route déplacée depuis /api/admin/referrals/rates, seul son 1er
+// utilisateur : le module Parrainage n'était pas la seule raison d'être).
+
+// GET /api/admin/exchange-rates — taux courants + métadonnées (tout admin).
 export async function GET() {
   const auth = await requireAdmin()
   if (auth.error) return auth.error
@@ -15,7 +20,7 @@ export async function GET() {
   const admin = await createAdminClient() as any
   const { pivot, rates } = await getExchangeRates(admin)
 
-  const list = REFERRAL_CURRENCIES
+  const list = CURRENCY_LIST
     .filter((c) => c.code !== pivot)
     .map((c) => {
       const info = rates[c.code]
@@ -44,7 +49,7 @@ const putSchema = z.object({
   })).min(1),
 })
 
-// PUT /api/admin/referrals/rates — définit des OVERRIDES manuels (super_admin).
+// PUT /api/admin/exchange-rates — définit des OVERRIDES manuels (super_admin).
 // Un override prend priorité sur les taux automatiques tant qu'il est actif.
 export async function PUT(request: Request) {
   const auth = await requireAdmin({ tier: 'super_admin' })
@@ -89,7 +94,7 @@ export async function PUT(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   await writeAuditLog({
-    action: 'referral.rates_updated',
+    action: 'referral.rates_updated', // nom conservé (app/[locale]/(admin)/admin/audit/page.tsx le catégorise "Parrainage")
     actor_id: user.id, actor_email: user.email, target_type: 'exchange_rates',
     metadata: { action: 'manual_override', changes, as_of: asOf }, ip: getClientIp(request),
   })
@@ -102,7 +107,7 @@ const postSchema = z.union([
   z.object({ action: z.literal('clear_override'), currency: z.string() }),
 ])
 
-// POST /api/admin/referrals/rates — actions (super_admin) :
+// POST /api/admin/exchange-rates — actions (super_admin) :
 //   { action: 'refresh' }                     → rafraîchit depuis les fournisseurs (garde les overrides)
 //   { action: 'clear_override', currency }    → supprime l'override + refetch cette devise
 export async function POST(request: Request) {
@@ -120,7 +125,7 @@ export async function POST(request: Request) {
   if (parsed.data.action === 'refresh') {
     const result = await refreshExchangeRates(admin)
     await writeAuditLog({
-      action: 'referral.rates_updated',
+      action: 'referral.rates_updated', // nom conservé (app/[locale]/(admin)/admin/audit/page.tsx le catégorise "Parrainage")
       actor_id: user.id, actor_email: user.email, target_type: 'exchange_rates',
       metadata: { action: 'refresh', ...result }, ip: getClientIp(request),
     })
@@ -137,7 +142,7 @@ export async function POST(request: Request) {
   }
   const result = await refreshExchangeRates(admin, { onlyCurrencies: [cur], force: true })
   await writeAuditLog({
-    action: 'referral.rates_updated',
+    action: 'referral.rates_updated', // nom conservé (app/[locale]/(admin)/admin/audit/page.tsx le catégorise "Parrainage")
     actor_id: user.id, actor_email: user.email, target_type: 'exchange_rates',
     metadata: { action: 'clear_override', currency: cur, ...result }, ip: getClientIp(request),
   })

@@ -16,7 +16,7 @@ export default async function AdminShopsPage({ params: { locale } }: { params: {
   const tier = (user ? await getAdminTier(user.id) : null) ?? 'support'
 
   const [{ data: shops }, { data: deletedShops }, { data: subs }, { data: profiles }] = await Promise.all([
-    supabase.from('shops').select('id, name, city, country, currency, created_at, whatsapp, owner_id')
+    supabase.from('shops').select('id, name, city, country, currency, billing_country, created_at, whatsapp, owner_id')
       .is('deleted_at', null)
       .order('created_at', { ascending: false }),
     supabase.from('shops').select('id, name, city, country, owner_id, deleted_at, created_at')

@@ -54,7 +54,7 @@ export function ReferralRatesForm({ tier }: { tier: AdminTier }) {
 
   const load = useCallback(async () => {
     try {
-      const res = await withTimeout(fetch('/api/admin/referrals/rates'))
+      const res = await withTimeout(fetch('/api/admin/exchange-rates'))
       if (!res.ok) throw new Error()
       const json = await res.json()
       setPivot(json.pivot)
@@ -81,7 +81,7 @@ export function ReferralRatesForm({ tier }: { tier: AdminTier }) {
   const refresh = async () => {
     setRefreshing(true)
     try {
-      const res = await withTimeout(fetch('/api/admin/referrals/rates', {
+      const res = await withTimeout(fetch('/api/admin/exchange-rates', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'refresh' }),
       }), 20000)
       const json = await res.json()
@@ -101,7 +101,7 @@ export function ReferralRatesForm({ tier }: { tier: AdminTier }) {
   const clearOverride = async (currency: string) => {
     setClearing(currency)
     try {
-      const res = await withTimeout(fetch('/api/admin/referrals/rates', {
+      const res = await withTimeout(fetch('/api/admin/exchange-rates', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'clear_override', currency }),
       }), 20000)
       const json = await res.json()
@@ -129,7 +129,7 @@ export function ReferralRatesForm({ tier }: { tier: AdminTier }) {
     if (payload.length === 0) { toast({ title: 'Aucune modification', variant: 'destructive' }); return }
     setSaving(true)
     try {
-      const res = await withTimeout(fetch('/api/admin/referrals/rates', {
+      const res = await withTimeout(fetch('/api/admin/exchange-rates', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rates: payload }),
       }))
       const json = await res.json()

@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
 import { attachOwnerPlan } from '@/lib/saas/resolve-owner-plan'
 import { requireAdmin } from '@/lib/api/require-admin'
+import { getCountry, getBillingCurrency } from '@/lib/saas/countries'
 
 export async function GET(request: Request) {
   const auth = await requireAdmin()
@@ -11,7 +12,7 @@ export async function GET(request: Request) {
   const admin = createAdminClient() as any
 
   const [{ data: shops }, { data: profiles }, { data: subs }] = await Promise.all([
-    admin.from('shops').select('id, name, city, country, currency, created_at, whatsapp, owner_id').is('deleted_at', null).order('created_at', { ascending: false }),
+    admin.from('shops').select('id, name, city, country, currency, billing_country, created_at, whatsapp, owner_id').is('deleted_at', null).order('created_at', { ascending: false }),
     admin.from('profiles').select('id, full_name, shop_id, is_active, last_seen').eq('role', 'owner'),
     admin.from('subscriptions').select('shop_id, amount').eq('status', 'active'),
   ])
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
   const fmt = (d: string | null) => d ? new Date(d).toLocaleDateString('fr-FR') : ''
   const q = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`
 
-  const headers = ['Nom', 'Ville', 'Pays', 'Devise', 'Plan', 'Statut', 'Trial expire', 'Plan expire', 'Revenue total', 'Propriétaire', 'Dernière connexion', 'WhatsApp', 'Créée le']
+  const headers = ['Nom', 'Ville', 'Pays', 'Devise (facturation)', 'Plan', 'Statut', 'Trial expire', 'Plan expire', 'Revenue total', 'Propriétaire', 'Dernière connexion', 'WhatsApp', 'Créée le']
   const rows = (shops || []).map((s: any) => {
     const owner = ownersByShop[s.id]
     const subscribed = hasActiveSubscription(s.plan, s.plan_expires_at)
@@ -39,7 +40,9 @@ export async function GET(request: Request) {
       q(s.name || ''),
       q(s.city || ''),
       q(s.country || 'NG'),
-      q(s.currency || '₦'),
+      // Devise de FACTURATION — c'est ce qui décrit "Revenue total"
+      // ci-dessous (un montant d'abonnement), pas la devise métier (s.currency).
+      q(getBillingCurrency(getCountry(s.billing_country || s.country))),
       q(s.plan || ''),
       q(status),
       q(fmt(s.trial_ends_at)),

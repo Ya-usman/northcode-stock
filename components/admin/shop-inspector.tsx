@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { formatNaira } from '@/lib/utils/currency'
+import { formatCurrency } from '@/lib/utils/currency'
+import { resolveCurrencyCode } from '@/lib/saas/currencies'
 import { getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
-import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
+import { COUNTRIES, getCountry, getBillingCurrency, type CountryCode } from '@/lib/saas/countries'
 import { CountrySelect } from '@/components/ui/country-select'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
@@ -224,6 +225,11 @@ export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
   const { shop, owner, members, stats, subscriptions, health, daysSinceLastSeen, ownerShopNames = [] } = data
   const trialDays = getTrialDaysLeft(shop.trial_ends_at)
   const isPaid = hasActiveSubscription(shop.plan, shop.plan_expires_at)
+  // Devise MÉTIER (ventes/CA de la boutique) vs devise de FACTURATION
+  // (abonnements StockShop) — jamais la même chose pour les boutiques UE
+  // hors zone euro, ou après un changement de pays d'exploitation.
+  const salesCurrency = resolveCurrencyCode(shop.currency, shop.country)
+  const billingCurrency = getBillingCurrency(getCountry(shop.billing_country || shop.country))
   const isExpired = !isPaid && trialDays < 0
   const isSuspended = shop.is_active === false
 
@@ -342,7 +348,7 @@ export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
               { label: 'Produits actifs', value: stats.productsActive, icon: Package, color: 'text-blue-400', bg: 'bg-blue-400/10' },
               { label: 'Clients actifs', value: stats.customersActive, icon: Users, color: 'text-purple-400', bg: 'bg-purple-400/10' },
               { label: 'Total ventes', value: stats.totalSales, icon: TrendingUp, color: 'text-green-400', bg: 'bg-green-400/10' },
-              { label: 'CA total', value: formatNaira(stats.totalSalesAmount), icon: CreditCard, color: 'text-amber-400', bg: 'bg-amber-400/10' },
+              { label: 'CA total', value: formatCurrency(stats.totalSalesAmount, salesCurrency), icon: CreditCard, color: 'text-amber-400', bg: 'bg-amber-400/10' },
             ].map(({ label, value, icon: Icon, color, bg }) => (
               <div key={label} className="bg-card rounded-xl border border-border shadow-sm p-4">
                 <div className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${bg} mb-2`}>
@@ -359,7 +365,7 @@ export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
             <div className="bg-card rounded-xl border border-border shadow-sm p-4 text-center">
               <p className="text-2xl font-extrabold text-foreground">{stats.salesToday}</p>
               <p className="text-xs text-muted-foreground mt-1">Ventes aujourd'hui</p>
-              <p className="text-xs text-green-400 mt-0.5">{formatNaira(stats.salesTodayAmount)}</p>
+              <p className="text-xs text-green-400 mt-0.5">{formatCurrency(stats.salesTodayAmount, salesCurrency)}</p>
             </div>
             <div className="bg-card rounded-xl border border-border shadow-sm p-4 text-center">
               <p className="text-2xl font-extrabold text-amber-400">{stats.productsArchived}</p>
@@ -414,7 +420,7 @@ export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
                       <span className="text-xs text-muted-foreground">{new Date(sub.created_at).toLocaleDateString('fr-FR')}</span>
                       {sub.paystack_reference && <span className="text-xs font-mono text-muted-foreground">{sub.paystack_reference}</span>}
                     </div>
-                    <span className="text-xs font-bold text-green-400">{formatNaira(sub.amount)}</span>
+                    <span className="text-xs font-bold text-green-400">{formatCurrency(sub.amount, billingCurrency)}</span>
                   </div>
                 ))}
               </div>
@@ -766,7 +772,7 @@ export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
                 Restauration des données
               </h3>
               <p className="text-xs text-muted-foreground mb-4">Restaurez les produits supprimés, archivés, et les clients supprimés pour cette boutique.</p>
-              <ShopRestorePanel shopId={shopId} shopName={shop.name} />
+              <ShopRestorePanel shopId={shopId} shopName={shop.name} currency={salesCurrency} />
             </div>
           )}
         </div>
