@@ -42,15 +42,27 @@ export async function GET() {
   return NextResponse.json({ pivot, rates, currencies: list })
 }
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const putSchema = z.object({
   rates: z.array(z.object({
     currency: z.string(),
     rate: z.number().positive('Le taux doit être > 0').max(100_000_000, 'Taux improbable'),
   })).min(1),
+  // Date ciblée par l'override — omise = aujourd'hui (comportement historique
+  // inchangé). Permet de corriger le taux d'une date PASSÉE pour le
+  // reporting historique (jamais dans le futur — un taux ne se "prévoit" pas).
+  effective_date: z.string().regex(DATE_RE, 'Date invalide (YYYY-MM-DD)').optional(),
+  // Motif optionnel (audit/traçabilité) — migration 147.
+  reason: z.string().max(500).optional(),
 })
 
 // PUT /api/admin/exchange-rates — définit des OVERRIDES manuels (super_admin).
-// Un override prend priorité sur les taux automatiques tant qu'il est actif.
+// Un override prend priorité sur le taux automatique de LA MÊME DATE — pour
+// aujourd'hui (comportement historique : bloque aussi les rafraîchissements
+// automatiques tant qu'il est actif, voir refreshExchangeRates) ou pour une
+// date passée (ne bloque RIEN d'autre : buildHistoricalRateIndex le fait
+// déjà gagner à date égale — migrations 139/146 — sans changement de code
+// nécessaire côté lecture).
 export async function PUT(request: Request) {
   const auth = await requireAdmin({ tier: 'super_admin' })
   if (auth.error) return auth.error
@@ -63,40 +75,73 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: parsed.error.errors[0]?.message || 'Données invalides' }, { status: 400 })
   }
 
+  const asOf = new Date().toISOString()
+  const today = asOf.slice(0, 10)
+  const targetDate = parsed.data.effective_date ?? today
+  if (targetDate > today) {
+    return NextResponse.json({ error: 'Impossible de définir un taux pour une date future' }, { status: 400 })
+  }
+  const reason = parsed.data.reason?.trim() || null
+
   const admin = await createAdminClient() as any
-  const { rates: current } = await getExchangeRates(admin)
+  const currencies = Array.from(new Set(parsed.data.rates.map((r) => r.currency.toUpperCase())))
+  for (const cur of currencies) {
+    if (cur !== PIVOT_CURRENCY && !isSupportedCurrencyCode(cur)) {
+      return NextResponse.json({ error: `Devise non supportée : ${cur}` }, { status: 400 })
+    }
+  }
+  // Valeur précédente pour CETTE date précise (pas le taux courant si
+  // targetDate est dans le passé) — n'importe quel provider, on ne compare
+  // qu'à d'éventuel override déjà là ce jour-là.
+  const { data: existingRows } = await admin
+    .from('exchange_rates')
+    .select('base_currency, rate, is_manual_override')
+    .eq('quote_currency', PIVOT_CURRENCY)
+    .eq('effective_date', targetDate)
+    .in('base_currency', currencies.filter((c) => c !== PIVOT_CURRENCY))
+  const existingByCode: Record<string, { rate: number; is_manual_override: boolean }> = {}
+  for (const row of existingRows || []) {
+    // Un override existant sur cette date prime pour la comparaison "déjà à jour".
+    if (!existingByCode[row.base_currency] || row.is_manual_override) {
+      existingByCode[row.base_currency] = { rate: Number(row.rate), is_manual_override: !!row.is_manual_override }
+    }
+  }
 
   const changes: Array<{ currency: string; from: number | null; to: number }> = []
   const rows: any[] = []
-  const asOf = new Date().toISOString()
 
   for (const r of parsed.data.rates) {
     const cur = r.currency.toUpperCase()
     if (cur === PIVOT_CURRENCY) continue
-    if (!isSupportedCurrencyCode(cur)) {
-      return NextResponse.json({ error: `Devise non supportée : ${cur}` }, { status: 400 })
-    }
-    const prev = current[cur]?.rate ?? null
+    const prevEntry = existingByCode[cur]
+    const prev = prevEntry?.rate ?? null
     const next = Math.round(r.rate * 1e10) / 1e10
-    // Un ré-envoi identique ne réécrit rien SAUF si ce n'était pas déjà un override.
-    if (prev === next && current[cur]?.is_manual_override) continue
+    // Un ré-envoi identique ne réécrit rien SAUF si ce n'était pas déjà un override sur cette date.
+    if (prev === next && prevEntry?.is_manual_override) continue
     changes.push({ currency: cur, from: prev, to: next })
     rows.push({
       base_currency: cur, quote_currency: PIVOT_CURRENCY, rate: next,
-      as_of: asOf, source: 'manual', provider: 'manual',
-      fetched_at: asOf, effective_date: asOf.slice(0, 10), is_manual_override: true,
+      as_of: targetDate === today ? asOf : `${targetDate}T12:00:00.000Z`,
+      source: 'manual', provider: 'manual',
+      fetched_at: asOf, effective_date: targetDate, is_manual_override: true,
+      updated_by: user.id, override_reason: reason,
     })
   }
 
   if (rows.length === 0) return NextResponse.json({ success: true, changed: 0 })
 
-  const { error } = await admin.from('exchange_rates').insert(rows)
+  // upsert (pas insert) : un 2e override le même jour pour la même devise
+  // doit mettre à jour la ligne existante, pas entrer en conflit avec la
+  // contrainte (base_currency, quote_currency, effective_date, provider).
+  const { error } = await admin
+    .from('exchange_rates')
+    .upsert(rows, { onConflict: 'base_currency,quote_currency,effective_date,provider' })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   await writeAuditLog({
     action: 'referral.rates_updated', // nom conservé (app/[locale]/(admin)/admin/audit/page.tsx le catégorise "Parrainage")
     actor_id: user.id, actor_email: user.email, target_type: 'exchange_rates',
-    metadata: { action: 'manual_override', changes, as_of: asOf }, ip: getClientIp(request),
+    metadata: { action: 'manual_override', changes, effective_date: targetDate, reason, as_of: asOf }, ip: getClientIp(request),
   })
 
   return NextResponse.json({ success: true, changed: changes.length })

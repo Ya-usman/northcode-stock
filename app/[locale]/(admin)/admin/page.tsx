@@ -16,6 +16,7 @@ import { KpiTile } from '@/components/admin/ui/kpi-tile'
 import { CommandCenterFinancePanel } from '@/components/admin/command-center-finance-panel'
 import { buildRevenueChart } from '@/lib/saas/admin-charts'
 import { ReportingCurrencyProvider } from '@/components/admin/reporting-currency-context'
+import type { DatedAmount } from '@/lib/saas/exchange'
 import Link from 'next/link'
 
 async function getData(supabase: any) {
@@ -66,20 +67,16 @@ async function getData(supabase: any) {
   }
 }
 
-/** Ventile les montants d'abonnement par code devise ISO réel de la boutique. */
-function sumByCurrency(subs: any[], shopCurrencyMap: Record<string, string>): Record<string, number> {
-  const out: Record<string, number> = {}
-  for (const s of subs) {
-    const code = shopCurrencyMap[s.shop_id] || 'NGN'
-    out[code] = (out[code] || 0) + Number(s.amount)
-  }
-  return out
+/** Une transaction par abonnement, avec SA propre date (created_at) — pour
+ *  une conversion HISTORIQUE fidèle (chaque paiement passé garde le taux de
+ *  sa date, jamais celui d'aujourd'hui appliqué rétroactivement). */
+function toDatedAmounts(subs: any[], shopCurrencyMap: Record<string, string>): DatedAmount[] {
+  return subs.map((s) => ({
+    date: String(s.created_at).slice(0, 10),
+    currency: shopCurrencyMap[s.shop_id] || 'NGN',
+    amount: Number(s.amount),
+  }))
 }
-
-/** Somme brute tous montants confondus — signal directionnel approximatif
- *  (croissance %), jamais affiché comme un total monétaire. */
-const grandTotal = (byCode: Record<string, number>) =>
-  Object.values(byCode).reduce((a, b) => a + b, 0)
 
 export default async function AdminDashboard({ params: { locale } }: { params: { locale: string } }) {
   const supabase = await createAdminClient()
@@ -94,15 +91,13 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
     acc[s.id] = getBillingCurrency(getCountry(s.billing_country || s.country)); return acc
   }, {})
 
-  const totalByCurrency = sumByCurrency(allSubs, shopCurrencyMap)
-  const thisMonthByCurrency = sumByCurrency(thisMonthSubs, shopCurrencyMap)
-  const lastMonthByCurrency = sumByCurrency(lastMonthSubs, shopCurrencyMap)
-
-  const lastMonthTotal = grandTotal(lastMonthByCurrency)
-  const thisMonthTotal = grandTotal(thisMonthByCurrency)
-  const revenueGrowth = lastMonthTotal > 0
-    ? Math.round(((thisMonthTotal - lastMonthTotal) / lastMonthTotal) * 100)
-    : thisMonthTotal > 0 ? 100 : 0
+  // Transactions datées (une par abonnement) — pour la conversion HISTORIQUE
+  // (taux de la date de CHAQUE paiement, pas celui d'aujourd'hui) consommée
+  // côté client par CommandCenterFinancePanel (revenu total, ce mois, et le
+  // comparatif ce mois vs mois précédent y sont calculés APRÈS conversion).
+  const totalTransactions = toDatedAmounts(allSubs, shopCurrencyMap)
+  const thisMonthTransactions = toDatedAmounts(thisMonthSubs, shopCurrencyMap)
+  const lastMonthTransactions = toDatedAmounts(lastMonthSubs, shopCurrencyMap)
 
   const activeSubscriptions = shops.filter((s: any) => hasActiveSubscription(s.plan, s.plan_expires_at)).length
   const activeTrials = shops.filter((s: any) => {
@@ -236,10 +231,9 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
           jamais de somme brute entre devises (politique de devise V4). */}
       <ReportingCurrencyProvider>
         <CommandCenterFinancePanel
-          totalByCurrency={totalByCurrency}
-          thisMonthByCurrency={thisMonthByCurrency}
-          lastMonthByCurrency={lastMonthByCurrency}
-          revenueGrowth={revenueGrowth}
+          totalTransactions={totalTransactions}
+          thisMonthTransactions={thisMonthTransactions}
+          lastMonthTransactions={lastMonthTransactions}
           shopsCount={shops.length}
           conversionRate={conversionRate}
           thisMonthSubsCount={thisMonthSubs.length}

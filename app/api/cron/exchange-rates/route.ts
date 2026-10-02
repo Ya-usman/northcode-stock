@@ -20,7 +20,9 @@ export async function GET(request: Request) {
     const admin = await createAdminClient() as any
     const result = await refreshExchangeRates(admin)
 
-    // Purge de l'historique (garde 120 j + toujours la ligne courante).
+    // Filet de sécurité anti-doublons uniquement depuis la migration 146 —
+    // ne purge plus l'historique par ancienneté (taux conservés indéfiniment
+    // pour le reporting historique daté).
     if (result.updated > 0) {
       try { await admin.rpc('prune_exchange_rates') } catch { /* non bloquant */ }
     }

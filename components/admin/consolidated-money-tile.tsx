@@ -1,9 +1,11 @@
 'use client'
 
 import type { LucideIcon } from 'lucide-react'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, History } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
-import { convertByCurrency, type RateMap } from '@/lib/saas/exchange'
+import {
+  convertByCurrency, convertTransactionsAt, type RateMap, type DatedAmount, type HistoricalRateIndex,
+} from '@/lib/saas/exchange'
 import { MoneyByCurrency } from '@/components/admin/money-by-currency'
 
 // ════════════════════════════════════════════════════════════════════════
@@ -35,6 +37,8 @@ function timeAgo(iso: string | null): string | null {
 export function ConsolidatedMoneyTile({
   label,
   amounts,
+  transactions,
+  historicalIndex,
   reportingCurrency,
   rates,
   icon: Icon,
@@ -43,18 +47,36 @@ export function ConsolidatedMoneyTile({
   showBreakdown = true,
 }: {
   label: string
-  /** Montants dans leur devise D'ORIGINE — jamais pré-convertis. */
-  amounts: Record<string, number> | null | undefined
+  /** Montants dans leur devise D'ORIGINE — jamais pré-convertis. Mode
+   *  COURANT (avec `rates`). Omettre si on passe `transactions`. */
+  amounts?: Record<string, number> | null
+  /** Mode HISTORIQUE : une transaction par ligne, chacune avec SA propre
+   *  date — convertie avec le taux de cette date (pas le taux du jour).
+   *  Quand fourni, prime sur `amounts`/`rates`. */
+  transactions?: DatedAmount[]
+  /** Index historique déjà chargé (voir useHistoricalExchangeRates) —
+   *  requis si `transactions` est fourni. */
+  historicalIndex?: HistoricalRateIndex | null
   reportingCurrency: string
-  rates: RateMap
+  /** Taux COURANTS — requis si `transactions` n'est pas fourni. */
+  rates?: RateMap
   icon?: LucideIcon
   tone?: 'default' | 'success' | 'warning' | 'danger'
   className?: string
   /** Ventilation par devise sous le total converti (défaut : oui si 2+ devises). */
   showBreakdown?: boolean
 }) {
+  const isHistorical = !!transactions
+
   const clean: Record<string, number> = {}
-  for (const [k, v] of Object.entries(amounts ?? {})) if (Number(v)) clean[k] = Number(v)
+  if (isHistorical) {
+    for (const t of transactions!) {
+      const n = Number(t.amount) || 0
+      if (n) clean[t.currency] = (clean[t.currency] || 0) + n
+    }
+  } else {
+    for (const [k, v] of Object.entries(amounts ?? {})) if (Number(v)) clean[k] = Number(v)
+  }
   const currencies = Object.keys(clean)
 
   // Une seule devise d'origine ET c'est déjà la devise de reporting : rien à
@@ -70,7 +92,46 @@ export function ConsolidatedMoneyTile({
     )
   }
 
-  const { value, missing, oldest_as_of, worst_freshness } = convertByCurrency(clean, reportingCurrency, rates)
+  if (isHistorical) {
+    if (!historicalIndex) {
+      // Taux historiques pas encore chargés — état de chargement explicite,
+      // jamais un total à 0 qui ressemblerait à une vraie valeur.
+      return (
+        <div className={cn('rounded-xl border bg-card p-4', className)}>
+          <TileHeader label={label} icon={Icon} tone={tone} />
+          <p className="text-xs text-muted-foreground mt-1.5">Chargement des taux historiques…</p>
+        </div>
+      )
+    }
+    const { value, missing, usedFallback, oldestEffectiveDate } = convertTransactionsAt(transactions!, reportingCurrency, historicalIndex)
+    return (
+      <div className={cn('rounded-xl border bg-card p-4', className)}>
+        <TileHeader label={label} icon={Icon} tone={tone} />
+        <div className="mt-1.5">
+          <MoneyByCurrency amounts={{ [reportingCurrency]: value }} approx />
+        </div>
+        {usedFallback && (
+          <p className="text-[11px] mt-1 text-amber-600 dark:text-amber-400 flex items-center gap-1">
+            <History className="h-3 w-3 flex-shrink-0" />
+            Taux de repli utilisé pour au moins une transaction{oldestEffectiveDate ? ` (depuis ${oldestEffectiveDate})` : ''}
+          </p>
+        )}
+        {missing.length > 0 && (
+          <p className="text-[11px] mt-1 text-amber-600 dark:text-amber-400 flex items-center gap-1">
+            <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+            Non converti (taux historique manquant) : {missing.join(', ')}
+          </p>
+        )}
+        {showBreakdown && currencies.length > 1 && (
+          <div className="mt-2 pt-2 border-t border-border/60 space-y-0.5">
+            <MoneyByCurrency amounts={clean} size="sm" />
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const { value, missing, oldest_as_of, worst_freshness } = convertByCurrency(clean, reportingCurrency, rates ?? {})
   const uniqueMissing = Array.from(new Set(missing))
   const ago = timeAgo(oldest_as_of)
   const stale = worst_freshness === 'stale' || worst_freshness === 'very_stale'

@@ -25,6 +25,17 @@ export interface RateInfo {
   effective_date: string | null
   fetched_at: string | null
   is_manual_override: boolean
+  /**
+   * Historique uniquement (absent pour un taux « courant ») : `true` si la
+   * date demandée n'avait pas de taux exact et qu'on est retombé sur le
+   * dernier taux disponible AVANT cette date (week-end, jour férié, ou
+   * simple absence de publication ce jour-là pour cette devise).
+   */
+  is_fallback?: boolean
+  /** Historique uniquement : la date réellement demandée (YYYY-MM-DD),
+   *  à comparer à `effective_date` pour savoir de combien de jours le
+   *  repli remonte. */
+  requested_date?: string | null
 }
 export type RateMap = Record<string, RateInfo>
 
@@ -108,13 +119,11 @@ export function convertByCurrency(
  * (Command Center, Analytics) pour que les KPI consolidés et les
  * graphiques utilisent exactement la même logique.
  *
- * Limite documentée : un seul jeu de taux « courant » (`rates`), pas de
- * taux historique par mois — l'architecture FX actuelle
- * (lib/saas/exchange-service.ts) ne conserve que le dernier taux connu par
- * devise, pas une série temporelle interrogeable par date. Un point de
- * janvier et un point d'août sont donc convertis avec le MÊME taux
- * (celui d'aujourd'hui). À revoir si une vraie table de taux historiques
- * est introduite un jour.
+ * `rates` peut être le jeu COURANT (KPI temps réel) ou un jeu HISTORIQUE
+ * déjà résolu pour la date de chaque point (voir `buildHistoricalRateIndex`
+ * ci-dessous — c'est l'appelant qui choisit quel `RateMap` construire et
+ * passer ici ; cette fonction reste le SEUL moteur de conversion, jamais
+ * dupliqué entre le cas courant et le cas historique).
  */
 export function convertChartSeries<T extends { byCurrency: Record<string, number> }>(
   points: T[],
@@ -124,5 +133,205 @@ export function convertChartSeries<T extends { byCurrency: Record<string, number
   return points.map((p) => {
     const { value, missing } = convertByCurrency(p.byCurrency, target, rates)
     return { ...p, value, missingCurrencies: missing }
+  })
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// RÉSOLUTION HISTORIQUE — pure, sans DB ni réseau (migration 146+)
+// ════════════════════════════════════════════════════════════════════════
+// Politique de sélection d'un taux pour une date donnée (documentée §6 du
+// rapport pré-migration) :
+//   1. Taux MANUEL (is_manual_override) pour CETTE date exacte → priorité
+//      absolue, quel que soit le provider automatique disponible ce jour-là.
+//   2. Sinon, taux automatique EXACT pour cette date.
+//   3. Sinon, le DERNIER taux disponible (manuel ou automatique) AVANT cette
+//      date → `is_fallback: true`, signalé explicitement dans le résultat
+//      (jamais un repli silencieux).
+//   4. Rien trouvé (même en remontant) → absent du RateMap résultant, JAMAIS
+//      0, JAMAIS 1, JAMAIS une conversion approximative.
+
+export interface HistoricalRateRow {
+  currency: string
+  /** YYYY-MM-DD */
+  effective_date: string
+  /** 1 <currency> = rate USD */
+  rate: number
+  provider: string
+  is_manual_override: boolean
+}
+
+export interface HistoricalRateIndex {
+  /** Résout le taux <currency>→USD applicable à `date` (YYYY-MM-DD) selon
+   *  la politique ci-dessus. `null` si rien d'utilisable (même en repli). */
+  rateFor(currency: string, date: string): RateInfo | null
+}
+
+/**
+ * Construit un index en mémoire à partir d'un lot de lignes historiques
+ * (typiquement TOUTES les lignes d'une plage de dates, chargées en UNE
+ * requête par l'appelant — voir `getHistoricalRatesRaw` côté serveur).
+ * Résoudre ensuite `rateFor(devise, date)` pour chaque transaction est du
+ * pur calcul en mémoire : zéro requête, zéro appel réseau supplémentaire
+ * par transaction, même sur une série de centaines de points.
+ */
+export function buildHistoricalRateIndex(rows: HistoricalRateRow[]): HistoricalRateIndex {
+  const byCurrency = new Map<string, HistoricalRateRow[]>()
+  for (const r of rows) {
+    if (!Number.isFinite(r.rate) || r.rate <= 0) continue
+    if (!byCurrency.has(r.currency)) byCurrency.set(r.currency, [])
+    byCurrency.get(r.currency)!.push(r)
+  }
+  // Tri ascendant par date ; à date égale, l'override manuel passe en
+  // dernier (donc gagne face à un automatique de la même date, règle n°1).
+  for (const arr of Array.from(byCurrency.values())) {
+    arr.sort((a: HistoricalRateRow, b: HistoricalRateRow) => {
+      if (a.effective_date !== b.effective_date) return a.effective_date < b.effective_date ? -1 : 1
+      if (a.is_manual_override !== b.is_manual_override) return a.is_manual_override ? 1 : -1
+      return 0
+    })
+  }
+
+  return {
+    rateFor(currency: string, date: string): RateInfo | null {
+      const arr = byCurrency.get(currency)
+      if (!arr || arr.length === 0) return null
+      // arr est trié croissant par date -> on garde la dernière ligne
+      // rencontrée dont la date est <= `date` (donc la plus proche/exacte).
+      let best: HistoricalRateRow | null = null
+      for (const r of arr) {
+        if (r.effective_date > date) break
+        best = r
+      }
+      if (!best) return null
+      return {
+        rate: best.rate,
+        as_of: `${best.effective_date}T12:00:00.000Z`,
+        source: best.provider,
+        provider: best.provider,
+        effective_date: best.effective_date,
+        fetched_at: null,
+        is_manual_override: best.is_manual_override,
+        is_fallback: best.effective_date !== date,
+        requested_date: date,
+      }
+    },
+  }
+}
+
+/**
+ * Construit un `RateMap` pour UNE date précise à partir des lignes
+ * chargées — pratique quand on n'a qu'une seule date à résoudre (ex. un
+ * export ponctuel), plutôt qu'une série. Pour une série de transactions sur
+ * plusieurs dates, préférer `buildHistoricalRateIndex` + `rateFor` par
+ * transaction (une seule construction d'index, résolution en mémoire).
+ */
+export function buildHistoricalRateMap(
+  rows: HistoricalRateRow[],
+  date: string,
+  currencies: string[],
+): RateMap {
+  const index = buildHistoricalRateIndex(rows)
+  const rates: RateMap = {}
+  for (const c of currencies) {
+    if (c === PIVOT_CURRENCY) continue
+    const info = index.rateFor(c, date)
+    if (info) rates[c] = info
+  }
+  return rates
+}
+
+// ── Conversion PAR TRANSACTION (phase 4 — KPI & graphiques historiques) ──
+// Chaque transaction (montant + devise + SA PROPRE date) est convertie avec
+// le taux de SA date, puis les montants convertis sont additionnés. Jamais
+// l'inverse (sommer d'abord des devises différentes, convertir ensuite) —
+// même principe que convertByCurrency, étendu à une date par transaction
+// plutôt qu'un taux unique pour tout le lot.
+
+export interface DatedAmount {
+  /** YYYY-MM-DD — date de LA transaction (jamais modifiée a posteriori). */
+  date: string
+  currency: string
+  amount: number
+}
+
+/**
+ * Convertit `amount` (devise `from`, date `date`) vers `to`, en résolvant
+ * les DEUX jambes (from→USD et to→USD) à CETTE MÊME date via `index` —
+ * jamais en mélangeant un taux historique pour l'un et le taux du jour pour
+ * l'autre. Délègue à `convertAmount` (le seul moteur de conversion, jamais
+ * dupliqué) via un `RateMap` ad hoc construit pour cette date précise.
+ */
+export function convertAmountAt(
+  amount: number,
+  from: string,
+  to: string,
+  date: string,
+  index: HistoricalRateIndex,
+): { value: number | null; sourceInfo: RateInfo | null; targetInfo: RateInfo | null } {
+  const sourceInfo = from === PIVOT_CURRENCY ? null : index.rateFor(from, date)
+  const targetInfo = to === PIVOT_CURRENCY ? null : index.rateFor(to, date)
+  const rates: RateMap = {}
+  if (sourceInfo) rates[from] = sourceInfo
+  if (targetInfo) rates[to] = targetInfo
+  return { value: convertAmount(amount, from, to, rates), sourceInfo, targetInfo }
+}
+
+export interface HistoricalConversionResult {
+  value: number
+  /** Devises (dédupliquées) exclues faute de taux — même pour leur date de repli. */
+  missing: string[]
+  /** Au moins une transaction a utilisé un taux de repli (date ≠ date exacte demandée). */
+  usedFallback: boolean
+  /** La plus ancienne effective_date réellement utilisée (pour affichage). */
+  oldestEffectiveDate: string | null
+}
+
+/**
+ * Agrège une LISTE de transactions datées vers `target` — l'équivalent
+ * historique de `convertByCurrency`, mais chaque transaction porte sa
+ * propre date au lieu d'un unique jeu de taux pour tout le lot.
+ */
+export function convertTransactionsAt(
+  transactions: DatedAmount[],
+  target: string,
+  index: HistoricalRateIndex,
+): HistoricalConversionResult {
+  let value = 0
+  const missing = new Set<string>()
+  let usedFallback = false
+  let oldest: string | null = null
+
+  for (const t of transactions) {
+    const n = Number(t.amount) || 0
+    if (n === 0) continue
+    const { value: converted, sourceInfo, targetInfo } = convertAmountAt(n, t.currency, target, t.date, index)
+    if (converted === null) { missing.add(t.currency); continue }
+    value += converted
+    for (const info of [sourceInfo, targetInfo]) {
+      if (!info) continue
+      if (info.is_fallback) usedFallback = true
+      if (info.effective_date && (!oldest || info.effective_date < oldest)) oldest = info.effective_date
+    }
+  }
+
+  return { value: Math.round(value * 100) / 100, missing: Array.from(missing), usedFallback, oldestEffectiveDate: oldest }
+}
+
+/**
+ * Équivalent historique de `convertChartSeries` : chaque point porte une
+ * liste de transactions (pas un `byCurrency` déjà sommé) — chaque
+ * transaction est convertie avec le taux de SA date puis sommée par point.
+ * C'est ce qui permet à un point de janvier et un point d'août d'utiliser
+ * des taux réellement différents (voir le test explicite dans
+ * coverage/test-historical-fx.ts, section 12).
+ */
+export function convertChartSeriesHistorical<T extends { transactions: DatedAmount[] }>(
+  points: T[],
+  target: string,
+  index: HistoricalRateIndex,
+): Array<T & { value: number; missingCurrencies: string[]; usedFallback: boolean }> {
+  return points.map((p) => {
+    const { value, missing, usedFallback } = convertTransactionsAt(p.transactions, target, index)
+    return { ...p, value, missingCurrencies: missing, usedFallback }
   })
 }

@@ -3,17 +3,22 @@
 // testable directement (les fichiers page.tsx de l'App Router n'autorisent
 // pas d'exports nommés arbitraires).
 //
-// Chaque point garde ses montants PAR DEVISE d'origine (`byCurrency`) —
-// jamais pré-additionnés entre devises. La conversion vers la devise de
-// reporting choisie par l'admin se fait côté CLIENT, au rendu
-// (RevenueChart / GrowthChart, via convertChartSeries), avec les mêmes
-// taux que les KPI consolidés (ConsolidatedMoneyTile). Voir la politique de
-// devise StockShop : XAF + NGN + EUR ne sont jamais additionnés avant
-// conversion individuelle.
+// Chaque point garde une liste de TRANSACTIONS individuelles (montant +
+// devise + SA PROPRE date) — jamais pré-additionnées, ni même pré-groupées
+// par devise. La conversion vers la devise de reporting choisie par l'admin
+// se fait côté CLIENT, au rendu (RevenueChart / GrowthChart), en résolvant
+// le taux de CHAQUE transaction à SA date via un HistoricalRateIndex
+// (convertChartSeriesHistorical) — c'est ce qui permet à un point de
+// janvier et un point d'août d'utiliser des taux réellement différents.
+// Voir la politique de devise StockShop : XAF + NGN + EUR ne sont jamais
+// additionnés avant conversion individuelle, et jamais convertis avec le
+// taux d'aujourd'hui pour un mois passé.
+
+import type { DatedAmount } from './exchange'
 
 export interface RevenueMonthPoint {
   month: string
-  byCurrency: Record<string, number>
+  transactions: DatedAmount[]
   count: number
 }
 
@@ -21,11 +26,12 @@ export interface GrowthMonthPoint {
   month: string
   newShops: number
   newPayments: number
-  byCurrency: Record<string, number>
+  transactions: DatedAmount[]
 }
 
 /** Revenu des 6 derniers mois (Command Center), ventilé par devise de
- *  facturation réelle de chaque boutique. */
+ *  facturation réelle de chaque boutique — une transaction par abonnement,
+ *  avec sa date réelle (created_at) pour une conversion historique fidèle. */
 export function buildRevenueChart(
   subs: Array<{ shop_id: string; amount: number; status: string; created_at: string }>,
   shopCurrencyMap: Record<string, string>,
@@ -41,18 +47,19 @@ export function buildRevenueChart(
       const c = new Date(s.created_at)
       return c >= start && c <= end && s.status === 'active'
     })
-    const byCurrency: Record<string, number> = {}
-    for (const s of matching) {
-      const code = shopCurrencyMap[s.shop_id] || 'NGN'
-      byCurrency[code] = (byCurrency[code] || 0) + Number(s.amount)
-    }
-    months.push({ month: label, byCurrency, count: matching.length })
+    const transactions: DatedAmount[] = matching.map(s => ({
+      date: s.created_at.slice(0, 10),
+      currency: shopCurrencyMap[s.shop_id] || 'NGN',
+      amount: Number(s.amount),
+    }))
+    months.push({ month: label, transactions, count: matching.length })
   }
   return months
 }
 
 /** Croissance 12 mois (Analytics) : nouvelles boutiques, paiements, revenu
- *  ventilé par devise de facturation réelle de chaque boutique. */
+ *  ventilé par devise de facturation réelle de chaque boutique — une
+ *  transaction par abonnement, avec sa date réelle. */
 export function buildMonthlyGrowth(
   shops: Array<{ created_at: string }>,
   subs: Array<{ shop_id: string; amount: number; status: string; created_at: string }>,
@@ -76,13 +83,13 @@ export function buildMonthlyGrowth(
       return c >= start && c <= end && s.status === 'active'
     })
 
-    const byCurrency: Record<string, number> = {}
-    for (const s of monthSubs) {
-      const code = shopCurrencyMap[s.shop_id] || 'NGN'
-      byCurrency[code] = (byCurrency[code] || 0) + Number(s.amount)
-    }
+    const transactions: DatedAmount[] = monthSubs.map(s => ({
+      date: s.created_at.slice(0, 10),
+      currency: shopCurrencyMap[s.shop_id] || 'NGN',
+      amount: Number(s.amount),
+    }))
 
-    months.push({ month: label, newShops, newPayments: monthSubs.length, byCurrency })
+    months.push({ month: label, newShops, newPayments: monthSubs.length, transactions })
   }
   return months
 }

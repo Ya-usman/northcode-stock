@@ -3,15 +3,16 @@
 import { useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { formatCurrency } from '@/lib/utils/currency'
-import { convertChartSeries } from '@/lib/saas/exchange'
+import { convertChartSeriesHistorical, type DatedAmount } from '@/lib/saas/exchange'
 import { useReportingCurrencyContext } from '@/components/admin/reporting-currency-context'
+import { useHistoricalExchangeRates } from '@/lib/hooks/use-historical-exchange-rates'
 
 interface DataPoint {
   month: string
   newShops: number
   newPayments: number
-  /** Montants PAR DEVISE d'origine — jamais pré-additionnés entre devises. */
-  byCurrency: Record<string, number>
+  /** Transactions individuelles, chacune avec SA propre date. */
+  transactions: DatedAmount[]
 }
 
 const CustomTooltip = ({ active, payload, label, currency }: any) => {
@@ -24,6 +25,9 @@ const CustomTooltip = ({ active, payload, label, currency }: any) => {
       <p className="text-purple-400">+{payload[0]?.value || 0} nouvelle(s) boutique(s)</p>
       <p className="text-blue-400">{payload[1]?.value || 0} paiement(s)</p>
       <p className="text-green-400">≈ {formatCurrency(revenue, currency)}</p>
+      {point?.usedFallback && (
+        <p className="text-amber-500">↺ taux de repli utilisé pour au moins une transaction de ce mois</p>
+      )}
       {point?.missingCurrencies?.length > 0 && (
         <p className="text-amber-500">
           ⚠ Taux manquant pour {point.missingCurrencies.join(', ')} — exclu(e) de ce point
@@ -35,27 +39,36 @@ const CustomTooltip = ({ active, payload, label, currency }: any) => {
 
 /**
  * Croissance 12 mois — le revenu affiché dans l'infobulle est CONVERTI vers
- * la devise de reporting partagée (ReportingCurrencyProvider), même règle
- * que les KPI consolidés : chaque devise convertie individuellement puis
- * additionnée.
+ * la devise de reporting partagée, chaque transaction avec le taux
+ * HISTORIQUE de SA propre date (voir RevenueChart pour le détail de la
+ * politique — même mécanisme ici, fenêtre de 12 mois).
  */
 export function GrowthChart({ data }: { data: DataPoint[] }) {
-  const { currency, rates } = useReportingCurrencyContext()
+  const { currency } = useReportingCurrencyContext()
+
+  const { from, to } = useMemo(() => {
+    const now = new Date()
+    const start = new Date(now.getFullYear(), now.getMonth() - 11, 1)
+    return { from: start.toISOString().slice(0, 10), to: now.toISOString().slice(0, 10) }
+  }, [])
+  const { index, loading } = useHistoricalExchangeRates(from, to)
 
   const converted = useMemo(() => {
-    const series = convertChartSeries(data, currency, rates)
+    if (!index) return data.map((p) => ({ ...p, value: 0, missingCurrencies: [] as string[], usedFallback: false }))
+    const series = convertChartSeriesHistorical(data, currency, index)
     const withMissing = series.filter((p) => p.missingCurrencies.length > 0)
     if (withMissing.length > 0 && typeof window !== 'undefined') {
       // eslint-disable-next-line no-console
       console.warn(
-        '[GrowthChart] taux manquant pour au moins une devise sur certains mois — montant exclu, jamais traité comme 0 silencieusement :',
+        '[GrowthChart] taux historique manquant pour au moins une devise sur certains mois — montant exclu, jamais traité comme 0 silencieusement :',
         withMissing.map((p) => ({ month: p.month, missing: p.missingCurrencies })),
       )
     }
     return series
-  }, [data, currency, rates])
+  }, [data, currency, index])
 
   const anyMissing = converted.some((p) => p.missingCurrencies.length > 0)
+  const anyFallback = converted.some((p) => p.usedFallback)
 
   return (
     <div>
@@ -69,6 +82,12 @@ export function GrowthChart({ data }: { data: DataPoint[] }) {
           <Bar dataKey="newPayments" name="Paiements" fill="#3b82f6" radius={[3, 3, 0, 0]} maxBarSize={18} />
         </BarChart>
       </ResponsiveContainer>
+      {loading && <p className="text-[11px] text-muted-foreground mt-1">Chargement des taux historiques…</p>}
+      {anyFallback && !loading && (
+        <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+          ↺ Certains mois utilisent un taux de repli (dernier taux connu avant la date de la transaction).
+        </p>
+      )}
       {anyMissing && (
         <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
           ⚠ Certains mois excluent une devise sans taux disponible — jamais comptée comme 0.

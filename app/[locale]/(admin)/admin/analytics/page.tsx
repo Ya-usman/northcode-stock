@@ -14,6 +14,7 @@ import { KpiTile } from '@/components/admin/ui/kpi-tile'
 import { AnalyticsRevenuePanel } from '@/components/admin/analytics-revenue-panel'
 import { ReportingCurrencyProvider } from '@/components/admin/reporting-currency-context'
 import { buildMonthlyGrowth } from '@/lib/saas/admin-charts'
+import type { DatedAmount } from '@/lib/saas/exchange'
 
 async function getData(supabase: any) {
   const [{ data: shops }, { data: subs }, { data: owners }] = await Promise.all([
@@ -51,11 +52,14 @@ export default async function AnalyticsPage({
   const monthlyData = buildMonthlyGrowth(shops, subs, shopCurrencyMap)
 
   const activeSubs = subs.filter((s: any) => s.status === 'active')
-  const revenueByCurrency: Record<string, number> = {}
-  for (const s of activeSubs) {
-    const code = shopCurrencyMap[s.shop_id] || 'NGN'
-    revenueByCurrency[code] = (revenueByCurrency[code] || 0) + Number(s.amount)
-  }
+  // Une transaction par abonnement, avec SA propre date — conversion
+  // HISTORIQUE (voir AnalyticsRevenuePanel), cohérente avec le « Revenue
+  // total » du Command Center (même données, même méthode de conversion).
+  const revenueTransactions: DatedAmount[] = activeSubs.map((s: any) => ({
+    date: String(s.created_at).slice(0, 10),
+    currency: shopCurrencyMap[s.shop_id] || 'NGN',
+    amount: Number(s.amount),
+  }))
   const activeSubscriptions = shops.filter((s: any) => hasActiveSubscription(s.plan, s.plan_expires_at)).length
   const activeTrials = shops.filter((s: any) => !hasActiveSubscription(s.plan, s.plan_expires_at) && getTrialDaysLeft(s.trial_ends_at) >= 0).length
   const expired = shops.filter((s: any) => !hasActiveSubscription(s.plan, s.plan_expires_at) && getTrialDaysLeft(s.trial_ends_at) < 0).length
@@ -103,7 +107,7 @@ export default async function AnalyticsPage({
           défaut), même logique de conversion que Command Center. */}
       <ReportingCurrencyProvider>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <AnalyticsRevenuePanel revenueByCurrency={revenueByCurrency} />
+          <AnalyticsRevenuePanel transactions={revenueTransactions} />
           <KpiTile label="Payants" value={activeSubscriptions} icon={Users} tone="default" />
           <KpiTile label="En trial" value={activeTrials} icon={ShoppingBag} tone="warning" />
           <KpiTile label="Expirés" value={expired} icon={Activity} tone={expired > 0 ? 'danger' : 'success'} />
