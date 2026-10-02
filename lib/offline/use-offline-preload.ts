@@ -8,6 +8,66 @@ import { cacheProducts, cacheCustomers } from './db'
 const DATA_TTL  = 60 * 60 * 1000   // données IndexedDB : refresh toutes les heures
 const PAGES_TTL = 20 * 60 * 1000   // pages SW : re-fetch toutes les 20 min
 
+// ── Préchargement des images produit ──────────────────────────────────────
+// Même cache que la règle Workbox CacheFirst de next.config.js
+// (`supabase-storage`) : une fois une image mise ici, un <img src=...>
+// hors-ligne la trouve directement via le Service Worker, sans rien changer
+// côté rendu. Préchargement EXPLICITE et déterministe (toutes les images des
+// produits actifs des boutiques de l'utilisateur), pas une dépendance au
+// hasard de ce qui a été scrollé à l'écran en ligne — voir la discussion du
+// 2026-10-03 : le cache LRU seul (maxEntries/maxAgeSeconds) n'est qu'un
+// filet de sécurité, jamais une garantie de couverture complète.
+const IMAGE_CACHE_NAME = 'supabase-storage'
+const IMAGE_CONCURRENCY = 6
+// Ne lance aucun nouveau téléchargement d'image au-delà de 85% du quota de
+// stockage du navigateur — dégradation propre sur un appareil déjà plein,
+// plutôt qu'un échec silencieux ou un navigateur qui se met à purger
+// lui-même d'autres caches (pages, données).
+const STORAGE_SAFETY_RATIO = 0.85
+
+async function hasStorageHeadroom(): Promise<boolean> {
+  try {
+    if (typeof navigator === 'undefined' || !navigator.storage?.estimate) return true
+    const { usage, quota } = await navigator.storage.estimate()
+    if (!quota) return true
+    return (usage ?? 0) / quota < STORAGE_SAFETY_RATIO
+  } catch { return true }
+}
+
+// Précharge une liste d'URLs d'images produit dans le cache SW, par lots
+// (jamais tout d'un coup — ne pas saturer une connexion 3G pendant que le
+// vendeur travaille), en sautant celles déjà en cache (un re-passage horaire
+// ne retélécharge donc que les images réellement nouvelles).
+async function prefetchProductImages(urls: Array<string | null | undefined>): Promise<void> {
+  if (typeof window === 'undefined' || !('caches' in window)) return
+  const unique = Array.from(new Set(urls.filter((u): u is string => !!u)))
+  if (unique.length === 0) return
+  if (!(await hasStorageHeadroom())) return
+
+  const cache = await caches.open(IMAGE_CACHE_NAME)
+  const missing: string[] = []
+  for (const url of unique) {
+    if (!(await cache.match(url))) missing.push(url)
+  }
+  if (missing.length === 0) return
+
+  for (let i = 0; i < missing.length; i += IMAGE_CONCURRENCY) {
+    if (!(await hasStorageHeadroom())) break // re-vérifie entre chaque lot
+    const batch = missing.slice(i, i + IMAGE_CONCURRENCY)
+    await Promise.allSettled(
+      batch.map(async (url) => {
+        try {
+          const res = await fetch(url, { cache: 'no-store' })
+          if (res.ok) await cache.put(url, res)
+        } catch {
+          // Image indisponible pour l'instant — pas bloquant, retentée au
+          // prochain passage (pas marquée "faite" individuellement).
+        }
+      }),
+    )
+  }
+}
+
 // Routes critiques : préchargées en priorité, séquentiellement.
 const CRITICAL_ROUTES = [
   'dashboard',
@@ -159,7 +219,7 @@ export function useOfflinePreload(isOnline: boolean) {
             ] = await Promise.all([
               supabase
                 .from('products')
-                .select('id, shop_id, name, sku, selling_price, buying_price, quantity, category_id, is_active')
+                .select('id, shop_id, name, sku, selling_price, buying_price, quantity, category_id, is_active, image_url')
                 .in('shop_id', shopIds).eq('is_active', true).order('name'),
               supabase
                 .from('customers')
@@ -177,6 +237,16 @@ export function useOfflinePreload(isOnline: boolean) {
                 if (batch.length) await cacheCustomers(sid, batch)
               }
             }
+
+            // ── Images produit : couverture déterministe de TOUT le
+            // catalogue actif des boutiques de l'utilisateur, pas seulement
+            // ce qui a été vu à l'écran. Ne bloque pas la suite si ça échoue
+            // (pas de réseau pour une image, quota plein…) — silencieux,
+            // retente au prochain passage.
+            if (products?.length) {
+              await prefetchProductImages(products.map((p: any) => p.image_url)).catch(() => {})
+            }
+
             markDone(dataKey)
           } finally {
             dataRunning.current = false

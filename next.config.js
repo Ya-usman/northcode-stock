@@ -86,11 +86,18 @@ const withPWA = require('next-pwa')({
       options: { cacheName: 'supabase-network-only' },
     },
     {
+      // Images produits (Supabase Storage). Plafond relevé 100 -> 300 et
+      // expiration 7j -> 30j (2026-10-02) : la plus grosse boutique réelle
+      // n'a que 55 images produit, donc 100 n'était pas encore atteint,
+      // mais le cache est PARTAGÉ par tout le navigateur (plusieurs
+      // boutiques visitées sur le même appareil, miniatures à différentes
+      // tailles = entrées distinctes) — 300/30j laisse de la marge pour la
+      // croissance du catalogue sans grossir indéfiniment le stockage local.
       urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/.*/i,
       handler: 'CacheFirst',
       options: {
         cacheName: 'supabase-storage',
-        expiration: { maxEntries: 100, maxAgeSeconds: 7 * 24 * 60 * 60 },
+        expiration: { maxEntries: 300, maxAgeSeconds: 30 * 24 * 60 * 60 },
       },
     },
     {
