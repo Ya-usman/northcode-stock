@@ -188,10 +188,12 @@ export async function PATCH(request: Request) {
       'name', 'description', 'selling_price', 'buying_price', 'sku',
       'category_id', 'unit', 'image_url', 'low_stock_threshold', 'barcode',
       'supplier_name', 'supplier_id', 'promo_price', 'promo_until', 'promo_start', 'promo_reason',
+      'is_favorite',
     ])
     const safeUpdates: Record<string, unknown> = Object.fromEntries(
       Object.entries(updates).filter(([k]) => PATCHABLE.has(k))
     )
+    if ('is_favorite' in safeUpdates) safeUpdates.is_favorite = Boolean(safeUpdates.is_favorite)
     // is_active (archive/restore) is handled separately from PATCHABLE: it must
     // stay restricted to owner/super_admin even though cashier/stock_manager
     // are otherwise allowed to PATCH other product fields.

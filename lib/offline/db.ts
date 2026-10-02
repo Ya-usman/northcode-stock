@@ -21,6 +21,10 @@ export interface CachedProduct {
   image_url?: string | null
   category_name?: string | null
   category_color?: string | null
+  // Rangée "Favoris" de Nouvelle vente — lecture seule hors-ligne (le
+  // toggle lui-même nécessite une connexion, voir ProductThumbnail/
+  // toggleFavorite dans sales/new/page.tsx).
+  is_favorite?: boolean
   cached_at: number
 }
 

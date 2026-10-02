@@ -5,7 +5,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, Plus, Minus, Trash2, CheckCircle, MessageCircle, Printer, Share2,
-  Scan, X, User, Clock, PauseCircle, PlayCircle, Edit2, ShoppingCart, ChevronUp,
+  Scan, X, User, Clock, PauseCircle, PlayCircle, Edit2, ShoppingCart, ChevronUp, Star,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -248,6 +248,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           image_url: p.image_url ?? null,
           category_name: p.categories?.name ?? null,
           category_color: p.categories?.color ?? null,
+          is_favorite: !!p.is_favorite,
         }))),
         cacheCustomers(shop.id, (custs || []).map((c: any) => ({
           id: c.id, shop_id: shop.id, name: c.name,
@@ -407,6 +408,37 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     setCart(prev => prev.filter(i => i.product.id !== productId))
   }
 
+  // Favoris : curation manuelle, stable (jamais recalculée automatiquement
+  // depuis les ventes — voir migration 148). Lecture seule hors-ligne : le
+  // toggle lui-même nécessite une connexion (évite d'ajouter toute une file
+  // d'actions en attente pour un simple réglage d'affichage).
+  const toggleFavorite = async (product: Product, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!shop?.id) return
+    if (!isOnline) {
+      toast({ title: t('sales.favorites_offline_title'), description: t('sales.favorites_offline_desc'), variant: 'destructive' })
+      return
+    }
+    const next = !product.is_favorite
+    const apply = (val: boolean) => {
+      const patch = (p: Product) => p.id === product.id ? { ...p, is_favorite: val } : p
+      setProducts(prev => prev.map(patch))
+      setFilteredProducts(prev => prev.map(patch))
+    }
+    apply(next) // optimiste
+    try {
+      const res = await fetch('/api/products', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: product.id, shop_id: shop.id, is_favorite: next }),
+      })
+      if (!res.ok) throw new Error()
+    } catch {
+      apply(!next) // rollback
+      toast({ title: t('toast.error'), variant: 'destructive' })
+    }
+  }
+
   const updateItemPrice = (productId: string, newPrice: number) => {
     setCart(prev => prev.map(item => {
       if (item.product.id !== productId) return item
@@ -505,6 +537,12 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       })
       .catch(() => {/* keep empty */})
   }, [selectedCustomer?.id, shop?.id])
+
+  // Rangée "Favoris" : curation manuelle (migration 148), indépendante du
+  // filtre catégorie — masquée pendant une recherche active (l'intention de
+  // recherche est déjà précise, la rangée n'ajouterait que du bruit).
+  const favoriteProducts = products.filter(p => p.is_favorite)
+  const showFavoritesRow = favoriteProducts.length > 0 && !searchQuery.trim()
 
   // ── TOTALS ─────────────────────────────────────────────
   const subtotal = cart.reduce((s, i) => s + i.subtotal, 0)
@@ -1016,16 +1054,72 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
       {/* Product grid scroll wrapper */}
       <div className="flex-1 md:overflow-y-auto md:px-5 md:pb-8 md:min-h-0">
+
+      {/* Favoris — curation manuelle (migration 148), accès 1 tap sans
+          chercher/scroller pour les articles à forte rotation. Masqué
+          pendant une recherche active. */}
+      {showFavoritesRow && (
+        <div className="pt-2 pb-1 md:pt-5">
+          <div className="flex items-center gap-1.5 px-1 mb-2 text-xs font-semibold text-muted-foreground">
+            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+            {t('sales.favorites_title')}
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            {favoriteProducts.map(product => (
+              <div
+                key={product.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => addToCart(product)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); addToCart(product) } }}
+                className="relative flex-shrink-0 w-24 flex flex-col items-stretch text-left rounded-lg border bg-card overflow-hidden hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors tap-target cursor-pointer"
+              >
+                <button
+                  type="button"
+                  onClick={e => toggleFavorite(product, e)}
+                  className="absolute top-1 right-1 z-10 rounded-full bg-black/45 p-1 hover:bg-black/60 transition-colors"
+                  aria-label={t('sales.favorites_title')}
+                >
+                  <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                </button>
+                <ProductThumbnail
+                  src={product.image_url}
+                  alt={product.name}
+                  className="w-full aspect-square rounded-none border-0"
+                  iconClassName="h-1/3 w-1/3"
+                />
+                <div className="p-1.5">
+                  <p className="text-[11px] font-medium truncate text-foreground">{product.name}</p>
+                  <p className="text-xs font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(effectivePrice(product, frontBatchPromo))}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Product grid */}
       <AnimatePresence>
         {(products.length > 0 || searchQuery) && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
             <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
               {filteredProducts.slice(0, visibleCount).map(product => (
-                <button key={product.id} onClick={() => addToCart(product)}
-                  className="flex flex-col items-stretch text-left rounded-lg border bg-card overflow-hidden hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors tap-target"
+                <div key={product.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => addToCart(product)}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); addToCart(product) } }}
+                  className="relative flex flex-col items-stretch text-left rounded-lg border bg-card overflow-hidden hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors tap-target cursor-pointer"
                   style={product.categories?.color ? { borderTopColor: product.categories.color, borderTopWidth: 3 } : undefined}
                 >
+                  <button
+                    type="button"
+                    onClick={e => toggleFavorite(product, e)}
+                    className="absolute top-1 right-1 z-10 rounded-full bg-black/45 p-1 hover:bg-black/60 transition-colors"
+                    aria-label={t('sales.favorites_title')}
+                  >
+                    <Star className={cn('h-3.5 w-3.5', product.is_favorite ? 'fill-amber-400 text-amber-400' : 'text-white/80')} />
+                  </button>
                   <ProductThumbnail
                     src={product.image_url}
                     alt={product.name}
@@ -1063,7 +1157,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                       </Badge>
                     </div>
                   </div>
-                </button>
+                </div>
               ))}
               {filteredProducts.length === 0 && (
                 <p className="col-span-2 text-sm text-muted-foreground text-center py-4">{t('sales.no_products_found')}</p>

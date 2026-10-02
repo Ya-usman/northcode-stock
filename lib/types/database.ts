@@ -224,6 +224,7 @@ export interface Product {
   promo_until: string | null
   promo_start: string | null
   promo_reason: 'expiry' | 'dormant' | null
+  is_favorite: boolean
   created_at: string
   updated_at: string
   // Joined fields
