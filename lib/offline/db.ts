@@ -210,7 +210,13 @@ export async function cacheProducts(shopId: string, products: Omit<CachedProduct
 
 export async function getCachedProducts(shopId: string): Promise<CachedProduct[]> {
   const db = await getDB()
-  return db.getAllFromIndex('products', 'shop_id', shopId)
+  const products = await db.getAllFromIndex('products', 'shop_id', shopId)
+  // getAllFromIndex trie par clé primaire (id, un UUID) pour les entrées à
+  // valeur d'index égale — sans rapport avec le nom. La requête en ligne
+  // fait `.order('name')` (app/[locale]/(app)/sales/new/page.tsx) ; sans ce
+  // tri explicite ici, l'ordre affiché change selon qu'on est en ligne ou
+  // hors-ligne (constaté le 2026-10-03).
+  return products.sort((a, b) => a.name.localeCompare(b.name))
 }
 
 // ── Customers ────────────────────────────────────────────────────────────────
@@ -228,7 +234,10 @@ export async function cacheCustomers(shopId: string, customers: Omit<CachedCusto
 
 export async function getCachedCustomers(shopId: string): Promise<CachedCustomer[]> {
   const db = await getDB()
-  return db.getAllFromIndex('customers', 'shop_id', shopId)
+  const customers = await db.getAllFromIndex('customers', 'shop_id', shopId)
+  // Même raison que getCachedProducts ci-dessus — la requête en ligne fait
+  // `.order('name')`, sans ce tri explicite l'ordre diffère hors-ligne.
+  return customers.sort((a, b) => a.name.localeCompare(b.name))
 }
 
 // ── Pending sales ────────────────────────────────────────────────────────────
