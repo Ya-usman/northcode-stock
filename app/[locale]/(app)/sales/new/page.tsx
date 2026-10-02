@@ -1016,7 +1016,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         />
       )}
 
-      <p className="text-xs text-muted-foreground -mt-2 px-1">
+      {/* Aide lecteur USB/Bluetooth — utile surtout sur ordinateur ; masquée
+          sur téléphone pour rendre la place à la grille produits. */}
+      <p className="hidden md:block text-xs text-muted-foreground -mt-2 px-1">
         {t('sales.scan_hint')}
       </p>
 
@@ -1077,10 +1079,12 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 <button
                   type="button"
                   onClick={e => toggleFavorite(product, e)}
-                  className="absolute top-1 right-1 z-10 rounded-full bg-black/45 p-1 hover:bg-black/60 transition-colors"
+                  className="absolute top-0 right-0 z-10 p-1.5 group"
                   aria-label={t('sales.favorites_title')}
                 >
-                  <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                  <span className="block rounded-full bg-black/45 p-1 group-hover:bg-black/60 transition-colors">
+                    <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                  </span>
                 </button>
                 <ProductThumbnail
                   src={product.image_url}
@@ -1102,8 +1106,17 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       <AnimatePresence>
         {(products.length > 0 || searchQuery) && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-              {filteredProducts.slice(0, visibleCount).map(product => (
+            {/* Téléphone : 3 colonnes compactes (~110 px) pour voir ~9 produits
+                par écran au lieu de 4–5 — 2 colonnes seulement sous 340 px.
+                À partir de md (desktop/tablette), tailles d'origine. */}
+            <div className="grid grid-cols-2 min-[340px]:grid-cols-3 gap-1.5 md:grid-cols-3 md:gap-2">
+              {filteredProducts.slice(0, visibleCount).map(product => {
+                const stockVariant = product.quantity === 0
+                  ? 'destructive'
+                  : product.quantity <= ((product as any).low_stock_threshold || shop?.low_stock_threshold || 10)
+                  ? 'warning'
+                  : 'success'
+                return (
                 <div key={product.id}
                   role="button"
                   tabIndex={0}
@@ -1112,55 +1125,56 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   className="relative flex flex-col items-stretch text-left rounded-lg border bg-card overflow-hidden hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors tap-target cursor-pointer"
                   style={product.categories?.color ? { borderTopColor: product.categories.color, borderTopWidth: 3 } : undefined}
                 >
+                  {/* Zone tactile ~34 px autour d'une pastille visuelle inchangée */}
                   <button
                     type="button"
                     onClick={e => toggleFavorite(product, e)}
-                    className="absolute top-1 right-1 z-10 rounded-full bg-black/45 p-1 hover:bg-black/60 transition-colors"
+                    className="absolute top-0 right-0 z-10 p-1.5 group"
                     aria-label={t('sales.favorites_title')}
                   >
-                    <Star className={cn('h-3.5 w-3.5', product.is_favorite ? 'fill-amber-400 text-amber-400' : 'text-white/80')} />
+                    <span className="block rounded-full bg-black/45 p-1 group-hover:bg-black/60 transition-colors">
+                      <Star className={cn('h-3.5 w-3.5', product.is_favorite ? 'fill-amber-400 text-amber-400' : 'text-white/80')} />
+                    </span>
                   </button>
-                  <ProductThumbnail
-                    src={product.image_url}
-                    alt={product.name}
-                    className="w-full aspect-square rounded-none border-0"
-                    iconClassName="h-1/3 w-1/3"
-                  />
-                  <div className="flex flex-col p-2.5">
-                    <p className="text-sm font-medium truncate text-foreground">{product.name}</p>
-                    {product.sku && <p className="text-[10px] text-muted-foreground font-mono">{product.sku}</p>}
+                  <div className="relative">
+                    <ProductThumbnail
+                      src={product.image_url}
+                      alt={product.name}
+                      className="w-full aspect-square rounded-none border-0"
+                      iconClassName="h-1/3 w-1/3"
+                    />
+                    {/* Stock en pastille sur l'image (téléphone) — libère une ligne de texte */}
+                    <Badge variant={stockVariant} className="md:hidden absolute bottom-1 left-1 text-[10px] px-1.5 py-0 leading-4">
+                      {product.quantity}
+                    </Badge>
+                  </div>
+                  <div className="flex flex-col p-1.5 md:p-2.5">
+                    <p className="text-xs leading-tight font-medium line-clamp-2 min-h-[2rem] text-foreground md:text-sm md:leading-normal md:line-clamp-1 md:min-h-0">{product.name}</p>
+                    {product.sku && <p className="hidden md:block text-[10px] text-muted-foreground font-mono">{product.sku}</p>}
                     {frontBatchExpired[product.id] && (
-                      <span className="mt-0.5 inline-flex w-fit items-center text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400">
+                      <span className="mt-0.5 inline-flex w-fit items-center text-[9px] md:text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400">
                         {t('sales.expired_batch_warning')}
                       </span>
                     )}
                     <div className="flex items-center justify-between w-full mt-1">
                       {effectivePrice(product, frontBatchPromo) !== product.selling_price ? (
-                        <span className="flex items-center gap-1 flex-wrap">
-                          <span className="text-sm font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(effectivePrice(product, frontBatchPromo))}</span>
-                          <span className="text-[10px] text-muted-foreground line-through">{formatNaira(product.selling_price)}</span>
+                        <span className="flex items-center gap-x-1 flex-wrap">
+                          <span className="text-[13px] md:text-sm font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(effectivePrice(product, frontBatchPromo))}</span>
+                          <span className="text-[9px] md:text-[10px] text-muted-foreground line-through">{formatNaira(product.selling_price)}</span>
                         </span>
                       ) : (
-                        <span className="text-sm font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(product.selling_price)}</span>
+                        <span className="text-[13px] md:text-sm font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(product.selling_price)}</span>
                       )}
-                      <Badge
-                        variant={
-                          product.quantity === 0
-                            ? 'destructive'
-                            : product.quantity <= ((product as any).low_stock_threshold || shop?.low_stock_threshold || 10)
-                            ? 'warning'
-                            : 'success'
-                        }
-                        className="text-[10px] px-1.5"
-                      >
+                      <Badge variant={stockVariant} className="hidden md:inline-flex text-[10px] px-1.5">
                         {product.quantity} {product.unit}
                       </Badge>
                     </div>
                   </div>
                 </div>
-              ))}
+                )
+              })}
               {filteredProducts.length === 0 && (
-                <p className="col-span-2 text-sm text-muted-foreground text-center py-4">{t('sales.no_products_found')}</p>
+                <p className="col-span-full text-sm text-muted-foreground text-center py-4">{t('sales.no_products_found')}</p>
               )}
             </div>
             {filteredProducts.length > visibleCount && (
