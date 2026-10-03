@@ -61,6 +61,11 @@ interface ReceiptLabels {
   generatedBy?: string
 }
 
+/** Texte multiligne saisi par la boutique (mentions légales, pied) → lignes non vides. */
+function receiptLines(s?: string | null): string[] {
+  return (s ?? '').split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+}
+
 interface ReceiptData {
   sale: Sale & { sale_items: SaleItem[] }
   shop: Shop
@@ -188,11 +193,19 @@ async function buildReceiptDoc(data: ReceiptData) {
   } else {
     doc.text(latinName || cityText, nameX, y + 6)
   }
+  // Sous le nom : activité, ville, WhatsApp, puis mentions légales (une par ligne)
   doc.setTextColor(...GREY)
   doc.setFontSize(8)
-  doc.setFont('helvetica', 'normal')
-  if (cityText) doc.text(cityText, nameX, y + 11)
-  if (shop.whatsapp) doc.text(`WhatsApp: ${shop.whatsapp}`, nameX, y + 15.5)
+  let hy = y + 6
+  const headerLine = (text: string, italic = false) => {
+    hy += 4.5
+    doc.setFont('helvetica', italic ? 'italic' : 'normal')
+    doc.text(sanitizePDF(text), nameX, hy)
+  }
+  if (shop.receipt_tagline) headerLine(shop.receipt_tagline, true)
+  if (cityText) headerLine(cityText)
+  if (shop.whatsapp) headerLine(`WhatsApp: ${shop.whatsapp}`)
+  for (const line of receiptLines(shop.receipt_legal_ids)) headerLine(line)
 
   doc.setTextColor(...BLUE)
   doc.setFontSize(12)
@@ -205,7 +218,7 @@ async function buildReceiptDoc(data: ReceiptData) {
   doc.roundedRect(right - numW, y + 9, numW, 7, 2, 2, 'F')
   doc.text(numText, right - numW / 2, y + 13.8, { align: 'center' })
 
-  y += 24
+  y += Math.max(24, hy - y + 5)
   doc.setDrawColor(...BLUE)
   doc.setLineWidth(0.6)
   doc.line(margin, y, right, y)
@@ -367,16 +380,23 @@ async function buildReceiptDoc(data: ReceiptData) {
     y += 6
   }
 
-  // ─── REMERCIEMENT (juste au-dessus du pied si la place le permet) ──────
+  // ─── REMERCIEMENT (message de la boutique s'il existe), juste au-dessus du pied ──
+  const footerLines = receiptLines(shop.receipt_footer)
   ensureSpace(14)
   const ty = Math.max(y + 6, FOOTER_TOP - 14)
   doc.setFont('helvetica', 'italic')
   doc.setFontSize(10)
   doc.setTextColor(...BLUE)
-  doc.text(sanitizePDF(L.thankYou), pageWidth / 2, ty, { align: 'center' })
+  doc.text(sanitizePDF(footerLines[0] ?? L.thankYou), pageWidth / 2, ty, { align: 'center' })
+  let underlineY = ty + 3
+  if (footerLines.length > 1) {
+    doc.setFontSize(8)
+    doc.text(sanitizePDF(footerLines.slice(1).join(' · ')), pageWidth / 2, ty + 4.5, { align: 'center' })
+    underlineY = ty + 7.5
+  }
   doc.setDrawColor(...GOLD)
   doc.setLineWidth(0.8)
-  doc.line(pageWidth / 2 - 10, ty + 3, pageWidth / 2 + 10, ty + 3)
+  doc.line(pageWidth / 2 - 10, underlineY, pageWidth / 2 + 10, underlineY)
 
   // ─── PIED DE PAGE (chaque page) : slogan, mention, bandeau bleu/or ──────
   const pages = doc.getNumberOfPages()
@@ -582,13 +602,22 @@ async function buildDebtReceiptDoc(data: DebtReceiptData) {
   } else {
     doc.text(latinNameD || cityTextD, margin + 24, y + 7)
   }
+  // Sous le nom : activité, ville, WhatsApp, puis mentions légales (une par ligne)
   doc.setTextColor(80, 80, 80)
   doc.setFontSize(8)
+  let hyD = y + 7
+  const headerLineD = (text: string, italic = false) => {
+    hyD += 5
+    doc.setFont('helvetica', italic ? 'italic' : 'normal')
+    doc.text(sanitizePDF(text), margin + 24, hyD)
+  }
+  if (shop.receipt_tagline) headerLineD(shop.receipt_tagline, true)
+  headerLineD(cityTextD)
+  if (shop.whatsapp) headerLineD(`WhatsApp: ${shop.whatsapp}`)
+  for (const line of receiptLines(shop.receipt_legal_ids)) headerLineD(line)
   doc.setFont('helvetica', 'normal')
-  doc.text(cityTextD, margin + 24, y + 12)
-  if (shop.whatsapp) doc.text(`WhatsApp: ${shop.whatsapp}`, margin + 24, y + 17)
 
-  y += 26
+  y += Math.max(26, hyD - y + 6)
 
   doc.setDrawColor(10, 47, 110)
   doc.setLineWidth(0.5)

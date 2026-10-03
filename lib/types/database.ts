@@ -12,6 +12,10 @@ export interface Shop {
   state: string
   whatsapp: string | null
   logo_url: string | null
+  /** Identité sur les reçus et tickets (migration 149) : activité sous le nom, mentions légales (une par ligne), message de pied. */
+  receipt_tagline: string | null
+  receipt_legal_ids: string | null
+  receipt_footer: string | null
   currency: string
   low_stock_threshold: number
   tax_rate: number

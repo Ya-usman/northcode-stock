@@ -1357,7 +1357,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         fileName: `Ticket-${completedSale.sale_number}.pdf`,
         logoUrl: shop.logo_url,
         data: {
-          shop: { name: shop.name, city: shop.city, state: shop.state, whatsapp: shop.whatsapp },
+          shop: { name: shop.name, city: shop.city, state: shop.state, whatsapp: shop.whatsapp, tagline: shop.receipt_tagline, legalIds: shop.receipt_legal_ids },
+          footerMessage: shop.receipt_footer,
           saleNumber: completedSale.sale_number,
           createdAt: completedSale.created_at,
           items: ((completedSale as any).sale_items || []).map((i: any) => ({

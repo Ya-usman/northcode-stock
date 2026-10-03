@@ -21,6 +21,7 @@ import { isPushSupported, subscribeToPush, unsubscribeFromPush, getPushPermissio
 import { useTheme } from '@/lib/hooks/use-theme'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -57,6 +58,10 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const [country, setCountry] = useState<CountryCode>('NG')
   const [currency, setCurrency] = useState('')
   const [whatsapp, setWhatsapp] = useState('')
+  // Identité imprimée sur les reçus et tickets (migration 149)
+  const [receiptTagline, setReceiptTagline] = useState('')
+  const [receiptLegalIds, setReceiptLegalIds] = useState('')
+  const [receiptFooter, setReceiptFooter] = useState('')
   const [threshold, setThreshold] = useState<string>('10')
   const [taxRate, setTaxRate] = useState<string>('0')
   const [expiryAlertDays, setExpiryAlertDays] = useState<string>('14')
@@ -131,7 +136,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
         fileName: 'Ticket-test.pdf',
         logoUrl: shop?.logo_url,
         data: {
-          shop: { name: shop?.name || 'StockShop', city: shop?.city, state: shop?.state, whatsapp: shop?.whatsapp },
+          shop: { name: shop?.name || 'StockShop', city: shop?.city, state: shop?.state, whatsapp: shop?.whatsapp, tagline: shop?.receipt_tagline, legalIds: shop?.receipt_legal_ids },
+          footerMessage: shop?.receipt_footer,
           saleNumber: 'TEST',
           createdAt: new Date(),
           items: [{ name: `${item} 1`, qty: 2, unitPrice: 500, subtotal: 1000 }, { name: `${item} 2`, qty: 1, unitPrice: 1500, subtotal: 1500 }],
@@ -224,6 +230,9 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       setCountry((shopData.country as CountryCode) || 'NG')
       setCurrency(resolveCurrencyCode(shopData.currency, shopData.country))
       setWhatsapp(shopData.whatsapp || COUNTRIES[(shopData.country as CountryCode) || 'NG']?.phonePrefix.replace('+', '') || '')
+      setReceiptTagline(shopData.receipt_tagline ?? '')
+      setReceiptLegalIds(shopData.receipt_legal_ids ?? '')
+      setReceiptFooter(shopData.receipt_footer ?? '')
       setThreshold(String(shopData.low_stock_threshold))
       setTaxRate(String(shopData.tax_rate))
       setExpiryAlertDays(String((shopData as any).expiry_alert_days ?? 14))
@@ -317,6 +326,9 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       country,
       currency,
       whatsapp: whatsapp || null,
+      receipt_tagline: receiptTagline.trim() || null,
+      receipt_legal_ids: receiptLegalIds.trim() || null,
+      receipt_footer: receiptFooter.trim() || null,
       low_stock_threshold: Math.max(1, Number(threshold) || 1),
       tax_rate: Math.max(0, Number(taxRate) || 0),
       expiry_alert_days: Math.max(1, Number(expiryAlertDays) || 1),
@@ -572,6 +584,27 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                     <span className="text-xs text-muted-foreground ml-1">{currency}</span>
                   </div>
                   <p className="text-xs text-muted-foreground">{t('settings.currency_auto_hint')}</p>
+                </div>
+              </div>
+
+              {/* Identité imprimée sur les reçus et tickets (migration 149) */}
+              <div className="space-y-4 border-t pt-4">
+                <p className="text-sm font-medium">{t('settings.receipt_section')}</p>
+                <div className="space-y-1">
+                  <Label>{t('settings.receipt_tagline')}</Label>
+                  <Input value={receiptTagline} maxLength={80} onChange={e => setReceiptTagline(e.target.value)} placeholder={t('settings.receipt_tagline_example')} />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label>{t('settings.receipt_legal_ids')}</Label>
+                    <Textarea value={receiptLegalIds} maxLength={300} rows={3} onChange={e => setReceiptLegalIds(e.target.value)} placeholder={t('settings.receipt_legal_ids_example')} />
+                    <p className="text-xs text-muted-foreground">{t('settings.receipt_legal_ids_hint')}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label>{t('settings.receipt_footer')}</Label>
+                    <Textarea value={receiptFooter} maxLength={200} rows={3} onChange={e => setReceiptFooter(e.target.value)} placeholder={t('settings.receipt_footer_example')} />
+                    <p className="text-xs text-muted-foreground">{t('settings.receipt_footer_hint')}</p>
+                  </div>
                 </div>
               </div>
             </CardContent>

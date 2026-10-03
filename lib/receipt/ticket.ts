@@ -102,7 +102,8 @@ export interface TicketItem {
 }
 
 export interface TicketData {
-  shop: { name: string; city?: string | null; state?: string | null; whatsapp?: string | null }
+  /** Identité de la boutique ; `tagline` (activité) et `legalIds` (mentions légales, une par ligne) viennent des réglages (migration 149). */
+  shop: { name: string; city?: string | null; state?: string | null; whatsapp?: string | null; tagline?: string | null; legalIds?: string | null }
   saleNumber: string
   createdAt: string | Date
   items: TicketItem[]
@@ -129,14 +130,19 @@ export interface TicketData {
   /** Montant sans devise pour les colonnes étroites des articles ; défaut : fmt. */
   fmtShort?: (n: number) => string
   labels: TicketLabels
-  /** Message de pied personnalisé de la boutique (optionnel). */
-  footerMessage?: string
+  /** Message de pied de la boutique (shops.receipt_footer), lignes séparées par « \n » ; remplace le remerciement par défaut. */
+  footerMessage?: string | null
   /** Logo de la boutique en tête du ticket (option par appareil). */
   logo?: TicketLogo | null
   /** Retire la signature et la mention StockShop (plans Pro / Business actifs). */
   hideBranding?: boolean
   /** Petite marque StockShop au pied du ticket, avec la mention (absente si hideBranding). */
   brandMark?: TicketLogo | null
+}
+
+/** Texte multiligne saisi par la boutique → lignes non vides, sans espaces parasites. */
+export function textLines(s?: string | null): string[] {
+  return (s ?? '').split(/\r?\n/).map(l => l.trim()).filter(Boolean)
 }
 
 export function buildSaleTicket(d: TicketData, width: TicketWidth): TicketLine[] {
@@ -150,9 +156,12 @@ export function buildSaleTicket(d: TicketData, width: TicketWidth): TicketLine[]
     push({ kind: 'space', h: 1.5 })
   }
   push({ kind: 'text', text: d.shop.name, align: 'center', bold: true, size: 'xl' })
+  if (d.shop.tagline) push({ kind: 'text', text: d.shop.tagline, align: 'center', size: 'sm' })
   const place = [d.shop.city, d.shop.state].filter(Boolean).join(', ')
   if (place) push({ kind: 'text', text: place, align: 'center', size: 'sm' })
   if (d.shop.whatsapp) push({ kind: 'text', text: `WhatsApp : ${d.shop.whatsapp}`, align: 'center', size: 'sm' })
+  // Mentions légales (NIU, RCCM…) telles que saisies, une par ligne
+  for (const line of textLines(d.shop.legalIds)) push({ kind: 'text', text: line, align: 'center', size: 'sm' })
   push({ kind: 'rule' })
 
   // ─── Titre + numéro ───
@@ -225,9 +234,15 @@ export function buildSaleTicket(d: TicketData, width: TicketWidth): TicketLine[]
   push({ kind: 'rule' })
 
   // ─── Pied ───
-  push({ kind: 'text', text: d.footerMessage || L.thankYou, align: 'center', bold: true, size: 'md' })
-  // Le commerçant qui écrit son propre message garde la main sur tout le pied
-  if (!d.footerMessage) push({ kind: 'text', text: L.seeYouSoon, align: 'center', size: 'sm' })
+  const footer = textLines(d.footerMessage)
+  if (footer.length) {
+    // Message de la boutique : première ligne en gras, les suivantes en petit —
+    // le commerçant qui écrit son propre message garde la main sur tout le pied
+    footer.forEach((line, i) => push({ kind: 'text', text: line, align: 'center', bold: i === 0, size: i === 0 ? 'md' : 'sm' }))
+  } else {
+    push({ kind: 'text', text: L.thankYou, align: 'center', bold: true, size: 'md' })
+    push({ kind: 'text', text: L.seeYouSoon, align: 'center', size: 'sm' })
+  }
   if (!d.hideBranding) {
     push({ kind: 'space', h: 1.5 })
     // En bas : le haut du ticket appartient à la boutique. « Propulsé par »,

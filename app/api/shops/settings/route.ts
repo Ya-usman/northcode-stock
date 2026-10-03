@@ -25,6 +25,7 @@ export async function PATCH(request: Request) {
     // exclu — figé à l'inscription, seul le super_admin le modifie (cf. migration 064).
     const ALLOWED_FIELDS = [
       'name', 'city', 'state', 'country', 'currency', 'whatsapp',
+      'receipt_tagline', 'receipt_legal_ids', 'receipt_footer',
       'low_stock_threshold', 'tax_rate', 'expiry_alert_days', 'default_credit_term_days',
       'notify_email_low_stock', 'notify_email_daily', 'notify_email_expiry',
       'notify_push_new_sale', 'notify_push_new_expense', 'notify_push_expiry',
@@ -33,6 +34,22 @@ export async function PATCH(request: Request) {
     const updates: Record<string, unknown> = {}
     for (const field of ALLOWED_FIELDS) {
       if (field in rawUpdates) updates[field] = rawUpdates[field]
+    }
+
+    // Textes imprimés sur les reçus (migration 149) : chaîne ou null, bornés comme
+    // en base (CHECK) pour renvoyer un message clair plutôt qu'une erreur SQL.
+    const RECEIPT_TEXT_MAX: Record<string, number> = { receipt_tagline: 80, receipt_legal_ids: 300, receipt_footer: 200 }
+    for (const [field, max] of Object.entries(RECEIPT_TEXT_MAX)) {
+      if (!(field in updates)) continue
+      const v = updates[field]
+      if (v !== null && typeof v !== 'string') {
+        return NextResponse.json({ error: t('invalid_receipt_text') }, { status: 400 })
+      }
+      const clean = typeof v === 'string' ? v.replace(/\r\n?/g, '\n').trim() : ''
+      if (clean.length > max) {
+        return NextResponse.json({ error: t('receipt_text_too_long') }, { status: 400 })
+      }
+      updates[field] = clean || null
     }
 
     if ('hours_manual_override' in updates) {

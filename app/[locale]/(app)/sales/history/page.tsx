@@ -127,7 +127,8 @@ export default function SalesHistoryPage() {
         fileName: `Ticket-${sale.sale_number}.pdf`,
         logoUrl: shop.logo_url,
         data: {
-          shop: { name: shop.name, city: shop.city, state: shop.state, whatsapp: shop.whatsapp },
+          shop: { name: shop.name, city: shop.city, state: shop.state, whatsapp: shop.whatsapp, tagline: shop.receipt_tagline, legalIds: shop.receipt_legal_ids },
+          footerMessage: shop.receipt_footer,
           saleNumber: sale.sale_number,
           createdAt: sale.created_at,
           items: (s.sale_items || []).map((i: any) => ({ name: i.product_name, qty: Number(i.quantity), unitPrice: Number(i.unit_price), subtotal: Number(i.subtotal) })),
