@@ -18,6 +18,18 @@ export type TicketLine =
   | { kind: 'cols'; cells: string[]; widths: number[]; aligns: TicketAlign[]; bold?: boolean; size?: TicketSize }
   | { kind: 'rule' }
   | { kind: 'space'; h?: number }
+  /** Image centrée (logo), déjà en noir et blanc, dimensions en points (8/mm). */
+  | { kind: 'image'; logo: TicketLogo }
+
+/** Logo prêt à imprimer (voir ticket-logo.ts) : PNG pour le PDF, source canvas pour l'ESC/POS. */
+export interface TicketLogo {
+  dataUrl: string
+  /** Largeur et hauteur en points (multiples de 8). */
+  width: number
+  height: number
+  /** Canvas (navigateur) ou données d'image — passé tel quel à l'encodeur ESC/POS. */
+  source?: unknown
+}
 
 export interface TicketLabels {
   title: string
@@ -108,6 +120,12 @@ export interface TicketData {
   labels: TicketLabels
   /** Message de pied personnalisé de la boutique (optionnel). */
   footerMessage?: string
+  /** Logo de la boutique en tête du ticket (option par appareil). */
+  logo?: TicketLogo | null
+  /** Retire la mention « Généré par StockShop » (plans Pro / Business actifs). */
+  hideBranding?: boolean
+  /** Petite marque StockShop au pied du ticket, avec la mention (absente si hideBranding). */
+  brandMark?: TicketLogo | null
 }
 
 export function buildSaleTicket(d: TicketData, width: TicketWidth): TicketLine[] {
@@ -116,6 +134,10 @@ export function buildSaleTicket(d: TicketData, width: TicketWidth): TicketLine[]
   const push = (l: TicketLine) => out.push(l)
 
   // ─── Boutique (la marque du commerçant, pas la nôtre) ───
+  if (d.logo) {
+    push({ kind: 'image', logo: d.logo })
+    push({ kind: 'space', h: 1.5 })
+  }
   push({ kind: 'text', text: d.shop.name, align: 'center', bold: true, size: 'xl' })
   const place = [d.shop.city, d.shop.state].filter(Boolean).join(', ')
   if (place) push({ kind: 'text', text: place, align: 'center', size: 'sm' })
@@ -187,7 +209,11 @@ export function buildSaleTicket(d: TicketData, width: TicketWidth): TicketLine[]
 
   // ─── Pied ───
   push({ kind: 'text', text: d.footerMessage || L.thankYou, align: 'center', bold: true, size: 'md' })
-  push({ kind: 'space', h: 1.5 })
-  push({ kind: 'text', text: L.generatedBy, align: 'center', size: 'sm' })
+  if (!d.hideBranding) {
+    push({ kind: 'space', h: 1.5 })
+    // En bas, en petit : le haut du ticket appartient à la boutique
+    if (d.brandMark) push({ kind: 'image', logo: d.brandMark })
+    push({ kind: 'text', text: L.generatedBy, align: 'center', size: 'sm' })
+  }
   return out
 }

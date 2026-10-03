@@ -11,6 +11,7 @@ import {
 import { readTicketSettings } from '@/lib/receipt/print-settings'
 import { printSaleTicket, ticketErrorKey } from '@/lib/receipt/print-ticket'
 import { ticketLabelsFromT } from '@/lib/receipt/ticket'
+import { hideStockShopBranding } from '@/lib/receipt/branding'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { ShopSelector } from '@/components/layout/shop-selector'
@@ -1284,7 +1285,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       cashierName: profile?.full_name || '',
       customerName: receiptCustomerName,
       labels: receiptLabels,
-      debtRepayment: receiptDebt?.amount || 0, locale,
+      debtRepayment: receiptDebt?.amount || 0, locale, hideBranding: hideStockShopBranding(shop),
     })
     try {
       await sharePDFNative(blob, `Recu-${completedSale.sale_number}.pdf`, t('sales.receipt_share_title', { number: completedSale.sale_number, shop: shop?.name || '' }))
@@ -1328,7 +1329,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         cashierName: profile?.full_name || '',
         customerName: receiptCustomerName,
         labels: receiptLabels,
-        debtRepayment: receiptDebt?.amount || 0, locale,
+        debtRepayment: receiptDebt?.amount || 0, locale, hideBranding: hideStockShopBranding(shop),
       })
       await sharePDFNative(
         blob,
@@ -1354,6 +1355,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       await printSaleTicket({
         settings: readTicketSettings(),
         fileName: `Ticket-${completedSale.sale_number}.pdf`,
+        logoUrl: shop.logo_url,
         data: {
           shop: { name: shop.name, city: shop.city, state: shop.state, whatsapp: shop.whatsapp },
           saleNumber: completedSale.sale_number,
@@ -1373,6 +1375,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           fmt: ticketFmt,
           fmtShort: n => Math.round(n).toLocaleString(locale),
           labels: ticketLabelsFromT(t),
+          hideBranding: hideStockShopBranding(shop),
         },
       })
     } catch (err: any) {

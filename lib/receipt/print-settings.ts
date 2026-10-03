@@ -10,6 +10,8 @@ export interface TicketPrintSettings {
   width: TicketWidth
   /** Imprimer dès que la vente est validée. */
   autoPrint: boolean
+  /** Imprimer le logo de la boutique en tête du ticket (désactivé par défaut : papier et vitesse). */
+  printLogo?: boolean
   /** Imprimante Bluetooth choisie (adresse MAC) et son nom d'affichage. */
   bluetoothAddress?: string
   bluetoothName?: string
@@ -28,6 +30,7 @@ export function readTicketSettings(): TicketPrintSettings {
       method: p.method === 'bluetooth' || p.method === 'network' ? p.method : 'system',
       width: p.width === 58 ? 58 : 80,
       autoPrint: p.autoPrint === true,
+      printLogo: p.printLogo === true,
       bluetoothAddress: typeof p.bluetoothAddress === 'string' ? p.bluetoothAddress : undefined,
       bluetoothName: typeof p.bluetoothName === 'string' ? p.bluetoothName : undefined,
     }

@@ -18,8 +18,27 @@ export class TicketPrintError extends Error {
   }
 }
 
-export async function printSaleTicket(args: { data: TicketData; settings: TicketPrintSettings; fileName: string }): Promise<void> {
-  const lines = buildSaleTicket(args.data, args.settings.width)
+export async function printSaleTicket(args: {
+  data: TicketData
+  settings: TicketPrintSettings
+  fileName: string
+  /** Logo de la boutique (shop.logo_url) — imprimé seulement si l'option est activée sur l'appareil. */
+  logoUrl?: string | null
+}): Promise<void> {
+  let data = args.data
+  const wantShopLogo = !!(args.settings.printLogo && args.logoUrl && !data.logo)
+  const wantMark = !data.hideBranding && !data.brandMark
+  if (wantShopLogo || wantMark) {
+    // Image indisponible (hors ligne sans cache, fichier cassé) : le ticket part sans
+    const { loadTicketLogo, STOCKSHOP_MARK_URL } = await import('./ticket-logo')
+    const [logo, brandMark] = await Promise.all([
+      wantShopLogo ? loadTicketLogo(args.logoUrl!, args.settings.width) : Promise.resolve(data.logo ?? null),
+      // ~8 mm : une signature discrète, pas une bannière
+      wantMark ? loadTicketLogo(STOCKSHOP_MARK_URL, args.settings.width, { dots: 64, maxHeight: 64 }) : Promise.resolve(data.brandMark ?? null),
+    ])
+    data = { ...data, logo, brandMark }
+  }
+  const lines = buildSaleTicket(data, args.settings.width)
   if (args.settings.method === 'bluetooth') {
     if (!args.settings.bluetoothAddress) throw new TicketPrintError('NO_PRINTER')
     const [{ encodeTicketEscPos }, { BluetoothPrinter, bytesToBase64 }] = await Promise.all([

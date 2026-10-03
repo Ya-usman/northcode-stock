@@ -48,6 +48,14 @@ export async function encodeTicketEscPos(lines: TicketLine[], width: TicketWidth
   for (const l of lines) {
     if (l.kind === 'rule') { reset(); enc.line('-'.repeat(columns)); continue }
     if (l.kind === 'space') { enc.newline(); continue }
+    if (l.kind === 'image') {
+      // Déjà tramé en noir et blanc : simple seuil. Dimensions multiples de 8.
+      if (l.logo.source) {
+        try { enc.align('center').image(l.logo.source as any, l.logo.width, l.logo.height, 'threshold') } catch { /* logo illisible : on continue sans */ }
+        enc.align('left')
+      }
+      continue
+    }
     if (l.kind === 'text') {
       const text = safe(l.text)
       style(l.bold, l.size, text.length)

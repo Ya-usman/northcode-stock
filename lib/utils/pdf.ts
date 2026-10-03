@@ -74,13 +74,15 @@ interface ReceiptData {
   debtRepayment?: number
   /** Langue d'affichage de la date (ex. 'fr', 'en'). */
   locale?: string
+  /** Retire le slogan et la mention « Généré par StockShop » (plans Pro / Business actifs). */
+  hideBranding?: boolean
 }
 
 async function buildReceiptDoc(data: ReceiptData) {
   const { jsPDF } = await import('jspdf')
   const autoTable = (await import('jspdf-autotable')).default
 
-  const { sale, shop, cashierName, customerName, labels, debtRepayment, locale } = data
+  const { sale, shop, cashierName, customerName, labels, debtRepayment, locale, hideBranding } = data
   const L: ReceiptLabels = {
     receipt: labels?.receipt ?? 'Receipt',
     cashier: labels?.cashier ?? 'Cashier',
@@ -383,13 +385,17 @@ async function buildReceiptDoc(data: ReceiptData) {
     doc.setDrawColor(225, 228, 235)
     doc.setLineWidth(0.3)
     doc.line(margin, FOOTER_TOP, right, FOOTER_TOP)
-    doc.setFont('helvetica', 'italic')
-    doc.setFontSize(7.5)
     doc.setTextColor(...GREY)
-    doc.text('Manage smarter. Sell faster. Grow bigger.', pageWidth / 2, FOOTER_TOP + 5, { align: 'center' })
+    if (!hideBranding) {
+      doc.setFont('helvetica', 'italic')
+      doc.setFontSize(7.5)
+      doc.text('Manage smarter. Sell faster. Grow bigger.', pageWidth / 2, FOOTER_TOP + 5, { align: 'center' })
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(7)
+      doc.text(sanitizePDF(L.generatedBy!), pageWidth / 2, FOOTER_TOP + 9.5, { align: 'center' })
+    }
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(7)
-    doc.text(sanitizePDF(L.generatedBy!), pageWidth / 2, FOOTER_TOP + 9.5, { align: 'center' })
     if (pages > 1) doc.text(`${p} / ${pages}`, right, FOOTER_TOP + 9.5, { align: 'right' })
     doc.setFillColor(...GOLD)
     doc.rect(0, pageHeight - 7, pageWidth, 1.2, 'F')

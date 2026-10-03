@@ -26,6 +26,7 @@ import { useLocale } from 'next-intl'
 import { readTicketSettings } from '@/lib/receipt/print-settings'
 import { printSaleTicket, ticketErrorKey } from '@/lib/receipt/print-ticket'
 import { ticketLabelsFromT } from '@/lib/receipt/ticket'
+import { hideStockShopBranding } from '@/lib/receipt/branding'
 import { normalize } from '@/lib/utils/normalize'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { format, startOfDay, endOfDay, subDays, subMonths, startOfWeek, startOfMonth, startOfYear } from 'date-fns'
@@ -106,6 +107,7 @@ export default function SalesHistoryPage() {
       customerName: (sale as any).customers?.name || undefined,
       labels: receiptLabels,
       locale,
+      hideBranding: hideStockShopBranding(shop),
     })
     try {
       await sharePDFNative(blob, `Recu-${sale.sale_number}.pdf`, `Recu-${sale.sale_number}`)
@@ -123,6 +125,7 @@ export default function SalesHistoryPage() {
       await printSaleTicket({
         settings: readTicketSettings(),
         fileName: `Ticket-${sale.sale_number}.pdf`,
+        logoUrl: shop.logo_url,
         data: {
           shop: { name: shop.name, city: shop.city, state: shop.state, whatsapp: shop.whatsapp },
           saleNumber: sale.sale_number,
@@ -137,6 +140,7 @@ export default function SalesHistoryPage() {
           fmt: n => code === 'NGN' ? `NGN ${Math.round(n).toLocaleString('en-NG')}` : formatNaira(n),
           fmtShort: n => Math.round(n).toLocaleString(locale),
           labels: ticketLabelsFromT(t),
+          hideBranding: hideStockShopBranding(shop),
         },
       })
     } catch (err: any) {

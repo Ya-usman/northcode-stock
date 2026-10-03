@@ -9,6 +9,7 @@ import { printSaleTicket, ticketErrorKey } from '@/lib/receipt/print-ticket'
 import { BluetoothPrinter, BLUETOOTH_IMAGING_CLASS, type PairedDevice } from '@/lib/receipt/bluetooth-printer'
 import { isCapacitor as isNativeApp } from '@/lib/utils/native-share'
 import { ticketLabelsFromT } from '@/lib/receipt/ticket'
+import { hideStockShopBranding } from '@/lib/receipt/branding'
 import { formatCurrency as fmtCurrency } from '@/lib/utils/currency'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -128,6 +129,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       await printSaleTicket({
         settings: ticket,
         fileName: 'Ticket-test.pdf',
+        logoUrl: shop?.logo_url,
         data: {
           shop: { name: shop?.name || 'StockShop', city: shop?.city, state: shop?.state, whatsapp: shop?.whatsapp },
           saleNumber: 'TEST',
@@ -141,6 +143,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
           fmt: n => fmtCurrency(n, code),
           fmtShort: n => Math.round(n).toLocaleString(locale),
           labels: ticketLabelsFromT(t),
+          hideBranding: hideStockShopBranding(shop),
         },
       })
     } catch (e: any) {
@@ -977,6 +980,15 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
               <p className="text-xs text-muted-foreground mt-0.5">{t('settings.ticket_auto_print_desc')}</p>
             </div>
             <Switch checked={ticket.autoPrint} onCheckedChange={v => updateTicket({ autoPrint: v })} />
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium">{t('settings.ticket_print_logo')}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {shop?.logo_url ? t('settings.ticket_print_logo_desc') : t('settings.ticket_print_logo_none')}
+              </p>
+            </div>
+            <Switch checked={!!ticket.printLogo && !!shop?.logo_url} disabled={!shop?.logo_url} onCheckedChange={v => updateTicket({ printLogo: v })} />
           </div>
           <Button variant="outline" className="w-full gap-2" onClick={printTestTicket} loading={testPrinting}>
             <Printer className="h-4 w-4" />

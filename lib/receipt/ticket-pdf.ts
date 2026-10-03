@@ -55,6 +55,14 @@ function paint(doc: any, width: TicketWidth, lines: TicketLine[]): number {
       continue
     }
     if (l.kind === 'space') { y += l.h ?? 2; continue }
+    if (l.kind === 'image') {
+      // 8 points par mm (203 dpi) : même taille physique qu'en ESC/POS
+      const wMm = Math.min(printable, l.logo.width / 8)
+      const hMm = (l.logo.height / l.logo.width) * wMm
+      try { doc.addImage(l.logo.dataUrl, 'PNG', x0 + (printable - wMm) / 2, y, wMm, hMm) } catch { /* logo illisible : on continue sans */ }
+      y += hMm + 1
+      continue
+    }
 
     const size = sizes[l.size ?? 'md']
     setFont(size, l.bold)
