@@ -64,6 +64,7 @@ export type AuditAction =
   | 'referral.reviewed'
   | 'referral.config_updated'
   | 'referral.rates_updated'
+  | 'customer.merged'
 
 interface AuditParams {
   action: AuditAction

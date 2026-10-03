@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
-import { Search, Plus, Edit2, Trash2, Phone, MapPin, Store, User } from 'lucide-react'
+import { Search, Plus, Edit2, Trash2, Phone, MapPin, Store, User, Merge, AlertTriangle } from 'lucide-react'
+import { cn } from '@/lib/utils/cn'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -130,10 +131,76 @@ export default function CustomersPage() {
   const shopLoadTimedOut = useShopLoadTimeout(effectiveShopIds.length)
 
   const filtered = customers.filter(c => {
+    if (c.deleted_at) return false // fiches supprimées ou fusionnées : conservées en base, jamais listées
     if (!search) return true
     const q = normalize(search)
     return normalize(c.name).includes(q) || c.phone?.includes(q) || normalize(c.city ?? '').includes(q)
   })
+
+  // ── Doublons : même nom (accents et majuscules ignorés) ou même numéro, par
+  // boutique. Détection seulement : la fusion est une décision du commerçant.
+  const canMerge = ['owner', 'manager', 'shop_manager', 'super_admin'].includes(profile?.role || '')
+  const duplicateGroups = useMemo(() => {
+    const byKey = new Map<string, Customer[]>()
+    const add = (key: string, c: Customer) => { const list = byKey.get(key) || []; if (!list.includes(c)) list.push(c); byKey.set(key, list) }
+    for (const c of customers) {
+      if (c.deleted_at) continue
+      const name = normalize(c.name)
+      if (name) add(`${c.shop_id}|n|${name}`, c)
+      const digits = (c.phone || '').replace(/\D/g, '')
+      if (digits.length >= 6) add(`${c.shop_id}|p|${digits}`, c)
+    }
+    const seen = new Set<string>()
+    const groups: Customer[][] = []
+    for (const list of Array.from(byKey.values())) {
+      if (list.length < 2 || list.every(c => seen.has(c.id))) continue
+      list.forEach(c => seen.add(c.id))
+      groups.push([...list].sort((a, b) => a.created_at.localeCompare(b.created_at)))
+    }
+    return groups
+  }, [customers])
+  const [showDuplicates, setShowDuplicates] = useState(false)
+  const [mergeGroup, setMergeGroup] = useState<Customer[] | null>(null)
+  const [keepId, setKeepId] = useState('')
+  const [salesCounts, setSalesCounts] = useState<Record<string, number>>({})
+  const [merging, setMerging] = useState(false)
+
+  const openMerge = async (group: Customer[]) => {
+    // Fiche proposée : celle qui a un téléphone, sinon la plus ancienne
+    const preferred = group.find(c => c.phone) || group[0]
+    setKeepId(preferred.id); setMergeGroup(group); setSalesCounts({})
+    try {
+      const { data } = await withTimeout<any>(supabase.from('sales').select('customer_id').in('customer_id', group.map(c => c.id)))
+      const counts: Record<string, number> = {}
+      for (const r of (data || []) as { customer_id: string }[]) counts[r.customer_id] = (counts[r.customer_id] || 0) + 1
+      group.forEach(c => { counts[c.id] = counts[c.id] || 0 })
+      setSalesCounts(counts)
+    } catch { /* récapitulatif sans le nombre de ventes */ }
+  }
+
+  const runMerge = async () => {
+    if (!mergeGroup || !keepId) return
+    const keep = mergeGroup.find(c => c.id === keepId)
+    if (!keep) return
+    setMerging(true)
+    try {
+      for (const dup of mergeGroup.filter(c => c.id !== keepId)) {
+        const res = await withTimeout(fetch('/api/customers/merge', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shop_id: keep.shop_id, keep_id: keep.id, merge_id: dup.id }),
+        }))
+        const json = await res.json()
+        if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      }
+      toast({ title: t('customers.merge_done', { name: keep.name }), variant: 'success' })
+      setMergeGroup(null)
+      fetchCustomers()
+    } catch (err: any) {
+      toast({ title: err.message || t('toast.network_error'), variant: 'destructive' })
+    } finally {
+      setMerging(false)
+    }
+  }
 
   const onSubmit = async (data: CustomerFormData) => {
     setSaving(true)
@@ -193,10 +260,39 @@ export default function CustomersPage() {
         )}
       </div>
 
+      {canMerge && !loading && duplicateGroups.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm dark:border-amber-800/60 dark:bg-amber-950/40">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium text-amber-800 dark:text-amber-200">
+              {t(duplicateGroups.length === 1 ? 'customers.duplicates_banner_one' : 'customers.duplicates_banner_other', { count: duplicateGroups.length })}
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-300">{t('customers.duplicates_hint')}</p>
+          </div>
+          <Button size="sm" variant="outline" className="h-8" onClick={() => setShowDuplicates(v => !v)}>
+            {t(showDuplicates ? 'customers.duplicates_hide' : 'customers.duplicates_show')}
+          </Button>
+        </div>
+      )}
+
       {loading && shopLoadTimedOut && effectiveShopIds.length === 0 ? (
         <LoadErrorFallback />
       ) : loading ? (
         <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
+      ) : showDuplicates && canMerge && duplicateGroups.length > 0 ? (
+        <div className="space-y-4">
+          {duplicateGroups.map((group, i) => (
+            <div key={i} className="space-y-2 rounded-xl border border-amber-200 bg-amber-50/40 p-3 dark:border-amber-800/60 dark:bg-amber-950/20">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold">{group[0].name} <span className="font-normal text-muted-foreground">× {group.length}</span></p>
+                <Button size="sm" variant="stockshop" className="h-8 gap-1.5" disabled={!isOnline} title={!isOnline ? t('customers.merge_offline') : undefined} onClick={() => openMerge(group)}>
+                  <Merge className="h-3.5 w-3.5" /> {t('customers.merge')}
+                </Button>
+              </div>
+              {group.map(customer => <CustomerCard key={customer.id} customer={customer} profile={profile} formatNaira={formatNaira} setEditingCustomer={setEditingCustomer} form={form} setShowModal={setShowModal} deleteCustomer={deleteCustomer} t={t} />)}
+            </div>
+          ))}
+        </div>
       ) : filtered.length === 0 ? (
         <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
           {t('customers.no_customers')}
@@ -262,6 +358,58 @@ export default function CustomersPage() {
             </Button>
           </PremiumDialogFooter>
         </form>
+      </PremiumDialog>
+
+      {/* Fusion de doublons : choix de la fiche gardée, récapitulatif, puis serveur (transaction + journal) */}
+      <PremiumDialog
+        open={!!mergeGroup}
+        onOpenChange={open => { if (!open && !merging) setMergeGroup(null) }}
+        category={t('nav.customers')}
+        title={t('customers.merge_title')}
+        icon={<Merge className="h-4 w-4" />}
+        maxWidth="max-w-md"
+      >
+        {mergeGroup && (() => {
+          const keep = mergeGroup.find(c => c.id === keepId) || mergeGroup[0]
+          const others = mergeGroup.filter(c => c.id !== keep.id)
+          const sales = others.reduce((s, c) => s + (salesCounts[c.id] || 0), 0)
+          const debt = others.reduce((s, c) => s + Number(c.total_debt || 0), 0)
+          return (
+            <>
+              <PremiumDialogBody>
+                <p className="text-sm font-medium">{t('customers.merge_keep')}</p>
+                <div className="space-y-2">
+                  {mergeGroup.map(c => (
+                    <label key={c.id} className={cn('flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition-colors', c.id === keep.id ? 'border-stockshop-blue bg-stockshop-blue-muted dark:border-blue-700 dark:bg-blue-950/40' : 'border-border hover:bg-muted/50')}>
+                      <input type="radio" name="merge-keep" className="mt-1 accent-stockshop-blue" checked={c.id === keep.id} onChange={() => setKeepId(c.id)} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-medium">{c.name}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {c.phone || t('sales.no_phone')}{c.city ? ` · ${c.city}` : ''}
+                          {' · '}{t('customers.merge_sales_count', { count: salesCounts[c.id] ?? '…' })}
+                          {Number(c.total_debt) > 0 ? ` · ${t('customers.total_debt')}: ${formatNaira(c.total_debt)}` : ''}
+                          {' · '}{t('customers.merge_created', { date: new Date(c.created_at).toLocaleDateString() })}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                <div className="rounded-lg bg-muted p-3 text-sm">
+                  <p className="font-medium">{t('customers.merge_summary', { name: keep.name, sales, debt: formatNaira(debt) })}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{t('customers.merge_note')}</p>
+                </div>
+              </PremiumDialogBody>
+              <PremiumDialogFooter
+                onCancel={() => setMergeGroup(null)}
+                cancelLabel={t('actions.cancel')}
+                onConfirm={runMerge}
+                confirmLabel={t('customers.merge_confirm')}
+                confirmLoading={merging}
+                confirmDisabled={!isOnline || others.length === 0}
+              />
+            </>
+          )
+        })()}
       </PremiumDialog>
     </div>
   )

@@ -246,6 +246,8 @@ export interface Customer {
   credit_limit: number | null
   created_at: string
   deleted_at: string | null
+  /** Fiche gardée si celle-ci a été fusionnée (migration 151) ; masquée via deleted_at. */
+  merged_into?: string | null
 }
 
 export interface Sale {
