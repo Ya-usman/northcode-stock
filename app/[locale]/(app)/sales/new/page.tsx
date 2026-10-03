@@ -34,6 +34,8 @@ import { Separator } from '@/components/ui/separator'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { shareReceiptWhatsApp, shareViaWhatsApp, buildReceiptWhatsAppMessage, normalizeWhatsAppNumber } from '@/lib/utils/whatsapp'
 import { generateReceiptToken, receiptUrl } from '@/lib/receipt/receipt-link'
+import { ShopLogo } from '@/components/shop/shop-logo'
+import { receiptLabelsFromT } from '@/lib/receipt/receipt-labels'
 import { sharePDFNative, isCapacitor } from '@/lib/utils/native-share'
 import type { Product, Customer, CartItem, Sale, SaleItem, Category } from '@/lib/types/database'
 import dynamic from 'next/dynamic'
@@ -1246,34 +1248,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     }
   }
 
-  const receiptLabels = {
-    receipt: t('receipt.receipt'),
-    onlineReceipt: t('receipt.online_receipt'),
-    cashier: t('receipt.cashier'),
-    customer: t('receipt.customer'),
-    colItem: t('receipt.col_item'),
-    colQty: t('receipt.col_qty'),
-    colUnitPrice: t('receipt.col_unit_price'),
-    colTotal: t('receipt.col_total'),
-    subtotal: t('receipt.subtotal'),
-    discount: t('receipt.discount'),
-    tax: t('receipt.tax'),
-    total: t('receipt.total'),
-    paid: t('receipt.paid'),
-    via: t('receipt.via'),
-    balanceDue: t('receipt.balance_due'),
-    thankYou: t('receipt.thank_you'),
-    promoWas: t('receipt.promo_was'),
-    debtRepayment: t('receipt.debt_repayment'),
-    totalCollected: t('receipt.total_collected'),
-    saleTitle: t('receipt.sale_title'),
-    date: t('receipt.date'),
-    paymentMethod: t('receipt.payment_method'),
-    methodMixed: t('receipt.method_mixed'),
-    paidStatus: t('receipt.paid_status'),
-    amountPaid: t('receipt.amount_paid'),
-    generatedBy: t('receipt.generated_by'),
-  }
+  const receiptLabels = receiptLabelsFromT(t)
 
   // Libellé lisible d'un moyen de paiement (« Espèces », « MTN MoMo », « Paiement mixte »)
   const paymentMethodLabel = (id: string) => id === 'mixed'
@@ -2512,13 +2487,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             <div className="space-y-4">
               <div className="rounded-lg bg-muted/40 border p-4 text-sm space-y-2">
                 <div className="flex items-center gap-2 pb-2 border-b">
-                  {shop?.logo_url ? (
-                    <img src={shop.logo_url} alt={shop.name} className="h-8 w-8 object-contain rounded" />
-                  ) : (
-                    <div className="h-8 w-8 rounded bg-stockshop-blue flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                      {shop?.name?.slice(0, 2).toUpperCase() || 'SS'}
-                    </div>
-                  )}
+                  <ShopLogo src={shop?.logo_url} name={shop?.name} size="sm" />
                   <div className="min-w-0 flex-1">
                     <p className="font-bold text-xs truncate">{shop?.name}</p>
                     {shop?.city && <p className="text-[10px] text-muted-foreground">{shop.city}</p>}

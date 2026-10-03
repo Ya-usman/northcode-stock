@@ -1,6 +1,7 @@
 'use client'
 
 import type { TicketLogo, TicketWidth } from './ticket'
+import { whiteBorderCrop } from '@/lib/utils/logo-image'
 
 // Logo de la boutique préparé pour une imprimante thermique : redimensionné à
 // la résolution du rouleau (8 points/mm, standard 203 dpi), fond blanc, passé
@@ -10,6 +11,7 @@ import type { TicketLogo, TicketWidth } from './ticket'
 // Largeur imprimée : 24 mm sur 58 mm, 32 mm sur 80 mm — un logo, pas une
 // bannière : chaque millimètre de hauteur coûte du papier au commerçant.
 const LOGO_DOTS: Record<TicketWidth, number> = { 58: 192, 80: 256 }
+const PRINTABLE_DOTS: Record<TicketWidth, number> = { 58: 384, 80: 576 } // 48 mm / 72 mm
 const MAX_HEIGHT_DOTS = 160 // 20 mm
 
 const cache = new Map<string, Promise<TicketLogo | null>>()
@@ -33,7 +35,7 @@ export function loadTicketLogo(url: string, width: TicketWidth, size?: LogoSize)
   const key = `${dots}|${maxHeight}|${mode}|${url}`
   let p = cache.get(key)
   if (!p) {
-    p = build(url, dots, maxHeight, mode).catch(() => null)
+    p = build(url, dots, maxHeight, mode, width).catch(() => null)
     cache.set(key, p)
     // Pas de mise en cache d'un échec (réseau coupé) : on réessaiera au prochain ticket
     p.then(r => { if (!r) cache.delete(key) })
@@ -41,7 +43,7 @@ export function loadTicketLogo(url: string, width: TicketWidth, size?: LogoSize)
   return p
 }
 
-async function build(url: string, targetDots: number, maxHeightDots: number, mode: 'dither' | 'threshold'): Promise<TicketLogo | null> {
+async function build(url: string, targetDots: number, maxHeightDots: number, mode: 'dither' | 'threshold', width: TicketWidth): Promise<TicketLogo | null> {
   // fetch → blob → URL locale : l'image est « même origine », le canvas n'est pas
   // bloqué (pas de souci CORS avec le stockage Supabase), et le cache hors ligne
   // du service worker répond si le réseau est coupé.
@@ -62,8 +64,11 @@ async function build(url: string, targetDots: number, maxHeightDots: number, mod
     // cadre vide qui rapetisse le motif et gaspille du papier.
     const crop = whiteBorderCrop(img)
 
-    // Dimensions en points, multiples de 8 (exigence des imprimantes)
-    let w = targetDots
+    // Dimensions en points, multiples de 8 (exigence des imprimantes).
+    // Un logo large (nom de marque en toutes lettres, ratio > 1,8) a droit à
+    // deux tiers de plus en largeur : à 24 mm il ne ferait que 5 mm de haut.
+    const wide = crop.w / crop.h > 1.8
+    let w = wide ? Math.min(Math.round(targetDots * 5 / 3), PRINTABLE_DOTS[width]) : targetDots
     let h = Math.round((crop.h / crop.w) * w)
     if (h > maxHeightDots) { w = Math.round((maxHeightDots / h) * w); h = maxHeightDots }
     w = Math.max(8, Math.round(w / 8) * 8)
@@ -86,29 +91,7 @@ async function build(url: string, targetDots: number, maxHeightDots: number, mod
   }
 }
 
-// Boîte englobante du contenu non blanc (analyse sur une copie réduite à
-// 512 px pour rester rapide sur un téléphone d'entrée de gamme).
-function whiteBorderCrop(img: HTMLImageElement): { x: number; y: number; w: number; h: number } {
-  const full = { x: 0, y: 0, w: img.naturalWidth, h: img.naturalHeight }
-  const scale = Math.min(1, 512 / Math.max(img.naturalWidth, img.naturalHeight))
-  const W = Math.max(1, Math.round(img.naturalWidth * scale)), H = Math.max(1, Math.round(img.naturalHeight * scale))
-  const c = document.createElement('canvas'); c.width = W; c.height = H
-  const ctx = c.getContext('2d'); if (!ctx) return full
-  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H); ctx.drawImage(img, 0, 0, W, H)
-  const d = ctx.getImageData(0, 0, W, H).data
-  let minX = W, minY = H, maxX = -1, maxY = -1
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const p = (y * W + x) * 4
-    if (0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2] < 235) {
-      if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y
-    }
-  }
-  if (maxX < 0) return full // image entièrement blanche : rien à recadrer
-  const pad = 2
-  const x0 = Math.max(0, minX - pad), y0 = Math.max(0, minY - pad)
-  const x1 = Math.min(W, maxX + pad + 1), y1 = Math.min(H, maxY + pad + 1)
-  return { x: x0 / scale, y: y0 / scale, w: (x1 - x0) / scale, h: (y1 - y0) / scale }
-}
+// (recadrage des marges : whiteBorderCrop, partagé avec l'import du logo et les PDF)
 
 // Tramage d'Atkinson : garde les dégradés lisibles sans paver de noir les
 // grandes surfaces claires (meilleur rendu qu'un simple seuil sur les logos).

@@ -27,6 +27,7 @@ import { readTicketSettings } from '@/lib/receipt/print-settings'
 import { printSaleTicket, ticketErrorKey } from '@/lib/receipt/print-ticket'
 import { ticketLabelsFromT } from '@/lib/receipt/ticket'
 import { receiptUrl } from '@/lib/receipt/receipt-link'
+import { receiptLabelsFromT } from '@/lib/receipt/receipt-labels'
 import { hideStockShopBranding } from '@/lib/receipt/branding'
 import { normalize } from '@/lib/utils/normalize'
 import { withTimeout } from '@/lib/utils/with-timeout'
@@ -77,25 +78,8 @@ export default function SalesHistoryPage() {
     return Array.from(ids)
   }, [userShops, shop])
 
-  const receiptLabels = {
-    receipt: t('receipt.receipt'),
-    cashier: t('receipt.cashier'),
-    customer: t('receipt.customer'),
-    colItem: t('receipt.col_item'),
-    colQty: t('receipt.col_qty'),
-    colUnitPrice: t('receipt.col_unit_price'),
-    colTotal: t('receipt.col_total'),
-    subtotal: t('receipt.subtotal'),
-    discount: t('receipt.discount'),
-    tax: t('receipt.tax'),
-    total: t('receipt.total'),
-    paid: t('receipt.paid'),
-    via: t('receipt.via'),
-    balanceDue: t('receipt.balance_due'),
-    thankYou: t('receipt.thank_you'),
-    promoWas: t('receipt.promo_was'),
-    onlineReceipt: t('receipt.online_receipt'),
-  }
+  // Même liste que Nouvelle vente : l'ancienne, incomplète, laissait le PDF en anglais par endroits
+  const receiptLabels = receiptLabelsFromT(t)
 
   const locale = useLocale()
   // « Reçu PDF » : s'ouvre / se partage (l'impression, c'est le ticket)

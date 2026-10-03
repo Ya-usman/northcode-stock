@@ -8,6 +8,7 @@ import { textLines } from '@/lib/receipt/ticket'
 import { getCountry, getPaymentMethodLabel } from '@/lib/saas/countries'
 import { formatCurrency } from '@/lib/utils/currency'
 import { BrandLogo } from '@/components/brand/brand-logo'
+import { ShopLogo } from '@/components/shop/shop-logo'
 import { DownloadReceiptButton } from './download-button'
 
 // Page publique du reçu — stockshop.tech/r/<jeton> (QR du ticket, lien
@@ -88,7 +89,6 @@ export default async function PublicReceiptPage({ params }: { params: { token: s
   const legal = textLines(shop.receipt_legal_ids)
   const footer = textLines(shop.receipt_footer)
   const place = [shop.city, shop.state].filter(Boolean).join(', ')
-  const initials = String(shop.name || '').split(/\s+/).map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
   const cancelled = sale.sale_status === 'cancelled'
   const hideBranding = hideStockShopBranding(shop)
   const discount = Number(sale.discount) || 0
@@ -123,12 +123,7 @@ export default async function PublicReceiptPage({ params }: { params: { token: s
     <Shell>
       {/* En-tête : la marque du commerçant, pas la nôtre */}
       <header className="flex items-start gap-4 border-b border-slate-200 p-5 dark:border-slate-800">
-        {shop.logo_url ? (
-          // object-contain : un logo large n'est pas rogné (le reçu A5 fait pareil)
-          <img src={shop.logo_url} alt="" className="h-14 w-14 flex-shrink-0 rounded-xl bg-white object-contain ring-1 ring-slate-200 dark:ring-slate-700" />
-        ) : (
-          <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl bg-stockshop-blue text-lg font-bold text-white">{initials}</div>
-        )}
+        <ShopLogo src={shop.logo_url} name={shop.name} size="md" shape="auto" />
         <div className="min-w-0 text-sm text-slate-500 dark:text-slate-400">
           <h1 className="text-lg font-bold leading-tight text-slate-900 dark:text-white">{shop.name}</h1>
           {shop.receipt_tagline && <p className="italic">{shop.receipt_tagline}</p>}

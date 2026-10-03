@@ -10,6 +10,8 @@ import { BluetoothPrinter, BLUETOOTH_IMAGING_CLASS, type PairedDevice } from '@/
 import { isCapacitor as isNativeApp } from '@/lib/utils/native-share'
 import { ticketLabelsFromT } from '@/lib/receipt/ticket'
 import { receiptBaseUrl } from '@/lib/receipt/receipt-link'
+import { prepareLogo } from '@/lib/utils/logo-image'
+import { ShopLogo } from '@/components/shop/shop-logo'
 import { hideStockShopBranding } from '@/lib/receipt/branding'
 import { formatCurrency as fmtCurrency } from '@/lib/utils/currency'
 import { createClient } from '@/lib/supabase/client'
@@ -374,36 +376,19 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
     }
   }
 
-  const compressImage = (file: File, maxSize = 800, quality = 0.75): Promise<Blob> =>
-    new Promise((resolve, reject) => {
-      const img = new Image()
-      const url = URL.createObjectURL(file)
-      img.onload = () => {
-        URL.revokeObjectURL(url)
-        const scale = Math.min(1, maxSize / Math.max(img.width, img.height))
-        const w = Math.round(img.width * scale)
-        const h = Math.round(img.height * scale)
-        const canvas = document.createElement('canvas')
-        canvas.width = w; canvas.height = h
-        canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
-        canvas.toBlob(b => b ? resolve(b) : reject(new Error('Compression failed')), 'image/jpeg', quality)
-      }
-      img.onerror = reject
-      img.src = url
-    })
-
   const uploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file || !shop?.id) return
     setUploadingLogo(true)
     try {
-      // Compress before upload (max 800px, JPEG 75%)
-      const compressed = await compressImage(file)
-      // Always use .jpg so the same path is overwritten each time
-      const path = `${shop.id}/logo.jpg`
+      // Normalisé avant l'envoi : marges retirées, proportions gardées, 512 px
+      // max, fond blanc, PNG (un JPEG rendait noir le fond d'un logo transparent)
+      const { blob } = await prepareLogo(file)
+      // Même chemin à chaque import : l'ancien fichier est remplacé
+      const path = `${shop.id}/logo.png`
       const { error: uploadError } = await withTimeout<any>(supabase.storage
         .from('shop-logos')
-        .upload(path, compressed, { upsert: true, contentType: 'image/jpeg' }))
+        .upload(path, blob, { upsert: true, contentType: 'image/png' }))
       if (uploadError) throw uploadError
 
       // Add timestamp to bust CDN cache
@@ -525,13 +510,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-4">
-                <div className="h-16 w-16 rounded-xl overflow-hidden border bg-stockshop-blue-muted dark:bg-blue-950/40 flex items-center justify-center flex-shrink-0">
-                  {shop?.logo_url ? (
-                    <img src={shop.logo_url} alt="Logo" className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="text-stockshop-blue dark:text-blue-400 font-bold text-xl">NC</span>
-                  )}
-                </div>
+                <ShopLogo src={shop?.logo_url} name={shop?.name || name} size="lg" shape="auto" />
                 <div>
                   <p className="text-sm font-medium">{t('settings.logo')}</p>
                   <label className="mt-1 inline-flex items-center gap-2 cursor-pointer rounded-md border px-3 py-1.5 text-xs hover:bg-muted transition-colors">

@@ -4,34 +4,22 @@ import type { Sale, SaleItem, Shop } from '@/lib/types/database'
 import { getCountry, getPaymentMethodLabel } from '@/lib/saas/countries'
 import { receiptUrl, receiptUrlShort } from '@/lib/receipt/receipt-link'
 
-// Shop logos rarely change mid-session — fetching + re-encoding one to
-// base64 on every single receipt (sale or debt repayment) adds an avoidable
-// network round trip to each one. Cached per URL for the life of the tab; a
-// logo change takes effect on next reload, same as other shop data cached
-// elsewhere in the app. Caches the in-flight promise (not just the resolved
-// value) so concurrent receipts started before the first fetch settles
-// share one request instead of firing one each.
-const logoBase64Cache = new Map<string, Promise<{ base64: string; ext: 'PNG' | 'JPEG' }>>()
-function getShopLogoBase64(logoUrl: string): Promise<{ base64: string; ext: 'PNG' | 'JPEG' }> {
-  let cached = logoBase64Cache.get(logoUrl)
-  if (!cached) {
-    cached = (async () => {
-      const response = await fetch(logoUrl)
-      const blob = await response.blob()
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = () => resolve((reader.result as string).split(',')[1])
-        reader.onerror = reject
-        reader.readAsDataURL(blob)
-      })
-      return { base64, ext: (blob.type.includes('png') ? 'PNG' : 'JPEG') as 'PNG' | 'JPEG' }
-    })()
-    logoBase64Cache.set(logoUrl, cached)
-    // Don't cache a failure — a transient network hiccup shouldn't
-    // permanently fall back to the initials box for the rest of the tab.
-    cached.catch(() => logoBase64Cache.delete(logoUrl))
-  }
-  return cached
+import { getPreparedLogo, type PreparedLogo } from '@/lib/utils/logo-image'
+
+// Logo de la boutique dans une boîte carrée de `box` mm : marges déjà
+// retirées (getPreparedLogo, mis en cache par URL), proportions conservées,
+// centré — jamais étiré, un logo large reste large.
+// Un logo large (nom de marque en toutes lettres) peut déborder de la boîte
+// jusqu'à `maxWide` mm, la hauteur restant bornée ; la largeur occupée est
+// renvoyée pour décaler le texte qui suit.
+function drawLogoFit(doc: any, logo: PreparedLogo, x: number, y: number, box: number, maxWide = box): number {
+  const ratio = logo.width / logo.height
+  let w = ratio >= 1 ? Math.min(maxWide, box * ratio) : box * ratio
+  let h = w / ratio
+  if (h > box) { h = box; w = h * ratio }
+  const offX = w < box ? (box - w) / 2 : 0
+  doc.addImage(logo.dataUrl, 'PNG', x + offX, y + (box - h) / 2, w, h, undefined, 'FAST')
+  return Math.max(box, w)
 }
 
 interface ReceiptLabels {
@@ -167,10 +155,10 @@ async function buildReceiptDoc(data: ReceiptData) {
 
   // ─── EN-TÊTE : logo + boutique | titre + numéro ──────────────────────
   let logoLoaded = false
+  let logoW = 18
   if (shop.logo_url) {
     try {
-      const { base64, ext } = await getShopLogoBase64(shop.logo_url)
-      doc.addImage(base64, ext, margin, y, 18, 18)
+      logoW = drawLogoFit(doc, await getPreparedLogo(shop.logo_url), margin, y, 18, 34)
       logoLoaded = true
     } catch { /* fall through to initials box */ }
   }
@@ -183,7 +171,7 @@ async function buildReceiptDoc(data: ReceiptData) {
     doc.text(shopInitials(shop.name), margin + 9, y + 11.5, { align: 'center' })
   }
 
-  const nameX = margin + 22
+  const nameX = margin + logoW + 4
   const latinName = sanitizePDF(shop.name).trim()
   const hasArabic = containsRTL(shop.name)
   const cityText = sanitizePDF([shop.city, shop.state].filter(Boolean).join(', '))
@@ -595,10 +583,10 @@ async function buildDebtReceiptDoc(data: DebtReceiptData) {
 
   // ─── HEADER ──────────────────────────────────
   let logoLoaded = false
+  let logoWD = 20
   if (shop.logo_url) {
     try {
-      const { base64, ext } = await getShopLogoBase64(shop.logo_url)
-      doc.addImage(base64, ext, margin, y, 20, 20)
+      logoWD = drawLogoFit(doc, await getPreparedLogo(shop.logo_url), margin, y, 20, 36)
       logoLoaded = true
     } catch { /* fall through to initials box */ }
   }
@@ -611,6 +599,7 @@ async function buildDebtReceiptDoc(data: DebtReceiptData) {
     doc.text(shopInitials(shop.name), margin + 10, y + 13, { align: 'center' })
   }
 
+  const textXD = margin + logoWD + 4
   const latinNameD = sanitizePDF(shop.name).trim()
   const hasArabicD = containsRTL(shop.name)
   const cityTextD = `${shop.city}, ${shop.state || 'Nigeria'}`
@@ -619,10 +608,10 @@ async function buildDebtReceiptDoc(data: DebtReceiptData) {
   doc.setFont('helvetica', 'bold')
   if (hasArabicD) {
     const arabicImgD = await renderArabicNameImage(shop.name, '#0a2f6e')
-    if (arabicImgD) doc.addImage(arabicImgD, 'PNG', margin + 24, y + 1.5, 80, 6)
-    else doc.text(latinNameD || cityTextD, margin + 24, y + 7)
+    if (arabicImgD) doc.addImage(arabicImgD, 'PNG', textXD, y + 1.5, 80, 6)
+    else doc.text(latinNameD || cityTextD, textXD, y + 7)
   } else {
-    doc.text(latinNameD || cityTextD, margin + 24, y + 7)
+    doc.text(latinNameD || cityTextD, textXD, y + 7)
   }
   // Sous le nom : activité, ville, WhatsApp, puis mentions légales (une par ligne)
   doc.setTextColor(80, 80, 80)
@@ -631,7 +620,7 @@ async function buildDebtReceiptDoc(data: DebtReceiptData) {
   const headerLineD = (text: string, italic = false) => {
     hyD += 5
     doc.setFont('helvetica', italic ? 'italic' : 'normal')
-    doc.text(sanitizePDF(text), margin + 24, hyD)
+    doc.text(sanitizePDF(text), textXD, hyD)
   }
   if (shop.receipt_tagline) headerLineD(shop.receipt_tagline, true)
   headerLineD(cityTextD)
