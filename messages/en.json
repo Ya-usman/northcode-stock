@@ -2224,7 +2224,14 @@
       "subtitle": "A new version of StockShop is available",
       "body": "This update includes important improvements. We recommend updating as soon as possible.",
       "update_button": "Update",
-      "later": "Later"
+      "later": "Later",
+      "available": "New version available",
+      "available_hint": "The update downloads while you keep working.",
+      "downloading": "Downloading the update…",
+      "ready": "Update ready",
+      "restart": "Restart",
+      "required_body": "This version is no longer supported. Update to continue.",
+      "failed": "The update could not start. Open the Play Store."
     },
     "whats_new": {
       "title": "What's new",

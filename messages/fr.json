@@ -2224,7 +2224,14 @@
       "subtitle": "Une nouvelle version de StockShop est disponible",
       "body": "Cette mise à jour contient des améliorations importantes. Nous recommandons de mettre à jour dès que possible.",
       "update_button": "Mettre à jour",
-      "later": "Plus tard"
+      "later": "Plus tard",
+      "available": "Nouvelle version disponible",
+      "available_hint": "La mise à jour se télécharge pendant que vous travaillez.",
+      "downloading": "Téléchargement de la mise à jour…",
+      "ready": "Mise à jour prête",
+      "restart": "Redémarrer",
+      "required_body": "Cette version n’est plus prise en charge. Mettez à jour pour continuer.",
+      "failed": "La mise à jour n’a pas pu démarrer. Ouvrez le Play Store."
     },
     "whats_new": {
       "title": "Nouveautés",

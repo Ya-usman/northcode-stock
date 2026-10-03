@@ -1,7 +1,7 @@
 import { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
-  appId: 'com.stockshop.stockshop',
+  appId: 'com.northcode.stockshop', // identifiant publié sur le Play Store (= applicationId de android/app/build.gradle)
   appName: 'StockShop',
   webDir: 'out',
   server: {

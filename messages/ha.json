@@ -2224,7 +2224,14 @@
       "subtitle": "Sabon sigar StockShop yana samuwa",
       "body": "Wannan sabuntawar tana da muhimman gyare-gyare. Muna ba da shawarar ka sabunta da wuri-wuri.",
       "update_button": "Sabunta",
-      "later": "Daga baya"
+      "later": "Daga baya",
+      "available": "Sabon sigar yana nan",
+      "available_hint": "Sabuntawa tana saukewa yayin da kake aiki.",
+      "downloading": "Ana sauke sabuntawa…",
+      "ready": "Sabuntawa ta shirya",
+      "restart": "Sake farawa",
+      "required_body": "Ba a ƙara tallafa wa wannan sigar ba. Sabunta don ci gaba.",
+      "failed": "Sabuntawa ba ta fara ba. Buɗe Play Store."
     },
     "whats_new": {
       "title": "Sabbin abubuwa",
