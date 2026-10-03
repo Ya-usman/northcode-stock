@@ -6,4 +6,8 @@
     <foreground>
         <inset android:drawable="@mipmap/ic_launcher_foreground" android:inset="16.7%" />
     </foreground>
+    <!-- Icône thématique Android 13+ : le glyphe blanc seul, teinté par le système -->
+    <monochrome>
+        <inset android:drawable="@mipmap/ic_launcher_foreground" android:inset="16.7%" />
+    </monochrome>
 </adaptive-icon>

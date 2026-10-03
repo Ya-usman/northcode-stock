@@ -17,6 +17,10 @@
 
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <!-- Android 12+ : écran système = icône de l'app sur le bleu StockShop,
+             puis l'écran Capacitor (drawable/splash : cercle-S + « StockShop ») -->
+        <item name="windowSplashScreenBackground">#073E8A</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
         <item name="android:background">@drawable/splash</item>
     </style>
 </resources>
