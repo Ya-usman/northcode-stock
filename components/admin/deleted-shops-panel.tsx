@@ -145,7 +145,7 @@ export function DeletedShopsPanel({ shops: initialShops, tier }: Props) {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-7 gap-1.5 text-xs text-red-500 hover:text-red-600 hover:bg-red-950/30"
+                        className="h-7 gap-1.5 text-xs text-red-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-950/30"
                         disabled={!!restoring || !!deleting}
                         onClick={() => {
                           setConfirmPermanentId(isConfirming ? null : shop.id)

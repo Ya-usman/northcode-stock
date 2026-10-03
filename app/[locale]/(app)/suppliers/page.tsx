@@ -1836,7 +1836,7 @@ export default function SuppliersPage() {
                         <p className="text-[10px] text-muted-foreground mt-0.5">{t('suppliers.supplier_journal_avg_delay')}</p>
                       </div>
                       <div className="flex flex-col items-center justify-center py-3 px-2 text-center">
-                        <p className={`text-lg font-bold ${completeRate == null ? '' : completeRate >= 80 ? 'text-green-600' : completeRate >= 50 ? 'text-amber-500' : 'text-red-600'}`}>
+                        <p className={`text-lg font-bold ${completeRate == null ? '' : completeRate >= 80 ? 'text-green-600 dark:text-green-400' : completeRate >= 50 ? 'text-amber-500' : 'text-red-600 dark:text-red-400'}`}>
                           {completeRate != null ? `${completeRate}%` : t('suppliers.supplier_journal_no_data')}
                         </p>
                         <p className="text-[10px] text-muted-foreground mt-0.5">{t('suppliers.supplier_journal_complete_rate')}</p>
@@ -1889,7 +1889,7 @@ export default function SuppliersPage() {
                               <span className="truncate">{tr.name}</span>
                               <span className="flex items-center gap-1.5 shrink-0">
                                 <span className="text-muted-foreground text-xs tabular-nums">{fmt(tr.first)} → {fmt(tr.last)}</span>
-                                <span className={`flex items-center gap-0.5 text-xs font-semibold tabular-nums ${tr.pct > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                <span className={`flex items-center gap-0.5 text-xs font-semibold tabular-nums ${tr.pct > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
                                   {tr.pct > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                                   {tr.pct > 0 ? '+' : ''}{tr.pct}%
                                 </span>

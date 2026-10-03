@@ -139,7 +139,7 @@ interface ManualSection {
 
 function CalloutBox({ type = 'info', text }: Callout) {
   const cls = {
-    info:    'bg-stockshop-blue-muted dark:bg-blue-950/40 border-stockshop-blue text-stockshop-blue dark:text-blue-300',
+    info:    'bg-stockshop-blue-muted dark:bg-blue-950/40 border-stockshop-blue dark:border-blue-500 text-stockshop-blue dark:text-blue-300',
     warning: 'bg-amber-50 dark:bg-amber-950/40 border-amber-500 text-amber-800 dark:text-amber-300',
     success: 'bg-green-50 dark:bg-green-950/40 border-green-500 text-green-800 dark:text-green-300',
   }[type]

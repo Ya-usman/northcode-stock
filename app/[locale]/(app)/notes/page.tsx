@@ -377,7 +377,7 @@ export default function NotesPage() {
                   className={cn(
                     'flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors',
                     pinned
-                      ? 'border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
+                      ? 'border-amber-300 dark:border-amber-700/60 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
                       : 'border-border text-muted-foreground hover:bg-accent'
                   )}
                 >

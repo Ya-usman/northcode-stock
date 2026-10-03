@@ -14,7 +14,9 @@ const buttonVariants = cva(
         secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
         ghost: 'hover:bg-accent hover:text-accent-foreground',
         link: 'text-primary underline-offset-4 hover:underline',
-        stockshop: 'bg-stockshop-blue text-white hover:bg-stockshop-blue-light',
+        // Sombre : blue-600 (#2563eb) — blanc dessus 5,2:1 (AA) et 3,6:1 de relief
+        // contre le fond marine, là où #073e8a s'y fondait (1,8:1).
+        stockshop: 'bg-stockshop-blue text-white hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500',
       },
       size: {
         default: 'h-10 px-4 py-2',

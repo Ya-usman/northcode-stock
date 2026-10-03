@@ -302,7 +302,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
               </Badge>
             </div>
             {isTrialActive && (
-              <div className="flex items-center gap-1.5 text-sm text-amber-600">
+              <div className="flex items-center gap-1.5 text-sm text-amber-600 dark:text-amber-400">
                 <Clock className="h-4 w-4" />
                 <span>{trialDaysLeft === 0 ? t('trial_expires_today') : t('trial_days_left', { days: trialDaysLeft })}</span>
               </div>
@@ -313,7 +313,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
               </p>
             )}
             {!isSubscribed && !isTrialActive && (
-              <p className="text-sm text-red-600 font-medium">{t('plan_expired_msg')}</p>
+              <p className="text-sm text-red-600 dark:text-red-400 font-medium">{t('plan_expired_msg')}</p>
             )}
           </div>
         </div>
@@ -390,7 +390,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                   className={cn(
                     'relative rounded-2xl border-2 bg-card p-6 shadow-sm transition-all',
                     popular
-                      ? 'border-stockshop-blue shadow-xl ring-2 ring-stockshop-blue mt-4 md:mt-0'
+                      ? 'border-stockshop-blue dark:border-blue-500 shadow-xl ring-2 ring-stockshop-blue dark:ring-blue-500 mt-4 md:mt-0'
                       : 'border-gray-200 dark:border-gray-700 hover:border-stockshop-blue/40'
                   )}
                 >
@@ -404,7 +404,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
 
                   <div className="mb-6">
                     <div className="flex items-center gap-2 mb-2">
-                      <span className={cn('p-1.5 rounded-lg', popular ? 'bg-stockshop-blue/10 text-stockshop-blue' : 'bg-muted text-muted-foreground')}>
+                      <span className={cn('p-1.5 rounded-lg', popular ? 'bg-stockshop-blue/10 text-stockshop-blue dark:text-blue-400' : 'bg-muted text-muted-foreground')}>
                         {PLAN_ICONS[id]}
                       </span>
                       <p className="font-bold text-lg">{planName}</p>
@@ -442,7 +442,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                       className={cn(
                         'w-full font-semibold',
                         popular
-                          ? 'bg-stockshop-blue hover:bg-stockshop-blue-light text-white'
+                          ? 'bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500 text-white'
                           : 'border border-stockshop-blue dark:border-blue-400 text-stockshop-blue dark:text-blue-400 hover:bg-stockshop-blue-muted dark:hover:bg-blue-950/40 bg-transparent'
                       )}
                     >
@@ -512,7 +512,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                       onClick={() => setUseCredit(v => !v)}
                       className="w-full flex items-center gap-3 text-left"
                     >
-                      <Gift className={cn('h-4 w-4 shrink-0', useCredit ? 'text-green-600' : 'text-muted-foreground')} />
+                      <Gift className={cn('h-4 w-4 shrink-0', useCredit ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground')} />
                       <div className="flex-1 min-w-0">
                         <p className={cn('text-sm font-semibold', useCredit ? 'text-green-700 dark:text-green-400' : 'text-foreground')}>
                           {t('use_reward_credit_label')}
@@ -568,7 +568,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                   <div className="rounded-2xl border-2 border-dashed border-stockshop-blue/30 bg-stockshop-blue-muted/50 dark:bg-blue-950/20 p-5 text-center space-y-3">
                     <div className="flex justify-center">
                       <div className="h-12 w-12 rounded-full bg-stockshop-blue/10 flex items-center justify-center">
-                        <ShieldCheck className="h-6 w-6 text-stockshop-blue" />
+                        <ShieldCheck className="h-6 w-6 text-stockshop-blue dark:text-blue-400" />
                       </div>
                     </div>
                     <div>
@@ -601,7 +601,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                         className={cn(
                           'relative w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl border-2 transition-all duration-200 text-left active:scale-[0.98]',
                           selectedMethod === method.id
-                            ? 'border-stockshop-blue bg-gradient-to-r from-stockshop-blue-muted to-stockshop-blue-muted/50 dark:from-blue-950/60 dark:to-blue-900/30 shadow-lg shadow-blue-200/50 dark:shadow-blue-900/40'
+                            ? 'border-stockshop-blue dark:border-blue-500 bg-gradient-to-r from-stockshop-blue-muted to-stockshop-blue-muted/50 dark:from-blue-950/60 dark:to-blue-900/30 shadow-lg shadow-blue-200/50 dark:shadow-blue-900/40'
                             : 'border-border hover:border-stockshop-blue/40 hover:shadow-md hover:-translate-y-0.5 bg-card'
                         )}
                       >
@@ -623,7 +623,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                         <div className={cn(
                           'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 transition-colors',
                           selectedMethod === method.id
-                            ? 'border-stockshop-blue bg-stockshop-blue'
+                            ? 'border-stockshop-blue dark:border-blue-500 bg-stockshop-blue'
                             : 'border-muted-foreground/30'
                         )}>
                           {selectedMethod === method.id && (
@@ -652,7 +652,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                       : 'border-border bg-card hover:border-muted-foreground/30'
                   )}
                 >
-                  <RefreshCw className={cn('h-4 w-4 shrink-0', autoRenew ? 'text-green-600' : 'text-muted-foreground')} />
+                  <RefreshCw className={cn('h-4 w-4 shrink-0', autoRenew ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground')} />
                   <div className="flex-1 min-w-0">
                     <p className={cn('text-sm font-semibold', autoRenew ? 'text-green-700 dark:text-green-400' : 'text-foreground')}>
                       {t('auto_renew_label')}
@@ -680,7 +680,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
               {isStripe ? (
                 <a
                   href={`mailto:support@stockshop.tech?subject=Abonnement ${checkoutPlan} - ${country.name}&body=Bonjour, je souhaite souscrire au plan ${checkoutPlan} (${formatPrice(checkoutPlan)}/mois) pour ma boutique.`}
-                  className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light text-white flex items-center justify-center gap-2 transition-colors"
+                  className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500 text-white flex items-center justify-center gap-2 transition-colors"
                 >
                   <Mail className="h-4 w-4" />
                   Nous contacter

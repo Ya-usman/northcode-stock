@@ -329,7 +329,7 @@ export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
             onClick={() => setActiveTab(id as any)}
             className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               activeTab === id
-                ? 'border-stockshop-blue text-foreground'
+                ? 'border-stockshop-blue dark:border-blue-500 text-foreground'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -439,7 +439,7 @@ export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
               <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm" variant="outline"
-                  className="border-stockshop-blue text-blue-400 hover:bg-stockshop-blue/30"
+                  className="border-stockshop-blue dark:border-blue-500 text-blue-400 hover:bg-stockshop-blue/30"
                   disabled={actionLoading}
                   onClick={() => shopAction('extend', { days: 30 })}
                 >
@@ -520,7 +520,7 @@ export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
                         notifType === t
                           ? t === 'urgent' ? 'bg-red-500/20 border-red-500 text-red-400'
                             : t === 'warning' ? 'bg-amber-500/20 border-amber-500 text-amber-400'
-                            : 'bg-stockshop-blue/20 border-stockshop-blue text-blue-400'
+                            : 'bg-stockshop-blue/20 border-stockshop-blue dark:border-blue-500 text-blue-400'
                           : 'border-border text-muted-foreground hover:border-gray-500'
                       }`}
                     >
@@ -532,13 +532,13 @@ export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
                   value={notifTitle}
                   onChange={e => setNotifTitle(e.target.value)}
                   placeholder="Titre du message"
-                  className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder-gray-500 focus:outline-none focus:border-stockshop-blue"
+                  className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder-gray-500 focus:outline-none focus:border-stockshop-blue dark:focus:border-blue-500"
                 />
                 <textarea
                   value={notifMsg}
                   onChange={e => setNotifMsg(e.target.value)}
                   placeholder="Contenu du message visible par le owner dans son dashboard…"
-                  className="w-full bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder-gray-500 focus:outline-none focus:border-stockshop-blue resize-none"
+                  className="w-full bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder-gray-500 focus:outline-none focus:border-stockshop-blue dark:focus:border-blue-500 resize-none"
                   rows={3}
                 />
                 <div className="flex justify-end">
@@ -601,7 +601,7 @@ export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
                   value={noteText}
                   onChange={e => setNoteText(e.target.value)}
                   placeholder="Ex : Client a appelé le 10 mai pour perte de données. Restauré via admin. À surveiller."
-                  className="w-full bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder-gray-500 focus:outline-none focus:border-stockshop-blue resize-none"
+                  className="w-full bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder-gray-500 focus:outline-none focus:border-stockshop-blue dark:focus:border-blue-500 resize-none"
                   rows={4}
                 />
                 <div className="flex justify-between items-center mt-2">
@@ -707,7 +707,7 @@ export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
                   <input
                     value={editForm.name}
                     onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
-                    className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-stockshop-blue"
+                    className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-stockshop-blue dark:focus:border-blue-500"
                     placeholder="Nom de la boutique"
                   />
                 </div>
@@ -716,7 +716,7 @@ export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
                   <input
                     value={editForm.city}
                     onChange={e => setEditForm(f => ({ ...f, city: e.target.value }))}
-                    className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-stockshop-blue"
+                    className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-stockshop-blue dark:focus:border-blue-500"
                     placeholder="Lagos, Douala…"
                   />
                 </div>
@@ -735,7 +735,7 @@ export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
                   <input
                     value={editForm.whatsapp}
                     onChange={e => setEditForm(f => ({ ...f, whatsapp: e.target.value }))}
-                    className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-stockshop-blue"
+                    className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-stockshop-blue dark:focus:border-blue-500"
                     placeholder="+2348012345678"
                   />
                 </div>
@@ -744,7 +744,7 @@ export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
                   <input
                     value={editForm.currency}
                     onChange={e => setEditForm(f => ({ ...f, currency: e.target.value.toUpperCase() }))}
-                    className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-stockshop-blue"
+                    className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-stockshop-blue dark:focus:border-blue-500"
                     placeholder="XAF, XOF, NGN, EUR…"
                   />
                 </div>
@@ -755,7 +755,7 @@ export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
                   size="sm"
                   disabled={savingEdit}
                   onClick={saveEdit}
-                  className="bg-stockshop-blue hover:bg-stockshop-blue-light text-white"
+                  className="bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500 text-white"
                 >
                   <Send className="h-3.5 w-3.5 mr-1.5" />
                   {savingEdit ? 'Enregistrement…' : 'Enregistrer les modifications'}

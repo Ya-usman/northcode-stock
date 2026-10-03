@@ -1025,7 +1025,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             {selectionMode && (
               <div className="flex-shrink-0 mt-0.5">
                 {isSelected
-                  ? <CheckSquare className="h-5 w-5 text-stockshop-blue" />
+                  ? <CheckSquare className="h-5 w-5 text-stockshop-blue dark:text-blue-400" />
                   : <Square className="h-5 w-5 text-muted-foreground/50" />
                 }
               </div>
@@ -1079,7 +1079,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         {!selectionMode && (
           <div className="flex items-center justify-between">
             <span className="text-sm">
-              <span className={`font-bold ${product.quantity === 0 ? 'text-red-500' : product.quantity <= threshold ? 'text-amber-500' : 'text-green-600'}`}>
+              <span className={`font-bold ${product.quantity === 0 ? 'text-red-500' : product.quantity <= threshold ? 'text-amber-500' : 'text-green-600 dark:text-green-400'}`}>
                 {product.quantity}
               </span>{' '}
               <span className="text-muted-foreground text-xs">{product.unit}s</span>
@@ -1113,7 +1113,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 return (
                   <Button
                     variant="outline" size="sm"
-                    className={`h-7 px-2 ${stale ? 'text-red-600 border-red-300 dark:border-red-700' : promoActive ? 'text-stockshop-blue border-stockshop-blue/20 dark:border-blue-800' : suggestion ? 'text-amber-600 border-amber-300 dark:border-amber-700' : ''}`}
+                    className={`h-7 px-2 ${stale ? 'text-red-600 dark:text-red-400 border-red-300 dark:border-red-700' : promoActive ? 'text-stockshop-blue dark:text-blue-400 border-stockshop-blue/20 dark:border-blue-800' : suggestion ? 'text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-700' : ''}`}
                     disabled={saving}
                     title={stale ? t('products.promo_stale_hint') : suggestion ? suggestion.reason : t('products.promo_action')}
                     onClick={() => {
@@ -1148,7 +1148,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 <History className="h-3 w-3" />
               </Button>
               {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
-                <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-amber-600" disabled={saving} title={t('products.archive_label')} onClick={() => setArchiveConfirmProduct(product)}>
+                <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-amber-600 dark:hover:text-amber-400" disabled={saving} title={t('products.archive_label')} onClick={() => setArchiveConfirmProduct(product)}>
                   <Archive className="h-3 w-3" />
                 </Button>
               )}
@@ -1158,7 +1158,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         {selectionMode && (
           <div className="flex items-center justify-between">
             <span className="text-sm">
-              <span className={`font-bold ${product.quantity === 0 ? 'text-red-500' : product.quantity <= threshold ? 'text-amber-500' : 'text-green-600'}`}>
+              <span className={`font-bold ${product.quantity === 0 ? 'text-red-500' : product.quantity <= threshold ? 'text-amber-500' : 'text-green-600 dark:text-green-400'}`}>
                 {product.quantity}
               </span>{' '}
               <span className="text-muted-foreground text-xs">{product.unit}s</span>
@@ -1302,11 +1302,11 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       {/* Cartes d'alerte cliquables */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {[
-          { key: 'out', count: outCount, label: t('products.card_out_of_stock'), icon: PackageX, color: 'text-red-600 border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20', badge: 'bg-red-100 dark:bg-red-900/40' },
-          { key: 'low', count: lowCount, label: t('products.card_low_stock'), icon: PackageMinus, color: 'text-amber-600 border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/20', badge: 'bg-amber-100 dark:bg-amber-900/40' },
-          { key: 'expiry', count: expiringCount, label: t('products.card_expiry'), icon: CalendarClock, color: 'text-orange-600 border-orange-200 dark:border-orange-900 bg-orange-50/50 dark:bg-orange-950/20', badge: 'bg-orange-100 dark:bg-orange-900/40' },
-          { key: 'dormant', count: dormantCount, label: t('products.card_dormant'), icon: TrendingDown, color: 'text-stockshop-blue border-stockshop-blue/20 dark:border-blue-900 bg-stockshop-blue-muted/50 dark:bg-blue-950/20', badge: 'bg-stockshop-blue-muted dark:bg-blue-900/40' },
-          { key: 'promo', count: promoCount, label: t('products.promo_badge'), icon: Tag, color: 'text-purple-600 border-purple-200 dark:border-purple-900 bg-purple-50/50 dark:bg-purple-950/20', badge: 'bg-purple-100 dark:bg-purple-900/40' },
+          { key: 'out', count: outCount, label: t('products.card_out_of_stock'), icon: PackageX, color: 'text-red-600 dark:text-red-400 border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20', badge: 'bg-red-100 dark:bg-red-900/40' },
+          { key: 'low', count: lowCount, label: t('products.card_low_stock'), icon: PackageMinus, color: 'text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/20', badge: 'bg-amber-100 dark:bg-amber-900/40' },
+          { key: 'expiry', count: expiringCount, label: t('products.card_expiry'), icon: CalendarClock, color: 'text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-900 bg-orange-50/50 dark:bg-orange-950/20', badge: 'bg-orange-100 dark:bg-orange-900/40' },
+          { key: 'dormant', count: dormantCount, label: t('products.card_dormant'), icon: TrendingDown, color: 'text-stockshop-blue dark:text-blue-400 border-stockshop-blue/20 dark:border-blue-900 bg-stockshop-blue-muted/50 dark:bg-blue-950/20', badge: 'bg-stockshop-blue-muted dark:bg-blue-900/40' },
+          { key: 'promo', count: promoCount, label: t('products.promo_badge'), icon: Tag, color: 'text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-900 bg-purple-50/50 dark:bg-purple-950/20', badge: 'bg-purple-100 dark:bg-purple-900/40' },
         ].map(card => (
           <button
             key={card.key}
@@ -1333,7 +1333,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       {selectionMode && (
         <div className="flex items-center justify-between rounded-lg bg-stockshop-blue-muted dark:bg-blue-950/40 border border-stockshop-blue/20 dark:border-blue-800 px-3 py-2">
           <button
-            className="flex items-center gap-2 text-sm font-medium text-stockshop-blue dark:text-blue-400 hover:text-stockshop-blue transition-colors"
+            className="flex items-center gap-2 text-sm font-medium text-stockshop-blue dark:text-blue-400 hover:text-stockshop-blue dark:hover:text-blue-400 transition-colors"
             onClick={toggleSelectAll}
           >
             {selectedIds.size > 0 && selectedIds.size === filtered.length
@@ -1341,12 +1341,12 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               : <Square className="h-4 w-4" />
             }
             {selectedIds.size > 0 && selectedIds.size === filtered.length ? t('products.deselect_all') : t('products.select_all')}
-            <span className="text-xs font-normal text-stockshop-blue">({filtered.length})</span>
+            <span className="text-xs font-normal text-stockshop-blue dark:text-blue-400">({filtered.length})</span>
           </button>
           {canDeleteProducts && products.length > 0 && (
             <button
               onClick={() => { setBulkDeleteAll(true); setBulkDeleteText(''); setBulkDeleteDialog(true) }}
-              className="flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 transition-colors"
+              className="flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
             >
               <Trash2 className="h-3.5 w-3.5" />
               {t('products.delete_all_count', { count: products.length })}
@@ -1436,7 +1436,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   <Button
-                    variant="outline" size="sm" className="h-7 gap-1 text-xs text-green-700 border-green-200 hover:bg-green-50 dark:text-green-400 dark:border-green-800"
+                    variant="outline" size="sm" className="h-7 gap-1 text-xs text-green-700 border-green-200 hover:bg-green-50 dark:hover:bg-green-950/40 dark:text-green-400 dark:border-green-800"
                     onClick={() => restoreProduct(product)}
                   >
                     <RotateCcw className="h-3 w-3" />
@@ -1949,7 +1949,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                             {b.quantity} {batchesProduct.unit}
                             {canWriteStock && (
                               <button
-                                className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-stockshop-blue"
+                                className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-stockshop-blue dark:hover:text-blue-400"
                                 title={t('products.adjust_quantity_action')}
                                 onClick={() => { setAdjustBatch(b); setAdjustQuantity(String(b.quantity)); setAdjustReason('correction') }}
                               >
@@ -1963,7 +1963,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                             </span>
                             {canWriteStock && (
                               <button
-                                className={`h-6 w-6 flex items-center justify-center rounded ${batchPromoActive ? 'text-stockshop-blue' : 'text-muted-foreground hover:text-amber-600'}`}
+                                className={`h-6 w-6 flex items-center justify-center rounded ${batchPromoActive ? 'text-stockshop-blue dark:text-blue-400' : 'text-muted-foreground hover:text-amber-600 dark:hover:text-amber-400'}`}
                                 title={t('products.promo_action')}
                                 onClick={() => {
                                   setPromoProduct(batchesProduct)
@@ -1981,7 +1981,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                             )}
                             {canWriteStock && (
                               <button
-                                className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-red-600"
+                                className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
                                 title={t('products.delete_batch_action')}
                                 onClick={() => { setDeleteBatchConfirm(b); setDeleteBatchReason('correction') }}
                               >
@@ -2004,7 +2004,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                           )}
                           {canWriteStock && (
                             <button
-                              className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-stockshop-blue"
+                              className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-stockshop-blue dark:hover:text-blue-400"
                               title={t('products.edit_expiry_action')}
                               onClick={() => { setExpiryBatch(b); setExpiryDate(b.expiry_date ? b.expiry_date.slice(0, 10) : '') }}
                             >
@@ -2046,7 +2046,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             </PremiumDialogBody>
             <PremiumDialogFooter onCancel={() => setExpiryBatch(null)} cancelLabel={t('actions.cancel')}>
               {expiryBatch.expiry_date && (
-                <Button variant="outline" className="h-11 rounded-xl font-semibold text-red-600 hover:text-red-700" onClick={clearExpiry} loading={savingExpiry}>
+                <Button variant="outline" className="h-11 rounded-xl font-semibold text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300" onClick={clearExpiry} loading={savingExpiry}>
                   {t('products.clear_expiry_action')}
                 </Button>
               )}
@@ -2150,7 +2150,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               onClick={() => setBulkCategoryId(null)}
               className={cn(
                 'w-full flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-left transition-colors border',
-                bulkCategoryId === null ? 'border-stockshop-blue bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400 font-medium' : 'border-transparent hover:bg-accent text-foreground/80'
+                bulkCategoryId === null ? 'border-stockshop-blue dark:border-blue-500 bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400 font-medium' : 'border-transparent hover:bg-accent text-foreground/80'
               )}
             >
               {t('categories.uncategorized')}
@@ -2162,7 +2162,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 onClick={() => setBulkCategoryId(c.id)}
                 className={cn(
                   'w-full flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-left transition-colors border',
-                  bulkCategoryId === c.id ? 'border-stockshop-blue bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400 font-medium' : 'border-transparent hover:bg-accent text-foreground/80'
+                  bulkCategoryId === c.id ? 'border-stockshop-blue dark:border-blue-500 bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400 font-medium' : 'border-transparent hover:bg-accent text-foreground/80'
                 )}
               >
                 {c.color && <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: c.color }} />}

@@ -386,7 +386,7 @@ export function ProductForm({
             type="button"
             variant="outline"
             disabled={saving || uploadingImage}
-            className="w-full h-10 rounded-xl gap-2 text-stockshop-blue border-stockshop-blue/40 hover:bg-stockshop-blue/5"
+            className="w-full h-10 rounded-xl gap-2 text-stockshop-blue dark:text-blue-400 border-stockshop-blue/40 hover:bg-stockshop-blue/5"
             onClick={form.handleSubmit(onSaveAndAdd)}
           >
             <PlusCircle className="h-4 w-4" />
@@ -398,7 +398,7 @@ export function ProductForm({
         <Button
           type="submit"
           disabled={saving || uploadingImage}
-          className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light"
+          className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500"
         >
           {saving ? t('actions.saving') : isEdit ? t('actions.update') : t('actions.save')}
         </Button>

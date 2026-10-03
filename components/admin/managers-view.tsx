@@ -123,7 +123,7 @@ export function ManagersView({ shops: initialShops, managers: initialManagers }:
         <Button
           onClick={() => setAdding(v => !v)}
           size="sm"
-          className="gap-1.5 bg-stockshop-blue hover:bg-stockshop-blue-light shrink-0 h-9 text-sm"
+          className="gap-1.5 bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500 shrink-0 h-9 text-sm"
         >
           <Plus className="h-4 w-4" />
           <span className="hidden xs:inline sm:inline">Assigner</span>

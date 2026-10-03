@@ -64,7 +64,7 @@ export function DowngradeNotice({
           <p className="text-xs text-muted-foreground">{t('downgrade_info')}</p>
           <Link
             href={`/${locale}/billing`}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-stockshop-blue hover:underline"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-stockshop-blue dark:text-blue-400 hover:underline"
           >
             {t('upgrade_to_recover')}
             <ArrowRight className="h-3 w-3" />

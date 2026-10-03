@@ -177,7 +177,7 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
                 </>
               ) : (
                 <div className="flex flex-col items-center gap-3">
-                  <div className="h-8 w-8 rounded-full border-2 border-stockshop-blue border-t-transparent animate-spin" />
+                  <div className="h-8 w-8 rounded-full border-2 border-stockshop-blue dark:border-blue-500 border-t-transparent animate-spin" />
                   <p className="text-sm text-muted-foreground">{t('verifying_link')}</p>
                 </div>
               )}
@@ -236,7 +236,7 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
                 <Button
                   type="submit"
                   loading={loading}
-                  className="w-full h-11 bg-stockshop-blue hover:bg-stockshop-blue-light text-base font-semibold"
+                  className="w-full h-11 bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500 text-base font-semibold"
                 >
                   {isInvite ? t('activate_button') : t('save_password_button')}
                 </Button>

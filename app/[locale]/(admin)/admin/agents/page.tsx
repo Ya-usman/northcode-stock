@@ -562,7 +562,7 @@ export default function AgentsPage() {
                     onChange={e => setSelectedCommissions(prev =>
                       e.target.checked ? [...prev, c.id] : prev.filter(id => id !== c.id)
                     )}
-                    className="h-4 w-4 rounded border-gray-300"
+                    className="h-4 w-4 rounded border-gray-300 dark:border-border"
                   />
                 )}
                 <div className="flex-1 min-w-0">

@@ -247,7 +247,7 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
                     <p className="text-xs text-muted-foreground/70">
                       {t('previous_count_label')}: {prev.countedQty} {p.unit}
                       {prevVariance !== 0 && (
-                        <span className={prevVariance > 0 ? 'text-green-600' : 'text-red-600'}>
+                        <span className={prevVariance > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
                           {' '}({prevVariance > 0 ? '+' : ''}{prevVariance}{prev.reasonLabel ? `, ${prev.reasonLabel}` : ''})
                         </span>
                       )}
@@ -265,7 +265,7 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
                   className="w-20 h-9 text-center flex-shrink-0"
                 />
                 {hasDiff && (
-                  <span className={`text-xs font-semibold flex-shrink-0 w-12 text-right ${countedQty! > p.quantity ? 'text-green-600' : 'text-red-600'}`}>
+                  <span className={`text-xs font-semibold flex-shrink-0 w-12 text-right ${countedQty! > p.quantity ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                     {countedQty! > p.quantity ? '+' : ''}{countedQty! - p.quantity}
                   </span>
                 )}
@@ -301,7 +301,7 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
                 <div className="flex items-center justify-between text-sm">
                   <span className="truncate flex-1 font-medium">{d.product.name}</span>
                   <span className="text-muted-foreground text-xs mx-2 flex-shrink-0">{d.theoretical} → {d.counted}</span>
-                  <span className={`font-semibold text-xs w-10 text-right flex-shrink-0 ${d.variance > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  <span className={`font-semibold text-xs w-10 text-right flex-shrink-0 ${d.variance > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                     {d.variance > 0 ? '+' : ''}{d.variance}
                   </span>
                 </div>
@@ -323,7 +323,7 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
           </div>
           <div className="flex items-center justify-between mt-3 pt-3 border-t">
             <span className="text-sm font-semibold">{t('value_impact')}</span>
-            <span className={`text-sm font-bold ${totalValueDelta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <span className={`text-sm font-bold ${totalValueDelta >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
               {totalValueDelta >= 0 ? '+' : ''}{fmt(totalValueDelta)}
             </span>
           </div>

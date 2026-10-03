@@ -81,8 +81,8 @@ const PAYOUT_STATUS_KEYS: Record<string, string> = {
 
 const PAYOUT_STATUS_COLORS: Record<string, string> = {
   requested: 'bg-amber-500/10 text-amber-500',
-  under_review: 'bg-stockshop-blue/10 text-stockshop-blue',
-  approved: 'bg-stockshop-blue/10 text-stockshop-blue',
+  under_review: 'bg-stockshop-blue/10 text-stockshop-blue dark:text-blue-400',
+  approved: 'bg-stockshop-blue/10 text-stockshop-blue dark:text-blue-400',
   paid: 'bg-green-500/10 text-green-500',
   rejected: 'bg-red-500/10 text-red-500',
   cancelled: 'bg-muted text-muted-foreground',
@@ -101,7 +101,7 @@ const STATUS_KEYS: Record<string, string> = {
 
 const STATUS_COLORS: Record<string, string> = {
   invited: 'bg-muted text-muted-foreground',
-  registered: 'bg-stockshop-blue/10 text-stockshop-blue',
+  registered: 'bg-stockshop-blue/10 text-stockshop-blue dark:text-blue-400',
   trial: 'bg-amber-500/10 text-amber-500',
   paid: 'bg-green-500/10 text-green-500',
   reward_pending: 'bg-amber-500/10 text-amber-500',
@@ -293,7 +293,7 @@ export default function ReferralsPage({ params: { locale } }: { params: { locale
 
       <div>
         <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-          <Gift className="h-5 w-5 text-stockshop-blue" />
+          <Gift className="h-5 w-5 text-stockshop-blue dark:text-blue-400" />
           {t('page_title')}
         </h1>
         <p className="text-sm text-muted-foreground mt-0.5">{t('page_subtitle')}</p>

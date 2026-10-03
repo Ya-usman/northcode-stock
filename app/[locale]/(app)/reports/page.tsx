@@ -485,7 +485,7 @@ export default function ReportsPage() {
       {/* KPI — ligne 1 : Encaissé · Dépenses · Transactions */}
       <div className="grid grid-cols-3 gap-2">
         {[
-          { key: 'widget_rep_encaisse', label: t('reports.encaisse'), amount: totals.revenue, color: 'text-stockshop-blue', isNum: false, sub: t('reports.cash_in_register') },
+          { key: 'widget_rep_encaisse', label: t('reports.encaisse'), amount: totals.revenue, color: 'text-stockshop-blue dark:text-blue-400', isNum: false, sub: t('reports.cash_in_register') },
           { key: 'widget_rep_depenses', label: t('expenses.title'), amount: totalExpenses, color: 'text-red-500', isNum: false, sub: null },
           { key: 'widget_rep_transactions', label: t('reports.transactions'), amount: totals.sales, color: 'text-foreground', isNum: true, sub: null },
         ].filter(item => canAccess(item.key as PermFeature)).map(item => (
@@ -606,7 +606,7 @@ export default function ReportsPage() {
                           <TableCell className="text-muted-foreground text-xs px-2 sm:px-4">{idx + 1}</TableCell>
                           <TableCell className="text-xs sm:text-sm font-medium px-2 sm:px-4 max-w-[140px] truncate">{p.name}</TableCell>
                           <TableCell className="text-right text-xs sm:text-sm px-2 sm:px-4">{p.qty}</TableCell>
-                          <TableCell className="text-right text-xs sm:text-sm font-medium text-stockshop-blue px-2 sm:px-4 whitespace-nowrap">{formatNaira(p.revenue)}</TableCell>
+                          <TableCell className="text-right text-xs sm:text-sm font-medium text-stockshop-blue dark:text-blue-400 px-2 sm:px-4 whitespace-nowrap">{formatNaira(p.revenue)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -646,7 +646,7 @@ export default function ReportsPage() {
                           </TableCell>
                           <TableCell className="text-right text-xs text-muted-foreground px-2 sm:px-4 hidden sm:table-cell">{p.soldQty > 0 ? p.soldQty : '—'}</TableCell>
                           {!isCashier && <TableCell className="text-right text-xs text-muted-foreground px-2 sm:px-4 hidden sm:table-cell">{formatNaira(p.buying_price)}</TableCell>}
-                          <TableCell className="text-right text-xs sm:text-sm text-stockshop-blue px-2 sm:px-4 whitespace-nowrap">{formatNaira(p.selling_price)}</TableCell>
+                          <TableCell className="text-right text-xs sm:text-sm text-stockshop-blue dark:text-blue-400 px-2 sm:px-4 whitespace-nowrap">{formatNaira(p.selling_price)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -666,8 +666,8 @@ export default function ReportsPage() {
                 <div className="grid grid-cols-3 gap-2 text-center">
                   {[
                     { label: t('reports.buying_value'), value: formatNaira(stockValuation.buyingValue), color: 'text-muted-foreground' },
-                    { label: t('reports.selling_value'), value: formatNaira(stockValuation.sellingValue), color: 'text-stockshop-blue' },
-                    { label: t('reports.potential_profit'), value: formatNaira(stockValuation.potentialProfit), color: 'text-green-600' },
+                    { label: t('reports.selling_value'), value: formatNaira(stockValuation.sellingValue), color: 'text-stockshop-blue dark:text-blue-400' },
+                    { label: t('reports.potential_profit'), value: formatNaira(stockValuation.potentialProfit), color: 'text-green-600 dark:text-green-400' },
                   ].map(item => (
                     <div key={item.label} className="rounded-lg bg-muted/30 p-2 sm:p-3">
                       <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">{item.label}</p>
@@ -727,7 +727,7 @@ export default function ReportsPage() {
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <CardTitle className="text-sm">{t('reports.cashier_performance')}</CardTitle>
                   {isMultiShop ? (
-                    <span className="text-[11px] font-medium text-stockshop-blue bg-stockshop-blue-muted dark:bg-blue-950/40 border border-stockshop-blue/20 dark:border-blue-800 rounded-full px-2 py-0.5">
+                    <span className="text-[11px] font-medium text-stockshop-blue dark:text-blue-400 bg-stockshop-blue-muted dark:bg-blue-950/40 border border-stockshop-blue/20 dark:border-blue-800 rounded-full px-2 py-0.5">
                       {t('reports.all_shops_ranking')}
                     </span>
                   ) : shop?.name ? (
@@ -758,7 +758,7 @@ export default function ReportsPage() {
                           <TableCell className="font-medium text-xs sm:text-sm px-2 sm:px-4 max-w-[100px] truncate">{c.name}</TableCell>
                           {isMultiShop && <TableCell className="text-xs text-muted-foreground px-2 sm:px-4 hidden sm:table-cell">{c.shopName}</TableCell>}
                           <TableCell className="text-right text-xs sm:text-sm px-2 sm:px-4">{c.sales}</TableCell>
-                          <TableCell className={`text-right text-xs sm:text-sm font-medium px-2 sm:px-4 whitespace-nowrap ${c.sales > 0 ? 'text-stockshop-blue' : 'text-muted-foreground'}`}>
+                          <TableCell className={`text-right text-xs sm:text-sm font-medium px-2 sm:px-4 whitespace-nowrap ${c.sales > 0 ? 'text-stockshop-blue dark:text-blue-400' : 'text-muted-foreground'}`}>
                             {c.sales > 0 ? formatNaira(c.revenue) : '—'}
                           </TableCell>
                         </TableRow>

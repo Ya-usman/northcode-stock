@@ -134,7 +134,7 @@ export function ExpenseRevenueChart() {
         <p className="text-blue-500">{t('revenue_label')}: <span className="font-medium">{fmt(rev)}</span></p>
         <p className="text-red-400">{t('expenses_label')}: <span className="font-medium">{fmt(exp)}</span></p>
         <div className="mt-2 pt-2 border-t">
-          <p className={cn('text-xs font-bold', net >= 0 ? 'text-green-600' : 'text-red-600')}>
+          <p className={cn('text-xs font-bold', net >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400')}>
             {t('net_label')}: {net >= 0 ? '+' : ''}{fmt(net)}
           </p>
         </div>

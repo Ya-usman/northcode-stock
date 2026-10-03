@@ -286,7 +286,7 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
                     <span>{t('actions.export_pdf')}</span>
                   </button>
                   <button onClick={exportCSV} className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left">
-                    <Table2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    <Table2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
                     <span>{t('actions.export_csv')}</span>
                   </button>
                 </div>
@@ -344,14 +344,14 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
                         <td className="px-3 py-2">
                           <div className="flex items-center gap-1 justify-end">
                             <button
-                              className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-stockshop-blue"
+                              className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-stockshop-blue dark:hover:text-blue-400"
                               title={t('products.adjust_quantity_action')}
                               onClick={() => { setAdjustBatch(b); setAdjustQuantity(String(b.quantity)); setAdjustReason('correction') }}
                             >
                               <Edit2 className="h-3.5 w-3.5" />
                             </button>
                             <button
-                              className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-red-600"
+                              className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
                               title={t('products.delete_batch_action')}
                               onClick={() => { setDeleteBatchConfirm(b); setDeleteBatchReason('correction') }}
                             >
@@ -368,7 +368,7 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
           </div>
           <div className="flex items-center justify-between rounded-xl border bg-muted/30 px-4 py-3">
             <span className="text-sm font-medium">{t('expiry.total_at_risk')}</span>
-            <span className="text-sm font-bold text-orange-600">{formatNaira(totalAtRisk)}</span>
+            <span className="text-sm font-bold text-orange-600 dark:text-orange-400">{formatNaira(totalAtRisk)}</span>
           </div>
         </>
       )}

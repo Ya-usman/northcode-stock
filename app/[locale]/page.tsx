@@ -86,7 +86,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
       name: 'Pro',
       price: country.prices.pro,
       popular: true,
-      color: 'border-stockshop-blue',
+      color: 'border-stockshop-blue dark:border-blue-500',
       features: [t('pricing.f5'), t('pricing.f6'), t('pricing.f7'), t('pricing.f8')],
     },
     {
@@ -153,7 +153,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
                   <DropdownMenuItem
                     key={lang.code}
                     onClick={() => switchLanguage(lang.code)}
-                    className={locale === lang.code ? 'font-semibold text-stockshop-blue' : ''}
+                    className={locale === lang.code ? 'font-semibold text-stockshop-blue dark:text-blue-400' : ''}
                   >
                     <span className="mr-2">{lang.flag}</span>
                     {lang.label}
@@ -164,7 +164,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
 
             {/* Login */}
             <Link href={`/${locale}/login`}>
-              <Button size="sm" className="h-8 bg-stockshop-blue hover:bg-stockshop-blue-light text-white text-xs sm:text-sm px-3">
+              <Button size="sm" className="h-8 bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500 text-white text-xs sm:text-sm px-3">
                 {t('nav.login')}
               </Button>
             </Link>
@@ -212,7 +212,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center mb-6 px-4 sm:px-0">
               <Link href={`/${locale}/register?plan=business`} className="w-full sm:w-auto">
-                <Button size="lg" className="w-full sm:w-auto bg-stockshop-gold hover:bg-stockshop-gold-light text-gray-900 font-bold h-12 px-8 text-base gap-2">
+                <Button size="lg" className="w-full sm:w-auto bg-stockshop-gold hover:bg-stockshop-gold-light text-gray-900 dark:text-gray-100 font-bold h-12 px-8 text-base gap-2">
                   {t('hero.cta_primary')}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
@@ -382,7 +382,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
                 className={cn(
                   'relative rounded-2xl border-2 bg-white dark:bg-gray-800/50 p-6 shadow-sm',
                   plan.color,
-                  plan.popular && 'shadow-xl ring-2 ring-stockshop-blue mt-4 md:mt-0'
+                  plan.popular && 'shadow-xl ring-2 ring-stockshop-blue dark:ring-blue-500 mt-4 md:mt-0'
                 )}
               >
                 {plan.popular && (
@@ -416,7 +416,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
                   <Button className={cn(
                     'w-full',
                     plan.popular
-                      ? 'bg-stockshop-blue hover:bg-stockshop-blue-light text-white'
+                      ? 'bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500 text-white'
                       : 'border border-stockshop-blue dark:border-blue-400 text-stockshop-blue dark:text-blue-400 hover:bg-stockshop-blue-muted dark:hover:bg-blue-950/40 bg-transparent'
                   )}>
                     {t('pricing.cta')}
@@ -437,7 +437,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
           <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">{t('cta.title')}</h2>
           <p className="text-blue-200 mb-6 md:mb-8 text-sm md:text-base">{t('cta.subtitle')}</p>
           <Link href={`/${locale}/register?plan=business`}>
-            <Button size="lg" className="bg-stockshop-gold hover:bg-stockshop-gold-light text-gray-900 font-bold h-12 px-8 md:px-10 text-base gap-2 w-full sm:w-auto">
+            <Button size="lg" className="bg-stockshop-gold hover:bg-stockshop-gold-light text-gray-900 dark:text-gray-100 font-bold h-12 px-8 md:px-10 text-base gap-2 w-full sm:w-auto">
               {t('cta.button')}
               <ArrowRight className="h-4 w-4" />
             </Button>

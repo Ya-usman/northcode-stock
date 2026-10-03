@@ -696,7 +696,7 @@ export function AdminShopsTable({ shops, locale, tier }: Props) {
                 type="number" min={1} max={365}
                 value={bulkExtendDays}
                 onChange={e => setBulkExtendDays(e.target.value)}
-                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:border-stockshop-blue"
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:border-stockshop-blue dark:focus:border-blue-500"
               />
             </div>
           )}
@@ -706,7 +706,7 @@ export function AdminShopsTable({ shops, locale, tier }: Props) {
               <select
                 value={bulkGrantPlan}
                 onChange={e => setBulkGrantPlan(e.target.value)}
-                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:border-stockshop-blue"
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:border-stockshop-blue dark:focus:border-blue-500"
               >
                 <option value="starter">Starter</option>
                 <option value="pro">Pro</option>
@@ -721,7 +721,7 @@ export function AdminShopsTable({ shops, locale, tier }: Props) {
             <Button
               size="sm"
               onClick={doBulkAction}
-              className={bulkConfirm?.action === 'suspend' ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-stockshop-blue hover:bg-stockshop-blue-light text-white'}
+              className={bulkConfirm?.action === 'suspend' ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500 text-white'}
             >
               Confirmer
             </Button>
@@ -778,7 +778,7 @@ export function AdminShopsTable({ shops, locale, tier }: Props) {
                 max={365}
                 value={extendDays}
                 onChange={e => setExtendDays(e.target.value)}
-                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:border-stockshop-blue"
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:border-stockshop-blue dark:focus:border-blue-500"
               />
             </div>
           )}
@@ -789,7 +789,7 @@ export function AdminShopsTable({ shops, locale, tier }: Props) {
               <select
                 value={grantPlan}
                 onChange={e => setGrantPlan(e.target.value)}
-                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:border-stockshop-blue"
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:border-stockshop-blue dark:focus:border-blue-500"
               >
                 <option value="starter">Starter — ₦4,500/mois</option>
                 <option value="pro">Pro — ₦9,500/mois</option>
@@ -811,7 +811,7 @@ export function AdminShopsTable({ shops, locale, tier }: Props) {
                   ? 'bg-red-600 hover:bg-red-700 text-white'
                   : confirmDialog.action === 'reactivate'
                   ? 'bg-green-600 hover:bg-green-700 text-white'
-                  : 'bg-stockshop-blue hover:bg-stockshop-blue-light text-white'
+                  : 'bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500 text-white'
               }
             >
               Confirmer

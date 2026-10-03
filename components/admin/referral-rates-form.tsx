@@ -209,7 +209,7 @@ export function ReferralRatesForm({ tier }: { tier: AdminTier }) {
                 </td>
                 <td className="py-2 px-3 whitespace-nowrap">
                   {r.is_manual_override ? (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-stockshop-blue/15 text-stockshop-blue">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-stockshop-blue/15 text-stockshop-blue dark:text-blue-400">
                       <Lock className="h-2.5 w-2.5" /> Manuel (override)
                     </span>
                   ) : (

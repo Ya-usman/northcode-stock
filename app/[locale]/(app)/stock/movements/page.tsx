@@ -182,7 +182,7 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
           <div className="grid grid-cols-2 divide-x">
             <div className="flex flex-col items-center justify-center py-4 px-6">
               <p className="text-xs text-muted-foreground mb-1">{t('total_restocked')}</p>
-              <p className="text-2xl font-bold text-green-600">+{totalRestocks}</p>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">+{totalRestocks}</p>
             </div>
             <div className="flex flex-col items-center justify-center py-4 px-6">
               <p className="text-xs text-muted-foreground mb-1">{t('products_tracked')}</p>
@@ -248,7 +248,7 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
               const hasHistory = hasRestocks || p.adjustments.length > 0
               const restockTotal = p.restocks.reduce((s, m) => s + m.quantity, 0)
               const qty = p.current_qty
-              const qtyColor = qty === 0 ? 'text-red-600' : qty != null && qty <= 5 ? 'text-amber-500' : ''
+              const qtyColor = qty === 0 ? 'text-red-600 dark:text-red-400' : qty != null && qty <= 5 ? 'text-amber-500' : ''
 
               return (
                 <button
@@ -277,7 +277,7 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
                     </div>
                     <div className="px-4 py-2.5 flex justify-center border-l">
                       {hasRestocks ? (
-                        <div className="flex items-center gap-1.5 text-sm font-semibold text-green-600 tabular-nums">
+                        <div className="flex items-center gap-1.5 text-sm font-semibold text-green-600 dark:text-green-400 tabular-nums">
                           +{restockTotal}
                           <span className="text-[10px] font-normal text-muted-foreground">{p.restocks.length}×</span>
                         </div>
@@ -305,7 +305,7 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
                     </div>
                     <div className="px-2 py-2.5 flex justify-center border-l">
                       {hasRestocks ? (
-                        <div className="flex items-center gap-0.5 text-xs font-semibold text-green-600 tabular-nums">
+                        <div className="flex items-center gap-0.5 text-xs font-semibold text-green-600 dark:text-green-400 tabular-nums">
                           +{restockTotal}
                           <span className="text-[10px] font-normal text-muted-foreground">{p.restocks.length}×</span>
                         </div>

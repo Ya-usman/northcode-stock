@@ -306,7 +306,7 @@ export default function CaissePage() {
         <Card className="border-0 shadow-sm">
           <CardContent className="p-3">
             <div className="flex items-center gap-1.5 mb-1">
-              <TrendingUp className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+              <TrendingUp className="h-3.5 w-3.5 text-green-600 dark:text-green-400 flex-shrink-0" />
               <p className="text-[10px] font-medium text-muted-foreground truncate">{t('total_collected')}</p>
             </div>
             {loading ? <Skeleton className="h-6 w-full" /> : (
@@ -324,7 +324,7 @@ export default function CaissePage() {
         <Card className="border-0 shadow-sm">
           <CardContent className="p-3">
             <div className="flex items-center gap-1.5 mb-1">
-              <ShoppingCart className="h-3.5 w-3.5 text-stockshop-blue flex-shrink-0" />
+              <ShoppingCart className="h-3.5 w-3.5 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
               <p className="text-[10px] font-medium text-muted-foreground truncate">{t('total_sales')}</p>
             </div>
             {loading ? <Skeleton className="h-6 w-12" /> : <p className="text-base font-bold leading-none">{grandSalesCount}</p>}
@@ -333,7 +333,7 @@ export default function CaissePage() {
         <Card className="border-0 shadow-sm">
           <CardContent className="p-3">
             <div className="flex items-center gap-1.5 mb-1">
-              <Users className="h-3.5 w-3.5 text-violet-600 flex-shrink-0" />
+              <Users className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400 flex-shrink-0" />
               <p className="text-[10px] font-medium text-muted-foreground truncate">{t('active_cashiers')}</p>
             </div>
             {loading ? <Skeleton className="h-6 w-8" /> : <p className="text-base font-bold leading-none">{cashierSummaries.length}</p>}

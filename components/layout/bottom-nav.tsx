@@ -194,7 +194,7 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
                   <button
                     onClick={() => { setMoreOpen(false); onSignOut() }}
                     disabled={signingOut}
-                    className="flex flex-col items-center gap-1.5 rounded-xl p-3 text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
+                    className="flex flex-col items-center gap-1.5 rounded-xl p-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors disabled:opacity-50"
                   >
                     {signingOut
                       ? <Loader2 className="h-5 w-5 animate-spin" />

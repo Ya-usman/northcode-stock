@@ -43,14 +43,14 @@ export default function LocaleError({
   if (autoReloading) return null
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-muted/50 p-4">
       <div className="text-center max-w-sm">
-        <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-red-100 mb-4">
+        <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/40 mb-4">
           <AlertTriangle className="h-7 w-7 text-red-500" />
         </div>
         <h1 className="text-xl font-bold text-foreground mb-2">{t('title')}</h1>
         <p className="text-sm text-muted-foreground mb-2">{t('body')}</p>
-        <p className="text-xs font-mono bg-gray-100 rounded p-2 mb-4 text-left break-all text-red-600">
+        <p className="text-xs font-mono bg-gray-100 dark:bg-muted rounded p-2 mb-4 text-left break-all text-red-600 dark:text-red-400">
           {error?.message || String(error)}
         </p>
         <div className="flex gap-3 justify-center">

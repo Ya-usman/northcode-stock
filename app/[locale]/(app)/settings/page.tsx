@@ -421,7 +421,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
             <Card className="border-0 shadow-sm hover:bg-accent/40 transition-colors cursor-pointer">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="h-10 w-10 rounded-lg bg-stockshop-blue/10 flex items-center justify-center flex-shrink-0">
-                  <Gift className="h-5 w-5 text-stockshop-blue" />
+                  <Gift className="h-5 w-5 text-stockshop-blue dark:text-blue-400" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-foreground">{t('settings.referrals_title')}</p>
@@ -584,7 +584,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                             className={cn(
                               'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors border',
                               hoursOverride === value
-                                ? 'bg-stockshop-blue text-white border-stockshop-blue'
+                                ? 'bg-stockshop-blue text-white border-stockshop-blue dark:border-blue-500'
                                 : 'border-border text-muted-foreground hover:bg-muted'
                             )}
                           >
@@ -775,7 +775,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                 onClick={() => switchLanguage(lang.code)}
                 className={`rounded-lg border p-3 text-sm font-medium transition-colors tap-target ${
                   locale === lang.code
-                    ? 'border-stockshop-blue bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400'
+                    ? 'border-stockshop-blue dark:border-blue-500 bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400'
                     : 'border-input bg-background text-muted-foreground hover:bg-muted'
                 }`}
               >
@@ -791,7 +791,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
         <Card className="border-0 shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-stockshop-blue" />
+              <ShieldCheck className="h-4 w-4 text-stockshop-blue dark:text-blue-400" />
               {t('settings.role_permissions')}
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-1">
@@ -807,7 +807,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                   'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors border flex items-center gap-1.5',
                   activePermRole === 'general'
                     ? 'bg-amber-500 text-white border-amber-500'
-                    : 'border-amber-300 text-amber-600 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400'
+                    : 'border-amber-300 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 dark:border-amber-800 dark:text-amber-400'
                 )}
               >
                 <Globe className="h-3.5 w-3.5" />
@@ -821,7 +821,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                   className={cn(
                     'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors border',
                     activePermRole === r
-                      ? 'bg-stockshop-blue text-white border-stockshop-blue'
+                      ? 'bg-stockshop-blue text-white border-stockshop-blue dark:border-blue-500'
                       : 'border-border text-muted-foreground hover:bg-muted'
                   )}
                 >

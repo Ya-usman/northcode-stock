@@ -198,7 +198,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
               key={shop.id}
               className={cn(
                 'rounded-xl border-2 bg-card p-4 shadow-sm transition-all',
-                isActive ? 'border-stockshop-blue' : 'border-border hover:border-border'
+                isActive ? 'border-stockshop-blue dark:border-blue-500' : 'border-border hover:border-border'
               )}
             >
               <div className="flex items-center gap-3">
@@ -245,7 +245,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
                       variant="ghost"
                       size="sm"
                       onClick={() => setConfirmDeleteId(shop.id)}
-                      className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 px-2"
+                      className="text-red-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 px-2"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

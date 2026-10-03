@@ -119,7 +119,7 @@ export function PlanUsageCard({
         <h3 className="font-semibold text-sm text-foreground">{t('title')}</h3>
         <span className={cn(
           'text-xs font-semibold px-2 py-0.5 rounded-full',
-          isSubscribed ? 'bg-green-500/10 text-green-600' : isTrialActive ? 'bg-amber-500/10 text-amber-600' : 'bg-red-500/10 text-red-600'
+          isSubscribed ? 'bg-green-500/10 text-green-600 dark:text-green-400' : isTrialActive ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'
         )}>
           {planData.name}
         </span>
@@ -134,7 +134,7 @@ export function PlanUsageCard({
         <div className="pt-1 border-t border-border space-y-1.5">
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground">{isSubscribed ? t('renewal_in') : t('trial_expires_in')}</span>
-            <span className={cn('font-semibold', daysLeft <= 5 ? 'text-red-500' : daysLeft <= 14 ? 'text-amber-600' : 'text-foreground')}>
+            <span className={cn('font-semibold', daysLeft <= 5 ? 'text-red-500' : daysLeft <= 14 ? 'text-amber-600 dark:text-amber-400' : 'text-foreground')}>
               {daysLeft === 0 ? t('today') : `${daysLeft}j`}
             </span>
           </div>

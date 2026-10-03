@@ -109,12 +109,12 @@ export function SWUpdater() {
 
   return (
     <div className="fixed bottom-4 inset-x-4 sm:inset-x-auto sm:right-4 sm:left-auto z-[9998] max-w-sm rounded-xl border bg-card shadow-lg p-3 flex items-center gap-3">
-      <RefreshCw className="h-4 w-4 text-stockshop-blue flex-shrink-0" />
+      <RefreshCw className="h-4 w-4 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
       <p className="text-sm flex-1">Nouvelle version disponible.</p>
       <button
         type="button"
         onClick={() => window.location.reload()}
-        className="text-sm font-semibold text-stockshop-blue hover:underline flex-shrink-0"
+        className="text-sm font-semibold text-stockshop-blue dark:text-blue-400 hover:underline flex-shrink-0"
       >
         Actualiser
       </button>

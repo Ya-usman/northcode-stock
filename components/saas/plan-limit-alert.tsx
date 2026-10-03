@@ -77,14 +77,14 @@ export function PlanLimitAlert({ currentPlan, productCount, teamMemberCount, loc
         exit={{ opacity: 0, y: -8 }}
         className={`mx-4 mt-3 md:mx-6 rounded-xl border p-4 flex items-start gap-3 shadow-sm ${
           isWarning
-            ? 'bg-amber-50 border-amber-200'
-            : 'bg-red-50 border-red-200'
+            ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/60'
+            : 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800/60'
         }`}
       >
         <AlertTriangle className={`h-4 w-4 mt-0.5 flex-shrink-0 ${isWarning ? 'text-amber-500' : 'text-red-500'}`} />
 
         <div className="flex-1 min-w-0">
-          <p className={`text-sm font-medium ${isWarning ? 'text-amber-800' : 'text-red-800'}`}>
+          <p className={`text-sm font-medium ${isWarning ? 'text-amber-800 dark:text-amber-300' : 'text-red-800 dark:text-red-300'}`}>
             {message}
           </p>
           {nextPlan !== currentPlan && (
@@ -100,7 +100,7 @@ export function PlanLimitAlert({ currentPlan, productCount, teamMemberCount, loc
                 {t('upgrade_to_plan', { plan: nextPlanData.name, price: symbol.length > 2 ? `${nextPlanData.price_monthly.toLocaleString()} ${symbol}` : `${symbol}${nextPlanData.price_monthly.toLocaleString()}` })}
                 <ArrowUpRight className="h-3.5 w-3.5" />
               </Link>
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-gray-500 dark:text-gray-400">
                 {nextPlanData.limits.products === -1 ? t('unlimited_products') : t('up_to_products', { count: nextPlanData.limits.products })}
               </span>
             </div>

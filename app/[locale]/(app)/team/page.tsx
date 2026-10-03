@@ -40,7 +40,7 @@ const ROLE_COLORS: Record<string, string> = {
   cashier:       'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
   stock_manager: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
   viewer:        'bg-muted text-muted-foreground',
-  super_admin:   'bg-purple-100 text-purple-700',
+  super_admin:   'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300',
 }
 
 const ROLE_AVATAR_COLORS: Record<string, string> = {
@@ -467,7 +467,7 @@ export default function TeamPage() {
             <div className="flex items-center gap-1.5 flex-wrap">
               <p className="font-semibold text-sm leading-tight truncate max-w-[140px]">{p.full_name}</p>
               {isMe && <Badge variant="outline" className="text-[9px] px-1 h-4 flex-shrink-0">{t('team.me')}</Badge>}
-              {!member.is_active && <Badge className="text-[9px] px-1.5 h-4 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-red-200 flex-shrink-0">{t('team.deactivated_badge')}</Badge>}
+              {!member.is_active && <Badge className="text-[9px] px-1.5 h-4 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800/60 flex-shrink-0">{t('team.deactivated_badge')}</Badge>}
             </div>
             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
               <span className={cn('inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium', ROLE_COLORS[member.role] || ROLE_COLORS.viewer)}>
@@ -515,7 +515,7 @@ export default function TeamPage() {
                 variant="outline"
                 disabled={isLoadingAction}
                 onClick={() => setConfirmDialog({ open: true, member, action: member.is_active ? 'deactivate' : 'reactivate' })}
-                className={cn('h-7 gap-1 text-xs px-2.5', member.is_active ? 'border-red-200 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20' : 'border-green-200 text-green-600 hover:bg-green-50 dark:hover:bg-green-950/20')}
+                className={cn('h-7 gap-1 text-xs px-2.5', member.is_active ? 'border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20' : 'border-green-200 dark:border-green-800/60 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/20')}
               >
                 {isLoadingAction && actionLoading === member.id
                   ? <span className="h-3 w-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
@@ -528,7 +528,7 @@ export default function TeamPage() {
                 variant="outline"
                 disabled={isLoadingAction}
                 onClick={() => setDeleteDialog({ open: true, member })}
-                className="h-7 w-7 p-0 border-red-200 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
+                className="h-7 w-7 p-0 border-red-200 dark:border-red-800/60 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
                 title={t('team.delete_title')}
               >
                 <Trash2 className="h-3 w-3" />

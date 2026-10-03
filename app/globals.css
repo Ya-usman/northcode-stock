@@ -34,19 +34,20 @@
     --card-foreground: 0 0% 94%;
     --popover: 215 35% 14%;
     --popover-foreground: 0 0% 94%;
-    --primary: 217 91% 60%;           /* #3b82f6  blue-500, visible on dark */
+    --primary: 221 83% 53%;           /* #2563eb  blue-600 — même aplat que la variante stockshop en sombre */
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 4% 14%;          /* #1f2025  subtle secondary surface */
+    /* Gris teintés sur la même nuance (215) que le fond marine, au lieu d'un gris neutre (240) */
+    --secondary: 215 20% 15%;         /* #1f252e  subtle secondary surface */
     --secondary-foreground: 0 0% 94%;
-    --muted: 240 4% 14%;
-    --muted-foreground: 240 5% 60%;   /* #919196  secondary text */
-    --accent: 240 4% 18%;             /* #27272f  hover/active surface */
+    --muted: 215 20% 15%;
+    --muted-foreground: 215 10% 62%;  /* #949ca8  secondary text (5,5:1 sur carte) */
+    --accent: 215 20% 19%;            /* #27303a  hover/active surface */
     --accent-foreground: 0 0% 94%;
     --destructive: 0 72% 51%;         /* #dc2626  red visible on dark */
     --destructive-foreground: 0 0% 98%;
     --border: 215 25% 20%;             /* #263040  visible border */
     --input: 215 35% 11%;              /* slightly darker than card */
-    --ring: 217 91% 60%;
+    --ring: 221 83% 53%;
   }
 }
 

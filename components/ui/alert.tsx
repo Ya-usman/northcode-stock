@@ -9,9 +9,9 @@ const alertVariants = cva(
       variant: {
         default: 'bg-background text-foreground',
         destructive: 'border-destructive/50 text-destructive dark:border-destructive [&>svg]:text-destructive',
-        warning: 'border-amber-200 bg-amber-50 text-amber-800 [&>svg]:text-amber-600',
-        success: 'border-green-200 bg-green-50 text-green-800 [&>svg]:text-green-600',
-        info: 'border-stockshop-blue/20 bg-stockshop-blue-muted text-stockshop-blue [&>svg]:text-stockshop-blue',
+        warning: 'border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400',
+        success: 'border-green-200 dark:border-green-800/60 bg-green-50 dark:bg-green-950/40 text-green-800 dark:text-green-300 [&>svg]:text-green-600 dark:[&>svg]:text-green-400',
+        info: 'border-stockshop-blue/20 bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400 [&>svg]:text-stockshop-blue dark:[&>svg]:text-blue-400',
       },
     },
     defaultVariants: { variant: 'default' },

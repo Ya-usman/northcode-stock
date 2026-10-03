@@ -727,7 +727,7 @@ export default function SalesHistoryPage() {
             {format(new Date(sale.created_at), 'dd MMM · HH:mm')}
           </TableCell>
           <TableCell className="text-right font-medium">{formatNaira(sale.total)}</TableCell>
-          <TableCell className="hidden md:table-cell text-right text-green-600">{formatNaira(sale.amount_paid)}</TableCell>
+          <TableCell className="hidden md:table-cell text-right text-green-600 dark:text-green-400">{formatNaira(sale.amount_paid)}</TableCell>
           <TableCell className="hidden md:table-cell text-right">
             {Number(sale.balance) > 0
               ? <span className="text-red-500">{formatNaira(sale.balance)}</span>
@@ -776,7 +776,7 @@ export default function SalesHistoryPage() {
                   {!isCancelled && isPending && (isOwner || isCashier) && (
                     <Button
                       size="sm" variant="outline"
-                      className="gap-1.5 text-xs h-7 border-green-300 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/40"
+                      className="gap-1.5 text-xs h-7 border-green-300 dark:border-green-700/60 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/40"
                       onClick={() => { setDialog({ type: 'validate', sale }); setValidateAmount(String(sale.balance)) }}
                     >
                       <CheckCircle2 className="h-3 w-3" /> {t('sales.validate_payment_action')}
@@ -794,7 +794,7 @@ export default function SalesHistoryPage() {
                   {canCancelThis && (
                     <Button
                       size="sm" variant="outline"
-                      className="gap-1.5 text-xs h-7 border-amber-300 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                      className="gap-1.5 text-xs h-7 border-amber-300 dark:border-amber-700/60 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40"
                       onClick={() => { setDialog({ type: 'cancel', sale }); setCancelReason('') }}
                     >
                       <XCircle className="h-3 w-3" /> {t('actions.cancel')}
@@ -987,7 +987,7 @@ export default function SalesHistoryPage() {
                     onClick={exportCSV}
                     className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left"
                   >
-                    <Table2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    <Table2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
                     <span>{t('actions.export_csv')}</span>
                   </button>
                 </div>
@@ -1033,7 +1033,7 @@ export default function SalesHistoryPage() {
               {format(new Date(p.paid_at), 'dd MMM · HH:mm')}
             </TableCell>
             <TableCell>
-              <Badge variant="outline" className="text-[10px] px-1.5 border-emerald-300 text-emerald-600 dark:text-emerald-400">
+              <Badge variant="outline" className="text-[10px] px-1.5 border-emerald-300 dark:border-emerald-700/60 text-emerald-600 dark:text-emerald-400">
                 {payMethodLabel(p.method)}
               </Badge>
             </TableCell>
@@ -1350,7 +1350,7 @@ export default function SalesHistoryPage() {
                       </span>
                       <button
                         type="button"
-                        className="text-red-400 hover:text-red-600 flex-shrink-0"
+                        className="text-red-400 hover:text-red-600 dark:hover:text-red-400 flex-shrink-0"
                         onClick={() => setEditItems(prev => prev.filter((_, i) => i !== idx))}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -1469,7 +1469,7 @@ export default function SalesHistoryPage() {
               onClick={doEdit}
               disabled={editSaving || editItems.length === 0 || Number((editDialog as any)?.amount_paid || 0) > editItems.reduce((s, i) => s + i.quantity * i.unit_price, 0)}
               loading={editSaving}
-              className="bg-stockshop-blue hover:bg-stockshop-blue-light text-white border-0"
+              className="bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500 text-white border-0"
             >
               {t('sales.edit_save')}
             </Button>

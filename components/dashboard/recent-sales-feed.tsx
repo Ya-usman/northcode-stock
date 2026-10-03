@@ -165,7 +165,7 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
         <CardTitle className="text-sm font-semibold">{t('dashboard.recent_sales')}</CardTitle>
         <span className="flex items-center gap-1">
           <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-[10px] font-medium text-green-600">{t('dashboard.live_badge')}</span>
+          <span className="text-[10px] font-medium text-green-600 dark:text-green-400">{t('dashboard.live_badge')}</span>
         </span>
       </CardHeader>
 
@@ -304,8 +304,8 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                               {repayments.map(r => (
                                 <div key={r.id} className="flex items-center justify-between gap-2 rounded-lg bg-green-50 dark:bg-green-950/20 px-2.5 py-1.5">
                                   <div className="flex items-center gap-1.5 min-w-0">
-                                    <span className="text-green-600 text-xs">✓</span>
-                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-card border-green-200">
+                                    <span className="text-green-600 dark:text-green-400 text-xs">✓</span>
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-card border-green-200 dark:border-green-800/60">
                                       {methodLabel(r.method, t)}
                                     </Badge>
                                     <span className="text-[10px] text-muted-foreground">
@@ -313,14 +313,14 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                                     </span>
                                   </div>
                                   {role !== 'viewer' && (
-                                    <span className="text-xs font-bold text-green-600 flex-shrink-0">+{formatNaira(r.amount)}</span>
+                                    <span className="text-xs font-bold text-green-600 dark:text-green-400 flex-shrink-0">+{formatNaira(r.amount)}</span>
                                   )}
                                 </div>
                               ))}
                               {role !== 'viewer' && repayments.length > 1 && (
                                 <div className="flex justify-between text-[10px] pt-1 border-t">
                                   <span className="text-muted-foreground">{t('payments.total_repaid')}</span>
-                                  <span className="font-semibold text-green-600">+{formatNaira(totalRepaid)}</span>
+                                  <span className="font-semibold text-green-600 dark:text-green-400">+{formatNaira(totalRepaid)}</span>
                                 </div>
                               )}
                             </div>
@@ -391,8 +391,8 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                             {allR.map(x => (
                               <div key={x.id} className="flex items-center justify-between gap-2 rounded-lg bg-green-50 dark:bg-green-950/20 px-2.5 py-1.5">
                                 <div className="flex items-center gap-1.5 min-w-0">
-                                  <span className="text-green-600 text-xs">✓</span>
-                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-card border-green-200">
+                                  <span className="text-green-600 dark:text-green-400 text-xs">✓</span>
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-card border-green-200 dark:border-green-800/60">
                                     {methodLabel(x.method, t)}
                                   </Badge>
                                   <span className="text-[10px] text-muted-foreground">
@@ -400,14 +400,14 @@ export function RecentSalesFeed({ items, role }: RecentSalesFeedProps) {
                                   </span>
                                 </div>
                                 {role !== 'viewer' && (
-                                  <span className="text-xs font-bold text-green-600 flex-shrink-0">+{formatNaira(x.amount)}</span>
+                                  <span className="text-xs font-bold text-green-600 dark:text-green-400 flex-shrink-0">+{formatNaira(x.amount)}</span>
                                 )}
                               </div>
                             ))}
                             {role !== 'viewer' && allR.length > 1 && (
                               <div className="flex justify-between text-[10px] pt-1 border-t">
                                 <span className="text-muted-foreground">{t('payments.total_repaid')}</span>
-                                <span className="font-semibold text-green-600">+{formatNaira(totalPaidToday)}</span>
+                                <span className="font-semibold text-green-600 dark:text-green-400">+{formatNaira(totalPaidToday)}</span>
                               </div>
                             )}
                           </div>

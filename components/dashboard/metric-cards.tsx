@@ -54,8 +54,8 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
       subValue: role !== 'viewer' ? fmt(todayRevenue) : undefined,
       label: role !== 'viewer' ? t('cash_received_label') : undefined,
       icon: TrendingUp,
-      color: 'text-green-600',
-      bg: 'bg-green-50',
+      color: 'text-green-600 dark:text-green-400',
+      bg: 'bg-green-50 dark:bg-green-950/40',
       show: canAccess('widget_today_revenue'),
     },
     {
@@ -72,8 +72,8 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
       value: lowStockCount.toString(),
       subValue: lowStockCount === 0 ? t('all_stocked') : t('items_low', { count: lowStockCount }),
       icon: AlertTriangle,
-      color: lowStockCount > 0 ? 'text-amber-600' : 'text-green-600',
-      bg: lowStockCount > 0 ? 'bg-amber-50' : 'bg-green-50',
+      color: lowStockCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-green-600 dark:text-green-400',
+      bg: lowStockCount > 0 ? 'bg-amber-50 dark:bg-amber-950/40' : 'bg-green-50 dark:bg-green-950/40',
       show: canAccess('widget_stock_alerts_card'),
     },
     {
@@ -81,8 +81,8 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
       value: role === 'viewer' ? '—' : compact(outstandingDebt),
       subValue: role !== 'viewer' ? fmt(outstandingDebt) : undefined,
       icon: CreditCard,
-      color: outstandingDebt > 0 ? 'text-red-600' : 'text-green-600',
-      bg: outstandingDebt > 0 ? 'bg-red-50' : 'bg-green-50',
+      color: outstandingDebt > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400',
+      bg: outstandingDebt > 0 ? 'bg-red-50 dark:bg-red-950/40' : 'bg-green-50 dark:bg-green-950/40',
       show: canAccess('widget_outstanding_debt'),
     },
     {

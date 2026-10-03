@@ -206,7 +206,7 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <div className="h-9 w-9 rounded-full bg-red-100 dark:bg-red-950/40 flex items-center justify-center flex-shrink-0">
-                <User className="h-4 w-4 text-red-600" />
+                <User className="h-4 w-4 text-red-600 dark:text-red-400" />
               </div>
               <div className="min-w-0">
                 <p className="font-semibold text-sm truncate">{customer.name}</p>
@@ -215,10 +215,10 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
               </div>
             </div>
             <div className="text-right flex-shrink-0">
-              <p className="text-lg font-bold text-red-600">{fmt(totalDebt)}</p>
+              <p className="text-lg font-bold text-red-600 dark:text-red-400">{fmt(totalDebt)}</p>
               <p className="text-xs text-muted-foreground">{t('payments.invoices_count', { count: unpaidSales.length })}</p>
               {customer.credit_limit != null && (
-                <p className={cn('text-[10px]', totalDebt > customer.credit_limit ? 'text-red-600 font-semibold' : 'text-muted-foreground')}>
+                <p className={cn('text-[10px]', totalDebt > customer.credit_limit ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-muted-foreground')}>
                   {t('payments.credit_limit_inline', { limit: fmt(customer.credit_limit) })}
                 </p>
               )}
@@ -270,19 +270,19 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
                 </div>
                 {sale.amount_paid > 0 && (
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-green-600">{t('payment.already_paid')}: {fmt(sale.amount_paid)}</span>
-                    <span className="font-bold text-red-600">{t('payment.remaining')}: {fmt(sale.balance)}</span>
+                    <span className="text-green-600 dark:text-green-400">{t('payment.already_paid')}: {fmt(sale.amount_paid)}</span>
+                    <span className="font-bold text-red-600 dark:text-red-400">{t('payment.remaining')}: {fmt(sale.balance)}</span>
                   </div>
                 )}
                 {sale.amount_paid === 0 && (
                   <div className="flex justify-end">
-                    <span className="text-xs font-bold text-red-600">{t('payment.due')}: {fmt(sale.balance)}</span>
+                    <span className="text-xs font-bold text-red-600 dark:text-red-400">{t('payment.due')}: {fmt(sale.balance)}</span>
                   </div>
                 )}
                 <div className="flex items-center justify-between pt-1">
                   <div className="flex items-center gap-1.5">
                     {sale.due_date ? (
-                      <span className={`text-[11px] ${isSaleOverdue(sale) ? 'text-red-600 font-semibold' : 'text-muted-foreground'}`}>
+                      <span className={`text-[11px] ${isSaleOverdue(sale) ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-muted-foreground'}`}>
                         {t('payments.due_date_label')} : {format(new Date(sale.due_date), 'dd MMM yyyy', { locale: fr })}
                       </span>
                     ) : (
@@ -343,7 +343,7 @@ function SupplierDebtorCard({ supplier, unpaidPOs, totalOwed, isExpanded, setExp
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <div className="h-9 w-9 rounded-full bg-amber-100 dark:bg-amber-950/40 flex items-center justify-center flex-shrink-0">
-                <Store className="h-4 w-4 text-amber-600" />
+                <Store className="h-4 w-4 text-amber-600 dark:text-amber-400" />
               </div>
               <div className="min-w-0">
                 <p className="font-semibold text-sm truncate">{supplier.name}</p>
@@ -352,7 +352,7 @@ function SupplierDebtorCard({ supplier, unpaidPOs, totalOwed, isExpanded, setExp
               </div>
             </div>
             <div className="text-right flex-shrink-0">
-              <p className="text-lg font-bold text-amber-600">{fmt(totalOwed)}</p>
+              <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{fmt(totalOwed)}</p>
               <p className="text-xs text-muted-foreground">{t('payments.orders_count', { count: unpaidPOs.length })}</p>
             </div>
           </div>
@@ -401,13 +401,13 @@ function SupplierDebtorCard({ supplier, unpaidPOs, totalOwed, isExpanded, setExp
                 </div>
                 {po.amount_paid > 0 && (
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-green-600">{t('payment.already_paid')}: {fmt(po.amount_paid)}</span>
-                    <span className="font-bold text-red-600">{t('payment.remaining')}: {fmt(po.balance)}</span>
+                    <span className="text-green-600 dark:text-green-400">{t('payment.already_paid')}: {fmt(po.amount_paid)}</span>
+                    <span className="font-bold text-red-600 dark:text-red-400">{t('payment.remaining')}: {fmt(po.balance)}</span>
                   </div>
                 )}
                 {po.amount_paid === 0 && (
                   <div className="flex justify-end">
-                    <span className="text-xs font-bold text-red-600">{t('payment.due')}: {fmt(po.balance)}</span>
+                    <span className="text-xs font-bold text-red-600 dark:text-red-400">{t('payment.due')}: {fmt(po.balance)}</span>
                   </div>
                 )}
                 {po.purchase_order_items && po.purchase_order_items.length > 0 && (
@@ -1394,7 +1394,7 @@ export default function CreditsPage() {
         >
           {t('payments.outstanding_debts')}
           {debtors.length > 0 && (
-            <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${activeTab === 'en-cours' ? 'bg-red-100 text-red-600' : 'bg-muted-foreground/20 text-muted-foreground'}`}>
+            <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${activeTab === 'en-cours' ? 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400' : 'bg-muted-foreground/20 text-muted-foreground'}`}>
               {debtors.length}
             </span>
           )}
@@ -1485,7 +1485,7 @@ export default function CreditsPage() {
                   type="button"
                   onClick={() => setOverdueOnly(v => !v)}
                   className={`h-9 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 flex-shrink-0 border transition-colors ${
-                    overdueOnly ? 'bg-red-600 border-red-600 text-white' : 'border-red-200 dark:border-red-900 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40'
+                    overdueOnly ? 'bg-red-600 border-red-600 text-white' : 'border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40'
                   }`}
                 >
                   {t('payments.overdue_badge')} <span className={overdueOnly ? 'opacity-90' : 'opacity-70'}>{overdueDebtorsCount}</span>
@@ -1518,7 +1518,7 @@ export default function CreditsPage() {
                           onClick={exportDebtorsCSV}
                           className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left"
                         >
-                          <Table2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                          <Table2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
                           <span>{t('actions.export_csv')}</span>
                         </button>
                       </div>
@@ -1627,7 +1627,7 @@ export default function CreditsPage() {
                 onClick={() => setHistAllStatusFilter(f => f === 'solde' ? 'all' : 'solde')}
                 className={`rounded-xl bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900 px-3 py-2.5 text-center transition-all ${histAllStatusFilter === 'solde' ? 'ring-2 ring-offset-1 ring-green-500' : 'hover:opacity-80'}`}
               >
-                <p className="text-lg font-bold text-green-600">{histAllSoldeCount}</p>
+                <p className="text-lg font-bold text-green-600 dark:text-green-400">{histAllSoldeCount}</p>
                 <p className="text-[11px] text-green-700 dark:text-green-400 font-medium">{t('payments.solde_label')}</p>
               </button>
               <button
@@ -1635,7 +1635,7 @@ export default function CreditsPage() {
                 onClick={() => setHistAllStatusFilter(f => f === 'en_cours' ? 'all' : 'en_cours')}
                 className={`rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900 px-3 py-2.5 text-center transition-all ${histAllStatusFilter === 'en_cours' ? 'ring-2 ring-offset-1 ring-red-500' : 'hover:opacity-80'}`}
               >
-                <p className="text-lg font-bold text-red-600">{histAll.length - histAllSoldeCount}</p>
+                <p className="text-lg font-bold text-red-600 dark:text-red-400">{histAll.length - histAllSoldeCount}</p>
                 <p className="text-[11px] text-red-700 dark:text-red-400 font-medium">{t('payments.en_cours_label')}</p>
               </button>
             </div>
@@ -1665,8 +1665,8 @@ export default function CreditsPage() {
                           <div className="flex items-center gap-3 min-w-0 flex-1">
                             <div className={`h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 ${entry.isSolde ? 'bg-green-100 dark:bg-green-950/40' : 'bg-red-100 dark:bg-red-950/40'}`}>
                               {entry.isSolde
-                                ? <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                : <User className="h-4 w-4 text-red-600" />
+                                ? <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                : <User className="h-4 w-4 text-red-600 dark:text-red-400" />
                               }
                             </div>
                             <div className="min-w-0 flex-1">
@@ -1685,8 +1685,8 @@ export default function CreditsPage() {
                           <div className="text-right flex-shrink-0">
                             <p className="text-xs text-muted-foreground">{t('payments.summary_total', { amount: fmt(entry.totalOwed) })}</p>
                             {entry.isSolde
-                              ? <p className="text-xs text-green-600 font-semibold">{t('payments.summary_paid', { amount: fmt(entry.totalPaid) })}</p>
-                              : <p className="text-xs text-red-600 font-semibold">{t('payments.summary_remaining', { amount: fmt(entry.totalRemaining) })}</p>
+                              ? <p className="text-xs text-green-600 dark:text-green-400 font-semibold">{t('payments.summary_paid', { amount: fmt(entry.totalPaid) })}</p>
+                              : <p className="text-xs text-red-600 dark:text-red-400 font-semibold">{t('payments.summary_remaining', { amount: fmt(entry.totalRemaining) })}</p>
                             }
                           </div>
                         </div>
@@ -1720,8 +1720,8 @@ export default function CreditsPage() {
                               </div>
                               {sale.amount_paid > 0 && (
                                 <div className="flex items-center justify-between text-xs">
-                                  <span className="text-green-600">{t('payments.summary_paid', { amount: fmt(sale.amount_paid) })}</span>
-                                  {sale.balance > 0 && <span className="font-bold text-red-600">{t('payments.summary_remaining', { amount: fmt(sale.balance) })}</span>}
+                                  <span className="text-green-600 dark:text-green-400">{t('payments.summary_paid', { amount: fmt(sale.amount_paid) })}</span>
+                                  {sale.balance > 0 && <span className="font-bold text-red-600 dark:text-red-400">{t('payments.summary_remaining', { amount: fmt(sale.balance) })}</span>}
                                 </div>
                               )}
                               {sale.cashier_name && (
@@ -1770,7 +1770,7 @@ export default function CreditsPage() {
         >
           {t('payments.tab_en_cours')}
           {supplierDebtors.length > 0 && (
-            <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${supplierActiveTab === 'en-cours' ? 'bg-amber-100 text-amber-600' : 'bg-muted-foreground/20 text-muted-foreground'}`}>
+            <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${supplierActiveTab === 'en-cours' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400' : 'bg-muted-foreground/20 text-muted-foreground'}`}>
               {supplierDebtors.length}
             </span>
           )}
@@ -1824,7 +1824,7 @@ export default function CreditsPage() {
                     <div className="flex items-center gap-2 pt-1">
                       <Store className="h-3.5 w-3.5 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
                       <span className="text-xs font-semibold text-stockshop-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
-                      <span className="text-xs text-amber-600 font-medium ml-1">{fmt(shopTotal)}</span>
+                      <span className="text-xs text-amber-600 dark:text-amber-400 font-medium ml-1">{fmt(shopTotal)}</span>
                       <div className="flex-1 h-px bg-border" />
                     </div>
                     {shopDebtors.map(({ supplier, unpaidPOs, totalOwed }) => (
@@ -1894,7 +1894,7 @@ export default function CreditsPage() {
                 onClick={() => setSupplierHistAllStatusFilter(f => f === 'solde' ? 'all' : 'solde')}
                 className={`rounded-xl bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900 px-3 py-2.5 text-center transition-all ${supplierHistAllStatusFilter === 'solde' ? 'ring-2 ring-offset-1 ring-green-500' : 'hover:opacity-80'}`}
               >
-                <p className="text-lg font-bold text-green-600">{supplierHistAllSoldeCount}</p>
+                <p className="text-lg font-bold text-green-600 dark:text-green-400">{supplierHistAllSoldeCount}</p>
                 <p className="text-[11px] text-green-700 dark:text-green-400 font-medium">{t('payments.solde_label')}</p>
               </button>
               <button
@@ -1902,7 +1902,7 @@ export default function CreditsPage() {
                 onClick={() => setSupplierHistAllStatusFilter(f => f === 'en_cours' ? 'all' : 'en_cours')}
                 className={`rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900 px-3 py-2.5 text-center transition-all ${supplierHistAllStatusFilter === 'en_cours' ? 'ring-2 ring-offset-1 ring-amber-500' : 'hover:opacity-80'}`}
               >
-                <p className="text-lg font-bold text-amber-600">{supplierHistAll.length - supplierHistAllSoldeCount}</p>
+                <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{supplierHistAll.length - supplierHistAllSoldeCount}</p>
                 <p className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">{t('payments.en_cours_label')}</p>
               </button>
             </div>
@@ -1931,8 +1931,8 @@ export default function CreditsPage() {
                           <div className="flex items-center gap-3 min-w-0 flex-1">
                             <div className={`h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 ${entry.isSolde ? 'bg-green-100 dark:bg-green-950/40' : 'bg-amber-100 dark:bg-amber-950/40'}`}>
                               {entry.isSolde
-                                ? <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                : <Store className="h-4 w-4 text-amber-600" />
+                                ? <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                : <Store className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                               }
                             </div>
                             <div className="min-w-0 flex-1">
@@ -1948,8 +1948,8 @@ export default function CreditsPage() {
                           <div className="text-right flex-shrink-0">
                             <p className="text-xs text-muted-foreground">{t('payments.total_label')} : {fmt(entry.totalOwed)}</p>
                             {entry.isSolde
-                              ? <p className="text-xs text-green-600 font-semibold">{t('payments.paid_label')} : {fmt(entry.totalPaid)}</p>
-                              : <p className="text-xs text-amber-600 font-semibold">{t('payments.remaining_label')} : {fmt(entry.totalRemaining)}</p>
+                              ? <p className="text-xs text-green-600 dark:text-green-400 font-semibold">{t('payments.paid_label')} : {fmt(entry.totalPaid)}</p>
+                              : <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold">{t('payments.remaining_label')} : {fmt(entry.totalRemaining)}</p>
                             }
                           </div>
                         </div>
@@ -1982,8 +1982,8 @@ export default function CreditsPage() {
                               </div>
                               {po.amount_paid > 0 && (
                                 <div className="flex items-center justify-between text-xs">
-                                  <span className="text-green-600">{t('payments.paid_label')} : {fmt(po.amount_paid)}</span>
-                                  {po.balance > 0 && <span className="font-bold text-amber-600">{t('payments.remaining_label')} : {fmt(po.balance)}</span>}
+                                  <span className="text-green-600 dark:text-green-400">{t('payments.paid_label')} : {fmt(po.amount_paid)}</span>
+                                  {po.balance > 0 && <span className="font-bold text-amber-600 dark:text-amber-400">{t('payments.remaining_label')} : {fmt(po.balance)}</span>}
                                 </div>
                               )}
                             </div>
@@ -2014,8 +2014,8 @@ export default function CreditsPage() {
           <PremiumDialogBody>
             <div className="space-y-4">
               <div className="flex flex-col items-center gap-2 py-2">
-                <div className="h-14 w-14 rounded-full bg-green-100 flex items-center justify-center">
-                  <CheckCircle2 className="h-7 w-7 text-green-600" />
+                <div className="h-14 w-14 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
+                  <CheckCircle2 className="h-7 w-7 text-green-600 dark:text-green-400" />
                 </div>
                 <p className="font-semibold text-base">{receiptResult.customerName}</p>
               </div>
@@ -2031,7 +2031,7 @@ export default function CreditsPage() {
               {receiptResult.phone && (
                 <a href={`https://wa.me/${receiptResult.phone.replace(/[^\d]/g, '').replace(/^0/, '234')}?text=${encodeURIComponent(t('payments.whatsapp_receipt_message', { customer: receiptResult.customerName }))}`}
                   target="_blank" rel="noreferrer" className="block">
-                  <Button variant="outline" className="w-full gap-2 border-green-300 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/30">
+                  <Button variant="outline" className="w-full gap-2 border-green-300 dark:border-green-700/60 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/30">
                     💬 {t('payments.open_whatsapp_chat')}
                   </Button>
                 </a>
@@ -2054,9 +2054,9 @@ export default function CreditsPage() {
               )}
 
               {repayDebtor && repayDebtor.unpaidSales.length === 0 ? (
-                <div className="rounded-lg bg-orange-50 border border-orange-200 p-3">
-                  <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-1">{t('payments.data_to_fix')}</p>
-                  <p className="text-sm text-orange-700">{t('payments.debt_no_invoice_found', { amount: fmt(repayDebtor.totalDebt) })}</p>
+                <div className="rounded-lg bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800/60 p-3">
+                  <p className="text-xs font-semibold text-orange-700 dark:text-orange-300 uppercase tracking-wide mb-1">{t('payments.data_to_fix')}</p>
+                  <p className="text-sm text-orange-700 dark:text-orange-300">{t('payments.debt_no_invoice_found', { amount: fmt(repayDebtor.totalDebt) })}</p>
                 </div>
               ) : null}
 
@@ -2095,7 +2095,7 @@ export default function CreditsPage() {
                           )}
                         </div>
                         <div className="text-right flex-shrink-0">
-                          <p className="text-xs font-bold text-green-600">+{fmt(applying)}</p>
+                          <p className="text-xs font-bold text-green-600 dark:text-green-400">+{fmt(applying)}</p>
                           {!fullyCovered && (
                             <p className="text-[10px] text-red-500">{t('payment.remaining')}: {fmt(sale.balance - applying)}</p>
                           )}
@@ -2107,7 +2107,7 @@ export default function CreditsPage() {
                     <span className="text-xs font-semibold">
                       {remaining <= 0 ? `✓ ${t('payment.debt_settled')}` : t('payment.remaining')}
                     </span>
-                    <span className={`text-sm font-bold ${remaining <= 0 ? 'text-green-600' : 'text-orange-600'}`}>
+                    <span className={`text-sm font-bold ${remaining <= 0 ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>
                       {remaining <= 0 ? t('payments.fully_settled') : fmt(remaining)}
                     </span>
                   </div>
@@ -2124,11 +2124,11 @@ export default function CreditsPage() {
                       <button key={m.id} onClick={() => setRepayMethod(m.id)}
                         className={`relative rounded-2xl border-2 py-4 px-2 flex flex-col items-center gap-2 transition-all duration-200 active:scale-95 ${
                           repayMethod === m.id
-                            ? 'border-stockshop-blue bg-gradient-to-b from-stockshop-blue-muted to-stockshop-blue-muted/60 dark:from-blue-950/60 dark:to-blue-900/30 shadow-lg shadow-blue-200/60 dark:shadow-blue-900/40'
+                            ? 'border-stockshop-blue dark:border-blue-500 bg-gradient-to-b from-stockshop-blue-muted to-stockshop-blue-muted/60 dark:from-blue-950/60 dark:to-blue-900/30 shadow-lg shadow-blue-200/60 dark:shadow-blue-900/40'
                             : 'border-input bg-card hover:border-stockshop-blue/40 dark:hover:border-blue-700 hover:shadow-md hover:-translate-y-0.5'
                         }`}>
                         {repayMethod === m.id && (
-                          <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-stockshop-blue dark:bg-blue-500 text-white text-[9px] font-bold">✓</span>
+                          <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-stockshop-blue dark:bg-blue-600 text-white text-[9px] font-bold">✓</span>
                         )}
                         <div className={`rounded-xl p-2 transition-colors ${repayMethod === m.id ? 'bg-white dark:bg-white/15 shadow-sm' : 'bg-muted/40 dark:bg-white/5'}`}>
                           {m.logo
@@ -2303,7 +2303,7 @@ export default function CreditsPage() {
                         <p className="text-sm font-bold">{fmt(sale.total)}</p>
                         {sale.balance > 0
                           ? <p className="text-xs text-red-500">{t('payment.remaining')}: {fmt(sale.balance)}</p>
-                          : <p className="text-xs text-green-600">{t('payments.paid_off')} ✓</p>
+                          : <p className="text-xs text-green-600 dark:text-green-400">{t('payments.paid_off')} ✓</p>
                         }
                       </div>
                     </button>
@@ -2416,12 +2416,12 @@ export default function CreditsPage() {
                               })}
                               <div className="flex justify-between text-xs pt-1 border-t">
                                 <span className="text-muted-foreground">{t('payments.total_paid')}</span>
-                                <span className="font-semibold text-green-600">{fmt(sale.amount_paid)}</span>
+                                <span className="font-semibold text-green-600 dark:text-green-400">{fmt(sale.amount_paid)}</span>
                               </div>
                               {sale.balance > 0 && (
                                 <div className="flex justify-between text-xs">
                                   <span className="text-muted-foreground">{t('payments.remaining_due')}</span>
-                                  <span className="font-semibold text-red-600">{fmt(sale.balance)}</span>
+                                  <span className="font-semibold text-red-600 dark:text-red-400">{fmt(sale.balance)}</span>
                                 </div>
                               )}
                             </div>
@@ -2475,7 +2475,7 @@ export default function CreditsPage() {
                         className={cn(
                           'rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
                           editMethod === m.id
-                            ? 'border-stockshop-blue bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400'
+                            ? 'border-stockshop-blue dark:border-blue-500 bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400'
                             : 'border-input text-muted-foreground hover:bg-accent'
                         )}
                       >
@@ -2592,9 +2592,9 @@ export default function CreditsPage() {
                       )}
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <p className="text-xs font-bold text-green-600">+{fmt(applying)}</p>
+                      <p className="text-xs font-bold text-green-600 dark:text-green-400">+{fmt(applying)}</p>
                       {!fullyCovered && (
-                        <p className="text-[10px] text-amber-600">{t('payment.remaining')}: {fmt(po.balance - applying)}</p>
+                        <p className="text-[10px] text-amber-600 dark:text-amber-400">{t('payment.remaining')}: {fmt(po.balance - applying)}</p>
                       )}
                     </div>
                   </div>
@@ -2604,7 +2604,7 @@ export default function CreditsPage() {
                 <span className="text-xs font-semibold">
                   {supplierRemaining <= 0 ? `✓ ${t('payment.debt_settled')}` : t('payment.remaining')}
                 </span>
-                <span className={`text-sm font-bold ${supplierRemaining <= 0 ? 'text-green-600' : 'text-orange-600'}`}>
+                <span className={`text-sm font-bold ${supplierRemaining <= 0 ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>
                   {supplierRemaining <= 0 ? t('payments.fully_settled') : fmt(supplierRemaining)}
                 </span>
               </div>
@@ -2621,11 +2621,11 @@ export default function CreditsPage() {
                   <button key={m.id} onClick={() => setSupplierRepayMethod(m.id)}
                     className={`relative rounded-2xl border-2 py-4 px-2 flex flex-col items-center gap-2 transition-all duration-200 active:scale-95 ${
                       supplierRepayMethod === m.id
-                        ? 'border-stockshop-blue bg-gradient-to-b from-stockshop-blue-muted to-stockshop-blue-muted/60 dark:from-blue-950/60 dark:to-blue-900/30 shadow-lg shadow-blue-200/60 dark:shadow-blue-900/40'
+                        ? 'border-stockshop-blue dark:border-blue-500 bg-gradient-to-b from-stockshop-blue-muted to-stockshop-blue-muted/60 dark:from-blue-950/60 dark:to-blue-900/30 shadow-lg shadow-blue-200/60 dark:shadow-blue-900/40'
                         : 'border-input bg-card hover:border-stockshop-blue/40 dark:hover:border-blue-700 hover:shadow-md hover:-translate-y-0.5'
                     }`}>
                     {supplierRepayMethod === m.id && (
-                      <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-stockshop-blue dark:bg-blue-500 text-white text-[9px] font-bold">✓</span>
+                      <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-stockshop-blue dark:bg-blue-600 text-white text-[9px] font-bold">✓</span>
                     )}
                     <div className={`rounded-xl p-2 transition-colors ${supplierRepayMethod === m.id ? 'bg-white dark:bg-white/15 shadow-sm' : 'bg-muted/40 dark:bg-white/5'}`}>
                       {m.logo
@@ -2712,8 +2712,8 @@ export default function CreditsPage() {
                           <div className="text-right flex-shrink-0">
                             <p className="text-sm font-bold">{fmt(po.total_amount)}</p>
                             {po.balance > 0
-                              ? <p className="text-xs text-amber-600">{t('payment.remaining')}: {fmt(po.balance)}</p>
-                              : <p className="text-xs text-green-600">{t('payments.paid_off')} ✓</p>
+                              ? <p className="text-xs text-amber-600 dark:text-amber-400">{t('payment.remaining')}: {fmt(po.balance)}</p>
+                              : <p className="text-xs text-green-600 dark:text-green-400">{t('payments.paid_off')} ✓</p>
                             }
                           </div>
                         </button>
@@ -2756,17 +2756,17 @@ export default function CreditsPage() {
                                         {p.reference && <p className="text-[11px] text-muted-foreground">{t('payments.ref_label')}: {p.reference}</p>}
                                         {p.notes && <p className="text-[11px] text-muted-foreground italic">{p.notes}</p>}
                                       </div>
-                                      <span className="font-bold text-green-600 text-sm flex-shrink-0">+{fmt(p.amount)}</span>
+                                      <span className="font-bold text-green-600 dark:text-green-400 text-sm flex-shrink-0">+{fmt(p.amount)}</span>
                                     </div>
                                   ))}
                                   <div className="flex justify-between text-xs pt-1 border-t">
                                     <span className="text-muted-foreground">{t('payments.total_paid')}</span>
-                                    <span className="font-semibold text-green-600">{fmt(po.amount_paid)}</span>
+                                    <span className="font-semibold text-green-600 dark:text-green-400">{fmt(po.amount_paid)}</span>
                                   </div>
                                   {po.balance > 0 && (
                                     <div className="flex justify-between text-xs">
                                       <span className="text-muted-foreground">{t('payments.remaining_due')}</span>
-                                      <span className="font-semibold text-amber-600">{fmt(po.balance)}</span>
+                                      <span className="font-semibold text-amber-600 dark:text-amber-400">{fmt(po.balance)}</span>
                                     </div>
                                   )}
                                 </div>

@@ -130,7 +130,7 @@ export function PremiumDialogFooter({
             'flex-1 h-11 rounded-xl font-semibold',
             confirmDestructive
               ? 'bg-red-500 hover:bg-red-600 text-white border-0'
-              : 'bg-stockshop-blue hover:bg-stockshop-blue-light'
+              : 'bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500'
           )}
           disabled={confirmDisabled}
           loading={confirmLoading}

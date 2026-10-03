@@ -59,7 +59,7 @@ export function AppUpdateChecker() {
           </p>
 
           <Button
-            className="w-full h-11 bg-stockshop-blue hover:bg-stockshop-blue-light text-white font-semibold"
+            className="w-full h-11 bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500 text-white font-semibold"
             onClick={() => {
               window.open(storeUrl, '_system')
             }}

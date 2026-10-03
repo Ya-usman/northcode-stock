@@ -25,7 +25,7 @@ export function GracePeriodBanner({ daysLeft, locale }: GracePeriodBannerProps) 
       </div>
       <Link
         href={`/${locale}/billing`}
-        className="text-xs font-semibold bg-white text-orange-600 rounded-full px-3 py-1 hover:bg-orange-50 transition-colors flex-shrink-0"
+        className="text-xs font-semibold bg-white text-orange-600 dark:text-orange-400 rounded-full px-3 py-1 hover:bg-orange-50 dark:hover:bg-orange-950/40 transition-colors flex-shrink-0"
       >
         {t('grace_renew')}
       </Link>

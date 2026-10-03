@@ -93,7 +93,7 @@ export default function AppError({
               onClick={() => navigate(route)}
               className="flex items-center gap-2 rounded-xl border bg-card px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors active:scale-95"
             >
-              <Icon className="h-4 w-4 text-stockshop-blue shrink-0" />
+              <Icon className="h-4 w-4 text-stockshop-blue dark:text-blue-400 shrink-0" />
               <span className="truncate">{t(`nav.${key}`)}</span>
             </button>
           ))}
@@ -113,7 +113,7 @@ export default function AppError({
       </div>
       <button
         onClick={reset}
-        className="flex items-center gap-2 rounded-xl bg-stockshop-blue text-white px-5 py-2.5 text-sm font-medium hover:bg-stockshop-blue-light transition-colors"
+        className="flex items-center gap-2 rounded-xl bg-stockshop-blue text-white px-5 py-2.5 text-sm font-medium hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500 transition-colors"
       >
         <RefreshCw className="h-4 w-4" />
         {t('error_page.try_again')}
