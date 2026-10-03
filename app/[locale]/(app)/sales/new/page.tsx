@@ -5,8 +5,8 @@ import { useTranslations, useLocale } from 'next-intl'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, Plus, Minus, Trash2, CheckCircle, MessageCircle, Printer, Share2,
-  Scan, X, User, Clock, PauseCircle, PlayCircle, Edit2, ShoppingCart, ChevronUp, Star, ArrowLeft,
-  AlertTriangle, CreditCard,
+  Scan, X, User, Clock, PauseCircle, PlayCircle, Edit2, ShoppingCart, ChevronUp, ChevronRight, Star, ArrowLeft,
+  AlertTriangle, CreditCard, Coins, ShoppingBag,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -14,6 +14,7 @@ import { ShopSelector } from '@/components/layout/shop-selector'
 import { ProductCard, type StockVariant } from '@/components/sales/product-card'
 import { ProductThumbnail } from '@/components/stock/product-thumbnail'
 import { DebtRepaymentCard } from '@/components/sales/debt-repayment-card'
+import { PaymentMethodCard } from '@/components/sales/payment-method-card'
 import { cn } from '@/lib/utils/cn'
 import { normalize } from '@/lib/utils/normalize'
 import { useToast } from '@/components/ui/use-toast'
@@ -1848,17 +1849,38 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               visible sans revenir au panier. */}
           {/* Le gros montant = ce qui est RÉELLEMENT encaissé maintenant
               (en vente à crédit avec remboursement : la dette seule). */}
-          <div className="md:hidden rounded-xl bg-muted/60 p-4 text-center">
-            <p className="text-xs text-muted-foreground">
-              {isCreditSale && debtAmt === 0 ? t('sales.credit_sale_label') : t('sales.total_to_collect')}
-            </p>
-            <p className="text-2xl font-bold text-stockshop-blue dark:text-blue-400">
-              {formatNaira(isCreditSale && debtAmt === 0 ? total : collectedNow)}
-            </p>
+          <div className="md:hidden rounded-xl bg-stockshop-blue-muted/60 p-4 dark:bg-blue-950/30">
+            <div className="flex items-center gap-3">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-950/60 dark:text-blue-300" aria-hidden="true">
+                <ShoppingBag className="h-6 w-6" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">
+                  {isCreditSale && debtAmt === 0 ? t('sales.credit_sale_label') : t('sales.total_to_collect')}
+                </p>
+                <p className="text-2xl font-bold tabular-nums text-stockshop-blue dark:text-blue-400">
+                  {formatNaira(isCreditSale && debtAmt === 0 ? total : collectedNow)}
+                </p>
+              </div>
+            </div>
+            {/* Détail vente / dette en deux cellules, seulement s'il y a une dette */}
             {debtAmt > 0 && (
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {isCreditSale ? t('sales.credit_sale_label') : t('sales.total')} {formatNaira(total)} · {t('receipt.debt_repayment')} +{formatNaira(debtAmt)}
-              </p>
+              <div className="mt-3 grid grid-cols-2 divide-x divide-border/70 border-t border-border/70 pt-3">
+                <div className="flex items-center gap-2 pr-2">
+                  <ShoppingCart className="h-4 w-4 shrink-0 text-stockshop-blue dark:text-blue-400" aria-hidden="true" />
+                  <div className="min-w-0">
+                    <p className="text-[11px] text-muted-foreground">{isCreditSale ? t('sales.credit_sale_label') : t('sales.sale_label')}</p>
+                    <p className="text-sm font-semibold tabular-nums">{formatNaira(total)}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 pl-3">
+                  <Coins className="h-4 w-4 shrink-0 text-stockshop-blue dark:text-blue-400" aria-hidden="true" />
+                  <div className="min-w-0">
+                    <p className="text-[11px] text-muted-foreground">{t('receipt.debt_repayment')}</p>
+                    <p className="text-sm font-semibold tabular-nums">{formatNaira(debtAmt)}</p>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
 
@@ -1870,30 +1892,16 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             </Label>
             <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
               {getCountry(shop?.country).paymentMethods.map(method => (
-                <button key={method.id}
-                  onClick={() => {
-                    setPaymentMethod(method.id)
-                    if (splitMethod2 === method.id) setSplitMethod2('')
+                <PaymentMethodCard
+                  key={method.id}
+                  method={method}
+                  selected={paymentMethod === method.id}
+                  subtitle={t(`sales.method_sub_${method.type}`)}
+                  onSelect={id => {
+                    setPaymentMethod(id)
+                    if (splitMethod2 === id) setSplitMethod2('')
                   }}
-                  className={`relative rounded-2xl border-2 py-4 px-2 flex flex-col items-center gap-2 transition-all duration-200 active:scale-95 tap-target ${
-                    paymentMethod === method.id
-                      ? 'border-stockshop-blue bg-gradient-to-b from-stockshop-blue-muted to-stockshop-blue-muted/60 dark:border-blue-500 dark:from-blue-950/60 dark:to-blue-900/30 shadow-lg shadow-blue-200/60 dark:shadow-blue-900/40'
-                      : 'border-input bg-card hover:border-stockshop-blue/40 dark:hover:border-blue-700 hover:shadow-md hover:-translate-y-0.5'
-                  }`}
-                >
-                  {paymentMethod === method.id && (
-                    <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-stockshop-blue dark:bg-blue-600 text-white text-[9px] font-bold">✓</span>
-                  )}
-                  <div className={`rounded-xl p-2 transition-colors ${paymentMethod === method.id ? 'bg-white dark:bg-white/15 shadow-sm' : 'bg-muted/40 dark:bg-white/5'}`}>
-                    {method.logo
-                      ? <img src={method.logo} alt={method.label} className="h-12 w-12 object-contain" />
-                      : <span className="text-3xl leading-none block">{method.icon}</span>
-                    }
-                  </div>
-                  <span className={`text-xs font-semibold text-center leading-tight ${paymentMethod === method.id ? 'text-stockshop-blue dark:text-blue-400' : 'text-muted-foreground'}`}>
-                    {method.label}
-                  </span>
-                </button>
+                />
               ))}
             </div>
           </div>
@@ -1902,14 +1910,19 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           {!splitPayment && methodType === 'cash' && (
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <Label>{t('payment.amount_paid')}</Label>
-                <div className="flex rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
-                  <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">{symbol}</span>
+                <div className="flex items-center justify-between gap-2">
+                  <Label>{t('payment.amount_paid')}</Label>
+                  <span className="text-xs text-muted-foreground">
+                    {t('sales.amount_due')} : <span className="font-semibold tabular-nums text-foreground">{formatNaira(totalToCollect)}</span>
+                  </span>
+                </div>
+                <div className="flex rounded-lg border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
                   <input type="text" inputMode="numeric" pattern="[0-9]*"
                     value={formatInputValue(amountPaid, currencyCode)}
                     onChange={e => setAmountPaid(e.target.value.replace(/\D/g, ''))}
-                    className="flex-1 h-12 px-3 text-lg font-bold bg-card outline-none"
+                    className="min-w-0 flex-1 h-12 px-3 text-xl font-bold tabular-nums bg-card outline-none"
                     placeholder={formatInputValue(totalToCollect, currencyCode) || '0'} />
+                  <span className="flex items-center px-3 bg-muted border-l text-sm font-medium text-muted-foreground whitespace-nowrap select-none">{symbol}</span>
                 </div>
               </div>
               {/* Montants rapides : le cas le plus courant (montant exact) en
@@ -2003,22 +2016,38 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
           {/* Split payment toggle */}
           {methodType !== 'credit' && (
-            <button
-              type="button"
-              onClick={() => {
-                if (!splitPayment) {
+            splitPayment ? (
+              <button
+                type="button"
+                onClick={() => { setSplitPayment(false); setAmountPaid('') }}
+                className="flex items-center gap-1.5 text-sm text-stockshop-blue dark:text-blue-400 hover:underline"
+              >
+                <X className="h-3.5 w-3.5" />{t('sales.cancel_split_payment')}
+              </button>
+            ) : (
+              /* Carte neutre (pas d'ambre : réservé aux alertes) — même pastille
+                 ronde que « Ajouter une remise / un client » */
+              <button
+                type="button"
+                onClick={() => {
                   const other = getCountry(shop?.country).paymentMethods
                     .find(m => m.id !== paymentMethod && m.id !== 'credit')
                   setSplitMethod2(other?.id || '')
-                }
-                setSplitPayment(!splitPayment)
-                setAmountPaid('')
-              }}
-              className="flex items-center gap-1.5 text-sm text-stockshop-blue dark:text-blue-400 hover:underline"
-            >
-              {splitPayment ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
-              {splitPayment ? t('sales.cancel_split_payment') : t('sales.split_payment_label')}
-            </button>
+                  setSplitPayment(true)
+                  setAmountPaid('')
+                }}
+                className="flex w-full items-center gap-3 rounded-xl border bg-card px-3 py-3 text-left transition-colors hover:border-stockshop-blue/40 dark:hover:border-blue-700 tap-target"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-400" aria-hidden="true">
+                  <Plus className="h-4 w-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">{t('sales.split_payment_label')}</span>
+                  <span className="block text-xs text-muted-foreground">{t('sales.split_payment_hint')}</span>
+                </span>
+                <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+              </button>
+            )
           )}
 
           {/* Split payment UI */}
@@ -2029,13 +2058,13 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 <Label className="text-sm">
                   {t('sales.amount_paid_in', { method: getCountry(shop?.country).paymentMethods.find(m => m.id === paymentMethod)?.label || paymentMethod })}
                 </Label>
-                <div className="flex rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
-                  <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">{symbol}</span>
+                <div className="flex rounded-lg border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
                   <input type="text" inputMode="numeric" pattern="[0-9]*"
                     value={formatInputValue(amountPaid, currencyCode)}
                     onChange={e => setAmountPaid(e.target.value.replace(/\D/g, ''))}
-                    className="flex-1 h-11 px-3 text-lg font-bold bg-card outline-none"
+                    className="min-w-0 flex-1 h-11 px-3 text-lg font-bold tabular-nums bg-card outline-none"
                     placeholder="0" />
+                  <span className="flex items-center px-3 bg-muted border-l text-sm font-medium text-muted-foreground whitespace-nowrap select-none">{symbol}</span>
                 </div>
               </div>
 
@@ -2046,26 +2075,13 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   {getCountry(shop?.country).paymentMethods
                     .filter(m => m.id !== paymentMethod && m.id !== 'credit')
                     .map(method => (
-                      <button key={method.id} type="button" onClick={() => setSplitMethod2(method.id)}
-                        className={`relative rounded-2xl border-2 py-4 px-2 flex flex-col items-center gap-2 transition-all duration-200 active:scale-95 tap-target ${
-                          splitMethod2 === method.id
-                            ? 'border-stockshop-blue bg-gradient-to-b from-stockshop-blue-muted to-stockshop-blue-muted/60 dark:border-blue-500 dark:from-blue-950/60 dark:to-blue-900/30 shadow-lg shadow-blue-200/60 dark:shadow-blue-900/40'
-                            : 'border-input bg-card hover:border-stockshop-blue/40 dark:hover:border-blue-700 hover:shadow-md hover:-translate-y-0.5'
-                        }`}
-                      >
-                        {splitMethod2 === method.id && (
-                          <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-stockshop-blue dark:bg-blue-600 text-white text-[9px] font-bold">✓</span>
-                        )}
-                        <div className={`rounded-xl p-2 transition-colors ${splitMethod2 === method.id ? 'bg-white dark:bg-white/15 shadow-sm' : 'bg-muted/40 dark:bg-white/5'}`}>
-                          {method.logo
-                            ? <img src={method.logo} alt={method.label} className="h-12 w-12 object-contain" />
-                            : <span className="text-3xl leading-none block">{method.icon}</span>
-                          }
-                        </div>
-                        <span className={`text-xs font-semibold text-center leading-tight ${splitMethod2 === method.id ? 'text-stockshop-blue dark:text-blue-400' : 'text-muted-foreground'}`}>
-                          {method.label}
-                        </span>
-                      </button>
+                      <PaymentMethodCard
+                        key={method.id}
+                        method={method}
+                        selected={splitMethod2 === method.id}
+                        subtitle={t(`sales.method_sub_${method.type}`)}
+                        onSelect={setSplitMethod2}
+                      />
                     ))
                   }
                 </div>
@@ -2122,14 +2138,16 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           <div className="flex gap-2 sticky bottom-0 z-10 -mx-4 border-t bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur max-md:!mt-auto md:static md:z-auto md:mx-0 md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
             <Button
               variant="outline"
-              className="h-12 w-12 shrink-0 p-0 gap-2 border-amber-300 dark:border-amber-700/60 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 md:w-auto md:flex-1 md:px-4"
+              className="h-12 w-12 shrink-0 gap-2 p-0 border-amber-300 dark:border-amber-700/60 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 min-[380px]:w-auto min-[380px]:px-3 md:flex-1 md:px-4"
               onClick={openHoldDialog}
               disabled={cart.length === 0 || completing}
-              aria-label="Mettre en attente"
-              title="Mettre en attente"
+              aria-label={t('sales.hold_confirm')}
+              title={t('sales.hold_confirm')}
             >
               <PauseCircle className="h-5 w-5 md:h-4 md:w-4" />
-              <span className="hidden md:inline">Mettre en attente</span>
+              {/* Libellé court dès 380 px (une icône pause seule n'est pas évidente), complet sur ordinateur */}
+              <span className="hidden min-[380px]:inline md:hidden">{t('sales.hold_short')}</span>
+              <span className="hidden md:inline">{t('sales.hold_confirm')}</span>
             </Button>
             <Button
               variant="stockshop"
