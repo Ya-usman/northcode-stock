@@ -439,6 +439,8 @@
     "payment_step_title": "Payment",
     "back_to_cart": "Cart",
     "add_discount": "Add a discount",
+    "qty_decrease": "Decrease quantity",
+    "qty_increase": "Increase quantity",
     "add_customer": "Add a customer",
     "add_note": "Add a note",
     "choose_customer_for_credit": "Choose the customer",

@@ -439,6 +439,8 @@
     "payment_step_title": "Paiement",
     "back_to_cart": "Panier",
     "add_discount": "Ajouter une remise",
+    "qty_decrease": "Diminuer la quantité",
+    "qty_increase": "Augmenter la quantité",
     "add_customer": "Ajouter un client",
     "add_note": "Ajouter une note",
     "choose_customer_for_credit": "Choisir le client",

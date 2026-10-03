@@ -5,12 +5,14 @@ import { useTranslations, useLocale } from 'next-intl'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, Plus, Minus, Trash2, CheckCircle, MessageCircle, Printer, Share2,
-  Scan, X, User, Clock, PauseCircle, PlayCircle, Edit2, ShoppingCart, ChevronUp, ChevronRight, Star, ArrowLeft,
+  Scan, X, User, Clock, PauseCircle, PlayCircle, Edit2, ShoppingCart, ChevronUp, Star, ArrowLeft,
+  AlertTriangle, Coins, CreditCard,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { ShopSelector } from '@/components/layout/shop-selector'
 import { ProductCard, type StockVariant } from '@/components/sales/product-card'
+import { ProductThumbnail } from '@/components/stock/product-thumbnail'
 import { cn } from '@/lib/utils/cn'
 import { normalize } from '@/lib/utils/normalize'
 import { useToast } from '@/components/ui/use-toast'
@@ -1317,7 +1319,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       <div className="flex flex-col gap-3 px-0 pt-2 md:pt-5 md:px-5 md:pb-2 md:sticky md:top-0 md:bg-background md:z-10 md:border-b md:border-border/50">
       {/* Active draft indicator */}
       {activeDraftId && (
-        <div className="flex items-center gap-2 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-700">
+        <div className="flex items-center gap-2 rounded-lg bg-stockshop-blue-muted border border-stockshop-blue/20 px-3 py-2 text-xs text-stockshop-blue dark:bg-blue-950/40 dark:border-blue-800 dark:text-blue-300">
           <PlayCircle className="h-3.5 w-3.5" />
           Facture en attente reprise — validez ou remettez en attente
         </div>
@@ -1339,7 +1341,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               if (list.length === 1) addToCart(list[0])
             }}
             placeholder={t('sales.search_or_scan')}
-            className="pl-10 pr-8 h-12 text-base border-blue-500/30 focus:border-blue-500"
+            className="pl-10 pr-8 h-12 text-base border-stockshop-blue/30 focus:border-stockshop-blue dark:border-blue-500/30 dark:focus:border-blue-500"
           />
           {searchQuery && (
             <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
@@ -1532,65 +1534,84 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             {cart.map(item => (
               <motion.div key={item.product.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
                 <Card className="border-0 shadow-sm">
-                  <CardContent className="p-3 space-y-2">
-                    {/* Row 1 : nom + corbeille */}
-                    <div className="flex items-center gap-2">
-                      <p className="flex-1 text-sm font-medium truncate">{item.product.name}</p>
-                      {frontBatchExpired[item.product.id] && (
-                        <span className="shrink-0 text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400">
-                          {t('sales.expired_batch_warning')}
-                        </span>
-                      )}
-                      <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-                        onClick={() => removeFromCart(item.product.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                    {/* Row 2 : prix modifiable + quantité + sous-total */}
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => { setPriceModalItem(item); setPriceModalInput(String(item.unit_price)) }}
-                        className="flex flex-col items-start gap-0.5 text-left group shrink-0"
-                      >
-                        <span className="text-xs font-medium text-muted-foreground group-hover:text-blue-600 transition-colors whitespace-nowrap">
-                          {formatNaira(item.unit_price)}
-                          {item.unit_price === effectivePrice(item.product, frontBatchPromo) && item.unit_price !== item.product.selling_price ? (
-                            <span className="ml-1 text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 px-1 rounded font-medium">{t('products.promo_badge')}</span>
-                          ) : item.unit_price !== item.product.selling_price && (
-                            <span className="ml-1 text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 px-1 rounded font-medium">modifié</span>
-                          )}
-                        </span>
-                        <span className="flex items-center gap-0.5 text-[10px] text-blue-400/70 group-hover:text-blue-600 transition-colors">
-                          <Edit2 className="h-2.5 w-2.5" />
-                          modifier
-                        </span>
-                      </button>
-                      <div className="flex-1" />
-                      {/* Quantity controls */}
-                      <div className="flex items-center gap-1">
-                        <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateQty(item.product.id, -1)}>
-                          <Minus className="h-3 w-3" />
-                        </Button>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={item.product.quantity}
-                          value={qtyInputs[item.product.id] ?? String(item.quantity)}
-                          onChange={e => {
-                            const raw = e.target.value
-                            setQtyInputs(prev => ({ ...prev, [item.product.id]: raw }))
-                            const qty = parseInt(raw)
-                            if (!isNaN(qty) && qty >= 1) setQtyDirect(item.product.id, qty)
-                          }}
-                          onBlur={() => setQtyInputs(prev => { const n = { ...prev }; delete n[item.product.id]; return n })}
-                          className="w-12 h-7 text-center text-sm font-bold p-1"
-                        />
-                        <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateQty(item.product.id, 1)}>
-                          <Plus className="h-3 w-3" />
-                        </Button>
+                  <CardContent className="flex gap-2.5 p-2.5">
+                    {/* Miniature : l'article se reconnaît d'un coup d'œil (les
+                        images sont déjà en cache, y compris hors ligne). */}
+                    <ProductThumbnail src={item.product.image_url} alt={item.product.name} className="h-14 w-14 rounded-md" iconClassName="h-5 w-5" />
+                    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                      {/* Ligne 1 : nom + corbeille */}
+                      <div className="flex items-start gap-1">
+                        <p className="min-w-0 flex-1 truncate text-sm font-medium leading-5">{item.product.name}</p>
+                        <button
+                          type="button"
+                          onClick={() => removeFromCart(item.product.id)}
+                          className="-mr-1 -mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-red-50 hover:text-destructive dark:hover:bg-red-950/40"
+                          aria-label={t('actions.remove')}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
-                      <p className="text-sm font-bold min-w-[58px] text-right">{formatNaira(item.subtotal)}</p>
+                      {/* Ligne 2 : prix unitaire (modifiable) + alerte lot périmé —
+                          l'alerte reste rouge : c'est un signal, pas de la marque. */}
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <button
+                          type="button"
+                          onClick={() => { setPriceModalItem(item); setPriceModalInput(String(item.unit_price)) }}
+                          className="group flex items-center gap-1 text-xs font-medium text-stockshop-blue dark:text-blue-400"
+                          aria-label={`${t('actions.edit')} — ${formatNaira(item.unit_price)}`}
+                        >
+                          <span className="whitespace-nowrap">{formatNaira(item.unit_price)}</span>
+                          <Edit2 className="h-3 w-3 opacity-60 transition-opacity group-hover:opacity-100" />
+                          {item.unit_price === effectivePrice(item.product, frontBatchPromo) && item.unit_price !== item.product.selling_price ? (
+                            <span className="rounded bg-stockshop-blue-muted px-1 text-[10px] font-medium text-stockshop-blue dark:bg-blue-900/40 dark:text-blue-400">{t('products.promo_badge')}</span>
+                          ) : item.unit_price !== item.product.selling_price && (
+                            <span className="rounded bg-amber-100 px-1 text-[10px] font-medium text-amber-600 dark:bg-amber-900/40 dark:text-amber-400">modifié</span>
+                          )}
+                        </button>
+                        {frontBatchExpired[item.product.id] && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-600 dark:bg-red-950/40 dark:text-red-400">
+                            <AlertTriangle className="h-3 w-3" />
+                            {t('sales.expired_batch_warning')}
+                          </span>
+                        )}
+                      </div>
+                      {/* Ligne 3 : − qté + groupés dans un seul bloc, sous-total à droite */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center overflow-hidden rounded-lg border border-input">
+                          <button
+                            type="button"
+                            onClick={() => updateQty(item.product.id, -1)}
+                            className="flex h-9 w-10 items-center justify-center text-stockshop-blue transition-colors hover:bg-stockshop-blue-muted active:bg-stockshop-blue-muted dark:text-blue-400 dark:hover:bg-blue-950/40 dark:active:bg-blue-950/40"
+                            aria-label={t('sales.qty_decrease')}
+                          >
+                            <Minus className="h-3.5 w-3.5" />
+                          </button>
+                          <input
+                            type="number"
+                            min={1}
+                            max={item.product.quantity}
+                            value={qtyInputs[item.product.id] ?? String(item.quantity)}
+                            onChange={e => {
+                              const raw = e.target.value
+                              setQtyInputs(prev => ({ ...prev, [item.product.id]: raw }))
+                              const qty = parseInt(raw)
+                              if (!isNaN(qty) && qty >= 1) setQtyDirect(item.product.id, qty)
+                            }}
+                            onBlur={() => setQtyInputs(prev => { const n = { ...prev }; delete n[item.product.id]; return n })}
+                            aria-label={t('products.quantity')}
+                            className="h-9 w-10 border-x border-input bg-card p-0 text-center text-sm font-bold tabular-nums outline-none focus-visible:bg-stockshop-blue-muted dark:focus-visible:bg-blue-950/40 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => updateQty(item.product.id, 1)}
+                            className="flex h-9 w-10 items-center justify-center text-stockshop-blue transition-colors hover:bg-stockshop-blue-muted active:bg-stockshop-blue-muted dark:text-blue-400 dark:hover:bg-blue-950/40 dark:active:bg-blue-950/40"
+                            aria-label={t('sales.qty_increase')}
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <p className="text-right text-sm font-bold tabular-nums">{formatNaira(item.subtotal)}</p>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -1604,8 +1625,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               {/* Téléphone : remise repliée tant qu'elle est à 0 */}
               {!(showDiscount || discount > 0) && (
                 <button type="button" onClick={() => setShowDiscount(true)}
-                  className="md:hidden flex items-center gap-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 tap-target">
-                  <Plus className="h-3.5 w-3.5" />{t('sales.add_discount')}
+                  className="md:hidden flex items-center gap-2 text-sm font-medium text-stockshop-blue dark:text-blue-400 tap-target">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-stockshop-blue-muted dark:bg-blue-950/40"><Plus className="h-3.5 w-3.5" /></span>
+                  {t('sales.add_discount')}
                 </button>
               )}
               <div className={cn('flex items-center gap-3', !(showDiscount || discount > 0) && 'hidden md:flex')}>
@@ -1636,9 +1658,10 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                     <span>{t('sales.tax')}</span><span>+{formatNaira(tax)}</span>
                   </div>
                 )}
-                <div className="flex justify-between font-bold text-base pt-1 border-t">
-                  <span>{t('sales.total')}</span>
-                  <span className="text-stockshop-blue dark:text-blue-400">{formatNaira(total)}</span>
+                {/* Total sur fond bleu très clair : la seule ligne qui compte au premier regard */}
+                <div className="mt-2 flex items-center justify-between rounded-lg bg-stockshop-blue-muted px-3 py-2.5 font-bold dark:bg-blue-950/40">
+                  <span className="text-base">{t('sales.total')}</span>
+                  <span className="text-lg tabular-nums text-stockshop-blue dark:text-blue-400">{formatNaira(total)}</span>
                 </div>
               </div>
             </CardContent>
@@ -1648,8 +1671,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               « + Ajouter un client » tant que rien n'est saisi. */}
           {!customerOpen && (
             <button type="button" onClick={() => setShowCustomer(true)}
-              className="md:hidden flex w-full items-center gap-2 rounded-lg border border-dashed px-4 py-3 text-sm font-medium text-blue-600 dark:text-blue-400 tap-target">
-              <User className="h-4 w-4" /><Plus className="h-3.5 w-3.5 -ml-1" />{t('sales.add_customer')}
+              className="md:hidden flex w-full items-center gap-2 rounded-lg border border-dashed px-4 py-3 text-sm font-medium text-stockshop-blue dark:text-blue-400 tap-target">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-stockshop-blue-muted dark:bg-blue-950/40"><Plus className="h-3.5 w-3.5" /></span>
+              {t('sales.add_customer')}
             </button>
           )}
           <Card className={cn('border-0 shadow-sm', !customerOpen && 'hidden md:block')}>
@@ -1658,73 +1682,106 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 <User className="h-4 w-4" /> Client <span className="text-muted-foreground font-normal text-xs">(optionnel)</span>
               </p>
 
-              {/* Search existing customer */}
-              <div className="relative">
-                <Input
-                  value={selectedCustomer ? selectedCustomer.name : customerName}
-                  onChange={e => { setCustomerName(e.target.value); setSelectedCustomer(null); setShowCustomerDropdown(e.target.value.length > 0) }}
-                  onFocus={() => setShowCustomerDropdown(true)}
-                  onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 150)}
-                  placeholder={t('sales.customer_name_placeholder')}
-                />
-                {(selectedCustomer || customerName) && (
-                  <button className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    onClick={() => { setSelectedCustomer(null); setCustomerName(''); setCustomerPhone('') }}>
+              {selectedCustomer ? (
+                /* Client choisi : avatar à l'initiale + état sur une ligne (type,
+                   téléphone, solde dû) — tout se lit sans ouvrir la fiche. */
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-stockshop-blue-muted text-base font-semibold text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-400" aria-hidden="true">
+                    {(selectedCustomer.name.trim().charAt(0) || '?').toUpperCase()}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{selectedCustomer.name}</p>
+                    <p className="text-xs leading-snug text-muted-foreground">
+                      {t('sales.existing_customer')} · {selectedCustomer.phone || t('sales.no_phone')}
+                      {Number(selectedCustomer.total_debt) > 0 && (
+                        <>
+                          {' · '}
+                          {/* Insécable : passe à la ligne d'un bloc plutôt que de couper « Solde / dû » */}
+                          <span className="whitespace-nowrap font-medium text-red-500">{t('sales.debt_due_inline', { amount: formatNaira(selectedCustomer.total_debt) })}</span>
+                        </>
+                      )}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedCustomer(null); setCustomerName(''); setCustomerPhone('') }}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    aria-label={t('actions.remove')}
+                  >
                     <X className="h-4 w-4" />
                   </button>
-                )}
-                {showCustomerDropdown && !selectedCustomer && filteredCustomers.length > 0 && (
-                  <div className="absolute z-20 w-full bg-card border rounded-lg shadow-lg max-h-40 overflow-y-auto">
-                    {filteredCustomers.slice(0, 8).map(c => (
-                      <button key={c.id} className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex justify-between items-center"
-                        onMouseDown={() => { setSelectedCustomer(c); setCustomerName(''); setCustomerPhone(c.phone || ''); setShowCustomerDropdown(false) }}>
-                        <span className="font-medium">{c.name}</span>
-                        <span className="text-xs text-muted-foreground">{c.phone}</span>
+                </div>
+              ) : (
+                <>
+                  {/* Recherche d'un client existant — ou saisie d'un nouveau */}
+                  <div className="relative">
+                    <Input
+                      value={customerName}
+                      onChange={e => { setCustomerName(e.target.value); setShowCustomerDropdown(e.target.value.length > 0) }}
+                      onFocus={() => setShowCustomerDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 150)}
+                      placeholder={t('sales.customer_name_placeholder')}
+                    />
+                    {customerName && (
+                      <button className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        onClick={() => { setCustomerName(''); setCustomerPhone('') }}>
+                        <X className="h-4 w-4" />
                       </button>
-                    ))}
+                    )}
+                    {showCustomerDropdown && filteredCustomers.length > 0 && (
+                      <div className="absolute z-20 w-full bg-card border rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                        {filteredCustomers.slice(0, 8).map(c => (
+                          <button key={c.id} className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2"
+                            onMouseDown={() => { setSelectedCustomer(c); setCustomerName(''); setCustomerPhone(c.phone || ''); setShowCustomerDropdown(false) }}>
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-stockshop-blue-muted text-[11px] font-semibold text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-400" aria-hidden="true">
+                              {(c.name.trim().charAt(0) || '?').toUpperCase()}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate font-medium">{c.name}</span>
+                            <span className="text-xs text-muted-foreground">{c.phone}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
 
-              {/* Phone — only show if no existing customer selected or if walk-in */}
-              {!selectedCustomer && (
-                <Input
-                  value={customerPhone}
-                  onChange={e => setCustomerPhone(e.target.value)}
-                  placeholder={t('sales.customer_phone_placeholder')}
-                  type="tel"
-                />
-              )}
-
-              {selectedCustomer && (
-                <p className="text-xs text-muted-foreground">
-                  {t('sales.existing_customer')} · {selectedCustomer.phone || t('sales.no_phone')}
-                  {Number(selectedCustomer.total_debt) > 0 && (
-                    <span className="text-red-500 ml-2">· {t('sales.debt_due_inline', { amount: formatNaira(selectedCustomer.total_debt) })}</span>
-                  )}
-                </p>
+                  <Input
+                    value={customerPhone}
+                    onChange={e => setCustomerPhone(e.target.value)}
+                    placeholder={t('sales.customer_phone_placeholder')}
+                    type="tel"
+                  />
+                </>
               )}
             </CardContent>
           </Card>
 
           {/* ── Debt repayment section ── */}
           {selectedCustomer && Number(selectedCustomer.total_debt) > 0 && customerUnpaidSales.length > 0 && (
-            <Card className="border border-orange-200 bg-orange-50 shadow-sm">
+            <Card className="border border-orange-200 bg-orange-50 shadow-sm dark:border-orange-900/60 dark:bg-orange-950/30">
               <CardContent className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-orange-800">{t('sales.include_debt_repayment')}</p>
-                    <p className="text-xs text-orange-600">
+                {/* Carte dette : reste orange (c'est un rappel, pas de la marque) ;
+                    seul l'interrupteur actif prend le bleu de marque. */}
+                <div className="flex items-center gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300" aria-hidden="true">
+                    <Coins className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-orange-800 dark:text-orange-200">{t('sales.include_debt_repayment')}</p>
+                    <p className="text-xs text-orange-600 dark:text-orange-300/80">
                       {t('sales.current_debt_label')} : <strong>{formatNaira(debtOutstanding)}</strong>
                     </p>
                   </div>
                   <button
+                    type="button"
+                    role="switch"
+                    aria-checked={debtRepayEnabled}
+                    aria-label={t('sales.include_debt_repayment')}
                     onClick={() => setDebtRepayEnabled(v => !v)}
                     className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${
-                      debtRepayEnabled ? 'bg-blue-600' : 'bg-gray-300'
+                      debtRepayEnabled ? 'bg-stockshop-blue dark:bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
                     }`}
                   >
-                    <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-card shadow transition-transform ${
+                    <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
                       debtRepayEnabled ? 'translate-x-5' : 'translate-x-0.5'
                     }`} />
                   </button>
@@ -1733,9 +1790,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 {debtRepayEnabled && (
                   <div className="space-y-3 pt-1">
                     <div className="space-y-1">
-                      <Label className="text-xs text-orange-800">{t('sales.amount_given_for_debt')}</Label>
-                      <div className="flex rounded-md border border-orange-200 overflow-hidden focus-within:ring-2 focus-within:ring-orange-300">
-                        <span className="flex items-center px-2.5 bg-orange-50 border-r border-orange-200 text-sm text-muted-foreground font-medium whitespace-nowrap select-none">{symbol}</span>
+                      <Label className="text-xs text-orange-800 dark:text-orange-200">{t('sales.amount_given_for_debt')}</Label>
+                      <div className="flex rounded-md border border-orange-200 overflow-hidden focus-within:ring-2 focus-within:ring-orange-300 dark:border-orange-900/60 dark:focus-within:ring-orange-700">
+                        <span className="flex items-center px-2.5 bg-orange-50 border-r border-orange-200 text-sm text-muted-foreground font-medium whitespace-nowrap select-none dark:bg-orange-950/30 dark:border-orange-900/60">{symbol}</span>
                         <input
                           type="text"
                           inputMode="numeric"
@@ -1752,12 +1809,12 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                         />
                       </div>
                       {debtCapped && (
-                        <p className="text-xs font-medium text-orange-700">
+                        <p className="text-xs font-medium text-orange-700 dark:text-orange-300">
                           {t('sales.debt_capped', { amount: formatNaira(debtOutstanding) })}
                         </p>
                       )}
                       {debtAmt > 0 && (
-                        <p className="text-xs text-orange-600">
+                        <p className="text-xs text-orange-600 dark:text-orange-300/80">
                           {t('sales.remaining_after')} : <strong>{formatNaira(Math.max(0, debtOutstanding - debtAmt))}</strong>
                           {debtAmt >= debtOutstanding && ` ${t('sales.debt_settled_check')}`}
                         </p>
@@ -1766,11 +1823,11 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
                     {/* Résumé */}
                     {debtAmt > 0 && (
-                      <div className="rounded-lg bg-card border border-orange-200 p-3 space-y-1 text-sm">
+                      <div className="rounded-lg bg-card border border-orange-200 p-3 space-y-1 text-sm dark:border-orange-900/60">
                         <div className="flex justify-between text-muted-foreground">
                           <span>Vente</span><span>{formatNaira(total)}</span>
                         </div>
-                        <div className="flex justify-between text-orange-700">
+                        <div className="flex justify-between text-orange-700 dark:text-orange-300">
                           <span>Remboursement crédit</span><span>+{formatNaira(debtAmt)}</span>
                         </div>
                         <div className="flex justify-between font-bold border-t pt-1">
@@ -1803,8 +1860,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               <PauseCircle className="h-5 w-5" />
             </Button>
             <Button variant="stockshop" className="flex-1 h-12 text-base gap-2" onClick={() => setMobileStep('payment')}>
+              <CreditCard className="h-5 w-5" />
               {t('sales.checkout_collect', { amount: formatNaira(collectedNow) })}
-              <ChevronRight className="h-5 w-5" />
             </Button>
           </div>
 
@@ -1844,12 +1901,12 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   }}
                   className={`relative rounded-2xl border-2 py-4 px-2 flex flex-col items-center gap-2 transition-all duration-200 active:scale-95 tap-target ${
                     paymentMethod === method.id
-                      ? 'border-blue-500 bg-gradient-to-b from-blue-50 to-blue-100/60 dark:from-blue-950/60 dark:to-blue-900/30 shadow-lg shadow-blue-200/60 dark:shadow-blue-900/40'
-                      : 'border-input bg-card hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md hover:-translate-y-0.5'
+                      ? 'border-stockshop-blue bg-gradient-to-b from-stockshop-blue-muted to-stockshop-blue-muted/60 dark:border-blue-500 dark:from-blue-950/60 dark:to-blue-900/30 shadow-lg shadow-blue-200/60 dark:shadow-blue-900/40'
+                      : 'border-input bg-card hover:border-stockshop-blue/40 dark:hover:border-blue-700 hover:shadow-md hover:-translate-y-0.5'
                   }`}
                 >
                   {paymentMethod === method.id && (
-                    <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-white text-[9px] font-bold">✓</span>
+                    <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-stockshop-blue dark:bg-blue-500 text-white text-[9px] font-bold">✓</span>
                   )}
                   <div className={`rounded-xl p-2 transition-colors ${paymentMethod === method.id ? 'bg-white dark:bg-white/15 shadow-sm' : 'bg-muted/40 dark:bg-white/5'}`}>
                     {method.logo
@@ -1857,7 +1914,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                       : <span className="text-3xl leading-none block">{method.icon}</span>
                     }
                   </div>
-                  <span className={`text-xs font-semibold text-center leading-tight ${paymentMethod === method.id ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground'}`}>
+                  <span className={`text-xs font-semibold text-center leading-tight ${paymentMethod === method.id ? 'text-stockshop-blue dark:text-blue-400' : 'text-muted-foreground'}`}>
                     {method.label}
                   </span>
                 </button>
@@ -1894,7 +1951,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                       className={cn(
                         'h-10 rounded-lg border px-3 text-sm font-semibold transition-colors tap-target',
                         active
-                          ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300'
+                          ? 'border-stockshop-blue bg-stockshop-blue-muted text-stockshop-blue dark:border-blue-500 dark:bg-blue-950/50 dark:text-blue-300'
                           : 'border-input bg-card hover:bg-accent',
                       )}
                     >
@@ -1931,7 +1988,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   }
                 />
               </div>
-              <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-center">
+              <div className="rounded-lg bg-stockshop-blue-muted border border-stockshop-blue/20 p-3 text-center dark:bg-blue-950/40 dark:border-blue-800">
                 <p className="text-sm text-muted-foreground">{t('sales.amount_to_receive')}</p>
                 <p className="text-2xl font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(total)}</p>
               </div>
@@ -1981,7 +2038,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 setSplitPayment(!splitPayment)
                 setAmountPaid('')
               }}
-              className="flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              className="flex items-center gap-1.5 text-sm text-stockshop-blue dark:text-blue-400 hover:underline"
             >
               {splitPayment ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
               {splitPayment ? t('sales.cancel_split_payment') : t('sales.split_payment_label')}
@@ -1990,7 +2047,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
           {/* Split payment UI */}
           {splitPayment && (
-            <div className="rounded-lg border border-dashed border-blue-300 dark:border-blue-700 p-3 space-y-3">
+            <div className="rounded-lg border border-dashed border-stockshop-blue/40 dark:border-blue-700 p-3 space-y-3">
               {/* Amount for method 1 */}
               <div className="space-y-1.5">
                 <Label className="text-sm">
@@ -2016,12 +2073,12 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                       <button key={method.id} type="button" onClick={() => setSplitMethod2(method.id)}
                         className={`relative rounded-2xl border-2 py-4 px-2 flex flex-col items-center gap-2 transition-all duration-200 active:scale-95 tap-target ${
                           splitMethod2 === method.id
-                            ? 'border-blue-500 bg-gradient-to-b from-blue-50 to-blue-100/60 dark:from-blue-950/60 dark:to-blue-900/30 shadow-lg shadow-blue-200/60 dark:shadow-blue-900/40'
-                            : 'border-input bg-card hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md hover:-translate-y-0.5'
+                            ? 'border-stockshop-blue bg-gradient-to-b from-stockshop-blue-muted to-stockshop-blue-muted/60 dark:border-blue-500 dark:from-blue-950/60 dark:to-blue-900/30 shadow-lg shadow-blue-200/60 dark:shadow-blue-900/40'
+                            : 'border-input bg-card hover:border-stockshop-blue/40 dark:hover:border-blue-700 hover:shadow-md hover:-translate-y-0.5'
                         }`}
                       >
                         {splitMethod2 === method.id && (
-                          <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-white text-[9px] font-bold">✓</span>
+                          <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-stockshop-blue dark:bg-blue-500 text-white text-[9px] font-bold">✓</span>
                         )}
                         <div className={`rounded-xl p-2 transition-colors ${splitMethod2 === method.id ? 'bg-white dark:bg-white/15 shadow-sm' : 'bg-muted/40 dark:bg-white/5'}`}>
                           {method.logo
@@ -2029,7 +2086,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                             : <span className="text-3xl leading-none block">{method.icon}</span>
                           }
                         </div>
-                        <span className={`text-xs font-semibold text-center leading-tight ${splitMethod2 === method.id ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground'}`}>
+                        <span className={`text-xs font-semibold text-center leading-tight ${splitMethod2 === method.id ? 'text-stockshop-blue dark:text-blue-400' : 'text-muted-foreground'}`}>
                           {method.label}
                         </span>
                       </button>
@@ -2076,7 +2133,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           {/* Notes — téléphone : repliées tant qu'elles sont vides */}
           {!(showNotes || notes) && (
             <button type="button" onClick={() => setShowNotes(true)}
-              className="md:hidden flex items-center gap-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 tap-target">
+              className="md:hidden flex items-center gap-1.5 text-sm font-medium text-stockshop-blue dark:text-blue-400 tap-target">
               <Plus className="h-3.5 w-3.5" />{t('sales.add_note')}
             </button>
           )}
@@ -2338,7 +2395,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   {shop?.logo_url ? (
                     <img src={shop.logo_url} alt={shop.name} className="h-8 w-8 object-contain rounded" />
                   ) : (
-                    <div className="h-8 w-8 rounded bg-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                    <div className="h-8 w-8 rounded bg-stockshop-blue flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                       {shop?.name?.slice(0, 2).toUpperCase() || 'SS'}
                     </div>
                   )}
