@@ -495,12 +495,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Directly patch a shop in state without a DB round-trip.
   // Use this after a successful write to avoid stale-read issues on replicas.
   const patchShop = useCallback((shopId: string, updates: Partial<Shop>) => {
-    setState(prev => ({
-      ...prev,
-      userShops: prev.userShops.map(s => s.id === shopId ? { ...s, ...updates } : s),
-      activeShop: prev.activeShop?.id === shopId ? { ...prev.activeShop, ...updates } : prev.activeShop,
-    }))
-  }, [])
+    // Le cache local est réécrit tout de suite (boutiques ET copies portées par
+    // les adhésions) : sinon un rechargement avant le refreshShop() différé qui
+    // suit une sauvegarde (3 s) ré-affichait les anciennes valeurs du formulaire.
+    const patchedMemberships = memberships.map(m => m.shops?.id === shopId ? { ...m, shops: { ...m.shops, ...updates } } : m)
+    setMemberships(patchedMemberships)
+    setState(prev => {
+      const userShops = prev.userShops.map(s => s.id === shopId ? { ...s, ...updates } : s)
+      if (prev.user && prev.profile) writeCache(prev.user.id, prev.profile, userShops, patchedMemberships)
+      return {
+        ...prev,
+        userShops,
+        activeShop: prev.activeShop?.id === shopId ? { ...prev.activeShop, ...updates } : prev.activeShop,
+      }
+    })
+  }, [memberships])
 
   // Real-time: sync shop data when owner updates role_permissions
   useEffect(() => {
