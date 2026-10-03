@@ -1409,7 +1409,7 @@ export default function CreditsPage() {
         >
           {t('payments.tab_historique')}
           {histAllFetched && histAll.length > 0 && (
-            <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${activeTab === 'historique' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400' : 'bg-muted-foreground/20 text-muted-foreground'}`}>
+            <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${activeTab === 'historique' ? 'bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-900/40 dark:text-blue-400' : 'bg-muted-foreground/20 text-muted-foreground'}`}>
               {histAll.length}
             </span>
           )}
@@ -1783,7 +1783,7 @@ export default function CreditsPage() {
         >
           {t('payments.tab_historique')}
           {supplierHistAllFetched && supplierHistAll.length > 0 && (
-            <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${supplierActiveTab === 'historique' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400' : 'bg-muted-foreground/20 text-muted-foreground'}`}>
+            <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${supplierActiveTab === 'historique' ? 'bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-900/40 dark:text-blue-400' : 'bg-muted-foreground/20 text-muted-foreground'}`}>
               {supplierHistAll.length}
             </span>
           )}
@@ -2124,11 +2124,11 @@ export default function CreditsPage() {
                       <button key={m.id} onClick={() => setRepayMethod(m.id)}
                         className={`relative rounded-2xl border-2 py-4 px-2 flex flex-col items-center gap-2 transition-all duration-200 active:scale-95 ${
                           repayMethod === m.id
-                            ? 'border-blue-500 bg-gradient-to-b from-blue-50 to-blue-100/60 dark:from-blue-950/60 dark:to-blue-900/30 shadow-lg shadow-blue-200/60 dark:shadow-blue-900/40'
-                            : 'border-input bg-card hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md hover:-translate-y-0.5'
+                            ? 'border-stockshop-blue bg-gradient-to-b from-stockshop-blue-muted to-stockshop-blue-muted/60 dark:from-blue-950/60 dark:to-blue-900/30 shadow-lg shadow-blue-200/60 dark:shadow-blue-900/40'
+                            : 'border-input bg-card hover:border-stockshop-blue/40 dark:hover:border-blue-700 hover:shadow-md hover:-translate-y-0.5'
                         }`}>
                         {repayMethod === m.id && (
-                          <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-white text-[9px] font-bold">✓</span>
+                          <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-stockshop-blue dark:bg-blue-500 text-white text-[9px] font-bold">✓</span>
                         )}
                         <div className={`rounded-xl p-2 transition-colors ${repayMethod === m.id ? 'bg-white dark:bg-white/15 shadow-sm' : 'bg-muted/40 dark:bg-white/5'}`}>
                           {m.logo
@@ -2136,7 +2136,7 @@ export default function CreditsPage() {
                             : <span className="text-3xl leading-none block">{m.icon}</span>
                           }
                         </div>
-                        <span className={`text-xs font-semibold text-center leading-tight ${repayMethod === m.id ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground'}`}>
+                        <span className={`text-xs font-semibold text-center leading-tight ${repayMethod === m.id ? 'text-stockshop-blue dark:text-blue-400' : 'text-muted-foreground'}`}>
                           {m.label}
                         </span>
                       </button>
@@ -2475,7 +2475,7 @@ export default function CreditsPage() {
                         className={cn(
                           'rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
                           editMethod === m.id
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
+                            ? 'border-stockshop-blue bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400'
                             : 'border-input text-muted-foreground hover:bg-accent'
                         )}
                       >
@@ -2621,11 +2621,11 @@ export default function CreditsPage() {
                   <button key={m.id} onClick={() => setSupplierRepayMethod(m.id)}
                     className={`relative rounded-2xl border-2 py-4 px-2 flex flex-col items-center gap-2 transition-all duration-200 active:scale-95 ${
                       supplierRepayMethod === m.id
-                        ? 'border-blue-500 bg-gradient-to-b from-blue-50 to-blue-100/60 dark:from-blue-950/60 dark:to-blue-900/30 shadow-lg shadow-blue-200/60 dark:shadow-blue-900/40'
-                        : 'border-input bg-card hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md hover:-translate-y-0.5'
+                        ? 'border-stockshop-blue bg-gradient-to-b from-stockshop-blue-muted to-stockshop-blue-muted/60 dark:from-blue-950/60 dark:to-blue-900/30 shadow-lg shadow-blue-200/60 dark:shadow-blue-900/40'
+                        : 'border-input bg-card hover:border-stockshop-blue/40 dark:hover:border-blue-700 hover:shadow-md hover:-translate-y-0.5'
                     }`}>
                     {supplierRepayMethod === m.id && (
-                      <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-white text-[9px] font-bold">✓</span>
+                      <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-stockshop-blue dark:bg-blue-500 text-white text-[9px] font-bold">✓</span>
                     )}
                     <div className={`rounded-xl p-2 transition-colors ${supplierRepayMethod === m.id ? 'bg-white dark:bg-white/15 shadow-sm' : 'bg-muted/40 dark:bg-white/5'}`}>
                       {m.logo
@@ -2633,7 +2633,7 @@ export default function CreditsPage() {
                         : <span className="text-3xl leading-none block">{m.icon}</span>
                       }
                     </div>
-                    <span className={`text-xs font-semibold text-center leading-tight ${supplierRepayMethod === m.id ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground'}`}>
+                    <span className={`text-xs font-semibold text-center leading-tight ${supplierRepayMethod === m.id ? 'text-stockshop-blue dark:text-blue-400' : 'text-muted-foreground'}`}>
                       {m.label}
                     </span>
                   </button>

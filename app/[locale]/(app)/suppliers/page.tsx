@@ -33,7 +33,7 @@ import { withTimeout } from '@/lib/utils/with-timeout'
 
 const PO_STATUS_STYLES: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
-  sent: 'bg-blue-50 dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400',
+  sent: 'bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400',
   received: 'bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400',
   partial: 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400',
   cancelled: 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400',
@@ -833,7 +833,7 @@ export default function SuppliersPage() {
                     <div className="flex items-center gap-2 min-w-0 flex-wrap">
                       <span className="text-sm truncate">{supplierName(row.supplierId)}</span>
                       {row.isCurrent && (
-                        <span className="text-[10px] font-medium rounded-full bg-blue-50 dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400 px-2 py-0.5 shrink-0">
+                        <span className="text-[10px] font-medium rounded-full bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400 px-2 py-0.5 shrink-0">
                           {t('suppliers.current_price_label')}
                         </span>
                       )}
@@ -1148,7 +1148,7 @@ export default function SuppliersPage() {
                           <div className="flex gap-2 pt-3 mt-3 border-t">
                             <Button
                               variant="outline" size="sm"
-                              className="h-8 gap-1.5 text-xs flex-1 text-stockshop-blue border-blue-200 dark:border-blue-800 dark:text-blue-400"
+                              className="h-8 gap-1.5 text-xs flex-1 text-stockshop-blue border-stockshop-blue/20 dark:border-blue-800 dark:text-blue-400"
                               onClick={() => openReorderPo(po)}
                             >
                               <RotateCcw className="h-3.5 w-3.5" />{t('suppliers.po_reorder_action')}
@@ -1714,7 +1714,7 @@ export default function SuppliersPage() {
             { key: 'created', label: t('suppliers.po_journal_created'), date: journalPo.created_at, Icon: FileText, color: 'text-muted-foreground border-border bg-muted', actorName: journalPo.created_by_name },
           ]
           if (journalPo.sent_at) {
-            events.push({ key: 'sent', label: t('suppliers.po_journal_sent'), date: journalPo.sent_at, Icon: Send, color: 'text-stockshop-blue border-blue-200 bg-blue-50 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800', actorName: journalPo.sent_by_name })
+            events.push({ key: 'sent', label: t('suppliers.po_journal_sent'), date: journalPo.sent_at, Icon: Send, color: 'text-stockshop-blue border-stockshop-blue/20 bg-stockshop-blue-muted dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800', actorName: journalPo.sent_by_name })
           }
           if ((journalPo.status === 'received' || journalPo.status === 'partial') && journalPo.received_at) {
             events.push({ key: 'received', label: t('suppliers.po_journal_received'), date: journalPo.received_at, Icon: CheckCircle2, color: 'text-green-700 border-green-200 bg-green-50 dark:bg-green-950/40 dark:text-green-400 dark:border-green-800', actorName: journalPo.received_by_name })

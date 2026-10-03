@@ -20,7 +20,7 @@ interface WhatsNewModalProps {
 }
 
 const BADGE_STYLES: Record<string, { dot: string; text: string; bg: string }> = {
-  blue:  { dot: 'bg-blue-500',  text: 'text-blue-600 dark:text-blue-400',  bg: 'bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800' },
+  blue:  { dot: 'bg-stockshop-blue',  text: 'text-stockshop-blue dark:text-blue-400',  bg: 'bg-stockshop-blue-muted dark:bg-blue-950/50 border-stockshop-blue/20 dark:border-blue-800' },
   green: { dot: 'bg-green-500', text: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-950/50 border-green-200 dark:border-green-800' },
   amber: { dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800' },
   red:   { dot: 'bg-red-500',   text: 'text-red-600 dark:text-red-400',    bg: 'bg-red-50 dark:bg-red-950/50 border-red-200 dark:border-red-800' },

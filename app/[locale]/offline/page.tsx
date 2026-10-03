@@ -31,7 +31,7 @@ export default function OfflinePage() {
       <div className="flex flex-col gap-3 w-full max-w-xs">
         <button
           onClick={() => router.push(`/${locale}/sales/new`)}
-          className="flex items-center justify-center gap-2 w-full rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-3 transition-colors"
+          className="flex items-center justify-center gap-2 w-full rounded-xl bg-stockshop-blue hover:bg-stockshop-blue-light text-white font-medium px-4 py-3 transition-colors"
         >
           <ShoppingCart className="h-4 w-4" />
           {t('go_to_sale')}

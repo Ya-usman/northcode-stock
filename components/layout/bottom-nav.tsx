@@ -88,7 +88,7 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
               >
                 <Icon className={cn('h-5 w-5', isActive && 'text-stockshop-blue dark:text-blue-400')} strokeWidth={isActive ? 2.5 : 2} />
                 <span className="text-[10px] font-medium leading-none">{item.label}</span>
-                {isActive && <span className="absolute bottom-0 h-0.5 w-8 rounded-full bg-blue-600 dark:bg-blue-400" />}
+                {isActive && <span className="absolute bottom-0 h-0.5 w-8 rounded-full bg-stockshop-blue dark:bg-blue-400" />}
               </Link>
             )
           })}
@@ -142,7 +142,7 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
                       className={cn(
                         'flex flex-col items-center gap-1.5 rounded-xl p-3 transition-colors',
                         isActive
-                          ? 'bg-blue-50 dark:bg-blue-950 text-stockshop-blue dark:text-blue-400'
+                          ? 'bg-stockshop-blue-muted dark:bg-blue-950 text-stockshop-blue dark:text-blue-400'
                           : 'text-muted-foreground hover:bg-accent hover:text-foreground',
                         !available && 'opacity-35 pointer-events-none'
                       )}

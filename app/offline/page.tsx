@@ -194,8 +194,8 @@ export default function OfflinePage() {
                 available ? 'active:scale-95' : 'opacity-35 cursor-not-allowed'
               )}
             >
-              <div className="h-10 w-10 flex items-center justify-center rounded-full bg-blue-50 dark:bg-blue-950/40">
-                <Icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <div className="h-10 w-10 flex items-center justify-center rounded-full bg-stockshop-blue-muted dark:bg-blue-950/40">
+                <Icon className="h-5 w-5 text-stockshop-blue dark:text-blue-400" />
               </div>
               <span className="text-sm font-medium text-gray-800 dark:text-gray-200 text-center leading-tight">{label}</span>
             </button>

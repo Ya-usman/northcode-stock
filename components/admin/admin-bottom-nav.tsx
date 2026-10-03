@@ -59,7 +59,7 @@ export function AdminBottomNav({ locale }: AdminBottomNavProps) {
               >
                 <Icon className={cn('h-5 w-5', active && 'text-stockshop-blue dark:text-blue-400')} strokeWidth={active ? 2.5 : 2} />
                 <span className="text-[10px] font-medium leading-none text-center">{label}</span>
-                {active && <span className="absolute bottom-0 h-0.5 w-8 rounded-full bg-blue-600 dark:bg-blue-400" />}
+                {active && <span className="absolute bottom-0 h-0.5 w-8 rounded-full bg-stockshop-blue dark:bg-blue-400" />}
               </Link>
             )
           })}
@@ -107,7 +107,7 @@ export function AdminBottomNav({ locale }: AdminBottomNavProps) {
                       className={cn(
                         'flex flex-col items-center gap-1.5 rounded-xl p-3 transition-colors',
                         active
-                          ? 'bg-blue-50 dark:bg-blue-950 text-stockshop-blue dark:text-blue-400'
+                          ? 'bg-stockshop-blue-muted dark:bg-blue-950 text-stockshop-blue dark:text-blue-400'
                           : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                       )}
                     >

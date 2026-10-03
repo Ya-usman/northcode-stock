@@ -24,7 +24,7 @@ import { generateStockTransferPDF } from '@/lib/utils/pdf'
 import type { Product } from '@/lib/types/database'
 
 const STATUS_STYLES: Record<string, string> = {
-  sent: 'bg-blue-50 dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400',
+  sent: 'bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400',
   received: 'bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400',
   cancelled: 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400',
 }

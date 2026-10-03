@@ -63,7 +63,7 @@ export function RecentPayments({ payments, shops }: Props) {
         return (
           <div key={payment.id} className="flex items-center justify-between px-5 py-3.5 hover:bg-accent/30 transition-colors">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="h-8 w-8 rounded-full bg-blue-600/20 flex items-center justify-center text-blue-400 font-bold text-xs flex-shrink-0">
+              <div className="h-8 w-8 rounded-full bg-stockshop-blue/20 flex items-center justify-center text-blue-400 font-bold text-xs flex-shrink-0">
                 {shop?.name?.[0]?.toUpperCase() || '?'}
               </div>
               <div className="min-w-0">

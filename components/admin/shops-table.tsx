@@ -397,7 +397,7 @@ export function AdminShopsTable({ shops, locale, tier }: Props) {
 
         {/* Bulk action bar — actions de mutation, réservées au niveau super_admin */}
         {canWrite && selected.size > 0 && (
-          <div className="mx-4 mb-2 flex items-center gap-2 flex-wrap bg-blue-950/40 border border-blue-500/30 rounded-xl px-4 py-2.5">
+          <div className="mx-4 mb-2 flex items-center gap-2 flex-wrap bg-stockshop-blue/40 border border-stockshop-blue/30 rounded-xl px-4 py-2.5">
             <span className="text-sm font-semibold text-blue-300 mr-1">
               {selected.size} boutique{selected.size > 1 ? 's' : ''} sélectionnée{selected.size > 1 ? 's' : ''}
             </span>
@@ -490,7 +490,7 @@ export function AdminShopsTable({ shops, locale, tier }: Props) {
                   <>
                     <tr
                       key={shop.id}
-                      className={`border-b border-border/50 transition-colors ${isSuspended ? 'opacity-50' : 'hover:bg-muted/30'} ${selected.has(shop.id) ? 'bg-blue-950/20' : ''}`}
+                      className={`border-b border-border/50 transition-colors ${isSuspended ? 'opacity-50' : 'hover:bg-muted/30'} ${selected.has(shop.id) ? 'bg-stockshop-blue/20' : ''}`}
                     >
                       {/* Checkbox */}
                       <td className="pl-4 pr-1 py-3 w-8">
@@ -600,7 +600,7 @@ export function AdminShopsTable({ shops, locale, tier }: Props) {
             }
 
             return (
-              <div key={shop.id} className={`${isSuspended ? 'opacity-50' : ''} ${selected.has(shop.id) ? 'bg-blue-950/20' : ''}`}>
+              <div key={shop.id} className={`${isSuspended ? 'opacity-50' : ''} ${selected.has(shop.id) ? 'bg-stockshop-blue/20' : ''}`}>
                 <div className="px-4 py-3.5 space-y-2">
                   {/* Top row: name + status */}
                   <div className="flex items-start justify-between gap-2">

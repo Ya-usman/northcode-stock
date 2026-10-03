@@ -43,7 +43,7 @@ const COLOR_KEYS = ['default', 'yellow', 'blue', 'green', 'pink', 'purple'] as c
 const COLOR_STYLES: Record<typeof COLOR_KEYS[number], { bg: string; border: string }> = {
   default: { bg: 'bg-card',           border: 'border-border' },
   yellow:  { bg: 'bg-yellow-50 dark:bg-yellow-950/40',  border: 'border-yellow-200 dark:border-yellow-800' },
-  blue:    { bg: 'bg-blue-50 dark:bg-blue-950/40',      border: 'border-blue-200 dark:border-blue-800' },
+  blue:    { bg: 'bg-stockshop-blue-muted dark:bg-blue-950/40',      border: 'border-stockshop-blue/20 dark:border-blue-800' },
   green:   { bg: 'bg-green-50 dark:bg-green-950/40',    border: 'border-green-200 dark:border-green-800' },
   pink:    { bg: 'bg-pink-50 dark:bg-pink-950/40',      border: 'border-pink-200 dark:border-pink-800' },
   purple:  { bg: 'bg-purple-50 dark:bg-purple-950/40',  border: 'border-purple-200 dark:border-purple-800' },

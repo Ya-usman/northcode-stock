@@ -35,7 +35,7 @@ import { downloadOrShareCSV } from '@/lib/utils/native-share'
 const supabase = createClient() as any
 
 const EXPENSE_CATEGORIES = [
-  { id: 'rent',        icon: '🏠', color: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' },
+  { id: 'rent',        icon: '🏠', color: 'bg-stockshop-blue-muted dark:bg-blue-900/40 text-stockshop-blue dark:text-blue-300' },
   { id: 'electricity', icon: '⚡', color: 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300' },
   { id: 'water',       icon: '💧', color: 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300' },
   { id: 'salaries',    icon: '👥', color: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' },
@@ -977,7 +977,7 @@ export default function ExpensesPage() {
                           'text-[10px] font-medium px-1.5 py-0.5 rounded-full',
                           pm === 'mobile_money'
                             ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300'
-                            : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                            : 'bg-stockshop-blue-muted dark:bg-blue-900/40 text-stockshop-blue dark:text-blue-300'
                         )}>
                           {PAYMENT_METHODS.find(m => m.id === pm)?.icon} {t(`pm_${pm}` as any)}
                         </span>

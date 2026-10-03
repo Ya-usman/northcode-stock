@@ -139,7 +139,7 @@ interface ManualSection {
 
 function CalloutBox({ type = 'info', text }: Callout) {
   const cls = {
-    info:    'bg-blue-50 dark:bg-blue-950/40 border-blue-500 text-blue-800 dark:text-blue-300',
+    info:    'bg-stockshop-blue-muted dark:bg-blue-950/40 border-stockshop-blue text-stockshop-blue dark:text-blue-300',
     warning: 'bg-amber-50 dark:bg-amber-950/40 border-amber-500 text-amber-800 dark:text-amber-300',
     success: 'bg-green-50 dark:bg-green-950/40 border-green-500 text-green-800 dark:text-green-300',
   }[type]
@@ -617,7 +617,7 @@ export default function HelpPage() {
             <div className="flex flex-wrap gap-3">
               <a
                 href="https://wa.me/message/stockshop"
-                className="flex items-center gap-2 rounded-lg bg-card text-stockshop-blue dark:text-blue-400 px-4 py-2 text-sm font-medium hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
+                className="flex items-center gap-2 rounded-lg bg-card text-stockshop-blue dark:text-blue-400 px-4 py-2 text-sm font-medium hover:bg-stockshop-blue-muted dark:hover:bg-blue-950/40 transition-colors"
               >
                 <MessageCircle className="h-4 w-4" />
                 WhatsApp

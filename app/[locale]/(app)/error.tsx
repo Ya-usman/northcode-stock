@@ -113,7 +113,7 @@ export default function AppError({
       </div>
       <button
         onClick={reset}
-        className="flex items-center gap-2 rounded-xl bg-stockshop-blue text-white px-5 py-2.5 text-sm font-medium hover:bg-blue-700 transition-colors"
+        className="flex items-center gap-2 rounded-xl bg-stockshop-blue text-white px-5 py-2.5 text-sm font-medium hover:bg-stockshop-blue-light transition-colors"
       >
         <RefreshCw className="h-4 w-4" />
         {t('error_page.try_again')}

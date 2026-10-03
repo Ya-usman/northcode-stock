@@ -1012,7 +1012,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         transition={{ delay: idx * 0.02 }}
         className={`rounded-lg border bg-card shadow-sm p-4 space-y-2 transition-colors ${
           selectionMode ? 'cursor-pointer select-none' : ''
-        } ${isSelected ? 'border-blue-400 dark:border-blue-500 bg-blue-50/60 dark:bg-blue-950/25' : ''}`}
+        } ${isSelected ? 'border-stockshop-blue/60 dark:border-blue-500 bg-stockshop-blue-muted/60 dark:bg-blue-950/25' : ''}`}
         style={!isSelected && product.categories?.color ? { borderTopColor: product.categories.color, borderTopWidth: 3 } : undefined}
         onClick={selectionMode ? () => setSelectedIds(prev => {
           const next = new Set(prev)
@@ -1025,7 +1025,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             {selectionMode && (
               <div className="flex-shrink-0 mt-0.5">
                 {isSelected
-                  ? <CheckSquare className="h-5 w-5 text-blue-500" />
+                  ? <CheckSquare className="h-5 w-5 text-stockshop-blue" />
                   : <Square className="h-5 w-5 text-muted-foreground/50" />
                 }
               </div>
@@ -1038,7 +1038,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               )}
               <div className="flex items-center gap-1 flex-wrap mt-0.5">
                 {promoActive && (
-                  <span className={`text-[10px] font-semibold rounded-full px-1.5 py-0.5 ${promoStale(product) ? 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400' : 'bg-blue-50 dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400'}`}>
+                  <span className={`text-[10px] font-semibold rounded-full px-1.5 py-0.5 ${promoStale(product) ? 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400' : 'bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400'}`}>
                     {promoStale(product) ? t('products.promo_stale_badge') : t('products.promo_badge')}
                   </span>
                 )}
@@ -1113,7 +1113,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 return (
                   <Button
                     variant="outline" size="sm"
-                    className={`h-7 px-2 ${stale ? 'text-red-600 border-red-300 dark:border-red-700' : promoActive ? 'text-stockshop-blue border-blue-200 dark:border-blue-800' : suggestion ? 'text-amber-600 border-amber-300 dark:border-amber-700' : ''}`}
+                    className={`h-7 px-2 ${stale ? 'text-red-600 border-red-300 dark:border-red-700' : promoActive ? 'text-stockshop-blue border-stockshop-blue/20 dark:border-blue-800' : suggestion ? 'text-amber-600 border-amber-300 dark:border-amber-700' : ''}`}
                     disabled={saving}
                     title={stale ? t('products.promo_stale_hint') : suggestion ? suggestion.reason : t('products.promo_action')}
                     onClick={() => {
@@ -1305,7 +1305,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           { key: 'out', count: outCount, label: t('products.card_out_of_stock'), icon: PackageX, color: 'text-red-600 border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20', badge: 'bg-red-100 dark:bg-red-900/40' },
           { key: 'low', count: lowCount, label: t('products.card_low_stock'), icon: PackageMinus, color: 'text-amber-600 border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/20', badge: 'bg-amber-100 dark:bg-amber-900/40' },
           { key: 'expiry', count: expiringCount, label: t('products.card_expiry'), icon: CalendarClock, color: 'text-orange-600 border-orange-200 dark:border-orange-900 bg-orange-50/50 dark:bg-orange-950/20', badge: 'bg-orange-100 dark:bg-orange-900/40' },
-          { key: 'dormant', count: dormantCount, label: t('products.card_dormant'), icon: TrendingDown, color: 'text-blue-600 border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20', badge: 'bg-blue-100 dark:bg-blue-900/40' },
+          { key: 'dormant', count: dormantCount, label: t('products.card_dormant'), icon: TrendingDown, color: 'text-stockshop-blue border-stockshop-blue/20 dark:border-blue-900 bg-stockshop-blue-muted/50 dark:bg-blue-950/20', badge: 'bg-stockshop-blue-muted dark:bg-blue-900/40' },
           { key: 'promo', count: promoCount, label: t('products.promo_badge'), icon: Tag, color: 'text-purple-600 border-purple-200 dark:border-purple-900 bg-purple-50/50 dark:bg-purple-950/20', badge: 'bg-purple-100 dark:bg-purple-900/40' },
         ].map(card => (
           <button
@@ -1331,9 +1331,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
       {/* Barre de sélection */}
       {selectionMode && (
-        <div className="flex items-center justify-between rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 px-3 py-2">
+        <div className="flex items-center justify-between rounded-lg bg-stockshop-blue-muted dark:bg-blue-950/40 border border-stockshop-blue/20 dark:border-blue-800 px-3 py-2">
           <button
-            className="flex items-center gap-2 text-sm font-medium text-blue-700 dark:text-blue-400 hover:text-blue-800 transition-colors"
+            className="flex items-center gap-2 text-sm font-medium text-stockshop-blue dark:text-blue-400 hover:text-stockshop-blue transition-colors"
             onClick={toggleSelectAll}
           >
             {selectedIds.size > 0 && selectedIds.size === filtered.length
@@ -1341,7 +1341,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               : <Square className="h-4 w-4" />
             }
             {selectedIds.size > 0 && selectedIds.size === filtered.length ? t('products.deselect_all') : t('products.select_all')}
-            <span className="text-xs font-normal text-blue-500">({filtered.length})</span>
+            <span className="text-xs font-normal text-stockshop-blue">({filtered.length})</span>
           </button>
           {canDeleteProducts && products.length > 0 && (
             <button
@@ -2012,7 +2012,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                             </button>
                           )}
                           {batchPromoActive && (
-                            <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-blue-50 dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400">
+                            <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400">
                               {t('products.promo_badge')}: {formatNaira(b.promo_price)}
                             </span>
                           )}

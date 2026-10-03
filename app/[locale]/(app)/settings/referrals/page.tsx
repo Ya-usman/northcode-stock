@@ -81,8 +81,8 @@ const PAYOUT_STATUS_KEYS: Record<string, string> = {
 
 const PAYOUT_STATUS_COLORS: Record<string, string> = {
   requested: 'bg-amber-500/10 text-amber-500',
-  under_review: 'bg-blue-500/10 text-blue-500',
-  approved: 'bg-blue-500/10 text-blue-500',
+  under_review: 'bg-stockshop-blue/10 text-stockshop-blue',
+  approved: 'bg-stockshop-blue/10 text-stockshop-blue',
   paid: 'bg-green-500/10 text-green-500',
   rejected: 'bg-red-500/10 text-red-500',
   cancelled: 'bg-muted text-muted-foreground',
@@ -101,7 +101,7 @@ const STATUS_KEYS: Record<string, string> = {
 
 const STATUS_COLORS: Record<string, string> = {
   invited: 'bg-muted text-muted-foreground',
-  registered: 'bg-blue-500/10 text-blue-500',
+  registered: 'bg-stockshop-blue/10 text-stockshop-blue',
   trial: 'bg-amber-500/10 text-amber-500',
   paid: 'bg-green-500/10 text-green-500',
   reward_pending: 'bg-amber-500/10 text-amber-500',
@@ -310,7 +310,7 @@ export default function ReferralsPage({ params: { locale } }: { params: { locale
       ) : (
         <>
           {/* 1. Solde disponible */}
-          <Card className="bg-gradient-to-br from-stockshop-blue to-blue-700 border-0 text-white overflow-hidden">
+          <Card className="bg-gradient-to-br from-stockshop-blue to-stockshop-blue-light border-0 text-white overflow-hidden">
             <CardContent className="p-5">
               <p className="text-xs font-medium text-blue-100 uppercase tracking-wide">{t('available_balance')}</p>
               <p className="text-3xl font-extrabold mt-1">{formatCurrency(data.wallet?.available_balance ?? 0, data.wallet?.currency_symbol || '₦')}</p>

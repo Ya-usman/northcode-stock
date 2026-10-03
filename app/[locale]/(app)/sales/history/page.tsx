@@ -785,7 +785,7 @@ export default function SalesHistoryPage() {
                   {canCancelThis && (
                     <Button
                       size="sm" variant="outline"
-                      className="gap-1.5 text-xs h-7 border-blue-300 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+                      className="gap-1.5 text-xs h-7 border-stockshop-blue/40 text-stockshop-blue dark:text-blue-400 hover:bg-stockshop-blue-muted dark:hover:bg-blue-950/40"
                       onClick={() => openEditDialog(sale)}
                     >
                       <Edit2 className="h-3 w-3" /> {t('actions.edit')}
@@ -1245,7 +1245,7 @@ export default function SalesHistoryPage() {
               const iconCls = isCancel
                 ? 'bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400'
                 : isEdit
-                  ? 'bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400'
+                  ? 'bg-stockshop-blue-muted dark:bg-blue-950/50 text-stockshop-blue dark:text-blue-400'
                   : 'bg-green-100 dark:bg-green-950/50 text-green-600 dark:text-green-400'
               const actionLabel = isCancel
                 ? t('sales.log_action_cancel')
@@ -1282,7 +1282,7 @@ export default function SalesHistoryPage() {
                       </p>
                     )}
                     {isEdit && log.metadata?.new_total != null && (
-                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
+                      <p className="text-xs text-stockshop-blue dark:text-blue-400 mt-0.5">
                         {formatNaira(log.metadata.old_total)} → {formatNaira(log.metadata.new_total)}
                       </p>
                     )}
@@ -1469,7 +1469,7 @@ export default function SalesHistoryPage() {
               onClick={doEdit}
               disabled={editSaving || editItems.length === 0 || Number((editDialog as any)?.amount_paid || 0) > editItems.reduce((s, i) => s + i.quantity * i.unit_price, 0)}
               loading={editSaving}
-              className="bg-blue-600 hover:bg-blue-700 text-white border-0"
+              className="bg-stockshop-blue hover:bg-stockshop-blue-light text-white border-0"
             >
               {t('sales.edit_save')}
             </Button>

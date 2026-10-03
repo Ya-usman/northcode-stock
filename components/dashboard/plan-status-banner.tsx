@@ -88,13 +88,13 @@ export function PlanStatusBanner({ plan, trialEndsAt, planExpiresAt, isInternal 
 
 // ── Internal Banner UI ───────────────────────────────────────────────────────
 const COLORS = {
-  blue:  'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950/40 dark:border-blue-800 dark:text-blue-300',
+  blue:  'bg-stockshop-blue-muted border-stockshop-blue/20 text-stockshop-blue dark:bg-blue-950/40 dark:border-blue-800 dark:text-blue-300',
   green: 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300',
   amber: 'bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-300',
   red:   'bg-red-50 border-red-200 text-red-800 dark:bg-red-950/40 dark:border-red-800 dark:text-red-300',
 }
 const LINK_COLORS = {
-  blue:  'text-blue-700 dark:text-blue-400',
+  blue:  'text-stockshop-blue dark:text-blue-400',
   green: 'text-emerald-700 dark:text-emerald-400',
   amber: 'text-amber-700 dark:text-amber-400',
   red:   'text-red-700 dark:text-red-400',

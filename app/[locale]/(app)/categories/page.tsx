@@ -55,7 +55,7 @@ function CategoryCard({ cat, products, expandedId, setExpandedId, canEdit, delet
       >
         <div className="flex items-center gap-3 min-w-0">
           <div
-            className={cn('h-8 w-8 rounded-md flex items-center justify-center shrink-0', !cat.color && 'bg-blue-50 dark:bg-blue-950/30')}
+            className={cn('h-8 w-8 rounded-md flex items-center justify-center shrink-0', !cat.color && 'bg-stockshop-blue-muted dark:bg-blue-950/30')}
             style={cat.color ? { backgroundColor: `${cat.color}20` } : undefined}
           >
             <Tag className={cn('h-4 w-4', !cat.color && 'text-stockshop-blue dark:text-blue-400')} style={cat.color ? { color: cat.color } : undefined} />
@@ -123,7 +123,7 @@ function UncategorizedCard({ products, shopId, expandedId, setExpandedId, t, fmt
         onClick={() => setExpandedId(isExpanded ? null : key)}
       >
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-md bg-blue-50/50 dark:bg-blue-950/20 flex items-center justify-center shrink-0">
+          <div className="h-8 w-8 rounded-md bg-stockshop-blue-muted/50 dark:bg-blue-950/20 flex items-center justify-center shrink-0">
             <Tag className="h-4 w-4 text-stockshop-blue/60 dark:text-blue-400/60" />
           </div>
           <span className="font-medium text-sm text-muted-foreground">{t('categories.uncategorized')}</span>

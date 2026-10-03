@@ -58,7 +58,7 @@ function ProductCardImpl({
         tabIndex={0}
         onClick={() => onAdd(product)}
         onKeyDown={onKeyDown}
-        className="relative flex-shrink-0 w-24 flex flex-col items-stretch text-left rounded-lg border bg-card overflow-hidden hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors tap-target cursor-pointer"
+        className="relative flex-shrink-0 w-24 flex flex-col items-stretch text-left rounded-lg border bg-card overflow-hidden hover:border-stockshop-blue hover:bg-stockshop-blue-muted dark:hover:border-blue-500 dark:hover:bg-blue-950/40 transition-colors tap-target cursor-pointer"
       >
         {star}
         <ProductThumbnail src={product.image_url} alt={product.name} className="w-full aspect-square rounded-none border-0" iconClassName="h-1/3 w-1/3" />
@@ -77,7 +77,7 @@ function ProductCardImpl({
       tabIndex={0}
       onClick={() => onAdd(product)}
       onKeyDown={onKeyDown}
-      className="relative flex flex-col items-stretch text-left rounded-lg border bg-card overflow-hidden hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors tap-target cursor-pointer"
+      className="relative flex flex-col items-stretch text-left rounded-lg border bg-card overflow-hidden hover:border-stockshop-blue hover:bg-stockshop-blue-muted dark:hover:border-blue-500 dark:hover:bg-blue-950/40 transition-colors tap-target cursor-pointer"
       style={categoryColor ? { borderTopColor: categoryColor, borderTopWidth: 3 } : undefined}
     >
       {star}

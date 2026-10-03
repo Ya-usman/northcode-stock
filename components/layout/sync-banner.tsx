@@ -54,7 +54,7 @@ export function SyncBanner({ pendingCount, syncing, onSync }: Props) {
   }
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 mb-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 text-xs text-blue-700 dark:text-blue-400">
+    <div className="flex items-center gap-2 px-3 py-1.5 mb-3 rounded-lg bg-stockshop-blue-muted dark:bg-blue-950/30 border border-stockshop-blue/20 dark:border-blue-800/50 text-xs text-stockshop-blue dark:text-blue-400">
       <UploadCloud className="h-3.5 w-3.5 shrink-0" />
       <span className="flex-1">
         {t('pending', { count: pendingCount })}
@@ -62,7 +62,7 @@ export function SyncBanner({ pendingCount, syncing, onSync }: Props) {
       <Button
         size="sm"
         variant="ghost"
-        className="h-6 px-2 text-xs text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40"
+        className="h-6 px-2 text-xs text-stockshop-blue dark:text-blue-400 hover:bg-stockshop-blue-muted dark:hover:bg-blue-900/40"
         onClick={handleSync}
         disabled={syncing}
       >

@@ -28,7 +28,7 @@ const LANGUAGES = [
 
 const FEATURE_ICONS = [ShoppingCart, Package, Users, BarChart2, Receipt, Smartphone]
 const FEATURE_COLORS = [
-  'text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-950/40',
+  'text-stockshop-blue bg-stockshop-blue-muted dark:text-blue-400 dark:bg-blue-950/40',
   'text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-950/40',
   'text-purple-600 bg-purple-50 dark:text-purple-400 dark:bg-purple-950/40',
   'text-rose-600 bg-rose-50 dark:text-rose-400 dark:bg-rose-950/40',
@@ -417,7 +417,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
                     'w-full',
                     plan.popular
                       ? 'bg-stockshop-blue hover:bg-stockshop-blue-light text-white'
-                      : 'border border-blue-600 dark:border-blue-400 text-stockshop-blue dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 bg-transparent'
+                      : 'border border-stockshop-blue dark:border-blue-400 text-stockshop-blue dark:text-blue-400 hover:bg-stockshop-blue-muted dark:hover:bg-blue-950/40 bg-transparent'
                   )}>
                     {t('pricing.cta')}
                   </Button>

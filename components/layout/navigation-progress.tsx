@@ -99,7 +99,7 @@ export function NavigationProgress() {
 
   return (
     <div
-      className="fixed top-0 left-0 z-[9999] h-[3px] bg-blue-500 shadow-sm shadow-blue-400/50"
+      className="fixed top-0 left-0 z-[9999] h-[3px] bg-stockshop-blue dark:bg-blue-500 shadow-sm shadow-blue-400/50"
       style={{
         width: `${width}%`,
         opacity: visible ? 1 : 0,

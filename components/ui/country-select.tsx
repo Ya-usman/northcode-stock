@@ -104,7 +104,7 @@ export function CountryPickerList({ value, onSelect, autoFocus, className, listC
               onClick={() => onSelect(c.code)}
               className={cn(
                 'w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/60',
-                selected && 'bg-blue-50 dark:bg-blue-950/40'
+                selected && 'bg-stockshop-blue-muted dark:bg-blue-950/40'
               )}
             >
               <span className="text-xl leading-none flex-shrink-0">{c.flag}</span>

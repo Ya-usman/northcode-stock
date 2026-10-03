@@ -331,7 +331,7 @@ export default function AgentsPage() {
                   <div className="flex items-center gap-2">
                     <p className="font-medium text-sm">{agent.name}</p>
                     <span
-                      className="inline-flex items-center gap-0.5 font-mono text-xs bg-blue-500/10 text-blue-400 rounded px-1.5 py-0.5 cursor-pointer"
+                      className="inline-flex items-center gap-0.5 font-mono text-xs bg-stockshop-blue/10 text-blue-400 rounded px-1.5 py-0.5 cursor-pointer"
                       onClick={() => setSelectedAgentId(selectedAgentId === agent.id ? null : agent.id)}
                       title="Filtrer par cet agent"
                     >

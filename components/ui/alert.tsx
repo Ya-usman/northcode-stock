@@ -11,7 +11,7 @@ const alertVariants = cva(
         destructive: 'border-destructive/50 text-destructive dark:border-destructive [&>svg]:text-destructive',
         warning: 'border-amber-200 bg-amber-50 text-amber-800 [&>svg]:text-amber-600',
         success: 'border-green-200 bg-green-50 text-green-800 [&>svg]:text-green-600',
-        info: 'border-blue-200 bg-blue-50 text-blue-800 [&>svg]:text-blue-600',
+        info: 'border-stockshop-blue/20 bg-stockshop-blue-muted text-stockshop-blue [&>svg]:text-stockshop-blue',
       },
     },
     defaultVariants: { variant: 'default' },

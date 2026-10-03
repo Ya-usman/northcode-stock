@@ -44,7 +44,7 @@ const ROLE_COLORS: Record<string, string> = {
 }
 
 const ROLE_AVATAR_COLORS: Record<string, string> = {
-  owner:         'bg-blue-600 dark:bg-blue-500',
+  owner:         'bg-stockshop-blue dark:bg-blue-500',
   shop_manager:  'bg-indigo-600 dark:bg-indigo-500',
   manager:       'bg-violet-600 dark:bg-violet-500',
   cashier:       'bg-green-600 dark:bg-green-500',
@@ -382,7 +382,7 @@ export default function TeamPage() {
             <button
               onClick={() => resendInvite(member)}
               disabled={actionLoading === member.id + '_resend'}
-              className="inline-flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+              className="inline-flex items-center gap-1 text-[10px] text-stockshop-blue dark:text-blue-400 hover:underline disabled:opacity-50"
             >
               {actionLoading === member.id + '_resend'
                 ? <span className="h-2.5 w-2.5 rounded-full border border-current border-t-transparent animate-spin" />
@@ -779,7 +779,7 @@ export default function TeamPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/40 p-3 text-sm text-blue-700 dark:text-blue-400">
+          <div className="rounded-lg bg-stockshop-blue-muted dark:bg-blue-950/30 border border-stockshop-blue/20 dark:border-blue-800/40 p-3 text-sm text-stockshop-blue dark:text-blue-400">
             {t('team.invite_info')}
           </div>
         </PremiumDialogBody>

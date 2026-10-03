@@ -286,7 +286,7 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
                     <span className="text-xs text-muted-foreground">{count} boutiques</span>
                   </div>
                   <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct}%` }} />
+                    <div className="h-full bg-stockshop-blue dark:bg-blue-500 rounded-full" style={{ width: `${pct}%` }} />
                   </div>
                 </div>
               )

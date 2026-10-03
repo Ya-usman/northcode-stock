@@ -368,7 +368,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                         'text-xs font-bold px-1.5 py-0.5 rounded-full',
                         p === 'annual'
                           ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400'
-                          : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400'
+                          : 'bg-stockshop-blue-muted dark:bg-blue-900/40 text-stockshop-blue dark:text-blue-400'
                       )}>
                         {cfg.badge}
                       </span>
@@ -443,7 +443,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                         'w-full font-semibold',
                         popular
                           ? 'bg-stockshop-blue hover:bg-stockshop-blue-light text-white'
-                          : 'border border-blue-600 dark:border-blue-400 text-stockshop-blue dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 bg-transparent'
+                          : 'border border-stockshop-blue dark:border-blue-400 text-stockshop-blue dark:text-blue-400 hover:bg-stockshop-blue-muted dark:hover:bg-blue-950/40 bg-transparent'
                       )}
                     >
                       {isSubscribed ? `${t('upgrade_to')} ${planName}` : `${t('choose_plan_btn')} ${planName}`}
@@ -565,7 +565,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
               {isStripe ? (
                 /* ── Stripe countries : paiement en ligne à venir ── */
                 <div className="space-y-4">
-                  <div className="rounded-2xl border-2 border-dashed border-stockshop-blue/30 bg-blue-50/50 dark:bg-blue-950/20 p-5 text-center space-y-3">
+                  <div className="rounded-2xl border-2 border-dashed border-stockshop-blue/30 bg-stockshop-blue-muted/50 dark:bg-blue-950/20 p-5 text-center space-y-3">
                     <div className="flex justify-center">
                       <div className="h-12 w-12 rounded-full bg-stockshop-blue/10 flex items-center justify-center">
                         <ShieldCheck className="h-6 w-6 text-stockshop-blue" />
@@ -601,7 +601,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                         className={cn(
                           'relative w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl border-2 transition-all duration-200 text-left active:scale-[0.98]',
                           selectedMethod === method.id
-                            ? 'border-stockshop-blue bg-gradient-to-r from-blue-50 to-blue-100/50 dark:from-blue-950/60 dark:to-blue-900/30 shadow-lg shadow-blue-200/50 dark:shadow-blue-900/40'
+                            ? 'border-stockshop-blue bg-gradient-to-r from-stockshop-blue-muted to-stockshop-blue-muted/50 dark:from-blue-950/60 dark:to-blue-900/30 shadow-lg shadow-blue-200/50 dark:shadow-blue-900/40'
                             : 'border-border hover:border-stockshop-blue/40 hover:shadow-md hover:-translate-y-0.5 bg-card'
                         )}
                       >

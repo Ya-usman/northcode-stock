@@ -64,7 +64,7 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
       subValue: t('transactions_today', { count: todaySalesCount }),
       icon: ShoppingCart,
       color: 'text-stockshop-blue dark:text-blue-400',
-      bg: 'bg-blue-50 dark:bg-blue-950/40',
+      bg: 'bg-stockshop-blue-muted dark:bg-blue-950/40',
       show: canAccess('widget_sales_count'),
     },
     {

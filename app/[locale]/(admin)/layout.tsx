@@ -48,7 +48,7 @@ export default async function AdminLayout({
 
         {/* Mobile header */}
         <div
-          className="md:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center px-4 gap-3 border-b border-blue-900/40"
+          className="md:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center px-4 gap-3 border-b border-stockshop-blue/40"
           style={{ background: 'linear-gradient(135deg, #073e8a 0%, #0d52b8 100%)' }}
         >
           <img src="/logo-icon-t.png" alt="StockShop" className="h-8 w-8 object-contain brightness-0 invert flex-shrink-0" />

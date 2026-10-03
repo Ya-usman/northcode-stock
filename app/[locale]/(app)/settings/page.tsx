@@ -439,7 +439,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-4">
-                <div className="h-16 w-16 rounded-xl overflow-hidden border bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center flex-shrink-0">
+                <div className="h-16 w-16 rounded-xl overflow-hidden border bg-stockshop-blue-muted dark:bg-blue-950/40 flex items-center justify-center flex-shrink-0">
                   {shop?.logo_url ? (
                     <img src={shop.logo_url} alt="Logo" className="h-full w-full object-cover" />
                   ) : (
@@ -775,7 +775,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                 onClick={() => switchLanguage(lang.code)}
                 className={`rounded-lg border p-3 text-sm font-medium transition-colors tap-target ${
                   locale === lang.code
-                    ? 'border-blue-500 bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400'
+                    ? 'border-stockshop-blue bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400'
                     : 'border-input bg-background text-muted-foreground hover:bg-muted'
                 }`}
               >

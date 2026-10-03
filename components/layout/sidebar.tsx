@@ -139,7 +139,7 @@ export function Sidebar({ locale, role, profile, onSignOut, signingOut = false, 
                     className={cn(
                       'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors tap-target',
                       isActive
-                        ? 'bg-blue-50 dark:bg-blue-950 text-stockshop-blue dark:text-blue-400'
+                        ? 'bg-stockshop-blue-muted dark:bg-blue-950 text-stockshop-blue dark:text-blue-400'
                         : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                     )}
                   >

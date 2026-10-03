@@ -57,7 +57,7 @@ const RANK_STYLES = [
   'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300',
   'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300',
 ]
-const DEFAULT_RANK = 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400'
+const DEFAULT_RANK = 'bg-stockshop-blue-muted dark:bg-blue-950/30 text-stockshop-blue dark:text-blue-400'
 
 export default function CaissePage() {
   const { effectiveShopIds, profile, roleInActiveShop } = useAuthContext()
@@ -324,7 +324,7 @@ export default function CaissePage() {
         <Card className="border-0 shadow-sm">
           <CardContent className="p-3">
             <div className="flex items-center gap-1.5 mb-1">
-              <ShoppingCart className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
+              <ShoppingCart className="h-3.5 w-3.5 text-stockshop-blue flex-shrink-0" />
               <p className="text-[10px] font-medium text-muted-foreground truncate">{t('total_sales')}</p>
             </div>
             {loading ? <Skeleton className="h-6 w-12" /> : <p className="text-base font-bold leading-none">{grandSalesCount}</p>}

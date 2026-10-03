@@ -198,7 +198,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
               key={shop.id}
               className={cn(
                 'rounded-xl border-2 bg-card p-4 shadow-sm transition-all',
-                isActive ? 'border-blue-500' : 'border-border hover:border-border'
+                isActive ? 'border-stockshop-blue' : 'border-border hover:border-border'
               )}
             >
               <div className="flex items-center gap-3">

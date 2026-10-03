@@ -27,8 +27,8 @@ interface PayoutRequest {
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   requested:    { label: 'En attente',      color: 'bg-amber-500/15 text-amber-400' },
-  under_review: { label: 'En cours d\'examen', color: 'bg-blue-500/15 text-blue-400' },
-  approved:     { label: 'Approuvé',        color: 'bg-blue-500/15 text-blue-400' },
+  under_review: { label: 'En cours d\'examen', color: 'bg-stockshop-blue/15 text-blue-400' },
+  approved:     { label: 'Approuvé',        color: 'bg-stockshop-blue/15 text-blue-400' },
   paid:         { label: 'Payé',            color: 'bg-green-500/15 text-green-400' },
   rejected:     { label: 'Rejeté',          color: 'bg-red-500/15 text-red-400' },
   cancelled:    { label: 'Annulé',          color: 'bg-muted text-muted-foreground' },
