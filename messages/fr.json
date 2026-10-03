@@ -916,7 +916,11 @@
     "method_mixed": "Paiement mixte",
     "paid_status": "PAYÉ",
     "amount_paid": "Montant payé",
-    "generated_by": "Généré par StockShop · stockshop.tech",
+    "generated_by": "Propulsé par StockShop · stockshop.tech",
+    "item_count_one": "1 article",
+    "item_count_other": "{count} articles",
+    "see_you_soon": "À très bientôt !",
+    "powered_by": "Propulsé par",
     "total_collected": "Total encaissé",
     "method_paystack": "Paystack"
   },

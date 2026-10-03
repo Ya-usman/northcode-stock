@@ -917,6 +917,10 @@
     "paid_status": "AN BIYA",
     "amount_paid": "Kuɗin da aka biya",
     "generated_by": "StockShop ne ya samar · stockshop.tech",
+    "item_count_one": "Kaya 1",
+    "item_count_other": "Kaya {count}",
+    "see_you_soon": "Sai an jima!",
+    "powered_by": "Ta hanyar",
     "total_collected": "Jimillar da aka karɓa",
     "method_paystack": "Paystack"
   },

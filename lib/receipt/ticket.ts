@@ -46,18 +46,25 @@ export interface TicketLabels {
   discount: string
   tax: string
   total: string
-  paid: string
+  /** « Montant payé » : libellé de la ligne, pas le statut. */
+  amountPaid: string
   received: string
   change: string
   balanceDue: string
   debtRepayment: string
   totalCollected: string
   thankYou: string
+  /** Seconde ligne du pied (« À très bientôt ! »), absente si la boutique a son propre message. */
+  seeYouSoon: string
   generatedBy: string
+  /** « Propulsé par », au-dessus de la signature StockShop. */
+  poweredBy: string
+  /** « 3 articles » sous la liste. */
+  itemCount: (n: number) => string
 }
 
 /** Libellés depuis next-intl (`t` de useTranslations()). */
-export function ticketLabelsFromT(t: (key: string) => string): TicketLabels {
+export function ticketLabelsFromT(t: (key: string, values?: Record<string, string | number>) => string): TicketLabels {
   return {
     title: t('receipt.sale_title'),
     date: t('receipt.date'),
@@ -72,14 +79,18 @@ export function ticketLabelsFromT(t: (key: string) => string): TicketLabels {
     discount: t('receipt.discount'),
     tax: t('receipt.tax'),
     total: t('receipt.total'),
-    paid: t('receipt.paid_status'),
+    amountPaid: t('receipt.amount_paid'),
     received: t('receipt.received'),
     change: t('receipt.change'),
     balanceDue: t('receipt.balance_due'),
     debtRepayment: t('receipt.debt_repayment'),
     totalCollected: t('receipt.total_collected'),
     thankYou: t('receipt.thank_you'),
+    seeYouSoon: t('receipt.see_you_soon'),
     generatedBy: t('receipt.generated_by'),
+    poweredBy: t('receipt.powered_by'),
+    // Pas de pluriel ICU dans les messages du projet : deux clés
+    itemCount: (n) => (n === 1 ? t('receipt.item_count_one') : t('receipt.item_count_other', { count: n })),
   }
 }
 
@@ -122,7 +133,7 @@ export interface TicketData {
   footerMessage?: string
   /** Logo de la boutique en tête du ticket (option par appareil). */
   logo?: TicketLogo | null
-  /** Retire la mention « Généré par StockShop » (plans Pro / Business actifs). */
+  /** Retire la signature et la mention StockShop (plans Pro / Business actifs). */
   hideBranding?: boolean
   /** Petite marque StockShop au pied du ticket, avec la mention (absente si hideBranding). */
   brandMark?: TicketLogo | null
@@ -162,20 +173,24 @@ export function buildSaleTicket(d: TicketData, width: TicketWidth): TicketLine[]
   // Colonnes en chiffres seuls (la devise est sur les totaux) : « 1 250 000 »
   // tient là où « 1 250 000 F CFA » déborderait.
   const short = d.fmtShort ?? d.fmt
+  // Chaque article est numéroté : le client retrouve sa ligne et compte son sac.
   if (width === 80) {
-    const widths = [0.46, 0.12, 0.21, 0.21]
-    const aligns: TicketAlign[] = ['left', 'center', 'right', 'right']
-    push({ kind: 'cols', cells: [L.colItem, L.colQty, L.colUnitShort, L.colTotal], widths, aligns, bold: true, size: 'sm' })
+    const widths = [0.06, 0.40, 0.12, 0.21, 0.21]
+    const aligns: TicketAlign[] = ['left', 'left', 'center', 'right', 'right']
+    push({ kind: 'cols', cells: ['#', L.colItem, L.colQty, L.colUnitShort, L.colTotal], widths, aligns, bold: true, size: 'sm' })
     push({ kind: 'rule' })
-    for (const it of d.items) {
-      push({ kind: 'cols', cells: [it.name, String(it.qty), short(it.unitPrice), short(it.subtotal)], widths, aligns, size: 'sm' })
-    }
+    d.items.forEach((it, i) => {
+      push({ kind: 'cols', cells: [String(i + 1), it.name, String(it.qty), short(it.unitPrice), short(it.subtotal)], widths, aligns, size: 'sm' })
+    })
   } else {
-    for (const it of d.items) {
-      push({ kind: 'text', text: it.name, size: 'md' })
+    d.items.forEach((it, i) => {
+      push({ kind: 'text', text: `${i + 1}. ${it.name}`, size: 'md' })
       push({ kind: 'row', left: `  ${it.qty} × ${short(it.unitPrice)}`, right: d.fmt(it.subtotal), size: 'sm' })
-    }
+    })
   }
+  // Nombre d'unités ; une quantité décimale (1,5 kg) compte pour un article
+  const units = d.items.reduce((s, it) => s + (Number.isInteger(it.qty) ? it.qty : 1), 0)
+  push({ kind: 'text', text: L.itemCount(units), align: 'right', size: 'sm' })
   push({ kind: 'rule' })
 
   // ─── Totaux (lignes à zéro jamais imprimées) ───
@@ -187,10 +202,10 @@ export function buildSaleTicket(d: TicketData, width: TicketWidth): TicketLine[]
 
   // ─── Paiement : un seul bloc, jamais répété ───
   if (d.balance <= 0) {
-    push({ kind: 'row', left: L.paid, right: d.fmt(d.amountPaid), bold: true, size: 'lg' })
+    push({ kind: 'row', left: L.amountPaid, right: d.fmt(d.amountPaid), bold: true, size: 'lg' })
   } else {
     push({ kind: 'row', left: L.balanceDue, right: d.fmt(d.balance), bold: true, size: 'lg' })
-    push({ kind: 'row', left: `${L.paid.charAt(0)}${L.paid.slice(1).toLowerCase()}`, right: d.fmt(d.amountPaid), size: 'sm' })
+    push({ kind: 'row', left: L.amountPaid, right: d.fmt(d.amountPaid), size: 'sm' })
   }
   if (d.payments && d.payments.length > 1) {
     for (const p of d.payments) push({ kind: 'row', left: `  ${p.label}`, right: d.fmt(p.amount), size: 'sm' })
@@ -198,7 +213,9 @@ export function buildSaleTicket(d: TicketData, width: TicketWidth): TicketLine[]
     push({ kind: 'text', text: d.paymentLabel, size: 'sm' })
   }
   if ((d.change ?? 0) > 0 && (d.cashReceived ?? 0) > 0) {
-    push({ kind: 'row', left: `${L.received} : ${d.fmt(d.cashReceived!)}`, right: `${L.change} : ${d.fmt(d.change!)}`, size: 'sm' })
+    // Deux lignes : « Reçu : … Rendu : … » sur une seule débordait en 58 mm avec de gros montants
+    push({ kind: 'row', left: L.received, right: d.fmt(d.cashReceived!), size: 'sm' })
+    push({ kind: 'row', left: L.change, right: d.fmt(d.change!), size: 'sm' })
   }
   if ((d.debtRepayment ?? 0) > 0) {
     push({ kind: 'space', h: 1.5 })
@@ -209,12 +226,15 @@ export function buildSaleTicket(d: TicketData, width: TicketWidth): TicketLine[]
 
   // ─── Pied ───
   push({ kind: 'text', text: d.footerMessage || L.thankYou, align: 'center', bold: true, size: 'md' })
+  // Le commerçant qui écrit son propre message garde la main sur tout le pied
+  if (!d.footerMessage) push({ kind: 'text', text: L.seeYouSoon, align: 'center', size: 'sm' })
   if (!d.hideBranding) {
     push({ kind: 'space', h: 1.5 })
-    // En bas : le haut du ticket appartient à la boutique. La signature porte
-    // déjà le nom et le slogan → seule l'adresse du site suit (le texte
-    // « Généré par StockShop » ne sert que si la signature est indisponible).
+    // En bas : le haut du ticket appartient à la boutique. « Propulsé par »,
+    // signature (nom et slogan dans l'image), adresse du site ; le texte complet
+    // ne sert que si l'image est indisponible.
     if (d.brandMark) {
+      push({ kind: 'text', text: L.poweredBy, align: 'center', size: 'sm' })
       push({ kind: 'image', logo: d.brandMark })
       push({ kind: 'text', text: 'stockshop.tech', align: 'center', size: 'sm' })
     } else {
