@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 
-const TOAST_LIMIT = 5
+const TOAST_LIMIT = 2 // deux messages visibles au plus, les suivants attendent
 const TOAST_REMOVE_DELAY = 4000
 
 type ToasterToast = {

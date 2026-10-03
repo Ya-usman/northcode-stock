@@ -2027,6 +2027,7 @@
   },
   "app_layout": {
     "new_sale_toast_title": "💰 New sale",
+    "new_sales_toast_title": "💰 {count} new sales",
     "incomplete_config_title": "Incomplete setup",
     "incomplete_config_body": "Your profile couldn't be loaded. Check your connection and try again.",
     "offline_title": "Offline",

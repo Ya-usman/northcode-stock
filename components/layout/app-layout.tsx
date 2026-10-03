@@ -297,6 +297,9 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   // to avoid dual refreshSession() calls that can emit a spurious SIGNED_OUT.
 
   // ── REALTIME: notifier l'admin quand un caissier fait une vente ────────────
+  // Rafale (synchronisation hors ligne d'un caissier : plusieurs ventes en
+  // quelques secondes) → un seul message « N nouvelles ventes · total ».
+  const saleBurstRef = useRef<{ count: number; total: number; lastNumber: string; timer: ReturnType<typeof setTimeout> | null }>({ count: 0, total: 0, lastNumber: '', timer: null })
   useEffect(() => {
     const isAdmin = profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'super_admin'
     if (!shop?.id || !user?.id || !isAdmin) return
@@ -319,20 +322,28 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         filter: `shop_id=eq.${shop.id}`,
       }, (payload) => {
         const sale = payload.new as any
-        if (sale.cashier_id === user.id) return
+        if (sale.cashier_id === user.id) return // jamais ses propres ventes (dont celles que cet appareil synchronise)
         if ((shop as any).notify_push_new_sale === false) return
 
-        triggerSaleFeedback()
-        const amount = formatCurrency(Number(sale.total ?? 0), resolveCurrencyCode(shop.currency, (shop as any).country))
-        toast({
-          title: t('app_layout.new_sale_toast_title'),
-          description: `${amount}${sale.sale_number ? ` · #${sale.sale_number}` : ''}`,
-          variant: 'success',
-        })
+        const b = saleBurstRef.current
+        if (b.count === 0) triggerSaleFeedback() // son / vibration une fois par rafale
+        b.count += 1
+        b.total += Number(sale.total ?? 0)
+        b.lastNumber = sale.sale_number || ''
+        if (b.timer) clearTimeout(b.timer)
+        b.timer = setTimeout(() => {
+          const amount = formatCurrency(b.total, resolveCurrencyCode(shop.currency, (shop as any).country))
+          toast(b.count === 1
+            ? { title: t('app_layout.new_sale_toast_title'), description: `${amount}${b.lastNumber ? ` · #${b.lastNumber}` : ''}`, variant: 'success' }
+            : { title: t('app_layout.new_sales_toast_title', { count: b.count }), description: amount, variant: 'success' })
+          saleBurstRef.current = { count: 0, total: 0, lastNumber: '', timer: null }
+        }, 3000)
       })
       .subscribe()
 
     return () => {
+      if (saleBurstRef.current.timer) clearTimeout(saleBurstRef.current.timer)
+      saleBurstRef.current = { count: 0, total: 0, lastNumber: '', timer: null }
       supabase.removeChannel(channel)
       document.removeEventListener('click', unlock)
       document.removeEventListener('touchstart', unlock)

@@ -551,7 +551,9 @@ export default function DashboardPage() {
           setTodaySalesCount(prev => (prev ?? 0) + 1)
           // Revenue is added by onPaymentUpdate when the payment record is inserted.
         }
-        toast({ title: t('dashboard.new_sale_toast_title', { amount: formatNaira(sale.total) }), description: t('dashboard.new_sale_toast_number', { number: sale.sale_number }), variant: 'success' })
+        // Pas de message ici : la notification « nouvelle vente » est celle de la
+        // coquille (app-layout), qui exclut ses propres ventes — y compris celles
+        // que cet appareil synchronise — et regroupe les rafales.
       }
     },
     onSaleCancelled: (sale) => {

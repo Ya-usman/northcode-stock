@@ -2027,6 +2027,7 @@
   },
   "app_layout": {
     "new_sale_toast_title": "💰 Nouvelle vente",
+    "new_sales_toast_title": "💰 {count} nouvelles ventes",
     "incomplete_config_title": "Configuration incomplète",
     "incomplete_config_body": "Votre profil n'a pas pu être chargé. Vérifiez votre connexion et réessayez.",
     "offline_title": "Hors connexion",

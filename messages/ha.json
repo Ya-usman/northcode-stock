@@ -2027,6 +2027,7 @@
   },
   "app_layout": {
     "new_sale_toast_title": "💰 Sabon siyarwa",
+    "new_sales_toast_title": "💰 Sabbin sayarwa {count}",
     "incomplete_config_title": "Saitin bai cika ba",
     "incomplete_config_body": "Ba a iya loda bayaninka ba. Duba haɗin intanet sannan sake gwadawa.",
     "offline_title": "Ba a haɗe da intanet ba",
