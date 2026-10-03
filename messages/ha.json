@@ -562,6 +562,7 @@
     "no_phone": "babu waya",
     "debt_due_inline": "Bashi: {amount}",
     "choose_customer": "Zaɓi abokin ciniki",
+    "customer_linked": "An haɗa abokin ciniki: {name}",
     "customer_picker_title": "Zaɓi abokin ciniki",
     "customer_search_placeholder": "Nemi suna ko lamba",
     "customer_tab_recent": "Na kwanan nan",

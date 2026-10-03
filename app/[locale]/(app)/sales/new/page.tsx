@@ -746,6 +746,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     // Nouvelle vente : on repart de l'étape panier, sections repliées.
     setMobileStep('cart')
     setShowDiscount(false); setShowCustomer(false); setShowNotes(false)
+    autoLinkDismissed.current = ''
   }, [cart.length])
 
   // À l'ouverture : panneau remis en haut, et défilement de la grille en
@@ -870,6 +871,44 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   // « 3 clients existants correspondent » sous le champ « nouveau client » : évite les doublons
   const matchingCustomers = customerName.trim().length >= 2 ? filteredCustomers.length : 0
 
+  // Anti-doublon : un nom tapé qui correspond EXACTEMENT (accents et majuscules
+  // ignorés) à une seule fiche existante, avec un téléphone compatible (absent
+  // d'un côté ou identique), est rattaché à cette fiche — sinon la base créait
+  // un client par vente (elle ne réutilise une fiche que sur le téléphone).
+  // Homonymes : si le vendeur retire lui-même un rattachement (×), ce nom n'est
+  // plus rattaché automatiquement pour cette vente → une nouvelle fiche est créée.
+  const autoLinkDismissed = useRef('')
+  const exactCustomerMatches = (): Customer[] => {
+    const typed = normalize(customerName.trim())
+    if (!typed || typed === autoLinkDismissed.current) return []
+    const digits = customerPhone.replace(/\D/g, '')
+    return customers.filter(c => {
+      if (normalize(c.name) !== typed) return false
+      const theirs = (c.phone || '').replace(/\D/g, '')
+      return !digits || !theirs || digits === theirs
+    })
+  }
+  const linkCustomer = (c: Customer) => {
+    setSelectedCustomer(c); setCustomerName(''); setCustomerPhone(c.phone || '')
+    toast({ title: t('sales.customer_linked', { name: c.name }), variant: 'success' })
+  }
+  // À la sortie du champ « nom » : rattachement immédiat, visible avant de payer
+  const autoLinkTypedCustomer = () => {
+    if (selectedCustomer) return
+    const exact = exactCustomerMatches()
+    if (exact.length === 1) linkCustomer(exact[0])
+  }
+  // Rattachement au moment d'encaisser : l'état React se met à jour après le
+  // retour de completeSale, l'effet relance alors la validation une seule fois.
+  const autoLinkRetry = useRef(false)
+  useEffect(() => {
+    if (autoLinkRetry.current && selectedCustomer) {
+      autoLinkRetry.current = false
+      completeSale()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCustomer])
+
   const loadRecentCustomers = async () => {
     if (!shop?.id || recentCustomerIds.length || (typeof navigator !== 'undefined' && !navigator.onLine)) return
     try {
@@ -893,6 +932,13 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   // ── COMPLETE SALE ───────────────────────────────────────
   const completeSale = async () => {
     if (cart.length === 0) { toast({ title: t('toast.cart_empty'), variant: 'destructive' }); return }
+    // Filet de sécurité anti-doublon (voir exactCustomerMatches) : une fiche
+    // exacte → rattachée puis validation relancée ; plusieurs → le carnet s'ouvre
+    if (!selectedCustomer && customerName.trim()) {
+      const exact = exactCustomerMatches()
+      if (exact.length === 1) { autoLinkRetry.current = true; linkCustomer(exact[0]); return }
+      if (exact.length > 1) { openCustomerPicker(customerName.trim()); return }
+    }
     if (methodType === 'credit' && !selectedCustomer && !customerName.trim()) {
       toast({ title: t('toast.customer_required_credit'), variant: 'destructive' }); return
     }
@@ -1857,7 +1903,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setSelectedCustomer(null); setCustomerName(''); setCustomerPhone('') }}
+                    onClick={() => { autoLinkDismissed.current = normalize(selectedCustomer.name); setSelectedCustomer(null); setCustomerName(''); setCustomerPhone('') }}
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     aria-label={t('actions.remove')}
                   >
@@ -1883,6 +1929,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                       id="customer-name-input"
                       value={customerName}
                       onChange={e => setCustomerName(e.target.value)}
+                      onBlur={autoLinkTypedCustomer}
                       placeholder={t('sales.customer_name_placeholder')}
                       className="pr-9"
                     />
