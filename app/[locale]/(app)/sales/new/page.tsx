@@ -35,6 +35,8 @@ import { useCurrency } from '@/lib/hooks/use-currency'
 import { shareReceiptWhatsApp, shareViaWhatsApp, buildReceiptWhatsAppMessage, normalizeWhatsAppNumber } from '@/lib/utils/whatsapp'
 import { generateReceiptToken, receiptUrl } from '@/lib/receipt/receipt-link'
 import { ShopLogo } from '@/components/shop/shop-logo'
+import { CustomerPicker, phoneExample } from '@/components/sales/customer-picker'
+import { BookUser as BookUserIcon, Phone as PhoneIcon } from 'lucide-react'
 import { receiptLabelsFromT } from '@/lib/receipt/receipt-labels'
 import { sharePDFNative, isCapacitor } from '@/lib/utils/native-share'
 import type { Product, Customer, CartItem, Sale, SaleItem, Category } from '@/lib/types/database'
@@ -171,7 +173,10 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
-  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
+  // Sélecteur de client (carnet) ; « Récents » = clients des dernières ventes, chargés à la 1re ouverture
+  const [customerPickerOpen, setCustomerPickerOpen] = useState(false)
+  const [customerPickerQuery, setCustomerPickerQuery] = useState('')
+  const [recentCustomerIds, setRecentCustomerIds] = useState<string[]>([])
   const [discount, setDiscount] = useState(0)
   const [paymentMethod, setPaymentMethod] = useState<string>('cash')
   const [amountPaid, setAmountPaid] = useState('')
@@ -862,6 +867,28 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         c.phone?.includes(customerName)
       )
     : customers
+  // « 3 clients existants correspondent » sous le champ « nouveau client » : évite les doublons
+  const matchingCustomers = customerName.trim().length >= 2 ? filteredCustomers.length : 0
+
+  const loadRecentCustomers = async () => {
+    if (!shop?.id || recentCustomerIds.length || (typeof navigator !== 'undefined' && !navigator.onLine)) return
+    try {
+      const { data } = await withTimeout(
+        supabase.from('sales').select('customer_id, created_at').eq('shop_id', shop.id)
+          .not('customer_id', 'is', null).order('created_at', { ascending: false }).limit(120),
+      )
+      const ids: string[] = []
+      for (const r of (data || []) as { customer_id: string | null }[]) {
+        if (r.customer_id && !ids.includes(r.customer_id)) ids.push(r.customer_id)
+      }
+      setRecentCustomerIds(ids.slice(0, 20))
+    } catch { /* hors ligne ou lent : pas d'onglet Récents, le carnet reste utilisable */ }
+  }
+  const openCustomerPicker = (query = '') => {
+    setCustomerPickerQuery(query)
+    setCustomerPickerOpen(true)
+    loadRecentCustomers()
+  }
 
   // ── COMPLETE SALE ───────────────────────────────────────
   const completeSale = async () => {
@@ -1606,7 +1633,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           <span className="flex items-center gap-1.5 pr-2 text-sm font-semibold text-foreground">
             {mobileStep === 'payment'
               ? t('sales.payment_step_title')
-              : <><ShoppingCart className="h-4 w-4" />{t('sales.cart_items_count', { count: cart.length })}</>}
+              : <><ShoppingCart className="h-4 w-4" />{t(cart.length === 1 ? 'sales.cart_items_one' : 'sales.cart_items_other', { count: cart.length })}</>}
           </span>
           {/* Vider toute la vente en cours — ici, loin d'« Encaisser », avec confirmation */}
           {mobileStep === 'cart' && cart.length > 0 && (
@@ -1642,7 +1669,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               corbeille est dans l'en-tête du panneau). Confirmation avant de vider. */}
           <div className="hidden md:flex items-center justify-between px-1">
             <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-              <ShoppingCart className="h-4 w-4" />{t('sales.cart_items_count', { count: cart.length })}
+              <ShoppingCart className="h-4 w-4" />{t(cart.length === 1 ? 'sales.cart_items_one' : 'sales.cart_items_other', { count: cart.length })}
             </span>
             <button
               type="button"
@@ -1814,7 +1841,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{selectedCustomer.name}</p>
                     <p className="text-xs leading-snug text-muted-foreground">
-                      {t('sales.existing_customer')} · {selectedCustomer.phone || t('sales.no_phone')}
+                      {t('sales.existing_customer')} · {selectedCustomer.phone || t('sales.no_phone')}{selectedCustomer.city ? ` · ${selectedCustomer.city}` : ''}
                       {Number(selectedCustomer.total_debt) > 0 && (
                         <>
                           {' · '}
@@ -1824,6 +1851,10 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                       )}
                     </p>
                   </div>
+                  <button type="button" onClick={() => openCustomerPicker()}
+                    className="shrink-0 text-xs font-semibold text-stockshop-blue hover:underline dark:text-blue-400">
+                    {t('sales.customer_change')}
+                  </button>
                   <button
                     type="button"
                     onClick={() => { setSelectedCustomer(null); setCustomerName(''); setCustomerPhone('') }}
@@ -1835,47 +1866,70 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 </div>
               ) : (
                 <>
-                  {/* Recherche d'un client existant — ou saisie d'un nouveau */}
+                  {/* Le carnet d'abord (bouton explicite → sélecteur), la saisie d'un
+                      nouveau client ensuite — plus de liste cachée sous le champ. */}
+                  <p className="-mt-1 text-xs text-muted-foreground">{t('sales.customer_hint')}</p>
+                  <button type="button" onClick={() => openCustomerPicker()}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-stockshop-blue/30 bg-stockshop-blue-muted px-4 py-2.5 text-sm font-semibold text-stockshop-blue tap-target dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300">
+                    <BookUserIcon className="h-4 w-4" />
+                    {t('sales.choose_customer')}
+                    {customers.length > 0 && <span className="font-normal opacity-70">({customers.length})</span>}
+                  </button>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="h-px flex-1 bg-border" />{t('sales.or_new_customer')}<span className="h-px flex-1 bg-border" />
+                  </div>
                   <div className="relative">
                     <Input
+                      id="customer-name-input"
                       value={customerName}
-                      onChange={e => { setCustomerName(e.target.value); setShowCustomerDropdown(e.target.value.length > 0) }}
-                      onFocus={() => setShowCustomerDropdown(true)}
-                      onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 150)}
+                      onChange={e => setCustomerName(e.target.value)}
                       placeholder={t('sales.customer_name_placeholder')}
+                      className="pr-9"
                     />
                     {customerName && (
-                      <button className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      <button type="button" aria-label={t('actions.clear')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                         onClick={() => { setCustomerName(''); setCustomerPhone('') }}>
                         <X className="h-4 w-4" />
                       </button>
                     )}
-                    {showCustomerDropdown && filteredCustomers.length > 0 && (
-                      <div className="absolute z-20 w-full bg-card border rounded-lg shadow-lg max-h-40 overflow-y-auto">
-                        {filteredCustomers.slice(0, 8).map(c => (
-                          <button key={c.id} className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2"
-                            onMouseDown={() => { setSelectedCustomer(c); setCustomerName(''); setCustomerPhone(c.phone || ''); setShowCustomerDropdown(false) }}>
-                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-stockshop-blue-muted text-[11px] font-semibold text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-400" aria-hidden="true">
-                              {(c.name.trim().charAt(0) || '?').toUpperCase()}
-                            </span>
-                            <span className="min-w-0 flex-1 truncate font-medium">{c.name}</span>
-                            <span className="text-xs text-muted-foreground">{c.phone}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
                   </div>
-
-                  <Input
-                    value={customerPhone}
-                    onChange={e => setCustomerPhone(e.target.value)}
-                    placeholder={t('sales.customer_phone_placeholder')}
-                    type="tel"
-                  />
+                  {matchingCustomers > 0 && (
+                    <button type="button" onClick={() => openCustomerPicker(customerName.trim())}
+                      className="-mt-1 text-left text-xs font-medium text-stockshop-blue hover:underline dark:text-blue-400">
+                      {t(matchingCustomers === 1 ? 'sales.customer_matches_one' : 'sales.customer_matches_other', { count: matchingCustomers })}
+                    </button>
+                  )}
+                  <div className="relative">
+                    <PhoneIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={customerPhone}
+                      onChange={e => setCustomerPhone(e.target.value)}
+                      placeholder={t('sales.customer_phone_example', { example: phoneExample(shop?.country, getCountry(shop?.country).phonePrefix) })}
+                      type="tel"
+                      className="pl-9"
+                    />
+                  </div>
                 </>
               )}
             </CardContent>
           </Card>
+          <CustomerPicker
+            open={customerPickerOpen}
+            onOpenChange={setCustomerPickerOpen}
+            customers={customers}
+            recentIds={recentCustomerIds}
+            initialQuery={customerPickerQuery}
+            formatAmount={formatNaira}
+            onSelect={c => { setSelectedCustomer(c); setCustomerName(''); setCustomerPhone(c.phone || ''); setCustomerPickerOpen(false) }}
+            onCreateNew={() => {
+              // Un client déjà choisi est retiré : les champs « nouveau client » réapparaissent
+              setCustomerPickerOpen(false); setShowCustomer(true)
+              setSelectedCustomer(null); setCustomerName(''); setCustomerPhone('')
+              // Après la fermeture de la boîte (qui rend le focus à son déclencheur)
+              setTimeout(() => document.getElementById('customer-name-input')?.focus(), 300)
+            }}
+          />
 
           {/* ── Debt repayment section ── */}
           {selectedCustomer && Number(selectedCustomer.total_debt) > 0 && customerUnpaidSales.length > 0 && (
@@ -2594,7 +2648,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             >
               <span className="flex items-center gap-2 font-semibold text-sm">
                 <ShoppingCart className="h-4 w-4" />
-                {t('sales.cart_items_count', { count: cart.length })}
+                {t(cart.length === 1 ? 'sales.cart_items_one' : 'sales.cart_items_other', { count: cart.length })}
               </span>
               <span className="flex items-center gap-1.5 font-bold text-sm">
                 {formatNaira(total)}
