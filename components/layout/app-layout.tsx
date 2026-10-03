@@ -11,8 +11,8 @@ import { Sidebar } from './sidebar'
 import { BottomNav } from './bottom-nav'
 import { Header } from './header'
 import { NavigationProgress } from './navigation-progress'
+import { AppShellSkeleton } from './app-shell-skeleton'
 import { OfflineBanner } from '@/components/offline/offline-banner'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { TrialBanner } from '@/components/saas/trial-banner'
@@ -62,20 +62,6 @@ function usePageTitle(pathname: string, locale: string) {
     if (path.startsWith(key)) return value
   }
   return t('app.name')
-}
-
-function LoadingSkeleton() {
-  return (
-    <div className="min-h-screen bg-background">
-      <div className="p-4 space-y-4 pt-16">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-lg" />)}
-        </div>
-        <Skeleton className="h-10 rounded-lg" />
-        <Skeleton className="h-52 rounded-lg" />
-      </div>
-    </div>
-  )
 }
 
 export function AppLayout({ children, locale }: { children: React.ReactNode; locale: string }) {
@@ -376,11 +362,12 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
     }
   }, [loading, authRecovering, user, locale])
 
-  // Skeleton pendant le chargement initial.
+  // Coquille + squelette de page pendant le chargement initial (sans cache
+  // local uniquement — voir AppShellSkeleton).
   // !profile && : si le cache a déjà fourni user+profile (loading=false), on ne
   // réaffiche pas le skeleton même si authRecovering est encore true un instant.
-  if (!profile && (loading || authRecovering)) return <LoadingSkeleton />
-  if (!user) return <LoadingSkeleton />
+  if (!profile && (loading || authRecovering)) return <AppShellSkeleton title={title} pathname={pathname} />
+  if (!user) return <AppShellSkeleton title={title} pathname={pathname} />
 
   // Auth user exists but profile missing — registration was incomplete
   if (!profile) {
@@ -506,7 +493,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
           </DialogHeader>
           <DialogFooter className="flex-col gap-2 sm:flex-col">
             {signOutReason === 'sync_failed' && (
-              <Button onClick={handleRetrySync} disabled={retryingSync} className="w-full bg-stockshop-blue hover:bg-stockshop-blue-light">
+              <Button onClick={handleRetrySync} disabled={retryingSync} className="w-full bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500">
                 {retryingSync ? t('app_layout.syncing_ellipsis') : t('app_layout.retry_sync')}
               </Button>
             )}
