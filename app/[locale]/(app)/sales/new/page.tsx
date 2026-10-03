@@ -2004,13 +2004,15 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           )}>
             <Button
               variant="outline"
-              className="h-12 w-12 shrink-0 p-0 border-amber-300 dark:border-amber-700/60 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+              className="h-12 w-12 shrink-0 gap-2 p-0 border-amber-300 dark:border-amber-700/60 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 min-[380px]:w-auto min-[380px]:px-3"
               onClick={openHoldDialog}
               disabled={completing}
-              aria-label="Mettre en attente"
-              title="Mettre en attente"
+              aria-label={t('sales.hold_confirm')}
+              title={t('sales.hold_confirm')}
             >
               <PauseCircle className="h-5 w-5" />
+              {/* Libellé court dès 380 px, comme à l'étape paiement : une icône pause seule n'est pas évidente */}
+              <span className="hidden min-[380px]:inline">{t('sales.hold_short')}</span>
             </Button>
             <Button variant="stockshop" className="flex-1 h-12 text-base gap-2" onClick={() => setMobileStep('payment')}>
               <CreditCard className="h-5 w-5" />
