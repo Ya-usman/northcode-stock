@@ -211,9 +211,15 @@ export function buildSaleTicket(d: TicketData, width: TicketWidth): TicketLine[]
   push({ kind: 'text', text: d.footerMessage || L.thankYou, align: 'center', bold: true, size: 'md' })
   if (!d.hideBranding) {
     push({ kind: 'space', h: 1.5 })
-    // En bas, en petit : le haut du ticket appartient à la boutique
-    if (d.brandMark) push({ kind: 'image', logo: d.brandMark })
-    push({ kind: 'text', text: L.generatedBy, align: 'center', size: 'sm' })
+    // En bas : le haut du ticket appartient à la boutique. La signature porte
+    // déjà le nom et le slogan → seule l'adresse du site suit (le texte
+    // « Généré par StockShop » ne sert que si la signature est indisponible).
+    if (d.brandMark) {
+      push({ kind: 'image', logo: d.brandMark })
+      push({ kind: 'text', text: 'stockshop.tech', align: 'center', size: 'sm' })
+    } else {
+      push({ kind: 'text', text: L.generatedBy, align: 'center', size: 'sm' })
+    }
   }
   return out
 }

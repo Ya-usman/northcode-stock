@@ -33,8 +33,10 @@ export async function printSaleTicket(args: {
     const { loadTicketLogo, STOCKSHOP_MARK_URL } = await import('./ticket-logo')
     const [logo, brandMark] = await Promise.all([
       wantShopLogo ? loadTicketLogo(args.logoUrl!, args.settings.width) : Promise.resolve(data.logo ?? null),
-      // ~26 × 6 mm : une signature discrète, pas une bannière
-      wantMark ? loadTicketLogo(STOCKSHOP_MARK_URL, args.settings.width, { dots: 208, maxHeight: 48 }) : Promise.resolve(data.brandMark ?? null),
+      // Signature avec slogan (proportions du visuel de marque) : presque pleine
+      // largeur pour que « Smart Business Starts Here. » reste lisible en thermique
+      // (≈ 46 × 12 mm en 58 mm, 50 × 13 mm en 80 mm).
+      wantMark ? loadTicketLogo(STOCKSHOP_MARK_URL, args.settings.width, { dots: args.settings.width === 58 ? 368 : 400, maxHeight: 112, mode: 'threshold' }) : Promise.resolve(data.brandMark ?? null),
     ])
     data = { ...data, logo, brandMark }
   }

@@ -14,7 +14,7 @@ const MAX_HEIGHT_DOTS = 160 // 20 mm
 
 const cache = new Map<string, Promise<TicketLogo | null>>()
 
-/** Signature StockShop (cercle « S » + « STOCKSHOP », noir et blanc) imprimée au pied du ticket. */
+/** Signature StockShop (cercle « S » + « StockShop » + slogan, noir et blanc) imprimée au pied du ticket. */
 export const STOCKSHOP_MARK_URL = '/receipt/stockshop-lockup.png'
 
 export interface LogoSize {
@@ -22,15 +22,18 @@ export interface LogoSize {
   dots?: number
   /** Hauteur maximale en points. */
   maxHeight?: number
+  /** « threshold » pour un dessin déjà noir et blanc (contours nets) ; « dither » par défaut (photos, logos en couleur). */
+  mode?: 'dither' | 'threshold'
 }
 
 export function loadTicketLogo(url: string, width: TicketWidth, size?: LogoSize): Promise<TicketLogo | null> {
   const dots = size?.dots ?? LOGO_DOTS[width]
   const maxHeight = size?.maxHeight ?? MAX_HEIGHT_DOTS
-  const key = `${dots}|${maxHeight}|${url}`
+  const mode = size?.mode ?? 'dither'
+  const key = `${dots}|${maxHeight}|${mode}|${url}`
   let p = cache.get(key)
   if (!p) {
-    p = build(url, dots, maxHeight).catch(() => null)
+    p = build(url, dots, maxHeight, mode).catch(() => null)
     cache.set(key, p)
     // Pas de mise en cache d'un échec (réseau coupé) : on réessaiera au prochain ticket
     p.then(r => { if (!r) cache.delete(key) })
@@ -38,7 +41,7 @@ export function loadTicketLogo(url: string, width: TicketWidth, size?: LogoSize)
   return p
 }
 
-async function build(url: string, targetDots: number, maxHeightDots: number): Promise<TicketLogo | null> {
+async function build(url: string, targetDots: number, maxHeightDots: number, mode: 'dither' | 'threshold'): Promise<TicketLogo | null> {
   // fetch → blob → URL locale : l'image est « même origine », le canvas n'est pas
   // bloqué (pas de souci CORS avec le stockage Supabase), et le cache hors ligne
   // du service worker répond si le réseau est coupé.
@@ -75,7 +78,8 @@ async function build(url: string, targetDots: number, maxHeightDots: number): Pr
     ctx.fillRect(0, 0, w, h)
     ctx.imageSmoothingQuality = 'high'
     ctx.drawImage(img, crop.x, crop.y, crop.w, crop.h, 0, 0, w, h)
-    ditherAtkinson(ctx, w, h)
+    if (mode === 'threshold') thresholdBW(ctx, w, h)
+    else ditherAtkinson(ctx, w, h)
     return { dataUrl: canvas.toDataURL('image/png'), width: w, height: h, source: canvas }
   } finally {
     URL.revokeObjectURL(objectUrl)
@@ -131,6 +135,19 @@ function ditherAtkinson(ctx: CanvasRenderingContext2D, w: number, h: number) {
     const v = gray[i] < 128 ? 0 : 255
     d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = v
     d[i * 4 + 3] = 255
+  }
+  ctx.putImageData(img, 0, 0)
+}
+
+// Seuil simple : pour un dessin déjà noir et blanc, garde des contours nets
+// (le tramage y ajouterait des points parasites sur les bords anticrénelés).
+function thresholdBW(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  const img = ctx.getImageData(0, 0, w, h)
+  const d = img.data
+  for (let i = 0; i < d.length; i += 4) {
+    const v = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2] < 150 ? 0 : 255
+    d[i] = d[i + 1] = d[i + 2] = v
+    d[i + 3] = 255
   }
   ctx.putImageData(img, 0, 0)
 }
