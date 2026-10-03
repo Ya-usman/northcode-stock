@@ -9,7 +9,7 @@ import {
   AlertTriangle, CreditCard, Coins, ShoppingBag, FileText,
 } from 'lucide-react'
 import { readTicketSettings } from '@/lib/receipt/print-settings'
-import { printSaleTicket } from '@/lib/receipt/print-ticket'
+import { printSaleTicket, ticketErrorKey } from '@/lib/receipt/print-ticket'
 import { ticketLabelsFromT } from '@/lib/receipt/ticket'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -1377,7 +1377,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       })
     } catch (err: any) {
       if (err?.name === 'AbortError') return
-      toast({ title: err?.message || 'Erreur', variant: 'destructive' })
+      toast({ title: t(ticketErrorKey(err)), description: err?.code ? undefined : err?.message, variant: 'destructive' })
     }
   }
   // Impression automatique (réglage par appareil) : une seule fois par vente.

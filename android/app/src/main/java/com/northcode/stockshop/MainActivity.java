@@ -27,6 +27,8 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // Plugin maison (impression Bluetooth SPP) : à enregistrer AVANT super.onCreate
+        registerPlugin(BluetoothPrinterPlugin.class);
         super.onCreate(savedInstanceState);
 
         getBridge().getWebView().setWebViewClient(

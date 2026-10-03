@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { Save, Upload, Globe, Moon, Sun, ShoppingCart, History, CreditCard, Users, Package, ArrowLeftRight, Tag, Truck, BarChart2, ShieldCheck, Bell, Receipt, NotebookPen, Trash2, ClipboardList, ClipboardCheck, TrendingUp, AlertTriangle, CalendarDays, Clock, Gift, ChevronRight, Printer } from 'lucide-react'
+import { Save, Upload, Globe, Moon, Sun, ShoppingCart, History, CreditCard, Users, Package, ArrowLeftRight, Tag, Truck, BarChart2, ShieldCheck, Bell, Receipt, NotebookPen, Trash2, ClipboardList, ClipboardCheck, TrendingUp, AlertTriangle, CalendarDays, Clock, Gift, ChevronRight, Printer, Bluetooth } from 'lucide-react'
 import { readTicketSettings, writeTicketSettings, DEFAULT_TICKET_SETTINGS, type TicketPrintSettings } from '@/lib/receipt/print-settings'
-import { printSaleTicket } from '@/lib/receipt/print-ticket'
+import { printSaleTicket, ticketErrorKey } from '@/lib/receipt/print-ticket'
+import { BluetoothPrinter, BLUETOOTH_IMAGING_CLASS, type PairedDevice } from '@/lib/receipt/bluetooth-printer'
+import { isCapacitor as isNativeApp } from '@/lib/utils/native-share'
 import { ticketLabelsFromT } from '@/lib/receipt/ticket'
 import { formatCurrency as fmtCurrency } from '@/lib/utils/currency'
 import { createClient } from '@/lib/supabase/client'
@@ -89,11 +91,34 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   // ── Impression des tickets — réglages PAR APPAREIL (lus après montage, comme les sons)
   const [ticket, setTicket] = useState<TicketPrintSettings>(DEFAULT_TICKET_SETTINGS)
   const [testPrinting, setTestPrinting] = useState(false)
-  useEffect(() => { setTicket(readTicketSettings()) }, [])
+  // App Android (Capacitor) : seule plateforme où le plugin Bluetooth existe —
+  // lu après montage pour ne pas diverger du rendu serveur.
+  const [nativeApp, setNativeApp] = useState(false)
+  const [btDevices, setBtDevices] = useState<PairedDevice[] | null>(null)
+  const [btLoading, setBtLoading] = useState(false)
+  useEffect(() => { setTicket(readTicketSettings()); setNativeApp(isNativeApp()) }, [])
   const updateTicket = (patch: Partial<TicketPrintSettings>) => {
     const next = { ...ticket, ...patch }
     setTicket(next)
     writeTicketSettings(next)
+  }
+  const loadPairedDevices = async () => {
+    setBtLoading(true)
+    try {
+      const { devices } = await BluetoothPrinter.listPaired()
+      // Imprimantes (classe IMAGING) d'abord, puis le reste, par nom
+      const rank = (d: PairedDevice) => (d.majorClass === BLUETOOTH_IMAGING_CLASS ? 0 : 1)
+      setBtDevices([...devices].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name)))
+    } catch (e: any) {
+      setBtDevices(null)
+      toast({ title: t(ticketErrorKey(e)), variant: 'destructive' })
+    } finally {
+      setBtLoading(false)
+    }
+  }
+  const choosePrinter = (d: PairedDevice) => {
+    updateTicket({ bluetoothAddress: d.address, bluetoothName: d.name })
+    setBtDevices(null)
   }
   const printTestTicket = async () => {
     setTestPrinting(true)
@@ -119,7 +144,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
         },
       })
     } catch (e: any) {
-      toast({ title: e?.message || 'Erreur', variant: 'destructive' })
+      if (e?.name !== 'AbortError') toast({ title: t(ticketErrorKey(e)), description: e?.message, variant: 'destructive' })
     } finally {
       setTestPrinting(false)
     }
@@ -843,9 +868,9 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
             <p className="text-sm font-medium">{t('settings.ticket_method')}</p>
             <div className="space-y-2">
               {([
-                { id: 'system', label: t('settings.ticket_method_system'), desc: t('settings.ticket_method_system_desc'), available: true },
-                { id: 'bluetooth', label: t('settings.ticket_method_bluetooth'), desc: '', available: false },
-                { id: 'network', label: t('settings.ticket_method_network'), desc: '', available: false },
+                { id: 'system', label: t('settings.ticket_method_system'), desc: t('settings.ticket_method_system_desc'), available: true, badge: '' },
+                { id: 'bluetooth', label: t('settings.ticket_method_bluetooth'), desc: t('settings.ticket_bt_hint'), available: nativeApp, badge: t('settings.ticket_bt_app_only') },
+                { id: 'network', label: t('settings.ticket_method_network'), desc: '', available: false, badge: t('settings.ticket_coming_soon') },
               ] as const).map(m => (
                 <button
                   key={m.id}
@@ -866,12 +891,65 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                   </span>
                   {!m.available && (
                     <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
-                      {t('settings.ticket_coming_soon')}
+                      {m.badge}
                     </span>
                   )}
                 </button>
               ))}
             </div>
+            {/* Bluetooth : imprimante appairée choisie sur cet appareil */}
+            {ticket.method === 'bluetooth' && nativeApp && (
+              <div className="space-y-2 rounded-lg border border-dashed p-3">
+                <div className="flex items-center gap-2 text-sm">
+                  <Bluetooth className="h-4 w-4 text-stockshop-blue dark:text-blue-400" />
+                  <span className="font-medium">{t('settings.ticket_bt_printer')} :</span>
+                  <span className={cn('truncate', !ticket.bluetoothName && 'text-muted-foreground')}>
+                    {ticket.bluetoothName || t('settings.ticket_bt_none')}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Button variant="outline" size="sm" className="gap-2" onClick={loadPairedDevices} loading={btLoading}>
+                    <Bluetooth className="h-4 w-4" />{t('settings.ticket_bt_choose')}
+                  </Button>
+                  <Button variant="ghost" size="sm" className="gap-2" onClick={() => BluetoothPrinter.openSettings().catch(() => {})}>
+                    <ChevronRight className="h-4 w-4" />{t('settings.ticket_bt_pair')}
+                  </Button>
+                </div>
+                {btLoading && <p className="text-xs text-muted-foreground">{t('settings.ticket_bt_loading')}</p>}
+                {btDevices && (
+                  btDevices.length === 0
+                    ? <p className="text-xs text-muted-foreground">{t('settings.ticket_bt_no_devices')}</p>
+                    : (
+                      <div className="space-y-1">
+                        {btDevices.map((d, i) => {
+                          const isPrinter = d.majorClass === BLUETOOTH_IMAGING_CLASS
+                          const firstOther = !isPrinter && (i === 0 || btDevices[i - 1].majorClass === BLUETOOTH_IMAGING_CLASS)
+                          return (
+                            <div key={d.address}>
+                              {i === 0 && isPrinter && <p className="px-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t('settings.ticket_bt_printers')}</p>}
+                              {firstOther && <p className="px-1 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t('settings.ticket_bt_other_devices')}</p>}
+                              <button
+                                type="button"
+                                onClick={() => choosePrinter(d)}
+                                className={cn(
+                                  'flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm tap-target',
+                                  ticket.bluetoothAddress === d.address ? 'border-stockshop-blue dark:border-blue-500 bg-stockshop-blue-muted dark:bg-blue-950/40' : 'border-input bg-background hover:bg-muted',
+                                )}
+                              >
+                                <span className="flex items-center gap-2 min-w-0">
+                                  {isPrinter ? <Printer className="h-4 w-4 shrink-0 text-muted-foreground" /> : <Bluetooth className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                                  <span className="truncate">{d.name}</span>
+                                </span>
+                                <span className="shrink-0 font-mono text-[10px] text-muted-foreground">{d.address}</span>
+                              </button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                )}
+              </div>
+            )}
           </div>
           <div className="space-y-2">
             <p className="text-sm font-medium">{t('settings.ticket_width')}</p>

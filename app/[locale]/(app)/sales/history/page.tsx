@@ -24,7 +24,7 @@ import { sharePDFNative, downloadOrShareCSV, isCapacitor } from '@/lib/utils/nat
 import { getCountry } from '@/lib/saas/countries'
 import { useLocale } from 'next-intl'
 import { readTicketSettings } from '@/lib/receipt/print-settings'
-import { printSaleTicket } from '@/lib/receipt/print-ticket'
+import { printSaleTicket, ticketErrorKey } from '@/lib/receipt/print-ticket'
 import { ticketLabelsFromT } from '@/lib/receipt/ticket'
 import { normalize } from '@/lib/utils/normalize'
 import { withTimeout } from '@/lib/utils/with-timeout'
@@ -140,7 +140,7 @@ export default function SalesHistoryPage() {
         },
       })
     } catch (err: any) {
-      if (err?.name !== 'AbortError') toast({ title: err?.message || 'Erreur', variant: 'destructive' })
+      if (err?.name !== 'AbortError') toast({ title: t(ticketErrorKey(err)), variant: 'destructive' })
     }
   }
   const { fmt: formatNaira, symbol } = useCurrency()
