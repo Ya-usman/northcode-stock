@@ -15,6 +15,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useTheme } from '@/lib/hooks/use-theme'
+import { BrandLogo } from '@/components/brand/brand-logo'
+import { cn } from '@/lib/utils/cn'
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -226,9 +228,6 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
     setSuccess(t('reset_sent'))
   }
 
-  const logoFilter = isDark
-    ? 'brightness(0) invert(1) drop-shadow(0 6px 20px rgba(0,0,0,0.5))'
-    : 'brightness(0) saturate(100%) invert(14%) sepia(90%) saturate(700%) hue-rotate(204deg) brightness(75%)'
 
   const inputCls = 'dark:bg-[#060e1c] dark:border-[#1b2e48] dark:text-[#d8e8ff] dark:placeholder:text-[#2e4460]'
 
@@ -296,7 +295,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
             {/* Logo — toujours au-dessus du formulaire */}
             <div className="flex flex-col items-center mb-8">
               <Link href={`/${locale}`} onClick={e => { if ((window as any).Capacitor?.isNativePlatform?.()) e.preventDefault() }}>
-                <img src="/logo-login-t.png" alt="StockShop" className="h-28 lg:h-36 w-auto object-contain" style={{ filter: logoFilter }} />
+                <BrandLogo layout="stacked" tone={isDark ? 'white' : 'brand'} className={cn('text-[26px] lg:text-[32px]', isDark && 'drop-shadow-[0_6px_20px_rgba(0,0,0,0.5)]')} />
               </Link>
               <p className="text-xs mt-2 italic text-[#5570a0] dark:text-[#4a88f5]">
                 Made for African businesses

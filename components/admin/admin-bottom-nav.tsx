@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { useTheme } from '@/lib/hooks/use-theme'
+import { BRAND_TEXT_CLASS } from '@/components/brand/brand-logo'
 
 interface AdminBottomNavProps {
   locale: string
@@ -92,7 +93,7 @@ export function AdminBottomNav({ locale }: AdminBottomNavProps) {
               <div className="flex items-center gap-2 mb-4 px-1">
                 <img src="/logo-icon-t.png" alt="StockShop" className="h-7 w-7 object-contain dark:brightness-0 dark:invert flex-shrink-0" />
                 <div className="flex flex-col leading-none">
-                  <span className="text-xs font-bold text-foreground">StockShop</span>
+                  <span className={`${BRAND_TEXT_CLASS} text-xs text-foreground`}>StockShop</span>
                   <span className="text-[9px] font-semibold text-stockshop-gold tracking-widest uppercase">Admin Panel</span>
                 </div>
               </div>

@@ -14,8 +14,8 @@ const MAX_HEIGHT_DOTS = 160 // 20 mm
 
 const cache = new Map<string, Promise<TicketLogo | null>>()
 
-/** Marque StockShop (fichier statique, noir et blanc) imprimée au pied du ticket. */
-export const STOCKSHOP_MARK_URL = '/receipt/stockshop-mark.png'
+/** Signature StockShop (cercle « S » + « STOCKSHOP », noir et blanc) imprimée au pied du ticket. */
+export const STOCKSHOP_MARK_URL = '/receipt/stockshop-lockup.png'
 
 export interface LogoSize {
   /** Largeur imprimée en points (8/mm). */

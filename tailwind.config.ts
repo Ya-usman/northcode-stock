@@ -16,6 +16,10 @@ const config: Config = {
       screens: { '2xl': '1400px' },
     },
     extend: {
+      fontFamily: {
+        // Nom de marque « StockShop » (voir components/brand/brand-logo.tsx)
+        brand: ['var(--font-brand)', 'Montserrat', 'system-ui', 'sans-serif'],
+      },
       colors: {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',

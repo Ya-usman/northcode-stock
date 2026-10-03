@@ -3,6 +3,7 @@
 import { X, Sparkles, ArrowRight } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils/cn'
+import { BRAND_TEXT_CLASS } from '@/components/brand/brand-logo'
 
 export interface Announcement {
   id: string
@@ -64,7 +65,7 @@ export function WhatsNewModal({ announcements, onClose }: WhatsNewModalProps) {
                 <Sparkles className="h-6 w-6 text-yellow-300" />
               </div>
               <div>
-                <p className="text-[11px] font-semibold text-blue-200 uppercase tracking-widest">StockShop</p>
+                <p className={`${BRAND_TEXT_CLASS} text-[13px] text-blue-200`}>StockShop</p>
                 <h2 className="text-xl font-bold text-white leading-tight">{t('title')}</h2>
               </div>
             </div>

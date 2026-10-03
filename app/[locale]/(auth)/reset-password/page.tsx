@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useTranslations } from 'next-intl'
+import { BrandLogo } from '@/components/brand/brand-logo'
 
 export default function ResetPasswordPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('reset_password')
@@ -154,7 +155,7 @@ export default function ResetPasswordPage({ params: { locale } }: { params: { lo
 
         <div className="flex flex-col items-center mb-6">
           <Link href={`/${locale}`} onClick={e => { if ((window as any).Capacitor?.isNativePlatform?.()) e.preventDefault() }}>
-            <img src="/logo-login-t.png" alt="StockShop" className="h-36 w-auto object-contain" style={{ filter: 'brightness(0) invert(1) drop-shadow(0 8px 24px rgba(0,0,0,0.55))' }} />
+            <BrandLogo layout="stacked" tone="white" className="text-[32px] drop-shadow-[0_8px_24px_rgba(0,0,0,0.55)]" />
           </Link>
           <p className="text-blue-200 text-sm mt-2 italic tracking-wide">{tAuth('hero_title_1')} {tAuth('hero_title_2')} {tAuth('hero_title_3')}</p>
         </div>

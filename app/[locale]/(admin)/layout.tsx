@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getAdminTier } from '@/lib/api/require-admin'
 import { AdminBottomNav } from '@/components/admin/admin-bottom-nav'
 import { AdminSidebar } from '@/components/admin/admin-sidebar'
+import { BRAND_TEXT_CLASS } from '@/components/brand/brand-logo'
 
 export default async function AdminLayout({
   children,
@@ -53,7 +54,7 @@ export default async function AdminLayout({
         >
           <img src="/logo-icon-t.png" alt="StockShop" className="h-8 w-8 object-contain brightness-0 invert flex-shrink-0" />
           <div className="flex flex-col leading-none">
-            <span className="font-bold text-sm text-white tracking-wide">StockShop</span>
+            <span className={`${BRAND_TEXT_CLASS} text-sm text-white`}>StockShop</span>
             <span className="text-[9px] font-semibold text-stockshop-gold tracking-widest uppercase">Admin Panel</span>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { Montserrat } from 'next/font/google'
 import './globals.css'
 import { SWUpdater } from '@/components/pwa/sw-updater'
 import { AuthProvider } from '@/lib/contexts/auth-context'
@@ -31,9 +32,14 @@ export const viewport: Viewport = {
   userScalable: false,
 }
 
+// Police du nom de marque « StockShop » uniquement (le reste de l'interface
+// reste en Noto Sans). Montserrat 700 = alternative libre la plus proche de
+// Gilroy, la police du logo. Auto-hébergée par next/font : disponible hors ligne.
+const brandFont = Montserrat({ subsets: ['latin'], weight: ['700'], variable: '--font-brand', display: 'swap' })
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html suppressHydrationWarning>
+    <html suppressHydrationWarning className={brandFont.variable}>
       <head>
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <meta name="mobile-web-app-capable" content="yes" />

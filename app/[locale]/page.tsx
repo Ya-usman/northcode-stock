@@ -19,6 +19,7 @@ import { COUNTRIES, getBillingCurrency, type CountryCode } from '@/lib/saas/coun
 import { CountrySelect } from '@/components/ui/country-select'
 import { formatCurrency } from '@/lib/utils/currency'
 import { useTheme } from '@/lib/hooks/use-theme'
+import { BrandLogo } from '@/components/brand/brand-logo'
 
 const LANGUAGES = [
   { code: 'en', flag: '🇬🇧', label: 'English' },
@@ -112,11 +113,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
 
           {/* Logo */}
           <Link href={`/${locale}`} className="flex items-center flex-shrink-0">
-            <img
-              src={isDark ? '/logo-full-white.png' : '/logo-full.png'}
-              alt="StockShop"
-              className="h-7 md:h-10 w-auto object-contain"
-            />
+            <BrandLogo tone={isDark ? 'white' : 'brand'} className="text-[15px] md:text-[20px]" />
           </Link>
 
           {/* Desktop nav links */}
@@ -451,11 +448,7 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
         <div className="mx-auto max-w-6xl">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <Link href={`/${locale}`} className="flex items-center">
-              <img
-                src={isDark ? '/logo-full-white.png' : '/logo-full.png'}
-                alt="StockShop"
-                className="h-12 md:h-14 w-auto object-contain"
-              />
+              <BrandLogo tone={isDark ? 'white' : 'brand'} className="text-[22px] md:text-[26px]" />
             </Link>
             <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6 text-sm text-muted-foreground">
               <a href="#pricing" className="hover:text-foreground">{t('nav.pricing')}</a>

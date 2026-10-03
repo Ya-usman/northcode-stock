@@ -33,8 +33,8 @@ export async function printSaleTicket(args: {
     const { loadTicketLogo, STOCKSHOP_MARK_URL } = await import('./ticket-logo')
     const [logo, brandMark] = await Promise.all([
       wantShopLogo ? loadTicketLogo(args.logoUrl!, args.settings.width) : Promise.resolve(data.logo ?? null),
-      // ~8 mm : une signature discrète, pas une bannière
-      wantMark ? loadTicketLogo(STOCKSHOP_MARK_URL, args.settings.width, { dots: 64, maxHeight: 64 }) : Promise.resolve(data.brandMark ?? null),
+      // ~26 × 6 mm : une signature discrète, pas une bannière
+      wantMark ? loadTicketLogo(STOCKSHOP_MARK_URL, args.settings.width, { dots: 208, maxHeight: 48 }) : Promise.resolve(data.brandMark ?? null),
     ])
     data = { ...data, logo, brandMark }
   }

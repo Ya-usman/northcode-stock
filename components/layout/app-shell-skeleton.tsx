@@ -1,6 +1,7 @@
 'use client'
 
 import { Skeleton } from '@/components/ui/skeleton'
+import { BrandLogo } from '@/components/brand/brand-logo'
 
 // Écran d'attente affiché pendant la résolution de la session (uniquement
 // sans cache local : première connexion, nouvel appareil, stockage vidé).
@@ -92,8 +93,7 @@ export function AppShellSkeleton({ title, pathname }: { title: string; pathname:
         <div className="relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #073e8a 0%, #0d52b8 100%)' }}>
           <div className="absolute -top-8 -right-8 h-28 w-28 rounded-full bg-white/5" />
           <div className="relative px-4 pt-4 pb-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo-full-t.png" alt="" className="h-14 w-auto object-contain brightness-0 invert" />
+            <BrandLogo tone="white" className="py-1.5 text-[26px]" />
           </div>
           <div className="px-4 pb-3"><div className="h-9 rounded-lg bg-white/10" /></div>
         </div>

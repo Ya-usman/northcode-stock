@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { getTotalPendingCount } from '@/lib/offline/db'
 import { cn } from '@/lib/utils/cn'
+import { BRAND_TEXT_CLASS } from '@/components/brand/brand-logo'
 
 function getLocale(): string {
   if (typeof document === 'undefined') return 'fr'
@@ -118,7 +119,7 @@ export default function OfflinePage() {
         <div>
           <div className="flex items-center gap-2">
             <img src="/logo-icon-t.png" alt="StockShop" className="h-8 w-8 dark:brightness-0 dark:invert" />
-            <p className="font-bold text-gray-900 dark:text-gray-100 text-base leading-tight">StockShop</p>
+            <p className={`${BRAND_TEXT_CLASS} text-gray-900 dark:text-gray-100 text-base leading-tight`}>StockShop</p>
           </div>
           <div className="flex items-center gap-1.5 mt-1 ml-0.5">
             <WifiOff className="h-3 w-3 text-red-500" />

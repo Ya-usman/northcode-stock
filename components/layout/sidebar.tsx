@@ -17,6 +17,7 @@ import type { UserRole, Profile } from '@/lib/types/database'
 import { isBetaPeriod } from '@/lib/saas/plans'
 import { useRolePermissions, type PermFeature } from '@/lib/hooks/use-role-permissions'
 import { useOffline } from '@/lib/offline/use-offline'
+import { BrandLogo } from '@/components/brand/brand-logo'
 
 const SUPER_ADMIN_EMAILS = (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim())
 
@@ -99,11 +100,7 @@ export function Sidebar({ locale, role, profile, onSignOut, signingOut = false, 
 
         {/* Logo */}
         <div className="relative px-4 pt-4 pb-3">
-          <img
-            src="/logo-full-t.png"
-            alt="StockShop"
-            className="h-14 w-auto object-contain brightness-0 invert"
-          />
+          <BrandLogo tone="white" className="py-1.5 text-[26px]" />
         </div>
 
         <ShopSelector variant="sidebar" />

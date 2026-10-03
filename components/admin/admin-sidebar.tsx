@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { useTheme } from '@/lib/hooks/use-theme'
+import { BRAND_TEXT_CLASS } from '@/components/brand/brand-logo'
 
 interface AdminSidebarProps {
   locale: string
@@ -78,7 +79,7 @@ export function AdminSidebar({ locale, userEmail, tier = 'super_admin' }: AdminS
             className="h-10 w-10 object-contain brightness-0 invert flex-shrink-0"
           />
           <div className="flex flex-col leading-none">
-            <span className="font-extrabold text-base text-white tracking-wide">StockShop</span>
+            <span className={`${BRAND_TEXT_CLASS} text-base text-white`}>StockShop</span>
             <span className="text-[9px] font-semibold text-white/60 tracking-widest uppercase">Platform</span>
           </div>
         </div>
