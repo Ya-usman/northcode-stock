@@ -316,6 +316,8 @@ export async function syncPendingSales(shopId: string): Promise<SyncResult> {
             sale_status: 'active',
             created_at: sale.created_at,
             client_request_id: sale.local_id,
+            // Jeton du QR déjà imprimé hors ligne ; absent → la base en tire un
+            receipt_token: sale.receipt_token || undefined,
           })
           .select('id')
           .single()

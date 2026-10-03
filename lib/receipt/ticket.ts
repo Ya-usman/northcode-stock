@@ -59,6 +59,8 @@ export interface TicketLabels {
   generatedBy: string
   /** « Propulsé par », au-dessus de la signature StockShop. */
   poweredBy: string
+  /** « Scannez pour retrouver votre reçu », sous le QR. */
+  scanHint: string
   /** « 3 articles » sous la liste. */
   itemCount: (n: number) => string
 }
@@ -89,6 +91,7 @@ export function ticketLabelsFromT(t: (key: string, values?: Record<string, strin
     seeYouSoon: t('receipt.see_you_soon'),
     generatedBy: t('receipt.generated_by'),
     poweredBy: t('receipt.powered_by'),
+    scanHint: t('receipt.scan_hint'),
     // Pas de pluriel ICU dans les messages du projet : deux clés
     itemCount: (n) => (n === 1 ? t('receipt.item_count_one') : t('receipt.item_count_other', { count: n })),
   }
@@ -138,6 +141,9 @@ export interface TicketData {
   hideBranding?: boolean
   /** Petite marque StockShop au pied du ticket, avec la mention (absente si hideBranding). */
   brandMark?: TicketLogo | null
+  /** Lien public du reçu (receiptUrl(sale.receipt_token)) → QR préparé par print-ticket. */
+  receiptUrl?: string | null
+  qr?: TicketLogo | null
 }
 
 /** Texte multiligne saisi par la boutique → lignes non vides, sans espaces parasites. */
@@ -242,6 +248,12 @@ export function buildSaleTicket(d: TicketData, width: TicketWidth): TicketLine[]
   } else {
     push({ kind: 'text', text: L.thankYou, align: 'center', bold: true, size: 'md' })
     push({ kind: 'text', text: L.seeYouSoon, align: 'center', size: 'sm' })
+  }
+  // QR du reçu en ligne : service rendu au client, imprimé quel que soit le plan
+  if (d.qr) {
+    push({ kind: 'space', h: 1 })
+    push({ kind: 'image', logo: d.qr })
+    push({ kind: 'text', text: L.scanHint, align: 'center', size: 'sm' })
   }
   if (!d.hideBranding) {
     push({ kind: 'space', h: 1.5 })

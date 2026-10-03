@@ -33,6 +33,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { shareReceiptWhatsApp, shareViaWhatsApp, buildReceiptWhatsAppMessage, normalizeWhatsAppNumber } from '@/lib/utils/whatsapp'
+import { generateReceiptToken, receiptUrl } from '@/lib/receipt/receipt-link'
 import { sharePDFNative, isCapacitor } from '@/lib/utils/native-share'
 import type { Product, Customer, CartItem, Sale, SaleItem, Category } from '@/lib/types/database'
 import dynamic from 'next/dynamic'
@@ -1000,6 +1001,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     const saveOffline = async (toastMsg: string) => {
       const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
       const saleNumber = `HL-${localId.slice(-5).toUpperCase()}`
+      // Jeton du reçu tiré ici : le QR du ticket est imprimé avant la synchro
+      const receiptToken = generateReceiptToken()
 
       // Try to persist — if IndexedDB fails, still show the receipt
       let persisted = false
@@ -1007,6 +1010,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         try {
           await savePendingSale({
             local_id: localId,
+            receipt_token: receiptToken,
             shop_id: _shopId,
             cashier_id: _cashierId,
             subtotal,
@@ -1062,6 +1066,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       setCompletedSale({
         id: localId,
         sale_number: saleNumber,
+        receipt_token: receiptToken,
         shop_id: _shopId || '',
         cashier_id: _cashierId || '',
         subtotal,
@@ -1243,6 +1248,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
   const receiptLabels = {
     receipt: t('receipt.receipt'),
+    onlineReceipt: t('receipt.online_receipt'),
     cashier: t('receipt.cashier'),
     customer: t('receipt.customer'),
     colItem: t('receipt.col_item'),
@@ -1312,9 +1318,11 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       customerName: receiptCustomerName,
       currencySymbol: symbol,
       debtRepayment: receiptDebt?.amount || 0,
+      receiptUrl: receiptUrl(completedSale.receipt_token),
       labels: {
         receipt: t('receipt.receipt'), items: t('receipt.items'), paid: t('receipt.paid'), balance: t('receipt.balance_due'),
         fullyPaid: t('receipt.fully_paid'), debtRepayment: t('receipt.debt_repayment'), totalCollected: t('receipt.total_collected'), thankYou: t('receipt.thank_you'),
+        onlineReceipt: t('receipt.online_receipt'),
       },
     })
     if (receiptCustomerPhone) {
@@ -1359,6 +1367,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         data: {
           shop: { name: shop.name, city: shop.city, state: shop.state, whatsapp: shop.whatsapp, tagline: shop.receipt_tagline, legalIds: shop.receipt_legal_ids },
           footerMessage: shop.receipt_footer,
+          receiptUrl: receiptUrl(completedSale.receipt_token),
           saleNumber: completedSale.sale_number,
           createdAt: completedSale.created_at,
           items: ((completedSale as any).sale_items || []).map((i: any) => ({

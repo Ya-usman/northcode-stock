@@ -59,7 +59,8 @@ function paint(doc: any, width: TicketWidth, lines: TicketLine[]): number {
       // 8 points par mm (203 dpi) : même taille physique qu'en ESC/POS
       const wMm = Math.min(printable, l.logo.width / 8)
       const hMm = (l.logo.height / l.logo.width) * wMm
-      try { doc.addImage(l.logo.dataUrl, 'PNG', x0 + (printable - wMm) / 2, y, wMm, hMm) } catch { /* logo illisible : on continue sans */ }
+      // 'FAST' : compression Flate — sans elle, jsPDF stocke chaque bitmap brut (≈ 100 Ko par image)
+      try { doc.addImage(l.logo.dataUrl, 'PNG', x0 + (printable - wMm) / 2, y, wMm, hMm, undefined, 'FAST') } catch { /* logo illisible : on continue sans */ }
       y += hMm + 1
       continue
     }
@@ -80,8 +81,17 @@ function paint(doc: any, width: TicketWidth, lines: TicketLine[]): number {
     if (l.kind === 'row') {
       const right = clean(l.right)
       const rw = doc.getTextWidth(right)
-      const left = fit(clean(l.left), printable - rw - 2)
-      doc.text(left, x0, y + size * PT_TO_MM)
+      const leftFull = clean(l.left)
+      // Libellé + montant trop larges (« Montant payé  251 200 F CFA » en 58 mm) :
+      // deux lignes plutôt qu'un libellé tronqué — même règle que l'ESC/POS (fitRow)
+      if (doc.getTextWidth(leftFull) > printable - rw - 2) {
+        doc.text(fit(leftFull, printable), x0, y + size * PT_TO_MM)
+        y += h
+        doc.text(right, x1, y + size * PT_TO_MM, { align: 'right' })
+        y += h
+        continue
+      }
+      doc.text(leftFull, x0, y + size * PT_TO_MM)
       doc.text(right, x1, y + size * PT_TO_MM, { align: 'right' })
       y += h
       continue

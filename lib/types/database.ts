@@ -268,6 +268,8 @@ export interface Sale {
   // Idempotency key — same value reused across retries of the same checkout
   // attempt so a duplicate insert is rejected instead of creating a second sale.
   client_request_id?: string | null
+  /** Jeton public du reçu (migration 150) : stockshop.tech/r/<jeton>. Absent des lignes mises en cache avant la migration. */
+  receipt_token?: string | null
   // Échéance de paiement — pertinente seulement si balance > 0, jamais obligatoire.
   due_date?: string | null
   // Cancellation

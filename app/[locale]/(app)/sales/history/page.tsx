@@ -26,6 +26,7 @@ import { useLocale } from 'next-intl'
 import { readTicketSettings } from '@/lib/receipt/print-settings'
 import { printSaleTicket, ticketErrorKey } from '@/lib/receipt/print-ticket'
 import { ticketLabelsFromT } from '@/lib/receipt/ticket'
+import { receiptUrl } from '@/lib/receipt/receipt-link'
 import { hideStockShopBranding } from '@/lib/receipt/branding'
 import { normalize } from '@/lib/utils/normalize'
 import { withTimeout } from '@/lib/utils/with-timeout'
@@ -93,6 +94,7 @@ export default function SalesHistoryPage() {
     balanceDue: t('receipt.balance_due'),
     thankYou: t('receipt.thank_you'),
     promoWas: t('receipt.promo_was'),
+    onlineReceipt: t('receipt.online_receipt'),
   }
 
   const locale = useLocale()
@@ -129,6 +131,7 @@ export default function SalesHistoryPage() {
         data: {
           shop: { name: shop.name, city: shop.city, state: shop.state, whatsapp: shop.whatsapp, tagline: shop.receipt_tagline, legalIds: shop.receipt_legal_ids },
           footerMessage: shop.receipt_footer,
+          receiptUrl: receiptUrl(sale.receipt_token),
           saleNumber: sale.sale_number,
           createdAt: sale.created_at,
           items: (s.sale_items || []).map((i: any) => ({ name: i.product_name, qty: Number(i.quantity), unitPrice: Number(i.unit_price), subtotal: Number(i.subtotal) })),

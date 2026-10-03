@@ -72,6 +72,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/api') ||
     pathname.startsWith('/auth') ||
     pathname.startsWith('/ref/') ||
+    pathname.startsWith('/r/') || // reçu public (QR du ticket), sans connexion
     pathname.includes('.')
   ) {
     return NextResponse.next()

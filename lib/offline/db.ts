@@ -99,6 +99,9 @@ export interface PendingSaleItem {
 
 export interface PendingSale {
   local_id: string
+  /** Jeton public du reçu tiré par l'app (QR imprimé avant la synchro) ;
+   *  absent sur les ventes mises en file avant la migration 150. */
+  receipt_token?: string
   shop_id: string
   cashier_id: string
   subtotal: number

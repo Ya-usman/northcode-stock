@@ -28,17 +28,20 @@ export async function printSaleTicket(args: {
   let data = args.data
   const wantShopLogo = !!(args.settings.printLogo && args.logoUrl && !data.logo)
   const wantMark = !data.hideBranding && !data.brandMark
-  if (wantShopLogo || wantMark) {
+  const wantQr = !!(data.receiptUrl && !data.qr)
+  if (wantShopLogo || wantMark || wantQr) {
     // Image indisponible (hors ligne sans cache, fichier cassé) : le ticket part sans
-    const { loadTicketLogo, STOCKSHOP_MARK_URL } = await import('./ticket-logo')
-    const [logo, brandMark] = await Promise.all([
+    const [{ loadTicketLogo, STOCKSHOP_MARK_URL }, { buildTicketQr }] = await Promise.all([import('./ticket-logo'), import('./ticket-qr')])
+    const [logo, brandMark, qr] = await Promise.all([
       wantShopLogo ? loadTicketLogo(args.logoUrl!, args.settings.width) : Promise.resolve(data.logo ?? null),
       // Signature avec slogan (proportions du visuel de marque) : presque pleine
       // largeur pour que « Smart Business Starts Here. » reste lisible en thermique
       // (≈ 46 × 12 mm en 58 mm, 50 × 13 mm en 80 mm).
       wantMark ? loadTicketLogo(STOCKSHOP_MARK_URL, args.settings.width, { dots: args.settings.width === 58 ? 368 : 400, maxHeight: 112, mode: 'threshold' }) : Promise.resolve(data.brandMark ?? null),
+      // QR du reçu en ligne, calculé sur place (aucun réseau nécessaire)
+      wantQr ? buildTicketQr(data.receiptUrl!, args.settings.width) : Promise.resolve(data.qr ?? null),
     ])
-    data = { ...data, logo, brandMark }
+    data = { ...data, logo, brandMark, qr }
   }
   const lines = buildSaleTicket(data, args.settings.width)
   if (args.settings.method === 'bluetooth') {

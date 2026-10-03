@@ -9,6 +9,7 @@ import { printSaleTicket, ticketErrorKey } from '@/lib/receipt/print-ticket'
 import { BluetoothPrinter, BLUETOOTH_IMAGING_CLASS, type PairedDevice } from '@/lib/receipt/bluetooth-printer'
 import { isCapacitor as isNativeApp } from '@/lib/utils/native-share'
 import { ticketLabelsFromT } from '@/lib/receipt/ticket'
+import { receiptBaseUrl } from '@/lib/receipt/receipt-link'
 import { hideStockShopBranding } from '@/lib/receipt/branding'
 import { formatCurrency as fmtCurrency } from '@/lib/utils/currency'
 import { createClient } from '@/lib/supabase/client'
@@ -138,6 +139,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
         data: {
           shop: { name: shop?.name || 'StockShop', city: shop?.city, state: shop?.state, whatsapp: shop?.whatsapp, tagline: shop?.receipt_tagline, legalIds: shop?.receipt_legal_ids },
           footerMessage: shop?.receipt_footer,
+          // Ticket test : le QR mène à l'accueil du site (pas de vente derrière)
+          receiptUrl: receiptBaseUrl(),
           saleNumber: 'TEST',
           createdAt: new Date(),
           items: [{ name: `${item} 1`, qty: 2, unitPrice: 500, subtotal: 1000 }, { name: `${item} 2`, qty: 1, unitPrice: 1500, subtotal: 1500 }],

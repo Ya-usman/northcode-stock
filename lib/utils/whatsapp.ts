@@ -29,6 +29,8 @@ export interface ReceiptMessageLabels {
   debtRepayment: string
   totalCollected: string
   thankYou: string
+  /** « Votre reçu en ligne », devant le lien public. */
+  onlineReceipt: string
 }
 
 /**
@@ -48,13 +50,16 @@ export function buildReceiptWhatsAppMessage(params: {
   currencySymbol?: string
   /** Remboursement de dette encaissé avec cette vente (hors vente). */
   debtRepayment?: number
+  /** Lien public du reçu (stockshop.tech/r/…) : le client le garde, le PDF s'y télécharge. */
+  receiptUrl?: string | null
   /** Libellés traduits ; anglais par défaut. */
   labels?: Partial<ReceiptMessageLabels>
 }): string {
-  const { shopName, saleNumber, date, items, total, paid, balance, method, customerName, currencySymbol = '₦', debtRepayment = 0 } = params
+  const { shopName, saleNumber, date, items, total, paid, balance, method, customerName, currencySymbol = '₦', debtRepayment = 0, receiptUrl } = params
   const L: ReceiptMessageLabels = {
     receipt: 'Receipt', items: 'Items', paid: 'Paid', balance: 'Balance', fullyPaid: 'Fully paid',
     debtRepayment: 'Debt repayment', totalCollected: 'Total collected', thankYou: 'Thank you for your business',
+    onlineReceipt: 'Your receipt online',
     ...params.labels,
   }
 
@@ -78,6 +83,7 @@ export function buildReceiptWhatsAppMessage(params: {
     debtRepayment > 0 ? `${L.debtRepayment} : +${fmt(debtRepayment)}` : '',
     debtRepayment > 0 ? `*${L.totalCollected} : ${fmt(paid + debtRepayment)}*` : '',
     ``,
+    receiptUrl ? `🔗 ${L.onlineReceipt} : ${receiptUrl}` : '',
     `_${L.thankYou}_`,
   ].filter(Boolean)
 
