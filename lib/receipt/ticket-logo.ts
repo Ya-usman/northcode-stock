@@ -8,11 +8,14 @@ import { whiteBorderCrop } from '@/lib/utils/logo-image'
 // en noir et blanc par tramage (une thermique n'imprime que du noir). Le même
 // canvas sert au PDF (dataUrl) et à l'ESC/POS (source).
 //
-// Largeur imprimée : 24 mm sur 58 mm, 32 mm sur 80 mm — un logo, pas une
-// bannière : chaque millimètre de hauteur coûte du papier au commerçant.
-const LOGO_DOTS: Record<TicketWidth, number> = { 58: 192, 80: 256 }
+// Largeur imprimée : 20 mm sur 58 mm, 26 mm sur 80 mm — un logo en harmonie
+// avec le nom de la boutique, pas une bannière : chaque millimètre de hauteur
+// coûte du papier au commerçant. Un logo large peut aller jusqu'à 60 % de la
+// largeur imprimable (29 mm / 42 mm), hauteur bornée à 16 mm.
+const LOGO_DOTS: Record<TicketWidth, number> = { 58: 160, 80: 208 }
 const PRINTABLE_DOTS: Record<TicketWidth, number> = { 58: 384, 80: 576 } // 48 mm / 72 mm
-const MAX_HEIGHT_DOTS = 160 // 20 mm
+const WIDE_MAX_RATIO = 0.6
+const MAX_HEIGHT_DOTS = 128 // 16 mm
 
 const cache = new Map<string, Promise<TicketLogo | null>>()
 
@@ -66,9 +69,9 @@ async function build(url: string, targetDots: number, maxHeightDots: number, mod
 
     // Dimensions en points, multiples de 8 (exigence des imprimantes).
     // Un logo large (nom de marque en toutes lettres, ratio > 1,8) a droit à
-    // deux tiers de plus en largeur : à 24 mm il ne ferait que 5 mm de haut.
+    // 60 % de plus en largeur, plafonné : à 20 mm il ne ferait que 4 mm de haut.
     const wide = crop.w / crop.h > 1.8
-    let w = wide ? Math.min(Math.round(targetDots * 5 / 3), PRINTABLE_DOTS[width]) : targetDots
+    let w = wide ? Math.min(Math.round(targetDots * 1.6), Math.round(PRINTABLE_DOTS[width] * WIDE_MAX_RATIO)) : targetDots
     let h = Math.round((crop.h / crop.w) * w)
     if (h > maxHeightDots) { w = Math.round((maxHeightDots / h) * w); h = maxHeightDots }
     w = Math.max(8, Math.round(w / 8) * 8)
