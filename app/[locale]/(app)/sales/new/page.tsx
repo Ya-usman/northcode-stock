@@ -6,13 +6,14 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, Plus, Minus, Trash2, CheckCircle, MessageCircle, Printer, Share2,
   Scan, X, User, Clock, PauseCircle, PlayCircle, Edit2, ShoppingCart, ChevronUp, Star, ArrowLeft,
-  AlertTriangle, Coins, CreditCard,
+  AlertTriangle, CreditCard,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { ShopSelector } from '@/components/layout/shop-selector'
 import { ProductCard, type StockVariant } from '@/components/sales/product-card'
 import { ProductThumbnail } from '@/components/stock/product-thumbnail'
+import { DebtRepaymentCard } from '@/components/sales/debt-repayment-card'
 import { cn } from '@/lib/utils/cn'
 import { normalize } from '@/lib/utils/normalize'
 import { useToast } from '@/components/ui/use-toast'
@@ -782,6 +783,13 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const debtAmt = debtRepayEnabled ? Math.min(Number(debtRepayAmount) || 0, debtOutstanding) : 0
   // Montant total à encaisser = vente + remboursement crédit si activé
   const totalToCollect = total + debtAmt
+  // Saisie du remboursement (carte dette) : plafonnée à la dette réelle.
+  const handleDebtAmountChange = useCallback((raw: string) => {
+    const n = Number(raw.replace(/\D/g, '')) || 0
+    const max = Math.floor(debtOutstanding)
+    setDebtCapped(n > max)
+    setDebtRepayAmount(n > max ? String(max) : (n ? String(n) : ''))
+  }, [debtOutstanding])
   const shopCountry = getCountry(shop?.country)
   const methodType = getMethodType(paymentMethod, shopCountry)
   // For credit: customer pays nothing now → paid = 0, balance = total
@@ -1305,7 +1313,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       {shopDrafts.length > 0 && (
         <button
           onClick={() => setShowDrafts(true)}
-          className="hidden md:flex items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700 hover:bg-amber-100 transition-colors"
+          className="hidden md:flex items-center justify-between gap-2 rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-sm font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
         >
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4" />
@@ -1757,89 +1765,19 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
           {/* ── Debt repayment section ── */}
           {selectedCustomer && Number(selectedCustomer.total_debt) > 0 && customerUnpaidSales.length > 0 && (
-            <Card className="border border-orange-200 bg-orange-50 shadow-sm dark:border-orange-900/60 dark:bg-orange-950/30">
-              <CardContent className="p-4 space-y-3">
-                {/* Carte dette : reste orange (c'est un rappel, pas de la marque) ;
-                    seul l'interrupteur actif prend le bleu de marque. */}
-                <div className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300" aria-hidden="true">
-                    <Coins className="h-5 w-5" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-orange-800 dark:text-orange-200">{t('sales.include_debt_repayment')}</p>
-                    <p className="text-xs text-orange-600 dark:text-orange-300/80">
-                      {t('sales.current_debt_label')} : <strong>{formatNaira(debtOutstanding)}</strong>
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={debtRepayEnabled}
-                    aria-label={t('sales.include_debt_repayment')}
-                    onClick={() => setDebtRepayEnabled(v => !v)}
-                    className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${
-                      debtRepayEnabled ? 'bg-stockshop-blue dark:bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
-                    }`}
-                  >
-                    <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                      debtRepayEnabled ? 'translate-x-5' : 'translate-x-0.5'
-                    }`} />
-                  </button>
-                </div>
-
-                {debtRepayEnabled && (
-                  <div className="space-y-3 pt-1">
-                    <div className="space-y-1">
-                      <Label className="text-xs text-orange-800 dark:text-orange-200">{t('sales.amount_given_for_debt')}</Label>
-                      <div className="flex rounded-md border border-orange-200 overflow-hidden focus-within:ring-2 focus-within:ring-orange-300 dark:border-orange-900/60 dark:focus-within:ring-orange-700">
-                        <span className="flex items-center px-2.5 bg-orange-50 border-r border-orange-200 text-sm text-muted-foreground font-medium whitespace-nowrap select-none dark:bg-orange-950/30 dark:border-orange-900/60">{symbol}</span>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          value={formatInputValue(debtRepayAmount, currencyCode)}
-                          onChange={e => {
-                            const n = Number(e.target.value.replace(/\D/g, '')) || 0
-                            const max = Math.floor(debtOutstanding)
-                            setDebtCapped(n > max)
-                            setDebtRepayAmount(n > max ? String(max) : (n ? String(n) : ''))
-                          }}
-                          className="flex-1 h-11 px-3 text-base font-bold bg-card outline-none"
-                          placeholder="0"
-                        />
-                      </div>
-                      {debtCapped && (
-                        <p className="text-xs font-medium text-orange-700 dark:text-orange-300">
-                          {t('sales.debt_capped', { amount: formatNaira(debtOutstanding) })}
-                        </p>
-                      )}
-                      {debtAmt > 0 && (
-                        <p className="text-xs text-orange-600 dark:text-orange-300/80">
-                          {t('sales.remaining_after')} : <strong>{formatNaira(Math.max(0, debtOutstanding - debtAmt))}</strong>
-                          {debtAmt >= debtOutstanding && ` ${t('sales.debt_settled_check')}`}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Résumé */}
-                    {debtAmt > 0 && (
-                      <div className="rounded-lg bg-card border border-orange-200 p-3 space-y-1 text-sm dark:border-orange-900/60">
-                        <div className="flex justify-between text-muted-foreground">
-                          <span>Vente</span><span>{formatNaira(total)}</span>
-                        </div>
-                        <div className="flex justify-between text-orange-700 dark:text-orange-300">
-                          <span>Remboursement crédit</span><span>+{formatNaira(debtAmt)}</span>
-                        </div>
-                        <div className="flex justify-between font-bold border-t pt-1">
-                          <span>{t('sales.total_to_collect')}</span>
-                          <span className="text-stockshop-blue dark:text-blue-400">{formatNaira(totalToCollect)}</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <DebtRepaymentCard
+              currencyCode={currencyCode}
+              symbol={symbol}
+              debtOutstanding={debtOutstanding}
+              enabled={debtRepayEnabled}
+              amount={debtRepayAmount}
+              capped={debtCapped}
+              debtAmt={debtAmt}
+              saleTotal={total}
+              totalToCollect={totalToCollect}
+              onToggle={setDebtRepayEnabled}
+              onAmountChange={handleDebtAmountChange}
+            />
           )}
           </div>{/* fin étape 1 (panier) */}
 
@@ -1851,7 +1789,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           )}>
             <Button
               variant="outline"
-              className="h-12 w-12 shrink-0 p-0 border-amber-300 text-amber-700 hover:bg-amber-50"
+              className="h-12 w-12 shrink-0 p-0 border-amber-300 dark:border-amber-700/60 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40"
               onClick={openHoldDialog}
               disabled={completing}
               aria-label="Mettre en attente"
@@ -1906,7 +1844,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   }`}
                 >
                   {paymentMethod === method.id && (
-                    <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-stockshop-blue dark:bg-blue-500 text-white text-[9px] font-bold">✓</span>
+                    <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-stockshop-blue dark:bg-blue-600 text-white text-[9px] font-bold">✓</span>
                   )}
                   <div className={`rounded-xl p-2 transition-colors ${paymentMethod === method.id ? 'bg-white dark:bg-white/15 shadow-sm' : 'bg-muted/40 dark:bg-white/5'}`}>
                     {method.logo
@@ -1961,9 +1899,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 })}
               </div>
               {Number(amountPaid) > 0 && Number(amountPaid) >= totalToCollect && (
-                <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-center">
+                <div className="rounded-lg bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800/60 p-3 text-center">
                   <p className="text-sm text-muted-foreground">{t('payment.change_due')}</p>
-                  <p className="text-2xl font-bold text-green-600">{formatNaira(change)}</p>
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">{formatNaira(change)}</p>
                 </div>
               )}
               {Number(amountPaid) > 0 && Number(amountPaid) < totalToCollect && (
@@ -1996,29 +1934,29 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           )}
 
           {!splitPayment && methodType === 'credit' && (
-            <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
-              <p className="text-sm font-medium text-amber-700">
+            <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 p-3">
+              <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
                 {t('sales.adds_to_debt_of', { amount: formatNaira(total) })}{' '}
                 {selectedCustomer?.name || customerName || t('sales.this_customer')}
               </p>
               {!selectedCustomer && !customerName && (
                 <>
-                  <p className="text-xs text-amber-600 mt-1">{t('sales.enter_customer_for_credit')}</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">{t('sales.enter_customer_for_credit')}</p>
                   {/* Téléphone : le client se saisit à l'étape panier */}
                   <button type="button"
                     onClick={() => { setShowCustomer(true); setMobileStep('cart') }}
-                    className="md:hidden mt-2 flex items-center gap-1.5 text-sm font-semibold text-amber-800 underline underline-offset-2 tap-target">
+                    className="md:hidden mt-2 flex items-center gap-1.5 text-sm font-semibold text-amber-800 dark:text-amber-300 underline underline-offset-2 tap-target">
                     <User className="h-4 w-4" />{t('sales.choose_customer_for_credit')}
                   </button>
                 </>
               )}
               {debtAmt > 0 && (
-                <p className="text-xs font-medium text-amber-800 mt-1">
+                <p className="text-xs font-medium text-amber-800 dark:text-amber-300 mt-1">
                   {t('sales.credit_debt_cash_note', { amount: formatNaira(debtAmt) })}
                 </p>
               )}
               {selectedCustomer?.credit_limit != null && (Number(selectedCustomer.total_debt) + total) > selectedCustomer.credit_limit && (
-                <p className="text-xs text-red-600 font-semibold mt-1">
+                <p className="text-xs text-red-600 dark:text-red-400 font-semibold mt-1">
                   {t('sales.exceeds_credit_limit', { limit: formatNaira(selectedCustomer.credit_limit) })}
                 </p>
               )}
@@ -2078,7 +2016,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                         }`}
                       >
                         {splitMethod2 === method.id && (
-                          <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-stockshop-blue dark:bg-blue-500 text-white text-[9px] font-bold">✓</span>
+                          <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-stockshop-blue dark:bg-blue-600 text-white text-[9px] font-bold">✓</span>
                         )}
                         <div className={`rounded-xl p-2 transition-colors ${splitMethod2 === method.id ? 'bg-white dark:bg-white/15 shadow-sm' : 'bg-muted/40 dark:bg-white/5'}`}>
                           {method.logo
@@ -2146,7 +2084,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           <div className="flex gap-2 sticky bottom-0 z-10 -mx-4 border-t bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur max-md:!mt-auto md:static md:z-auto md:mx-0 md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
             <Button
               variant="outline"
-              className="h-12 w-12 shrink-0 p-0 gap-2 border-amber-300 text-amber-700 hover:bg-amber-50 md:w-auto md:flex-1 md:px-4"
+              className="h-12 w-12 shrink-0 p-0 gap-2 border-amber-300 dark:border-amber-700/60 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 md:w-auto md:flex-1 md:px-4"
               onClick={openHoldDialog}
               disabled={cart.length === 0 || completing}
               aria-label="Mettre en attente"
@@ -2197,8 +2135,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               <div className="p-5 space-y-4 bg-background">
                 <div>
                   <p className="text-xs text-muted-foreground mb-2 font-medium">{t('sales.new_selling_price')}</p>
-                  <div className="flex rounded-xl border-2 border-stockshop-blue overflow-hidden shadow-sm">
-                    <span className="flex items-center px-4 bg-stockshop-blue/5 border-r border-stockshop-blue/30 text-sm font-bold text-stockshop-blue whitespace-nowrap select-none">
+                  <div className="flex rounded-xl border-2 border-stockshop-blue dark:border-blue-500 overflow-hidden shadow-sm">
+                    <span className="flex items-center px-4 bg-stockshop-blue/5 border-r border-stockshop-blue/30 text-sm font-bold text-stockshop-blue dark:text-blue-400 whitespace-nowrap select-none">
                       {symbol}
                     </span>
                     <input
@@ -2219,7 +2157,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                       </p>
                     )}
                     {Number(priceModalInput) > minPrice && (
-                      <p className="text-xs text-emerald-600 flex items-center gap-1">
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                         <span>↑</span> +{formatNaira(Number(priceModalInput) - minPrice)} par rapport au catalogue
                       </p>
                     )}
@@ -2262,9 +2200,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           {(() => {
             const stale = shopDrafts.filter(d => heldAgeDays(d.createdAt) >= HELD_STALE_DAYS).length
             return stale > 0 ? (
-              <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
                 <span>{t('sales.held_stale_notice', { count: stale, days: HELD_STALE_DAYS })}</span>
-                <Button size="sm" variant="outline" className="h-7 shrink-0 border-amber-300 text-amber-800" onClick={deleteStaleDrafts}>
+                <Button size="sm" variant="outline" className="h-7 shrink-0 border-amber-300 dark:border-amber-700/60 text-amber-800 dark:text-amber-300" onClick={deleteStaleDrafts}>
                   <Trash2 className="h-3.5 w-3.5 mr-1" />{t('sales.held_stale_delete', { count: stale })}
                 </Button>
               </div>
@@ -2285,7 +2223,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                     <p className="text-sm font-semibold truncate">{draft.label || draft.customerName || 'Client anonyme'}</p>
                     {draft.label && draft.customerName && <p className="text-xs text-muted-foreground truncate">{draft.customerName}</p>}
                     {draft.customerPhone && <p className="text-xs text-muted-foreground">{draft.customerPhone}</p>}
-                    <p className={cn('text-xs mt-0.5', age >= HELD_STALE_DAYS ? 'text-amber-700 font-medium' : 'text-muted-foreground')}>
+                    <p className={cn('text-xs mt-0.5', age >= HELD_STALE_DAYS ? 'text-amber-700 dark:text-amber-300 font-medium' : 'text-muted-foreground')}>
                       {itemCount} article{itemCount > 1 ? 's' : ''} · {when}
                     </p>
                   </div>
@@ -2300,7 +2238,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   <Button variant="stockshop" size="sm" className="flex-1 h-8 gap-1" onClick={() => resumeDraft(draft)}>
                     <PlayCircle className="h-3.5 w-3.5" /> Reprendre
                   </Button>
-                  <Button size="sm" variant="outline" className="h-8 border-red-200 text-red-500 hover:bg-red-50"
+                  <Button size="sm" variant="outline" className="h-8 border-red-200 dark:border-red-800/60 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40"
                     onClick={() => deleteDraft(draft.id)}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
@@ -2367,7 +2305,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           </Button>
           <Button
             variant="outline"
-            className="w-full h-auto min-h-11 whitespace-normal py-2.5 leading-snug border-red-200 text-red-600 hover:bg-red-50"
+            className="w-full h-auto min-h-11 whitespace-normal py-2.5 leading-snug border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40"
             onClick={() => { const d = pendingResume; if (d) applyDraft(d) }}
           >
             {t('sales.resume_replace')}
@@ -2440,7 +2378,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                       <span>{formatNaira(Number(completedSale.amount_paid) + receiptDebt.amount)}</span>
                     </div>
                     {receiptDebt.status !== 'applied' && (
-                      <p className={cn('text-[11px]', receiptDebt.status === 'failed' ? 'text-red-600 font-semibold' : 'text-muted-foreground')}>
+                      <p className={cn('text-[11px]', receiptDebt.status === 'failed' ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-muted-foreground')}>
                         {receiptDebt.status === 'failed' ? t('sales.debt_status_failed') : t('sales.debt_status_queued')}
                       </p>
                     )}
