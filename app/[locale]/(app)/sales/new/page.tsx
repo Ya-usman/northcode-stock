@@ -30,6 +30,7 @@ import type { Product, Customer, CartItem, Sale, SaleItem, Category } from '@/li
 import dynamic from 'next/dynamic'
 import { cacheProducts, getCachedProducts, cacheCustomers, getCachedCustomers, savePendingSale, savePendingCustomerPayment, type PendingSalePayment } from '@/lib/offline/db'
 import { allocateCheckout, outstandingDebt } from '@/lib/utils/checkout-allocation'
+import { revalidateHeldCart, heldAgeDays, HELD_STALE_DAYS, type HeldCartChange } from '@/lib/utils/held-sales'
 import { clearPageCache, clearPageCacheByPrefix } from '@/lib/offline/page-cache'
 import { cashSuggestions } from '@/lib/utils/cash-suggestions'
 import { registerBackgroundSync } from '@/lib/offline/sync'
@@ -78,6 +79,14 @@ interface Draft {
   discount: number
   notes: string
   paymentMethod: string
+  /** Client EXISTANT lié — sans lui, la reprise ne gardait que le nom et
+   *  la validation recréait un doublon du client (dette comprise). */
+  customerId?: string | null
+  /** Nom libre donné à la mise en attente (« Table 3 », « Mme Fatou »). */
+  label?: string
+  /** Produits dont le prix avait été modifié à la main (conservé à la
+   *  reprise ; les autres suivent le prix actuel). */
+  manualPriceIds?: string[]
 }
 
 const DRAFTS_KEY = 'nc_sale_drafts'
@@ -170,6 +179,11 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const [drafts, setDrafts] = useState<Draft[]>([])
   const [showDrafts, setShowDrafts] = useState(false)
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null)
+  // Mise en attente : petite fenêtre pour un nom facultatif.
+  const [showHoldDialog, setShowHoldDialog] = useState(false)
+  const [holdLabel, setHoldLabel] = useState('')
+  // Reprise demandée alors qu'un autre panier est en cours → confirmation.
+  const [pendingResume, setPendingResume] = useState<Draft | null>(null)
 
   // Load drafts from localStorage on mount
   useEffect(() => {
@@ -488,11 +502,20 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   }
 
   // ── DRAFTS ─────────────────────────────────────────────
-  const holdInvoice = () => {
+  // Le bouton ⏸ ouvre d'abord une petite fenêtre (nom facultatif) ;
+  // doHold() enregistre réellement. Renvoie la liste à jour, pour pouvoir
+  // enchaîner une reprise sans relire un état React pas encore à jour.
+  const openHoldDialog = () => {
     if (cart.length === 0) {
       toast({ title: t('toast.cart_empty'), variant: 'destructive' })
       return
     }
+    const existing = drafts.find(d => d.id === activeDraftId)
+    setHoldLabel(existing?.label ?? '')
+    setShowHoldDialog(true)
+  }
+
+  const doHold = (label: string): Draft[] => {
     const draft: Draft = {
       id: activeDraftId || `draft_${Date.now()}`,
       createdAt: new Date().toISOString(),
@@ -503,26 +526,92 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       discount,
       notes,
       paymentMethod,
+      customerId: selectedCustomer?.id ?? null,
+      label: label.trim() || undefined,
+      manualPriceIds: cart
+        .filter(i => i.unit_price !== effectivePrice(i.product, frontBatchPromo))
+        .map(i => i.product.id),
     }
     const updated = drafts.filter(d => d.id !== draft.id)
     updated.unshift(draft)
     setDrafts(updated)
     saveDraftsToStorage(updated)
     resetForm()
+    setShowHoldDialog(false)
     toast({ title: t('toast.sale_held'), variant: 'success' })
+    return updated
   }
 
-  const resumeDraft = (draft: Draft) => {
-    // Only resume if products are still loaded (same shop)
-    setCart(draft.cart)
-    setCustomerName(draft.customerName)
-    setCustomerPhone(draft.customerPhone)
-    setDiscount(draft.discount)
+  // Applique une vente en attente au panier, REVÉRIFIÉE contre les produits
+  // actuels (prix, stock, disponibilité) — chaque changement est signalé.
+  const applyDraft = (draft: Draft) => {
+    // Produits pas encore chargés (tout début de page, hors ligne sans
+    // cache) : on ne peut rien revérifier — panier repris tel quel plutôt
+    // que de tout déclarer « plus disponible ».
+    const { cart: freshCart, changes } = products.length === 0
+      ? { cart: draft.cart, changes: [] as HeldCartChange[] }
+      : revalidateHeldCart(
+      draft.cart,
+      products,
+      p => effectivePrice(p, frontBatchPromo),
+      draft.manualPriceIds ?? null,
+    )
+    setCart(freshCart)
+    // Client existant : on le reprend par son identifiant (et non plus par
+    // son seul nom, qui recréait un doublon à la validation). S'il n'est
+    // plus dans la liste (supprimé, liste pas encore chargée), on garde le
+    // nom et le téléphone saisis.
+    const linked = draft.customerId ? customers.find(c => c.id === draft.customerId) : undefined
+    if (linked) {
+      setSelectedCustomer(linked)
+      setCustomerName('')
+      setCustomerPhone(linked.phone || '')
+    } else {
+      setSelectedCustomer(null)
+      setCustomerName(draft.customerName)
+      setCustomerPhone(draft.customerPhone)
+    }
+    setDiscount(Math.min(draft.discount, freshCart.reduce((s, i) => s + i.subtotal, 0)))
     setNotes(draft.notes)
     setPaymentMethod(draft.paymentMethod)
     setActiveDraftId(draft.id)
     setShowDrafts(false)
-    toast({ title: t('toast.sale_resumed'), variant: 'success' })
+    setPendingResume(null)
+    if (changes.length > 0) {
+      toast({
+        title: t('sales.held_changes_title'),
+        description: changes.map(c =>
+          c.kind === 'removed' ? t('sales.held_change_removed', { name: c.name })
+          : c.kind === 'capped' ? t('sales.held_change_capped', { name: c.name, from: c.from, to: c.to })
+          : t('sales.held_change_price', { name: c.name, from: formatNaira(c.from), to: formatNaira(c.to) }),
+        ).join(' · '),
+        variant: changes.some(c => c.kind === 'removed') ? 'destructive' : 'default',
+      })
+    } else {
+      toast({ title: t('toast.sale_resumed'), variant: 'success' })
+    }
+    // Téléphone : on ouvre directement le panier repris (le panneau n'existe
+    // que sous md — sur desktop le panier est déjà une colonne visible).
+    if (freshCart.length > 0 && window.matchMedia('(max-width: 767px)').matches) {
+      setMobileStep('cart')
+      setMobileCartOpen(true)
+    }
+  }
+
+  // « Reprendre » ne doit jamais écraser en silence un panier en cours.
+  const resumeDraft = (draft: Draft) => {
+    if (cart.length > 0 && activeDraftId !== draft.id) {
+      setShowDrafts(false)
+      setPendingResume(draft)
+      return
+    }
+    applyDraft(draft)
+  }
+
+  const deleteStaleDrafts = () => {
+    const updated = drafts.filter(d => d.shopId !== shop?.id || heldAgeDays(d.createdAt) < HELD_STALE_DAYS)
+    setDrafts(updated)
+    saveDraftsToStorage(updated)
   }
 
   const deleteDraft = (id: string) => {
@@ -704,6 +793,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     const _shopId = shop?.id
     const _cashierId = profile?.id
     const _cart = cart.map((item: any) => ({ ...item }))
+    const _activeDraftId = activeDraftId
 
     // Payment row(s) for THIS sale only — capped at `total`, never
     // totalToCollect (which may also include an unrelated debt-repayment
@@ -898,6 +988,10 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           subtotal: item.quantity * item.unit_price,
         })),
       } as any)
+      // Vente en attente reprise puis validée HORS LIGNE : elle doit quitter
+      // la liste d'attente comme en ligne — sinon elle pouvait être reprise et
+      // validée une 2e fois (stock et chiffre d'affaires comptés deux fois).
+      if (_activeDraftId) deleteDraft(_activeDraftId)
       setShowReceipt(true)
       resetForm()
       triggerSaleFeedback()
@@ -1128,7 +1222,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     <div className="flex flex-col gap-4 max-w-2xl mx-auto w-full md:max-w-none md:flex-row md:gap-0 md:h-[calc(100dvh-6.5rem)] md:overflow-hidden">
 
       {/* ── LEFT column: search + products ── */}
-      <div className={cn('flex flex-col md:flex-1 md:overflow-hidden md:border-r md:border-border md:min-h-0', cart.length > 0 && 'pb-16 md:pb-0')}>
+      <div className={cn('flex flex-col md:flex-1 md:overflow-hidden md:border-r md:border-border md:min-h-0', (cart.length > 0 || shopDrafts.length > 0) && 'pb-16 md:pb-0')}>
 
       {/* Shop selector — same shared control as everywhere else in the app, restricted to a single concrete shop (a sale can't target "all shops") */}
       {isOwner && (
@@ -1140,11 +1234,12 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         />
       )}
 
-      {/* Held invoices banner */}
+      {/* Held invoices banner — desktop (toujours visible : hors de la zone
+          qui défile). Téléphone : accès fixé en bas d'écran, voir plus bas. */}
       {shopDrafts.length > 0 && (
         <button
           onClick={() => setShowDrafts(true)}
-          className="flex items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700 hover:bg-amber-100 transition-colors"
+          className="hidden md:flex items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700 hover:bg-amber-100 transition-colors"
         >
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4" />
@@ -1697,7 +1792,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             <Button
               variant="outline"
               className="h-12 w-12 shrink-0 p-0 border-amber-300 text-amber-700 hover:bg-amber-50"
-              onClick={holdInvoice}
+              onClick={openHoldDialog}
               disabled={completing}
               aria-label="Mettre en attente"
               title="Mettre en attente"
@@ -1992,7 +2087,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             <Button
               variant="outline"
               className="h-12 w-12 shrink-0 p-0 gap-2 border-amber-300 text-amber-700 hover:bg-amber-50 md:w-auto md:flex-1 md:px-4"
-              onClick={holdInvoice}
+              onClick={openHoldDialog}
               disabled={cart.length === 0 || completing}
               aria-label="Mettre en attente"
               title="Mettre en attente"
@@ -2101,19 +2196,37 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         title={t('sales.pending_invoices_title')}
         icon={<Clock className="h-4 w-4" />}
       >
-        <PremiumDialogBody className="space-y-2 max-h-80 overflow-y-auto">
+        <PremiumDialogBody className="space-y-2 max-h-[70vh] overflow-y-auto">
+          {/* Nettoyage des anciennes — jamais automatique (ce sont des ventes),
+              toujours sur confirmation du caissier. */}
+          {(() => {
+            const stale = shopDrafts.filter(d => heldAgeDays(d.createdAt) >= HELD_STALE_DAYS).length
+            return stale > 0 ? (
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+                <span>{t('sales.held_stale_notice', { count: stale, days: HELD_STALE_DAYS })}</span>
+                <Button size="sm" variant="outline" className="h-7 shrink-0 border-amber-300 text-amber-800" onClick={deleteStaleDrafts}>
+                  <Trash2 className="h-3.5 w-3.5 mr-1" />{t('sales.held_stale_delete', { count: stale })}
+                </Button>
+              </div>
+            ) : null
+          })()}
           {shopDrafts.map(draft => {
             const draftTotal = draft.cart.reduce((s, i) => s + i.subtotal, 0) - draft.discount
             const itemCount = draft.cart.reduce((s, i) => s + i.quantity, 0)
+            const age = heldAgeDays(draft.createdAt)
+            const time = new Date(draft.createdAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+            const when = age === 0 ? t('sales.held_today', { time })
+              : age === 1 ? t('sales.held_yesterday', { time })
+              : t('sales.held_days_ago', { days: age })
             return (
               <div key={draft.id} className="rounded-xl border bg-card p-3 space-y-2">
                 <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-semibold">{draft.customerName || 'Client anonyme'}</p>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate">{draft.label || draft.customerName || 'Client anonyme'}</p>
+                    {draft.label && draft.customerName && <p className="text-xs text-muted-foreground truncate">{draft.customerName}</p>}
                     {draft.customerPhone && <p className="text-xs text-muted-foreground">{draft.customerPhone}</p>}
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {itemCount} article{itemCount > 1 ? 's' : ''} ·{' '}
-                      {new Date(draft.createdAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
+                    <p className={cn('text-xs mt-0.5', age >= HELD_STALE_DAYS ? 'text-amber-700 font-medium' : 'text-muted-foreground')}>
+                      {itemCount} article{itemCount > 1 ? 's' : ''} · {when}
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
@@ -2135,6 +2248,73 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               </div>
             )
           })}
+        </PremiumDialogBody>
+      </PremiumDialog>
+
+      {/* Mise en attente — nom facultatif pour retrouver la facture */}
+      <PremiumDialog
+        open={showHoldDialog}
+        onOpenChange={setShowHoldDialog}
+        category="Ventes"
+        title={t('sales.hold_dialog_title')}
+        icon={<PauseCircle className="h-4 w-4" />}
+        centered
+      >
+        <PremiumDialogBody>
+          <form onSubmit={e => { e.preventDefault(); doHold(holdLabel) }} className="space-y-3">
+            <Label htmlFor="hold-label">{t('sales.hold_label')}</Label>
+            <Input
+              id="hold-label"
+              autoFocus
+              value={holdLabel}
+              maxLength={40}
+              onChange={e => setHoldLabel(e.target.value)}
+              placeholder={(selectedCustomer?.name || customerName.trim()) || t('sales.hold_label_placeholder')}
+            />
+            <p className="text-xs text-muted-foreground">{t('sales.hold_label_hint')}</p>
+            <div className="flex gap-2 pt-1">
+              <Button type="button" variant="outline" className="flex-1 h-11" onClick={() => setShowHoldDialog(false)}>
+                {t('actions.cancel')}
+              </Button>
+              <Button type="submit" variant="stockshop" className="flex-[2] h-11 gap-2">
+                <PauseCircle className="h-4 w-4" />{t('sales.hold_confirm')}
+              </Button>
+            </div>
+          </form>
+        </PremiumDialogBody>
+      </PremiumDialog>
+
+      {/* Reprise alors qu'un autre panier est en cours — jamais d'écrasement
+          silencieux : on propose de le mettre d'abord en attente. */}
+      <PremiumDialog
+        open={!!pendingResume}
+        onOpenChange={open => { if (!open) setPendingResume(null) }}
+        category="Ventes"
+        title={t('sales.resume_conflict_title')}
+        icon={<PlayCircle className="h-4 w-4" />}
+        centered
+      >
+        <PremiumDialogBody className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            {t('sales.resume_conflict_desc', { count: cart.length, amount: formatNaira(total) })}
+          </p>
+          <Button
+            variant="stockshop"
+            className="w-full h-auto min-h-11 gap-2 whitespace-normal py-2.5 leading-snug"
+            onClick={() => { const d = pendingResume; if (!d) return; doHold(''); applyDraft(d) }}
+          >
+            <PauseCircle className="h-4 w-4" />{t('sales.resume_hold_current')}
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full h-auto min-h-11 whitespace-normal py-2.5 leading-snug border-red-200 text-red-600 hover:bg-red-50"
+            onClick={() => { const d = pendingResume; if (d) applyDraft(d) }}
+          >
+            {t('sales.resume_replace')}
+          </Button>
+          <Button variant="ghost" className="w-full h-10" onClick={() => setPendingResume(null)}>
+            {t('actions.cancel')}
+          </Button>
         </PremiumDialogBody>
       </PremiumDialog>
 
@@ -2231,21 +2411,44 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           l'ancien sm:hidden, entre 640 et 767 px le panier aurait été
           inaccessible. La barre de navigation du bas disparaît dès sm, d'où
           sm:bottom-0. */}
-      {cart.length > 0 && !mobileCartOpen && (
-        <button
-          type="button"
-          onClick={() => setMobileCartOpen(true)}
-          className="fixed bottom-16 sm:bottom-0 left-0 right-0 z-30 flex items-center justify-between gap-3 bg-stockshop-blue text-white px-4 py-3 shadow-lg md:hidden"
-        >
-          <span className="flex items-center gap-2 font-semibold text-sm">
-            <ShoppingCart className="h-4 w-4" />
-            {t('sales.cart_items_count', { count: cart.length })}
-          </span>
-          <span className="flex items-center gap-1.5 font-bold text-sm">
-            {formatNaira(total)}
-            <ChevronUp className="h-4 w-4" />
-          </span>
-        </button>
+      {/* + accès permanent aux ventes en attente (téléphone) : à gauche du
+          bandeau panier, ou seul (barre ambre) quand le panier est vide. */}
+      {!mobileCartOpen && (cart.length > 0 || shopDrafts.length > 0) && (
+        <div className="fixed bottom-16 sm:bottom-0 left-0 right-0 z-30 flex shadow-lg md:hidden">
+          {shopDrafts.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowDrafts(true)}
+              aria-label={t('sales.invoices_pending', { count: shopDrafts.length })}
+              className={cn(
+                'flex items-center justify-center gap-1.5 bg-amber-500 px-4 py-3 text-sm font-bold text-white',
+                cart.length === 0 && 'flex-1 justify-between',
+              )}
+            >
+              <span className="flex items-center gap-2">
+                <PauseCircle className="h-4 w-4" />
+                {cart.length === 0 ? t('sales.invoices_pending', { count: shopDrafts.length }) : shopDrafts.length}
+              </span>
+              {cart.length === 0 && <ChevronUp className="h-4 w-4" />}
+            </button>
+          )}
+          {cart.length > 0 && (
+            <button
+              type="button"
+              onClick={() => { setMobileStep('cart'); setMobileCartOpen(true) }}
+              className="flex flex-1 items-center justify-between gap-3 bg-stockshop-blue text-white px-4 py-3"
+            >
+              <span className="flex items-center gap-2 font-semibold text-sm">
+                <ShoppingCart className="h-4 w-4" />
+                {t('sales.cart_items_count', { count: cart.length })}
+              </span>
+              <span className="flex items-center gap-1.5 font-bold text-sm">
+                {formatNaira(total)}
+                <ChevronUp className="h-4 w-4" />
+              </span>
+            </button>
+          )}
+        </div>
       )}
     </div>
   )
