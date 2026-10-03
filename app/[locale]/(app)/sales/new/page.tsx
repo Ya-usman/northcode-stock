@@ -145,6 +145,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const [mobileStep, setMobileStep] = useState<'cart' | 'payment'>('cart')
   // Sections repliées sur téléphone tant qu'elles sont vides (« + Ajouter… »).
   const [showDiscount, setShowDiscount] = useState(false)
+  const [clearCartOpen, setClearCartOpen] = useState(false)
   const [showCustomer, setShowCustomer] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
 
@@ -558,6 +559,15 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     setCustomerUnpaidSales([])
     setDueDate('')
     dueDateTouchedRef.current = false
+  }
+
+  // « Vider le panier » : abandon de toute la vente en cours (articles, client,
+  // remise, notes, dette), après confirmation. Une facture en attente reprise
+  // n'est pas touchée : elle n'est supprimée qu'à la validation.
+  const clearCart = () => {
+    resetForm()
+    setClearCartOpen(false)
+    toast({ title: t('sales.clear_cart_done') })
   }
 
   // ── DRAFTS ─────────────────────────────────────────────
@@ -1516,11 +1526,25 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           <ArrowLeft className="h-5 w-5" />
           {mobileStep === 'payment' ? t('sales.back_to_cart') : t('sales.back_to_products')}
         </button>
-        <span className="flex items-center gap-1.5 pr-2 text-sm font-semibold text-foreground">
-          {mobileStep === 'payment'
-            ? t('sales.payment_step_title')
-            : <><ShoppingCart className="h-4 w-4" />{t('sales.cart_items_count', { count: cart.length })}</>}
-        </span>
+        <div className="flex items-center">
+          <span className="flex items-center gap-1.5 pr-2 text-sm font-semibold text-foreground">
+            {mobileStep === 'payment'
+              ? t('sales.payment_step_title')
+              : <><ShoppingCart className="h-4 w-4" />{t('sales.cart_items_count', { count: cart.length })}</>}
+          </span>
+          {/* Vider toute la vente en cours — ici, loin d'« Encaisser », avec confirmation */}
+          {mobileStep === 'cart' && cart.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setClearCartOpen(true)}
+              className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red-50 hover:text-destructive dark:hover:bg-red-950/40"
+              aria-label={t('sales.clear_cart')}
+              title={t('sales.clear_cart')}
+            >
+              <Trash2 className="h-5 w-5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Cart */}
@@ -1538,6 +1562,20 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           {/* ══ Étape 1 (téléphone) : PANIER — articles, total, client, dette ══
               Sur desktop, les deux étapes restent visibles l'une sous l'autre. */}
           <div className={cn('space-y-2', mobileStep === 'payment' && 'hidden md:block')}>
+          {/* Ordinateur : en-tête du panier avec « Vider » (sur téléphone, la
+              corbeille est dans l'en-tête du panneau). Confirmation avant de vider. */}
+          <div className="hidden md:flex items-center justify-between px-1">
+            <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+              <ShoppingCart className="h-4 w-4" />{t('sales.cart_items_count', { count: cart.length })}
+            </span>
+            <button
+              type="button"
+              onClick={() => setClearCartOpen(true)}
+              className="flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-red-50 hover:text-destructive dark:hover:bg-red-950/40"
+            >
+              <Trash2 className="h-3.5 w-3.5" />{t('sales.clear_cart')}
+            </button>
+          </div>
           <AnimatePresence>
             {cart.map(item => (
               <motion.div key={item.product.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
@@ -2279,6 +2317,32 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               </Button>
             </div>
           </form>
+        </PremiumDialogBody>
+      </PremiumDialog>
+
+      {/* Vider le panier : confirmation (pas d'annulation possible après),
+          avec le rappel de l'alternative « Mettre en attente ». */}
+      <PremiumDialog
+        open={clearCartOpen}
+        onOpenChange={setClearCartOpen}
+        category="Ventes"
+        title={t('sales.clear_cart_title')}
+        icon={<Trash2 className="h-4 w-4" />}
+        centered
+      >
+        <PremiumDialogBody className="space-y-3">
+          <p className="text-sm text-muted-foreground">{t('sales.clear_cart_body', { count: cart.length })}</p>
+          {activeDraftId && (
+            <p className="text-xs font-medium text-muted-foreground">{t('sales.clear_cart_draft_kept')}</p>
+          )}
+          <div className="flex gap-2 pt-1">
+            <Button type="button" variant="outline" className="flex-1 h-11" onClick={() => setClearCartOpen(false)}>
+              {t('actions.cancel')}
+            </Button>
+            <Button type="button" variant="destructive" className="flex-[2] h-11 gap-2" onClick={clearCart}>
+              <Trash2 className="h-4 w-4" />{t('sales.clear_cart')}
+            </Button>
+          </div>
         </PremiumDialogBody>
       </PremiumDialog>
 
