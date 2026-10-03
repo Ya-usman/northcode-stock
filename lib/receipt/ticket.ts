@@ -257,11 +257,10 @@ export function buildSaleTicket(d: TicketData, width: TicketWidth): TicketLine[]
   }
   if (!d.hideBranding) {
     push({ kind: 'space', h: 1.5 })
-    // En bas : le haut du ticket appartient à la boutique. « Propulsé par »,
-    // signature (nom et slogan dans l'image), adresse du site ; le texte complet
-    // ne sert que si l'image est indisponible.
+    // En bas, discret : le haut du ticket appartient à la boutique. Petite
+    // signature (cercle + « StockShop® ») et adresse du site, deux lignes ; le
+    // texte complet ne sert que si l'image est indisponible.
     if (d.brandMark) {
-      push({ kind: 'text', text: L.poweredBy, align: 'center', size: 'sm' })
       push({ kind: 'image', logo: d.brandMark })
       push({ kind: 'text', text: 'stockshop.tech', align: 'center', size: 'sm' })
     } else {

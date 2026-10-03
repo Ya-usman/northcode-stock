@@ -34,10 +34,10 @@ export async function printSaleTicket(args: {
     const [{ loadTicketLogo, STOCKSHOP_MARK_URL }, { buildTicketQr }] = await Promise.all([import('./ticket-logo'), import('./ticket-qr')])
     const [logo, brandMark, qr] = await Promise.all([
       wantShopLogo ? loadTicketLogo(args.logoUrl!, args.settings.width) : Promise.resolve(data.logo ?? null),
-      // Signature avec slogan (proportions du visuel de marque) : presque pleine
-      // largeur pour que « Smart Business Starts Here. » reste lisible en thermique
-      // (≈ 46 × 12 mm en 58 mm, 50 × 13 mm en 80 mm).
-      wantMark ? loadTicketLogo(STOCKSHOP_MARK_URL, args.settings.width, { dots: args.settings.width === 58 ? 368 : 400, maxHeight: 112, mode: 'threshold' }) : Promise.resolve(data.brandMark ?? null),
+      // Signature DISCRÈTE : la marque du commerçant domine, la nôtre se lit en
+      // petit en bas — 22 mm en 58 mm, 26 mm en 80 mm (≈ 6 mm de haut), toujours
+      // plus petite que le logo de la boutique (24 à 40 mm).
+      wantMark ? loadTicketLogo(STOCKSHOP_MARK_URL, args.settings.width, { dots: args.settings.width === 58 ? 176 : 208, maxHeight: 56, mode: 'threshold' }) : Promise.resolve(data.brandMark ?? null),
       // QR du reçu en ligne, calculé sur place (aucun réseau nécessaire)
       wantQr ? buildTicketQr(data.receiptUrl!, args.settings.width) : Promise.resolve(data.qr ?? null),
     ])
