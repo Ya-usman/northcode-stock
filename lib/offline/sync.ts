@@ -251,12 +251,31 @@ export async function syncPendingSales(shopId: string): Promise<SyncResult> {
         }
       }
 
-      // 'mixed' is not a valid payment_method in the DB; map to 'cash'.
-      // The offline PendingSale schema stores only a single payment_amount with no
-      // per-method breakdown, so the original cash/transfer split cannot be reconstructed
-      // here. A note is added to the payment record to flag this data loss.
-      const isMixedPayment = sale.payment_method === 'mixed'
+      // Paiement(s) de la vente. Depuis la correction du paiement mixte hors
+      // ligne, la vente en attente porte `payments` (même forme que le
+      // chemin en ligne → complete_sale) : 2 lignes pour un paiement mixte,
+      // et payment_method = 'mixed', valeur acceptée en base depuis la
+      // migration 012 (le chemin en ligne l'enregistre déjà ainsi).
+      //
+      // Ventes enregistrées AVANT cette correction (encore en attente sur
+      // un appareil) : pas de `payments` → ancien comportement, un seul
+      // paiement de payment_amount. Elles ne portaient jamais 'mixed'
+      // (seul le 1er moyen était gardé), la branche 'mixed' ci-dessous ne
+      // sert que par sécurité.
+      const hasPaymentsList = Array.isArray(sale.payments)
+      const isMixedPayment = !hasPaymentsList && sale.payment_method === 'mixed'
       const dbPaymentMethod = isMixedPayment ? 'cash' : sale.payment_method
+      const paymentRows = hasPaymentsList
+        ? sale.payments!.filter(p => Number(p.amount) > 0)
+        : (dbPaymentMethod !== 'credit' && sale.payment_amount > 0
+            ? [{ amount: sale.payment_amount, method: dbPaymentMethod, reference: sale.payment_reference }]
+            : [])
+      // Même garde-fou que complete_sale (P0007) — refusé AVANT de créer la
+      // vente, pour ne jamais laisser une vente orpheline sans paiement.
+      const paymentsTotal = paymentRows.reduce((s, p) => s + Number(p.amount), 0)
+      if (paymentsTotal > Number(sale.total) + 0.01) {
+        throw new Error(`Total des paiements (${paymentsTotal}) supérieur au total de la vente (${sale.total})`)
+      }
 
       // local_id is stable across sync retries (it's the IndexedDB keyPath,
       // generated once when the sale was first saved offline) — reuse it as
@@ -342,19 +361,22 @@ export async function syncPendingSales(shopId: string): Promise<SyncResult> {
         if (itemsError) throw new Error(itemsError.message)
       }
 
-      if (dbPaymentMethod !== 'credit' && sale.payment_amount > 0 && !paymentAlreadyExists) {
-        const { error: paymentError } = await supabase.from('payments').insert({
+      if (paymentRows.length > 0 && !paymentAlreadyExists) {
+        // UN seul insert pour toutes les lignes = une seule instruction SQL,
+        // tout ou rien : un paiement mixte ne peut pas se retrouver à moitié
+        // enregistré (la relance suivante sauterait alors le 2e paiement,
+        // puisque paymentAlreadyExists ne regarde que "au moins un").
+        const { error: paymentError } = await supabase.from('payments').insert(paymentRows.map(p => ({
           sale_id: saleData.id,
-          amount: sale.payment_amount,
-          method: dbPaymentMethod,
-          reference: sale.payment_reference,
+          amount: p.amount,
+          method: p.method,
+          reference: p.reference || null,
           received_by: sale.cashier_id,
           // Preserve original sale timestamp so the is_repayment heuristic
           // (paid_at > created_at + 5 min) doesn't fire for delayed syncs.
           paid_at: sale.created_at,
-          // Mixed payments lose their cash/transfer split in offline mode — document it.
           notes: isMixedPayment ? 'Paiement mixte (sync offline — méthode enregistrée comme espèces, détail du split non disponible)' : null,
-        })
+        })))
         if (paymentError) {
           // Don't throw here: the sale + items already exist online, so retrying
           // this sale on the next sync pass would re-insert it as a duplicate.

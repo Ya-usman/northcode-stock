@@ -20,8 +20,10 @@ export function buildReceiptWhatsAppMessage(params: {
   method: string
   customerName?: string
   currencySymbol?: string
+  /** Remboursement de dette encaissé avec cette vente (hors vente). */
+  debtRepayment?: number
 }): string {
-  const { shopName, saleNumber, date, items, total, paid, balance, method, customerName, currencySymbol = '₦' } = params
+  const { shopName, saleNumber, date, items, total, paid, balance, method, customerName, currencySymbol = '₦', debtRepayment = 0 } = params
 
   const fmt = (n: number) => currencySymbol.length > 2
     ? `${n.toLocaleString()} ${currencySymbol}`
@@ -40,6 +42,8 @@ export function buildReceiptWhatsAppMessage(params: {
     `*TOTAL: ${fmt(total)}*`,
     `Paid: ${fmt(paid)} (${method})`,
     balance > 0 ? `⚠️ Balance: ${fmt(balance)}` : `✅ Fully Paid`,
+    debtRepayment > 0 ? `Debt repayment: +${fmt(debtRepayment)}` : '',
+    debtRepayment > 0 ? `*Total collected: ${fmt(paid + debtRepayment)}*` : '',
     ``,
     `_Thank you! Na gode da kasuwancin ku_`,
   ].filter(Boolean)

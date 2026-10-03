@@ -115,10 +115,24 @@ export interface PendingSale {
   notes: string | null
   created_at: string
   items: PendingSaleItem[]
+  /** Paiement(s) de la vente, même forme que le chemin en ligne
+   *  (/api/sales/checkout → complete_sale) : 2 lignes pour un paiement
+   *  mixte. Absent sur les ventes enregistrées avant cette correction
+   *  (encore en attente sur un appareil) — la sync retombe alors sur
+   *  payment_amount/payment_reference. */
+  payments?: PendingSalePayment[]
+  /** @deprecated remplacé par `payments` — conservé pour les anciennes
+   *  ventes en attente. Total payé (somme de `payments`). */
   payment_amount: number
   payment_reference: string | null
   synced: boolean
   sync_error?: string
+}
+
+export interface PendingSalePayment {
+  amount: number
+  method: string
+  reference: string | null
 }
 
 export interface PendingCustomerPayment {

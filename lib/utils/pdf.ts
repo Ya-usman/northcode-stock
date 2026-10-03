@@ -50,6 +50,8 @@ interface ReceiptLabels {
   balanceDue: string
   thankYou: string
   promoWas?: string
+  debtRepayment?: string
+  totalCollected?: string
 }
 
 interface ReceiptData {
@@ -58,13 +60,18 @@ interface ReceiptData {
   cashierName: string
   customerName?: string
   labels?: ReceiptLabels
+  /** Remboursement de dette encaissé EN MÊME TEMPS que cette vente
+   *  (Nouvelle vente → « Inclure un remboursement de crédit »). Ne fait pas
+   *  partie de la vente elle-même : ajouté au reçu pour que le client voie
+   *  ce qu'il a réellement payé. */
+  debtRepayment?: number
 }
 
 async function buildReceiptDoc(data: ReceiptData) {
   const { jsPDF } = await import('jspdf')
   const autoTable = (await import('jspdf-autotable')).default
 
-  const { sale, shop, cashierName, customerName, labels } = data
+  const { sale, shop, cashierName, customerName, labels, debtRepayment } = data
   const L: ReceiptLabels = {
     receipt: labels?.receipt ?? 'Receipt',
     cashier: labels?.cashier ?? 'Cashier',
@@ -82,6 +89,8 @@ async function buildReceiptDoc(data: ReceiptData) {
     balanceDue: labels?.balanceDue ?? 'Balance Due',
     thankYou: labels?.thankYou ?? 'Thank you for your business',
     promoWas: labels?.promoWas ?? 'Was',
+    debtRepayment: labels?.debtRepayment ?? 'Debt repayment',
+    totalCollected: labels?.totalCollected ?? 'Total collected',
   }
 
   // Currency formatter — jsPDF Helvetica can't render ₦, use sanitizePDF
@@ -270,6 +279,21 @@ async function buildReceiptDoc(data: ReceiptData) {
     doc.setTextColor(220, 38, 38)
     doc.setFont('helvetica', 'bold')
     doc.text(`${L.balanceDue}: ${fmtAmt(Number(sale.balance))}`, labelCol, y)
+    y += 5
+  }
+
+  // Remboursement de dette encaissé avec la vente — hors vente, mais le
+  // client doit voir le total qu'il a réellement remis.
+  if (Number(debtRepayment) > 0) {
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(194, 65, 12)
+    doc.text(sanitizePDF(`${L.debtRepayment}:`), labelCol, y)
+    doc.text(`+${fmtAmt(Number(debtRepayment))}`, rightCol, y, { align: 'right' })
+    y += 5
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(10, 47, 110)
+    doc.text(sanitizePDF(`${L.totalCollected}:`), labelCol, y)
+    doc.text(fmtAmt(Number(sale.amount_paid) + Number(debtRepayment)), rightCol, y, { align: 'right' })
     y += 5
   }
 

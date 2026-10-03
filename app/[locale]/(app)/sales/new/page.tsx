@@ -5,7 +5,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, Plus, Minus, Trash2, CheckCircle, MessageCircle, Printer, Share2,
-  Scan, X, User, Clock, PauseCircle, PlayCircle, Edit2, ShoppingCart, ChevronUp, Star,
+  Scan, X, User, Clock, PauseCircle, PlayCircle, Edit2, ShoppingCart, ChevronUp, ChevronRight, Star, ArrowLeft,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -28,8 +28,10 @@ import { shareReceiptWhatsApp, buildReceiptWhatsAppMessage } from '@/lib/utils/w
 import { sharePDFNative, printPDFNative, isCapacitor } from '@/lib/utils/native-share'
 import type { Product, Customer, CartItem, Sale, SaleItem, Category } from '@/lib/types/database'
 import dynamic from 'next/dynamic'
-import { cacheProducts, getCachedProducts, cacheCustomers, getCachedCustomers, savePendingSale } from '@/lib/offline/db'
+import { cacheProducts, getCachedProducts, cacheCustomers, getCachedCustomers, savePendingSale, savePendingCustomerPayment, type PendingSalePayment } from '@/lib/offline/db'
+import { allocateCheckout, outstandingDebt } from '@/lib/utils/checkout-allocation'
 import { clearPageCache, clearPageCacheByPrefix } from '@/lib/offline/page-cache'
+import { cashSuggestions } from '@/lib/utils/cash-suggestions'
 import { registerBackgroundSync } from '@/lib/offline/sync'
 
 const BarcodeScanner = dynamic(
@@ -104,6 +106,16 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const { toast } = useToast()
   const searchRef = useRef<HTMLInputElement>(null)
   const cartSectionRef = useRef<HTMLDivElement>(null)
+  // Panneau panier plein écran (téléphone uniquement, voir le rendu).
+  const [mobileCartOpen, setMobileCartOpen] = useState(false)
+  // Téléphone : deux étapes dans le panneau — 'cart' (articles, client,
+  // dette → « Encaisser ») puis 'payment' (moyen de paiement → « Valider »).
+  // Sans effet sur le desktop (colonne unique, tout visible).
+  const [mobileStep, setMobileStep] = useState<'cart' | 'payment'>('cart')
+  // Sections repliées sur téléphone tant qu'elles sont vides (« + Ajouter… »).
+  const [showDiscount, setShowDiscount] = useState(false)
+  const [showCustomer, setShowCustomer] = useState(false)
+  const [showNotes, setShowNotes] = useState(false)
 
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
@@ -142,6 +154,11 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const [customerUnpaidSales, setCustomerUnpaidSales] = useState<any[]>([])
   const [debtRepayEnabled, setDebtRepayEnabled] = useState(false)
   const [debtRepayAmount, setDebtRepayAmount] = useState('')
+  // Saisie au-delà de la dette réelle : ramenée au plafond, avec un message.
+  const [debtCapped, setDebtCapped] = useState(false)
+  // Remboursement de dette encaissé avec la dernière vente — affiché sur le
+  // reçu (écran, PDF, WhatsApp) avec son état d'enregistrement.
+  const [receiptDebt, setReceiptDebt] = useState<{ amount: number; status: 'applied' | 'queued' | 'failed' } | null>(null)
 
   // Raw quantity input values (allows clearing/retyping without snap-back)
   const [qtyInputs, setQtyInputs] = useState<Record<string, string>>({})
@@ -464,6 +481,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     setActiveDraftId(null)
     setDebtRepayEnabled(false)
     setDebtRepayAmount('')
+    setDebtCapped(false)
     setCustomerUnpaidSales([])
     setDueDate('')
     dueDateTouchedRef.current = false
@@ -522,6 +540,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   useEffect(() => {
     setDebtRepayEnabled(false)
     setDebtRepayAmount('')
+    setDebtCapped(false)
     setCustomerUnpaidSales([])
     if (!selectedCustomer || Number(selectedCustomer.total_debt) <= 0 || !shop?.id) return
     fetch(`/api/payments/debts?shop_id=${shop.id}`)
@@ -531,17 +550,68 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         const sales = debtor?.unpaidSales || []
         setCustomerUnpaidSales(sales)
         if (sales.length > 0) {
-          const totalDebt = sales.reduce((s: number, x: any) => s + Number(x.balance), 0)
-          setDebtRepayAmount(String(Math.round(totalDebt)))
+          // floor (pas round) : la saisie est entière, et un arrondi au-dessus
+          // dépasserait la dette réelle (l'excédent ne serait appliqué nulle part).
+          setDebtRepayAmount(String(Math.floor(outstandingDebt(sales))))
         }
       })
       .catch(() => {/* keep empty */})
   }, [selectedCustomer?.id, shop?.id])
 
+  // ── Panneau panier (téléphone) ─────────────────────────
+  // Se referme tout seul quand le panier se vide (vente validée, mise en
+  // attente, dernier article retiré) — retour direct aux produits.
+  useEffect(() => {
+    if (cart.length > 0) return
+    setMobileCartOpen(false)
+    // Nouvelle vente : on repart de l'étape panier, sections repliées.
+    setMobileStep('cart')
+    setShowDiscount(false); setShowCustomer(false); setShowNotes(false)
+  }, [cart.length])
+
+  // À l'ouverture : panneau remis en haut, et défilement de la grille en
+  // arrière-plan bloqué (sinon le doigt fait défiler la page dessous).
+  useEffect(() => {
+    if (!mobileCartOpen) { setMobileStep('cart'); return }
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [mobileCartOpen])
+
+  // Chaque ouverture / changement d'étape repart du haut du panneau.
+  useEffect(() => {
+    if (mobileCartOpen) cartSectionRef.current?.scrollTo({ top: 0 })
+  }, [mobileCartOpen, mobileStep])
+
+  // Retour (en-tête du panneau, bouton retour Android) : Paiement → Panier,
+  // puis Panier → Produits.
+  const mobileBack = useCallback(() => {
+    if (mobileStep === 'payment') setMobileStep('cart')
+    else setMobileCartOpen(false)
+  }, [mobileStep])
+
+  // Bouton retour Android (app Capacitor) : recule d'une étape au lieu de
+  // quitter la page — et donc de perdre le panier en cours. Pas de
+  // history.pushState côté navigateur : NavigationProgress l'intercepte
+  // pour sa barre de chargement, qui ne se terminerait jamais (même URL).
+  useEffect(() => {
+    if (!mobileCartOpen || !isCapacitor()) return
+    let cancelled = false
+    let remove: (() => void) | undefined
+    import('@capacitor/app').then(({ App }) =>
+      App.addListener('backButton', mobileBack).then(h => {
+        if (cancelled) h.remove(); else remove = () => { h.remove() }
+      }),
+    ).catch(() => {})
+    return () => { cancelled = true; remove?.() }
+  }, [mobileCartOpen, mobileBack])
+
   // Rangée "Favoris" : curation manuelle (migration 148), indépendante du
   // filtre catégorie — masquée pendant une recherche active (l'intention de
   // recherche est déjà précise, la rangée n'ajouterait que du bruit).
   const favoriteProducts = products.filter(p => p.is_favorite)
+  // Section client dépliée (téléphone) dès qu'elle contient quelque chose.
+  const customerOpen = showCustomer || !!selectedCustomer || !!customerName.trim() || !!customerPhone.trim()
   const showFavoritesRow = favoriteProducts.length > 0 && !searchQuery.trim()
 
   // ── TOTALS ─────────────────────────────────────────────
@@ -549,8 +619,13 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const discountAmt = discount
   const tax = Number(shop?.tax_rate || 0) > 0 ? (subtotal - discountAmt) * (shop!.tax_rate / 100) : 0
   const total = subtotal - discountAmt + tax
+  // Remboursement de dette inclus dans la vente — PLAFONNÉ à la dette
+  // réellement remboursable (somme des soldes des ventes impayées, seule
+  // base sur laquelle /api/payments l'applique). Sans plafond, un excédent
+  // saisi était encaissé mais appliqué nulle part.
+  const debtOutstanding = outstandingDebt(customerUnpaidSales)
+  const debtAmt = debtRepayEnabled ? Math.min(Number(debtRepayAmount) || 0, debtOutstanding) : 0
   // Montant total à encaisser = vente + remboursement crédit si activé
-  const debtAmt = debtRepayEnabled ? (Number(debtRepayAmount) || 0) : 0
   const totalToCollect = total + debtAmt
   const shopCountry = getCountry(shop?.country)
   const methodType = getMethodType(paymentMethod, shopCountry)
@@ -560,7 +635,19 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     ? Math.min(Number(amountPaid) || 0, total)
     : methodType === 'credit' ? 0 : total
   const change = methodType === 'cash' ? Math.max(0, (Number(amountPaid) || 0) - totalToCollect) : 0
+  // Réellement encaissé maintenant : en vente à crédit, rien pour la vente,
+  // seulement l'éventuel remboursement de dette.
+  const isCreditSale = !splitPayment && methodType === 'credit'
+  const collectedNow = isCreditSale ? debtAmt : totalToCollect
   const balance = Math.max(0, total - paid)
+  // Solde qui restera RÉELLEMENT dû une fois la vente validée — seul cas
+  // possible : la vente à crédit. `balance` ci-dessus ne convient pas pour
+  // l'échéance : en espèces, il vaut le total tant que le caissier n'a rien
+  // tapé (alors que la validation exige un montant ≥ total), et en paiement
+  // mixte il ignore le 2e moyen (qui couvre pourtant le reste) — d'où une
+  // échéance affichée, pré-remplie et envoyée au serveur sur des ventes
+  // entièrement payées.
+  const outstandingBalance = !splitPayment && methodType === 'credit' ? balance : 0
 
   // Pré-remplit l'échéance dès qu'un solde apparaît, avec le délai par
   // défaut de la boutique — jamais si le caissier a déjà touché le champ
@@ -569,7 +656,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   // vente finalement payée intégralement.
   const dueDateTouchedRef = useRef(false)
   useEffect(() => {
-    if (balance <= 0) {
+    if (outstandingBalance <= 0) {
       if (dueDate) setDueDate('')
       dueDateTouchedRef.current = false
       return
@@ -578,7 +665,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     const days = shop?.default_credit_term_days ?? 30
     setDueDate(new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [balance > 0, shop?.id])
+  }, [outstandingBalance > 0, shop?.id])
 
   const filteredCustomers = customerName
     ? customers.filter(c =>
@@ -618,6 +705,109 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     const _cashierId = profile?.id
     const _cart = cart.map((item: any) => ({ ...item }))
 
+    // Payment row(s) for THIS sale only — capped at `total`, never
+    // totalToCollect (which may also include an unrelated debt-repayment
+    // top-up, applied separately below via /api/payments). Computed ONCE
+    // and shared by the online AND offline paths: the offline path used to
+    // keep only the 1st method of a split payment (and its amount), so a
+    // mixed sale synced as partially paid with a phantom customer debt.
+    // La même répartition fournit aussi les lignes du remboursement de dette
+    // éventuel, chacune avec le moyen réellement encaissé (paiement mixte
+    // compris — voir lib/utils/checkout-allocation.ts).
+    const { salePayments, debtPayments } = allocateCheckout({
+      saleTotal: total,
+      debtAmount: debtAmt,
+      paymentMethod,
+      isCredit: methodType === 'credit',
+      paidForSale: paid,
+      reference: methodType === 'transfer' ? transferRef : null,
+      split: splitPayment ? { amount1: Number(amountPaid) || 0, method2: splitMethod2 } : null,
+    })
+    const paymentsPayload: PendingSalePayment[] = salePayments
+    const _unpaidSaleIds = customerUnpaidSales.map((s: any) => s.id)
+    const salePaid = paymentsPayload.reduce((s, p) => s + p.amount, 0)
+    const saleBalance = Math.max(0, total - salePaid)
+    const salePaymentMethod = splitPayment ? 'mixed' : paymentMethod
+
+    // ── Remboursement de dette inclus dans la vente ─────────────────────────
+    // Une ligne par moyen réellement encaissé (paiement mixte → jusqu'à 2).
+    // Chaque ligne a sa propre clé d'idempotence `<id>:debtN` : /api/payments
+    // ignore un remboursement déjà reçu sous cette clé, donc retenter (relance
+    // après coupure, file hors ligne) ne peut jamais le compter deux fois.
+    const debtNote = (saleNumber: string) => `Inclus dans la vente #${saleNumber}`
+    const queueDebtLine = async (line: PendingSalePayment, localId: string, saleNumber: string): Promise<boolean> => {
+      if (!_shopId) return false
+      try {
+        await savePendingCustomerPayment({
+          local_id: localId,
+          shop_id: _shopId,
+          unpaid_sale_ids: _unpaidSaleIds,
+          amount: line.amount,
+          method: line.method,
+          reference: line.reference,
+          notes: debtNote(saleNumber),
+          created_at: new Date().toISOString(),
+          synced: false,
+        })
+        return true
+      } catch {
+        return false
+      }
+    }
+    // Hors ligne : toutes les lignes vont dans la file existante, synchronisée
+    // automatiquement au retour du réseau (syncPendingCustomerPayments).
+    const queueDebtRepayment = async (baseId: string, saleNumber: string): Promise<'queued' | 'failed'> => {
+      let ok = true
+      for (let i = 0; i < debtPayments.length; i++) {
+        if (!(await queueDebtLine(debtPayments[i], `${baseId}:debt${i + 1}`, saleNumber))) ok = false
+      }
+      refreshPendingCount().catch(() => {})
+      registerBackgroundSync()
+      return ok ? 'queued' : 'failed'
+    }
+    // En ligne : envoi direct ; une coupure ou une erreur serveur bascule la
+    // ligne dans la file hors ligne (retentée plus tard) au lieu d'être
+    // perdue ; un refus (4xx) est signalé pour saisie manuelle.
+    const applyDebtRepaymentOnline = async (
+      baseId: string,
+      saleNumber: string,
+    ): Promise<{ status: 'applied' | 'queued' | 'failed'; error?: string; unapplied: number }> => {
+      let status: 'applied' | 'queued' | 'failed' = 'applied'
+      let error: string | undefined
+      let unapplied = 0
+      for (let i = 0; i < debtPayments.length; i++) {
+        const line = debtPayments[i]
+        const lineId = `${baseId}:debt${i + 1}`
+        try {
+          const r = await withTimeout(fetch('/api/payments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              unpaid_sale_ids: _unpaidSaleIds,
+              amount: line.amount,
+              method: line.method,
+              reference: line.reference,
+              notes: debtNote(saleNumber),
+              shop_id: _shopId,
+              client_request_id: lineId,
+            }),
+          }))
+          const body = await r.json().catch(() => ({}))
+          if (r.ok) { unapplied += Number(body.remaining) || 0; continue }
+          if (r.status < 500) { status = 'failed'; error = body.error || `HTTP ${r.status}`; continue }
+          throw new Error(body.error || `HTTP ${r.status}`)
+        } catch (err: any) {
+          if (await queueDebtLine(line, lineId, saleNumber)) {
+            if (status === 'applied') status = 'queued'
+          } else {
+            status = 'failed'; error = err?.message || t('errors.generic')
+          }
+        }
+      }
+      if (status === 'queued') { refreshPendingCount().catch(() => {}); registerBackgroundSync() }
+      return { status, error, unapplied }
+    }
+
     // ── Shared offline save (used by offline path AND as online fallback) ───
     // This function NEVER throws — it always shows the receipt to the user.
     const saveOffline = async (toastMsg: string) => {
@@ -636,12 +826,10 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             discount: discountAmt,
             tax,
             total,
-            payment_method: paymentMethod,
-            payment_status: methodType === 'credit'
-              ? 'pending'
-              : balance > 0 ? (paid > 0 ? 'partial' : 'pending') : 'paid',
-            amount_paid: paid,
-            balance,
+            payment_method: salePaymentMethod,
+            payment_status: saleBalance > 0 ? (salePaid > 0 ? 'partial' : 'pending') : 'paid',
+            amount_paid: salePaid,
+            balance: saleBalance,
             customer_id: selectedCustomer?.id ?? null,
             customer_name: customerName.trim() || selectedCustomer?.name || null,
             customer_phone: customerPhone.trim() || selectedCustomer?.phone || null,
@@ -655,7 +843,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               original_price: item.product.selling_price,
               subtotal: item.quantity * item.unit_price,
             })),
-            payment_amount: methodType !== 'credit' ? paid : 0,
+            payments: paymentsPayload,
+            // Champs historiques, gardés cohérents avec `payments`.
+            payment_amount: salePaid,
             payment_reference: methodType === 'transfer' ? transferRef : null,
             synced: false,
           })
@@ -665,6 +855,19 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         } catch {
           // IndexedDB failed — sale will show in receipt but won't auto-sync
         }
+      }
+
+      // Remboursement de dette inclus : file d'attente hors ligne (avant cette
+      // correction, il était simplement perdu — l'argent encaissé, la dette
+      // jamais réduite).
+      if (debtPayments.length > 0) {
+        const debtStatus = await queueDebtRepayment(localId, saleNumber)
+        setReceiptDebt({ amount: debtAmt, status: debtStatus })
+        if (debtStatus === 'failed') {
+          toast({ title: t('sales.debt_failed_toast', { error: 'stockage local' }), variant: 'destructive' })
+        }
+      } else {
+        setReceiptDebt(null)
       }
 
       // Always show receipt regardless of persistence outcome
@@ -677,10 +880,10 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         discount: discountAmt,
         tax,
         total,
-        payment_method: paymentMethod,
+        payment_method: salePaymentMethod,
         payment_status: 'pending',
-        amount_paid: paid,
-        balance,
+        amount_paid: salePaid,
+        balance: saleBalance,
         sale_status: 'active',
         notes: notes || null,
         created_at: new Date().toISOString(),
@@ -734,22 +937,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       // second one.
       const clientRequestId = checkoutIdRef.current ?? (checkoutIdRef.current = crypto.randomUUID())
 
-      // Payment row(s) for THIS sale only — capped at `total`, never
-      // totalToCollect (which may also include an unrelated debt-repayment
-      // top-up, applied separately below via /api/payments).
-      const paymentsPayload: { amount: number; method: string; reference: string | null }[] = []
-      if (splitPayment) {
-        const amt1 = Math.min(Number(amountPaid) || 0, total)
-        const amt2 = Math.max(0, total - amt1)
-        if (amt1 > 0) paymentsPayload.push({ amount: amt1, method: paymentMethod, reference: null })
-        if (amt2 > 0) paymentsPayload.push({ amount: amt2, method: splitMethod2, reference: null })
-      } else if (methodType !== 'credit' && paid > 0) {
-        paymentsPayload.push({
-          amount: paid,
-          method: paymentMethod,
-          reference: methodType === 'transfer' ? transferRef : null,
-        })
-      }
+      // paymentsPayload : calculé plus haut, partagé avec saveOffline.
 
       // Single atomic round trip: customer resolve + sale + items +
       // payment(s) all happen server-side in complete_sale() (migration
@@ -764,11 +952,11 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             customer_name: !selectedCustomer && customerName.trim() ? customerName.trim() : null,
             customer_phone: !selectedCustomer && customerPhone.trim() ? customerPhone.trim() : null,
             subtotal, discount: discountAmt, tax, total,
-            payment_method: splitPayment ? 'mixed' : paymentMethod,
+            payment_method: salePaymentMethod,
             notes: notes || null,
             paystack_reference: methodType === 'card' ? `PAY-${Date.now()}` : null,
             client_request_id: clientRequestId,
-            due_date: balance > 0 ? (dueDate || null) : null,
+            due_date: outstandingBalance > 0 ? (dueDate || null) : null,
             items: cart.map((item: any) => ({
               product_id: item.product.id,
               product_name: item.product.name,
@@ -789,7 +977,6 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       )
 
       sale = res.sale
-      const saleAlreadyExisted = Boolean(res.already_existed)
 
       // A brand-new customer created server-side isn't in the client's
       // `customers` list yet — add it so the dropdown/debt lookups see it
@@ -798,24 +985,22 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         setCustomers(prev => [...prev, sale.customers as Customer])
       }
 
-      // Include debt repayment — FIFO via admin route (bypasses RLS).
-      // Skip if the sale already existed (idempotent retry): this repayment
-      // was already applied by the earlier successful attempt, and calling
-      // it again would deduct it from the customer's debt twice.
-      if (!saleAlreadyExisted && debtRepayEnabled && Number(debtRepayAmount) > 0 && customerUnpaidSales.length > 0) {
-        await withTimeout(fetch('/api/payments', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            unpaid_sale_ids: customerUnpaidSales.map((s: any) => s.id),
-            amount: Number(debtRepayAmount),
-            method: methodType === 'credit' ? 'cash' : paymentMethod,
-            reference: methodType === 'transfer' ? transferRef : null,
-            notes: `Inclus dans la vente #${(sale as any).sale_number}`,
-            shop_id: shop!.id,
-            client_request_id: clientRequestId,
-          }),
-        }))
+      // Remboursement de dette inclus — FIFO via /api/payments (bypasse RLS).
+      // TOUJOURS tenté, y compris quand la vente existait déjà (relance après
+      // coupure) : avant, il était sauté dans ce cas, donc perdu pour de bon
+      // si la 1re tentative n'était pas allée jusque-là. Sans risque de
+      // double comptage : clé d'idempotence par ligne (voir plus haut).
+      if (debtPayments.length > 0) {
+        const debtResult = await applyDebtRepaymentOnline(clientRequestId, (sale as any).sale_number)
+        setReceiptDebt({ amount: debtAmt, status: debtResult.status })
+        if (debtResult.status === 'failed') {
+          toast({ title: t('sales.debt_failed_toast', { error: debtResult.error || '' }), variant: 'destructive' })
+        } else if (debtResult.unapplied > 0.01) {
+          // La dette avait été réduite entre-temps (autre caisse, page Paiements).
+          toast({ title: t('sales.debt_unapplied_toast', { amount: formatNaira(debtResult.unapplied) }), variant: 'destructive' })
+        }
+      } else {
+        setReceiptDebt(null)
       }
 
       const fullSale = sale
@@ -880,6 +1065,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     balanceDue: t('receipt.balance_due'),
     thankYou: t('receipt.thank_you'),
     promoWas: t('receipt.promo_was'),
+    debtRepayment: t('receipt.debt_repayment'),
+    totalCollected: t('receipt.total_collected'),
   }
 
   const handlePrintReceipt = async () => {
@@ -891,6 +1078,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       cashierName: profile?.full_name || '',
       customerName: (completedSale as any).customers?.name,
       labels: receiptLabels,
+      debtRepayment: receiptDebt?.amount || 0,
     })
     await printPDFNative(blob, `Recu-${completedSale.sale_number}.pdf`)
   }
@@ -906,6 +1094,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         cashierName: profile?.full_name || '',
         customerName: (completedSale as any).customers?.name,
         labels: receiptLabels,
+        debtRepayment: receiptDebt?.amount || 0,
       })
       await sharePDFNative(
         blob,
@@ -929,6 +1118,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       method: completedSale.payment_method,
       customerName: (completedSale as any).customers?.name,
       currencySymbol: symbol,
+      debtRepayment: receiptDebt?.amount || 0,
     })
     shareReceiptWhatsApp(message)
   }
@@ -938,7 +1128,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     <div className="flex flex-col gap-4 max-w-2xl mx-auto w-full md:max-w-none md:flex-row md:gap-0 md:h-[calc(100dvh-6.5rem)] md:overflow-hidden">
 
       {/* ── LEFT column: search + products ── */}
-      <div className="flex flex-col md:flex-1 md:overflow-hidden md:border-r md:border-border md:min-h-0">
+      <div className={cn('flex flex-col md:flex-1 md:overflow-hidden md:border-r md:border-border md:min-h-0', cart.length > 0 && 'pb-16 md:pb-0')}>
 
       {/* Shop selector — same shared control as everywhere else in the app, restricted to a single concrete shop (a sale can't target "all shops") */}
       {isOwner && (
@@ -1194,7 +1384,36 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       </div>{/* end LEFT column */}
 
       {/* ── RIGHT column: cart + payment ── */}
-      <div ref={cartSectionRef} className="flex flex-col gap-3 pb-32 md:pb-0 md:w-[400px] md:overflow-y-auto md:p-5 md:shrink-0 md:min-h-0">
+      {/* Téléphone : le panier n'est plus empilé sous toute la grille (il
+          fallait défiler ~4 000 px pour l'atteindre, sans retour). Il
+          s'ouvre en panneau plein écran par-dessus la grille, qui garde sa
+          position — fermer le panneau ramène exactement où on était.
+          À partir de md : colonne latérale permanente, inchangée. */}
+      <div
+        ref={cartSectionRef}
+        className={cn(
+          'flex-col gap-3 md:static md:z-auto md:flex md:w-[400px] md:overflow-y-auto md:bg-transparent md:p-5 md:pb-5 md:shrink-0 md:min-h-0 md:overscroll-auto',
+          mobileCartOpen
+            ? 'fixed inset-0 z-50 flex overflow-y-auto overscroll-contain bg-background px-4'
+            : 'hidden',
+        )}
+      >
+      {/* En-tête du panneau (téléphone uniquement) — suit l'étape */}
+      <div className="md:hidden sticky top-0 z-20 -mx-4 flex items-center justify-between gap-3 border-b bg-background/95 px-2 backdrop-blur safe-top">
+        <button
+          type="button"
+          onClick={mobileBack}
+          className="flex items-center gap-1.5 rounded-lg px-2 py-3 text-sm font-medium text-stockshop-blue dark:text-blue-400 tap-target"
+        >
+          <ArrowLeft className="h-5 w-5" />
+          {mobileStep === 'payment' ? t('sales.back_to_cart') : t('sales.back_to_products')}
+        </button>
+        <span className="flex items-center gap-1.5 pr-2 text-sm font-semibold text-foreground">
+          {mobileStep === 'payment'
+            ? t('sales.payment_step_title')
+            : <><ShoppingCart className="h-4 w-4" />{t('sales.cart_items_count', { count: cart.length })}</>}
+        </span>
+      </div>
 
       {/* Cart */}
       {cart.length === 0 ? (
@@ -1204,7 +1423,13 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           <p className="text-sm mt-1">{t('sales.search_or_scan_hint')}</p>
         </div>
       ) : (
-        <div className="space-y-2">
+        // Téléphone : occupe toute la hauteur du panneau, pour que la barre
+        // d'action de l'étape soit TOUJOURS en bas d'écran, même avec un
+        // panier court (un simple sticky ne colle que si le contenu déborde).
+        <div className="space-y-2 max-md:flex max-md:flex-1 max-md:flex-col">
+          {/* ══ Étape 1 (téléphone) : PANIER — articles, total, client, dette ══
+              Sur desktop, les deux étapes restent visibles l'une sous l'autre. */}
+          <div className={cn('space-y-2', mobileStep === 'payment' && 'hidden md:block')}>
           <AnimatePresence>
             {cart.map(item => (
               <motion.div key={item.product.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
@@ -1278,7 +1503,14 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           {/* Totals */}
           <Card className="border-0 shadow-sm">
             <CardContent className="p-4 space-y-3">
-              <div className="flex items-center gap-3">
+              {/* Téléphone : remise repliée tant qu'elle est à 0 */}
+              {!(showDiscount || discount > 0) && (
+                <button type="button" onClick={() => setShowDiscount(true)}
+                  className="md:hidden flex items-center gap-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 tap-target">
+                  <Plus className="h-3.5 w-3.5" />{t('sales.add_discount')}
+                </button>
+              )}
+              <div className={cn('flex items-center gap-3', !(showDiscount || discount > 0) && 'hidden md:flex')}>
                 <Label className="text-sm w-24 flex-shrink-0">{t('sales.discount')}</Label>
                 <div className="flex flex-1 rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-0">
                   <span className="flex items-center px-2.5 bg-muted border-r text-sm text-muted-foreground font-medium whitespace-nowrap select-none">{symbol}</span>
@@ -1291,7 +1523,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                     className="flex-1 h-9 px-3 text-sm bg-card outline-none" placeholder="0" />
                 </div>
               </div>
-              <Separator />
+              <Separator className={cn(!(showDiscount || discount > 0) && 'hidden md:block')} />
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between text-muted-foreground">
                   <span>{t('sales.subtotal')}</span><span>{formatNaira(subtotal)}</span>
@@ -1314,8 +1546,15 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             </CardContent>
           </Card>
 
-          {/* Customer — nom, prénom, téléphone */}
-          <Card className="border-0 shadow-sm">
+          {/* Customer — nom, prénom, téléphone. Téléphone : replié derrière
+              « + Ajouter un client » tant que rien n'est saisi. */}
+          {!customerOpen && (
+            <button type="button" onClick={() => setShowCustomer(true)}
+              className="md:hidden flex w-full items-center gap-2 rounded-lg border border-dashed px-4 py-3 text-sm font-medium text-blue-600 dark:text-blue-400 tap-target">
+              <User className="h-4 w-4" /><Plus className="h-3.5 w-3.5 -ml-1" />{t('sales.add_customer')}
+            </button>
+          )}
+          <Card className={cn('border-0 shadow-sm', !customerOpen && 'hidden md:block')}>
             <CardContent className="p-4 space-y-3">
               <p className="text-sm font-medium flex items-center gap-1.5">
                 <User className="h-4 w-4" /> Client <span className="text-muted-foreground font-normal text-xs">(optionnel)</span>
@@ -1378,7 +1617,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   <div>
                     <p className="text-sm font-semibold text-orange-800">{t('sales.include_debt_repayment')}</p>
                     <p className="text-xs text-orange-600">
-                      {t('sales.current_debt_label')} : <strong>{formatNaira(selectedCustomer.total_debt)}</strong>
+                      {t('sales.current_debt_label')} : <strong>{formatNaira(debtOutstanding)}</strong>
                     </p>
                   </div>
                   <button
@@ -1404,15 +1643,25 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                           inputMode="numeric"
                           pattern="[0-9]*"
                           value={formatInputValue(debtRepayAmount, currencyCode)}
-                          onChange={e => setDebtRepayAmount(e.target.value.replace(/\D/g, ''))}
+                          onChange={e => {
+                            const n = Number(e.target.value.replace(/\D/g, '')) || 0
+                            const max = Math.floor(debtOutstanding)
+                            setDebtCapped(n > max)
+                            setDebtRepayAmount(n > max ? String(max) : (n ? String(n) : ''))
+                          }}
                           className="flex-1 h-11 px-3 text-base font-bold bg-card outline-none"
                           placeholder="0"
                         />
                       </div>
-                      {Number(debtRepayAmount) > 0 && (
+                      {debtCapped && (
+                        <p className="text-xs font-medium text-orange-700">
+                          {t('sales.debt_capped', { amount: formatNaira(debtOutstanding) })}
+                        </p>
+                      )}
+                      {debtAmt > 0 && (
                         <p className="text-xs text-orange-600">
-                          {t('sales.remaining_after')} : <strong>{formatNaira(Math.max(0, Number(selectedCustomer.total_debt) - Number(debtRepayAmount)))}</strong>
-                          {Number(debtRepayAmount) >= Number(selectedCustomer.total_debt) && ` ${t('sales.debt_settled_check')}`}
+                          {t('sales.remaining_after')} : <strong>{formatNaira(Math.max(0, debtOutstanding - debtAmt))}</strong>
+                          {debtAmt >= debtOutstanding && ` ${t('sales.debt_settled_check')}`}
                         </p>
                       )}
                     </div>
@@ -1437,6 +1686,50 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               </CardContent>
             </Card>
           )}
+          </div>{/* fin étape 1 (panier) */}
+
+          {/* Barre fixe de l'étape panier (téléphone) : mise en attente +
+              « Encaisser », qui passe à l'étape paiement. */}
+          <div className={cn(
+            'md:hidden sticky bottom-0 z-10 -mx-4 flex gap-2 border-t bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur !mt-auto',
+            mobileStep !== 'cart' && 'hidden',
+          )}>
+            <Button
+              variant="outline"
+              className="h-12 w-12 shrink-0 p-0 border-amber-300 text-amber-700 hover:bg-amber-50"
+              onClick={holdInvoice}
+              disabled={completing}
+              aria-label="Mettre en attente"
+              title="Mettre en attente"
+            >
+              <PauseCircle className="h-5 w-5" />
+            </Button>
+            <Button variant="stockshop" className="flex-1 h-12 text-base gap-2" onClick={() => setMobileStep('payment')}>
+              {t('sales.checkout_collect', { amount: formatNaira(collectedNow) })}
+              <ChevronRight className="h-5 w-5" />
+            </Button>
+          </div>
+
+          {/* ══ Étape 2 (téléphone) : PAIEMENT — moyen, montant → « Valider » ══ */}
+          <div className={cn('space-y-2', mobileStep === 'cart' ? 'hidden md:block' : 'max-md:flex max-md:flex-1 max-md:flex-col')}>
+
+          {/* Rappel du montant (téléphone) — le détail vente/dette reste
+              visible sans revenir au panier. */}
+          {/* Le gros montant = ce qui est RÉELLEMENT encaissé maintenant
+              (en vente à crédit avec remboursement : la dette seule). */}
+          <div className="md:hidden rounded-xl bg-muted/60 p-4 text-center">
+            <p className="text-xs text-muted-foreground">
+              {isCreditSale && debtAmt === 0 ? t('sales.credit_sale_label') : t('sales.total_to_collect')}
+            </p>
+            <p className="text-2xl font-bold text-stockshop-blue dark:text-blue-400">
+              {formatNaira(isCreditSale && debtAmt === 0 ? total : collectedNow)}
+            </p>
+            {debtAmt > 0 && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {isCreditSale ? t('sales.credit_sale_label') : t('sales.total')} {formatNaira(total)} · {t('receipt.debt_repayment')} +{formatNaira(debtAmt)}
+              </p>
+            )}
+          </div>
 
           {/* Payment method */}
           <div className="space-y-1.5">
@@ -1488,6 +1781,30 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                     placeholder={formatInputValue(totalToCollect, currencyCode) || '0'} />
                 </div>
               </div>
+              {/* Montants rapides : le cas le plus courant (montant exact) en
+                  1 tap, puis le total arrondi aux billets supérieurs. Saisie
+                  entière (comme le champ) : arrondi au-dessus pour qu'un
+                  total à décimales reste toujours couvert. */}
+              <div className="flex flex-wrap gap-2">
+                {[Math.ceil(totalToCollect), ...cashSuggestions(Math.ceil(totalToCollect), currencyCode)].map((v, i) => {
+                  const active = Number(amountPaid) === v
+                  return (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setAmountPaid(String(v))}
+                      className={cn(
+                        'h-10 rounded-lg border px-3 text-sm font-semibold transition-colors tap-target',
+                        active
+                          ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300'
+                          : 'border-input bg-card hover:bg-accent',
+                      )}
+                    >
+                      {i === 0 ? t('sales.cash_exact_amount') : formatInputValue(v, currencyCode)}
+                    </button>
+                  )
+                })}
+              </div>
               {Number(amountPaid) > 0 && Number(amountPaid) >= totalToCollect && (
                 <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-center">
                   <p className="text-sm text-muted-foreground">{t('payment.change_due')}</p>
@@ -1530,7 +1847,20 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 {selectedCustomer?.name || customerName || t('sales.this_customer')}
               </p>
               {!selectedCustomer && !customerName && (
-                <p className="text-xs text-amber-600 mt-1">{t('sales.enter_customer_for_credit')}</p>
+                <>
+                  <p className="text-xs text-amber-600 mt-1">{t('sales.enter_customer_for_credit')}</p>
+                  {/* Téléphone : le client se saisit à l'étape panier */}
+                  <button type="button"
+                    onClick={() => { setShowCustomer(true); setMobileStep('cart') }}
+                    className="md:hidden mt-2 flex items-center gap-1.5 text-sm font-semibold text-amber-800 underline underline-offset-2 tap-target">
+                    <User className="h-4 w-4" />{t('sales.choose_customer_for_credit')}
+                  </button>
+                </>
+              )}
+              {debtAmt > 0 && (
+                <p className="text-xs font-medium text-amber-800 mt-1">
+                  {t('sales.credit_debt_cash_note', { amount: formatNaira(debtAmt) })}
+                </p>
               )}
               {selectedCustomer?.credit_limit != null && (Number(selectedCustomer.total_debt) + total) > selectedCustomer.credit_limit && (
                 <p className="text-xs text-red-600 font-semibold mt-1">
@@ -1633,7 +1963,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
 
           {/* Échéance de paiement — uniquement si la vente laisse un solde */}
-          {balance > 0 && (
+          {outstandingBalance > 0 && (
             <div className="space-y-1.5">
               <Label>{t('sales.due_date_label')}</Label>
               <Input
@@ -1645,34 +1975,47 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             </div>
           )}
 
-          {/* Notes */}
-          <div className="space-y-1.5">
+          {/* Notes — téléphone : repliées tant qu'elles sont vides */}
+          {!(showNotes || notes) && (
+            <button type="button" onClick={() => setShowNotes(true)}
+              className="md:hidden flex items-center gap-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 tap-target">
+              <Plus className="h-3.5 w-3.5" />{t('sales.add_note')}
+            </button>
+          )}
+          <div className={cn('space-y-1.5', !(showNotes || notes) && 'hidden md:block')}>
             <Label>{t('sales.notes_optional_label')}</Label>
             <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder={t('sales.notes_placeholder')} />
           </div>
 
-          {/* Action buttons */}
-          <div className="flex gap-2">
+          {/* Action buttons — téléphone : barre fixe en bas de l'étape paiement */}
+          <div className="flex gap-2 sticky bottom-0 z-10 -mx-4 border-t bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur max-md:!mt-auto md:static md:z-auto md:mx-0 md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
             <Button
               variant="outline"
-              className="flex-1 h-12 gap-2 border-amber-300 text-amber-700 hover:bg-amber-50"
+              className="h-12 w-12 shrink-0 p-0 gap-2 border-amber-300 text-amber-700 hover:bg-amber-50 md:w-auto md:flex-1 md:px-4"
               onClick={holdInvoice}
               disabled={cart.length === 0 || completing}
+              aria-label="Mettre en attente"
+              title="Mettre en attente"
             >
-              <PauseCircle className="h-4 w-4" />
-              Mettre en attente
+              <PauseCircle className="h-5 w-5 md:h-4 md:w-4" />
+              <span className="hidden md:inline">Mettre en attente</span>
             </Button>
             <Button
               variant="stockshop"
-              className="flex-[2] h-12 text-base"
+              className="flex-1 md:flex-[2] h-12 text-base"
               onClick={completeSale}
               loading={completing}
               disabled={cart.length === 0 || completing}
             >
               <CheckCircle className="mr-2 h-5 w-5" />
-              {`Valider · ${formatNaira(totalToCollect)}`}
+              {isCreditSale
+                ? (collectedNow > 0
+                    ? t('sales.validate_collect', { amount: formatNaira(collectedNow) })
+                    : t('sales.validate_credit_sale'))
+                : `Valider · ${formatNaira(collectedNow)}`}
             </Button>
           </div>
+          </div>{/* fin étape 2 (paiement) */}
         </div>
       )}
 
@@ -1846,6 +2189,23 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                     <span>{formatNaira(completedSale.balance)}</span>
                   </div>
                 )}
+                {receiptDebt && receiptDebt.amount > 0 && (
+                  <>
+                    <div className="flex justify-between text-xs text-orange-700 dark:text-orange-400">
+                      <span>{t('receipt.debt_repayment')}</span>
+                      <span>+{formatNaira(receiptDebt.amount)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm font-bold">
+                      <span>{t('receipt.total_collected')}</span>
+                      <span>{formatNaira(Number(completedSale.amount_paid) + receiptDebt.amount)}</span>
+                    </div>
+                    {receiptDebt.status !== 'applied' && (
+                      <p className={cn('text-[11px]', receiptDebt.status === 'failed' ? 'text-red-600 font-semibold' : 'text-muted-foreground')}>
+                        {receiptDebt.status === 'failed' ? t('sales.debt_status_failed') : t('sales.debt_status_queued')}
+                      </p>
+                    )}
+                  </>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <Button variant="outline" onClick={handleWhatsAppReceipt} className="gap-2">
@@ -1865,14 +2225,17 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         </PremiumDialogBody>
       </PremiumDialog>
 
-      {/* Mobile-only fixed cart bar — on desktop the cart is already a
-          permanent side column, no need for this. Without it, reaching the
-          cart/checkout meant scrolling past the entire product grid below. */}
-      {cart.length > 0 && (
+      {/* Bandeau panier (sous md) — ouvre le panneau panier plein écran.
+          Masqué quand le panneau est ouvert (redondant, et il recouvrait le
+          contenu). Point de rupture aligné sur celui du panneau (md) : avec
+          l'ancien sm:hidden, entre 640 et 767 px le panier aurait été
+          inaccessible. La barre de navigation du bas disparaît dès sm, d'où
+          sm:bottom-0. */}
+      {cart.length > 0 && !mobileCartOpen && (
         <button
           type="button"
-          onClick={() => cartSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-          className="fixed bottom-16 left-0 right-0 z-30 flex items-center justify-between gap-3 bg-stockshop-blue text-white px-4 py-3 shadow-lg sm:hidden"
+          onClick={() => setMobileCartOpen(true)}
+          className="fixed bottom-16 sm:bottom-0 left-0 right-0 z-30 flex items-center justify-between gap-3 bg-stockshop-blue text-white px-4 py-3 shadow-lg md:hidden"
         >
           <span className="flex items-center gap-2 font-semibold text-sm">
             <ShoppingCart className="h-4 w-4" />
