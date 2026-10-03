@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, useDeferredValue } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -10,7 +10,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { ShopSelector } from '@/components/layout/shop-selector'
-import { ProductThumbnail } from '@/components/stock/product-thumbnail'
+import { ProductCard, type StockVariant } from '@/components/sales/product-card'
 import { cn } from '@/lib/utils/cn'
 import { normalize } from '@/lib/utils/normalize'
 import { useToast } from '@/components/ui/use-toast'
@@ -91,6 +91,25 @@ interface Draft {
 
 const DRAFTS_KEY = 'nc_sale_drafts'
 
+// Grille produits : lot affiché, puis lots suivants chargés automatiquement
+// au défilement (voir le sentinel IntersectionObserver dans le rendu).
+const PRODUCTS_PAGE_SIZE = 50
+
+/** Filtre catégorie + recherche (nom ou SKU, insensible aux accents) —
+ *  `searchIndex` = texte normalisé par produit, précalculé une fois. */
+function filterProducts(
+  products: Product[],
+  categoryFilter: string,
+  query: string,
+  searchIndex: Map<string, string>,
+): Product[] {
+  let list = products
+  if (categoryFilter !== 'all') list = list.filter(p => p.category_id === categoryFilter)
+  const q = normalize(query.trim())
+  if (q) list = list.filter(p => (searchIndex.get(p.id) ?? '').includes(q))
+  return list
+}
+
 function loadDraftsFromStorage(): Draft[] {
   try {
     return JSON.parse(localStorage.getItem(DRAFTS_KEY) || '[]')
@@ -135,9 +154,6 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   // (voir plafond de crédit) : jamais bloquant, la vente reste possible.
   const [frontBatchExpired, setFrontBatchExpired] = useState<Record<string, boolean>>({})
   const [categories, setCategories] = useState<Category[]>([])
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
-  const PRODUCTS_PAGE_SIZE = 50
-  const [visibleCount, setVisibleCount] = useState(PRODUCTS_PAGE_SIZE)
   const [cart, setCart] = useState<CartItem[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
@@ -216,7 +232,6 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           : undefined,
       })) as unknown as Product[]
       setProducts(shaped)
-      setFilteredProducts(shaped)
     }
     if (cachedCusts.length > 0) setCustomers(cachedCusts as unknown as Customer[])
 
@@ -251,7 +266,6 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       const { data: prods } = prodsRes, { data: custs } = custsRes, { data: cats } = catsRes, { data: batches } = batchesRes
       const safeProds = (prods || []) as unknown as Product[]
       setProducts(safeProds)
-      setFilteredProducts(safeProds)
       setCustomers((custs || []) as Customer[])
       setCategories((cats || []) as Category[])
 
@@ -323,21 +337,58 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     })
   })
 
+  // ── Recherche fluide ─────────────────────────────────────
+  // Texte normalisé par produit, calculé une seule fois par chargement (et
+  // non à chaque frappe pour chaque produit).
+  const searchIndex = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const p of products) m.set(p.id, `${normalize(p.name)}\n${normalize(p.sku ?? '')}`)
+    return m
+  }, [products])
+  // La frappe reste prioritaire : le champ affiche `searchQuery` tout de
+  // suite, la grille se recalcule sur sa version différée (React
+  // interrompt ce rendu si une nouvelle lettre arrive).
+  const deferredQuery = useDeferredValue(searchQuery)
+  const filteredProducts = useMemo(
+    () => filterProducts(products, categoryFilter, deferredQuery, searchIndex),
+    [products, categoryFilter, deferredQuery, searchIndex],
+  )
+  // Nombre de cartes affichées — revient au 1er lot dès que la liste
+  // change (filtre/recherche), sans passer par un effet (pas de rendu
+  // intermédiaire avec l'ancien compteur).
+  const listKey = `${categoryFilter}\u0000${deferredQuery}`
+  const [visible, setVisible] = useState({ key: listKey, count: PRODUCTS_PAGE_SIZE })
+  const visibleCount = visible.key === listKey ? visible.count : PRODUCTS_PAGE_SIZE
+  const hasMoreProducts = filteredProducts.length > visibleCount
+  const loadMoreProducts = useCallback(() => {
+    setVisible(v => ({ key: listKey, count: (v.key === listKey ? v.count : PRODUCTS_PAGE_SIZE) + PRODUCTS_PAGE_SIZE }))
+  }, [listKey])
+
+  // Chargement automatique au défilement : un sentinel sous la grille ;
+  // dès qu'il approche de l'écran (600 px avant), le lot suivant s'ajoute.
+  // Sur desktop la grille défile dans son propre conteneur → il sert de
+  // racine ; sur téléphone c'est la page (racine = viewport).
+  const loadMoreRef = useRef<HTMLDivElement>(null)
+  const gridScrollRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    let list = products
-    if (categoryFilter !== 'all') {
-      list = list.filter(p => p.category_id === categoryFilter)
-    }
-    if (searchQuery.trim()) {
-      const q = normalize(searchQuery)
-      list = list.filter(p =>
-        normalize(p.name).includes(q) ||
-        normalize(p.sku ?? '').includes(q)
-      )
-    }
-    setFilteredProducts(list)
-    setVisibleCount(PRODUCTS_PAGE_SIZE)
-  }, [searchQuery, categoryFilter, products])
+    const el = loadMoreRef.current
+    if (!el || !hasMoreProducts || mobileCartOpen) return
+    const desktop = window.matchMedia('(min-width: 768px)').matches
+    const io = new IntersectionObserver(
+      entries => { if (entries.some(e => e.isIntersecting)) loadMoreProducts() },
+      { root: desktop ? gridScrollRef.current : null, rootMargin: '600px 0px' },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [hasMoreProducts, mobileCartOpen, loadMoreProducts, visibleCount])
+
+  // Callbacks STABLES pour les cartes mémoïsées (ProductCard) : les
+  // fonctions addToCart/toggleFavorite sont recréées à chaque rendu, une
+  // ref les relaie sans changer l'identité passée aux cartes.
+  const addToCartRef = useRef<(p: Product) => void>(() => {})
+  const toggleFavoriteRef = useRef<(p: Product, e: React.MouseEvent) => void>(() => {})
+  const handleAddProduct = useCallback((p: Product) => addToCartRef.current(p), [])
+  const handleToggleFavorite = useCallback((p: Product, e: React.MouseEvent) => toggleFavoriteRef.current(p, e), [])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -454,7 +505,6 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     const apply = (val: boolean) => {
       const patch = (p: Product) => p.id === product.id ? { ...p, is_favorite: val } : p
       setProducts(prev => prev.map(patch))
-      setFilteredProducts(prev => prev.map(patch))
     }
     apply(next) // optimiste
     try {
@@ -469,6 +519,12 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       toast({ title: t('toast.error'), variant: 'destructive' })
     }
   }
+  // Toujours la dernière version des deux fonctions ci-dessus derrière les
+  // callbacks stables passés aux cartes (voir handleAddProduct).
+  useEffect(() => {
+    addToCartRef.current = addToCart
+    toggleFavoriteRef.current = toggleFavorite
+  })
 
   const updateItemPrice = (productId: string, newPrice: number) => {
     setCart(prev => prev.map(item => {
@@ -699,6 +755,14 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   // filtre catégorie — masquée pendant une recherche active (l'intention de
   // recherche est déjà précise, la rangée n'ajouterait que du bruit).
   const favoriteProducts = products.filter(p => p.is_favorite)
+  // Props primitives/stables pour les cartes mémoïsées.
+  const favoriteLabel = t('sales.favorites_title')
+  const expiredLabel = t('sales.expired_batch_warning')
+  const lowStockThreshold = shop?.low_stock_threshold || 10
+  const stockVariantOf = (p: Product): StockVariant =>
+    p.quantity === 0 ? 'destructive'
+    : p.quantity <= ((p as any).low_stock_threshold || lowStockThreshold) ? 'warning'
+    : 'success'
   // Section client dépliée (téléphone) dès qu'elle contient quelque chose.
   const customerOpen = showCustomer || !!selectedCustomer || !!customerName.trim() || !!customerPhone.trim()
   const showFavoritesRow = favoriteProducts.length > 0 && !searchQuery.trim()
@@ -1267,7 +1331,13 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             ref={searchRef}
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && filteredProducts.length === 1) addToCart(filteredProducts[0]) }}
+            onKeyDown={e => {
+              // Filtre recalculé sur la valeur IMMÉDIATE (la grille, elle,
+              // suit la valeur différée et peut être en retard d'une lettre).
+              if (e.key !== 'Enter') return
+              const list = filterProducts(products, categoryFilter, searchQuery, searchIndex)
+              if (list.length === 1) addToCart(list[0])
+            }}
             placeholder={t('sales.search_or_scan')}
             className="pl-10 pr-8 h-12 text-base border-blue-500/30 focus:border-blue-500"
           />
@@ -1340,7 +1410,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       </div>{/* end sticky header */}
 
       {/* Product grid scroll wrapper */}
-      <div className="flex-1 md:overflow-y-auto md:px-5 md:pb-8 md:min-h-0">
+      <div ref={gridScrollRef} className="flex-1 md:overflow-y-auto md:px-5 md:pb-8 md:min-h-0">
 
       {/* Favoris — curation manuelle (migration 148), accès 1 tap sans
           chercher/scroller pour les articles à forte rotation. Masqué
@@ -1353,35 +1423,19 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
             {favoriteProducts.map(product => (
-              <div
+              <ProductCard
                 key={product.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => addToCart(product)}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); addToCart(product) } }}
-                className="relative flex-shrink-0 w-24 flex flex-col items-stretch text-left rounded-lg border bg-card overflow-hidden hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors tap-target cursor-pointer"
-              >
-                <button
-                  type="button"
-                  onClick={e => toggleFavorite(product, e)}
-                  className="absolute top-0 right-0 z-10 p-1.5 group"
-                  aria-label={t('sales.favorites_title')}
-                >
-                  <span className="block rounded-full bg-black/45 p-1 group-hover:bg-black/60 transition-colors">
-                    <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                  </span>
-                </button>
-                <ProductThumbnail
-                  src={product.image_url}
-                  alt={product.name}
-                  className="w-full aspect-square rounded-none border-0"
-                  iconClassName="h-1/3 w-1/3"
-                />
-                <div className="p-1.5">
-                  <p className="text-[11px] font-medium truncate text-foreground">{product.name}</p>
-                  <p className="text-xs font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(effectivePrice(product, frontBatchPromo))}</p>
-                </div>
-              </div>
+                compact
+                product={product}
+                price={effectivePrice(product, frontBatchPromo)}
+                stockVariant={stockVariantOf(product)}
+                isExpired={!!frontBatchExpired[product.id]}
+                currencyCode={currencyCode}
+                favoriteLabel={favoriteLabel}
+                expiredLabel={expiredLabel}
+                onAdd={handleAddProduct}
+                onToggleFavorite={handleToggleFavorite}
+              />
             ))}
           </div>
         </div>
@@ -1395,81 +1449,30 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 par écran au lieu de 4–5 — 2 colonnes seulement sous 340 px.
                 À partir de md (desktop/tablette), tailles d'origine. */}
             <div className="grid grid-cols-2 min-[340px]:grid-cols-3 gap-1.5 md:grid-cols-3 md:gap-2">
-              {filteredProducts.slice(0, visibleCount).map(product => {
-                const stockVariant = product.quantity === 0
-                  ? 'destructive'
-                  : product.quantity <= ((product as any).low_stock_threshold || shop?.low_stock_threshold || 10)
-                  ? 'warning'
-                  : 'success'
-                return (
-                <div key={product.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => addToCart(product)}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); addToCart(product) } }}
-                  className="relative flex flex-col items-stretch text-left rounded-lg border bg-card overflow-hidden hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors tap-target cursor-pointer"
-                  style={product.categories?.color ? { borderTopColor: product.categories.color, borderTopWidth: 3 } : undefined}
-                >
-                  {/* Zone tactile ~34 px autour d'une pastille visuelle inchangée */}
-                  <button
-                    type="button"
-                    onClick={e => toggleFavorite(product, e)}
-                    className="absolute top-0 right-0 z-10 p-1.5 group"
-                    aria-label={t('sales.favorites_title')}
-                  >
-                    <span className="block rounded-full bg-black/45 p-1 group-hover:bg-black/60 transition-colors">
-                      <Star className={cn('h-3.5 w-3.5', product.is_favorite ? 'fill-amber-400 text-amber-400' : 'text-white/80')} />
-                    </span>
-                  </button>
-                  <div className="relative">
-                    <ProductThumbnail
-                      src={product.image_url}
-                      alt={product.name}
-                      className="w-full aspect-square rounded-none border-0"
-                      iconClassName="h-1/3 w-1/3"
-                    />
-                    {/* Stock en pastille sur l'image (téléphone) — libère une ligne de texte */}
-                    <Badge variant={stockVariant} className="md:hidden absolute bottom-1 left-1 text-[10px] px-1.5 py-0 leading-4">
-                      {product.quantity}
-                    </Badge>
-                  </div>
-                  <div className="flex flex-col p-1.5 md:p-2.5">
-                    <p className="text-xs leading-tight font-medium line-clamp-2 min-h-[2rem] text-foreground md:text-sm md:leading-normal md:line-clamp-1 md:min-h-0">{product.name}</p>
-                    {product.sku && <p className="hidden md:block text-[10px] text-muted-foreground font-mono">{product.sku}</p>}
-                    {frontBatchExpired[product.id] && (
-                      <span className="mt-0.5 inline-flex w-fit items-center text-[9px] md:text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400">
-                        {t('sales.expired_batch_warning')}
-                      </span>
-                    )}
-                    <div className="flex items-center justify-between w-full mt-1">
-                      {effectivePrice(product, frontBatchPromo) !== product.selling_price ? (
-                        <span className="flex items-center gap-x-1 flex-wrap">
-                          <span className="text-[13px] md:text-sm font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(effectivePrice(product, frontBatchPromo))}</span>
-                          <span className="text-[9px] md:text-[10px] text-muted-foreground line-through">{formatNaira(product.selling_price)}</span>
-                        </span>
-                      ) : (
-                        <span className="text-[13px] md:text-sm font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(product.selling_price)}</span>
-                      )}
-                      <Badge variant={stockVariant} className="hidden md:inline-flex text-[10px] px-1.5">
-                        {product.quantity} {product.unit}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-                )
-              })}
+              {filteredProducts.slice(0, visibleCount).map(product => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  price={effectivePrice(product, frontBatchPromo)}
+                  stockVariant={stockVariantOf(product)}
+                  isExpired={!!frontBatchExpired[product.id]}
+                  currencyCode={currencyCode}
+                  favoriteLabel={favoriteLabel}
+                  expiredLabel={expiredLabel}
+                  onAdd={handleAddProduct}
+                  onToggleFavorite={handleToggleFavorite}
+                />
+              ))}
               {filteredProducts.length === 0 && (
                 <p className="col-span-full text-sm text-muted-foreground text-center py-4">{t('sales.no_products_found')}</p>
               )}
             </div>
-            {filteredProducts.length > visibleCount && (
-              <button
-                type="button"
-                onClick={() => setVisibleCount(c => c + PRODUCTS_PAGE_SIZE)}
-                className="w-full mt-2 py-2 rounded-lg border border-dashed text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-              >
-                {t('sales.show_more_products', { count: filteredProducts.length - visibleCount })}
-              </button>
+            {/* Sentinel : le lot suivant se charge tout seul en approchant du
+                bas (plus de bouton « Afficher plus » à presser). */}
+            {hasMoreProducts && (
+              <div ref={loadMoreRef} role="status" className="py-3 text-center text-xs text-muted-foreground">
+                {t('sales.loading_more', { count: filteredProducts.length - visibleCount })}
+              </div>
             )}
           </motion.div>
         )}

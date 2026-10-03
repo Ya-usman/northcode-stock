@@ -536,6 +536,7 @@
     "receipt_share_title": "Reçu #{number} — {shop}",
     "no_products_found": "Aucun produit trouvé",
     "show_more_products": "Afficher {count} produit(s) de plus",
+    "loading_more": "Chargement de {count} produit(s) de plus…",
     "search_or_scan_hint": "Cherche ou scanne un produit pour commencer",
     "customer_name_placeholder": "Nom complet du client…",
     "customer_phone_placeholder": "Numéro de téléphone (optionnel)",

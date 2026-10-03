@@ -536,6 +536,7 @@
     "receipt_share_title": "Rasit #{number} — {shop}",
     "no_products_found": "Ba a sami kaya ba",
     "show_more_products": "Nuna ƙarin kaya {count}",
+    "loading_more": "Ana loda ƙarin kaya {count}…",
     "search_or_scan_hint": "Nemo ko sikan kaya don farawa",
     "customer_name_placeholder": "Cikakken sunan abokin ciniki…",
     "customer_phone_placeholder": "Lambar waya (na zaɓi)",
