@@ -7,6 +7,31 @@ export function buildWhatsAppLink(phone: string, message: string): string {
 }
 
 /**
+ * Numéro au format international sans « + » attendu par wa.me : un numéro
+ * local (« 06 78 90 12 34 », « 0612345678 ») reçoit l'indicatif du pays de la
+ * boutique (phonePrefix, ex. « +237 ») ; un numéro déjà international est gardé.
+ */
+export function normalizeWhatsAppNumber(phone: string, phonePrefix: string): string {
+  const digits = phone.replace(/\D/g, '')
+  const prefix = phonePrefix.replace(/\D/g, '')
+  if (!digits) return ''
+  if (phone.trim().startsWith('+') || phone.trim().startsWith('00')) return digits.replace(/^00/, '')
+  if (prefix && digits.startsWith(prefix) && digits.length > prefix.length + 6) return digits
+  return prefix + digits.replace(/^0+/, '')
+}
+
+export interface ReceiptMessageLabels {
+  receipt: string
+  items: string
+  paid: string
+  balance: string
+  fullyPaid: string
+  debtRepayment: string
+  totalCollected: string
+  thankYou: string
+}
+
+/**
  * Build a receipt message for WhatsApp sharing
  */
 export function buildReceiptWhatsAppMessage(params: {
@@ -17,13 +42,21 @@ export function buildReceiptWhatsAppMessage(params: {
   total: number
   paid: number
   balance: number
+  /** Libellé lisible du moyen de paiement (« Espèces »), pas l'identifiant. */
   method: string
   customerName?: string
   currencySymbol?: string
   /** Remboursement de dette encaissé avec cette vente (hors vente). */
   debtRepayment?: number
+  /** Libellés traduits ; anglais par défaut. */
+  labels?: Partial<ReceiptMessageLabels>
 }): string {
   const { shopName, saleNumber, date, items, total, paid, balance, method, customerName, currencySymbol = '₦', debtRepayment = 0 } = params
+  const L: ReceiptMessageLabels = {
+    receipt: 'Receipt', items: 'Items', paid: 'Paid', balance: 'Balance', fullyPaid: 'Fully paid',
+    debtRepayment: 'Debt repayment', totalCollected: 'Total collected', thankYou: 'Thank you for your business',
+    ...params.labels,
+  }
 
   const fmt = (n: number) => currencySymbol.length > 2
     ? `${n.toLocaleString()} ${currencySymbol}`
@@ -31,21 +64,21 @@ export function buildReceiptWhatsAppMessage(params: {
 
   const lines = [
     `🧾 *${shopName}*`,
-    `Receipt #${saleNumber}`,
+    `${L.receipt} #${saleNumber}`,
     `📅 ${date}`,
     customerName ? `👤 ${customerName}` : '',
     ``,
-    `*Items:*`,
+    `*${L.items} :*`,
     ...items.map(i => `• ${i.name} × ${i.qty} = ${fmt(i.price * i.qty)}`),
     ``,
     `━━━━━━━━━━`,
-    `*TOTAL: ${fmt(total)}*`,
-    `Paid: ${fmt(paid)} (${method})`,
-    balance > 0 ? `⚠️ Balance: ${fmt(balance)}` : `✅ Fully Paid`,
-    debtRepayment > 0 ? `Debt repayment: +${fmt(debtRepayment)}` : '',
-    debtRepayment > 0 ? `*Total collected: ${fmt(paid + debtRepayment)}*` : '',
+    `*TOTAL : ${fmt(total)}*`,
+    `${L.paid} : ${fmt(paid)} (${method})`,
+    balance > 0 ? `⚠️ ${L.balance} : ${fmt(balance)}` : `✅ ${L.fullyPaid}`,
+    debtRepayment > 0 ? `${L.debtRepayment} : +${fmt(debtRepayment)}` : '',
+    debtRepayment > 0 ? `*${L.totalCollected} : ${fmt(paid + debtRepayment)}*` : '',
     ``,
-    `_Thank you! Na gode da kasuwancin ku_`,
+    `_${L.thankYou}_`,
   ].filter(Boolean)
 
   return lines.join('\n')

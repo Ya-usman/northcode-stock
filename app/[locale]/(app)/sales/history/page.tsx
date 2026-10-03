@@ -20,8 +20,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { useCurrency } from '@/lib/hooks/use-currency'
-import { printPDFNative, downloadOrShareCSV, isCapacitor } from '@/lib/utils/native-share'
+import { sharePDFNative, downloadOrShareCSV, isCapacitor } from '@/lib/utils/native-share'
 import { getCountry } from '@/lib/saas/countries'
+import { useLocale } from 'next-intl'
+import { readTicketSettings } from '@/lib/receipt/print-settings'
+import { printSaleTicket } from '@/lib/receipt/print-ticket'
+import { ticketLabelsFromT } from '@/lib/receipt/ticket'
 import { normalize } from '@/lib/utils/normalize'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { format, startOfDay, endOfDay, subDays, subMonths, startOfWeek, startOfMonth, startOfYear } from 'date-fns'
@@ -90,6 +94,8 @@ export default function SalesHistoryPage() {
     promoWas: t('receipt.promo_was'),
   }
 
+  const locale = useLocale()
+  // « Reçu PDF » : s'ouvre / se partage (l'impression, c'est le ticket)
   const printSale = async (sale: Sale) => {
     if (!shop) return
     const { generateReceiptPDFBlob } = await import('@/lib/utils/pdf')
@@ -99,8 +105,43 @@ export default function SalesHistoryPage() {
       cashierName: cashierMap[(sale as any).cashier_id] || t('sales.cashier'),
       customerName: (sale as any).customers?.name || undefined,
       labels: receiptLabels,
+      locale,
     })
-    await printPDFNative(blob, `Recu-${sale.sale_number}.pdf`)
+    try {
+      await sharePDFNative(blob, `Recu-${sale.sale_number}.pdf`, `Recu-${sale.sale_number}`)
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') toast({ title: err?.message || 'Erreur', variant: 'destructive' })
+    }
+  }
+  // Réimpression du ticket de caisse (mêmes réglages par appareil que Nouvelle vente).
+  // Le montant reçu / la monnaie rendue ne sont pas conservés : la ligne n'apparaît pas.
+  const printTicket = async (sale: Sale) => {
+    if (!shop) return
+    const s: any = sale
+    const code = shop.currency || 'XAF'
+    try {
+      await printSaleTicket({
+        settings: readTicketSettings(),
+        fileName: `Ticket-${sale.sale_number}.pdf`,
+        data: {
+          shop: { name: shop.name, city: shop.city, state: shop.state, whatsapp: shop.whatsapp },
+          saleNumber: sale.sale_number,
+          createdAt: sale.created_at,
+          items: (s.sale_items || []).map((i: any) => ({ name: i.product_name, qty: Number(i.quantity), unitPrice: Number(i.unit_price), subtotal: Number(i.subtotal) })),
+          subtotal: Number(sale.subtotal), discount: Number(sale.discount), tax: Number(sale.tax), total: Number(sale.total),
+          amountPaid: Number(sale.amount_paid), balance: Number(sale.balance),
+          paymentLabel: (sale.payment_method as string) === 'mixed' ? t('receipt.method_mixed') : payMethodLabel(sale.payment_method),
+          cashierName: cashierMap[s.cashier_id] || t('sales.cashier'),
+          customerName: s.customers?.name || undefined,
+          locale,
+          fmt: n => code === 'NGN' ? `NGN ${Math.round(n).toLocaleString('en-NG')}` : formatNaira(n),
+          fmtShort: n => Math.round(n).toLocaleString(locale),
+          labels: ticketLabelsFromT(t),
+        },
+      })
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') toast({ title: err?.message || 'Erreur', variant: 'destructive' })
+    }
   }
   const { fmt: formatNaira, symbol } = useCurrency()
   const { toast } = useToast()
@@ -801,10 +842,15 @@ export default function SalesHistoryPage() {
                     </Button>
                   )}
                   {!isCancelled && (
-                    <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7" onClick={() => printSale(sale)}>
-                      {isCapacitor() ? <Share2 className="h-3 w-3" /> : <Printer className="h-3 w-3" />}
-                      {isCapacitor() ? t('actions.share') : t('actions.print')}
-                    </Button>
+                    <>
+                      <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7" onClick={() => printTicket(sale)}>
+                        <Printer className="h-3 w-3" /> {t('sales.print_ticket')}
+                      </Button>
+                      <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7" onClick={() => printSale(sale)}>
+                        {isCapacitor() ? <Share2 className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
+                        {t('sales.receipt_pdf')}
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>

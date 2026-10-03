@@ -6,8 +6,11 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, Plus, Minus, Trash2, CheckCircle, MessageCircle, Printer, Share2,
   Scan, X, User, Clock, PauseCircle, PlayCircle, Edit2, ShoppingCart, ChevronUp, ChevronRight, Star, ArrowLeft,
-  AlertTriangle, CreditCard, Coins, ShoppingBag,
+  AlertTriangle, CreditCard, Coins, ShoppingBag, FileText,
 } from 'lucide-react'
+import { readTicketSettings } from '@/lib/receipt/print-settings'
+import { printSaleTicket } from '@/lib/receipt/print-ticket'
+import { ticketLabelsFromT } from '@/lib/receipt/ticket'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { ShopSelector } from '@/components/layout/shop-selector'
@@ -28,8 +31,8 @@ import { PremiumDialog, PremiumDialogBody } from '@/components/ui/premium-dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { useCurrency } from '@/lib/hooks/use-currency'
-import { shareReceiptWhatsApp, buildReceiptWhatsAppMessage } from '@/lib/utils/whatsapp'
-import { sharePDFNative, printPDFNative, isCapacitor } from '@/lib/utils/native-share'
+import { shareReceiptWhatsApp, shareViaWhatsApp, buildReceiptWhatsAppMessage, normalizeWhatsAppNumber } from '@/lib/utils/whatsapp'
+import { sharePDFNative, isCapacitor } from '@/lib/utils/native-share'
 import type { Product, Customer, CartItem, Sale, SaleItem, Category } from '@/lib/types/database'
 import dynamic from 'next/dynamic'
 import { cacheProducts, getCachedProducts, cacheCustomers, getCachedCustomers, savePendingSale, savePendingCustomerPayment, type PendingSalePayment } from '@/lib/offline/db'
@@ -45,7 +48,7 @@ const BarcodeScanner = dynamic(
 )
 import { useOffline } from '@/lib/offline/use-offline'
 import { triggerSaleFeedback, unlockAudio } from '@/lib/utils/sale-feedback'
-import { getCountry, getMethodType } from '@/lib/saas/countries'
+import { getCountry, getMethodType, getPaymentMethodLabel } from '@/lib/saas/countries'
 import { withTimeout, refreshSessionBeforeWrite } from '@/lib/utils/with-timeout'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { useStockRealtime } from '@/lib/hooks/use-realtime'
@@ -189,6 +192,14 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   // Remboursement de dette encaissé avec la dernière vente — affiché sur le
   // reçu (écran, PDF, WhatsApp) avec son état d'enregistrement.
   const [receiptDebt, setReceiptDebt] = useState<{ amount: number; status: 'applied' | 'queued' | 'failed' } | null>(null)
+  // Détail d'encaissement pour le ticket (capturé AVANT resetForm) : lignes par
+  // moyen (mixte), espèces reçues et monnaie rendue.
+  const [receiptPay, setReceiptPay] = useState<{ payments: { method: string; amount: number }[]; cashReceived: number; change: number; customerName?: string; customerPhone?: string } | null>(null)
+  // Nom et téléphone du client sur le reçu : relation `customers` de la vente
+  // enregistrée, sinon ce qui était saisi (vente hors ligne : pas de relation).
+  const receiptCustomerName = (completedSale as any)?.customers?.name || receiptPay?.customerName || undefined
+  const receiptCustomerPhone = (completedSale as any)?.customers?.phone || receiptPay?.customerPhone || undefined
+  const autoPrintedRef = useRef<string | null>(null)
 
   // Raw quantity input values (allows clearing/retyping without snap-back)
   const [qtyInputs, setQtyInputs] = useState<Record<string, string>>({})
@@ -1046,6 +1057,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       }
 
       // Always show receipt regardless of persistence outcome
+      setReceiptPay({ payments: salePayments.map(p => ({ method: p.method, amount: p.amount })), cashReceived: !splitPayment && methodType === 'cash' ? (Number(amountPaid) || 0) : 0, change, customerName: selectedCustomer?.name || customerName.trim() || undefined, customerPhone: selectedCustomer?.phone || customerPhone.trim() || undefined })
       setCompletedSale({
         id: localId,
         sale_number: saleNumber,
@@ -1188,6 +1200,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       if (activeDraftId) deleteDraft(activeDraftId)
 
       invalidateSalesData(queryClient)
+      setReceiptPay({ payments: salePayments.map(p => ({ method: p.method, amount: p.amount })), cashReceived: !splitPayment && methodType === 'cash' ? (Number(amountPaid) || 0) : 0, change, customerName: selectedCustomer?.name || customerName.trim() || undefined, customerPhone: selectedCustomer?.phone || customerPhone.trim() || undefined })
       setCompletedSale(fullSale as any)
       setShowReceipt(true)
       resetForm()
@@ -1246,8 +1259,22 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     promoWas: t('receipt.promo_was'),
     debtRepayment: t('receipt.debt_repayment'),
     totalCollected: t('receipt.total_collected'),
+    saleTitle: t('receipt.sale_title'),
+    date: t('receipt.date'),
+    paymentMethod: t('receipt.payment_method'),
+    methodMixed: t('receipt.method_mixed'),
+    paidStatus: t('receipt.paid_status'),
+    amountPaid: t('receipt.amount_paid'),
+    generatedBy: t('receipt.generated_by'),
   }
 
+  // Libellé lisible d'un moyen de paiement (« Espèces », « MTN MoMo », « Paiement mixte »)
+  const paymentMethodLabel = (id: string) => id === 'mixed'
+    ? t('receipt.method_mixed')
+    : (getCountry(shop?.country).paymentMethods.find(m => m.id === id)?.label ?? getPaymentMethodLabel(id) ?? id)
+
+  // « Reçu PDF » : le document A5 s'ouvre / se partage (PC : nouvel onglet à
+  // enregistrer ; Android : feuille de partage). L'impression, c'est le ticket.
   const handlePrintReceipt = async () => {
     if (!completedSale || !shop) return
     const { generateReceiptPDFBlob } = await import('@/lib/utils/pdf')
@@ -1255,25 +1282,53 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       sale: completedSale as any,
       shop: shop as any,
       cashierName: profile?.full_name || '',
-      customerName: (completedSale as any).customers?.name,
+      customerName: receiptCustomerName,
       labels: receiptLabels,
-      debtRepayment: receiptDebt?.amount || 0,
+      debtRepayment: receiptDebt?.amount || 0, locale,
     })
-    await printPDFNative(blob, `Recu-${completedSale.sale_number}.pdf`)
+    try {
+      await sharePDFNative(blob, `Recu-${completedSale.sale_number}.pdf`, t('sales.receipt_share_title', { number: completedSale.sale_number, shop: shop?.name || '' }))
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') toast({ title: err?.message || 'Erreur', variant: 'destructive' })
+    }
   }
 
+  // WhatsApp : client avec numéro → sa conversation s'ouvre directement avec le
+  // reçu en texte (un lien wa.me ne peut pas joindre un fichier) ; sinon feuille
+  // de partage avec le PDF, puis repli texte générique.
   const handleWhatsAppReceipt = async () => {
     if (!completedSale || !shop) return
     const fileName = `Recu-${completedSale.sale_number}.pdf`
+    const textReceipt = () => buildReceiptWhatsAppMessage({
+      shopName: shop?.name || '',
+      saleNumber: completedSale.sale_number,
+      date: new Date(completedSale.created_at).toLocaleString(locale, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }),
+      items: ((completedSale as any).sale_items || []).map((i: any) => ({ name: i.product_name, qty: i.quantity, price: i.unit_price })),
+      total: completedSale.total,
+      paid: completedSale.amount_paid,
+      balance: completedSale.balance,
+      method: paymentMethodLabel(completedSale.payment_method),
+      customerName: receiptCustomerName,
+      currencySymbol: symbol,
+      debtRepayment: receiptDebt?.amount || 0,
+      labels: {
+        receipt: t('receipt.receipt'), items: t('receipt.items'), paid: t('receipt.paid'), balance: t('receipt.balance_due'),
+        fullyPaid: t('receipt.fully_paid'), debtRepayment: t('receipt.debt_repayment'), totalCollected: t('receipt.total_collected'), thankYou: t('receipt.thank_you'),
+      },
+    })
+    if (receiptCustomerPhone) {
+      const number = normalizeWhatsAppNumber(receiptCustomerPhone, getCountry(shop.country).phonePrefix)
+      if (number) { shareViaWhatsApp(number, textReceipt()); return }
+    }
     try {
       const { generateReceiptPDFBlob } = await import('@/lib/utils/pdf')
       const blob = await generateReceiptPDFBlob({
         sale: completedSale as any,
         shop: shop as any,
         cashierName: profile?.full_name || '',
-        customerName: (completedSale as any).customers?.name,
+        customerName: receiptCustomerName,
         labels: receiptLabels,
-        debtRepayment: receiptDebt?.amount || 0,
+        debtRepayment: receiptDebt?.amount || 0, locale,
       })
       await sharePDFNative(
         blob,
@@ -1285,22 +1340,54 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       if (err?.name === 'AbortError') return // user cancelled native share sheet
       // PDF generation or share failed — fall through to text fallback
     }
-    // Last resort: WhatsApp text message
-    const message = buildReceiptWhatsAppMessage({
-      shopName: shop?.name || '',
-      saleNumber: completedSale.sale_number,
-      date: new Date(completedSale.created_at).toLocaleString(locale, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }),
-      items: ((completedSale as any).sale_items || []).map((i: any) => ({ name: i.product_name, qty: i.quantity, price: i.unit_price })),
-      total: completedSale.total,
-      paid: completedSale.amount_paid,
-      balance: completedSale.balance,
-      method: completedSale.payment_method,
-      customerName: (completedSale as any).customers?.name,
-      currencySymbol: symbol,
-      debtRepayment: receiptDebt?.amount || 0,
-    })
-    shareReceiptWhatsApp(message)
+    // Last resort: WhatsApp text message (chat picker)
+    shareReceiptWhatsApp(textReceipt())
   }
+
+  // ── Ticket de caisse (rouleau 58/80 mm) — sortie choisie dans Paramètres ──
+  // Montants sans « ₦ » (police PDF standard) : même règle que le reçu A5.
+  const ticketFmt = (n: number) => currencyCode === 'NGN' ? `NGN ${Math.round(n).toLocaleString('en-NG')}` : formatNaira(n)
+  const handlePrintTicket = async () => {
+    if (!completedSale || !shop) return
+    const methodLabel = paymentMethodLabel
+    try {
+      await printSaleTicket({
+        settings: readTicketSettings(),
+        fileName: `Ticket-${completedSale.sale_number}.pdf`,
+        data: {
+          shop: { name: shop.name, city: shop.city, state: shop.state, whatsapp: shop.whatsapp },
+          saleNumber: completedSale.sale_number,
+          createdAt: completedSale.created_at,
+          items: ((completedSale as any).sale_items || []).map((i: any) => ({
+            name: i.product_name, qty: Number(i.quantity), unitPrice: Number(i.unit_price), subtotal: Number(i.subtotal),
+          })),
+          subtotal: Number(completedSale.subtotal), discount: Number(completedSale.discount), tax: Number(completedSale.tax), total: Number(completedSale.total),
+          amountPaid: Number(completedSale.amount_paid), balance: Number(completedSale.balance),
+          paymentLabel: methodLabel(completedSale.payment_method),
+          payments: receiptPay?.payments.length ? receiptPay.payments.map(p => ({ label: methodLabel(p.method), amount: p.amount })) : undefined,
+          cashReceived: receiptPay?.cashReceived, change: receiptPay?.change,
+          cashierName: profile?.full_name || '',
+          customerName: receiptCustomerName,
+          debtRepayment: receiptDebt?.amount || 0,
+          locale,
+          fmt: ticketFmt,
+          fmtShort: n => Math.round(n).toLocaleString(locale),
+          labels: ticketLabelsFromT(t),
+        },
+      })
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return
+      toast({ title: err?.message || 'Erreur', variant: 'destructive' })
+    }
+  }
+  // Impression automatique (réglage par appareil) : une seule fois par vente.
+  useEffect(() => {
+    if (!showReceipt || !completedSale) return
+    if (autoPrintedRef.current === completedSale.id) return
+    if (!readTicketSettings().autoPrint) return
+    autoPrintedRef.current = completedSale.id
+    handlePrintTicket().catch(() => {})
+  }, [showReceipt, completedSale]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── RENDER ──────────────────────────────────────────────
   return (
@@ -2467,13 +2554,18 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   </>
                 )}
               </div>
+              {/* Ticket de caisse (rouleau, sortie réglée dans Paramètres) en premier ;
+                  le reçu PDF A5 reste pour l'envoi au client qui le demande. */}
               <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" onClick={handlePrintTicket} className="col-span-2 gap-2">
+                  <Printer className="h-4 w-4" /> {t('sales.print_ticket')}
+                </Button>
                 <Button variant="outline" onClick={handleWhatsAppReceipt} className="gap-2">
                   <MessageCircle className="h-4 w-4" /> {t('actions.whatsapp')}
                 </Button>
                 <Button variant="outline" onClick={handlePrintReceipt} className="gap-2">
-                  {isCapacitor() ? <Share2 className="h-4 w-4" /> : <Printer className="h-4 w-4" />}
-                  {isCapacitor() ? t('actions.share') : t('actions.print_receipt')}
+                  {isCapacitor() ? <Share2 className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+                  {t('sales.receipt_pdf')}
                 </Button>
               </div>
               <Button variant="stockshop" className="w-full h-11 rounded-xl font-semibold"

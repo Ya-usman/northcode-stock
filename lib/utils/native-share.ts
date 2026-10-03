@@ -51,10 +51,21 @@ export async function sharePDFNative(blob: Blob, fileName: string, title: string
   }
 
   // ── Web: native share API (mobile browsers) ───────────────
+  // canShare peut répondre vrai alors que share() échoue ensuite (navigateur
+  // sans feuille de partage, contexte non autorisé) : on ne bloque pas, on
+  // ouvre le PDF. Seule une annulation par l'utilisateur (AbortError) s'arrête là.
+  // Réservée aux appareils tactiles : sur PC, Chrome/Edge exposent aussi
+  // navigator.share (feuille de partage Windows), alors qu'on attend l'ouverture du PDF.
   const file = new File([blob], fileName, { type: 'application/pdf' })
-  if (navigator.canShare?.({ files: [file] })) {
-    await navigator.share({ files: [file], title })
-    return
+  const touchDevice = window.matchMedia?.('(pointer: coarse)').matches
+  if (touchDevice && navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title })
+      return
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return
+      // sinon : repli ci-dessous
+    }
   }
 
   // ── Desktop fallback: open in new tab ─────────────────────

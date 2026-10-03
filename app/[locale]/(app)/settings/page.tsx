@@ -3,7 +3,11 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { Save, Upload, Globe, Moon, Sun, ShoppingCart, History, CreditCard, Users, Package, ArrowLeftRight, Tag, Truck, BarChart2, ShieldCheck, Bell, Receipt, NotebookPen, Trash2, ClipboardList, ClipboardCheck, TrendingUp, AlertTriangle, CalendarDays, Clock, Gift, ChevronRight } from 'lucide-react'
+import { Save, Upload, Globe, Moon, Sun, ShoppingCart, History, CreditCard, Users, Package, ArrowLeftRight, Tag, Truck, BarChart2, ShieldCheck, Bell, Receipt, NotebookPen, Trash2, ClipboardList, ClipboardCheck, TrendingUp, AlertTriangle, CalendarDays, Clock, Gift, ChevronRight, Printer } from 'lucide-react'
+import { readTicketSettings, writeTicketSettings, DEFAULT_TICKET_SETTINGS, type TicketPrintSettings } from '@/lib/receipt/print-settings'
+import { printSaleTicket } from '@/lib/receipt/print-ticket'
+import { ticketLabelsFromT } from '@/lib/receipt/ticket'
+import { formatCurrency as fmtCurrency } from '@/lib/utils/currency'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
@@ -81,6 +85,45 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
     setSaleSoundEnabled(localStorage.getItem('sale_sound_enabled') !== '0')
     setSaleVibrationEnabled(localStorage.getItem('sale_vibration_enabled') !== '0')
   }, [])
+
+  // ── Impression des tickets — réglages PAR APPAREIL (lus après montage, comme les sons)
+  const [ticket, setTicket] = useState<TicketPrintSettings>(DEFAULT_TICKET_SETTINGS)
+  const [testPrinting, setTestPrinting] = useState(false)
+  useEffect(() => { setTicket(readTicketSettings()) }, [])
+  const updateTicket = (patch: Partial<TicketPrintSettings>) => {
+    const next = { ...ticket, ...patch }
+    setTicket(next)
+    writeTicketSettings(next)
+  }
+  const printTestTicket = async () => {
+    setTestPrinting(true)
+    try {
+      const code = shop?.currency || 'XAF'
+      const item = t('settings.ticket_test_item')
+      await printSaleTicket({
+        settings: ticket,
+        fileName: 'Ticket-test.pdf',
+        data: {
+          shop: { name: shop?.name || 'StockShop', city: shop?.city, state: shop?.state, whatsapp: shop?.whatsapp },
+          saleNumber: 'TEST',
+          createdAt: new Date(),
+          items: [{ name: `${item} 1`, qty: 2, unitPrice: 500, subtotal: 1000 }, { name: `${item} 2`, qty: 1, unitPrice: 1500, subtotal: 1500 }],
+          subtotal: 2500, discount: 0, tax: 0, total: 2500, amountPaid: 2500, balance: 0,
+          paymentLabel: t('receipt.method_cash'),
+          cashReceived: 3000, change: 500,
+          cashierName: profile?.full_name || '',
+          locale,
+          fmt: n => fmtCurrency(n, code),
+          fmtShort: n => Math.round(n).toLocaleString(locale),
+          labels: ticketLabelsFromT(t),
+        },
+      })
+    } catch (e: any) {
+      toast({ title: e?.message || 'Erreur', variant: 'destructive' })
+    } finally {
+      setTestPrinting(false)
+    }
+  }
 
   // ── Role permissions ────────────────────────────────────────────────────────
   const [activePermRole, setActivePermRole] = useState<ConfigurableRole | 'general'>('cashier')
@@ -783,6 +826,84 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
               </button>
             ))}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Impression des tickets — par appareil (chaque caisse a sa propre imprimante) */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <Printer className="h-4 w-4" />
+            {t('settings.ticket_print_title')}
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">{t('settings.ticket_device_note')}</p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-sm font-medium">{t('settings.ticket_method')}</p>
+            <div className="space-y-2">
+              {([
+                { id: 'system', label: t('settings.ticket_method_system'), desc: t('settings.ticket_method_system_desc'), available: true },
+                { id: 'bluetooth', label: t('settings.ticket_method_bluetooth'), desc: '', available: false },
+                { id: 'network', label: t('settings.ticket_method_network'), desc: '', available: false },
+              ] as const).map(m => (
+                <button
+                  key={m.id}
+                  type="button"
+                  disabled={!m.available}
+                  onClick={() => updateTicket({ method: m.id })}
+                  className={cn(
+                    'flex w-full items-center justify-between gap-3 rounded-lg border p-3 text-left text-sm transition-colors tap-target',
+                    ticket.method === m.id
+                      ? 'border-stockshop-blue dark:border-blue-500 bg-stockshop-blue-muted dark:bg-blue-950/40'
+                      : 'border-input bg-background',
+                    !m.available && 'opacity-60 cursor-not-allowed',
+                  )}
+                >
+                  <span className="min-w-0">
+                    <span className="block font-medium">{m.label}</span>
+                    {m.desc && <span className="block text-xs text-muted-foreground">{m.desc}</span>}
+                  </span>
+                  {!m.available && (
+                    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
+                      {t('settings.ticket_coming_soon')}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium">{t('settings.ticket_width')}</p>
+            <div className="grid grid-cols-2 gap-3">
+              {([58, 80] as const).map(w => (
+                <button
+                  key={w}
+                  type="button"
+                  onClick={() => updateTicket({ width: w })}
+                  className={cn(
+                    'rounded-lg border p-3 text-sm font-medium transition-colors tap-target',
+                    ticket.width === w
+                      ? 'border-stockshop-blue dark:border-blue-500 bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400'
+                      : 'border-input bg-background text-muted-foreground hover:bg-muted',
+                  )}
+                >
+                  {w} mm
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium">{t('settings.ticket_auto_print')}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{t('settings.ticket_auto_print_desc')}</p>
+            </div>
+            <Switch checked={ticket.autoPrint} onCheckedChange={v => updateTicket({ autoPrint: v })} />
+          </div>
+          <Button variant="outline" className="w-full gap-2" onClick={printTestTicket} loading={testPrinting}>
+            <Printer className="h-4 w-4" />
+            {t('settings.ticket_test_print')}
+          </Button>
         </CardContent>
       </Card>
 
