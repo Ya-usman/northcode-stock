@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { format } from 'date-fns'
 import { Search, FileDown, FileText, Table2, AlertTriangle, Edit2, Trash2 } from 'lucide-react'
@@ -101,6 +102,17 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
   }
 
   useEffect(() => { fetchData() }, [effectiveShopIds.join(',')])
+
+  // Lien profond (Vue d'ensemble) : /stock/expiry?status=expiring applique le
+  // filtre Statut puis nettoie l'URL (replaceState natif, synchronisé avec le
+  // routeur de Next 14), même mécanisme que la page Produits.
+  const searchParams = useSearchParams()
+  useEffect(() => {
+    const s = searchParams.get('status')
+    if (!s) return
+    if (['all', 'expired', 'expiring', 'ok', 'none'].includes(s)) setFilter({ statusFilter: s })
+    window.history.replaceState(window.history.state, '', `/${locale}/stock/expiry`)
+  }, [searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
   useRefetchOnVisible(() => fetchData())
   useRefetchOnReconnect(() => fetchData(), isOnline)
   const shopLoadTimedOut = useShopLoadTimeout(effectiveShopIds.length)

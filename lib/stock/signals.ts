@@ -64,6 +64,8 @@ export interface StockProductLike {
   promo_price: number | null
   promo_until: string | null
   promo_start?: string | null
+  /** Raison d'une promo posée depuis une suggestion ('expiry' | 'dormant'), sinon null */
+  promo_reason?: string | null
 }
 
 export interface StockRulesContext {
@@ -112,13 +114,27 @@ export function isPromoActive(o: { promo_price?: number | null; promo_until?: st
   return !!o.promo_price && !!o.promo_until && o.promo_until >= now && (!o.promo_start || o.promo_start <= now)
 }
 
+/**
+ * Promo posée depuis une suggestion (péremption proche, vente lente) dont la
+ * raison a disparu : à revoir. Jamais retirée automatiquement (migration 094).
+ */
+export function isPromoStale(p: StockProductLike, ctx: StockRulesContext): boolean {
+  if (!isPromoActive(p) || !p.promo_reason) return false
+  if (p.promo_reason === 'expiry') return !isExpiringSoon(p, ctx)
+  if (p.promo_reason === 'dormant') return !isDormant(p, ctx)
+  return false
+}
+
 export interface StockKpis {
   total: number
   out: number
   low: number
   expiring: number
   dormant: number
+  /** Σ quantité × prix d'achat des produits dormants : valeur immobilisée */
+  dormantValue: number
   promo: number
+  promoStale: number
   /** Σ quantité × prix d'achat (coût moyen pondéré tenu à la réception), même formule que Rapports */
   stockValue: number
   /** Σ quantité × prix de vente */
@@ -126,15 +142,17 @@ export interface StockKpis {
 }
 
 export function computeStockKpis(products: StockProductLike[], ctx: StockRulesContext): StockKpis {
-  const kpis: StockKpis = { total: products.length, out: 0, low: 0, expiring: 0, dormant: 0, promo: 0, stockValue: 0, retailValue: 0 }
+  const kpis: StockKpis = { total: products.length, out: 0, low: 0, expiring: 0, dormant: 0, dormantValue: 0, promo: 0, promoStale: 0, stockValue: 0, retailValue: 0 }
   for (const p of products) {
     const threshold = lowStockThresholdOf(p, ctx.shopLowStockThreshold)
+    const cost = Number(p.quantity) * Number(p.buying_price || 0)
     if (p.quantity === 0) kpis.out++
     else if (p.quantity <= threshold) kpis.low++
     if (isExpired(p, ctx) || isExpiringSoon(p, ctx)) kpis.expiring++
-    if (isDormant(p, ctx)) kpis.dormant++
+    if (isDormant(p, ctx)) { kpis.dormant++; kpis.dormantValue += cost }
     if (isPromoActive(p)) kpis.promo++
-    kpis.stockValue += Number(p.quantity) * Number(p.buying_price || 0)
+    if (isPromoStale(p, ctx)) kpis.promoStale++
+    kpis.stockValue += cost
     kpis.retailValue += Number(p.quantity) * Number(p.selling_price || 0)
   }
   return kpis

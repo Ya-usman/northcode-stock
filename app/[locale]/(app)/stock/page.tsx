@@ -1,9 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ComponentType } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { ArrowRight, CalendarClock, Package, PackageMinus, PackageX, Tag, TrendingDown, Wallet } from 'lucide-react'
+import {
+  ArrowRight, CalendarClock, CheckCircle2, Lightbulb, Package, PackageMinus, PackageX,
+  ShoppingCart, Tag, TrendingDown, Wallet, AlertTriangle,
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useCurrency } from '@/lib/hooks/use-currency'
@@ -13,19 +16,58 @@ import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { useShopLoadTimeout } from '@/lib/hooks/use-shop-load-timeout'
 import { getPageCache } from '@/lib/offline/page-cache'
 import { withTimeout } from '@/lib/utils/with-timeout'
+import { cn } from '@/lib/utils/cn'
 import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StockTabs } from '@/components/stock/stock-tabs'
 import { computeStockKpis, fetchExpiryByProduct, fetchSoldQty30d, type StockProductLike } from '@/lib/stock/signals'
 
-// Vue d'ensemble du module Stock : l'état du stock en un coup d'œil, chaque
-// carte menant aux produits concernés (filtre appliqué par ?status=).
-// Les cartes d'alerte vivaient sur la liste des produits ; elles sont ici
-// pour ne pas dupliquer l'information entre onglets. Lit le même cache hors
-// ligne que Produits (`stock_<boutiques>`) pour s'afficher sans réseau, sans
-// jamais l'écraser (la requête ici ne charge qu'un sous-ensemble de colonnes).
+// Vue d'ensemble du module Stock : six chiffres clés cliquables (chacun ouvre
+// les produits concernés, filtre appliqué par ?status=) et une zone
+// « Opportunités » qui transforme l'état du stock en actions recommandées
+// (promos en cours ou à revoir, ventes lentes, lots à écouler, produits à
+// réapprovisionner). Aucune donnée inventée : tout vient des produits, des
+// lots et des ventes des 30 derniers jours, par les règles partagées de
+// lib/stock/signals. Lit le même cache hors ligne que Produits
+// (`stock_<boutiques>`) sans jamais l'écraser (sous-ensemble de colonnes).
 
 type CategoryAlert = { id: string; expiry_alert_days: number | null }
+type Tone = 'neutral' | 'blue' | 'red' | 'amber' | 'orange' | 'purple'
+
+const TONE: Record<Tone, { card: string; icon: string; value: string }> = {
+  neutral: { card: 'border-border bg-card', icon: 'bg-muted text-muted-foreground', value: '' },
+  blue: { card: 'border-stockshop-blue/20 bg-stockshop-blue-muted/40 dark:border-blue-900 dark:bg-blue-950/20', icon: 'bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-900/40 dark:text-blue-400', value: 'text-stockshop-blue dark:text-blue-400' },
+  red: { card: 'border-red-200 bg-red-50/50 dark:border-red-900 dark:bg-red-950/20', icon: 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400', value: 'text-red-600 dark:text-red-400' },
+  amber: { card: 'border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20', icon: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400', value: 'text-amber-600 dark:text-amber-400' },
+  orange: { card: 'border-orange-200 bg-orange-50/50 dark:border-orange-900 dark:bg-orange-950/20', icon: 'bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400', value: 'text-orange-600 dark:text-orange-400' },
+  purple: { card: 'border-purple-200 bg-purple-50/50 dark:border-purple-900 dark:bg-purple-950/20', icon: 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400', value: 'text-purple-600 dark:text-purple-400' },
+}
+
+function KpiCard({ label, value, hint, icon: Icon, tone = 'neutral', onClick, className }: {
+  label: string; value: string | number; hint?: string; icon: ComponentType<{ className?: string }>; tone?: Tone; onClick?: () => void
+  /** Emprise dans la grille (ex. col-span-2) */
+  className?: string
+}) {
+  const t = TONE[tone]
+  const body = (
+    <>
+      <div className="flex items-start justify-between gap-2">
+        <p className={cn('min-w-0 text-2xl font-bold leading-none tabular-nums', t.value)}>{value}</p>
+        <span className={cn('shrink-0 rounded-lg p-1.5', t.icon)}><Icon className="h-5 w-5" /></span>
+      </div>
+      <p className="mt-2 text-sm font-medium">{label}</p>
+      {hint && (
+        <p className={cn('mt-0.5 flex items-center gap-1 text-xs text-muted-foreground', onClick && 'group-hover:text-foreground')}>
+          {hint}{onClick && <ArrowRight className="h-3 w-3" />}
+        </p>
+      )}
+    </>
+  )
+  const cls = cn('rounded-xl border px-4 py-3 text-left shadow-sm transition-colors', t.card, className)
+  return onClick
+    ? <button type="button" onClick={onClick} className={cn(cls, 'group hover:border-stockshop-blue/40')}>{body}</button>
+    : <div className={cls}>{body}</div>
+}
 
 export default function StockOverviewPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations()
@@ -51,7 +93,7 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
       const [prodsRes, catsRes] = await withTimeout(Promise.all([
         supabase
           .from('products')
-          .select('id, quantity, low_stock_threshold, buying_price, selling_price, category_id, promo_price, promo_until, promo_start')
+          .select('id, quantity, low_stock_threshold, buying_price, selling_price, category_id, promo_price, promo_until, promo_start, promo_reason')
           .in('shop_id', effectiveShopIds)
           .eq('is_active', true),
         supabase.from('categories').select('id, expiry_alert_days').in('shop_id', effectiveShopIds),
@@ -83,21 +125,50 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
     soldQtyLoaded,
   }), [products, categories, shop?.low_stock_threshold, shop?.expiry_alert_days, expiryByProduct, soldQtyByProduct, soldQtyLoaded])
 
-  // Le coût du stock est une donnée financière : pas pour la caisse ni la lecture seule
+  // Les coûts sont des données financières : pas pour la caisse ni la lecture seule
   const canSeeValue = !['cashier', 'viewer'].includes(effectiveRole || '')
-  const goToProducts = (status?: string) =>
-    router.push(`/${locale}/stock/products${status ? `?status=${status}` : ''}`)
+  const goToProducts = (status?: string) => router.push(`/${locale}/stock/products${status ? `?status=${status}` : ''}`)
+  const goToLots = (status: string) => router.push(`/${locale}/stock/expiry?status=${status}`)
+  const reorderCount = kpis.out + kpis.low
 
-  const alertCards = [
-    { key: 'out', count: kpis.out, label: t('products.card_out_of_stock'), icon: PackageX, color: 'text-red-600 dark:text-red-400 border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20', badge: 'bg-red-100 dark:bg-red-900/40' },
-    { key: 'low', count: kpis.low, label: t('products.card_low_stock'), icon: PackageMinus, color: 'text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/20', badge: 'bg-amber-100 dark:bg-amber-900/40' },
-    { key: 'expiry', count: kpis.expiring, label: t('products.card_expiry'), icon: CalendarClock, color: 'text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-900 bg-orange-50/50 dark:bg-orange-950/20', badge: 'bg-orange-100 dark:bg-orange-900/40' },
-    { key: 'dormant', count: kpis.dormant, label: t('products.card_dormant'), icon: TrendingDown, color: 'text-stockshop-blue dark:text-blue-400 border-stockshop-blue/20 dark:border-blue-900 bg-stockshop-blue-muted/50 dark:bg-blue-950/20', badge: 'bg-stockshop-blue-muted dark:bg-blue-900/40' },
-    { key: 'promo', count: kpis.promo, label: t('products.promo_badge'), icon: Tag, color: 'text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-900 bg-purple-50/50 dark:bg-purple-950/20', badge: 'bg-purple-100 dark:bg-purple-900/40' },
-  ]
+  // Opportunités : seulement celles qui ont quelque chose à montrer
+  const opportunities = [
+    kpis.promoStale > 0 && {
+      key: 'promo_stale', tone: 'red' as Tone, icon: AlertTriangle,
+      title: t('stock_overview.opp_promo_stale', { count: kpis.promoStale }),
+      desc: t('stock_overview.opp_promo_stale_desc'),
+      action: t('stock_overview.act_products'), onClick: () => goToProducts('promo'),
+    },
+    reorderCount > 0 && {
+      key: 'reorder', tone: 'amber' as Tone, icon: ShoppingCart,
+      title: t('stock_overview.opp_reorder', { count: reorderCount }),
+      desc: t('stock_overview.opp_reorder_desc', { out: kpis.out, low: kpis.low }),
+      action: t('stock_overview.act_reorder'), onClick: () => goToProducts(kpis.out > 0 ? 'out' : 'low'),
+    },
+    kpis.expiring > 0 && {
+      key: 'expiring', tone: 'orange' as Tone, icon: CalendarClock,
+      title: t('stock_overview.opp_expiring', { count: kpis.expiring }),
+      desc: t('stock_overview.opp_expiring_desc'),
+      action: t('stock_overview.act_lots'), onClick: () => goToLots('expiring'),
+    },
+    kpis.dormant > 0 && {
+      key: 'dormant', tone: 'blue' as Tone, icon: TrendingDown,
+      title: t('stock_overview.opp_dormant', { count: kpis.dormant }),
+      desc: canSeeValue
+        ? t('stock_overview.opp_dormant_desc_value', { amount: fmt(kpis.dormantValue) })
+        : t('stock_overview.opp_dormant_desc'),
+      action: t('stock_overview.act_products'), onClick: () => goToProducts('dormant'),
+    },
+    kpis.promo > 0 && {
+      key: 'promo', tone: 'purple' as Tone, icon: Tag,
+      title: t('stock_overview.opp_promo_active', { count: kpis.promo }),
+      desc: t('stock_overview.opp_promo_active_desc'),
+      action: t('stock_overview.act_view'), onClick: () => goToProducts('promo'),
+    },
+  ].filter(Boolean) as { key: string; tone: Tone; icon: ComponentType<{ className?: string }>; title: string; desc: string; action: string; onClick: () => void }[]
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <StockTabs locale={locale} />
 
       <div>
@@ -108,59 +179,65 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
       {loading && shopLoadTimedOut && effectiveShopIds.length === 0 ? (
         <LoadErrorFallback />
       ) : loading ? (
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">{[...Array(2)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">{[...Array(6)].map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}</div>
+          <Skeleton className="h-40 rounded-xl" />
         </div>
       ) : (
         <>
-          {/* Chiffres clés */}
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => goToProducts()}
-              className="group rounded-xl border bg-card px-4 py-3 text-left shadow-sm transition-colors hover:border-stockshop-blue/40"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-2xl font-bold leading-none tabular-nums">{kpis.total}</p>
-                <span className="rounded-lg bg-muted p-1.5 text-muted-foreground"><Package className="h-5 w-5" /></span>
-              </div>
-              <p className="mt-1.5 text-sm font-medium">{t('stock_overview.products_count')}</p>
-              <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground group-hover:text-stockshop-blue dark:group-hover:text-blue-400">
-                {t('stock_overview.open_products')} <ArrowRight className="h-3 w-3" />
-              </p>
-            </button>
+          {/* Chiffres clés : chacun ouvre les produits concernés */}
+          {/* Deux rangées : Valeur et Produits (larges, montant long lisible), puis les
+              quatre alertes. Sur téléphone : une carte large par ligne, alertes par deux. */}
+          <section aria-label={t('stock_overview.kpis_label')} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {canSeeValue && (
-              <div className="rounded-xl border bg-card px-4 py-3 shadow-sm">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-2xl font-bold leading-none tabular-nums text-stockshop-blue dark:text-blue-400">{fmt(kpis.stockValue)}</p>
-                  <span className="rounded-lg bg-stockshop-blue-muted p-1.5 text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-400"><Wallet className="h-5 w-5" /></span>
-                </div>
-                <p className="mt-1.5 text-sm font-medium">{t('stock_overview.stock_value')}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">{t('stock_overview.stock_value_hint')}</p>
-              </div>
+              <KpiCard className="col-span-2" tone="blue" icon={Wallet} label={t('stock_overview.stock_value')} value={fmt(kpis.stockValue)} hint={t('stock_overview.stock_value_hint')} />
             )}
-          </div>
+            <KpiCard className={canSeeValue ? 'col-span-2' : 'col-span-2 sm:col-span-4'} icon={Package} label={t('stock_overview.products_count')} value={kpis.total} hint={t('stock_overview.open_products')} onClick={() => goToProducts()} />
+            <KpiCard tone="red" icon={PackageX} label={t('stock_overview.kpi_out')} value={kpis.out} hint={t('stock_overview.open_products')} onClick={() => goToProducts('out')} />
+            <KpiCard tone="amber" icon={PackageMinus} label={t('stock_overview.kpi_low')} value={kpis.low} hint={t('stock_overview.open_products')} onClick={() => goToProducts('low')} />
+            <KpiCard tone="orange" icon={CalendarClock} label={t('stock_overview.kpi_expiring')} value={kpis.expiring} hint={t('stock_overview.open_products')} onClick={() => goToProducts('expiry')} />
+            <KpiCard
+              tone="blue" icon={TrendingDown} label={t('stock_overview.kpi_dormant')} value={kpis.dormant}
+              hint={canSeeValue && kpis.dormant > 0 ? t('stock_overview.hint_immobilized', { amount: fmt(kpis.dormantValue) }) : t('stock_overview.open_products')}
+              onClick={() => goToProducts('dormant')}
+            />
+          </section>
 
-          {/* Alertes : chaque carte ouvre les produits concernés */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {alertCards.map(card => (
-              <button
-                key={card.key}
-                type="button"
-                onClick={() => goToProducts(card.key)}
-                className={`rounded-xl border px-4 py-3 text-left transition-all hover:opacity-80 ${card.color}`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-2xl font-bold leading-none tabular-nums">{card.count}</p>
-                  <span className={`flex-shrink-0 rounded-lg p-1.5 ${card.badge}`}>
-                    <card.icon className="h-5 w-5" />
-                  </span>
-                </div>
-                <p className="mt-1.5 text-sm font-medium opacity-90">{card.label}</p>
-              </button>
-            ))}
-          </div>
+          {/* Opportunités : l'état du stock traduit en actions */}
+          <section aria-label={t('stock_overview.opportunities_title')} className="rounded-xl border bg-card shadow-sm">
+            <div className="flex items-center gap-2.5 border-b px-4 py-3">
+              <span className="rounded-lg bg-amber-100 p-1.5 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400"><Lightbulb className="h-4 w-4" /></span>
+              <div>
+                <h2 className="text-sm font-semibold">{t('stock_overview.opportunities_title')}</h2>
+                <p className="text-xs text-muted-foreground">{t('stock_overview.opportunities_subtitle')}</p>
+              </div>
+            </div>
+            {opportunities.length === 0 ? (
+              <div className="flex items-center gap-2 px-4 py-6 text-sm text-muted-foreground">
+                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                {t('stock_overview.opp_none')}
+              </div>
+            ) : (
+              <ul className="divide-y">
+                {opportunities.map(o => (
+                  <li key={o.key} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-4">
+                    <span className={cn('hidden shrink-0 rounded-lg p-2 sm:block', TONE[o.tone].icon)}><o.icon className="h-4 w-4" /></span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{o.title}</p>
+                      <p className="text-xs text-muted-foreground">{o.desc}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={o.onClick}
+                      className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border bg-background px-3 text-sm font-medium transition-colors hover:border-stockshop-blue/40 hover:text-stockshop-blue dark:hover:text-blue-400"
+                    >
+                      {o.action} <ArrowRight className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </>
       )}
     </div>
