@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
 import { motion } from 'framer-motion'
-import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag, PackageX, PackageMinus, CalendarClock, TrendingDown, ShoppingCart, X } from 'lucide-react'
+import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag, CalendarClock, ShoppingCart, X, LayoutGrid, List } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils/cn'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -25,6 +25,10 @@ import { createRestockSchema, type RestockFormData, type ProductFormData } from 
 import type { Product, Category, Supplier } from '@/lib/types/database'
 import { ProductForm } from '@/components/stock/product-form'
 import { useRestoredPhoto } from '@/lib/photo/use-restored-photo'
+import { ProductTable, ProductTableSkeleton, type ProductSort, type ProductStatus } from '@/components/stock/product-table'
+import { useStockViewMode } from '@/lib/hooks/use-stock-view-mode'
+import { ProductActivityJournal } from '@/components/stock/product-activity-journal'
+import { fetchExpiryByProduct, fetchSoldQty30d } from '@/lib/stock/signals'
 import { ProductThumbnail } from '@/components/stock/product-thumbnail'
 import { ImportProductsModal } from '@/components/stock/import-products-modal'
 import { BulkAddModal } from '@/components/stock/bulk-add-modal'
@@ -56,6 +60,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const t = useTranslations()
   const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { profile, shop, roleInActiveShop, effectiveShopIds, userShops } = useAuth()
   const effectiveRole = roleInActiveShop ?? profile?.role
   const { canAccess } = useRolePermissions()
@@ -149,6 +154,19 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const canOrderStock = ['owner', 'manager', 'shop_manager', 'stock_manager', 'super_admin'].includes(effectiveRole || '')
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  // Vue cartes / tableau (choix mémorisé) et tri du tableau (idem)
+  const [viewMode, setViewMode] = useStockViewMode()
+  const [tableSort, setTableSort] = useState<ProductSort>(() => {
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem('stock_table_sort') : null
+      const s = raw ? JSON.parse(raw) : null
+      if (s && ['name', 'sku', 'price', 'quantity', 'sold', 'status'].includes(s.key) && ['asc', 'desc'].includes(s.dir)) return s
+    } catch { /* valeur par défaut */ }
+    return { key: 'name', dir: 'asc' }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('stock_table_sort', JSON.stringify(tableSort)) } catch { /* sans stockage, tri non mémorisé */ }
+  }, [tableSort])
   const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false)
   const [bulkDeleteAll, setBulkDeleteAll] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
@@ -162,19 +180,14 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [bulkPromoStart, setBulkPromoStart] = useState('')
   const [bulkApplyingPromo, setBulkApplyingPromo] = useState(false)
 
-  // ── Journal de suppressions ─────────────────────────────────────────────
-  const [view, setView] = useState<'products' | 'archived' | 'journal'>('products')
-  const [auditLogs, setAuditLogs] = useState<any[]>([])
-  const [loadingJournal, setLoadingJournal] = useState(false)
-  const [journalDateFrom, setJournalDateFrom] = useState('')
-  const [journalDateTo, setJournalDateTo] = useState('')
-  const [journalSearch, setJournalSearch] = useState('')
-  // Ventes pendant une promo passée — calculé à la demande (bouton par
-  // entrée de Journal), pas au chargement, pour éviter une requête par ligne.
-  const [promoSalesResult, setPromoSalesResult] = useState<Record<string, { loading: boolean; qty: number | null }>>({})
+  // ── Journal d'activité (panneau latéral) et produits archivés ────────────
+  // Anciens sous-onglets « Journal » et « Archivés » : le journal s'ouvre
+  // depuis la barre d'actions, les archivés sont une valeur du filtre Statut.
+  const isOwnerRole = effectiveRole === 'owner' || effectiveRole === 'super_admin'
+  const [journalOpen, setJournalOpen] = useState(false)
+  const showArchived = isOwnerRole && statusFilter === 'archived'
   const [archiveDateFrom, setArchiveDateFrom] = useState('')
   const [archiveDateTo, setArchiveDateTo] = useState('')
-  const [archiveSearch, setArchiveSearch] = useState('')
 
   const restockForm = useForm<RestockFormData>({ resolver: zodResolver(createRestockSchema({ restock_min_qty: t('errors.restock_min_qty') })) })
 
@@ -249,63 +262,13 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   // quantité vendue sur 30 jours glissants (détection stock dormant) — deux
   // signaux additifs, séparés du fetch principal pour ne pas bloquer
   // l'affichage des produits si l'un des deux échoue.
+  // Règles et requêtes partagées avec la Vue d'ensemble (lib/stock/signals).
+  // Chaque signal échoue séparément : on garde alors le dernier état connu
+  // plutôt que d'écraser avec un faux « vide ».
   const fetchStockSignals = async () => {
     if (!effectiveShopIds.length || !isOnline) return
-    try {
-      // Bounded so a stale connection/session after the app sat backgrounded
-      // a while can never leave this signal hanging (it already fails soft
-      // on error — a hang just needs to be turned into a fast rejection too).
-      // Error checked explicitly (not just `data ?? []`) for the same reason
-      // as fetchProducts above: a stale session mid-refresh can resolve this
-      // call successfully with data: null instead of throwing, which would
-      // otherwise silently zero out "Péremption" instead of preserving the
-      // last known-good expiry map.
-      const { data: batches, error: batchesErr } = await withTimeout<any>(supabase
-        .from('product_batches')
-        .select('product_id, expiry_date')
-        .in('shop_id', effectiveShopIds)
-        .gt('quantity', 0)
-        .not('expiry_date', 'is', null), 20_000)
-      if (batchesErr) throw batchesErr
-      const expiryMap: Record<string, string> = {}
-      for (const b of (batches || []) as any[]) {
-        if (!expiryMap[b.product_id] || b.expiry_date < expiryMap[b.product_id]) {
-          expiryMap[b.product_id] = b.expiry_date
-        }
-      }
-      setExpiryByProduct(expiryMap)
-    } catch {
-      // signal manquant — on garde le dernier état connu plutôt que d'écraser avec un faux "vide"
-    }
-
-    try {
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 86_400_000).toISOString()
-      // Bounded + explicit error check — same reasoning as the expiry signal above.
-      const { data: recentSales, error: salesErr } = await withTimeout<any>(supabase
-        .from('sales')
-        .select('id')
-        .in('shop_id', effectiveShopIds)
-        .eq('sale_status', 'active')
-        .gte('created_at', thirtyDaysAgo), 20_000)
-      if (salesErr) throw salesErr
-      const saleIds = (recentSales || []).map((s: any) => s.id)
-      const soldMap: Record<string, number> = {}
-      if (saleIds.length) {
-        const { data: recentItems, error: itemsErr } = await withTimeout<any>(supabase
-          .from('sale_items')
-          .select('product_id, quantity')
-          .in('sale_id', saleIds), 20_000)
-        if (itemsErr) throw itemsErr
-        for (const it of (recentItems || []) as any[]) {
-          if (!it.product_id) continue
-          soldMap[it.product_id] = (soldMap[it.product_id] || 0) + it.quantity
-        }
-      }
-      setSoldQtyByProduct(soldMap)
-      setSoldQtyLoaded(true)
-    } catch {
-      // idem — on garde le dernier état connu plutôt que d'écraser avec un faux "vide"
-    }
+    try { setExpiryByProduct(await fetchExpiryByProduct(supabase, effectiveShopIds)) } catch { /* dernier état connu conservé */ }
+    try { setSoldQtyByProduct(await fetchSoldQty30d(supabase, effectiveShopIds)); setSoldQtyLoaded(true) } catch { /* idem */ }
   }
 
   const openProductBatches = async (product: Product) => {
@@ -329,6 +292,18 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   }
 
   useEffect(() => { fetchProducts() }, [effectiveShopIds.join(',')])
+
+  // Lien profond (Vue d'ensemble, tableau de bord…) : /stock/products?status=low
+  // applique le filtre Statut puis nettoie l'URL, pour qu'un rechargement ne
+  // réimpose pas le filtre par-dessus un choix fait entre-temps.
+  useEffect(() => {
+    const s = searchParams.get('status')
+    if (!s) return
+    if (['all', 'ok', 'low', 'out', 'expiry', 'dormant', 'promo', 'archived'].includes(s)) setFilter({ statusFilter: s })
+    // replaceState natif (synchronisé avec le routeur de Next 14) : un
+    // router.replace lancé pendant la navigation entrante était ignoré.
+    window.history.replaceState(window.history.state, '', `/${locale}/stock/products`)
+  }, [searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Péremption/Ventes lentes n'ont pas d'équivalent temps réel (contrairement
   // à la liste produits, tenue à jour par useStockRealtime plus bas) — sans ce
@@ -430,11 +405,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       return true
     })
 
-  const outCount = products.filter(p => p.quantity === 0).length
-  const lowCount = products.filter(p => p.quantity > 0 && p.quantity <= (p.low_stock_threshold || shop?.low_stock_threshold || 10)).length
-  const expiringCount = products.filter(isExpired).length + products.filter(isExpiringSoon).length
-  const dormantCount = products.filter(isDormant).length
-  const promoCount = products.filter(isPromoActive).length
 
   const saveProduct = async (data: ProductFormData) => {
     if (!shop?.id) { toast({ title: t('toast.no_active_shop'), variant: 'destructive' }); return false }
@@ -767,7 +737,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
       toast({ title: t('toast.product_archived') })
       fetchProducts()
-      if (view === 'journal') fetchAuditLogs()
     } catch (err: any) {
       toast({ title: err.message || t('toast.error'), variant: 'destructive' })
     } finally {
@@ -786,7 +755,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
       toast({ title: t('toast.product_restored'), variant: 'success' })
       fetchProducts()
-      if (view === 'journal') fetchAuditLogs()
     } catch (err: any) {
       toast({ title: err.message || t('toast.error'), variant: 'destructive' })
     }
@@ -950,59 +918,33 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     }
   }
 
-  const fetchAuditLogs = async () => {
-    if (!shop?.id) return
-    setLoadingJournal(true)
-    let query = (supabase as any)
-      .from('audit_logs')
-      .select('*')
-      .eq('shop_id', shop.id)
-      .in('action', ['delete_product', 'bulk_delete_products', 'delete_all_products', 'create_product', 'update_product', 'archive_product', 'restore_product', 'update_batch_promo', 'bulk_update_promo'])
-      .order('created_at', { ascending: false })
-      .limit(100)
-    if (journalDateFrom) query = query.gte('created_at', `${journalDateFrom}T00:00:00`)
-    if (journalDateTo) query = query.lte('created_at', `${journalDateTo}T23:59:59`)
-    try {
-      // Bounded so a stale connection/session after the app sat backgrounded
-      // a while can never leave the journal spinning forever.
-      const { data } = await withTimeout<any>(query, 20_000, 'Chargement du journal trop lent — réessayez.')
-      setAuditLogs(data || [])
-    } catch {
-      // journal just stays empty/stale — non-critical secondary tab
-    } finally {
-      setLoadingJournal(false)
-    }
-  }
-
-  // Quantité vendue d'un produit entre le début d'une promo (created_at de
-  // l'entrée de Journal) et sa date de fin — réponse directe à "est-ce que
-  // la promo a vraiment fait vendre", calculée à la demande uniquement.
-  const fetchPromoSales = async (logId: string, productId: string, from: string, until: string) => {
-    setPromoSalesResult(prev => ({ ...prev, [logId]: { loading: true, qty: null } }))
-    try {
-      const { data } = await withTimeout<any>(
-        (supabase as any)
-          .from('sale_items')
-          .select('quantity, sales!inner(created_at, sale_status)')
-          .eq('product_id', productId)
-          .gte('sales.created_at', from)
-          .lte('sales.created_at', until)
-          .eq('sales.sale_status', 'active'),
-        15_000
-      )
-      const qty = (data || []).reduce((sum: number, row: any) => sum + row.quantity, 0)
-      setPromoSalesResult(prev => ({ ...prev, [logId]: { loading: false, qty } }))
-    } catch {
-      setPromoSalesResult(prev => ({ ...prev, [logId]: { loading: false, qty: null } }))
-    }
-  }
-
-  useEffect(() => { if (view === 'journal') fetchAuditLogs() }, [view, journalDateFrom, journalDateTo])
+  // Journal d'activité : voir components/stock/product-activity-journal.tsx
 
   // Refresh the Journal when the user comes back to this tab or regains
   // connectivity — same treatment as the rest of the page.
-  useRefetchOnVisible(() => { if (view === 'journal') fetchAuditLogs() })
-  useRefetchOnReconnect(() => { if (view === 'journal') fetchAuditLogs() }, isOnline)
+  // (le journal d'activité se recharge à l'ouverture de son panneau)
+
+  // Ouverture de la boîte Promo (cartes et tableau) : pré-remplie avec la
+  // promo en cours, sinon avec la suggestion (péremption proche, vente lente).
+  const openPromoDialog = (product: Product) => {
+    const suggestion = !isPromoActive(product) ? suggestPromo(product) : null
+    setPromoProduct(product)
+    setPromoBatch(null)
+    setPromoInputMode('price')
+    if (product.promo_price) {
+      setPromoPrice(String(product.promo_price))
+      setPromoUntil(product.promo_until ? product.promo_until.slice(0, 10) : '')
+      setPromoStart(product.promo_start ? product.promo_start.slice(0, 10) : '')
+      setPromoSuggestionReason(null)
+      setPromoSuggestionKey(null)
+    } else {
+      setPromoPrice(suggestion ? String(suggestion.price) : '')
+      setPromoUntil(suggestion ? suggestion.until : '')
+      setPromoStart('')
+      setPromoSuggestionReason(suggestion ? suggestion.reason : null)
+      setPromoSuggestionKey(suggestion ? suggestion.key : null)
+    }
+  }
 
   const renderProductCard = (product: Product, idx: number) => {
     const threshold = product.low_stock_threshold || shop?.low_stock_threshold || 10
@@ -1123,24 +1065,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                     className={`h-7 px-2 ${stale ? 'text-red-600 dark:text-red-400 border-red-300 dark:border-red-700' : promoActive ? 'text-stockshop-blue dark:text-blue-400 border-stockshop-blue/20 dark:border-blue-800' : suggestion ? 'text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-700' : ''}`}
                     disabled={saving}
                     title={stale ? t('products.promo_stale_hint') : suggestion ? suggestion.reason : t('products.promo_action')}
-                    onClick={() => {
-                      setPromoProduct(product)
-                      setPromoBatch(null)
-                      setPromoInputMode('price')
-                      if (product.promo_price) {
-                        setPromoPrice(String(product.promo_price))
-                        setPromoUntil(product.promo_until ? product.promo_until.slice(0, 10) : '')
-                        setPromoStart(product.promo_start ? product.promo_start.slice(0, 10) : '')
-                        setPromoSuggestionReason(null)
-                        setPromoSuggestionKey(null)
-                      } else {
-                        setPromoPrice(suggestion ? String(suggestion.price) : '')
-                        setPromoUntil(suggestion ? suggestion.until : '')
-                        setPromoStart('')
-                        setPromoSuggestionReason(suggestion ? suggestion.reason : null)
-                        setPromoSuggestionKey(suggestion ? suggestion.key : null)
-                      }
-                    }}
+                    onClick={() => openPromoDialog(product)}
                   >
                     <Tag className="h-3 w-3" />
                   </Button>
@@ -1214,6 +1139,59 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const addRestore = restoredAdd && restoredAdd.formKey === addFormKey ? restoredAdd : null
   const editRestore = restoredEdit?.applied && editingProduct && restoredEdit.productId === editingProduct.id ? restoredEdit : null
 
+  // Sélection depuis le tableau : cocher une ligne active la barre d'actions
+  // groupées existante ; plus rien de coché → la barre disparaît.
+  const toggleSelectOne = (id: string) => {
+    const next = new Set(selectedIds)
+    next.has(id) ? next.delete(id) : next.add(id)
+    setSelectedIds(next)
+    setSelectionMode(next.size > 0)
+  }
+  const toggleSelectMany = (ids: string[], select: boolean) => {
+    const next = new Set(selectedIds)
+    ids.forEach(id => (select ? next.add(id) : next.delete(id)))
+    setSelectedIds(next)
+    setSelectionMode(next.size > 0)
+  }
+  // En tableau, le bouton « Sélectionner / Annuler » n'existe pas : la barre
+  // groupée disparaît d'elle-même dès que plus rien n'est coché (y compris
+  // après « Tout désélectionner » depuis la barre).
+  useEffect(() => {
+    if (viewMode === 'table' && selectionMode && selectedIds.size === 0) setSelectionMode(false)
+  }, [viewMode, selectionMode, selectedIds])
+  const thresholdFor = (p: Product) => p.low_stock_threshold || shop?.low_stock_threshold || 10
+  const tableProps = {
+    thresholdFor,
+    statusFor: (p: Product): ProductStatus =>
+      p.quantity === 0 ? 'out' : p.quantity <= thresholdFor(p) ? 'low' : isDormant(p) ? 'dormant' : 'ok',
+    soldQty: (p: Product) => (soldQtyLoaded ? soldQtyByProduct[p.id] || 0 : null),
+    expiryFor: (p: Product) => {
+      const exp = expiryByProduct[p.id]
+      if (!exp) return null
+      const expired = exp < todayStr
+      return { date: exp, expired, soon: !expired && exp <= getExpiryCutoffFor(p) }
+    },
+    isPromoActive,
+    promoStale,
+    promoSuggestion: (p: Product) => (isPromoActive(p) ? null : suggestPromo(p)?.reason ?? null),
+    formatPrice: formatNaira,
+    isOwner: effectiveRole === 'owner' || effectiveRole === 'super_admin',
+    canWriteStock,
+    canOrderStock,
+    busy: saving,
+    selectedIds,
+    onToggleSelect: toggleSelectOne,
+    onToggleSelectMany: toggleSelectMany,
+    sort: tableSort,
+    onSortChange: setTableSort,
+    onOrder: (p: Product) => router.push(`/${locale}/suppliers?order_product=${p.id}`),
+    onRestock: (p: Product) => { setEditingProduct(null); setShowAddModal(false); setRestockProduct(p); restockForm.reset({ product_id: p.id, quantity: 1 }); setShowRestockModal(true) },
+    onEdit: (p: Product) => { setShowAddModal(false); setShowRestockModal(false); setEditingProduct(p) },
+    onPromo: openPromoDialog,
+    onBatches: openProductBatches,
+    onArchive: (p: Product) => setArchiveConfirmProduct(p),
+  }
+
   const productFormProps = {
     categories: categories.filter((c: any) => !shop?.id || c.shop_id === shop.id),
     suppliers: suppliers.filter((s: any) => !shop?.id || s.shop_id === shop.id),
@@ -1228,34 +1206,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       {/* Stock / Mouvements / Inventaire physique */}
       <StockTabs locale={locale} />
 
-      {/* View toggle */}
-      {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
-        <div className="flex gap-1 rounded-lg border bg-muted/30 p-1 w-fit">
-          <button
-            onClick={() => setView('products')}
-            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${view === 'products' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            {t('products.tab_products')}
-          </button>
-          <button
-            onClick={() => setView('archived')}
-            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${view === 'archived' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            <Archive className="h-3.5 w-3.5" /> {t('products.tab_archived')}
-            {archivedProducts.length > 0 && (
-              <span className="rounded-full bg-muted px-1.5 text-xs">{archivedProducts.length}</span>
-            )}
-          </button>
-          <button
-            onClick={() => setView('journal')}
-            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${view === 'journal' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            <History className="h-3.5 w-3.5" /> {t('products.tab_journal')}
-          </button>
-        </div>
-      )}
-
-      {view === 'products' && (
       <>
       {/* Controls */}
       <div className="flex flex-wrap items-end gap-2">
@@ -1299,6 +1249,11 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               <SelectItem value="expiry">{t('products.card_expiry')}</SelectItem>
               <SelectItem value="dormant">{t('products.card_dormant')}</SelectItem>
               <SelectItem value="promo">{t('products.promo_badge')}</SelectItem>
+              {isOwnerRole && (
+                <SelectItem value="archived">
+                  <span className="flex items-center gap-1.5"><Archive className="h-3 w-3" /> {t('products.tab_archived')}{archivedProducts.length > 0 ? ` (${archivedProducts.length})` : ''}</span>
+                </SelectItem>
+              )}
             </SelectContent>
           </Select>
         </div>
@@ -1329,7 +1284,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             </div>
           </>
         )}
-        {(canWriteStock || canAccess('categories') || canDeleteProducts) && (
+        {/* En tableau, la sélection passe par les cases à cocher des lignes */}
+        {viewMode === 'cards' && (canWriteStock || canAccess('categories') || canDeleteProducts) && (
           <Button
             variant="outline"
             size="sm"
@@ -1342,36 +1298,43 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             {selectionMode ? <><Square className="h-3.5 w-3.5" /> {t('actions.cancel')}</> : <><CheckSquare className="h-3.5 w-3.5" /> {t('products.select_action')}</>}
           </Button>
         )}
+        {/* Cartes / tableau */}
+        <div className="flex h-9 rounded-lg border bg-muted/30 p-0.5" role="group" aria-label={t('products.view_label')}>
+          <button
+            type="button"
+            onClick={() => setViewMode('cards')}
+            aria-pressed={viewMode === 'cards'}
+            title={t('products.view_cards')}
+            className={`flex h-full w-8 items-center justify-center rounded-md transition-colors ${viewMode === 'cards' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            <LayoutGrid className="h-4 w-4" />
+            <span className="sr-only">{t('products.view_cards')}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('table')}
+            aria-pressed={viewMode === 'table'}
+            title={t('products.view_table')}
+            className={`flex h-full w-8 items-center justify-center rounded-md transition-colors ${viewMode === 'table' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            <List className="h-4 w-4" />
+            <span className="sr-only">{t('products.view_table')}</span>
+          </button>
+        </div>
+        {/* Journal d'activité (ancien sous-onglet « Journal ») : panneau latéral, propriétaire seulement */}
+        {isOwnerRole && (
+          <Button variant="outline" size="sm" className="h-9 w-9 p-0" title={t('products.activity_journal')} onClick={() => setJournalOpen(true)}>
+            <History className="h-4 w-4" />
+            <span className="sr-only">{t('products.activity_journal')}</span>
+          </Button>
+        )}
       </div>
 
-      {/* Cartes d'alerte cliquables */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        {[
-          { key: 'out', count: outCount, label: t('products.card_out_of_stock'), icon: PackageX, color: 'text-red-600 dark:text-red-400 border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20', badge: 'bg-red-100 dark:bg-red-900/40' },
-          { key: 'low', count: lowCount, label: t('products.card_low_stock'), icon: PackageMinus, color: 'text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/20', badge: 'bg-amber-100 dark:bg-amber-900/40' },
-          { key: 'expiry', count: expiringCount, label: t('products.card_expiry'), icon: CalendarClock, color: 'text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-900 bg-orange-50/50 dark:bg-orange-950/20', badge: 'bg-orange-100 dark:bg-orange-900/40' },
-          { key: 'dormant', count: dormantCount, label: t('products.card_dormant'), icon: TrendingDown, color: 'text-stockshop-blue dark:text-blue-400 border-stockshop-blue/20 dark:border-blue-900 bg-stockshop-blue-muted/50 dark:bg-blue-950/20', badge: 'bg-stockshop-blue-muted dark:bg-blue-900/40' },
-          { key: 'promo', count: promoCount, label: t('products.promo_badge'), icon: Tag, color: 'text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-900 bg-purple-50/50 dark:bg-purple-950/20', badge: 'bg-purple-100 dark:bg-purple-900/40' },
-        ].map(card => (
-          <button
-            key={card.key}
-            onClick={() => setFilter({ statusFilter: statusFilter === card.key ? 'all' : card.key })}
-            className={`rounded-xl border px-3 py-2.5 text-left transition-all ${card.color} ${statusFilter === card.key ? 'ring-2 ring-offset-1 ring-current' : 'hover:opacity-80'}`}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-xl font-bold leading-none">{card.count}</p>
-              <span className={`rounded-lg p-1.5 flex-shrink-0 ${card.badge}`}>
-                <card.icon className="h-5 w-5" />
-              </span>
-            </div>
-            <p className="text-[11px] font-medium mt-1 opacity-90">{card.label}</p>
-          </button>
-        ))}
-      </div>
+      {/* Les cartes d'alerte vivent désormais dans la Vue d'ensemble (/stock) */}
 
       {/* Stats */}
       <div className="flex gap-4 text-sm text-muted-foreground">
-        <span>{t('products.stats_count', { count: filtered.length })}</span>
+        <span>{t('products.stats_count', { count: showArchived ? archivedProducts.length : filtered.length })}</span>
       </div>
 
       {/* Barre de sélection */}
@@ -1400,19 +1363,42 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         </div>
       )}
 
-      {/* Product grid */}
-      {loading && shopLoadTimedOut && effectiveShopIds.length === 0 ? (
+      {/* Product grid (masquée quand le filtre Statut affiche les archivés) */}
+      {showArchived ? null : loading && shopLoadTimedOut && effectiveShopIds.length === 0 ? (
         <LoadErrorFallback />
       ) : loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-32 rounded-lg" />)}
-        </div>
+        viewMode === 'table' ? <ProductTableSkeleton /> : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-32 rounded-lg" />)}
+          </div>
+        )
       ) : filtered.length === 0 ? (
         <div className="flex h-48 flex-col items-center justify-center text-muted-foreground">
           <Package className="h-12 w-12 mb-3 opacity-30" />
           <p>{t('products.no_products')}</p>
           <p className="text-sm mt-1">{t('products.add_first')}</p>
         </div>
+      ) : viewMode === 'table' ? (
+        isMultiShop ? (
+          <div className="space-y-4">
+            {userShops.filter(s => effectiveShopIds.includes(s.id)).map(shopEntry => {
+              const shopProducts = filtered.filter(p => p.shop_id === shopEntry.id)
+              if (!shopProducts.length) return null
+              return (
+                <div key={shopEntry.id} className="space-y-2">
+                  <div className="flex items-center gap-2 pt-1">
+                    <Store className="h-3.5 w-3.5 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
+                    <span className="text-xs font-semibold text-stockshop-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
+                    <div className="flex-1 h-px bg-border" />
+                  </div>
+                  <ProductTable {...tableProps} products={shopProducts} />
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          <ProductTable {...tableProps} products={filtered} />
+        )
       ) : isMultiShop ? (
         <div className="space-y-4">
           {userShops.filter(s => effectiveShopIds.includes(s.id)).map(shopEntry => {
@@ -1439,21 +1425,17 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       )}
 
       </>
-      )}
 
-      {/* Produits archivés — owner only */}
-      {view === 'archived' && (effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
+      {/* Produits archivés — filtre Statut « Archivés », propriétaire seulement.
+          La recherche principale s'applique ; période d'archivage en plus. */}
+      {showArchived && (
         <div className="space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
-            <div className="relative flex-1 min-w-[160px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input value={archiveSearch} onChange={e => setArchiveSearch(e.target.value)} placeholder={t('products.search_placeholder')} className="pl-8 h-8 text-xs" />
-            </div>
             <Input type="date" value={archiveDateFrom} max={archiveDateTo || undefined} onChange={e => setArchiveDateFrom(e.target.value)} className="h-8 w-[140px] text-xs" />
             <span className="text-xs text-muted-foreground">→</span>
             <Input type="date" value={archiveDateTo} min={archiveDateFrom || undefined} onChange={e => setArchiveDateTo(e.target.value)} className="h-8 w-[140px] text-xs" />
-            {(archiveDateFrom || archiveDateTo || archiveSearch) && (
-              <button className="text-xs text-muted-foreground hover:text-foreground underline" onClick={() => { setArchiveDateFrom(''); setArchiveDateTo(''); setArchiveSearch('') }}>
+            {(archiveDateFrom || archiveDateTo) && (
+              <button className="text-xs text-muted-foreground hover:text-foreground underline" onClick={() => { setArchiveDateFrom(''); setArchiveDateTo('') }}>
                 {t('products.reset_filters')}
               </button>
             )}
@@ -1463,7 +1445,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               const d = (p as any).updated_at?.slice(0, 10)
               if (archiveDateFrom && d < archiveDateFrom) return false
               if (archiveDateTo && d > archiveDateTo) return false
-              if (archiveSearch && !normalize(p.name).includes(normalize(archiveSearch))) return false
+              if (search && !normalize(p.name).includes(normalize(search))) return false
               return true
             })
             if (filteredArchived.length === 0) {
@@ -1501,144 +1483,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         </div>
       )}
 
-      {/* Journal — suppressions et modifications de prix — owner only */}
-      {view === 'journal' && (effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
-        <div className="space-y-1.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative flex-1 min-w-[160px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input value={journalSearch} onChange={e => setJournalSearch(e.target.value)} placeholder={t('products.search_placeholder')} className="pl-8 h-8 text-xs" />
-            </div>
-            <Input type="date" value={journalDateFrom} max={journalDateTo || undefined} onChange={e => setJournalDateFrom(e.target.value)} className="h-8 w-[140px] text-xs" />
-            <span className="text-xs text-muted-foreground">→</span>
-            <Input type="date" value={journalDateTo} min={journalDateFrom || undefined} onChange={e => setJournalDateTo(e.target.value)} className="h-8 w-[140px] text-xs" />
-            {(journalDateFrom || journalDateTo || journalSearch) && (
-              <button className="text-xs text-muted-foreground hover:text-foreground underline" onClick={() => { setJournalDateFrom(''); setJournalDateTo(''); setJournalSearch('') }}>
-                {t('products.reset_filters')}
-              </button>
-            )}
-          </div>
-          {loadingJournal ? (
-            <p className="text-xs text-muted-foreground text-center py-3">{t('team.journal_loading')}</p>
-          ) : (() => {
-            const filteredLogs = journalSearch.trim()
-              ? auditLogs.filter((log: any) => {
-                  const meta = log.metadata || {}
-                  const names = [meta.product_name, ...((meta.products_snapshot || []) as any[]).map(p => p.name)].filter(Boolean)
-                  return names.some(n => normalize(n).includes(normalize(journalSearch)))
-                })
-              : auditLogs
-            if (filteredLogs.length === 0) {
-              return <p className="text-xs text-muted-foreground text-center py-3">{t('team.journal_empty')}</p>
-            }
-            return filteredLogs.map((log: any) => {
-              const meta = log.metadata || {}
-              const actor = meta.actor_name || log.actor_email || '—'
-              const when = new Date(log.created_at).toLocaleString('fr-FR', {
-                day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-              })
-              let label = ''
-              let detail = ''
-              let Icon = Trash2
-              let iconColor = 'text-red-400'
-              if (log.action === 'delete_product') {
-                label = t('products.journal_deleted')
-                detail = meta.product_name || log.target_id || '—'
-              } else if (log.action === 'bulk_delete_products') {
-                label = t('products.journal_bulk_delete')
-                const names = (meta.products_snapshot || []).map((p: any) => p.name).join(', ')
-                detail = t('products.journal_bulk_delete_detail', { count: meta.count, names: names ? ` · ${names}` : '' })
-              } else if (log.action === 'create_product') {
-                Icon = Plus
-                iconColor = 'text-green-500'
-                label = meta.product_name || t('products.journal_created')
-                detail = t('products.journal_created_detail', { price: formatNaira(meta.selling_price), qty: meta.quantity })
-              } else if (log.action === 'update_product') {
-                Icon = Edit2
-                iconColor = 'text-blue-400'
-                label = meta.product_name || t('products.journal_updated')
-                const changes = meta.changes || {}
-                const parts: string[] = []
-                if (changes.name) parts.push(`${t('products.journal_field_name')}: "${changes.name.from}" → "${changes.name.to}"`)
-                if (changes.selling_price) parts.push(`${t('products.journal_field_selling_price')}: ${changes.selling_price.from} → ${changes.selling_price.to} ${currencySymbol}`)
-                if (changes.buying_price) parts.push(`${t('products.journal_field_buying_price')}: ${changes.buying_price.from} → ${changes.buying_price.to} ${currencySymbol}`)
-                if (changes.low_stock_threshold) parts.push(`${t('products.journal_field_threshold')}: ${changes.low_stock_threshold.from ?? '—'} → ${changes.low_stock_threshold.to ?? '—'}`)
-                if (changes.sku) parts.push(`${t('products.journal_field_sku')}: ${changes.sku.from || '—'} → ${changes.sku.to || '—'}`)
-                if (changes.category_id) parts.push(`${t('products.journal_field_category')}: ${changes.category_id.from || '—'} → ${changes.category_id.to || '—'}`)
-                if (changes.supplier_id) parts.push(`${t('products.journal_field_supplier')}: ${changes.supplier_id.from || '—'} → ${changes.supplier_id.to || '—'}`)
-                if (changes.promo_price) parts.push(`${t('products.journal_field_promo_price')}: ${changes.promo_price.from ? formatNaira(changes.promo_price.from) : '—'} → ${changes.promo_price.to ? formatNaira(changes.promo_price.to) : '—'}`)
-                if (changes.promo_until) parts.push(`${t('products.journal_field_promo_until')}: ${changes.promo_until.from ? new Date(changes.promo_until.from).toLocaleDateString('fr-FR') : '—'} → ${changes.promo_until.to ? new Date(changes.promo_until.to).toLocaleDateString('fr-FR') : '—'}`)
-                detail = parts.join(' · ')
-              } else if (log.action === 'archive_product') {
-                Icon = Archive
-                iconColor = 'text-amber-500'
-                label = t('products.journal_archived')
-                detail = meta.product_name || log.target_id || '—'
-              } else if (log.action === 'restore_product') {
-                Icon = RotateCcw
-                iconColor = 'text-green-500'
-                label = t('products.journal_restored')
-                detail = meta.product_name || log.target_id || '—'
-              } else if (log.action === 'update_batch_promo') {
-                Icon = Tag
-                iconColor = 'text-purple-500'
-                label = meta.product_name || t('products.journal_batch_promo_updated')
-                detail = meta.new_price
-                  ? t('products.journal_batch_promo_detail_set', { price: formatNaira(meta.new_price), date: meta.new_until ? new Date(meta.new_until).toLocaleDateString('fr-FR') : '—' })
-                  : t('products.journal_batch_promo_detail_cleared')
-              } else if (log.action === 'bulk_update_promo') {
-                Icon = Tag
-                iconColor = 'text-purple-500'
-                label = t('products.journal_bulk_promo_updated')
-                detail = t('products.journal_bulk_promo_detail', { count: meta.count, percent: meta.percent ?? 0 })
-              } else {
-                label = t('products.all_deleted_toast')
-                detail = t('products.journal_all_deleted_detail', { count: meta.count })
-              }
-
-              // Bouton "ventes pendant la promo" — seulement pour une entrée
-              // qui active concrètement une promo sur UN produit précis
-              // (pas les entrées "en masse", trop de produits à agréger ici).
-              let promoQuery: { productId: string; from: string; until: string } | null = null
-              if (log.action === 'update_product' && meta.changes?.promo_price?.to && meta.changes?.promo_until?.to) {
-                promoQuery = { productId: log.target_id, from: log.created_at, until: meta.changes.promo_until.to }
-              } else if (log.action === 'update_batch_promo' && meta.new_price && meta.new_until && meta.product_id) {
-                promoQuery = { productId: meta.product_id, from: log.created_at, until: meta.new_until }
-              }
-              const promoSales = promoSalesResult[log.id]
-
-              return (
-                <div key={log.id} className="flex items-start gap-2.5 rounded-lg bg-muted/40 border px-3 py-2.5 text-xs">
-                  <Icon className={`h-3.5 w-3.5 ${iconColor} flex-shrink-0 mt-0.5`} />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-foreground/80">{label}</p>
-                    <p className="text-muted-foreground truncate">{detail}</p>
-                    <p className="text-muted-foreground/70 mt-0.5">{actor} · {when}</p>
-                    {promoQuery && (
-                      promoSales ? (
-                        <p className="text-purple-600 dark:text-purple-400 font-medium mt-1">
-                          {promoSales.loading
-                            ? t('products.journal_promo_sales_loading')
-                            : promoSales.qty !== null
-                              ? t('products.journal_promo_sales_result', { count: promoSales.qty })
-                              : t('products.journal_promo_sales_error')}
-                        </p>
-                      ) : (
-                        <button
-                          className="text-purple-600 dark:text-purple-400 hover:underline mt-1"
-                          onClick={() => promoQuery && fetchPromoSales(log.id, promoQuery.productId, promoQuery.from, promoQuery.until)}
-                        >
-                          {t('products.journal_promo_sales_button')}
-                        </button>
-                      )
-                    )}
-                  </div>
-                </div>
-              )
-            })
-          })()}
-        </div>
-      )}
+      {/* Journal d'activité (panneau latéral, propriétaire seulement) */}
+      <ProductActivityJournal open={journalOpen} onOpenChange={setJournalOpen} shopId={shop?.id} />
 
       {/* Bulk Add Modal */}
       {shop?.id && (

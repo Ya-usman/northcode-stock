@@ -34,7 +34,8 @@ type ExpiryBatch = {
   product_id: string
   quantity: number
   buying_price: number | null
-  expiry_date: string
+  /** null : lot sans date de péremption (produit non périssable) */
+  expiry_date: string | null
   received_at: string
   products: {
     name: string
@@ -83,8 +84,10 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
           .select('id, product_id, quantity, buying_price, expiry_date, received_at, products(name, name_hausa, unit, category_id, categories(name, color, expiry_alert_days))')
           .in('shop_id', effectiveShopIds)
           .gt('quantity', 0)
-          .not('expiry_date', 'is', null)
-          .order('expiry_date', { ascending: true }),
+          // Tous les lots en stock, datés ou non : les périssables d'abord
+          // (péremption la plus proche en tête), les lots sans date à la fin.
+          .order('expiry_date', { ascending: true, nullsFirst: false })
+          .order('received_at', { ascending: true }),
         supabase.from('categories').select('*').in('shop_id', effectiveShopIds).order('name'),
       ]), 20_000, t('errors.generic'))
       if (batchesRes.error) throw batchesRes.error
@@ -147,7 +150,9 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
   const today = new Date().toISOString().slice(0, 10)
   const shopAlertDays = shop?.expiry_alert_days ?? 14
 
-  function statusOf(b: ExpiryBatch): 'expired' | 'expiring' | 'ok' {
+  type BatchStatus = 'expired' | 'expiring' | 'ok' | 'none'
+  function statusOf(b: ExpiryBatch): BatchStatus {
+    if (!b.expiry_date) return 'none'
     if (b.expiry_date < today) return 'expired'
     const alertDays = getExpiryAlertDays(b.products?.categories?.expiry_alert_days, shopAlertDays)
     const cutoff = new Date(Date.now() + alertDays * 86_400_000).toISOString().slice(0, 10)
@@ -162,27 +167,35 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
     return true
   })
 
-  const totalAtRisk = filtered.reduce((sum, b) => sum + b.quantity * (b.buying_price || 0), 0)
+  // « À risque » = lots périmés ou proches de péremption parmi les lots affichés
+  // (les lots à jour ou sans date n'ont rien à risquer)
+  const totalAtRisk = filtered.reduce((sum, b) => {
+    const s = statusOf(b)
+    return s === 'expired' || s === 'expiring' ? sum + b.quantity * (b.buying_price || 0) : sum
+  }, 0)
 
-  const statusBadge = (status: 'expired' | 'expiring' | 'ok') => {
-    if (status === 'expired') return <Badge variant="danger">{t('expiry.status_expired')}</Badge>
-    if (status === 'expiring') return <Badge variant="warning">{t('expiry.status_expiring')}</Badge>
-    return <Badge variant="success">{t('expiry.status_ok')}</Badge>
+  const statusLabelOf = (status: BatchStatus) =>
+    status === 'expired' ? t('expiry.status_expired')
+      : status === 'expiring' ? t('expiry.status_expiring')
+        : status === 'none' ? t('expiry.status_none')
+          : t('expiry.status_ok')
+
+  const statusBadge = (status: BatchStatus) => {
+    if (status === 'expired') return <Badge variant="danger">{statusLabelOf(status)}</Badge>
+    if (status === 'expiring') return <Badge variant="warning">{statusLabelOf(status)}</Badge>
+    if (status === 'none') return <Badge variant="secondary">{statusLabelOf(status)}</Badge>
+    return <Badge variant="success">{statusLabelOf(status)}</Badge>
   }
 
-  const exportRows = () => filtered.map(b => {
-    const status = statusOf(b)
-    const statusLabel = status === 'expired' ? t('expiry.status_expired') : status === 'expiring' ? t('expiry.status_expiring') : t('expiry.status_ok')
-    return [
-      b.products?.name || '—',
-      b.products?.categories?.name || '—',
-      String(b.quantity),
-      formatNaira(b.quantity * (b.buying_price || 0)),
-      format(new Date(b.received_at), 'dd/MM/yyyy'),
-      format(new Date(b.expiry_date), 'dd/MM/yyyy'),
-      statusLabel,
-    ]
-  })
+  const exportRows = () => filtered.map(b => [
+    b.products?.name || '—',
+    b.products?.categories?.name || '—',
+    String(b.quantity),
+    formatNaira(b.quantity * (b.buying_price || 0)),
+    format(new Date(b.received_at), 'dd/MM/yyyy'),
+    b.expiry_date ? format(new Date(b.expiry_date), 'dd/MM/yyyy') : '—',
+    statusLabelOf(statusOf(b)),
+  ])
 
   const exportPDF = async () => {
     if (!shop) return
@@ -264,6 +277,7 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
               <SelectItem value="expired">{t('expiry.status_expired')}</SelectItem>
               <SelectItem value="expiring">{t('expiry.status_expiring')}</SelectItem>
               <SelectItem value="ok">{t('expiry.status_ok')}</SelectItem>
+              <SelectItem value="none">{t('expiry.status_none')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -338,7 +352,7 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
                       <td className="px-3 py-2 text-right">{b.quantity} {b.products?.unit}</td>
                       <td className="px-3 py-2 text-right">{formatNaira(b.quantity * (b.buying_price || 0))}</td>
                       <td className="px-3 py-2 text-muted-foreground">{format(new Date(b.received_at), 'dd MMM yyyy')}</td>
-                      <td className="px-3 py-2">{format(new Date(b.expiry_date), 'dd MMM yyyy')}</td>
+                      <td className="px-3 py-2">{b.expiry_date ? format(new Date(b.expiry_date), 'dd MMM yyyy') : <span className="text-muted-foreground">—</span>}</td>
                       <td className="px-3 py-2">{statusBadge(status)}</td>
                       {canWriteStock && (
                         <td className="px-3 py-2">
