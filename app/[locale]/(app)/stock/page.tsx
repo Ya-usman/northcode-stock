@@ -24,6 +24,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { createRestockSchema, type RestockFormData, type ProductFormData } from '@/lib/validations/product'
 import type { Product, Category, Supplier } from '@/lib/types/database'
 import { ProductForm } from '@/components/stock/product-form'
+import { useRestoredPhoto } from '@/lib/photo/use-restored-photo'
 import { ProductThumbnail } from '@/components/stock/product-thumbnail'
 import { ImportProductsModal } from '@/components/stock/import-products-modal'
 import { BulkAddModal } from '@/components/stock/bulk-add-modal'
@@ -121,6 +122,12 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [showBulkModal, setShowBulkModal] = useState(false)
   const [showRestockModal, setShowRestockModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  // Reprise après destruction de l'activité Android pendant la prise de vue
+  // (voir PhotoRestoreHandler) : brouillon + photo à réinjecter dans la fiche.
+  // Ajout : lié à la clé du formulaire, donc oublié dès que la fiche est
+  // recréée (« enregistrer et ajouter », fermeture). Édition : lié au produit.
+  const [restoredAdd, setRestoredAdd] = useState<{ formKey: number; values: Partial<ProductFormData>; file: File | null } | null>(null)
+  const [restoredEdit, setRestoredEdit] = useState<{ productId: string; values: Partial<ProductFormData>; file: File | null; applied: boolean } | null>(null)
   const [restockProduct, setRestockProduct] = useState<Product | null>(null)
   const [saving, setSaving] = useState(false)
   const [archivedProducts, setArchivedProducts] = useState<Product[]>([])
@@ -1169,6 +1176,44 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     )
   }
 
+  // Photo + saisie restaurées après une destruction de l'activité pendant la
+  // prise de vue : on rouvre la fiche concernée telle qu'elle était.
+  useRestoredPhoto('product', ({ draft, file }) => {
+    const values = draft.values as Partial<ProductFormData>
+    const productId = draft.meta?.isEdit ? (draft.meta?.productId as string | undefined) : undefined
+    setShowRestockModal(false)
+    if (productId) {
+      setRestoredEdit({ productId, values, file, applied: false })
+      return
+    }
+    const nextKey = addFormKey + 1
+    setEditingProduct(null)
+    setSessionAddCount(0)
+    setAddFormKey(nextKey)
+    setRestoredAdd({ formKey: nextKey, values, file })
+    setShowAddModal(true)
+  })
+  // Édition : la fiche ne s'ouvre qu'une fois le produit connu (liste en cache
+  // ou chargée) ; introuvable une fois le chargement fini → reprise abandonnée.
+  useEffect(() => {
+    if (!restoredEdit || restoredEdit.applied) return
+    const product = products.find(p => p.id === restoredEdit.productId)
+    if (product) {
+      setShowAddModal(false)
+      setEditingProduct(product)
+      setRestoredEdit({ ...restoredEdit, applied: true })
+    } else if (!loading) {
+      setRestoredEdit(null)
+    }
+  }, [restoredEdit, products, loading])
+  // Fiche d'édition refermée (annulation ou enregistrement) : la reprise ne doit
+  // pas resservir à la prochaine ouverture du même produit
+  useEffect(() => {
+    if (!editingProduct) setRestoredEdit(r => (r?.applied ? null : r))
+  }, [editingProduct])
+  const addRestore = restoredAdd && restoredAdd.formKey === addFormKey ? restoredAdd : null
+  const editRestore = restoredEdit?.applied && editingProduct && restoredEdit.productId === editingProduct.id ? restoredEdit : null
+
   const productFormProps = {
     categories: categories.filter((c: any) => !shop?.id || c.shop_id === shop.id),
     suppliers: suppliers.filter((s: any) => !shop?.id || s.shop_id === shop.id),
@@ -1619,14 +1664,15 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
       {/* Add Product Modal */}
       <PremiumDialog open={showAddModal} onOpenChange={open => { if (!open) { setShowAddModal(false); setSessionAddCount(0) } }} category={t('nav.stock')} title={t('actions.add_product')} icon={<Package className="h-4 w-4" />} maxWidth="max-w-lg">
-        {showAddModal && <ProductForm key={addFormKey} {...productFormProps} sessionCount={sessionAddCount} onSubmit={onAddProduct} onSaveAndAdd={onSaveAndAdd} onCancel={() => { setShowAddModal(false); setSessionAddCount(0) }} />}
+        {showAddModal && <ProductForm key={addFormKey} {...productFormProps} sessionCount={sessionAddCount} defaultValues={addRestore?.values} initialPhoto={addRestore?.file ?? null} onSubmit={onAddProduct} onSaveAndAdd={onSaveAndAdd} onCancel={() => { setShowAddModal(false); setSessionAddCount(0) }} />}
       </PremiumDialog>
 
       {/* Edit Product Modal */}
       <PremiumDialog open={!!editingProduct} onOpenChange={open => !open && setEditingProduct(null)} category={t('nav.stock')} title={t('products.edit_title')} icon={<Edit2 className="h-4 w-4" />} maxWidth="max-w-lg">
         {editingProduct && (
-          <ProductForm key={editingProduct.id} {...productFormProps} isEdit
-            defaultValues={{ name: editingProduct.name, category_id: editingProduct.category_id || '', supplier_id: editingProduct.supplier_id || '', buying_price: editingProduct.buying_price, selling_price: editingProduct.selling_price, quantity: editingProduct.quantity, unit: editingProduct.unit, low_stock_threshold: editingProduct.low_stock_threshold || undefined, sku: editingProduct.sku || '', image_url: editingProduct.image_url || '' }}
+          <ProductForm key={editingProduct.id} {...productFormProps} isEdit productId={editingProduct.id}
+            defaultValues={{ name: editingProduct.name, category_id: editingProduct.category_id || '', supplier_id: editingProduct.supplier_id || '', buying_price: editingProduct.buying_price, selling_price: editingProduct.selling_price, quantity: editingProduct.quantity, unit: editingProduct.unit, low_stock_threshold: editingProduct.low_stock_threshold || undefined, sku: editingProduct.sku || '', image_url: editingProduct.image_url || '', ...(editRestore?.values ?? {}) }}
+            initialPhoto={editRestore?.file ?? null}
             onSubmit={onEditProduct} onCancel={() => setEditingProduct(null)}
           />
         )}

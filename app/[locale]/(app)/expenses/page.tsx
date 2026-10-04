@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
@@ -29,6 +29,9 @@ import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 
 import { cn } from '@/lib/utils/cn'
 import { withTimeout } from '@/lib/utils/with-timeout'
+import { compressImage } from '@/lib/utils/compress-image'
+import { hasNativePhotoPicker, pickPhotoNative, PhotoPermissionError } from '@/lib/photo/pick-photo'
+import { useRestoredPhoto } from '@/lib/photo/use-restored-photo'
 import { generateExpensesReportPDF } from '@/lib/utils/pdf'
 import { downloadOrShareCSV } from '@/lib/utils/native-share'
 
@@ -78,6 +81,7 @@ export default function ExpensesPage() {
   const { toast } = useToast()
   const { fmt } = useCurrency()
   const t = useTranslations('expenses')
+  const tPhoto = useTranslations('photo')
   const tRoot = useTranslations()
   const { canAccess } = useRolePermissions()
   // manager/shop_manager keep unconditional access, matching the API route —
@@ -128,6 +132,9 @@ export default function ExpensesPage() {
   const [recurrenceDay, setRecurrenceDay] = useState(1)
   const [receiptFile, setReceiptFile]     = useState<File | null>(null)
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null)
+  // Web : <input type="file"> cachés (caméra du téléphone / fichier image ou PDF)
+  const receiptCameraRef = useRef<HTMLInputElement>(null)
+  const receiptFileRef = useRef<HTMLInputElement>(null)
 
   // Budget modal state
   const [budgetModalOpen, setBudgetModalOpen] = useState(false)
@@ -338,6 +345,71 @@ export default function ExpensesPage() {
     supabase.auth.getSession().catch(() => {})
     setModalOpen(true)
   }
+
+  // Reçu : image compressée comme les photos produits (8 Mo → ~150 Ko), PDF tel quel
+  const attachReceipt = async (file: File) => {
+    const prepared = file.type.startsWith('image/') ? await compressImage(file).catch(() => file) : file
+    setReceiptFile(prepared)
+    setReceiptPreview(URL.createObjectURL(prepared))
+  }
+
+  const onReceiptInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (file) void attachReceipt(file)
+  }
+
+  // Application native : prise de vue via le plugin Camera, saisie mise de côté
+  // pour la reprise si Android détruit l'activité (voir PhotoRestoreHandler).
+  // « Fichier » reste le sélecteur système, seul à proposer les PDF.
+  // Web/PWA : les <input> cachés, gérés par le navigateur.
+  const pickReceipt = async (source: 'camera' | 'file') => {
+    if (source === 'file' || !hasNativePhotoPicker()) {
+      ;(source === 'camera' ? receiptCameraRef : receiptFileRef).current?.click()
+      return
+    }
+    if (!shop?.id) return
+    try {
+      const file = await pickPhotoNative('camera', {
+        kind: 'expense',
+        shopId: shop.id,
+        route: window.location.pathname,
+        values: { amount, description, date, category, paymentMethod, isRecurring, recurrence, recurrenceDay },
+        meta: { editingId: editing?.id ?? null },
+      })
+      if (file) await attachReceipt(file)
+    } catch (err) {
+      toast({
+        title: err instanceof PhotoPermissionError ? tPhoto('permission_denied') : tPhoto('pick_failed'),
+        variant: 'destructive',
+      })
+    }
+  }
+
+  // Reprise : le formulaire est rouvert tel qu'il était, avec la photo si la
+  // prise de vue est allée au bout.
+  useRestoredPhoto('expense', ({ draft, file }) => {
+    const v = draft.values as Record<string, unknown>
+    const editingId = draft.meta?.editingId as string | null | undefined
+    if (editingId) {
+      // La dépense doit être connue (liste en cache ou chargée) ; sinon on
+      // n'ouvre rien plutôt que de risquer un doublon en mode ajout.
+      const exp = expenses.find(x => x.id === editingId)
+      if (!exp) return
+      openEdit(exp)
+    } else {
+      openAdd()
+    }
+    if (typeof v.amount === 'string') setAmount(v.amount)
+    if (typeof v.description === 'string') setDescription(v.description)
+    if (typeof v.date === 'string') setDate(v.date)
+    if (typeof v.category === 'string') setCategory(v.category as CategoryId)
+    if (typeof v.paymentMethod === 'string') setPaymentMethod(v.paymentMethod as PaymentMethod)
+    if (typeof v.isRecurring === 'boolean') setIsRecurring(v.isRecurring)
+    if (v.recurrence === 'monthly' || v.recurrence === 'weekly') setRecurrence(v.recurrence)
+    if (typeof v.recurrenceDay === 'number') setRecurrenceDay(v.recurrenceDay)
+    if (file) void attachReceipt(file)
+  })
 
   const uploadReceipt = async (file: File): Promise<string | null> => {
     const ext  = file.name.split('.').pop() ?? 'jpg'
@@ -1179,23 +1251,31 @@ export default function ExpensesPage() {
                 )}
               </div>
             ) : (
-              <label className="cursor-pointer flex items-center gap-3 rounded-xl border-2 border-dashed border-border px-4 py-4 hover:border-stockshop-blue/50 hover:bg-muted/30 transition-colors">
-                <Camera className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                <span className="text-sm text-muted-foreground">{t('receipt_placeholder')}</span>
-                <input
-                  type="file"
-                  accept="image/*,application/pdf"
-                  capture="environment"
-                  className="sr-only"
-                  onChange={e => {
-                    const file = e.target.files?.[0]
-                    if (!file) return
-                    setReceiptFile(file)
-                    setReceiptPreview(URL.createObjectURL(file))
-                    e.target.value = ''
-                  }}
-                />
-              </label>
+              <div className="space-y-1.5">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => pickReceipt('camera')}
+                    className="flex-1 flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-border px-3 py-3.5 text-muted-foreground hover:border-stockshop-blue/50 hover:bg-muted/30 hover:text-foreground transition-colors"
+                  >
+                    <Camera className="h-5 w-5" />
+                    <span className="text-xs">{t('receipt_take_photo')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => pickReceipt('file')}
+                    className="flex-1 flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-border px-3 py-3.5 text-muted-foreground hover:border-stockshop-blue/50 hover:bg-muted/30 hover:text-foreground transition-colors"
+                  >
+                    <Paperclip className="h-5 w-5" />
+                    <span className="text-xs">{t('receipt_choose_file')}</span>
+                  </button>
+                </div>
+                <p className="text-[11px] text-muted-foreground">{t('receipt_placeholder')}</p>
+                {/* Web : caméra du téléphone (sur ordinateur, sélecteur de fichier) */}
+                <input ref={receiptCameraRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={onReceiptInput} />
+                {/* Web et natif : fichier image ou PDF via le sélecteur système */}
+                <input ref={receiptFileRef} type="file" accept="image/*,application/pdf" className="sr-only" onChange={onReceiptInput} />
+              </div>
             )}
           </div>
 

@@ -1917,6 +1917,8 @@
     "category_label": "Catégorie",
     "receipt_label": "Justificatif",
     "receipt_placeholder": "Photo ou PDF du reçu (optionnel)",
+    "receipt_take_photo": "Prendre une photo",
+    "receipt_choose_file": "Choisir un fichier",
     "recurring_label": "Dépense récurrente",
     "recurring_desc": "Se répète automatiquement",
     "recurrence_frequency": "Fréquence",
@@ -2194,6 +2196,12 @@
     "take_photo": "Prendre une photo",
     "choose_photo": "Choisir une photo",
     "save_and_add_another": "Enregistrer et ajouter un autre"
+  },
+  "photo": {
+    "permission_denied": "Autorisez l’accès à l’appareil photo dans les réglages du téléphone pour prendre une photo.",
+    "pick_failed": "La photo n’a pas pu être récupérée. Réessayez.",
+    "restored": "Photo récupérée, votre saisie a été restaurée.",
+    "restored_no_photo": "Votre saisie a été restaurée (prise de vue annulée)."
   },
   "banners": {
     "cache": {

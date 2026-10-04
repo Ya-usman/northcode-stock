@@ -1,12 +1,15 @@
 package com.northcode.stockshop;
 
 import android.os.Bundle;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
+import com.getcapacitor.Logger;
+import com.getcapacitor.WebViewListener;
 
 public class MainActivity extends BridgeActivity {
 
@@ -22,6 +25,10 @@ public class MainActivity extends BridgeActivity {
     // essai fixe abandonnait alors prématurément vers la page native bundlée.
     private static final long[] RETRY_DELAYS_MS = {300, 800, 2000};
 
+    // Origine de l'app : seules ces URL sont restaurées après recréation.
+    private static final String APP_ORIGIN = "https://stockshop.tech/";
+    private static final String STATE_LAST_URL = "stockshop_last_url";
+
     private int retryAttempt = 0;
     private boolean retryScheduled = false;
 
@@ -30,6 +37,29 @@ public class MainActivity extends BridgeActivity {
         // Plugin maison (impression Bluetooth SPP) : à enregistrer AVANT super.onCreate
         registerPlugin(BluetoothPrinterPlugin.class);
         super.onCreate(savedInstanceState);
+
+        // Activité recréée par le système (mémoire reprise pendant que l'app
+        // caméra était au premier plan, retour après une longue absence…) :
+        // revenir sur la page où l'on était au lieu de repartir du tableau de
+        // bord. Capacitor ne conserve pas l'état du WebView ; on garde l'URL.
+        if (savedInstanceState != null) {
+            String lastUrl = savedInstanceState.getString(STATE_LAST_URL);
+            if (lastUrl != null && lastUrl.startsWith(APP_ORIGIN) && !lastUrl.contains("__offline_fallback__")) {
+                getBridge().getWebView().loadUrl(lastUrl);
+            }
+        }
+
+        // Moteur de rendu du WebView tué (mémoire, photo trop lourde…) : sans
+        // réponse ici, Android ferme l'application. On recrée l'activité, qui
+        // recharge la dernière URL grâce à onSaveInstanceState.
+        getBridge().addWebViewListener(new WebViewListener() {
+            @Override
+            public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+                Logger.error("WebView renderer gone (crash=" + detail.didCrash() + "), recreating activity");
+                view.post(MainActivity.this::recreate);
+                return true;
+            }
+        });
 
         getBridge().getWebView().setWebViewClient(
             new BridgeWebViewClient(getBridge()) {
@@ -72,5 +102,13 @@ public class MainActivity extends BridgeActivity {
                 }
             }
         );
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        WebView webView = getBridge() != null ? getBridge().getWebView() : null;
+        String url = webView != null ? webView.getUrl() : null;
+        if (url != null) outState.putString(STATE_LAST_URL, url);
     }
 }

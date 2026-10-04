@@ -41,6 +41,10 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Galerie (plugin Camera) sur Android 9 et moins uniquement ; à partir
+         d'Android 10 le sélecteur système n'a besoin d'aucune permission -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Impression Bluetooth (thermiques SPP) : appareils déjà appairés uniquement,
          donc pas de BLUETOOTH_SCAN ni de localisation -->

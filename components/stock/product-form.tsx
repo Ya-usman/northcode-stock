@@ -3,7 +3,7 @@
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslations } from 'next-intl'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NumericInput } from '@/components/ui/numeric-input'
@@ -22,6 +22,7 @@ const BarcodeScanner = dynamic(
 import { useToast } from '@/components/ui/use-toast'
 import { compressImage } from '@/lib/utils/compress-image'
 import { withTimeout } from '@/lib/utils/with-timeout'
+import { hasNativePhotoPicker, pickPhotoNative, PhotoPermissionError, type PhotoSource } from '@/lib/photo/pick-photo'
 
 interface ProductFormProps {
   categories: Category[]
@@ -33,6 +34,10 @@ interface ProductFormProps {
   defaultValues?: Partial<ProductFormData>
   saving: boolean
   sessionCount?: number
+  /** Photo restaurée après une destruction de l'activité Android pendant la prise de vue : envoyée au montage */
+  initialPhoto?: File | null
+  /** En édition : identifiant du produit, pour rouvrir la bonne fiche à la reprise */
+  productId?: string
   onSubmit: (data: ProductFormData) => void
   onSaveAndAdd?: (data: ProductFormData) => void
   onCancel: () => void
@@ -40,7 +45,7 @@ interface ProductFormProps {
 
 export function ProductForm({
   categories, suppliers, currency, isOwner, shopId, isEdit,
-  defaultValues, saving, sessionCount, onSubmit, onSaveAndAdd, onCancel,
+  defaultValues, saving, sessionCount, initialPhoto, productId, onSubmit, onSaveAndAdd, onCancel,
 }: ProductFormProps) {
   const t = useTranslations()
   const { toast } = useToast()
@@ -90,6 +95,37 @@ export function ProductForm({
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    await uploadPhoto(file)
+  }
+
+  // Application Android/iOS : sélecteur natif (plugin Camera). La photo arrive
+  // déjà réduite et, si le système détruit l'activité pendant la prise de vue,
+  // la saisie mise de côté ici est rouverte avec la photo (PhotoRestoreHandler).
+  // Web/PWA : les <input type="file"> cachés ci-dessous, gérés par le navigateur.
+  const pick = async (source: PhotoSource) => {
+    if (!shopId) return
+    if (!hasNativePhotoPicker()) {
+      ;(source === 'camera' ? cameraInputRef : fileInputRef).current?.click()
+      return
+    }
+    try {
+      const file = await pickPhotoNative(source, {
+        kind: 'product',
+        shopId,
+        route: window.location.pathname,
+        values: form.getValues() as unknown as Record<string, unknown>,
+        meta: { isEdit: !!isEdit, productId },
+      })
+      if (file) await uploadPhoto(file)
+    } catch (err) {
+      toast({
+        title: err instanceof PhotoPermissionError ? t('photo.permission_denied') : t('photo.pick_failed'),
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const uploadPhoto = async (file: File) => {
     if (!shopId) {
       toast({ title: t('product_form.missing_shop_id'), variant: 'destructive' })
       return
@@ -137,6 +173,13 @@ export function ProductForm({
     form.setValue('image_url', '')
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
+
+  // Photo restaurée après une reprise (voir PhotoRestoreHandler) : envoyée une
+  // seule fois, au montage du formulaire rouvert avec la saisie d'origine.
+  useEffect(() => {
+    if (initialPhoto) void uploadPhoto(initialPhoto)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const imageUrl = form.watch('image_url')
 
@@ -340,7 +383,7 @@ export function ProductForm({
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => shopId && cameraInputRef.current?.click()}
+              onClick={() => pick('camera')}
               disabled={!shopId || uploadingImage}
               className="flex-1 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:border-primary hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -349,7 +392,7 @@ export function ProductForm({
             </button>
             <button
               type="button"
-              onClick={() => shopId && fileInputRef.current?.click()}
+              onClick={() => pick('gallery')}
               disabled={!shopId || uploadingImage}
               className="flex-1 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:border-primary hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >

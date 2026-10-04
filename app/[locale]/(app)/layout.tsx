@@ -3,6 +3,7 @@ import { getMessages } from 'next-intl/server'
 import { AppLayout } from '@/components/layout/app-layout'
 import { OfflinePreloader } from '@/components/offline/offline-preloader'
 import { AppUpdateChecker } from '@/components/app-update/app-update-checker'
+import { PhotoRestoreHandler } from '@/components/photo/photo-restore-handler'
 
 // AuthProvider is mounted in app/layout.tsx (root layout) so it persists
 // across locale changes and route groups — no skeleton when switching.
@@ -24,6 +25,7 @@ export default async function AppRouteLayout({
     <NextIntlClientProvider locale={locale} messages={messages}>
       <OfflinePreloader />
       <AppUpdateChecker />
+      <PhotoRestoreHandler />
       <AppLayout locale={locale}>
         {children}
       </AppLayout>

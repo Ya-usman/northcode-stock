@@ -1917,6 +1917,8 @@
     "category_label": "Nau'i",
     "receipt_label": "Takaddun Shaida",
     "receipt_placeholder": "Hoto ko PDF na rasit (zaɓi)",
+    "receipt_take_photo": "Ɗauki hoto",
+    "receipt_choose_file": "Zaɓi fayil",
     "recurring_label": "Kashe Kuɗi Maimaiko",
     "recurring_desc": "Yana maimaituwa kai tsaye",
     "recurrence_frequency": "Sau nawa",
@@ -2194,6 +2196,12 @@
     "take_photo": "Ɗauki hoto",
     "choose_photo": "Zaɓi hoto",
     "save_and_add_another": "Ajiye kuma ƙara wani"
+  },
+  "photo": {
+    "permission_denied": "Ka ba da izinin amfani da kyamara a saitunan wayarka don ɗaukar hoto.",
+    "pick_failed": "Ba a sami hoton ba. Ka sake gwadawa.",
+    "restored": "An dawo da hoto, an mayar da abin da ka shigar.",
+    "restored_no_photo": "An mayar da abin da ka shigar (an soke ɗaukar hoto)."
   },
   "banners": {
     "cache": {

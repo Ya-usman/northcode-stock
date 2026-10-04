@@ -1917,6 +1917,8 @@
     "category_label": "Category",
     "receipt_label": "Receipt",
     "receipt_placeholder": "Photo or PDF of receipt (optional)",
+    "receipt_take_photo": "Take a photo",
+    "receipt_choose_file": "Choose a file",
     "recurring_label": "Recurring Expense",
     "recurring_desc": "Repeats automatically",
     "recurrence_frequency": "Frequency",
@@ -2194,6 +2196,12 @@
     "take_photo": "Take a photo",
     "choose_photo": "Choose a photo",
     "save_and_add_another": "Save and add another"
+  },
+  "photo": {
+    "permission_denied": "Allow camera access in your phone settings to take a photo.",
+    "pick_failed": "The photo could not be retrieved. Please try again.",
+    "restored": "Photo recovered, your entry has been restored.",
+    "restored_no_photo": "Your entry has been restored (photo cancelled)."
   },
   "banners": {
     "cache": {
