@@ -27,6 +27,8 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
+import { ConfirmModal } from '@/components/ui/confirm-modal'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { StockTabs } from '@/components/stock/stock-tabs'
 import type { Category } from '@/lib/types/database'
 
@@ -65,7 +67,6 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
   const [{ search, categoryFilter, statusFilter }, setFilter] = usePersistedFilters(
     'expiry', shop?.id, { search: '', categoryFilter: 'all', statusFilter: 'all' }
   )
-  const [exportMenuOpen, setExportMenuOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [adjustBatch, setAdjustBatch] = useState<ExpiryBatch | null>(null)
   const [adjustQuantity, setAdjustQuantity] = useState('')
@@ -211,7 +212,6 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
   const exportPDF = async () => {
     if (!shop) return
     setExporting(true)
-    setExportMenuOpen(false)
     try {
       const result = await generateReportPDFBlob({
         shopName: shop.name,
@@ -234,7 +234,6 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
   }
 
   const exportCSV = async () => {
-    setExportMenuOpen(false)
     const header = [
       t('expiry.col_product'), t('expiry.col_category'), t('expiry.col_quantity'),
       t('expiry.col_value'), t('expiry.col_received'), t('expiry.col_expiry'), t('expiry.col_status'),
@@ -293,31 +292,23 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
           </Select>
         </div>
         {filtered.length > 0 && (
-          <div className="relative flex-shrink-0">
-            <Button
-              variant="outline" size="icon" className="h-9 w-9"
-              loading={exporting}
-              onClick={() => setExportMenuOpen(v => !v)}
-              aria-label={t('actions.export_pdf')}
-            >
-              <FileDown className="h-4 w-4" />
-            </Button>
-            {exportMenuOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setExportMenuOpen(false)} />
-                <div className="absolute right-0 top-10 z-50 w-44 rounded-xl border bg-background shadow-lg p-1 flex flex-col gap-0.5">
-                  <button onClick={exportPDF} className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left">
-                    <FileText className="h-4 w-4 text-red-500 flex-shrink-0" />
-                    <span>{t('actions.export_pdf')}</span>
-                  </button>
-                  <button onClick={exportCSV} className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left">
-                    <Table2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
-                    <span>{t('actions.export_csv')}</span>
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0" loading={exporting} aria-label={t('actions.download')} title={t('actions.download')}>
+                <FileDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={exportPDF} className="gap-2.5">
+                <FileText className="h-4 w-4 text-red-500 flex-shrink-0" />
+                {t('actions.export_pdf')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportCSV} className="gap-2.5">
+                <Table2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                {t('actions.export_csv')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
 
@@ -401,7 +392,6 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
       <PremiumDialog
         open={!!adjustBatch}
         onOpenChange={open => { if (!open) setAdjustBatch(null) }}
-        category={t('nav.stock')}
         title={t('products.adjust_quantity_action')}
         icon={<Edit2 className="h-4 w-4" />}
       >
@@ -436,40 +426,33 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
         )}
       </PremiumDialog>
 
-      <PremiumDialog
+      {/* Suppression d'un lot : confirmation avec motif, bouton rouge */}
+      <ConfirmModal
         open={!!deleteBatchConfirm}
         onOpenChange={open => { if (!open) setDeleteBatchConfirm(null) }}
-        category={t('nav.stock')}
         title={t('products.delete_batch_action')}
+        description={t('products.delete_batch_confirm')}
         icon={<Trash2 className="h-4 w-4" />}
+        tone="danger"
+        confirmLabel={t('products.delete_batch_action')}
+        loading={deletingBatch}
+        onConfirm={submitDeleteBatch}
       >
         {deleteBatchConfirm && (
-          <>
-            <PremiumDialogBody>
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">{t('products.delete_batch_confirm')}</p>
-                <div className="space-y-1.5">
-                  <Label>{t('products.adjustment_reason')}</Label>
-                  <select
-                    value={deleteBatchReason}
-                    onChange={e => setDeleteBatchReason(e.target.value)}
-                    className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                  >
-                    {REASON_CODES.map(code => (
-                      <option key={code} value={code}>{t(`products.${code}` as any)}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </PremiumDialogBody>
-            <PremiumDialogFooter onCancel={() => setDeleteBatchConfirm(null)} cancelLabel={t('actions.cancel')}>
-              <Button variant="destructive" className="flex-1 h-11 rounded-xl font-semibold" onClick={submitDeleteBatch} loading={deletingBatch}>
-                {t('products.delete_batch_action')}
-              </Button>
-            </PremiumDialogFooter>
-          </>
+          <div className="space-y-1.5">
+            <Label>{t('products.adjustment_reason')}</Label>
+            <select
+              value={deleteBatchReason}
+              onChange={e => setDeleteBatchReason(e.target.value)}
+              className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+            >
+              {REASON_CODES.map(code => (
+                <option key={code} value={code}>{t(`products.${code}` as any)}</option>
+              ))}
+            </select>
+          </div>
         )}
-      </PremiumDialog>
+      </ConfirmModal>
     </div>
   )
 }

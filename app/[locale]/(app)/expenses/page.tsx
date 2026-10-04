@@ -1131,7 +1131,6 @@ export default function ExpensesPage() {
       <PremiumDialog
         open={modalOpen}
         onOpenChange={open => { if (!open) setModalOpen(false) }}
-        category={t('category')}
         title={editing ? t('edit_title') : t('new_title')}
         icon={<Receipt className="h-5 w-5" />}
       >
@@ -1413,7 +1412,6 @@ export default function ExpensesPage() {
       <PremiumDialog
         open={deleteDialog.open}
         onOpenChange={open => { if (!open) setDeleteDialog({ open: false, id: null, isTemplate: false }) }}
-        category={t('category')}
         title={t(deleteDialog.isTemplate ? 'recurring_delete_confirm' : 'delete_confirm')}
         icon={<Trash2 className="h-4 w-4" />}
       >

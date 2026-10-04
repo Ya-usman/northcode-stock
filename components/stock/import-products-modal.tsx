@@ -1,9 +1,9 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { Upload, Download, CheckCircle2, AlertCircle, X, Loader2 } from 'lucide-react'
+import { Upload, Download, CheckCircle2, AlertCircle, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
+import { AppDrawer } from '@/components/ui/app-drawer'
 import { useTranslations } from 'next-intl'
 import { downloadOrShareCSV } from '@/lib/utils/native-share'
 import { withTimeout } from '@/lib/utils/with-timeout'
@@ -150,10 +150,46 @@ export function ImportProductsModal({ open, onClose, shopId, onImported }: Props
   }
 
   const reset = () => { setRows([]); setFileName(''); setResult(null) }
+  const closeAll = () => { reset(); onClose() }
 
+  // Panneau latéral large : les trois étapes (modèle, fichier, aperçu) tiennent
+  // sans défilement sur ordinateur ; un fichier chargé mais pas encore importé
+  // déclenche la garde de fermeture.
   return (
-    <PremiumDialog open={open} onOpenChange={v => { if (!v) { reset(); onClose() } }} category={tRoot('products.title')} title={t('title')} icon={<Upload className="h-4 w-4" />}>
-      <PremiumDialogBody className="space-y-4">
+    <AppDrawer
+      open={open}
+      onOpenChange={v => { if (!v) closeAll() }}
+      title={t('title')}
+      icon={<Upload className="h-4 w-4" />}
+      width="lg"
+      dirty={rows.length > 0 && !result}
+      testId="import-drawer"
+      footer={({ requestClose }) => (
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+          {!result ? (
+            <>
+              <Button type="button" variant="ghost" className="h-11 rounded-xl border border-border text-foreground/70 hover:text-foreground" onClick={requestClose} disabled={importing}>
+                {tRoot('actions.cancel')}
+              </Button>
+              <Button
+                variant="stockshop"
+                className="h-11 rounded-xl font-semibold sm:min-w-[150px]"
+                disabled={rows.length === 0 || importing}
+                loading={importing}
+                onClick={handleImport}
+              >
+                {importing ? t('importing') : t('import_btn', { count: rows.length })}
+              </Button>
+            </>
+          ) : (
+            <Button variant="stockshop" className="h-11 rounded-xl font-semibold sm:min-w-[150px]" onClick={closeAll}>
+              {t('close')}
+            </Button>
+          )}
+        </div>
+      )}
+    >
+      <div className="space-y-4">
 
         {/* Step 1 */}
         <div className="rounded-xl border bg-muted/40 p-4 space-y-2">
@@ -239,24 +275,7 @@ export function ImportProductsModal({ open, onClose, shopId, onImported }: Props
           </div>
         )}
 
-      </PremiumDialogBody>
-      <PremiumDialogFooter onCancel={() => { reset(); onClose() }}>
-        {!result ? (
-          <Button
-            className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500"
-            disabled={rows.length === 0 || importing}
-            onClick={handleImport}
-          >
-            {importing
-              ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {t('importing')}</>
-              : t('import_btn', { count: rows.length })}
-          </Button>
-        ) : (
-          <Button onClick={() => { reset(); onClose() }} className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500">
-            {t('close')}
-          </Button>
-        )}
-      </PremiumDialogFooter>
-    </PremiumDialog>
+      </div>
+    </AppDrawer>
   )
 }

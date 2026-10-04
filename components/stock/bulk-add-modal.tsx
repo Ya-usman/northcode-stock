@@ -100,7 +100,7 @@ export function BulkAddModal({ open, onClose, shopId, currency, isOwner, onSaved
   const handleClose = () => { reset(); onClose() }
 
   return (
-    <PremiumDialog open={open} onOpenChange={v => { if (!v) handleClose() }} category={tCommon('products.title')} title={t('title')} icon={<Plus className="h-4 w-4" />} maxWidth="max-w-xl">
+    <PremiumDialog open={open} onOpenChange={v => { if (!v) handleClose() }} title={t('title')} icon={<Plus className="h-4 w-4" />} maxWidth="max-w-xl">
       <PremiumDialogBody className="space-y-3">
 
         {savedCount > 0 ? (

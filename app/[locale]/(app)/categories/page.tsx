@@ -409,7 +409,6 @@ export default function CategoriesPage() {
       <PremiumDialog
         open={dialogOpen}
         onOpenChange={open => { setDialogOpen(open); if (!open) setNewName('') }}
-        category={t('nav.categories')}
         title={t('categories.add_dialog_title')}
         icon={<Tag className="h-4 w-4" />}
       >
@@ -456,7 +455,6 @@ export default function CategoriesPage() {
       <PremiumDialog
         open={!!editingCat}
         onOpenChange={open => { if (!open) setEditingCat(null) }}
-        category={t('nav.categories')}
         title={t('categories.edit_dialog_title')}
         icon={<Edit2 className="h-4 w-4" />}
       >
@@ -502,8 +500,7 @@ export default function CategoriesPage() {
       <PremiumDialog
         open={!!confirmDeleteCat}
         onOpenChange={open => { if (!open) setConfirmDeleteCat(null) }}
-        category={t('nav.categories')}
-        title={confirmDeleteCat?.name || ''}
+        title={t('categories.delete_confirm_title', { name: confirmDeleteCat?.name || '' })}
         icon={<Trash2 className="h-4 w-4 text-destructive" />}
       >
         <PremiumDialogBody>

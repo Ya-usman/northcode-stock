@@ -656,7 +656,6 @@ export default function TeamPage() {
       <PremiumDialog
         open={confirmDialog.open}
         onOpenChange={open => setConfirmDialog(d => ({ ...d, open }))}
-        category={t('nav.team')}
         title={confirmDialog.action === 'deactivate' ? t('team.deactivate_title') : t('team.reactivate_title')}
         icon={confirmDialog.action === 'deactivate' ? <ShieldOff className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
       >
@@ -693,7 +692,6 @@ export default function TeamPage() {
       <PremiumDialog
         open={deleteDialog.open}
         onOpenChange={open => !open && setDeleteDialog({ open: false, member: null })}
-        category={t('nav.team')}
         title={t('team.delete_title')}
         icon={<Trash2 className="h-4 w-4" />}
       >
@@ -726,7 +724,6 @@ export default function TeamPage() {
       <PremiumDialog
         open={showInviteModal}
         onOpenChange={setShowInviteModal}
-        category={t('nav.team')}
         title={t('team.invite_title')}
         icon={<UserPlus className="h-4 w-4" />}
       >

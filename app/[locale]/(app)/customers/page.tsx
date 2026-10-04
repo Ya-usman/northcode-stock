@@ -323,7 +323,6 @@ export default function CustomersPage() {
       <PremiumDialog
         open={showModal}
         onOpenChange={open => { if (!open) { setShowModal(false); setEditingCustomer(null); form.reset({ name: '', phone: '', city: '', credit_limit: '' }) } }}
-        category={t('nav.customers')}
         title={editingCustomer ? t('actions.edit') : t('customers.add_customer')}
         icon={<User className="h-4 w-4" />}
       >
@@ -364,7 +363,6 @@ export default function CustomersPage() {
       <PremiumDialog
         open={!!mergeGroup}
         onOpenChange={open => { if (!open && !merging) setMergeGroup(null) }}
-        category={t('nav.customers')}
         title={t('customers.merge_title')}
         icon={<Merge className="h-4 w-4" />}
         maxWidth="max-w-md"

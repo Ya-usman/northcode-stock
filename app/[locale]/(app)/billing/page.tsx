@@ -473,7 +473,6 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
       <PremiumDialog
         open={!!checkoutPlan}
         onOpenChange={open => { if (!open) closeCheckout() }}
-        category="Abonnement"
         title={checkoutPlan ? `Plan ${checkoutPlan.charAt(0).toUpperCase() + checkoutPlan.slice(1)}` : ''}
         icon={checkoutPlan ? PLAN_ICONS[checkoutPlan] : undefined}
       >

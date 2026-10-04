@@ -8,7 +8,7 @@ import { useCurrency } from '@/lib/hooks/use-currency'
 import { normalize } from '@/lib/utils/normalize'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { Input } from '@/components/ui/input'
-import { Sheet, SheetContent } from '@/components/ui/sheet'
+import { DetailDrawer } from '@/components/ui/detail-drawer'
 
 // Journal d'activité du catalogue (création, modification de prix, promo,
 // archivage, restauration, suppression) : ce sont des actions utilisateur,
@@ -96,8 +96,15 @@ export function ProductActivityJournal({ open, onOpenChange, shopId }: Props) {
     : logs
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent title={t('products.activity_journal')} description={t('products.activity_journal_hint')} icon={<History className="h-4 w-4" />} closeLabel={t('actions.close')} width="sm:max-w-xl">
+    <DetailDrawer
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t('products.activity_journal')}
+      description={t('products.activity_journal_hint')}
+      icon={<History className="h-4 w-4" />}
+      width="lg"
+      testId="journal-drawer"
+    >
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative min-w-[160px] flex-1">
@@ -225,7 +232,6 @@ export function ProductActivityJournal({ open, onOpenChange, shopId }: Props) {
             </div>
           )}
         </div>
-      </SheetContent>
-    </Sheet>
+    </DetailDrawer>
   )
 }

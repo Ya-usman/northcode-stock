@@ -289,7 +289,7 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
       )}
 
       {/* Confirmation dialog */}
-      <PremiumDialog open={confirmOpen} onOpenChange={setConfirmOpen} category={t('title')} title={t('confirm_title')} icon={<ClipboardCheck className="h-4 w-4" />} maxWidth="max-w-lg">
+      <PremiumDialog open={confirmOpen} onOpenChange={setConfirmOpen} title={t('confirm_title')} icon={<ClipboardCheck className="h-4 w-4" />} maxWidth="max-w-lg">
         <PremiumDialogBody>
           <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 p-3 flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />

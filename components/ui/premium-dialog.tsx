@@ -2,75 +2,75 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { PremiumHeader } from '@/components/ui/premium-header'
+import { UnsavedChangesDialog, useCloseGuard } from '@/components/ui/unsaved-changes'
 import { cn } from '@/lib/utils/cn'
 
-// ── PremiumDialog ────────────────────────────────────────────────────────────
-// Wrapper that enforces the app-wide premium dialog style:
-//   blue header (label + title) → white body → rounded-xl action buttons
+// ── PremiumDialog (AppModal) ─────────────────────────────────────────────────
+// Modale centrée pour les actions courtes (≤ 6-7 champs) et les confirmations :
+// en-tête premium compact partagé avec les panneaux, corps défilant, pied fixe.
+// `dirty` active la garde « modifications non enregistrées » à la fermeture.
 
-interface PremiumDialogProps {
+export interface PremiumDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   /** Small uppercase label shown above the title in the blue header */
   category?: string
   title: string
+  /** Sous-titre affiché sous le titre (aussi lu par les lecteurs d'écran) */
+  description?: string
   /** Optional icon rendered left of the title */
   icon?: React.ReactNode
   /** Tailwind max-width class, e.g. 'max-w-sm' (default) or 'max-w-md' */
   maxWidth?: string
   /** Center dialog vertically on mobile (use for dialogs without form inputs) */
   centered?: boolean
+  /** Saisie en cours non enregistrée : la fermeture demande confirmation */
+  dirty?: boolean
   children: React.ReactNode
 }
 
 export function PremiumDialog({
-  open, onOpenChange, category, title, icon, maxWidth = 'max-w-sm', centered, children,
+  open, onOpenChange, category, title, description, icon, maxWidth = 'max-w-sm', centered, dirty = false, children,
 }: PremiumDialogProps) {
+  const tActions = useTranslations('actions')
+  const close = React.useCallback(() => onOpenChange(false), [onOpenChange])
+  const guard = useCloseGuard({ open, dirty, onClose: close })
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={v => { if (v) onOpenChange(true); else guard.requestClose() }}>
       <DialogContent
         className={cn(
           'p-0 gap-0 flex flex-col max-h-[90dvh] overflow-hidden',
-          '[&>button]:text-white [&>button]:bg-white/20 [&>button]:hover:bg-white/35',
+          // Le X de l'en-tête premium remplace celui de la modale shadcn
+          '[&>button]:hidden',
           centered && 'max-sm:!top-1/2 max-sm:!-translate-y-1/2',
           maxWidth
         )}
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
+        {...(description ? {} : { 'aria-describedby': undefined })}
       >
+        <DialogTitle className="sr-only">{title}</DialogTitle>
+        {description && <DialogDescription className="sr-only">{description}</DialogDescription>}
         <div className="flex flex-col flex-1 min-h-0 rounded-lg overflow-hidden">
-          {/* Gradient header — sticky */}
-          <div
-            className="flex-shrink-0 relative overflow-hidden rounded-t-lg px-5 pt-5 pb-4 pr-12"
-            style={{ background: 'linear-gradient(135deg, #073e8a 0%, #0d52b8 100%)' }}
-          >
-            {/* Decorative circles */}
-            <div className="absolute -top-6 -right-6 h-24 w-24 rounded-full bg-white/5" />
-            <div className="absolute -bottom-4 -left-4 h-16 w-16 rounded-full bg-white/5" />
-            <div className="relative">
-              {(icon || category) && (
-                <div className="flex items-center gap-2 mb-2">
-                  {icon && (
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15 text-white flex-shrink-0">
-                      {icon}
-                    </div>
-                  )}
-                  {category && (
-                    <span className="text-xs font-semibold text-blue-200 uppercase tracking-wider">{category}</span>
-                  )}
-                </div>
-              )}
-              <p className="text-lg font-bold text-white leading-tight">{title}</p>
-            </div>
-          </div>
+          <PremiumHeader
+            category={category}
+            title={title}
+            description={description}
+            icon={icon}
+            onClose={guard.requestClose}
+            closeLabel={tActions('close')}
+            className="rounded-t-lg"
+          />
           {/* Body — scrollable, footer stays pinned below */}
           <div className="flex flex-col flex-1 min-h-0 bg-background rounded-b-lg overflow-hidden">
             {children}
           </div>
         </div>
       </DialogContent>
+      <UnsavedChangesDialog open={guard.confirming} onKeepEditing={guard.keepEditing} onDiscard={guard.discard} />
     </Dialog>
   )
 }
@@ -90,6 +90,8 @@ export function PremiumDialogBody({ children, className }: PremiumDialogBodyProp
 }
 
 // ── PremiumDialogFooter ──────────────────────────────────────────────────────
+export type ConfirmButtonTone = 'primary' | 'danger' | 'warning'
+
 interface PremiumDialogFooterProps {
   onCancel: () => void
   cancelLabel?: string
@@ -97,21 +99,30 @@ interface PremiumDialogFooterProps {
   confirmLabel?: string
   confirmDisabled?: boolean
   confirmLoading?: boolean
-  /** Red destructive style for delete/cancel actions */
+  /** Red destructive style for delete/cancel actions (alias de confirmTone="danger") */
   confirmDestructive?: boolean
+  /** Couleur du bouton principal : bleu (défaut), rouge (suppression), ambre (avertissement) */
+  confirmTone?: ConfirmButtonTone
   /** Render custom buttons instead of the default confirm button */
   children?: React.ReactNode
+}
+
+const TONE_CLASSES: Record<ConfirmButtonTone, string> = {
+  primary: 'bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500 text-white',
+  danger: 'bg-red-500 hover:bg-red-600 text-white border-0',
+  warning: 'bg-amber-500 hover:bg-amber-600 text-white border-0',
 }
 
 export function PremiumDialogFooter({
   onCancel, cancelLabel,
   onConfirm, confirmLabel,
-  confirmDisabled, confirmLoading, confirmDestructive,
+  confirmDisabled, confirmLoading, confirmDestructive, confirmTone,
   children,
 }: PremiumDialogFooterProps) {
   const t = useTranslations('actions')
   cancelLabel = cancelLabel ?? t('cancel')
   confirmLabel = confirmLabel ?? t('confirm')
+  const tone: ConfirmButtonTone = confirmTone ?? (confirmDestructive ? 'danger' : 'primary')
   return (
     <div className="flex-shrink-0 px-5 pb-5 pt-3 flex justify-center gap-3 border-t border-border bg-background">
       <Button
@@ -119,6 +130,7 @@ export function PremiumDialogFooter({
         variant="ghost"
         className="flex-1 h-11 rounded-xl text-foreground/70 hover:text-foreground hover:bg-foreground/8 border border-border"
         onClick={onCancel}
+        disabled={confirmLoading}
       >
         {cancelLabel}
       </Button>
@@ -126,15 +138,11 @@ export function PremiumDialogFooter({
       {onConfirm && (
         <Button
           type="button"
-          className={cn(
-            'flex-1 h-11 rounded-xl font-semibold',
-            confirmDestructive
-              ? 'bg-red-500 hover:bg-red-600 text-white border-0'
-              : 'bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500'
-          )}
+          className={cn('flex-1 h-11 rounded-xl font-semibold', TONE_CLASSES[tone])}
           disabled={confirmDisabled}
           loading={confirmLoading}
           onClick={onConfirm}
+          data-tone={tone}
         >
           {confirmLabel}
         </Button>
@@ -142,3 +150,8 @@ export function PremiumDialogFooter({
     </div>
   )
 }
+
+// Alias « harmonisation UX » : mêmes composants, nom générique
+export const AppModal = PremiumDialog
+export const AppModalBody = PremiumDialogBody
+export const AppModalFooter = PremiumDialogFooter

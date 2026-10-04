@@ -6,7 +6,7 @@ import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
 import dynamic from 'next/dynamic'
-import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag, CalendarClock, ShoppingCart, X, LayoutGrid, List, SlidersHorizontal, ChevronDown, MoreHorizontal, Zap, Columns3 } from 'lucide-react'
+import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag, CalendarClock, ShoppingCart, X, LayoutGrid, List, SlidersHorizontal, ChevronDown, MoreHorizontal, Zap, Columns3, PlusCircle } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { createClient } from '@/lib/supabase/client'
@@ -19,6 +19,10 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
+import { FormDrawer } from '@/components/ui/form-drawer'
+import { DetailDrawer } from '@/components/ui/detail-drawer'
+import { ConfirmModal } from '@/components/ui/confirm-modal'
+import { PRODUCT_FORM_ID, PRODUCT_FORM_INTENT_ADD_ANOTHER, requestProductFormSubmit, type ProductFormState } from '@/components/stock/product-form-submit'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { useForm } from 'react-hook-form'
@@ -148,7 +152,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [saving, setSaving] = useState(false)
   const [archivedProducts, setArchivedProducts] = useState<Product[]>([])
   const [deleteConfirmProduct, setDeleteConfirmProduct] = useState<Product | null>(null)
-  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  // État remonté par le formulaire produit (garde de fermeture, photo en cours)
+  const [addFormState, setAddFormState] = useState<ProductFormState>({ dirty: false, busy: false })
+  const [editFormState, setEditFormState] = useState<ProductFormState>({ dirty: false, busy: false })
   const [deleting, setDeleting] = useState(false)
   const [archiveConfirmProduct, setArchiveConfirmProduct] = useState<Product | null>(null)
   const [archiving, setArchiving] = useState(false)
@@ -196,7 +202,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false)
   const [bulkDeleteAll, setBulkDeleteAll] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
-  const [bulkDeleteText, setBulkDeleteText] = useState('')
   const [bulkCategoryDialog, setBulkCategoryDialog] = useState(false)
   const [bulkCategoryId, setBulkCategoryId] = useState<string | null>(null)
   const [bulkAssigningCategory, setBulkAssigningCategory] = useState(false)
@@ -808,7 +813,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
   const permanentlyDelete = async () => {
     if (!deleteConfirmProduct) return
-    if (deleteConfirmText.trim().toLowerCase() !== deleteConfirmProduct.name.trim().toLowerCase()) return
+    // La saisie du nom est exigée par la ConfirmModal avant d'activer le bouton
     setDeleting(true)
     try {
       const res = await withTimeout(fetch(`/api/products?id=${deleteConfirmProduct.id}&shop_id=${deleteConfirmProduct.shop_id}`, { method: 'DELETE' }))
@@ -818,7 +823,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       } else {
         toast({ title: t('toast.product_deleted'), variant: 'success' })
         setDeleteConfirmProduct(null)
-        setDeleteConfirmText('')
         fetchProducts()
       }
     } catch (err: any) {
@@ -863,7 +867,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const bulkDelete = async () => {
     if (!shop?.id) return
     const isAll = bulkDeleteAll
-    if (isAll && bulkDeleteText.trim().toUpperCase() !== t('products.delete_confirm_word').toUpperCase()) return
+    // Pour « tout supprimer », le mot de confirmation est exigé par la ConfirmModal
     setBulkDeleting(true)
     const payload = isAll
       ? { shop_id: shop.id, all: true }
@@ -893,7 +897,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     })
     setBulkDeleteDialog(false)
     setBulkDeleteAll(false)
-    setBulkDeleteText('')
     setSelectedIds(new Set())
     setSelectionMode(false)
     fetchProducts()
@@ -1248,8 +1251,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     currency: currencySymbol,
     isOwner: effectiveRole === 'owner' || effectiveRole === 'super_admin',
     shopId: shop?.id,
-    saving,
   }
+  const resetAddForm = () => { setShowAddModal(false); setSessionAddCount(0); setAddFormState({ dirty: false, busy: false }) }
 
   return (
     <div className="space-y-4">
@@ -1499,7 +1502,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           </button>
           {canDeleteProducts && products.length > 0 && (
             <button
-              onClick={() => { setBulkDeleteAll(true); setBulkDeleteText(''); setBulkDeleteDialog(true) }}
+              onClick={() => { setBulkDeleteAll(true); setBulkDeleteDialog(true) }}
               className="flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -1617,7 +1620,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                   </Button>
                   <Button
                     variant="ghost" size="sm" className="h-7 gap-1 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => { setDeleteConfirmProduct(product); setDeleteConfirmText('') }}
+                    onClick={() => setDeleteConfirmProduct(product)}
                   >
                     <Trash2 className="h-3 w-3" />
                     {t('products.delete_permanent')}
@@ -1654,148 +1657,142 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         />
       )}
 
-      {/* Add Product Modal */}
-      <PremiumDialog open={showAddModal} onOpenChange={open => { if (!open) { setShowAddModal(false); setSessionAddCount(0) } }} category={t('nav.stock')} title={t('actions.add_product')} icon={<Package className="h-4 w-4" />} maxWidth="max-w-lg">
-        {showAddModal && <ProductForm key={addFormKey} {...productFormProps} sessionCount={sessionAddCount} defaultValues={addRestore?.values} initialPhoto={addRestore?.file ?? null} onSubmit={onAddProduct} onSaveAndAdd={onSaveAndAdd} onCancel={() => { setShowAddModal(false); setSessionAddCount(0) }} />}
-      </PremiumDialog>
+      {/* Panneau « Ajouter un produit » : formulaire en sections, pied fixe
+          (Annuler · Enregistrer et ajouter un autre · Enregistrer), garde de
+          fermeture tant que la saisie n'est pas enregistrée */}
+      <FormDrawer
+        open={showAddModal}
+        onOpenChange={open => { if (!open) resetAddForm() }}
+        title={t('actions.add_product')}
+        icon={<Package className="h-4 w-4" />}
+        width="md"
+        formId={PRODUCT_FORM_ID}
+        submitting={saving}
+        submitDisabled={addFormState.busy}
+        dirty={addFormState.dirty}
+        testId="product-drawer"
+        secondaryAction={(
+          <Button
+            type="button"
+            variant="outline"
+            disabled={saving || addFormState.busy}
+            className="h-11 rounded-xl gap-2 text-stockshop-blue dark:text-blue-400 border-stockshop-blue/40 hover:bg-stockshop-blue/5"
+            onClick={() => requestProductFormSubmit(PRODUCT_FORM_INTENT_ADD_ANOTHER)}
+          >
+            <PlusCircle className="h-4 w-4" />
+            {t('product_form.save_and_add_another')}
+          </Button>
+        )}
+      >
+        {showAddModal && (
+          <ProductForm
+            key={addFormKey}
+            {...productFormProps}
+            sessionCount={sessionAddCount}
+            defaultValues={addRestore?.values}
+            initialPhoto={addRestore?.file ?? null}
+            startDirty={!!addRestore}
+            onSubmit={onAddProduct}
+            onSaveAndAdd={onSaveAndAdd}
+            onStateChange={setAddFormState}
+          />
+        )}
+      </FormDrawer>
 
-      {/* Edit Product Modal */}
-      <PremiumDialog open={!!editingProduct} onOpenChange={open => !open && setEditingProduct(null)} category={t('nav.stock')} title={t('products.edit_title')} icon={<Edit2 className="h-4 w-4" />} maxWidth="max-w-lg">
+      {/* Panneau « Modifier le produit » */}
+      <FormDrawer
+        open={!!editingProduct}
+        onOpenChange={open => { if (!open) { setEditingProduct(null); setEditFormState({ dirty: false, busy: false }) } }}
+        title={t('products.edit_title')}
+        description={editingProduct?.name}
+        icon={<Edit2 className="h-4 w-4" />}
+        width="md"
+        formId={PRODUCT_FORM_ID}
+        submitting={saving}
+        submitDisabled={editFormState.busy}
+        submitLabel={t('actions.update')}
+        dirty={editFormState.dirty}
+        testId="product-drawer"
+      >
         {editingProduct && (
           <ProductForm key={editingProduct.id} {...productFormProps} isEdit productId={editingProduct.id}
             defaultValues={{ name: editingProduct.name, category_id: editingProduct.category_id || '', supplier_id: editingProduct.supplier_id || '', buying_price: editingProduct.buying_price, selling_price: editingProduct.selling_price, quantity: editingProduct.quantity, unit: editingProduct.unit, low_stock_threshold: editingProduct.low_stock_threshold || undefined, sku: editingProduct.sku || '', image_url: editingProduct.image_url || '', ...(editRestore?.values ?? {}) }}
             initialPhoto={editRestore?.file ?? null}
-            onSubmit={onEditProduct} onCancel={() => setEditingProduct(null)}
+            startDirty={!!editRestore}
+            onSubmit={onEditProduct}
+            onStateChange={setEditFormState}
           />
         )}
-      </PremiumDialog>
+      </FormDrawer>
 
-
-      {/* Archive confirmation dialog */}
-      <PremiumDialog
+      {/* Archivage : confirmation courte, bouton ambre */}
+      <ConfirmModal
         open={!!archiveConfirmProduct}
         onOpenChange={open => { if (!open) setArchiveConfirmProduct(null) }}
         category={t('products.archive_label')}
         title={archiveConfirmProduct?.name || ''}
-        icon={<Archive className="h-4 w-4 text-amber-500" />}
+        description={t('products.archive_confirm')}
+        icon={<Archive className="h-4 w-4" />}
+        tone="warning"
+        confirmLabel={t('products.archive_label')}
+        loading={archiving}
+        onConfirm={archiveProduct}
         maxWidth="max-w-md"
-      >
-        <PremiumDialogBody>
-          <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 shadow-inner p-3 text-sm text-amber-700 dark:text-amber-400">
-            <p>{t('products.archive_confirm')}</p>
-          </div>
-        </PremiumDialogBody>
-        <div className="px-5 pb-5 flex justify-center gap-3">
-          <Button
-            variant="ghost"
-            className="flex-1 h-11 rounded-xl text-foreground/70 hover:text-foreground hover:bg-foreground/8 border border-border"
-            onClick={() => setArchiveConfirmProduct(null)}
-          >
-            {t('actions.cancel')}
-          </Button>
-          <Button
-            onClick={archiveProduct}
-            loading={archiving}
-            className="flex-1 h-11 rounded-xl px-6 font-semibold bg-amber-500 hover:bg-amber-600 text-white min-w-[140px]"
-          >
-            {!archiving && <Archive className="h-4 w-4 mr-2" />}
-            {t('products.archive_label') || 'Archiver'}
-          </Button>
-        </div>
-      </PremiumDialog>
+      />
 
-      {/* Permanent delete confirmation dialog */}
-      <PremiumDialog
+      {/* Suppression définitive : saisie du nom exigée, bouton rouge */}
+      <ConfirmModal
         open={!!deleteConfirmProduct}
-        onOpenChange={open => { if (!open) { setDeleteConfirmProduct(null); setDeleteConfirmText('') } }}
+        onOpenChange={open => { if (!open) setDeleteConfirmProduct(null) }}
         category={t('products.delete_permanent')}
         title={deleteConfirmProduct?.name || ''}
-        icon={<Trash2 className="h-4 w-4 text-destructive" />}
+        icon={<Trash2 className="h-4 w-4" />}
+        tone="danger"
+        confirmLabel={t('products.delete_permanent')}
+        loading={deleting}
+        onConfirm={permanentlyDelete}
+        requireText={deleteConfirmProduct?.name}
       >
-        <PremiumDialogBody>
-          <div className="rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 p-3 text-sm text-red-700 dark:text-red-400 space-y-1">
-            <p className="font-semibold">{t('products.delete_warning_title')}</p>
-            <p>{t('products.delete_warning_body')}</p>
-          </div>
-          <div className="space-y-1.5 mt-3">
-            <Label>{t('products.delete_confirm_label', { name: deleteConfirmProduct?.name || '' })}</Label>
-            <Input
-              value={deleteConfirmText}
-              onChange={e => setDeleteConfirmText(e.target.value)}
-              placeholder={deleteConfirmProduct?.name || ''}
-              className="border-destructive/40 focus:border-destructive"
-            />
-          </div>
-        </PremiumDialogBody>
-        <PremiumDialogFooter onCancel={() => { setDeleteConfirmProduct(null); setDeleteConfirmText('') }} cancelLabel={t('actions.cancel')}>
-          <Button
-            onClick={permanentlyDelete}
-            loading={deleting}
-            disabled={deleting || deleteConfirmText.trim().toLowerCase() !== (deleteConfirmProduct?.name || '').trim().toLowerCase()}
-            className="flex-1 h-11 rounded-xl font-semibold bg-destructive hover:bg-destructive/90"
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            {t('products.delete_permanent')}
-          </Button>
-        </PremiumDialogFooter>
-      </PremiumDialog>
+        <div className="rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 p-3 text-sm text-red-700 dark:text-red-400 space-y-1">
+          <p className="font-semibold">{t('products.delete_warning_title')}</p>
+          <p>{t('products.delete_warning_body')}</p>
+        </div>
+      </ConfirmModal>
 
-      {/* Dialog de confirmation — suppression en masse */}
-      <PremiumDialog
+      {/* Suppression en masse : mot de confirmation exigé pour « tout supprimer » */}
+      <ConfirmModal
         open={bulkDeleteDialog}
-        onOpenChange={open => { if (!open) { setBulkDeleteDialog(false); setBulkDeleteAll(false); setBulkDeleteText('') } }}
+        onOpenChange={open => { if (!open) { setBulkDeleteDialog(false); setBulkDeleteAll(false) } }}
         category={t('products.delete_warning_title_short')}
         title={bulkDeleteAll ? t('products.delete_all_title') : t('products.delete_selected_title', { count: selectedIds.size })}
-        icon={<Trash2 className="h-4 w-4 text-destructive" />}
+        icon={<Trash2 className="h-4 w-4" />}
+        tone="danger"
+        confirmLabel={bulkDeleteAll ? 'Tout supprimer' : `Supprimer ${selectedIds.size} produit${selectedIds.size > 1 ? 's' : ''}`}
+        loading={bulkDeleting}
+        onConfirm={bulkDelete}
+        requireText={bulkDeleteAll ? t('products.delete_confirm_word') : undefined}
       >
-        <PremiumDialogBody>
-          <div className="rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 p-3 space-y-2">
-            <div className="flex items-start gap-2">
-              <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-red-700 dark:text-red-400">
-                <p className="font-semibold mb-1">
-                  {bulkDeleteAll
-                    ? t('products.bulk_delete_all_warning', { count: products.length })
-                    : t('products.bulk_delete_selected_warning', { count: selectedIds.size })
-                  }
-                </p>
-                <ul className="text-xs space-y-1 text-red-600 dark:text-red-400">
-                  <li>• {t('products.sales_data_kept')}</li>
-                  <li>• {t('products.irreversible_action')}</li>
-                </ul>
-              </div>
+        <div className="rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 p-3 space-y-2">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-red-700 dark:text-red-400">
+              <p className="font-semibold mb-1">
+                {bulkDeleteAll
+                  ? t('products.bulk_delete_all_warning', { count: products.length })
+                  : t('products.bulk_delete_selected_warning', { count: selectedIds.size })
+                }
+              </p>
+              <ul className="text-xs space-y-1 text-red-600 dark:text-red-400">
+                <li>• {t('products.sales_data_kept')}</li>
+                <li>• {t('products.irreversible_action')}</li>
+              </ul>
             </div>
           </div>
-          {bulkDeleteAll && (
-            <div className="space-y-1.5 mt-2">
-              <Label className="text-sm">{t('products.type_to_confirm_prefix')} <span className="font-mono font-bold">{t('products.delete_confirm_word')}</span> {t('products.type_to_confirm_suffix')}</Label>
-              <Input
-                value={bulkDeleteText}
-                onChange={e => setBulkDeleteText(e.target.value)}
-                placeholder={t('products.delete_confirm_word')}
-                className="border-destructive/40 focus:border-destructive font-mono"
-              />
-            </div>
-          )}
-        </PremiumDialogBody>
-        <PremiumDialogFooter
-          onCancel={() => { setBulkDeleteDialog(false); setBulkDeleteAll(false); setBulkDeleteText('') }}
-          cancelLabel={t('actions.cancel')}
-        >
-          <Button
-            onClick={bulkDelete}
-            loading={bulkDeleting}
-            disabled={bulkDeleting || (bulkDeleteAll && bulkDeleteText.trim().toUpperCase() !== 'SUPPRIMER')}
-            className="flex-1 h-11 rounded-xl font-semibold bg-destructive hover:bg-destructive/90"
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            {bulkDeleteAll ? 'Tout supprimer' : `Supprimer ${selectedIds.size} produit${selectedIds.size > 1 ? 's' : ''}`}
-          </Button>
-        </PremiumDialogFooter>
-      </PremiumDialog>
+        </div>
+      </ConfirmModal>
 
       {/* Restock Modal */}
-      <PremiumDialog open={showRestockModal} onOpenChange={setShowRestockModal} category={t('products.restock_title')} title={restockProduct?.name || ''} icon={<ArrowDown className="h-4 w-4" />}>
+      <PremiumDialog open={showRestockModal} onOpenChange={setShowRestockModal} category={t('products.restock_title')} title={restockProduct?.name || ''} icon={<ArrowDown className="h-4 w-4" />} dirty={restockForm.formState.isDirty}>
         <form onSubmit={restockForm.handleSubmit(onRestock)}>
           <PremiumDialogBody>
             <input type="hidden" {...restockForm.register('product_id')} />
@@ -1835,7 +1832,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       <PremiumDialog
         open={!!promoProduct}
         onOpenChange={open => { if (!open) { setPromoProduct(null); setPromoBatch(null); setPromoSuggestionReason(null); setPromoSuggestionKey(null) } }}
-        category={promoBatch ? t('products.promo_batch_category') : t('nav.stock')}
+        category={promoBatch ? t('products.promo_batch_category') : t('products.promo_action')}
         title={promoProduct?.name || ''}
         icon={<Tag className="h-4 w-4" />}
       >
@@ -1956,25 +1953,26 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         )}
       </PremiumDialog>
 
-      {/* Lots Modal */}
-      <PremiumDialog
+      {/* Lots du produit : panneau de consultation, actions par lot dans de petites modales */}
+      <DetailDrawer
         open={!!batchesProduct}
         onOpenChange={open => { if (!open) setBatchesProduct(null) }}
-        category={t('nav.stock')}
+        category={t('products.batches_title')}
         title={batchesProduct?.name || ''}
+        description={t('products.batches_hint')}
         icon={<History className="h-4 w-4" />}
-        maxWidth="max-w-lg"
+        width="md"
+        testId="batches-drawer"
       >
         {batchesProduct && (
           <>
-            <PremiumDialogBody>
-              <p className="text-xs text-muted-foreground">{t('products.batches_hint')}</p>
+            <div>
               {loadingBatches ? (
-                <div className="space-y-2 mt-3">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
+                <div className="space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
               ) : productBatches.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-6">{t('products.no_batches')}</p>
               ) : (
-                <div className="mt-3 space-y-2">
+                <div className="space-y-2">
                   {productBatches.map((b: any) => {
                     const today = new Date().toISOString().slice(0, 10)
                     const isExpired = b.expiry_date && b.expiry_date < today
@@ -2060,17 +2058,15 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                   })}
                 </div>
               )}
-            </PremiumDialogBody>
-            <PremiumDialogFooter onCancel={() => setBatchesProduct(null)} cancelLabel={t('actions.close')} />
+            </div>
           </>
         )}
-      </PremiumDialog>
+      </DetailDrawer>
 
       {/* Correction de la date de péremption d'un lot */}
       <PremiumDialog
         open={!!expiryBatch}
         onOpenChange={open => { if (!open) setExpiryBatch(null) }}
-        category={t('nav.stock')}
         title={t('products.edit_expiry_action')}
         icon={<CalendarClock className="h-4 w-4" />}
       >
@@ -2100,7 +2096,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       <PremiumDialog
         open={!!adjustBatch}
         onOpenChange={open => { if (!open) setAdjustBatch(null) }}
-        category={t('nav.stock')}
         title={t('products.adjust_quantity_action')}
         icon={<Edit2 className="h-4 w-4" />}
       >
@@ -2138,46 +2133,37 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         )}
       </PremiumDialog>
 
-      {/* Suppression d'un lot */}
-      <PremiumDialog
+      {/* Suppression d'un lot : confirmation avec motif, bouton rouge */}
+      <ConfirmModal
         open={!!deleteBatchConfirm}
         onOpenChange={open => { if (!open) setDeleteBatchConfirm(null) }}
-        category={t('nav.stock')}
         title={t('products.delete_batch_action')}
+        description={t('products.delete_batch_confirm')}
         icon={<Trash2 className="h-4 w-4" />}
+        tone="danger"
+        confirmLabel={t('products.delete_batch_action')}
+        loading={deletingBatch}
+        onConfirm={submitDeleteBatch}
       >
         {deleteBatchConfirm && (
-          <>
-            <PremiumDialogBody>
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">{t('products.delete_batch_confirm')}</p>
-                <div className="space-y-1.5">
-                  <Label>{t('products.adjustment_reason')}</Label>
-                  <select
-                    value={deleteBatchReason}
-                    onChange={e => setDeleteBatchReason(e.target.value)}
-                    className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                  >
-                    {(['correction', 'damage', 'loss', 'theft', 'expiry', 'other'] as const).map(code => (
-                      <option key={code} value={code}>{t(`products.${code}` as any)}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </PremiumDialogBody>
-            <PremiumDialogFooter onCancel={() => setDeleteBatchConfirm(null)} cancelLabel={t('actions.cancel')}>
-              <Button variant="destructive" className="flex-1 h-11 rounded-xl font-semibold" onClick={submitDeleteBatch} loading={deletingBatch}>
-                {t('products.delete_batch_action')}
-              </Button>
-            </PremiumDialogFooter>
-          </>
+          <div className="space-y-1.5">
+            <Label>{t('products.adjustment_reason')}</Label>
+            <select
+              value={deleteBatchReason}
+              onChange={e => setDeleteBatchReason(e.target.value)}
+              className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+            >
+              {(['correction', 'damage', 'loss', 'theft', 'expiry', 'other'] as const).map(code => (
+                <option key={code} value={code}>{t(`products.${code}` as any)}</option>
+              ))}
+            </select>
+          </div>
         )}
-      </PremiumDialog>
+      </ConfirmModal>
       {/* Bulk category assignment dialog */}
       <PremiumDialog
         open={bulkCategoryDialog}
         onOpenChange={open => { if (!open) { setBulkCategoryDialog(false); setBulkCategoryId(null) } }}
-        category={t('nav.stock')}
         title={t('products.assign_category_title', { count: selectedIds.size })}
         icon={<Settings2 className="h-4 w-4" />}
       >
@@ -2222,7 +2208,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       <PremiumDialog
         open={bulkPromoDialog}
         onOpenChange={open => { if (!open) setBulkPromoDialog(false) }}
-        category={t('nav.stock')}
         title={t('products.assign_promo_title', { count: selectedIds.size })}
         icon={<Tag className="h-4 w-4" />}
       >

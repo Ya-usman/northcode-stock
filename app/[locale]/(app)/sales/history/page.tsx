@@ -1519,7 +1519,6 @@ export default function SalesHistoryPage() {
       <PremiumDialog
         open={!!dialog}
         onOpenChange={open => !open && setDialog(null)}
-        category="Ventes"
         title={dialog?.type === 'cancel' ? t('sales.cancel_sale_dialog_title') : t('sales.validate_payment_dialog_title')}
         icon={dialog?.type === 'cancel' ? <XCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
       >

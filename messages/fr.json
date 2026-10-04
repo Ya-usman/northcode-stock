@@ -308,6 +308,11 @@
     "card_low_stock": "Stock bas",
     "card_expiry": "Péremption",
     "card_dormant": "Ventes lentes",
+    "batches_title": "Lots du produit",
+    "section_main": "Informations principales",
+    "section_pricing": "Tarification",
+    "section_stock": "Stock",
+    "section_advanced_hint": "Fournisseur et photo",
     "col_available": "Disponible",
     "col_category": "Catégorie",
     "col_cost": "Coût",
@@ -2278,6 +2283,15 @@
     "act_products": "Voir les produits",
     "act_lots": "Voir les lots",
     "act_reorder": "Voir et commander"
+  },
+  "dialogs": {
+    "unsaved_title": "Modifications non enregistrées",
+    "unsaved_body": "Vous avez des modifications non enregistrées.",
+    "unsaved_continue": "Continuer la modification",
+    "unsaved_discard": "Abandonner",
+    "confirm_type_hint": "Saisissez « {text} » pour confirmer",
+    "advanced_options": "Options avancées",
+    "details": "Détails"
   },
   "banners": {
     "cache": {

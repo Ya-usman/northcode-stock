@@ -1194,7 +1194,6 @@ export default function SuppliersPage() {
       <PremiumDialog
         open={showModal}
         onOpenChange={open => { if (!open) { setShowModal(false); setEditingSupplier(null); form.reset({ name: '', phone: '', city: '', email: '' }) } }}
-        category={t('nav.suppliers')}
         title={editingSupplier ? t('suppliers.edit_title') : t('suppliers.add_supplier')}
         icon={<Package className="h-4 w-4" />}
       >
@@ -1233,7 +1232,6 @@ export default function SuppliersPage() {
       <PremiumDialog
         open={!!addPriceProduct}
         onOpenChange={open => { if (!open) setAddPriceProduct(null) }}
-        category={t('nav.suppliers')}
         title={t('suppliers.add_price')}
         icon={<ArrowRightLeft className="h-4 w-4" />}
       >
@@ -1271,7 +1269,6 @@ export default function SuppliersPage() {
       <PremiumDialog
         open={showPoDialog}
         onOpenChange={setShowPoDialog}
-        category={t('nav.suppliers')}
         title={t('suppliers.new_po')}
         icon={<FileText className="h-4 w-4" />}
         maxWidth="max-w-lg"
@@ -1381,7 +1378,6 @@ export default function SuppliersPage() {
       <PremiumDialog
         open={!!editingPo}
         onOpenChange={open => { if (!open) setEditingPo(null) }}
-        category={t('nav.suppliers')}
         title={t('suppliers.po_edit_title')}
         icon={<Edit2 className="h-4 w-4" />}
         maxWidth="max-w-lg"
@@ -1442,7 +1438,6 @@ export default function SuppliersPage() {
       <PremiumDialog
         open={!!reorderPo}
         onOpenChange={open => { if (!open) setReorderPo(null) }}
-        category={t('nav.suppliers')}
         title={t('suppliers.po_reorder_title')}
         icon={<RotateCcw className="h-4 w-4" />}
         maxWidth="max-w-lg"
@@ -1506,7 +1501,7 @@ export default function SuppliersPage() {
       <PremiumDialog
         open={!!deletePoConfirm}
         onOpenChange={open => { if (!open) setDeletePoConfirm(null) }}
-        category={t('nav.suppliers')}
+        category={t('actions.delete')}
         title={deletePoConfirm?.reference || ''}
         icon={<Trash2 className="h-4 w-4 text-destructive" />}
         maxWidth="max-w-md"
@@ -1529,7 +1524,6 @@ export default function SuppliersPage() {
       <PremiumDialog
         open={!!emailPo}
         onOpenChange={open => { if (!open) setEmailPo(null) }}
-        category={t('nav.suppliers')}
         title={t('suppliers.po_email_helper')}
         icon={<Mail className="h-4 w-4" />}
         maxWidth="max-w-lg"
@@ -1590,7 +1584,6 @@ export default function SuppliersPage() {
       <PremiumDialog
         open={!!receivingPo}
         onOpenChange={open => { if (!open) setReceivingPo(null) }}
-        category={t('nav.suppliers')}
         title={t('suppliers.po_receive_title')}
         icon={<CheckCircle2 className="h-4 w-4" />}
         maxWidth="max-w-lg"
@@ -1704,7 +1697,6 @@ export default function SuppliersPage() {
       <PremiumDialog
         open={!!journalPo}
         onOpenChange={open => { if (!open) setJournalPo(null) }}
-        category={t('nav.suppliers')}
         title={t('suppliers.po_journal_title')}
         icon={<History className="h-4 w-4" />}
         maxWidth="max-w-lg"
@@ -1773,7 +1765,7 @@ export default function SuppliersPage() {
       <PremiumDialog
         open={!!journalSupplier}
         onOpenChange={open => { if (!open) setJournalSupplier(null) }}
-        category={t('nav.suppliers')}
+        category={t('suppliers.supplier_journal_title')}
         title={journalSupplier?.name || ''}
         icon={<History className="h-4 w-4" />}
         maxWidth="max-w-lg"

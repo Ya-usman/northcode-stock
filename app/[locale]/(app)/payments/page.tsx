@@ -2005,7 +2005,6 @@ export default function CreditsPage() {
       <PremiumDialog
         open={!!repayDebtor || !!receiptResult}
         onOpenChange={open => { if (!open) { setRepayDebtor(null); setReceiptResult(null) } }}
-        category={t('nav.payments')}
         title={receiptResult ? t('toast.payment_recorded') : t('payments.record_repayment_title')}
         icon={receiptResult ? <CheckCircle2 className="h-4 w-4" /> : <Banknote className="h-4 w-4" />}
       >
@@ -2172,7 +2171,6 @@ export default function CreditsPage() {
       <PremiumDialog
         open={!!postponeSale}
         onOpenChange={open => { if (!open) setPostponeSale(null) }}
-        category={t('nav.payments')}
         title={t('payments.postpone_action')}
         icon={<CalendarDays className="h-4 w-4" />}
       >
@@ -2209,7 +2207,6 @@ export default function CreditsPage() {
       <PremiumDialog
         open={!!writeOffSale}
         onOpenChange={open => { if (!open) { setWriteOffSale(null); setWriteOffReason('') } }}
-        category={t('nav.payments')}
         title={t('payments.write_off_title')}
         icon={<Ban className="h-4 w-4" />}
       >
@@ -2245,7 +2242,6 @@ export default function CreditsPage() {
       <PremiumDialog
         open={!!historyDebtor}
         onOpenChange={open => { if (!open) { setHistoryDebtor(null); setHistorySales([]); setHistoryPayments([]) } }}
-        category={t('nav.payments')}
         title={t('customers.payment_history')}
         icon={<History className="h-4 w-4" />}
         maxWidth="max-w-lg"
@@ -2447,7 +2443,6 @@ export default function CreditsPage() {
       <PremiumDialog
         open={!!editingPayment}
         onOpenChange={open => { if (!open) setEditingPayment(null) }}
-        category={t('nav.payments')}
         title={t('payments.edit_payment_title')}
         icon={<Pencil className="h-4 w-4" />}
       >
@@ -2513,7 +2508,6 @@ export default function CreditsPage() {
       <PremiumDialog
         open={!!cancellingPayment}
         onOpenChange={open => { if (!open) { setCancellingPayment(null); setCancelReason('') } }}
-        category={t('nav.payments')}
         title={t('payments.cancel_payment_title')}
         icon={<Ban className="h-4 w-4" />}
       >
@@ -2544,7 +2538,6 @@ export default function CreditsPage() {
       <PremiumDialog
         open={!!repaySupplier}
         onOpenChange={open => { if (!open) setRepaySupplier(null) }}
-        category={t('nav.payments')}
         title={t('payments.record_payment_title')}
         icon={<Banknote className="h-4 w-4" />}
       >
@@ -2667,7 +2660,6 @@ export default function CreditsPage() {
       <PremiumDialog
         open={!!historySupplier}
         onOpenChange={open => { if (!open) { setHistorySupplier(null); setHistoryPOs([]); setHistorySupplierPayments([]) } }}
-        category={t('nav.payments')}
         title={t('payments.payment_history_title')}
         icon={<History className="h-4 w-4" />}
         maxWidth="max-w-lg"

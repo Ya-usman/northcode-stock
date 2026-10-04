@@ -4,16 +4,16 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslations } from 'next-intl'
 import { useState, useRef, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NumericInput } from '@/components/ui/numeric-input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
+import { DrawerSection } from '@/components/ui/app-drawer'
 import { createProductSchema, type ProductFormData } from '@/lib/validations/product'
 import type { Category, Supplier } from '@/lib/types/database'
 import dynamic from 'next/dynamic'
-import { Camera, ScanLine, ImagePlus, X, Loader2, AlertCircle, CheckCircle2, PlusCircle } from 'lucide-react'
+import { Camera, ScanLine, ImagePlus, X, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { PRODUCT_FORM_ID, PRODUCT_FORM_INTENT_ADD_ANOTHER, type ProductFormState } from '@/components/stock/product-form-submit'
 
 const BarcodeScanner = dynamic(
   () => import('@/components/stock/barcode-scanner').then(m => ({ default: m.BarcodeScanner })),
@@ -24,6 +24,11 @@ import { compressImage } from '@/lib/utils/compress-image'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { hasNativePhotoPicker, pickPhotoNative, PhotoPermissionError, type PhotoSource } from '@/lib/photo/pick-photo'
 
+// Corps du panneau « Ajouter / Modifier un produit » : sections Informations
+// principales · Tarification · Stock · Options avancées (fournisseur, photo,
+// repliée par défaut). Les boutons vivent dans le pied du FormDrawer hôte, qui
+// soumet ce <form id="product-form"> et reçoit l'état (modifié, occupé).
+
 interface ProductFormProps {
   categories: Category[]
   suppliers: Supplier[]
@@ -32,29 +37,41 @@ interface ProductFormProps {
   shopId?: string
   isEdit?: boolean
   defaultValues?: Partial<ProductFormData>
-  saving: boolean
   sessionCount?: number
   /** Photo restaurée après une destruction de l'activité Android pendant la prise de vue : envoyée au montage */
   initialPhoto?: File | null
   /** En édition : identifiant du produit, pour rouvrir la bonne fiche à la reprise */
   productId?: string
+  /** Saisie restaurée (reprise) : considérée modifiée dès l'ouverture */
+  startDirty?: boolean
   onSubmit: (data: ProductFormData) => void
   onSaveAndAdd?: (data: ProductFormData) => void
-  onCancel: () => void
+  /** Remonte l'état au panneau hôte (garde de fermeture, bouton Enregistrer) */
+  onStateChange?: (state: ProductFormState) => void
 }
+
+const FieldError = ({ message }: { message?: string }) =>
+  message ? <p className="text-xs text-destructive">{message}</p> : null
 
 export function ProductForm({
   categories, suppliers, currency, isOwner, shopId, isEdit,
-  defaultValues, saving, sessionCount, initialPhoto, productId, onSubmit, onSaveAndAdd, onCancel,
+  defaultValues, sessionCount, initialPhoto, productId, startDirty = false, onSubmit, onSaveAndAdd, onStateChange,
 }: ProductFormProps) {
   const t = useTranslations()
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
+  const intentRef = useRef<string | undefined>(undefined)
   const [showScanner, setShowScanner] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [imagePreview, setImagePreview] = useState<string>(defaultValues?.image_url || '')
+  // Options avancées ouvertes d'emblée si elles portent déjà une valeur
+  const [advancedOpen, setAdvancedOpen] = useState(!!(defaultValues?.supplier_id || defaultValues?.image_url || initialPhoto))
+  // Chargé à la demande : le panneau hôte a déjà posé son focus avant que ce
+  // formulaire existe. Sur ordinateur, le nom prend le focus au montage ; sur
+  // téléphone, non (le clavier ne doit pas surgir à l'ouverture).
+  const [autoFocusName] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches)
 
   const schema = createProductSchema({
     product_name_required: t('errors.product_name_required'),
@@ -80,6 +97,13 @@ export function ProductForm({
       ...defaultValues,
     },
   })
+  const { errors, isDirty } = form.formState
+
+  const dirty = startDirty || isDirty
+  useEffect(() => {
+    onStateChange?.({ dirty, busy: uploadingImage })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dirty, uploadingImage])
 
   const NONE = '__none__'
   const unit = form.watch('unit') || 'piece'
@@ -87,7 +111,7 @@ export function ProductForm({
   const supplierId = form.watch('supplier_id') || NONE
 
   const handleBarcodeDetected = (code: string) => {
-    form.setValue('sku', code)
+    form.setValue('sku', code, { shouldDirty: true })
     setShowScanner(false)
     toast({ title: t('product_form.code_scanned', { code }), variant: 'success' })
   }
@@ -133,6 +157,7 @@ export function ProductForm({
 
     setUploadError(null)
     setUploadingImage(true)
+    setAdvancedOpen(true)
 
     try {
       const compressed = await compressImage(file)
@@ -146,7 +171,7 @@ export function ProductForm({
       const json = await res.json()
 
       if (res.ok && json.url) {
-        form.setValue('image_url', json.url)
+        form.setValue('image_url', json.url, { shouldDirty: true })
         setImagePreview(json.url)
         URL.revokeObjectURL(localUrl)
       } else {
@@ -154,13 +179,13 @@ export function ProductForm({
         setUploadError(errMsg)
         toast({ title: t('product_form.upload_failed', { error: errMsg }), variant: 'destructive' })
         // Keep local preview so user sees what they selected
-        form.setValue('image_url', '')
+        form.setValue('image_url', '', { shouldDirty: true })
       }
     } catch (err: any) {
       const errMsg = err.message || t('toast.network_error')
       setUploadError(errMsg)
       toast({ title: t('product_form.upload_failed', { error: errMsg }), variant: 'destructive' })
-      form.setValue('image_url', '')
+      form.setValue('image_url', '', { shouldDirty: true })
     } finally {
       setUploadingImage(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -170,7 +195,7 @@ export function ProductForm({
   const removeImage = () => {
     setImagePreview('')
     setUploadError(null)
-    form.setValue('image_url', '')
+    form.setValue('image_url', '', { shouldDirty: true })
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
@@ -183,9 +208,22 @@ export function ProductForm({
 
   const imageUrl = form.watch('image_url')
 
+  // L'intention (« enregistrer et ajouter un autre ») est posée sur le <form>
+  // par le pied du panneau juste avant requestSubmit ; lue puis effacée ici,
+  // qu'il y ait validation réussie ou non.
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    intentRef.current = e.currentTarget.dataset.intent
+    delete e.currentTarget.dataset.intent
+    void form.handleSubmit(data => {
+      if (intentRef.current === PRODUCT_FORM_INTENT_ADD_ANOTHER && onSaveAndAdd) onSaveAndAdd(data)
+      else onSubmit(data)
+    })(e)
+  }
+
+  const optional = <span className="text-muted-foreground text-xs font-normal">({t('form.optional')})</span>
+
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
-      <PremiumDialogBody className="space-y-3">
+    <form id={PRODUCT_FORM_ID} onSubmit={handleFormSubmit} className="space-y-5" noValidate>
 
       {/* Session counter */}
       {!!sessionCount && sessionCount > 0 && (
@@ -197,52 +235,133 @@ export function ProductForm({
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
+      {/* ── Informations principales ─────────────────────────────────── */}
+      <DrawerSection title={t('products.section_main')}>
+        <div className="space-y-1">
+          <Label htmlFor="product-name">{t('products.name')} *</Label>
+          <Input id="product-name" {...form.register('name')} placeholder={t('products.name')} aria-invalid={!!errors.name} autoFocus={autoFocusName} />
+          <FieldError message={errors.name?.message} />
+        </div>
 
-        {/* Name */}
-        <div className="col-span-2 space-y-1">
-          <Label>{t('products.name')} *</Label>
-          <Input {...form.register('name')} placeholder={t('products.name')} />
-          {form.formState.errors.name && (
-            <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label>{t('products.unit')}</Label>
+            <Select value={unit} onValueChange={v => form.setValue('unit', v, { shouldDirty: true })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {['piece', 'kg', 'g', 'litre', 'ml', 'pack', 'carton', 'dozen', 'bag', 'bottle', 'tin', 'box'].map(u => (
+                  <SelectItem key={u} value={u}>{u}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1">
+            <Label>{t('products.category')} {optional}</Label>
+            <Select value={categoryId} onValueChange={v => form.setValue('category_id', v === NONE ? '' : v, { shouldDirty: true })}>
+              <SelectTrigger><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>{t('form.none_female')}</SelectItem>
+                {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* SKU / Barcode */}
+        <div className="space-y-1">
+          <Label htmlFor="product-sku" className="flex items-center gap-1.5">
+            <ScanLine className="h-3.5 w-3.5 text-muted-foreground" />
+            {t('products.sku')} {optional}
+          </Label>
+          <div className="flex gap-2">
+            <Input
+              id="product-sku"
+              {...form.register('sku')}
+              placeholder={t('product_form.sku_placeholder')}
+              className="font-mono text-sm flex-1"
+            />
+            <button
+              type="button"
+              onClick={() => setShowScanner(v => !v)}
+              className="h-10 px-3 flex items-center gap-1.5 text-xs font-medium border border-border rounded-lg bg-muted hover:bg-accent transition-colors shrink-0"
+            >
+              <Camera className="h-3.5 w-3.5" />
+              {t('product_form.scan')}
+            </button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">{t('product_form.scanner_hint')}</p>
+          <FieldError message={errors.sku?.message} />
+          {showScanner && (
+            <BarcodeScanner onDetected={handleBarcodeDetected} onClose={() => setShowScanner(false)} />
           )}
         </div>
+      </DrawerSection>
 
-        {/* Unit */}
-        <div className="space-y-1">
-          <Label>{t('products.unit')}</Label>
-          <Select value={unit} onValueChange={v => form.setValue('unit', v)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {['piece', 'kg', 'g', 'litre', 'ml', 'pack', 'carton', 'dozen', 'bag', 'bottle', 'tin', 'box'].map(u => (
-                <SelectItem key={u} value={u}>{u}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {/* ── Tarification ──────────────────────────────────────────────── */}
+      <DrawerSection title={t('products.section_pricing')}>
+        <div className="grid grid-cols-2 gap-3">
+          {isOwner && (
+            <div className="space-y-1">
+              <Label>
+                {t('products.buying_price')}{' '}
+                <span className="text-muted-foreground text-xs">({currency})</span>
+              </Label>
+              <Controller control={form.control} name="buying_price" render={({ field }) => (
+                <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" currency={currency} />
+              )} />
+              <FieldError message={errors.buying_price?.message} />
+            </div>
+          )}
+          <div className="space-y-1">
+            <Label>
+              {t('products.selling_price')} *{' '}
+              <span className="text-muted-foreground text-xs">({currency})</span>
+            </Label>
+            <Controller control={form.control} name="selling_price" render={({ field }) => (
+              <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" currency={currency} />
+            )} />
+            <FieldError message={errors.selling_price?.message} />
+          </div>
         </div>
+      </DrawerSection>
 
-        {/* Category */}
-        <div className="space-y-1">
-          <Label>
-            {t('products.category')}{' '}
-            <span className="text-muted-foreground text-xs font-normal">({t('form.optional')})</span>
-          </Label>
-          <Select value={categoryId} onValueChange={v => form.setValue('category_id', v === NONE ? '' : v)}>
-            <SelectTrigger><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE}>{t('form.none_female')}</SelectItem>
-              {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+      {/* ── Stock ─────────────────────────────────────────────────────── */}
+      <DrawerSection title={t('products.section_stock')}>
+        <div className="grid grid-cols-2 gap-3">
+          {!isEdit && (
+            <div className="space-y-1">
+              <Label>{t('products.quantity')} *</Label>
+              <Controller control={form.control} name="quantity" render={({ field }) => (
+                <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" currency={currency} />
+              )} />
+              <FieldError message={errors.quantity?.message} />
+            </div>
+          )}
+          <div className="space-y-1">
+            <Label>
+              {t('products.low_stock_threshold')}{' '}
+              <span className="text-muted-foreground text-xs font-normal">({t('form.alert_label')})</span>
+            </Label>
+            <Controller control={form.control} name="low_stock_threshold" render={({ field }) => (
+              <NumericInput value={field.value ?? 0} onChange={field.onChange} onBlur={field.onBlur} placeholder="10" />
+            )} />
+            <FieldError message={errors.low_stock_threshold?.message} />
+          </div>
         </div>
+      </DrawerSection>
 
-        {/* Supplier */}
+      {/* ── Options avancées : fournisseur, photo ─────────────────────── */}
+      <DrawerSection
+        title={t('dialogs.advanced_options')}
+        description={t('products.section_advanced_hint')}
+        collapsible
+        open={advancedOpen}
+        onOpenChange={setAdvancedOpen}
+      >
         <div className="space-y-1">
-          <Label>
-            {t('products.supplier')}{' '}
-            <span className="text-muted-foreground text-xs font-normal">({t('form.optional')})</span>
-          </Label>
-          <Select value={supplierId} onValueChange={v => form.setValue('supplier_id', v === NONE ? '' : v)}>
+          <Label>{t('products.supplier')} {optional}</Label>
+          <Select value={supplierId} onValueChange={v => form.setValue('supplier_id', v === NONE ? '' : v, { shouldDirty: true })}>
             <SelectTrigger><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
             <SelectContent>
               <SelectItem value={NONE}>{t('form.none_male')}</SelectItem>
@@ -251,201 +370,89 @@ export function ProductForm({
           </Select>
         </div>
 
-        {/* Buying price */}
-        {isOwner && (
-          <div className="space-y-1">
-            <Label>
-              {t('products.buying_price')}{' '}
-              <span className="text-muted-foreground text-xs">({currency})</span>
-            </Label>
-            <Controller control={form.control} name="buying_price" render={({ field }) => (
-              <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" currency={currency} />
-            )} />
-          </div>
-        )}
-
-        {/* Selling price */}
-        <div className="space-y-1">
-          <Label>
-            {t('products.selling_price')} *{' '}
-            <span className="text-muted-foreground text-xs">({currency})</span>
+        <div className="space-y-1.5">
+          <Label className="flex items-center gap-1.5">
+            <ImagePlus className="h-3.5 w-3.5 text-muted-foreground" />
+            {t('product_form.product_photo')} {optional}
           </Label>
-          <Controller control={form.control} name="selling_price" render={({ field }) => (
-            <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" currency={currency} />
-          )} />
-          {form.formState.errors.selling_price && (
-            <p className="text-xs text-destructive">{form.formState.errors.selling_price.message}</p>
+
+          {imagePreview ? (
+            <div className="flex items-start gap-3">
+              <div className="relative w-20 h-20 rounded-lg overflow-hidden border border-border group shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={imagePreview} alt="Aperçu" className="w-full h-full object-cover" />
+                {uploadingImage && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                    <Loader2 className="h-4 w-4 text-white animate-spin" />
+                  </div>
+                )}
+                {!uploadingImage && (
+                  <button
+                    type="button"
+                    onClick={removeImage}
+                    aria-label={t('actions.remove')}
+                    className="absolute top-1 right-1 bg-black/60 hover:bg-black/80 rounded-full p-0.5 transition-colors"
+                  >
+                    <X className="h-3 w-3 text-white" />
+                  </button>
+                )}
+              </div>
+              <div className="text-xs space-y-1 pt-1">
+                {uploadingImage && <p className="text-muted-foreground">{t('product_form.uploading')}</p>}
+                {!uploadingImage && imageUrl && <p className="text-green-500">{t('product_form.photo_saved')}</p>}
+                {!uploadingImage && uploadError && (
+                  <div className="flex items-start gap-1 text-red-400">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                    <span>{uploadError}</span>
+                  </div>
+                )}
+                {!uploadingImage && uploadError && (
+                  <p className="text-muted-foreground text-[11px]">{t('product_form.bucket_hint')}</p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => pick('camera')}
+                disabled={!shopId || uploadingImage}
+                className="flex-1 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:border-primary hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Camera className="h-5 w-5" />
+                <span className="text-xs">{t('product_form.take_photo')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => pick('gallery')}
+                disabled={!shopId || uploadingImage}
+                className="flex-1 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:border-primary hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ImagePlus className="h-5 w-5" />
+                <span className="text-xs">{t('product_form.choose_photo')}</span>
+              </button>
+            </div>
           )}
-        </div>
 
-        {/* Quantity */}
-        {!isEdit && (
-          <div className="space-y-1">
-            <Label>{t('products.quantity')} *</Label>
-            <Controller control={form.control} name="quantity" render={({ field }) => (
-              <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" currency={currency} />
-            )} />
-          </div>
-        )}
-
-        {/* Low stock */}
-        <div className="space-y-1">
-          <Label>
-            {t('products.low_stock_threshold')}{' '}
-            <span className="text-muted-foreground text-xs font-normal">({t('form.alert_label')})</span>
-          </Label>
-          <Controller control={form.control} name="low_stock_threshold" render={({ field }) => (
-            <NumericInput value={field.value ?? 0} onChange={field.onChange} onBlur={field.onBlur} placeholder="10" />
-          )} />
-        </div>
-
-      </div>
-
-      {/* ── SKU / Barcode ───────────────────────────────────────────── */}
-      <div className="space-y-1">
-        <Label className="flex items-center gap-1.5">
-          <ScanLine className="h-3.5 w-3.5 text-muted-foreground" />
-          {t('products.sku')}
-          <span className="text-muted-foreground text-xs font-normal">({t('form.optional')})</span>
-        </Label>
-        <div className="flex gap-2">
-          <Input
-            {...form.register('sku')}
-            placeholder={t('product_form.sku_placeholder')}
-            className="font-mono text-sm flex-1"
+          {/* Camera capture (Android: opens camera directly) */}
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handleImageSelect}
           />
-          <button
-            type="button"
-            onClick={() => setShowScanner(v => !v)}
-            className="h-9 px-3 flex items-center gap-1.5 text-xs font-medium border border-border rounded-lg bg-muted hover:bg-accent transition-colors shrink-0"
-          >
-            <Camera className="h-3.5 w-3.5" />
-            {t('product_form.scan')}
-          </button>
-        </div>
-        <p className="text-[11px] text-muted-foreground">
-          {t('product_form.scanner_hint')}
-        </p>
-
-        {showScanner && (
-          <BarcodeScanner
-            onDetected={handleBarcodeDetected}
-            onClose={() => setShowScanner(false)}
+          {/* Gallery / file picker */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={handleImageSelect}
           />
-        )}
-      </div>
-
-      {/* ── Photo ──────────────────────────────────────────────────── */}
-      <div className="space-y-1.5">
-        <Label className="flex items-center gap-1.5">
-          <ImagePlus className="h-3.5 w-3.5 text-muted-foreground" />
-          {t('product_form.product_photo')}
-          <span className="text-muted-foreground text-xs font-normal">({t('form.optional')})</span>
-        </Label>
-
-        {imagePreview ? (
-          <div className="flex items-start gap-3">
-            <div className="relative w-20 h-20 rounded-lg overflow-hidden border border-border group shrink-0">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={imagePreview} alt="Aperçu" className="w-full h-full object-cover" />
-              {uploadingImage && (
-                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                  <Loader2 className="h-4 w-4 text-white animate-spin" />
-                </div>
-              )}
-              {!uploadingImage && (
-                <button
-                  type="button"
-                  onClick={removeImage}
-                  className="absolute top-1 right-1 bg-black/60 hover:bg-black/80 rounded-full p-0.5 transition-colors"
-                >
-                  <X className="h-3 w-3 text-white" />
-                </button>
-              )}
-            </div>
-            <div className="text-xs space-y-1 pt-1">
-              {uploadingImage && <p className="text-muted-foreground">{t('product_form.uploading')}</p>}
-              {!uploadingImage && imageUrl && <p className="text-green-500">{t('product_form.photo_saved')}</p>}
-              {!uploadingImage && uploadError && (
-                <div className="flex items-start gap-1 text-red-400">
-                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                  <span>{uploadError}</span>
-                </div>
-              )}
-              {!uploadingImage && uploadError && (
-                <p className="text-muted-foreground text-[11px]">
-                  {t('product_form.bucket_hint')}
-                </p>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => pick('camera')}
-              disabled={!shopId || uploadingImage}
-              className="flex-1 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:border-primary hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Camera className="h-5 w-5" />
-              <span className="text-xs">{t('product_form.take_photo')}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => pick('gallery')}
-              disabled={!shopId || uploadingImage}
-              className="flex-1 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:border-primary hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <ImagePlus className="h-5 w-5" />
-              <span className="text-xs">{t('product_form.choose_photo')}</span>
-            </button>
-          </div>
-        )}
-
-        {/* Camera capture (Android: opens camera directly) */}
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={handleImageSelect}
-        />
-        {/* Gallery / file picker */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          className="hidden"
-          onChange={handleImageSelect}
-        />
-      </div>
-
-      </PremiumDialogBody>
-
-      {onSaveAndAdd && !isEdit && (
-        <div className="px-5 pt-2 shrink-0">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={saving || uploadingImage}
-            className="w-full h-10 rounded-xl gap-2 text-stockshop-blue dark:text-blue-400 border-stockshop-blue/40 hover:bg-stockshop-blue/5"
-            onClick={form.handleSubmit(onSaveAndAdd)}
-          >
-            <PlusCircle className="h-4 w-4" />
-            {t('product_form.save_and_add_another')}
-          </Button>
         </div>
-      )}
-      <PremiumDialogFooter onCancel={onCancel} cancelLabel={t('actions.cancel')}>
-        <Button
-          type="submit"
-          disabled={saving || uploadingImage}
-          className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500"
-        >
-          {saving ? t('actions.saving') : isEdit ? t('actions.update') : t('actions.save')}
-        </Button>
-      </PremiumDialogFooter>
+      </DrawerSection>
     </form>
   )
 }

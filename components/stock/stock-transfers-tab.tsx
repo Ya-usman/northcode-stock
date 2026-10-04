@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
+import { AppDrawer } from '@/components/ui/app-drawer'
+import { FormDrawer } from '@/components/ui/form-drawer'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
@@ -424,16 +426,39 @@ export function StockTransfersTab() {
         </div>
       )}
 
-      {/* ── Nouveau transfert ─────────────────────────────────────────────── */}
-      <PremiumDialog
+      {/* ── Nouveau transfert : panneau latéral, garde de fermeture ──────── */}
+      <AppDrawer
         open={showNewDialog}
         onOpenChange={open => { if (!open) setShowNewDialog(false) }}
-        category={t('nav.stock')}
         title={t('transfers.new_transfer')}
         icon={<Package className="h-4 w-4" />}
-        maxWidth="max-w-lg"
+        width="md"
+        dirty={!lastCreatedRef && (!!newDestShopId || newItems.length > 0 || !!newNotes.trim())}
+        testId="transfer-drawer"
+        footer={({ requestClose }) => lastCreatedRef ? (
+          <div className="flex justify-end">
+            <Button variant="stockshop" className="h-11 w-full rounded-xl font-semibold sm:w-auto sm:min-w-[150px]" onClick={() => setShowNewDialog(false)}>
+              {t('actions.close')}
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+            <Button type="button" variant="ghost" className="h-11 rounded-xl border border-border text-foreground/70 hover:text-foreground" onClick={requestClose} disabled={creating}>
+              {t('actions.cancel')}
+            </Button>
+            <Button
+              variant="stockshop"
+              className="h-11 rounded-xl font-semibold sm:min-w-[150px]"
+              onClick={submitNewTransfer}
+              loading={creating}
+              disabled={!newDestShopId || newItems.length === 0}
+            >
+              {t('transfers.send_button')}
+            </Button>
+          </div>
+        )}
       >
-        <PremiumDialogBody>
+        <div>
           {lastCreatedRef ? (
             <div className="flex flex-col items-center text-center gap-3 py-6">
               <CheckCircle2 className="h-10 w-10 text-green-600 dark:text-green-400" />
@@ -517,33 +542,25 @@ export function StockTransfersTab() {
               </div>
             </>
           )}
-        </PremiumDialogBody>
-        <PremiumDialogFooter
-          onCancel={() => setShowNewDialog(false)}
-          cancelLabel={lastCreatedRef ? t('actions.close') : t('actions.cancel')}
-          {...(lastCreatedRef ? {} : {
-            onConfirm: submitNewTransfer,
-            confirmLabel: t('transfers.send_button'),
-            confirmLoading: creating,
-            confirmDisabled: !newDestShopId || newItems.length === 0,
-          })}
-        />
-      </PremiumDialog>
+        </div>
+      </AppDrawer>
 
-      {/* ── Réception ─────────────────────────────────────────────────────── */}
-      <PremiumDialog
+      {/* ── Réception : panneau de formulaire ─────────────────────────────── */}
+      <FormDrawer
         open={!!receivingTransfer}
         onOpenChange={open => { if (!open) setReceivingTransfer(null) }}
-        category={t('nav.stock')}
         title={t('transfers.receive_title')}
+        description={t('transfers.receive_hint')}
         icon={<CheckCircle2 className="h-4 w-4" />}
-        maxWidth="max-w-lg"
+        width="md"
+        onSubmit={submitReceive}
+        submitting={receiving}
+        testId="receive-drawer"
       >
         {receivingTransfer && (
           <>
-            <PremiumDialogBody>
-              <p className="text-xs text-muted-foreground">{t('transfers.receive_hint')}</p>
-              <div className="mt-3 space-y-3">
+            <div>
+              <div className="space-y-3">
                 {(receivingTransfer.stock_transfer_items || []).map((item: any) => {
                   const line = receiveLines[item.id]
                   if (!line) return null
@@ -632,23 +649,15 @@ export function StockTransfersTab() {
                   )
                 })}
               </div>
-            </PremiumDialogBody>
-            <PremiumDialogFooter
-              onCancel={() => setReceivingTransfer(null)}
-              cancelLabel={t('actions.cancel')}
-              onConfirm={submitReceive}
-              confirmLabel={t('actions.save')}
-              confirmLoading={receiving}
-            />
+            </div>
           </>
         )}
-      </PremiumDialog>
+      </FormDrawer>
 
       {/* ── Email ─────────────────────────────────────────────────────────── */}
       <PremiumDialog
         open={!!emailTransfer}
         onOpenChange={open => { if (!open) setEmailTransfer(null) }}
-        category={t('nav.stock')}
         title={t('suppliers.po_email_helper')}
         icon={<Mail className="h-4 w-4" />}
         maxWidth="max-w-lg"

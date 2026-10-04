@@ -308,6 +308,11 @@
     "card_low_stock": "Kaya kaɗan",
     "card_expiry": "Ƙarewa",
     "card_dormant": "Sayarwa a hankali",
+    "batches_title": "Rukunin kaya",
+    "section_main": "Bayanai na farko",
+    "section_pricing": "Farashi",
+    "section_stock": "Kaya",
+    "section_advanced_hint": "Mai kawo kaya da hoto",
     "col_available": "Akwai",
     "col_category": "Rukuni",
     "col_cost": "Farashin saye",
@@ -2278,6 +2283,15 @@
     "act_products": "Duba kaya",
     "act_lots": "Duba rukunoni",
     "act_reorder": "Duba ka yi oda"
+  },
+  "dialogs": {
+    "unsaved_title": "Canje-canjen da ba a ajiye ba",
+    "unsaved_body": "Kana da canje-canje da ba a ajiye ba.",
+    "unsaved_continue": "Ci gaba da gyara",
+    "unsaved_discard": "Yi watsi",
+    "confirm_type_hint": "Rubuta « {text} » don tabbatarwa",
+    "advanced_options": "Zaɓuɓɓukan ci gaba",
+    "details": "Bayanai"
   },
   "banners": {
     "cache": {

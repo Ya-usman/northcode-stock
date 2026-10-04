@@ -134,7 +134,6 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
       <PremiumDialog
         open={creating}
         onOpenChange={open => { if (!open) { setCreating(false); setNewName(''); setNewCity(''); setNewCountry('NG') } }}
-        category={t('nav.shops')}
         title={t('shops.new_form_title')}
         icon={<Store className="h-4 w-4" />}
       >

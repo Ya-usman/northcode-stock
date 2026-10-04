@@ -308,6 +308,11 @@
     "card_low_stock": "Low stock",
     "card_expiry": "Expiry",
     "card_dormant": "Slow movers",
+    "batches_title": "Product batches",
+    "section_main": "Main information",
+    "section_pricing": "Pricing",
+    "section_stock": "Stock",
+    "section_advanced_hint": "Supplier and photo",
     "col_available": "Available",
     "col_category": "Category",
     "col_cost": "Cost",
@@ -2278,6 +2283,15 @@
     "act_products": "View products",
     "act_lots": "View lots",
     "act_reorder": "View and order"
+  },
+  "dialogs": {
+    "unsaved_title": "Unsaved changes",
+    "unsaved_body": "You have unsaved changes.",
+    "unsaved_continue": "Keep editing",
+    "unsaved_discard": "Discard",
+    "confirm_type_hint": "Type “{text}” to confirm",
+    "advanced_options": "Advanced options",
+    "details": "Details"
   },
   "banners": {
     "cache": {

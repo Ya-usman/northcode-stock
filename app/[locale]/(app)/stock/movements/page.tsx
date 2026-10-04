@@ -1,11 +1,9 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { createPortal } from 'react-dom'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
-import { AnimatePresence, motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
-import { Search, Calendar, Package, ArrowRight, X, History, ClipboardCheck } from 'lucide-react'
+import { Search, Calendar, Package, ArrowRight, History, ClipboardCheck } from 'lucide-react'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
@@ -18,7 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { DetailDrawer } from '@/components/ui/detail-drawer'
 import { cn } from '@/lib/utils/cn'
 import { normalize } from '@/lib/utils/normalize'
 import { format } from 'date-fns'
@@ -67,6 +65,12 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
   const [movements, setMovements] = useState<Movement[]>([])
   const [loading, setLoading] = useState(true)
   const [openProduct, setOpenProduct] = useState<ProductSummary | null>(null)
+  // Panneau d'historique : chronologie (réappros + ajustements) et total ajouté
+  const openTimeline = useMemo(
+    () => openProduct ? [...openProduct.restocks, ...openProduct.adjustments].sort((a, b) => b.created_at.localeCompare(a.created_at)) : [],
+    [openProduct],
+  )
+  const openTotalQty = openProduct ? openProduct.restocks.reduce((s, m) => s + m.quantity, 0) : 0
 
   const fetchMovements = useCallback(() => {
     if (!effectiveShopIds.length) return
@@ -324,171 +328,101 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
         </div>
       )}
 
-      {/* Modal historique réappro — portal pour éviter le confinement overflow/sticky */}
-      {openProduct && createPortal(
-      <AnimatePresence>
-        {openProduct && (() => {
-          const totalQty = openProduct.restocks.reduce((s, m) => s + m.quantity, 0)
-          const timeline = [...openProduct.restocks, ...openProduct.adjustments]
-            .sort((a, b) => b.created_at.localeCompare(a.created_at))
-          return (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-end justify-center sm:items-center p-4 bg-black/60 backdrop-blur-sm"
-              onClick={() => setOpenProduct(null)}
-            >
-              <motion.div
-                initial={{ y: 60, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: 60, opacity: 0 }}
-                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                className="bg-background rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl overflow-hidden"
-                onClick={e => e.stopPropagation()}
-              >
-                {/* Header gradient */}
-                <div
-                  className="relative overflow-hidden px-5 pt-5 pb-4 flex-shrink-0"
-                  style={{ background: 'linear-gradient(135deg, #073e8a 0%, #0d52b8 100%)' }}
-                >
-                  {/* Decorative circles */}
-                  <div className="absolute -top-6 -right-6 h-24 w-24 rounded-full bg-white/5" />
-                  <div className="absolute -bottom-4 -left-4 h-16 w-16 rounded-full bg-white/5" />
+      {/* Historique de réapprovisionnement d'un produit : panneau latéral
+          (repères sous l'en-tête, chronologie défilante) */}
+      <DetailDrawer
+        open={!!openProduct}
+        onOpenChange={v => { if (!v) setOpenProduct(null) }}
+        category={t('restock_history')}
+        title={openProduct?.product_name || ''}
+        description={openProduct?.product_unit || undefined}
+        icon={<History className="h-4 w-4" />}
+        width="md"
+        testId="restock-history-drawer"
+        meta={openProduct && (
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { label: t('restocks_count_label'), value: openProduct.restocks.length },
+              { label: t('total_added_label'), value: `+${openTotalQty}` },
+              { label: t('current_stock'), value: openProduct.current_qty ?? '—' },
+            ].map(s => (
+              <div key={s.label} className="rounded-xl border bg-background px-3 py-2 text-center">
+                <p className="text-lg font-bold tabular-nums">{s.value}</p>
+                <p className="mt-0.5 text-[10px] text-muted-foreground">{s.label}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      >
+        <div className="relative space-y-0">
+          {openTimeline.map((m, idx) => {
+            const isAdjustment = m.type === 'adjustment'
+            const isPositive = m.quantity >= 0
+            const dotColor = isAdjustment
+              ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-500'
+              : 'bg-green-50 dark:bg-green-950/40 border-green-500'
+            const iconColor = isAdjustment ? 'text-amber-600 dark:text-amber-400' : 'text-green-600 dark:text-green-400'
+            const badgeColor = isPositive
+              ? 'bg-green-50 dark:bg-green-950/40 border-green-200 dark:border-green-800 text-green-600 dark:text-green-400'
+              : 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400'
+            return (
+              <div key={m.id} className="relative flex gap-3">
+                {/* Timeline line + dot */}
+                <div className="flex flex-col items-center">
+                  <div className={cn('h-8 w-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 z-10', dotColor)}>
+                    {isAdjustment
+                      ? <ClipboardCheck className={cn('h-3.5 w-3.5', iconColor)} />
+                      : <Package className={cn('h-3.5 w-3.5', iconColor)} />
+                    }
+                  </div>
+                  {idx < openTimeline.length - 1 && (
+                    <div className="w-0.5 flex-1 bg-border mt-1 mb-1 min-h-[16px]" />
+                  )}
+                </div>
 
-                  <div className="relative flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      {/* Icon + label */}
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15">
-                          <History className="h-3.5 w-3.5 text-white" />
-                        </div>
-                        <span className="text-xs font-semibold text-blue-200 uppercase tracking-wider">
-                          {t('restock_history')}
+                {/* Card */}
+                <div className={cn('flex-1 min-w-0', idx < openTimeline.length - 1 ? 'pb-3' : 'pb-0')}>
+                  <div className="rounded-xl border bg-card shadow-sm px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        {/* Reason */}
+                        <p className="text-sm font-semibold text-foreground truncate">
+                          {m.reason || (isAdjustment ? t('type_adjustment') : t('restock_history'))}
+                        </p>
+                        {/* Date + performer */}
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {fmtDate(m.created_at)}
+                          {m.performed_by_name && (
+                            <> · <span className="font-medium text-foreground/70">{m.performed_by_name}</span></>
+                          )}
+                        </p>
+                        {/* Before → After */}
+                        {(m.previous_qty != null || m.new_qty != null) && (
+                          <div className="flex items-center gap-1.5 mt-2">
+                            <span className="bg-muted text-muted-foreground text-[11px] font-semibold px-2.5 py-0.5 rounded-full tabular-nums">
+                              {m.previous_qty ?? '—'}
+                            </span>
+                            <ArrowRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                            <span className="bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400 text-[11px] font-semibold px-2.5 py-0.5 rounded-full tabular-nums border border-green-200 dark:border-green-800">
+                              {m.new_qty ?? '—'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      {/* Quantity badge */}
+                      <div className={cn('flex-shrink-0 flex h-10 w-10 items-center justify-center rounded-full border', badgeColor)}>
+                        <span className="text-sm font-bold tabular-nums leading-none">
+                          {isPositive ? '+' : ''}{m.quantity}
                         </span>
                       </div>
-                      {/* Product name */}
-                      <h2 className="text-lg font-bold text-white leading-tight truncate">
-                        {openProduct.product_name}
-                      </h2>
-                      {openProduct.product_unit && (
-                        <span className="inline-block mt-0.5 text-[10px] bg-white/15 text-blue-100 px-2 py-0.5 rounded-full">
-                          {openProduct.product_unit}
-                        </span>
-                      )}
                     </div>
-                    <button
-                      onClick={() => setOpenProduct(null)}
-                      className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-colors"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-
-                  {/* Stats bar */}
-                  <div className="relative mt-4 grid grid-cols-3 gap-2">
-                    {[
-                      { label: t('restocks_count_label'), value: openProduct.restocks.length },
-                      { label: t('total_added_label'), value: `+${totalQty}` },
-                      { label: t('current_stock'), value: openProduct.current_qty ?? '—' },
-                    ].map(s => (
-                      <div key={s.label} className="bg-white/10 rounded-xl px-3 py-2 text-center">
-                        <p className="text-lg font-bold text-white tabular-nums">{s.value}</p>
-                        <p className="text-[10px] text-blue-200 mt-0.5">{s.label}</p>
-                      </div>
-                    ))}
                   </div>
                 </div>
-
-                {/* Timeline entries */}
-                <div className="overflow-y-auto flex-1 px-4 py-4">
-                  <div className="relative space-y-0">
-                    {timeline.map((m, idx) => {
-                      const isAdjustment = m.type === 'adjustment'
-                      const isPositive = m.quantity >= 0
-                      const dotColor = isAdjustment
-                        ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-500'
-                        : 'bg-green-50 dark:bg-green-950/40 border-green-500'
-                      const iconColor = isAdjustment ? 'text-amber-600 dark:text-amber-400' : 'text-green-600 dark:text-green-400'
-                      const badgeColor = isPositive
-                        ? 'bg-green-50 dark:bg-green-950/40 border-green-200 dark:border-green-800 text-green-600 dark:text-green-400'
-                        : 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400'
-                      return (
-                        <div key={m.id} className="relative flex gap-3">
-                          {/* Timeline line + dot */}
-                          <div className="flex flex-col items-center">
-                            <div className={cn('h-8 w-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 z-10', dotColor)}>
-                              {isAdjustment
-                                ? <ClipboardCheck className={cn('h-3.5 w-3.5', iconColor)} />
-                                : <Package className={cn('h-3.5 w-3.5', iconColor)} />
-                              }
-                            </div>
-                            {idx < timeline.length - 1 && (
-                              <div className="w-0.5 flex-1 bg-border mt-1 mb-1 min-h-[16px]" />
-                            )}
-                          </div>
-
-                          {/* Card */}
-                          <div className={cn('flex-1 min-w-0', idx < timeline.length - 1 ? 'pb-3' : 'pb-0')}>
-                            <div className="rounded-xl border bg-card shadow-sm px-4 py-3">
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex-1 min-w-0">
-                                  {/* Reason */}
-                                  <p className="text-sm font-semibold text-foreground truncate">
-                                    {m.reason || (isAdjustment ? t('type_adjustment') : t('restock_history'))}
-                                  </p>
-                                  {/* Date + performer */}
-                                  <p className="text-xs text-muted-foreground mt-0.5">
-                                    {fmtDate(m.created_at)}
-                                    {m.performed_by_name && (
-                                      <> · <span className="font-medium text-foreground/70">{m.performed_by_name}</span></>
-                                    )}
-                                  </p>
-                                  {/* Before → After */}
-                                  {(m.previous_qty != null || m.new_qty != null) && (
-                                    <div className="flex items-center gap-1.5 mt-2">
-                                      <span className="bg-muted text-muted-foreground text-[11px] font-semibold px-2.5 py-0.5 rounded-full tabular-nums">
-                                        {m.previous_qty ?? '—'}
-                                      </span>
-                                      <ArrowRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                                      <span className="bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400 text-[11px] font-semibold px-2.5 py-0.5 rounded-full tabular-nums border border-green-200 dark:border-green-800">
-                                        {m.new_qty ?? '—'}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                                {/* Quantity badge */}
-                                <div className={cn('flex-shrink-0 flex h-10 w-10 items-center justify-center rounded-full border', badgeColor)}>
-                                  <span className="text-sm font-bold tabular-nums leading-none">
-                                    {isPositive ? '+' : ''}{m.quantity}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                {/* Footer */}
-                <div className="px-4 pb-4 pt-2 border-t flex-shrink-0">
-                  <Button
-                    variant="outline"
-                    className="w-full h-11 font-medium"
-                    onClick={() => setOpenProduct(null)}
-                  >
-                    {t('close')}
-                  </Button>
-                </div>
-              </motion.div>
-            </motion.div>
-          )
-        })()}
-      </AnimatePresence>,
-      document.body
-      )}
+              </div>
+            )
+          })}
+        </div>
+      </DetailDrawer>
     </div>
   )
 }

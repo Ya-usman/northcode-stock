@@ -2424,7 +2424,6 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       <PremiumDialog
         open={showDrafts}
         onOpenChange={setShowDrafts}
-        category="Ventes"
         title={t('sales.pending_invoices_title')}
         icon={<Clock className="h-4 w-4" />}
       >
@@ -2487,7 +2486,6 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       <PremiumDialog
         open={showHoldDialog}
         onOpenChange={setShowHoldDialog}
-        category="Ventes"
         title={t('sales.hold_dialog_title')}
         icon={<PauseCircle className="h-4 w-4" />}
         centered
@@ -2521,7 +2519,6 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       <PremiumDialog
         open={clearCartOpen}
         onOpenChange={setClearCartOpen}
-        category="Ventes"
         title={t('sales.clear_cart_title')}
         icon={<Trash2 className="h-4 w-4" />}
         centered
@@ -2547,7 +2544,6 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       <PremiumDialog
         open={!!pendingResume}
         onOpenChange={open => { if (!open) setPendingResume(null) }}
-        category="Ventes"
         title={t('sales.resume_conflict_title')}
         icon={<PlayCircle className="h-4 w-4" />}
         centered
@@ -2580,7 +2576,6 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       <PremiumDialog
         open={showReceipt}
         onOpenChange={setShowReceipt}
-        category="Ventes"
         title={t('sales.receipt_ready')}
         icon={<CheckCircle className="h-4 w-4" />}
         centered
