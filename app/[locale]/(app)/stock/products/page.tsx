@@ -5,8 +5,8 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
-import { motion } from 'framer-motion'
-import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag, CalendarClock, ShoppingCart, X, LayoutGrid, List, SlidersHorizontal, ChevronDown, MoreHorizontal, Zap } from 'lucide-react'
+import dynamic from 'next/dynamic'
+import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag, CalendarClock, ShoppingCart, X, LayoutGrid, List, SlidersHorizontal, ChevronDown, MoreHorizontal, Zap, Columns3 } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { createClient } from '@/lib/supabase/client'
@@ -25,15 +25,14 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createRestockSchema, type RestockFormData, type ProductFormData } from '@/lib/validations/product'
 import type { Product, Category, Supplier } from '@/lib/types/database'
-import { ProductForm } from '@/components/stock/product-form'
+// ProductForm, ImportProductsModal et BulkAddModal : chargés à la demande
+// (déclarations dynamic plus bas), hors du code de première ouverture
 import { useRestoredPhoto } from '@/lib/photo/use-restored-photo'
-import { ProductTable, ProductTableSkeleton, type ProductSort, type ProductStatus } from '@/components/stock/product-table'
+import { ProductTable, ProductTableSkeleton, OPTIONAL_COLUMNS, PENDING_COLUMNS, type ProductColumnKey, type ProductSort, type ProductStatus } from '@/components/stock/product-table'
 import { useStockViewMode } from '@/lib/hooks/use-stock-view-mode'
 import { ProductActivityJournal } from '@/components/stock/product-activity-journal'
-import { fetchExpiryByProduct, fetchSoldQty30d } from '@/lib/stock/signals'
+import { fetchExpiryByProduct, fetchSoldQty30d, readSignalsCache, writeSignalsCache } from '@/lib/stock/signals'
 import { ProductThumbnail } from '@/components/stock/product-thumbnail'
-import { ImportProductsModal } from '@/components/stock/import-products-modal'
-import { BulkAddModal } from '@/components/stock/bulk-add-modal'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
@@ -49,6 +48,16 @@ import { useStockRealtime } from '@/lib/hooks/use-realtime'
 import { StockTabs } from '@/components/stock/stock-tabs'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { getExpiryAlertDays } from '@/lib/utils/expiry'
+
+// Fiches et modales rarement ouvertes (formulaire produit avec sa validation,
+// ajout rapide, import CSV) : chargées au premier usage, pour que l'ouverture
+// de la liste n'attende pas leur code.
+const ProductForm = dynamic(() => import('@/components/stock/product-form').then(m => ({ default: m.ProductForm })), {
+  ssr: false,
+  loading: () => <div className="p-5"><Skeleton className="h-72 rounded-xl" /></div>,
+})
+const ImportProductsModal = dynamic(() => import('@/components/stock/import-products-modal').then(m => ({ default: m.ImportProductsModal })), { ssr: false })
+const BulkAddModal = dynamic(() => import('@/components/stock/bulk-add-modal').then(m => ({ default: m.BulkAddModal })), { ssr: false })
 
 
 function StockBadge({ quantity, threshold }: { quantity: number; threshold: number }) {
@@ -92,14 +101,14 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [{ search, categoryFilter, statusFilter, supplierFilter, shopFilter, noSku, noImage }, setFilter, resetFilters] = usePersistedFilters(
     'stock', shop?.id, { search: '', categoryFilter: 'all', statusFilter: 'all', supplierFilter: 'all', shopFilter: 'all', noSku: false, noImage: false }
   )
-  const [expiryByProduct, setExpiryByProduct] = useState<Record<string, string>>({})
-  const [soldQtyByProduct, setSoldQtyByProduct] = useState<Record<string, number>>({})
-  // Tracks whether soldQtyByProduct has ever successfully loaded THIS mount —
-  // it starts empty on every mount (no cache, unlike products), so isDormant
-  // must not treat "not loaded yet" as "confirmed zero sales" or every
-  // in-stock product briefly (or indefinitely, if the fetch is skipped/fails)
-  // counts as dormant right after a remount (e.g. returning from background).
-  const [soldQtyLoaded, setSoldQtyLoaded] = useState(false)
+  // Signaux (péremption, ventes 30 j) : repris du cache local partagé avec la
+  // Vue d'ensemble (lib/stock/signals), rafraîchis ensuite en arrière-plan.
+  const [expiryByProduct, setExpiryByProduct] = useState<Record<string, string>>(() => readSignalsCache(effectiveShopIds)?.expiryByProduct ?? {})
+  const [soldQtyByProduct, setSoldQtyByProduct] = useState<Record<string, number>>(() => readSignalsCache(effectiveShopIds)?.soldQtyByProduct ?? {})
+  // Tant que les ventes 30 j ne sont ni en cache ni chargées, isDormant ne
+  // doit pas prendre « pas encore chargé » pour « zéro vente confirmée »,
+  // sinon tout produit en stock passerait brièvement pour dormant.
+  const [soldQtyLoaded, setSoldQtyLoaded] = useState(() => !!readSignalsCache(effectiveShopIds)?.soldQtyByProduct)
   const [promoProduct, setPromoProduct] = useState<Product | null>(null)
   const [promoPrice, setPromoPrice] = useState('')
   const [promoUntil, setPromoUntil] = useState('')
@@ -169,6 +178,21 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   useEffect(() => {
     try { localStorage.setItem('stock_table_sort', JSON.stringify(tableSort)) } catch { /* sans stockage, tri non mémorisé */ }
   }, [tableSort])
+  // Colonnes optionnelles du tableau (bouton « Colonnes »), mémorisées sur l'appareil
+  const [tableColumns, setTableColumns] = useState<ProductColumnKey[]>(() => {
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem('stock_table_columns') : null
+      const arr = raw ? JSON.parse(raw) : null
+      const known = new Set(OPTIONAL_COLUMNS.map(c => c.key))
+      if (Array.isArray(arr)) return arr.filter((k): k is ProductColumnKey => known.has(k))
+    } catch { /* valeur par défaut */ }
+    return []
+  })
+  useEffect(() => {
+    try { localStorage.setItem('stock_table_columns', JSON.stringify(tableColumns)) } catch { /* non mémorisé */ }
+  }, [tableColumns])
+  const toggleColumn = (key: ProductColumnKey) =>
+    setTableColumns(prev => (prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]))
   const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false)
   const [bulkDeleteAll, setBulkDeleteAll] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
@@ -274,8 +298,17 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   // plutôt que d'écraser avec un faux « vide ».
   const fetchStockSignals = async () => {
     if (!effectiveShopIds.length || !isOnline) return
-    try { setExpiryByProduct(await fetchExpiryByProduct(supabase, effectiveShopIds)) } catch { /* dernier état connu conservé */ }
-    try { setSoldQtyByProduct(await fetchSoldQty30d(supabase, effectiveShopIds)); setSoldQtyLoaded(true) } catch { /* idem */ }
+    try {
+      const expiry = await fetchExpiryByProduct(supabase, effectiveShopIds)
+      setExpiryByProduct(expiry)
+      writeSignalsCache(effectiveShopIds, { expiryByProduct: expiry })
+    } catch { /* dernier état connu conservé */ }
+    try {
+      const sold = await fetchSoldQty30d(supabase, effectiveShopIds)
+      setSoldQtyByProduct(sold)
+      setSoldQtyLoaded(true)
+      writeSignalsCache(effectiveShopIds, { soldQtyByProduct: sold })
+    } catch { /* idem */ }
   }
 
   const openProductBatches = async (product: Product) => {
@@ -319,7 +352,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   // montée de cette page en naviguant en interne (onglets), au lieu de la
   // remonter à chaque fois — observé sur l'app Android.
   useEffect(() => {
-    if (pathname === `/${locale}/stock`) fetchStockSignals()
+    if (pathname === `/${locale}/stock/products`) fetchStockSignals()
   }, [pathname, effectiveShopIds.join(',')])
 
   // Refresh when the user comes back to this tab — catches stock changes
@@ -967,15 +1000,17 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     const expired = expiry ? expiry < todayStr : false
     const expiringSoonBadge = expiry && !expired ? expiry <= getExpiryCutoffFor(product) : false
     return (
-      <motion.div
+      <div
         key={product.id}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: idx * 0.02 }}
-        className={`rounded-lg border bg-card shadow-sm p-4 space-y-2 transition-colors ${
+        // Apparition en CSS (tailwindcss-animate) : framer-motion n'est plus
+        // chargé pour cette page, 113 Ko de JavaScript en moins à l'ouverture
+        className={`animate-in fade-in slide-in-from-bottom-1 fill-mode-backwards rounded-lg border bg-card shadow-sm p-4 space-y-2 transition-colors ${
           selectionMode ? 'cursor-pointer select-none' : ''
         } ${isSelected ? 'border-stockshop-blue/60 dark:border-blue-500 bg-stockshop-blue-muted/60 dark:bg-blue-950/25' : ''}`}
-        style={!isSelected && product.categories?.color ? { borderTopColor: product.categories.color, borderTopWidth: 3 } : undefined}
+        style={{
+          animationDelay: `${Math.min(idx, 20) * 20}ms`,
+          ...(!isSelected && product.categories?.color ? { borderTopColor: product.categories.color, borderTopWidth: 3 } : {}),
+        }}
         onClick={selectionMode ? () => setSelectedIds(prev => {
           const next = new Set(prev)
           next.has(product.id) ? next.delete(product.id) : next.add(product.id)
@@ -1110,7 +1145,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             </span>
           </div>
         )}
-      </motion.div>
+      </div>
     )
   }
 
@@ -1197,6 +1232,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     onToggleSelectMany: toggleSelectMany,
     sort: tableSort,
     onSortChange: setTableSort,
+    // Colonnes financières (coût, valeur) réservées au propriétaire, quel que soit l'appareil
+    columns: tableColumns.filter(k => isOwnerRole || !OPTIONAL_COLUMNS.find(c => c.key === k)?.ownerOnly),
     onOrder: (p: Product) => router.push(`/${locale}/suppliers?order_product=${p.id}`),
     onRestock: (p: Product) => { setEditingProduct(null); setShowAddModal(false); setRestockProduct(p); restockForm.reset({ product_id: p.id, quantity: 1 }); setShowRestockModal(true) },
     onEdit: (p: Product) => { setShowAddModal(false); setShowRestockModal(false); setEditingProduct(p) },
@@ -1375,6 +1412,41 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               <span className="sr-only">{t('products.view_table')}</span>
             </button>
           </div>
+          {/* Colonnes optionnelles du tableau : coût, valeur, catégorie, fournisseur, couverture… */}
+          {viewMode === 'table' && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 gap-1.5">
+                  <Columns3 className="h-3.5 w-3.5" />
+                  {t('products.columns_button')}
+                  {tableColumns.length > 0 && (
+                    <span className="rounded-full bg-stockshop-blue px-1.5 text-[11px] font-semibold leading-5 text-white">{tableColumns.length}</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-72 space-y-1">
+                <p className="mb-2 text-xs font-medium text-muted-foreground">{t('products.columns_title')}</p>
+                {OPTIONAL_COLUMNS.filter(c => isOwnerRole || !c.ownerOnly).map(c => (
+                  <label key={c.key} className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-muted/60">
+                    <input type="checkbox" className="h-4 w-4 rounded accent-stockshop-blue" checked={tableColumns.includes(c.key)} onChange={() => toggleColumn(c.key)} />
+                    {t(c.labelKey as any)}
+                  </label>
+                ))}
+                {/* Annoncées, sans donnée tant que le suivi réservé / en transit / en commande n'existe pas */}
+                {PENDING_COLUMNS.map(c => (
+                  <label key={c.key} className="flex cursor-not-allowed items-center gap-2 rounded-md px-1 py-1 text-sm text-muted-foreground" title={t('products.columns_soon')}>
+                    <input type="checkbox" className="h-4 w-4 rounded" disabled />
+                    {t(c.labelKey as any)}
+                  </label>
+                ))}
+                {tableColumns.length > 0 && (
+                  <button type="button" onClick={() => setTableColumns([])} className="mt-2 text-xs text-muted-foreground underline hover:text-foreground">
+                    {t('products.columns_default')}
+                  </button>
+                )}
+              </PopoverContent>
+            </Popover>
+          )}
           {/* Sélection en cours (cartes) : annulation visible en un geste */}
           {viewMode === 'cards' && selectionMode && (
             <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => { setSelectionMode(false); setSelectedIds(new Set()) }}>
@@ -1407,7 +1479,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
       {/* Stats */}
       <div className="flex gap-4 text-sm text-muted-foreground">
-        <span>{t('products.stats_count', { count: showArchived ? archivedProducts.length : filtered.length })}</span>
+        {/* Pas de « 0 produit(s) » trompeur tant que la liste se charge sans cache */}
+        <span>{loading && products.length === 0 ? '…' : t('products.stats_count', { count: showArchived ? archivedProducts.length : filtered.length })}</span>
       </div>
 
       {/* Barre de sélection */}

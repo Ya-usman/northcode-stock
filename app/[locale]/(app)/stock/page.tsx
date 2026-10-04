@@ -14,13 +14,14 @@ import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { useShopLoadTimeout } from '@/lib/hooks/use-shop-load-timeout'
-import { getPageCache } from '@/lib/offline/page-cache'
+import { getPageCache, setPageCache } from '@/lib/offline/page-cache'
+import { presetPersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { cn } from '@/lib/utils/cn'
 import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StockTabs } from '@/components/stock/stock-tabs'
-import { computeStockKpis, fetchExpiryByProduct, fetchSoldQty30d, type StockProductLike } from '@/lib/stock/signals'
+import { computeStockKpis, fetchExpiryByProduct, fetchSoldQty30d, readSignalsCache, writeSignalsCache, type StockProductLike } from '@/lib/stock/signals'
 
 // Vue d'ensemble du module Stock : six chiffres clés cliquables (chacun ouvre
 // les produits concernés, filtre appliqué par ?status=) et une zone
@@ -82,36 +83,60 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
   const [products, setProducts] = useState<StockProductLike[]>(() => (getPageCache<{ prods: any[] }>(cacheKey)?.prods || []) as StockProductLike[])
   const [categories, setCategories] = useState<CategoryAlert[]>(() => (getPageCache<{ cats: any[] }>(cacheKey)?.cats || []) as CategoryAlert[])
   const [loading, setLoading] = useState(() => !getPageCache(cacheKey))
-  const [expiryByProduct, setExpiryByProduct] = useState<Record<string, string>>({})
-  const [soldQtyByProduct, setSoldQtyByProduct] = useState<Record<string, number>>({})
-  const [soldQtyLoaded, setSoldQtyLoaded] = useState(false)
+  // Signaux : repris du cache local partagé avec Produits, rafraîchis ensuite
+  const [expiryByProduct, setExpiryByProduct] = useState<Record<string, string>>(() => readSignalsCache(effectiveShopIds)?.expiryByProduct ?? {})
+  const [soldQtyByProduct, setSoldQtyByProduct] = useState<Record<string, number>>(() => readSignalsCache(effectiveShopIds)?.soldQtyByProduct ?? {})
+  const [soldQtyLoaded, setSoldQtyLoaded] = useState(() => !!readSignalsCache(effectiveShopIds)?.soldQtyByProduct)
 
   const fetchAll = async () => {
     if (!effectiveShopIds.length) return
     if (!isOnline) { setLoading(false); return }
     try {
-      const [prodsRes, catsRes] = await withTimeout(Promise.all([
+      // Même requête que la page Produits (lignes complètes, catégories,
+      // fournisseurs) et même cache local : un clic sur une carte ouvre une
+      // liste déjà chargée, au lieu de tout recharger derrière un squelette.
+      const [prodsRes, catsRes, supsRes] = await withTimeout(Promise.all([
         supabase
           .from('products')
-          .select('id, quantity, low_stock_threshold, buying_price, selling_price, category_id, promo_price, promo_until, promo_start, promo_reason')
+          .select('*, categories(name, color), suppliers(name)')
           .in('shop_id', effectiveShopIds)
-          .eq('is_active', true),
-        supabase.from('categories').select('id, expiry_alert_days').in('shop_id', effectiveShopIds),
+          .eq('is_active', true)
+          .order('name'),
+        supabase.from('categories').select('*').in('shop_id', effectiveShopIds).order('name'),
+        supabase.from('suppliers').select('*').in('shop_id', effectiveShopIds).order('name'),
       ]), 20_000, t('errors.generic'))
-      if (prodsRes.error || catsRes.error) throw prodsRes.error || catsRes.error
+      const err = prodsRes.error || catsRes.error || supsRes.error
+      if (err) throw err
       setProducts((prodsRes.data || []) as StockProductLike[])
       setCategories((catsRes.data || []) as CategoryAlert[])
+      setPageCache(cacheKey, { prods: prodsRes.data || [], cats: catsRes.data || [], sups: supsRes.data || [] })
     } catch {
       // on garde l'état connu (cache ou chargement précédent)
     } finally {
       setLoading(false)
     }
-    // Signaux additifs, chacun tolérant à l'échec : dernier état connu conservé
-    try { setExpiryByProduct(await fetchExpiryByProduct(supabase, effectiveShopIds)) } catch { /* idem */ }
-    try { setSoldQtyByProduct(await fetchSoldQty30d(supabase, effectiveShopIds)); setSoldQtyLoaded(true) } catch { /* idem */ }
+    // Signaux additifs, chacun tolérant à l'échec : dernier état connu conservé,
+    // et mis en cache pour la page Produits
+    try {
+      const expiry = await fetchExpiryByProduct(supabase, effectiveShopIds)
+      setExpiryByProduct(expiry)
+      writeSignalsCache(effectiveShopIds, { expiryByProduct: expiry })
+    } catch { /* idem */ }
+    try {
+      const sold = await fetchSoldQty30d(supabase, effectiveShopIds)
+      setSoldQtyByProduct(sold)
+      setSoldQtyLoaded(true)
+      writeSignalsCache(effectiveShopIds, { soldQtyByProduct: sold })
+    } catch { /* idem */ }
   }
 
   useEffect(() => { fetchAll() }, [effectiveShopIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Routes cibles des cartes préchargées : la navigation n'attend ni le code
+  // de la page ni son rendu serveur
+  useEffect(() => {
+    router.prefetch(`/${locale}/stock/products`)
+    router.prefetch(`/${locale}/stock/expiry`)
+  }, [router, locale])
   useRefetchOnVisible(() => fetchAll())
   useRefetchOnReconnect(() => fetchAll(), isOnline)
   const shopLoadTimedOut = useShopLoadTimeout(effectiveShopIds.length)
@@ -127,8 +152,17 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
 
   // Les coûts sont des données financières : pas pour la caisse ni la lecture seule
   const canSeeValue = !['cashier', 'viewer'].includes(effectiveRole || '')
-  const goToProducts = (status?: string) => router.push(`/${locale}/stock/products${status ? `?status=${status}` : ''}`)
-  const goToLots = (status: string) => router.push(`/${locale}/stock/expiry?status=${status}`)
+  // Le filtre est posé dans le stockage mémorisé de la page cible, lue à son
+  // premier rendu : pas de paramètre d'URL, donc la route préchargée s'ouvre
+  // immédiatement. Repli ?status= si la boutique n'est pas connue.
+  const goToProducts = (status?: string) => {
+    const ok = presetPersistedFilters('stock', shop?.id, { statusFilter: status ?? 'all' })
+    router.push(`/${locale}/stock/products${!ok && status ? `?status=${status}` : ''}`)
+  }
+  const goToLots = (status: string) => {
+    const ok = presetPersistedFilters('expiry', shop?.id, { statusFilter: status })
+    router.push(`/${locale}/stock/expiry${ok ? '' : `?status=${status}`}`)
+  }
   const reorderCount = kpis.out + kpis.low
 
   // Opportunités : seulement celles qui ont quelque chose à montrer

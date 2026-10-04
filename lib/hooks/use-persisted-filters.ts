@@ -19,6 +19,30 @@ function today(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
+/**
+ * Pose des filtres pour une page AVANT d'y naviguer (ex. une carte de la
+ * Vue d'ensemble qui ouvre Produits filtrés). La page les lit à son premier
+ * rendu, sans paramètre d'URL : la route préchargée s'ouvre telle quelle, et
+ * un rechargement ne réimpose rien. Fusionne avec les filtres déjà mémorisés.
+ */
+export function presetPersistedFilters(pageKey: string, shopId: string | null | undefined, updates: Record<string, unknown>): boolean {
+  if (!shopId || typeof window === 'undefined') return false
+  const key = `filters_session_${pageKey}_${shopId}`
+  try {
+    let current: Record<string, unknown> = {}
+    const raw = sessionStorage.getItem(key)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed === 'object' && 'filters' in parsed && parsed.date === today()) current = parsed.filters
+    }
+    const entry: StoredEntry<Record<string, unknown>> = { filters: { ...current, ...updates }, date: today() }
+    sessionStorage.setItem(key, JSON.stringify(entry))
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function usePersistedFilters<T extends Record<string, unknown>>(
   pageKey: string,
   shopId: string | null | undefined,

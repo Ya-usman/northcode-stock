@@ -1,5 +1,34 @@
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { getExpiryAlertDays } from '@/lib/utils/expiry'
+import { getPageCache, setPageCache } from '@/lib/offline/page-cache'
+
+// ── Cache local des signaux ────────────────────────────────────────────────
+// Partagé entre la Vue d'ensemble et Produits : la page qui a chargé les
+// signaux les laisse pour la suivante, qui s'affiche sans attendre (filtre
+// « Stock dormant », colonne Ventes 30 j, badges de péremption), puis
+// rafraîchit en arrière-plan. Une journée de validité : au-delà, on repart
+// de zéro plutôt que d'afficher des ventes 30 j d'un autre mois.
+
+export interface CachedSignals {
+  expiryByProduct?: Record<string, string>
+  soldQtyByProduct?: Record<string, number>
+}
+
+const SIGNALS_MAX_AGE_MS = 24 * 60 * 60 * 1000
+
+export const signalsCacheKey = (shopIds: string[]) => `stock_signals_${shopIds.join(',')}`
+
+export function readSignalsCache(shopIds: string[]): CachedSignals | null {
+  if (typeof window === 'undefined' || !shopIds.length) return null
+  return getPageCache<CachedSignals>(signalsCacheKey(shopIds), SIGNALS_MAX_AGE_MS)
+}
+
+/** Fusionne avec l'entrée existante : chaque signal peut arriver séparément. */
+export function writeSignalsCache(shopIds: string[], partial: CachedSignals): void {
+  if (!shopIds.length) return
+  const current = readSignalsCache(shopIds) || {}
+  setPageCache(signalsCacheKey(shopIds), { ...current, ...partial })
+}
 
 // Signaux de stock partagés entre la Vue d'ensemble et la page Produits :
 // date de péremption la plus proche par produit (lots encore en stock) et
