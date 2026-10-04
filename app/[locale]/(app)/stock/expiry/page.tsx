@@ -40,7 +40,6 @@ type ExpiryBatch = {
   received_at: string
   products: {
     name: string
-    name_hausa: string | null
     unit: string | null
     category_id: string | null
     categories: { name: string; color: string | null; expiry_alert_days: number | null } | null
@@ -82,7 +81,7 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
       const [batchesRes, categoriesRes] = await withTimeout(Promise.all([
         supabase
           .from('product_batches')
-          .select('id, product_id, quantity, buying_price, expiry_date, received_at, products(name, name_hausa, unit, category_id, categories(name, color, expiry_alert_days))')
+          .select('id, product_id, quantity, buying_price, expiry_date, received_at, products(name, unit, category_id, categories(name, color, expiry_alert_days))')
           .in('shop_id', effectiveShopIds)
           .gt('quantity', 0)
           // Tous les lots en stock, datés ou non : les périssables d'abord

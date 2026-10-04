@@ -6,7 +6,9 @@ import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
 import { motion } from 'framer-motion'
-import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag, CalendarClock, ShoppingCart, X, LayoutGrid, List } from 'lucide-react'
+import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag, CalendarClock, ShoppingCart, X, LayoutGrid, List, SlidersHorizontal, ChevronDown, MoreHorizontal, Zap } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils/cn'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -87,8 +89,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     !getPageCache(`stock_${effectiveShopIds.join(',')}`)
   )
   const { isOnline } = useOffline()
-  const [{ search, categoryFilter, statusFilter }, setFilter] = usePersistedFilters(
-    'stock', shop?.id, { search: '', categoryFilter: 'all', statusFilter: 'all' }
+  const [{ search, categoryFilter, statusFilter, supplierFilter, shopFilter, noSku, noImage }, setFilter, resetFilters] = usePersistedFilters(
+    'stock', shop?.id, { search: '', categoryFilter: 'all', statusFilter: 'all', supplierFilter: 'all', shopFilter: 'all', noSku: false, noImage: false }
   )
   const [expiryByProduct, setExpiryByProduct] = useState<Record<string, string>>({})
   const [soldQtyByProduct, setSoldQtyByProduct] = useState<Record<string, number>>({})
@@ -186,6 +188,11 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const isOwnerRole = effectiveRole === 'owner' || effectiveRole === 'super_admin'
   const [journalOpen, setJournalOpen] = useState(false)
   const showArchived = isOwnerRole && statusFilter === 'archived'
+  // Filtres secondaires actifs (badge sur « Plus de filtres ») et lien « Réinitialiser »
+  const extraFilterCount = (supplierFilter !== 'all' ? 1 : 0) + (noSku ? 1 : 0) + (noImage ? 1 : 0)
+  const anyFilterActive = !!search || categoryFilter !== 'all' || statusFilter !== 'all' || shopFilter !== 'all' || extraFilterCount > 0
+  // Mode sélection (cartes) : mêmes rôles qu'avant pour les actions groupées
+  const canSelectProducts = canWriteStock || canAccess('categories') || canDeleteProducts
   const [archiveDateFrom, setArchiveDateFrom] = useState('')
   const [archiveDateTo, setArchiveDateTo] = useState('')
 
@@ -390,9 +397,15 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const filtered = products
     .filter(p => {
       if (search) {
+        // Nom et SKU / code-barres (un lecteur de codes tape ici)
         const q = normalize(search)
-        if (!normalize(p.name).includes(q)) return false
+        const hit = normalize(p.name).includes(q) || (!!p.sku && normalize(p.sku).includes(q))
+        if (!hit) return false
       }
+      if (shopFilter !== 'all' && p.shop_id !== shopFilter) return false
+      if (supplierFilter !== 'all' && p.supplier_id !== supplierFilter) return false
+      if (noSku && p.sku) return false
+      if (noImage && p.image_url) return false
       if (categoryFilter === 'uncategorized' && p.category_id) return false
       if (categoryFilter !== 'all' && categoryFilter !== 'uncategorized' && p.category_id !== categoryFilter) return false
       const threshold = p.low_stock_threshold || shop?.low_stock_threshold || 10
@@ -1207,42 +1220,39 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       <StockTabs locale={locale} />
 
       <>
-      {/* Controls */}
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="relative flex-1 min-w-[180px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setFilter({ search: e.target.value })} placeholder={t('products.search_placeholder')} className="pl-9 h-9" />
-        </div>
-        <div className="flex flex-col gap-0.5">
-          <Label className="text-[10px] font-normal text-muted-foreground px-0.5">{t('products.category')}</Label>
-          <div className="flex gap-1">
-            <Select value={categoryFilter} onValueChange={v => setFilter({ categoryFilter: v })}>
-              <SelectTrigger className="w-[130px] h-9"><SelectValue placeholder={t('products.all_categories')} /></SelectTrigger>
-              <SelectContent className="max-h-80">
-                <SelectItem value="all">{t('products.all_categories')}</SelectItem>
-                {products.some(p => !p.category_id) && (
-                  <SelectItem value="uncategorized">
-                    {t('categories.uncategorized')} ({products.filter(p => !p.category_id).length})
-                  </SelectItem>
-                )}
-                {categories.map(c => (
-                  <SelectItem key={c.id} value={c.id}>
-                    <span className="flex items-center gap-1.5">
-                      {c.color && <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.color }} />}
-                      {c.name}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      {/* Barre : recherche et filtres à gauche, actions regroupées en menus à
+          droite (une seule action principale « Ajouter »). Les filtres
+          secondaires (fournisseur, hygiène du catalogue) vivent sous
+          « Plus de filtres » pour garder la ligne légère. */}
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input value={search} onChange={e => setFilter({ search: e.target.value })} placeholder={t('products.search_placeholder')} className="h-9 pl-9" aria-label={t('products.search_placeholder')} />
           </div>
-        </div>
-        <div className="flex flex-col gap-0.5">
-          <Label className="text-[10px] font-normal text-muted-foreground px-0.5">{t('products.status_label')}</Label>
+          <Select value={categoryFilter} onValueChange={v => setFilter({ categoryFilter: v })}>
+            <SelectTrigger className="h-9 w-auto min-w-[150px] gap-1" aria-label={t('products.category')}><SelectValue placeholder={t('products.all_categories')} /></SelectTrigger>
+            <SelectContent className="max-h-80">
+              <SelectItem value="all">{t('products.all_categories')}</SelectItem>
+              {products.some(p => !p.category_id) && (
+                <SelectItem value="uncategorized">
+                  {t('categories.uncategorized')} ({products.filter(p => !p.category_id).length})
+                </SelectItem>
+              )}
+              {categories.map(c => (
+                <SelectItem key={c.id} value={c.id}>
+                  <span className="flex items-center gap-1.5">
+                    {c.color && <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.color }} />}
+                    {c.name}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={statusFilter} onValueChange={v => setFilter({ statusFilter: v })}>
-            <SelectTrigger className="w-[110px] h-9"><SelectValue placeholder={t('status.all')} /></SelectTrigger>
+            <SelectTrigger className="h-9 w-auto min-w-[140px] gap-1" aria-label={t('products.status_label')}><SelectValue placeholder={t('products.all_statuses')} /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">{t('status.all')}</SelectItem>
+              <SelectItem value="all">{t('products.all_statuses')}</SelectItem>
               <SelectItem value="ok">{t('status.in_stock')}</SelectItem>
               <SelectItem value="low">{t('status.low_stock')}</SelectItem>
               <SelectItem value="out">{t('status.out_of_stock')}</SelectItem>
@@ -1256,78 +1266,141 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               )}
             </SelectContent>
           </Select>
+          {isMultiShop && (
+            <Select value={shopFilter} onValueChange={v => setFilter({ shopFilter: v })}>
+              <SelectTrigger className="h-9 w-auto min-w-[160px] gap-1" aria-label={t('products.filter_shop')}><SelectValue placeholder={t('dashboard.all_shops')} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('dashboard.all_shops')}</SelectItem>
+                {userShops.filter(s => effectiveShopIds.includes(s.id)).map(s => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 gap-1.5">
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                {t('products.more_filters')}
+                {extraFilterCount > 0 && (
+                  <span className="rounded-full bg-stockshop-blue px-1.5 text-[11px] font-semibold leading-5 text-white">{extraFilterCount}</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-72 space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">{t('products.filter_supplier')}</Label>
+                <Select value={supplierFilter} onValueChange={v => setFilter({ supplierFilter: v })}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder={t('products.all_suppliers')} /></SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    <SelectItem value="all">{t('products.all_suppliers')}</SelectItem>
+                    {suppliers.filter((s: any) => effectiveShopIds.includes(s.shop_id)).map(s => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <label className="flex cursor-pointer items-center gap-2 text-sm">
+                <input type="checkbox" className="h-4 w-4 rounded accent-stockshop-blue" checked={noSku} onChange={e => setFilter({ noSku: e.target.checked })} />
+                {t('products.filter_no_sku')}
+              </label>
+              <label className="flex cursor-pointer items-center gap-2 text-sm">
+                <input type="checkbox" className="h-4 w-4 rounded accent-stockshop-blue" checked={noImage} onChange={e => setFilter({ noImage: e.target.checked })} />
+                {t('products.filter_no_image')}
+              </label>
+            </PopoverContent>
+          </Popover>
+          {anyFilterActive && (
+            <button type="button" onClick={resetFilters} className="text-xs text-muted-foreground underline hover:text-foreground">
+              {t('products.reset_filters')}
+            </button>
+          )}
         </div>
-        {canWriteStock && (
-          <>
-            <div className="flex gap-1">
-              <Button variant="outline" size="sm" onClick={exportCSV} className="h-9 gap-1">
-                <FileDown className="h-3.5 w-3.5" /> CSV
-              </Button>
-              <Button variant="outline" size="sm" className="h-9 gap-1" onClick={() => setShowImportModal(true)}>
-                <Upload className="h-3.5 w-3.5" /> CSV
-              </Button>
-            </div>
-            <div className="flex gap-1">
-              <Button variant="stockshop" size="sm" className="h-9 gap-1" onClick={() => setShowBulkModal(true)}>
-                <Plus className="h-3.5 w-3.5" /> Ajout rapide
-              </Button>
-              <Button
-                variant="stockshop"
-                className="h-9 gap-1"
-                size="sm"
-                disabled={saving}
-                onClick={() => { setEditingProduct(null); setShowRestockModal(false); setSessionAddCount(0); setAddFormKey(k => k + 1); setShowAddModal(true) }}
-              >
-                <Plus className="h-4 w-4" />
-                {t('actions.add_product')}
-              </Button>
-            </div>
-          </>
-        )}
-        {/* En tableau, la sélection passe par les cases à cocher des lignes */}
-        {viewMode === 'cards' && (canWriteStock || canAccess('categories') || canDeleteProducts) && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-9 gap-1.5"
-            onClick={() => {
-              if (selectionMode) { setSelectionMode(false); setSelectedIds(new Set()) }
-              else setSelectionMode(true)
-            }}
-          >
-            {selectionMode ? <><Square className="h-3.5 w-3.5" /> {t('actions.cancel')}</> : <><CheckSquare className="h-3.5 w-3.5" /> {t('products.select_action')}</>}
-          </Button>
-        )}
-        {/* Cartes / tableau */}
-        <div className="flex h-9 rounded-lg border bg-muted/30 p-0.5" role="group" aria-label={t('products.view_label')}>
-          <button
-            type="button"
-            onClick={() => setViewMode('cards')}
-            aria-pressed={viewMode === 'cards'}
-            title={t('products.view_cards')}
-            className={`flex h-full w-8 items-center justify-center rounded-md transition-colors ${viewMode === 'cards' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            <LayoutGrid className="h-4 w-4" />
-            <span className="sr-only">{t('products.view_cards')}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('table')}
-            aria-pressed={viewMode === 'table'}
-            title={t('products.view_table')}
-            className={`flex h-full w-8 items-center justify-center rounded-md transition-colors ${viewMode === 'table' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            <List className="h-4 w-4" />
-            <span className="sr-only">{t('products.view_table')}</span>
-          </button>
+
+        {/* Actions sur une seule ligne dès le grand écran ; les filtres, eux, peuvent passer sur deux lignes */}
+        <div className="flex flex-wrap items-center gap-2 lg:shrink-0 lg:flex-nowrap">
+          {canWriteStock && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 gap-1.5">
+                  <FileDown className="h-3.5 w-3.5" />
+                  {t('products.import_export')}
+                  <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[210px]">
+                <DropdownMenuItem onClick={() => setShowImportModal(true)}><Upload className="mr-2 h-4 w-4" /> {t('products.import_csv')}</DropdownMenuItem>
+                <DropdownMenuItem onClick={exportCSV}><FileDown className="mr-2 h-4 w-4" /> {t('actions.export_csv')}</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          {canWriteStock && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="stockshop" size="sm" className="h-9 gap-1.5" disabled={saving}>
+                  <Plus className="h-4 w-4" />
+                  {t('products.add_menu')}
+                  <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[230px]">
+                <DropdownMenuItem onClick={() => { setEditingProduct(null); setShowRestockModal(false); setSessionAddCount(0); setAddFormKey(k => k + 1); setShowAddModal(true) }}>
+                  <Plus className="mr-2 h-4 w-4" /> {t('actions.add_product')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowBulkModal(true)}><Zap className="mr-2 h-4 w-4" /> {t('products.add_quick')}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowImportModal(true)}><Upload className="mr-2 h-4 w-4" /> {t('products.add_import')}</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          {/* Cartes / tableau */}
+          <div className="flex h-9 rounded-lg border bg-muted/30 p-0.5" role="group" aria-label={t('products.view_label')}>
+            <button
+              type="button"
+              onClick={() => setViewMode('cards')}
+              aria-pressed={viewMode === 'cards'}
+              title={t('products.view_cards')}
+              className={`flex h-full w-8 items-center justify-center rounded-md transition-colors ${viewMode === 'cards' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <LayoutGrid className="h-4 w-4" />
+              <span className="sr-only">{t('products.view_cards')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              aria-pressed={viewMode === 'table'}
+              title={t('products.view_table')}
+              className={`flex h-full w-8 items-center justify-center rounded-md transition-colors ${viewMode === 'table' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <List className="h-4 w-4" />
+              <span className="sr-only">{t('products.view_table')}</span>
+            </button>
+          </div>
+          {/* Sélection en cours (cartes) : annulation visible en un geste */}
+          {viewMode === 'cards' && selectionMode && (
+            <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => { setSelectionMode(false); setSelectedIds(new Set()) }}>
+              <Square className="h-3.5 w-3.5" /> {t('actions.cancel')}
+            </Button>
+          )}
+          {/* Actions secondaires : sélection (cartes), journal d'activité (propriétaire) */}
+          {(isOwnerRole || (viewMode === 'cards' && canSelectProducts && !selectionMode)) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 w-9 p-0" title={t('products.more_actions')}>
+                  <MoreHorizontal className="h-4 w-4" />
+                  <span className="sr-only">{t('products.more_actions')}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[210px]">
+                {viewMode === 'cards' && canSelectProducts && !selectionMode && (
+                  <DropdownMenuItem onClick={() => setSelectionMode(true)}><CheckSquare className="mr-2 h-4 w-4" /> {t('products.select_action')}</DropdownMenuItem>
+                )}
+                {isOwnerRole && (
+                  <DropdownMenuItem onClick={() => setJournalOpen(true)}><History className="mr-2 h-4 w-4" /> {t('products.activity_journal')}</DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
-        {/* Journal d'activité (ancien sous-onglet « Journal ») : panneau latéral, propriétaire seulement */}
-        {isOwnerRole && (
-          <Button variant="outline" size="sm" className="h-9 w-9 p-0" title={t('products.activity_journal')} onClick={() => setJournalOpen(true)}>
-            <History className="h-4 w-4" />
-            <span className="sr-only">{t('products.activity_journal')}</span>
-          </Button>
-        )}
       </div>
 
       {/* Les cartes d'alerte vivent désormais dans la Vue d'ensemble (/stock) */}

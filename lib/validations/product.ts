@@ -19,7 +19,6 @@ const defaultMessages: ValidationMessages = {
 export function createProductSchema(msg: ValidationMessages = defaultMessages) {
   return z.object({
     name: z.string().min(1, msg.product_name_required).max(200),
-    name_hausa: z.string().max(200).optional().or(z.literal('')),
     category_id: z.string().uuid().optional().or(z.literal('')),
     supplier_id: z.string().uuid().optional().or(z.literal('')),
     buying_price: z.coerce.number().min(0, msg.buying_price_invalid),
