@@ -15,7 +15,12 @@ const config: CapacitorConfig = {
   },
   android: {
     allowMixedContent: false,
-    captureInput: true,
+    // Ne jamais repasser à true : Capacitor remplacerait alors la connexion de
+    // saisie de Chromium par une connexion factice (BaseInputConnection), et le
+    // clavier ne verrait plus un champ éditable → plus de suggestions ni
+    // d'autocorrection, plus de presse-papiers Gboard, plus de saisie par
+    // glissement. Contournement d'un vieux bug de claviers Android, sans objet.
+    captureInput: false,
     webContentsDebuggingEnabled: false, // true en dev, false en prod
   },
   ios: {
