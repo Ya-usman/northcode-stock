@@ -1,5 +1,8 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
+import { Loader2 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BrandLogo } from '@/components/brand/brand-logo'
 
@@ -86,6 +89,14 @@ function ListSkeleton() {
 
 export function AppShellSkeleton({ title, pathname }: { title: string; pathname: string }) {
   const kind = pageKindFor(pathname)
+  const t = useTranslations('banners')
+  // Au-delà de 4 s de squelette (session pas encore résolue sur réseau lent),
+  // on le dit : un écran muet fait croire que l'app est bloquée.
+  const [slow, setSlow] = useState(false)
+  useEffect(() => {
+    const timer = setTimeout(() => setSlow(true), 4000)
+    return () => clearTimeout(timer)
+  }, [])
   return (
     <div className="min-h-screen bg-background">
       {/* Barre latérale (≥ sm) — même gabarit que <Sidebar> */}
@@ -126,6 +137,12 @@ export function AppShellSkeleton({ title, pathname }: { title: string; pathname:
           <Skeleton className="h-8 w-8 rounded-full" />
           <Skeleton className="h-8 w-8 rounded-full" />
         </header>
+        {slow && (
+          <div role="status" className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs font-medium text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200 sm:px-6">
+            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+            {t('slow_load_title')} · {t('slow_load_body')}
+          </div>
+        )}
         <main className="flex-1 overflow-x-hidden p-4 pb-24 sm:p-6 sm:pb-6" aria-busy="true">
           {kind === 'dashboard' ? <DashboardSkeleton /> : kind === 'pos' ? <PosSkeleton /> : <ListSkeleton />}
         </main>

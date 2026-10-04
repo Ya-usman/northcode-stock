@@ -12,6 +12,7 @@ import { BottomNav } from './bottom-nav'
 import { Header } from './header'
 import { NavigationProgress } from './navigation-progress'
 import { AppShellSkeleton } from './app-shell-skeleton'
+import { SlowLoadBanner } from './slow-load-banner'
 import { OfflineBanner } from '@/components/offline/offline-banner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -448,6 +449,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
 
       <div className="sm:pl-64 flex flex-col min-h-screen">
         <OfflineBanner />
+        <SlowLoadBanner />
         {showTrialBanner && <TrialBanner daysLeft={trialDaysLeft} locale={locale} />}
         {showGraceBanner && !isBillingPage && <GracePeriodBanner daysLeft={graceDaysLeft} locale={locale} />}
         {shop?.hours_enabled && shopOpen && (

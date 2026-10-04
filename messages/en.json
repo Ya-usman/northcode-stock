@@ -2220,6 +2220,9 @@
       "syncing": "Syncing…",
       "sync_button": "Sync"
     },
+    "slow_load_title": "Loading is taking longer than expected",
+    "slow_load_body": "Check your connection. The app keeps trying.",
+    "slow_load_retry": "Retry",
     "app_update": {
       "title": "Update available",
       "subtitle": "A new version of StockShop is available",

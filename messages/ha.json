@@ -2220,6 +2220,9 @@
       "syncing": "Ana daidaitawa…",
       "sync_button": "Daidaita"
     },
+    "slow_load_title": "Lodi yana ɗaukar lokaci fiye da yadda aka zata",
+    "slow_load_body": "Duba haɗin intanet ɗinka. Manhajar na ci gaba da ƙoƙari.",
+    "slow_load_retry": "Sake gwadawa",
     "app_update": {
       "title": "Sabuntawa tana samuwa",
       "subtitle": "Sabon sigar StockShop yana samuwa",

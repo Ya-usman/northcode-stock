@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { User } from '@supabase/supabase-js'
+import type { AuthChangeEvent, Session, User } from '@supabase/supabase-js'
 import type { Profile, Shop, UserRole } from '@/lib/types/database'
 import { attachOwnerPlan } from '@/lib/saas/resolve-owner-plan'
 import { setLocaleCookie, getLocaleCookie } from '@/lib/utils/cookies'
@@ -83,14 +83,16 @@ function readCache(userId: string): AuthCache | null {
 // page reload even when cache is older than 24h. Background refresh always
 // follows. The 7-day cap prevents showing a deactivated account or expired
 // plan indefinitely when the network is unreachable.
-const STALE_MAX_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
+// 30 jours : une boutique fermée trois semaines rouvre l'app instantanément ;
+// les données fraîches (plan, compte désactivé…) arrivent toujours en arrière-plan.
+const STALE_MAX_MS = 30 * 24 * 60 * 60 * 1000
 function readCacheStale(userId: string): AuthCache | null {
   try {
     const raw = localStorage.getItem(CACHE_KEY)
     if (!raw) { console.warn('[auth-cache] miss: no key in localStorage'); return null }
     const c: AuthCache = JSON.parse(raw)
     if (c.userId !== userId) { console.warn('[auth-cache] miss: userId mismatch', { cached: c.userId, current: userId }); return null }
-    if (Date.now() - c.savedAt > STALE_MAX_MS) { console.warn('[auth-cache] miss: older than 7 days', { ageMs: Date.now() - c.savedAt }); return null }
+    if (Date.now() - c.savedAt > STALE_MAX_MS) { console.warn('[auth-cache] miss: older than 30 days', { ageMs: Date.now() - c.savedAt }); return null }
     console.info('[auth-cache] hit', { ageMs: Date.now() - c.savedAt })
     return c
   } catch (e) { console.warn('[auth-cache] miss: read/parse error', e); return null }
@@ -369,14 +371,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!cancelled) setState(s => ({ ...s, loading: false }))
     })
 
+    // Budget de première peinture : session connue mais profil/boutiques pas
+    // encore arrivés (cache absent + Supabase lent) → on ouvre l'app au bout de
+    // 4 s avec ce qu'on sait ; le chargement continue derrière (bandeau
+    // « connexion lente » dans AppLayout). Session elle-même pas encore résolue :
+    // on attend, sinon on redirigerait vers la connexion un utilisateur valide.
+    const firstPaintTimer = setTimeout(() => {
+      if (!cancelled) setState(s => s.loading && s.user ? { ...s, loading: false } : s)
+    }, 4000)
     // Safety: never stay on skeleton beyond 12s
     const safetyTimer = setTimeout(() => {
       if (!cancelled) setState(s => s.loading ? { ...s, loading: false } : s)
     }, 12000)
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // Traitement des événements d'authentification, TOUJOURS différé hors du
+    // rappel onAuthStateChange (voir ci-dessous).
+    const handleAuthEvent = async (event: AuthChangeEvent, session: Session | null) => {
       if (cancelled) return
-      if (event === 'INITIAL_SESSION') return
 
       if (event === 'SIGNED_OUT') {
         // Guard against spurious SIGNED_OUT from concurrent refreshSession() calls.
@@ -406,8 +417,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // this app. Leave state and caches untouched; the next SIGNED_OUT check
         // (or the app's own reconnect handling) re-evaluates once back online.
         if (!navigator.onLine) return
-        clearCache()
-        clearReadCaches() // read-only caches only — pending sales/movements are NEVER wiped here
+        // Déconnexion NON demandée par l'utilisateur (jeton expiré, faux SIGNED_OUT
+        // d'un renouvellement concurrent) : on renvoie à la connexion mais on
+        // GARDE les caches locaux (clé = userId / boutique). Les vider ici
+        // condamnait la prochaine ouverture à 12-15 s de squelette le temps de
+        // tout recharger ; seule la déconnexion explicite (signOut) les efface.
         setState({ user: null, profile: null, userShops: [], activeShop: null, roleInActiveShop: null, loading: false })
         return
       }
@@ -438,10 +452,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         if (!fetched && !cancelled) setState(s => s.profile ? s : { ...s, user: session.user, loading: false })
       }
+    }
+
+    // Jamais d'`await` dans ce rappel. Supabase émet les événements à
+    // l'intérieur de son verrou (navigator.locks) et attend chaque abonné ;
+    // un appel Supabase attendu ici (getSession, from()…) se met en file
+    // derrière ce même verrou → interblocage : verrou jamais relâché,
+    // getSession() de l'initialisation jamais résolu, squelette jusqu'au
+    // minuteur de sécurité puis rebond connexion → tableau de bord.
+    // Reproduit ~1 rechargement sur 5 (SIGNED_IN émis pendant la récupération
+    // de session si l'abonnement précède la fin de l'initialisation). On
+    // traite donc l'événement au tour suivant, verrou relâché.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (cancelled || event === 'INITIAL_SESSION') return
+      setTimeout(() => { void handleAuthEvent(event, session) }, 0)
     })
 
     return () => {
       cancelled = true
+      clearTimeout(firstPaintTimer)
       clearTimeout(safetyTimer)
       if (bgRetryInterval) clearInterval(bgRetryInterval)
       if (bgRetryStop) clearTimeout(bgRetryStop)
