@@ -11,7 +11,7 @@ import { normalize } from '@/lib/utils/normalize'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
+import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter, FOOTER_CANCEL_CLASS, FOOTER_PRIMARY_CLASS, FOOTER_ROW_CLASS } from '@/components/ui/premium-dialog'
 import { AppDrawer } from '@/components/ui/app-drawer'
 import { FormDrawer } from '@/components/ui/form-drawer'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -436,19 +436,19 @@ export function StockTransfersTab() {
         dirty={!lastCreatedRef && (!!newDestShopId || newItems.length > 0 || !!newNotes.trim())}
         testId="transfer-drawer"
         footer={({ requestClose }) => lastCreatedRef ? (
-          <div className="flex justify-end">
-            <Button variant="stockshop" className="h-11 w-full rounded-xl font-semibold sm:w-auto sm:min-w-[150px]" onClick={() => setShowNewDialog(false)}>
+          <div className={FOOTER_ROW_CLASS}>
+            <Button variant="stockshop" className={FOOTER_PRIMARY_CLASS} onClick={() => setShowNewDialog(false)}>
               {t('actions.close')}
             </Button>
           </div>
         ) : (
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
-            <Button type="button" variant="ghost" className="h-11 rounded-lg border border-border text-foreground/70 hover:text-foreground" onClick={requestClose} disabled={creating}>
+          <div className={FOOTER_ROW_CLASS}>
+            <Button type="button" variant="outline" className={FOOTER_CANCEL_CLASS} onClick={requestClose} disabled={creating}>
               {t('actions.cancel')}
             </Button>
             <Button
               variant="stockshop"
-              className="h-11 rounded-lg font-semibold sm:min-w-[150px]"
+              className={FOOTER_PRIMARY_CLASS}
               onClick={submitNewTransfer}
               loading={creating}
               disabled={!newDestShopId || newItems.length === 0}

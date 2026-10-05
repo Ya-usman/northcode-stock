@@ -35,8 +35,8 @@ import { useCurrency } from '@/lib/hooks/use-currency'
 import { shareReceiptWhatsApp, shareViaWhatsApp, buildReceiptWhatsAppMessage, normalizeWhatsAppNumber } from '@/lib/utils/whatsapp'
 import { generateReceiptToken, receiptUrl } from '@/lib/receipt/receipt-link'
 import { ShopLogo } from '@/components/shop/shop-logo'
-import { CustomerPicker, phoneExample } from '@/components/sales/customer-picker'
-import { BookUser as BookUserIcon, Phone as PhoneIcon } from 'lucide-react'
+import { CustomerPicker } from '@/components/sales/customer-picker'
+import { BookUser as BookUserIcon } from 'lucide-react'
 import { receiptLabelsFromT } from '@/lib/receipt/receipt-labels'
 import { sharePDFNative, isCapacitor } from '@/lib/utils/native-share'
 import type { Product, Customer, CartItem, Sale, SaleItem, Category } from '@/lib/types/database'
@@ -62,6 +62,14 @@ import { queryClient } from '@/lib/query-client'
 import { invalidateSalesData } from '@/lib/query-keys'
 import { formatInputValue, formatCurrency } from '@/lib/utils/currency'
 import { checkAndNotifyLowStock, notifyNewSale } from '@/lib/push'
+import { samePhone, resolveStoredPhone } from '@/lib/phone/compare'
+
+// Champ téléphone international (indicatif dans une liste) : chargé à l'usage,
+// seulement quand le vendeur ouvre la saisie d'un nouveau client
+const PhoneInput = dynamic(() => import('@/components/ui/phone-input').then(m => ({ default: m.PhoneInput })), {
+  ssr: false,
+  loading: () => <div className="h-10 w-full animate-pulse rounded-md border border-input bg-muted/40" />,
+})
 
 // Prix effectif d'un produit : priorité au prix promo du lot FEFO en tête
 // de file (celui qui sera réellement vendu en premier — voir
@@ -881,11 +889,11 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const exactCustomerMatches = (): Customer[] => {
     const typed = normalize(customerName.trim())
     if (!typed || typed === autoLinkDismissed.current) return []
-    const digits = customerPhone.replace(/\D/g, '')
+    const typedPhone = customerPhone.replace(/\D/g, '')
     return customers.filter(c => {
       if (normalize(c.name) !== typed) return false
-      const theirs = (c.phone || '').replace(/\D/g, '')
-      return !digits || !theirs || digits === theirs
+      // « 0753… » et « +33 7 53… » désignent le même numéro
+      return !typedPhone || !c.phone || samePhone(customerPhone, c.phone)
     })
   }
   const linkCustomer = (c: Customer) => {
@@ -1098,7 +1106,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             balance: saleBalance,
             customer_id: selectedCustomer?.id ?? null,
             customer_name: customerName.trim() || selectedCustomer?.name || null,
-            customer_phone: customerPhone.trim() || selectedCustomer?.phone || null,
+            // Forme enregistrée d'un client connu au même numéro : la
+            // synchronisation ne rattache un client que sur égalité exacte
+            customer_phone: resolveStoredPhone(customerPhone, customers) || selectedCustomer?.phone || null,
             notes: notes || null,
             created_at: new Date().toISOString(),
             items: _cart.map((item: any) => ({
@@ -1222,7 +1232,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             shop_id: shop!.id,
             customer_id: selectedCustomer?.id || null,
             customer_name: !selectedCustomer && customerName.trim() ? customerName.trim() : null,
-            customer_phone: !selectedCustomer && customerPhone.trim() ? customerPhone.trim() : null,
+            // La fonction serveur ne rattache un client que sur égalité exacte
+            // du numéro : on envoie la forme enregistrée d'un client connu
+            customer_phone: !selectedCustomer && customerPhone.trim() ? resolveStoredPhone(customerPhone, customers) : null,
             subtotal, discount: discountAmt, tax, total,
             payment_method: salePaymentMethod,
             notes: notes || null,
@@ -1947,16 +1959,14 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                       {t(matchingCustomers === 1 ? 'sales.customer_matches_one' : 'sales.customer_matches_other', { count: matchingCustomers })}
                     </button>
                   )}
-                  <div className="relative">
-                    <PhoneIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      value={customerPhone}
-                      onChange={e => setCustomerPhone(e.target.value)}
-                      placeholder={t('sales.customer_phone_example', { example: phoneExample(shop?.country, getCountry(shop?.country).phonePrefix) })}
-                      type="tel"
-                      className="pl-9"
-                    />
-                  </div>
+                  {/* Indicatif choisi dans une liste ; un numéro invalide est
+                      signalé sans bloquer la vente */}
+                  <PhoneInput
+                    value={customerPhone}
+                    onChange={v => setCustomerPhone(v)}
+                    defaultCountry={shop?.country}
+                    preferredCountries={userShops.map(s => s.country)}
+                  />
                 </>
               )}
             </CardContent>

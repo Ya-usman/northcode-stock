@@ -29,6 +29,14 @@ import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { useShopLoadTimeout } from '@/lib/hooks/use-shop-load-timeout'
 import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { withTimeout } from '@/lib/utils/with-timeout'
+import { phoneDigits, phoneMatches } from '@/lib/phone/compare'
+import dynamic from 'next/dynamic'
+
+// Champ téléphone international : métadonnées de numérotation chargées à l'usage
+const PhoneInput = dynamic(() => import('@/components/ui/phone-input').then(m => ({ default: m.PhoneInput })), {
+  ssr: false,
+  loading: () => <div className="h-10 w-full animate-pulse rounded-md border border-input bg-muted/40" />,
+})
 
 function CustomerCard({ customer, profile, formatNaira, setEditingCustomer, form, setShowModal, deleteCustomer, t }: any) {
   return (
@@ -107,6 +115,11 @@ export default function CustomersPage() {
     credit_limit_invalid: t('errors.credit_limit_invalid'),
   }), [t])
   const form = useForm<CustomerFormData>({ resolver: zodResolver(customerSchema) })
+  // Validité du numéro pour le pays choisi (remontée par PhoneInput)
+  const [phoneValid, setPhoneValid] = useState(true)
+  // Pays des boutiques de l'utilisateur, épinglés en tête de la liste des indicatifs
+  const shopCountries = useMemo(() => userShops.map(s => s.country), [userShops])
+  useEffect(() => { if (showModal) setPhoneValid(true) }, [showModal])
 
   const fetchCustomers = async () => {
     if (!effectiveShopIds.length) return
@@ -145,7 +158,7 @@ export default function CustomersPage() {
     if (c.deleted_at) return false // fiches supprimées ou fusionnées : conservées en base, jamais listées
     if (!search) return true
     const q = normalize(search)
-    return normalize(c.name).includes(q) || c.phone?.includes(q) || normalize(c.city ?? '').includes(q)
+    return normalize(c.name).includes(q) || phoneMatches(c.phone, search) || normalize(c.city ?? '').includes(q)
   })
 
   // ── Doublons : même nom (accents et majuscules ignorés) ou même numéro, par
@@ -158,8 +171,10 @@ export default function CustomersPage() {
       if (c.deleted_at) continue
       const name = normalize(c.name)
       if (name) add(`${c.shop_id}|n|${name}`, c)
-      const digits = (c.phone || '').replace(/\D/g, '')
-      if (digits.length >= 6) add(`${c.shop_id}|p|${digits}`, c)
+      // Même numéro sous deux formes (« 0753… » et « +33 753… ») : comparaison
+      // sur les 9 derniers chiffres, indicatif et zéro initial ignorés
+      const digits = phoneDigits(c.phone)
+      if (digits.length >= 6) add(`${c.shop_id}|p|${digits.slice(-9)}`, c)
     }
     const seen = new Set<string>()
     const groups: Customer[][] = []
@@ -362,17 +377,36 @@ export default function CustomersPage() {
         dirty={form.formState.isDirty}
         testId="customer-dialog"
       >
-        <form id="customer-form" onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col" noValidate>
+        <form
+          id="customer-form"
+          onSubmit={form.handleSubmit(data => {
+            if (data.phone && !phoneValid) { form.setError('phone', { message: t('errors.phone_invalid') }); return }
+            return onSubmit(data)
+          })}
+          className="flex min-h-0 flex-1 flex-col"
+          noValidate
+        >
           <PremiumDialogBody>
             <div className="space-y-1.5">
               <Label htmlFor="customer-name">{t('customers.name')}<RequiredMark /></Label>
               <Input id="customer-name" {...form.register('name')} placeholder={t('customers.name_placeholder')} aria-invalid={!!form.formState.errors.name} />
               {form.formState.errors.name && <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>}
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-[3fr_2fr]">
               <div className="space-y-1.5">
                 <Label htmlFor="customer-phone">{t('customers.phone')}</Label>
-                <Input id="customer-phone" {...form.register('phone')} placeholder="+237 6 12 34 56 78" type="tel" aria-invalid={!!form.formState.errors.phone} />
+                <PhoneInput
+                  id="customer-phone"
+                  value={form.watch('phone')}
+                  onChange={(v, valid) => {
+                    form.setValue('phone', v, { shouldDirty: true })
+                    setPhoneValid(valid)
+                    if (form.formState.errors.phone) form.clearErrors('phone')
+                  }}
+                  defaultCountry={shop?.country}
+                  preferredCountries={shopCountries}
+                  invalid={!!form.formState.errors.phone}
+                />
                 {form.formState.errors.phone && <p className="text-xs text-destructive">{form.formState.errors.phone.message}</p>}
               </div>
               <div className="space-y-1.5">

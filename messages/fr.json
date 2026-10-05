@@ -2238,7 +2238,9 @@
     "missing_shop_id": "shop_id manquant — impossible d'uploader",
     "upload_error": "Erreur upload",
     "upload_failed": "Upload échoué : {error}",
-    "sku_placeholder": "Ex : 6001234567890",
+    "sku_placeholder": "6001234567890",
+    "threshold_label": "Seuil d'alerte",
+    "add_another_after": "Ajouter un autre produit ensuite",
     "name_placeholder": "Ex. Café Arabica Bio 1 kg",
     "initial_stock": "Stock initial",
     "scan": "Scan",
@@ -2248,8 +2250,7 @@
     "photo_saved": "Photo enregistrée ✓",
     "bucket_hint": "Vérifiez que le bucket \"product-images\" existe dans Supabase Storage.",
     "take_photo": "Prendre une photo",
-    "choose_photo": "Choisir une photo",
-    "save_and_add_another": "Enregistrer et ajouter un autre"
+    "choose_photo": "Choisir une photo"
   },
   "photo": {
     "permission_denied": "Autorisez l’accès à l’appareil photo dans les réglages du téléphone pour prendre une photo.",
@@ -2297,6 +2298,12 @@
     "confirm_type_hint": "Saisissez « {text} » pour confirmer",
     "advanced_options": "Options avancées",
     "details": "Détails"
+  },
+  "phone_input": {
+    "country_label": "Indicatif : {country}",
+    "search_placeholder": "Pays ou indicatif",
+    "no_results": "Aucun pays trouvé",
+    "invalid_for_country": "Numéro invalide pour : {country}"
   },
   "banners": {
     "cache": {

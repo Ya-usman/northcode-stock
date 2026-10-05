@@ -14,7 +14,7 @@ import { createProductSchema, type ProductFormData } from '@/lib/validations/pro
 import type { Category, Supplier } from '@/lib/types/database'
 import dynamic from 'next/dynamic'
 import { Camera, ScanLine, ImagePlus, X, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
-import { PRODUCT_FORM_ID, PRODUCT_FORM_INTENT_ADD_ANOTHER, type ProductFormState } from '@/components/stock/product-form-submit'
+import { PRODUCT_FORM_ID, type ProductFormState } from '@/components/stock/product-form-submit'
 
 const BarcodeScanner = dynamic(
   () => import('@/components/stock/barcode-scanner').then(m => ({ default: m.BarcodeScanner })),
@@ -46,8 +46,8 @@ interface ProductFormProps {
   productId?: string
   /** Saisie restaurée (reprise) : considérée modifiée dès l'ouverture */
   startDirty?: boolean
+  /** La page décide quoi faire après (fermer, ou vider pour un autre produit) */
   onSubmit: (data: ProductFormData) => void
-  onSaveAndAdd?: (data: ProductFormData) => void
   /** Remonte l'état au panneau hôte (garde de fermeture, bouton Enregistrer) */
   onStateChange?: (state: ProductFormState) => void
 }
@@ -59,13 +59,12 @@ const UNITS = ['piece', 'kg', 'g', 'litre', 'ml', 'pack', 'carton', 'dozen', 'ba
 
 export function ProductForm({
   categories, suppliers, currency, isOwner, shopId, isEdit,
-  defaultValues, sessionCount, initialPhoto, productId, startDirty = false, onSubmit, onSaveAndAdd, onStateChange,
+  defaultValues, sessionCount, initialPhoto, productId, startDirty = false, onSubmit, onStateChange,
 }: ProductFormProps) {
   const t = useTranslations()
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
-  const intentRef = useRef<string | undefined>(undefined)
   const [showScanner, setShowScanner] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -212,22 +211,10 @@ export function ProductForm({
 
   const imageUrl = form.watch('image_url')
 
-  // L'intention (« enregistrer et ajouter un autre ») est posée sur le <form>
-  // par le pied du panneau juste avant requestSubmit ; lue puis effacée ici,
-  // qu'il y ait validation réussie ou non.
-  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    intentRef.current = e.currentTarget.dataset.intent
-    delete e.currentTarget.dataset.intent
-    void form.handleSubmit(data => {
-      if (intentRef.current === PRODUCT_FORM_INTENT_ADD_ANOTHER && onSaveAndAdd) onSaveAndAdd(data)
-      else onSubmit(data)
-    })(e)
-  }
-
   const optional = <span className="text-muted-foreground text-xs font-normal">({t('form.optional')})</span>
 
   return (
-    <form id={PRODUCT_FORM_ID} onSubmit={handleFormSubmit} className="space-y-4" noValidate>
+    <form id={PRODUCT_FORM_ID} onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
 
       {/* Session counter */}
       {!!sessionCount && sessionCount > 0 && (
@@ -281,7 +268,17 @@ export function ProductForm({
           )}
         </div>
 
+        {/* Unité d'abord : le suffixe du stock initial reprend le choix fait juste avant */}
         <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>{t('products.unit')}</Label>
+            <Select value={unit} onValueChange={v => form.setValue('unit', v, { shouldDirty: true })}>
+              <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {UNITS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
           {!isEdit && (
             <div className="space-y-1.5">
               <Label>{t('product_form.initial_stock')}<RequiredMark /></Label>
@@ -293,15 +290,6 @@ export function ProductForm({
               <FieldError message={errors.quantity?.message} />
             </div>
           )}
-          <div className="space-y-1.5">
-            <Label>{t('products.unit')}</Label>
-            <Select value={unit} onValueChange={v => form.setValue('unit', v, { shouldDirty: true })}>
-              <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {UNITS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
 
         {/* SKU / Barcode, scanner accolé */}
@@ -334,10 +322,7 @@ export function ProductForm({
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label>
-              {t('products.low_stock_threshold')}{' '}
-              <span className="text-muted-foreground text-xs font-normal">({t('form.alert_label')})</span>
-            </Label>
+            <Label>{t('product_form.threshold_label')}</Label>
             <Controller control={form.control} name="low_stock_threshold" render={({ field }) => (
               <NumericInput value={field.value ?? 0} onChange={field.onChange} onBlur={field.onBlur} placeholder="10" className="h-10" />
             )} />

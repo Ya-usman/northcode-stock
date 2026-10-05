@@ -2238,7 +2238,9 @@
     "missing_shop_id": "Ba shop_id ba — ba za a iya loda ba",
     "upload_error": "Kuskuren loda",
     "upload_failed": "Lodawa ta kasa: {error}",
-    "sku_placeholder": "misali: 6001234567890",
+    "sku_placeholder": "6001234567890",
+    "threshold_label": "Matakin faɗakarwa",
+    "add_another_after": "Ƙara wani kaya bayan haka",
     "name_placeholder": "Misali: Kofi Arabica 1 kg",
     "initial_stock": "Kaya na farko",
     "scan": "Sikan",
@@ -2248,8 +2250,7 @@
     "photo_saved": "An ajiye hoto ✓",
     "bucket_hint": "Duba cewa akwatin \"product-images\" yana akwai a Supabase Storage.",
     "take_photo": "Ɗauki hoto",
-    "choose_photo": "Zaɓi hoto",
-    "save_and_add_another": "Ajiye kuma ƙara wani"
+    "choose_photo": "Zaɓi hoto"
   },
   "photo": {
     "permission_denied": "Ka ba da izinin amfani da kyamara a saitunan wayarka don ɗaukar hoto.",
@@ -2297,6 +2298,12 @@
     "confirm_type_hint": "Rubuta « {text} » don tabbatarwa",
     "advanced_options": "Zaɓuɓɓukan ci gaba",
     "details": "Bayanai"
+  },
+  "phone_input": {
+    "country_label": "Lambar ƙasa: {country}",
+    "search_placeholder": "Ƙasa ko lamba",
+    "no_results": "Ba a sami ƙasa ba",
+    "invalid_for_country": "Lambar ba daidai ba ce don: {country}"
   },
   "banners": {
     "cache": {

@@ -136,9 +136,12 @@ const TONE_CLASSES: Record<ConfirmButtonTone, string> = {
   warning: 'bg-amber-500 hover:bg-amber-600 text-white border-0',
 }
 
-/** Classes communes des boutons de pied (modales et panneaux) */
-export const FOOTER_CANCEL_CLASS = 'h-11 rounded-lg px-5 font-medium sm:min-w-[110px]'
-export const FOOTER_PRIMARY_CLASS = 'h-11 rounded-lg px-5 font-semibold gap-2 sm:min-w-[140px]'
+/** Pied commun (modales et panneaux) : UNE rangée, aussi sur téléphone —
+ *  Annuler sur un tiers, bouton principal sur le reste ; largeurs naturelles
+ *  alignées à droite sur ordinateur. */
+export const FOOTER_ROW_CLASS = 'flex flex-wrap items-center gap-3 sm:justify-end'
+export const FOOTER_CANCEL_CLASS = 'h-11 w-[calc(33.333%-0.5rem)] rounded-lg px-4 font-medium sm:w-auto sm:min-w-[110px]'
+export const FOOTER_PRIMARY_CLASS = 'h-11 min-w-0 flex-1 rounded-lg px-5 font-semibold gap-2 sm:flex-none sm:min-w-[140px]'
 
 export function PremiumDialogFooter({
   onCancel, cancelLabel,
@@ -151,7 +154,7 @@ export function PremiumDialogFooter({
   confirmLabel = confirmLabel ?? t('confirm')
   const tone: ConfirmButtonTone = confirmTone ?? (confirmDestructive ? 'danger' : 'primary')
   return (
-    <div className="flex-shrink-0 flex flex-col-reverse gap-2 border-t border-border bg-background px-5 py-4 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+    <div className={cn('flex-shrink-0 border-t border-border bg-background px-5 py-4', FOOTER_ROW_CLASS)}>
       <Button
         type="button"
         variant="outline"

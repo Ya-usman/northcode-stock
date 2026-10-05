@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { Upload, Download, CheckCircle2, AlertCircle, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AppDrawer } from '@/components/ui/app-drawer'
+import { FOOTER_CANCEL_CLASS, FOOTER_PRIMARY_CLASS, FOOTER_ROW_CLASS } from '@/components/ui/premium-dialog'
 import { useTranslations } from 'next-intl'
 import { downloadOrShareCSV } from '@/lib/utils/native-share'
 import { withTimeout } from '@/lib/utils/with-timeout'
@@ -165,15 +166,15 @@ export function ImportProductsModal({ open, onClose, shopId, onImported }: Props
       dirty={rows.length > 0 && !result}
       testId="import-drawer"
       footer={({ requestClose }) => (
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+        <div className={FOOTER_ROW_CLASS}>
           {!result ? (
             <>
-              <Button type="button" variant="ghost" className="h-11 rounded-lg border border-border text-foreground/70 hover:text-foreground" onClick={requestClose} disabled={importing}>
+              <Button type="button" variant="outline" className={FOOTER_CANCEL_CLASS} onClick={requestClose} disabled={importing}>
                 {tRoot('actions.cancel')}
               </Button>
               <Button
                 variant="stockshop"
-                className="h-11 rounded-lg font-semibold sm:min-w-[150px]"
+                className={FOOTER_PRIMARY_CLASS}
                 disabled={rows.length === 0 || importing}
                 loading={importing}
                 onClick={handleImport}
@@ -182,7 +183,7 @@ export function ImportProductsModal({ open, onClose, shopId, onImported }: Props
               </Button>
             </>
           ) : (
-            <Button variant="stockshop" className="h-11 rounded-lg font-semibold sm:min-w-[150px]" onClick={closeAll}>
+            <Button variant="stockshop" className={FOOTER_PRIMARY_CLASS} onClick={closeAll}>
               {t('close')}
             </Button>
           )}

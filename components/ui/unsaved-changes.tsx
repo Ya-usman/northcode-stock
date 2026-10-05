@@ -52,18 +52,18 @@ export function UnsavedChangesDialog({ open, onKeepEditing, onDiscard }: Unsaved
         <DialogTitle className="sr-only">{t('unsaved_title')}</DialogTitle>
         <DialogDescription className="sr-only">{t('unsaved_body')}</DialogDescription>
         <PremiumHeader icon={<AlertTriangle className="h-4 w-4" />} title={t('unsaved_title')} description={t('unsaved_body')} className="border-b-0" />
-        <div className="flex flex-col-reverse gap-2 px-5 pb-5 pt-1 sm:flex-row sm:justify-end sm:gap-3">
+        <div className="flex items-center gap-3 px-5 pb-5 pt-4 sm:justify-end">
           <Button
             type="button"
             variant="outline"
-            className="h-11 rounded-lg px-5 font-medium"
+            className="h-11 flex-1 rounded-lg px-4 font-medium sm:flex-none"
             onClick={onKeepEditing}
           >
             {t('unsaved_continue')}
           </Button>
           <Button
             type="button"
-            className="h-11 rounded-lg border-0 bg-red-500 px-5 font-semibold text-white hover:bg-red-600"
+            className="h-11 flex-1 rounded-lg border-0 bg-red-500 px-5 font-semibold text-white hover:bg-red-600 sm:flex-none sm:min-w-[120px]"
             onClick={onDiscard}
           >
             {t('unsaved_discard')}

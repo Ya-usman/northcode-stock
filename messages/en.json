@@ -2238,7 +2238,9 @@
     "missing_shop_id": "Missing shop_id — can't upload",
     "upload_error": "Upload error",
     "upload_failed": "Upload failed: {error}",
-    "sku_placeholder": "e.g. 6001234567890",
+    "sku_placeholder": "6001234567890",
+    "threshold_label": "Alert threshold",
+    "add_another_after": "Add another product afterwards",
     "name_placeholder": "e.g. Arabica coffee beans 1 kg",
     "initial_stock": "Initial stock",
     "scan": "Scan",
@@ -2248,8 +2250,7 @@
     "photo_saved": "Photo saved ✓",
     "bucket_hint": "Check that the \"product-images\" bucket exists in Supabase Storage.",
     "take_photo": "Take a photo",
-    "choose_photo": "Choose a photo",
-    "save_and_add_another": "Save and add another"
+    "choose_photo": "Choose a photo"
   },
   "photo": {
     "permission_denied": "Allow camera access in your phone settings to take a photo.",
@@ -2297,6 +2298,12 @@
     "confirm_type_hint": "Type “{text}” to confirm",
     "advanced_options": "Advanced options",
     "details": "Details"
+  },
+  "phone_input": {
+    "country_label": "Country code: {country}",
+    "search_placeholder": "Country or code",
+    "no_results": "No country found",
+    "invalid_for_country": "Invalid number for: {country}"
   },
   "banners": {
     "cache": {

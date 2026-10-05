@@ -6,7 +6,7 @@ import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
 import dynamic from 'next/dynamic'
-import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag, CalendarClock, ShoppingCart, X, LayoutGrid, List, SlidersHorizontal, ChevronDown, MoreHorizontal, Zap, Columns3, PlusCircle } from 'lucide-react'
+import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag, CalendarClock, ShoppingCart, X, LayoutGrid, List, SlidersHorizontal, ChevronDown, MoreHorizontal, Zap, Columns3 } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { createClient } from '@/lib/supabase/client'
@@ -22,7 +22,7 @@ import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/compone
 import { FormDrawer } from '@/components/ui/form-drawer'
 import { DetailDrawer } from '@/components/ui/detail-drawer'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
-import { PRODUCT_FORM_ID, PRODUCT_FORM_INTENT_ADD_ANOTHER, requestProductFormSubmit, type ProductFormState } from '@/components/stock/product-form-submit'
+import { PRODUCT_FORM_ID, type ProductFormState } from '@/components/stock/product-form-submit'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { useForm } from 'react-hook-form'
@@ -155,6 +155,14 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   // État remonté par le formulaire produit (garde de fermeture, photo en cours)
   const [addFormState, setAddFormState] = useState<ProductFormState>({ dirty: false, busy: false })
   const [editFormState, setEditFormState] = useState<ProductFormState>({ dirty: false, busy: false })
+  // « Ajouter un autre produit ensuite » : choix mémorisé le temps de la session
+  const [addAnother, setAddAnother] = useState(() => {
+    try { return typeof window !== 'undefined' && sessionStorage.getItem('stock_add_another') === '1' } catch { return false }
+  })
+  const toggleAddAnother = (v: boolean) => {
+    setAddAnother(v)
+    try { sessionStorage.setItem('stock_add_another', v ? '1' : '0') } catch { /* stockage indisponible */ }
+  }
   const [deleting, setDeleting] = useState(false)
   const [archiveConfirmProduct, setArchiveConfirmProduct] = useState<Product | null>(null)
   const [archiving, setArchiving] = useState(false)
@@ -1671,17 +1679,17 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         submitDisabled={addFormState.busy}
         dirty={addFormState.dirty}
         testId="product-drawer"
-        secondaryAction={(
-          <Button
-            type="button"
-            variant="outline"
-            disabled={saving || addFormState.busy}
-            className="h-11 rounded-lg gap-2 text-stockshop-blue dark:text-blue-400 border-stockshop-blue/40 hover:bg-stockshop-blue/5"
-            onClick={() => requestProductFormSubmit(PRODUCT_FORM_INTENT_ADD_ANOTHER)}
-          >
-            <PlusCircle className="h-4 w-4" />
-            {t('product_form.save_and_add_another')}
-          </Button>
+        footerExtra={(
+          <label className="flex cursor-pointer select-none items-center gap-2.5 text-sm text-foreground/80">
+            <input
+              type="checkbox"
+              checked={addAnother}
+              onChange={e => toggleAddAnother(e.target.checked)}
+              className="h-4 w-4 rounded border-input accent-stockshop-blue"
+              data-testid="add-another"
+            />
+            {t('product_form.add_another_after')}
+          </label>
         )}
       >
         {showAddModal && (
@@ -1692,8 +1700,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             defaultValues={addRestore?.values}
             initialPhoto={addRestore?.file ?? null}
             startDirty={!!addRestore}
-            onSubmit={onAddProduct}
-            onSaveAndAdd={onSaveAndAdd}
+            onSubmit={addAnother ? onSaveAndAdd : onAddProduct}
             onStateChange={setAddFormState}
           />
         )}

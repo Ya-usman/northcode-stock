@@ -7,6 +7,7 @@ import { PremiumDialog } from '@/components/ui/premium-dialog'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils/cn'
 import { normalize } from '@/lib/utils/normalize'
+import { phoneMatches } from '@/lib/phone/compare'
 import type { Customer } from '@/lib/types/database'
 
 // Sélecteur de client de la caisse : un vrai carnet (recherche par nom ou
@@ -53,9 +54,9 @@ export function CustomerPicker({ open, onOpenChange, customers, recentIds, initi
   }, [open, initialQuery, recentIds.length])
 
   const q = normalize(query)
-  const digits = query.replace(/\D/g, '')
+  // Numéro : « 0753… » trouve aussi « +33 7 53… » (zéro initial ignoré)
   const matches = (c: Customer) =>
-    !q || normalize(c.name).includes(q) || (digits.length >= 3 && (c.phone || '').replace(/\D/g, '').includes(digits))
+    !q || normalize(c.name).includes(q) || phoneMatches(c.phone, query)
 
   const recent = recentIds.map(id => customers.find(c => c.id === id)).filter((c): c is Customer => !!c)
   const withDebt = customers.filter(c => Number(c.total_debt) > 0)

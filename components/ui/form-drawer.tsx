@@ -5,13 +5,14 @@ import { AlertCircle, Save } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { AppDrawer, type AppDrawerProps } from '@/components/ui/app-drawer'
-import { FOOTER_CANCEL_CLASS, FOOTER_PRIMARY_CLASS } from '@/components/ui/premium-dialog'
+import { FOOTER_CANCEL_CLASS, FOOTER_PRIMARY_CLASS, FOOTER_ROW_CLASS } from '@/components/ui/premium-dialog'
 
 // ── FormDrawer ───────────────────────────────────────────────────────────────
-// Panneau de formulaire : pied fixe Annuler / Enregistrer avec chargement et
-// anti-double-clic, erreur globale au-dessus des boutons, garde de fermeture.
-// Avec `formId`, le bouton principal soumet le <form id=…> rendu dans le corps
-// (Entrée dans un champ déclenche donc la même soumission).
+// Panneau de formulaire : pied fixe sur UNE rangée (Annuler / Enregistrer),
+// chargement et anti-double-clic, erreur globale et option facultative
+// (ex. : case « Ajouter un autre ensuite ») au-dessus des boutons, garde de
+// fermeture. Avec `formId`, le bouton principal soumet le <form id=…> rendu
+// dans le corps (Entrée dans un champ déclenche donc la même soumission).
 
 export interface FormDrawerProps extends Omit<AppDrawerProps, 'footer'> {
   /** id du <form> rendu dans le corps ; le bouton principal le soumet */
@@ -25,15 +26,15 @@ export interface FormDrawerProps extends Omit<AppDrawerProps, 'footer'> {
   /** Icône du bouton principal (disquette par défaut) */
   submitIcon?: React.ReactNode
   cancelLabel?: string
-  /** Action secondaire rendue entre Annuler et le bouton principal */
-  secondaryAction?: React.ReactNode
+  /** Contenu rendu au-dessus de la rangée de boutons (case à cocher, note) */
+  footerExtra?: React.ReactNode
   /** Erreur globale (serveur, réseau…) affichée dans le pied */
   error?: string | null
 }
 
 export function FormDrawer({
   formId, onSubmit, submitting = false, submitLabel, submittingLabel, submitDisabled = false, submitIcon,
-  cancelLabel, secondaryAction, error, children, ...drawer
+  cancelLabel, footerExtra, error, children, ...drawer
 }: FormDrawerProps) {
   const tActions = useTranslations('actions')
   const icon = submitIcon === undefined ? <Save className="h-4 w-4" /> : submitIcon
@@ -48,7 +49,8 @@ export function FormDrawer({
               <span>{error}</span>
             </div>
           )}
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+          {footerExtra}
+          <div className={FOOTER_ROW_CLASS}>
             <Button
               type="button"
               variant="outline"
@@ -58,7 +60,6 @@ export function FormDrawer({
             >
               {cancelLabel ?? tActions('cancel')}
             </Button>
-            {secondaryAction}
             <Button
               type={formId ? 'submit' : 'button'}
               form={formId}
