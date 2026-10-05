@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { generateDebtReceiptPDFBlob, generateReportPDFBlob } from '@/lib/utils/pdf'
@@ -572,6 +573,20 @@ export default function CreditsPage() {
   }
 
   useEffect(() => { if (debtSide === 'payable') fetchSupplierDebtors() }, [debtSide, effectiveShopIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Lien profond depuis la fiche fournisseur : ?pay_supplier=<id> bascule sur
+  // « À payer » et ouvre directement le remboursement de ce fournisseur.
+  const searchParams = useSearchParams()
+  const paySupplierId = searchParams.get('pay_supplier')
+  useEffect(() => {
+    if (!paySupplierId) return
+    if (debtSide !== 'payable') { setDebtSide('payable'); return }
+    const debtor = supplierDebtors.find(d => d.supplier.id === paySupplierId)
+    if (!debtor) return
+    openSupplierRepayDialog(debtor)
+    window.history.replaceState(window.history.state, '', window.location.pathname)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paySupplierId, debtSide, supplierDebtors])
   useRefetchOnVisible(() => { if (debtSide === 'payable') fetchSupplierDebtors(true) })
   // navigator 'online' is unreliable in the Capacitor Android WebView —
   // useRefetchOnReconnect uses useOffline()'s actively-verified isOnline instead.

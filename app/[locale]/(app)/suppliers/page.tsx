@@ -4,9 +4,13 @@ import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
-import { useTranslations } from 'next-intl'
-import { Search, Plus, Edit2, Trash2, Phone, MapPin, Package, Store, ChevronDown, ChevronRight, X, ArrowRightLeft, FileText, Download, Send, CheckCircle2, Ban, Mail, Copy, Share2, History, TrendingUp, TrendingDown, RotateCcw, ShoppingCart } from 'lucide-react'
+import { useTranslations, useLocale } from 'next-intl'
+import dynamic from 'next/dynamic'
+import { Search, Plus, Edit2, Trash2, Phone, MapPin, Package, Store, ChevronDown, ChevronRight, X, ArrowRightLeft, FileText, Download, Send, CheckCircle2, Ban, Mail, Copy, Share2, History, RotateCcw, ShoppingCart, MessageCircle, Save, Clock, AlertTriangle, Banknote, TrendingDown } from 'lucide-react'
 import { isCapacitor } from '@/lib/utils/native-share'
+import { shareViaWhatsApp, normalizeWhatsAppNumber } from '@/lib/utils/whatsapp'
+import { getCountry } from '@/lib/saas/countries'
+import { startNavigationProgress } from '@/components/layout/navigation-progress'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -15,12 +19,24 @@ import { formatInputValue } from '@/lib/utils/currency'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
+import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter, FOOTER_PRIMARY_CLASS, FOOTER_ROW_CLASS } from '@/components/ui/premium-dialog'
+import { FormDrawer } from '@/components/ui/form-drawer'
+import { DrawerSection } from '@/components/ui/app-drawer'
+import { DetailDrawer } from '@/components/ui/detail-drawer'
+import { ConfirmModal } from '@/components/ui/confirm-modal'
+import { InputGroup, RequiredMark } from '@/components/ui/input-group'
+import { SupplierSheet, PO_STATUS_STYLES, poTotalOf } from '@/components/suppliers/supplier-sheet'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { supplierSchema, type SupplierFormData } from '@/lib/validations/customer'
+import { createSupplierSchema, type SupplierFormData } from '@/lib/validations/customer'
+
+// Champ téléphone international (indicatif dans une liste) : chargé à l'usage
+const PhoneInput = dynamic(() => import('@/components/ui/phone-input').then(m => ({ default: m.PhoneInput })), {
+  ssr: false,
+  loading: () => <div className="h-10 w-full animate-pulse rounded-md border border-input bg-muted/40" />,
+})
 import type { Supplier, Product, PurchaseOrder } from '@/lib/types/database'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
@@ -31,25 +47,31 @@ import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { generatePurchaseOrderPDF } from '@/lib/utils/pdf'
 import { withTimeout } from '@/lib/utils/with-timeout'
 
-const PO_STATUS_STYLES: Record<string, string> = {
-  draft: 'bg-muted text-muted-foreground',
-  sent: 'bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400',
-  received: 'bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400',
-  partial: 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400',
-  cancelled: 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400',
-}
-
-function SupplierCard({ supplier, products, productCount, expandedId, setExpandedId, canManage, setEditingSupplier, form, setShowModal, deleteSupplier, onOpenJournal, t, fmt }: any) {
-  const isExpanded = expandedId === supplier.id
-  const supplierProducts = products.filter((p: any) => p.supplier_id === supplier.id)
+// Carte d'un fournisseur : un clic ouvre la fiche en panneau latéral ;
+// crayon et corbeille restent accessibles directement. Le solde dû est
+// visible sur la carte, comme pour les clients.
+function SupplierCard({ supplier, productCount, canManage, onOpen, onEdit, onDelete, t, fmt }: {
+  supplier: Supplier; productCount: number; canManage: boolean
+  onOpen: (s: Supplier) => void; onEdit: (s: Supplier) => void; onDelete: (s: Supplier) => void
+  t: (key: any, values?: any) => string; fmt: (n: number) => string
+}) {
+  const owed = Number(supplier.total_owed || 0)
   return (
-    <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
-      <button
-        className="w-full flex items-center justify-between gap-3 p-4 hover:bg-muted/30 transition-colors text-left"
-        onClick={() => setExpandedId(isExpanded ? null : supplier.id)}
-      >
-        <div className="min-w-0 flex-1">
-          <p className="font-semibold text-sm">{supplier.name}</p>
+    <div className="rounded-lg border bg-card shadow-sm overflow-hidden" data-testid="supplier-card">
+      <div className="flex items-center gap-2 p-4">
+        <button
+          type="button"
+          className="min-w-0 flex-1 text-left"
+          onClick={() => onOpen(supplier)}
+        >
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-semibold text-sm">{supplier.name}</p>
+            {owed > 0 && (
+              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+                {t('suppliers.owed_badge', { amount: fmt(owed) })}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-3 mt-1 flex-wrap">
             {supplier.phone && (
               <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -65,67 +87,42 @@ function SupplierCard({ supplier, products, productCount, expandedId, setExpande
               <Package className="h-3 w-3" />{t('suppliers.products_count', { count: productCount })}
             </span>
           </div>
-        </div>
+        </button>
         <div className="flex items-center gap-1 shrink-0">
-          <span
-            role="button"
-            className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            title={t('suppliers.po_journal_button')}
-            onClick={(e: any) => { e.stopPropagation(); onOpenJournal(supplier) }}
-          >
-            <History className="h-3.5 w-3.5" />
-          </span>
           {canManage && (
             <>
-              <span
-                role="button"
+              <button
+                type="button"
                 className="h-8 w-8 flex items-center justify-center rounded hover:bg-accent transition-colors"
-                onClick={(e: any) => { e.stopPropagation(); setEditingSupplier(supplier); form.reset({ name: supplier.name, phone: supplier.phone || '', city: supplier.city || '', email: supplier.email || '' }); setShowModal(true) }}
+                title={t('suppliers.edit_supplier')}
+                aria-label={t('suppliers.edit_supplier')}
+                onClick={() => onEdit(supplier)}
               >
                 <Edit2 className="h-3.5 w-3.5" />
-              </span>
-              <span
-                role="button"
+              </button>
+              <button
+                type="button"
                 className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-                onClick={(e: any) => { e.stopPropagation(); deleteSupplier(supplier) }}
+                title={t('actions.delete')}
+                aria-label={t('actions.delete')}
+                onClick={() => onDelete(supplier)}
               >
                 <Trash2 className="h-3.5 w-3.5" />
-              </span>
+              </button>
             </>
           )}
-          {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+          <button type="button" className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:bg-accent" aria-label={t('actions.view')} onClick={() => onOpen(supplier)}>
+            <ChevronRight className="h-4 w-4" />
+          </button>
         </div>
-      </button>
-      {isExpanded && (
-        <div className="border-t bg-muted/10">
-          {supplierProducts.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-4">{t('suppliers.no_products_for_supplier')}</p>
-          ) : (
-            <div className="divide-y divide-border/50">
-              {supplierProducts.map((p: any) => (
-                <div key={p.id} className="flex items-center justify-between px-4 py-2.5">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Package className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span className="text-sm truncate">{p.name}</span>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0 ml-2">
-                    <span className="text-xs text-muted-foreground">{p.quantity} {p.unit}</span>
-                    <span className="text-sm font-semibold text-stockshop-blue dark:text-blue-400">
-                      {fmt(p.selling_price)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      </div>
     </div>
   )
 }
 
 export default function SuppliersPage() {
   const t = useTranslations()
+  const locale = useLocale()
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -152,8 +149,13 @@ export default function SuppliersPage() {
   const [showModal, setShowModal] = useState(false)
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null)
   const [saving, setSaving] = useState(false)
-  const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [journalSupplier, setJournalSupplier] = useState<Supplier | null>(null)
+  // Fiche fournisseur (panneau latéral) et suppression (confirmation commune)
+  const [sheetSupplier, setSheetSupplier] = useState<Supplier | null>(null)
+  const [deleteSupplierTarget, setDeleteSupplierTarget] = useState<Supplier | null>(null)
+  const [deletingSupplier, setDeletingSupplier] = useState(false)
+  // Validité du numéro pour le pays choisi (remontée par PhoneInput)
+  const [phoneValid, setPhoneValid] = useState(true)
+  const shopCountries = useMemo(() => userShops.map(s => s.country), [userShops])
 
   // ── Comparateur de prix par produit ─────────────────────────────────────
   const [view, setView] = useState<'suppliers' | 'by_product' | 'purchase_orders'>('suppliers')
@@ -206,8 +208,32 @@ export default function SuppliersPage() {
   const [creatingReorder, setCreatingReorder] = useState(false)
   const [deletePoConfirm, setDeletePoConfirm] = useState<any | null>(null)
   const [deletingPo, setDeletingPo] = useState(false)
+  // Gardes de fermeture des panneaux : état d'origine pour comparer
+  const [editOriginal, setEditOriginal] = useState('')
+  const [reorderOriginal, setReorderOriginal] = useState('')
+  const [receiveTouched, setReceiveTouched] = useState(false)
+  // Tuile « En retard » : filtre les bons envoyés dont la date prévue est dépassée
+  const [poOverdueOnly, setPoOverdueOnly] = useState(false)
 
+  // Messages de validation traduits (le schéma par défaut est en anglais)
+  const supplierSchema = useMemo(() => createSupplierSchema({
+    name_required: t('errors.supplier_name_required'),
+    phone_invalid: t('errors.phone_invalid'),
+    email_invalid: t('errors.email_invalid'),
+  }), [t])
   const form = useForm<SupplierFormData>({ resolver: zodResolver(supplierSchema) })
+  useEffect(() => { if (showModal) setPhoneValid(true) }, [showModal])
+
+  const openSupplierForm = (s: Supplier | null) => {
+    setEditingSupplier(s)
+    form.reset(s ? { name: s.name, phone: s.phone || '', city: s.city || '', email: s.email || '' } : { name: '', phone: '', city: '', email: '' })
+    setShowModal(true)
+  }
+  const closeSupplierForm = () => {
+    setShowModal(false)
+    setEditingSupplier(null)
+    form.reset({ name: '', phone: '', city: '', email: '' })
+  }
 
   const fetchSuppliers = async () => {
     if (!effectiveShopIds.length) return
@@ -287,6 +313,21 @@ export default function SuppliersPage() {
   })
 
   const supplierName = (id: string) => suppliers.find(s => s.id === id)?.name ?? '—'
+  // Solde dû cumulé des fournisseurs affichés (boutiques visibles)
+  const totalOwedAll = useMemo(() => filtered.reduce((s, sup) => s + Number(sup.total_owed || 0), 0), [filtered])
+
+  const isPoOverdue = (po: any) =>
+    po.status === 'sent' && !!po.expected_delivery_date && new Date(po.expected_delivery_date) < new Date(new Date().toDateString())
+
+  // Repères en tête des bons : en cours (envoyés), en retard, montant attendu
+  const poKpis = useMemo(() => {
+    const sent = purchaseOrders.filter((po: any) => po.status === 'sent')
+    return {
+      inProgress: sent.length,
+      overdue: sent.filter(isPoOverdue).length,
+      expected: sent.reduce((s: number, po: any) => s + poTotalOf(po), 0),
+    }
+  }, [purchaseOrders])
 
   const filteredPurchaseOrders = useMemo(() => {
     return purchaseOrders.filter((po: any) => {
@@ -295,12 +336,13 @@ export default function SuppliersPage() {
         const supplier = po.suppliers?.name || supplierName(po.supplier_id) || ''
         if (!normalize(po.reference || '').includes(q) && !normalize(supplier).includes(q)) return false
       }
+      if (poOverdueOnly && !isPoOverdue(po)) return false
       if (poStatusFilter && po.status !== poStatusFilter) return false
       if (poDateFrom && po.created_at < poDateFrom) return false
       if (poDateTo && po.created_at.slice(0, 10) > poDateTo) return false
       return true
     })
-  }, [purchaseOrders, poSearch, poStatusFilter, poDateFrom, poDateTo])
+  }, [purchaseOrders, poSearch, poStatusFilter, poDateFrom, poDateTo, poOverdueOnly])
 
   const onSubmit = async (data: SupplierFormData) => {
     setSaving(true)
@@ -324,16 +366,47 @@ export default function SuppliersPage() {
     }
   }
 
-  const deleteSupplier = async (s: Supplier) => {
+  const deleteSupplier = (s: Supplier) => {
     if (productCounts[s.id] > 0) {
       toast({ title: t('toast.supplier_has_products', { name: s.name, count: productCounts[s.id] }), variant: 'destructive' })
       return
     }
-    if (!confirm(t('confirm.delete_supplier'))) return
-    const res = await fetch(`/api/suppliers?id=${s.id}&shop_id=${s.shop_id}`, { method: 'DELETE' })
-    if (!res.ok) { const json = await res.json().catch(() => ({})); toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
-    toast({ title: t('toast.supplier_deleted') })
-    fetchSuppliers()
+    setDeleteSupplierTarget(s)
+  }
+
+  const confirmDeleteSupplier = async () => {
+    const s = deleteSupplierTarget
+    if (!s) return
+    setDeletingSupplier(true)
+    try {
+      const res = await withTimeout(fetch(`/api/suppliers?id=${s.id}&shop_id=${s.shop_id}`, { method: 'DELETE' }))
+      if (!res.ok) { const json = await res.json().catch(() => ({})); toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      toast({ title: t('toast.supplier_deleted') })
+      setDeleteSupplierTarget(null)
+      if (sheetSupplier?.id === s.id) setSheetSupplier(null)
+      fetchSuppliers()
+    } catch (err: any) {
+      toast({ title: err.message || t('toast.retry_error'), variant: 'destructive' })
+    } finally {
+      setDeletingSupplier(false)
+    }
+  }
+
+  // Envoi du bon par WhatsApp : au numéro du fournisseur (format international)
+  // ou, sans numéro, sur le choix du contact dans WhatsApp.
+  const sendPoWhatsApp = (po: any) => {
+    const { subject, body } = buildPoEmailContent(po)
+    const message = `*${subject}*\n\n${body}`
+    const phone = po.suppliers?.phone || suppliers.find(s => s.id === po.supplier_id)?.phone || ''
+    if (phone) shareViaWhatsApp(normalizeWhatsAppNumber(phone, getCountry(shop?.country).phonePrefix), message)
+    else window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank')
+  }
+
+  // Depuis la fiche fournisseur : paiement de son solde dans Crédit et paiements
+  const goRecordPayment = (s: Supplier) => {
+    const href = `/${locale}/payments?pay_supplier=${s.id}`
+    startNavigationProgress(href)
+    router.push(href)
   }
 
   const filteredProducts = productSearch.trim()
@@ -581,6 +654,7 @@ export default function SuppliersPage() {
     setReceivePaymentStatus('credit')
     setReceivePaymentAmount('')
     setReceivePaymentMethod('cash')
+    setReceiveTouched(false)
     setReceivingPo(po)
   }
 
@@ -644,14 +718,16 @@ export default function SuppliersPage() {
   }
 
   const openEditPo = (po: any) => {
-    setEditItems((po.purchase_order_items || []).map((it: any) => ({
+    const items = (po.purchase_order_items || []).map((it: any) => ({
       id: it.id,
       product_id: it.product_id,
       product_name: it.product_name,
       unit: it.unit,
       quantity_ordered: String(it.quantity_ordered),
       unit_price: it.unit_price != null ? String(it.unit_price) : '',
-    })))
+    }))
+    setEditItems(items)
+    setEditOriginal(JSON.stringify(items))
     setEditingPo(po)
   }
 
@@ -690,13 +766,15 @@ export default function SuppliersPage() {
     const shortfall = (po.purchase_order_items || [])
       .map((it: any) => ({ ...it, missing: it.quantity_ordered - (it.quantity_received ?? 0) }))
       .filter((it: any) => it.missing > 0)
-    setReorderItems(shortfall.map((it: any) => ({
+    const items = shortfall.map((it: any) => ({
       product_id: it.product_id,
       product_name: it.product_name,
       unit: it.unit,
       quantity_ordered: String(it.missing),
       unit_price: it.unit_price != null ? String(it.unit_price) : '',
-    })))
+    }))
+    setReorderItems(items)
+    setReorderOriginal(JSON.stringify(items))
     setReorderPo(po)
   }
 
@@ -920,13 +998,20 @@ export default function SuppliersPage() {
             variant="stockshop"
             className="h-9 gap-1"
             size="sm"
-            onClick={() => { form.reset({ name: '', phone: '', city: '', email: '' }); setEditingSupplier(null); setShowModal(true) }}
+            onClick={() => openSupplierForm(null)}
           >
             <Plus className="h-4 w-4" />
             {t('suppliers.add_supplier')}
           </Button>
         )}
       </div>
+
+      {totalOwedAll > 0 && (
+        <div className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm dark:border-amber-800 dark:bg-amber-950/30" data-testid="suppliers-total-owed">
+          <span className="flex items-center gap-2 text-amber-700 dark:text-amber-400"><Banknote className="h-4 w-4" />{t('suppliers.total_owed_all')}</span>
+          <span className="font-bold tabular-nums text-amber-700 dark:text-amber-400">{fmt(totalOwedAll)}</span>
+        </div>
+      )}
 
       {loading && shopLoadTimedOut && effectiveShopIds.length === 0 ? (
         <LoadErrorFallback />
@@ -949,9 +1034,8 @@ export default function SuppliersPage() {
                   <div className="flex-1 h-px bg-border" />
                 </div>
                 {shopSuppliers.map(supplier => (
-                  <SupplierCard key={supplier.id} supplier={supplier} products={products} productCount={productCounts[supplier.id] || 0}
-                    expandedId={expandedId} setExpandedId={setExpandedId} canManage={canManage}
-                    setEditingSupplier={setEditingSupplier} form={form} setShowModal={setShowModal} deleteSupplier={deleteSupplier} onOpenJournal={setJournalSupplier} t={t} fmt={fmt} />
+                  <SupplierCard key={supplier.id} supplier={supplier} productCount={productCounts[supplier.id] || 0} canManage={canManage}
+                    onOpen={setSheetSupplier} onEdit={openSupplierForm} onDelete={deleteSupplier} t={t} fmt={fmt} />
                 ))}
               </div>
             )
@@ -960,9 +1044,8 @@ export default function SuppliersPage() {
       ) : (
         <div className="space-y-2">
           {filtered.map(supplier => (
-            <SupplierCard key={supplier.id} supplier={supplier} products={products} productCount={productCounts[supplier.id] || 0}
-              expandedId={expandedId} setExpandedId={setExpandedId} canManage={canManage}
-              setEditingSupplier={setEditingSupplier} form={form} setShowModal={setShowModal} deleteSupplier={deleteSupplier} t={t} fmt={fmt} />
+            <SupplierCard key={supplier.id} supplier={supplier} productCount={productCounts[supplier.id] || 0} canManage={canManage}
+              onOpen={setSheetSupplier} onEdit={openSupplierForm} onDelete={deleteSupplier} t={t} fmt={fmt} />
           ))}
         </div>
       )}
@@ -1010,35 +1093,68 @@ export default function SuppliersPage() {
           )}
 
           {purchaseOrders.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              <div className="relative flex-1 min-w-[160px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  value={poSearch}
-                  onChange={e => setPoFilter({ search: e.target.value })}
-                  placeholder={t('suppliers.po_search_placeholder')}
-                  className="pl-9 h-9"
-                />
+            <>
+              {/* Repères : cliquer « En cours » ou « En retard » filtre la liste */}
+              <div className="grid grid-cols-3 gap-2" data-testid="po-kpis">
+                <button
+                  type="button"
+                  onClick={() => { setPoOverdueOnly(false); setPoFilter({ status: poStatusFilter === 'sent' && !poOverdueOnly ? '' : 'sent' }) }}
+                  aria-pressed={poStatusFilter === 'sent' && !poOverdueOnly}
+                  className={`rounded-xl border bg-card px-3 py-2.5 text-left transition-colors hover:bg-muted/40 ${poStatusFilter === 'sent' && !poOverdueOnly ? 'ring-2 ring-stockshop-blue/30' : ''}`}
+                >
+                  <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><Clock className="h-3.5 w-3.5" />{t('suppliers.kpi_in_progress')}</p>
+                  <p className="mt-0.5 text-lg font-bold tabular-nums">{poKpis.inProgress}</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { const next = !poOverdueOnly; setPoOverdueOnly(next); setPoFilter({ status: next ? 'sent' : '' }) }}
+                  aria-pressed={poOverdueOnly}
+                  className={`rounded-xl border bg-card px-3 py-2.5 text-left transition-colors hover:bg-muted/40 ${poOverdueOnly ? 'ring-2 ring-red-300' : ''}`}
+                >
+                  <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><AlertTriangle className="h-3.5 w-3.5" />{t('suppliers.kpi_overdue')}</p>
+                  <p className={`mt-0.5 text-lg font-bold tabular-nums ${poKpis.overdue > 0 ? 'text-red-600 dark:text-red-400' : ''}`}>{poKpis.overdue}</p>
+                </button>
+                <div className="rounded-xl border bg-card px-3 py-2.5">
+                  <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><Banknote className="h-3.5 w-3.5" />{t('suppliers.kpi_expected_amount')}</p>
+                  <p className="mt-0.5 truncate text-lg font-bold tabular-nums">{fmt(poKpis.expected)}</p>
+                </div>
               </div>
-              <Select value={poStatusFilter || 'all'} onValueChange={v => setPoFilter({ status: v === 'all' ? '' : v })}>
-                <SelectTrigger className="h-9 w-[150px] text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('suppliers.po_filter_status_all')}</SelectItem>
-                  <SelectItem value="draft">{t('suppliers.po_status_draft')}</SelectItem>
-                  <SelectItem value="sent">{t('suppliers.po_status_sent')}</SelectItem>
-                  <SelectItem value="received">{t('suppliers.po_status_received')}</SelectItem>
-                  <SelectItem value="partial">{t('suppliers.po_status_partial')}</SelectItem>
-                  <SelectItem value="cancelled">{t('suppliers.po_status_cancelled')}</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="flex items-center gap-1">
-                <Input type="date" value={poDateFrom} onChange={e => setPoFilter({ dateFrom: e.target.value })} className="h-9 w-[130px] text-xs" />
-                <span className="text-muted-foreground text-xs">→</span>
-                <Input type="date" value={poDateTo} onChange={e => setPoFilter({ dateTo: e.target.value })} className="h-9 w-[130px] text-xs" />
+
+              <div className="flex flex-wrap items-end gap-2">
+                <div className="relative flex-1 min-w-[160px]">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={poSearch}
+                    onChange={e => setPoFilter({ search: e.target.value })}
+                    placeholder={t('suppliers.po_search_placeholder')}
+                    className="pl-9 h-9"
+                  />
+                </div>
+                <Select value={poStatusFilter || 'all'} onValueChange={v => { setPoOverdueOnly(false); setPoFilter({ status: v === 'all' ? '' : v }) }}>
+                  <SelectTrigger className="h-9 w-[150px] text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t('suppliers.po_filter_status_all')}</SelectItem>
+                    <SelectItem value="draft">{t('suppliers.po_status_draft')}</SelectItem>
+                    <SelectItem value="sent">{t('suppliers.po_status_sent')}</SelectItem>
+                    <SelectItem value="received">{t('suppliers.po_status_received')}</SelectItem>
+                    <SelectItem value="partial">{t('suppliers.po_status_partial')}</SelectItem>
+                    <SelectItem value="cancelled">{t('suppliers.po_status_cancelled')}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="flex items-end gap-2">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="po-from" className="text-[10px] font-normal text-muted-foreground">{t('suppliers.from')}</Label>
+                    <Input id="po-from" type="date" value={poDateFrom} max={poDateTo || undefined} onChange={e => setPoFilter({ dateFrom: e.target.value })} className="h-9 w-[130px] text-xs" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <Label htmlFor="po-to" className="text-[10px] font-normal text-muted-foreground">{t('suppliers.to')}</Label>
+                    <Input id="po-to" type="date" value={poDateTo} min={poDateFrom || undefined} onChange={e => setPoFilter({ dateTo: e.target.value })} className="h-9 w-[130px] text-xs" />
+                  </div>
+                </div>
               </div>
-            </div>
+            </>
           )}
 
           {purchaseOrders.length === 0 ? (
@@ -1055,7 +1171,7 @@ export default function SuppliersPage() {
                 const itemCount = (po.purchase_order_items || []).length
                 const total = (po.purchase_order_items || []).reduce((s: number, it: any) => s + (it.unit_price || 0) * it.quantity_ordered, 0)
                 const isExpanded = poExpandedId === po.id
-                const isOverdue = po.status === 'sent' && po.expected_delivery_date && new Date(po.expected_delivery_date) < new Date(new Date().toDateString())
+                const isOverdue = isPoOverdue(po)
                 return (
                   <div key={po.id} className="rounded-lg border bg-card shadow-sm overflow-hidden">
                     <div
@@ -1104,8 +1220,8 @@ export default function SuppliersPage() {
                           {isCapacitor() ? <Share2 className="h-3 w-3" /> : <Download className="h-3 w-3" />}
                           {isCapacitor() ? t('actions.share') : t('suppliers.po_download')}
                         </Button>
-                        <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setEmailPo(po)}>
-                          <Mail className="h-3 w-3" />{t('suppliers.po_email_helper')}
+                        <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setEmailPo(po)} data-testid="po-send">
+                          <Send className="h-3 w-3" />{t('suppliers.po_send')}
                         </Button>
                         {canManage && po.status === 'draft' && (
                           <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" loading={poActionLoading === po.id} onClick={() => updatePoStatus(po, 'sent')}>
@@ -1191,56 +1307,114 @@ export default function SuppliersPage() {
         </div>
       )}
 
+      {/* Fiche fournisseur (ajout / modification) : formulaire court → modale */}
       <PremiumDialog
         open={showModal}
-        onOpenChange={open => { if (!open) { setShowModal(false); setEditingSupplier(null); form.reset({ name: '', phone: '', city: '', email: '' }) } }}
+        onOpenChange={open => { if (!open) closeSupplierForm() }}
         title={editingSupplier ? t('suppliers.edit_title') : t('suppliers.add_supplier')}
+        description={editingSupplier?.name}
         icon={<Package className="h-4 w-4" />}
+        maxWidth="max-w-lg"
+        dirty={form.formState.isDirty}
+        testId="supplier-dialog"
       >
-        <form onSubmit={form.handleSubmit(onSubmit)}>
+        <form
+          id="supplier-form"
+          onSubmit={form.handleSubmit(data => {
+            if (data.phone && !phoneValid) { form.setError('phone', { message: t('errors.phone_invalid') }); return }
+            return onSubmit(data)
+          })}
+          className="flex min-h-0 flex-1 flex-col"
+          noValidate
+        >
           <PremiumDialogBody>
             <div className="space-y-1.5">
-              <Label>{t('suppliers.name')} *</Label>
-              <Input {...form.register('name')} placeholder={t('suppliers.name_placeholder')} />
+              <Label htmlFor="supplier-name">{t('suppliers.name')}<RequiredMark /></Label>
+              <Input id="supplier-name" {...form.register('name')} placeholder={t('suppliers.name_placeholder')} aria-invalid={!!form.formState.errors.name} />
               {form.formState.errors.name && <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>}
             </div>
-            <div className="space-y-1.5">
-              <Label>{t('suppliers.phone')}</Label>
-              <Input {...form.register('phone')} placeholder="08012345678" type="tel" />
+            <div className="grid gap-3 sm:grid-cols-[3fr_2fr]">
+              <div className="space-y-1.5">
+                <Label htmlFor="supplier-phone">{t('suppliers.phone')}</Label>
+                <PhoneInput
+                  id="supplier-phone"
+                  value={form.watch('phone')}
+                  onChange={(v, valid) => {
+                    form.setValue('phone', v, { shouldDirty: true })
+                    setPhoneValid(valid)
+                    if (form.formState.errors.phone) form.clearErrors('phone')
+                  }}
+                  defaultCountry={shop?.country}
+                  preferredCountries={shopCountries}
+                  invalid={!!form.formState.errors.phone}
+                />
+                {form.formState.errors.phone && <p className="text-xs text-destructive">{form.formState.errors.phone.message}</p>}
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="supplier-city">{t('suppliers.city')}</Label>
+                <Input id="supplier-city" {...form.register('city')} placeholder={t('suppliers.city_placeholder')} />
+              </div>
             </div>
             <div className="space-y-1.5">
-              <Label>{t('suppliers.city')}</Label>
-              <Input {...form.register('city')} placeholder={t('suppliers.city_placeholder')} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>{t('suppliers.email')}</Label>
-              <Input {...form.register('email')} placeholder="fournisseur@example.com" type="email" />
+              <Label htmlFor="supplier-email">{t('suppliers.email')}</Label>
+              <Input id="supplier-email" {...form.register('email')} placeholder="fournisseur@example.com" type="email" aria-invalid={!!form.formState.errors.email} />
               {form.formState.errors.email && <p className="text-xs text-destructive">{form.formState.errors.email.message}</p>}
             </div>
           </PremiumDialogBody>
-          <PremiumDialogFooter
-            onCancel={() => setShowModal(false)}
-            cancelLabel={t('actions.cancel')}
-          >
-            <Button variant="stockshop" type="submit" loading={saving} className="flex-1 h-11 rounded-lg font-semibold">
-              {t('actions.save')}
+          <PremiumDialogFooter onCancel={closeSupplierForm} cancelLabel={t('actions.cancel')}>
+            <Button type="submit" variant="stockshop" className={FOOTER_PRIMARY_CLASS} loading={saving} data-testid="dialog-submit">
+              {!saving && <Save className="h-4 w-4" />}
+              {editingSupplier ? t('actions.update') : t('actions.save')}
             </Button>
           </PremiumDialogFooter>
         </form>
       </PremiumDialog>
 
+      {/* Suppression (douce) d'un fournisseur */}
+      <ConfirmModal
+        open={!!deleteSupplierTarget}
+        onOpenChange={open => { if (!open && !deletingSupplier) setDeleteSupplierTarget(null) }}
+        category={t('actions.delete')}
+        title={deleteSupplierTarget?.name || ''}
+        description={t('suppliers.delete_hint')}
+        icon={<Trash2 className="h-4 w-4" />}
+        tone="danger"
+        confirmLabel={t('actions.delete')}
+        loading={deletingSupplier}
+        onConfirm={confirmDeleteSupplier}
+      />
+
+      {/* Fiche fournisseur : panneau de consultation */}
+      <SupplierSheet
+        supplier={sheetSupplier}
+        open={!!sheetSupplier}
+        onOpenChange={open => { if (!open) setSheetSupplier(null) }}
+        products={products.filter((p: any) => p.supplier_id === sheetSupplier?.id)}
+        orders={purchaseOrders.filter((po: any) => po.supplier_id === sheetSupplier?.id)}
+        canManage={canManage}
+        shopCountry={shop?.country}
+        fmt={fmt}
+        onEdit={s => { setSheetSupplier(null); openSupplierForm(s) }}
+        onNewPo={s => { setSheetSupplier(null); openCreatePo(); onPoSupplierChange(s.id) }}
+        onOpenPo={po => setJournalPo(po)}
+        onRecordPayment={goRecordPayment}
+      />
+
+      {/* Ajouter un prix fournisseur : deux champs → modale */}
       <PremiumDialog
         open={!!addPriceProduct}
         onOpenChange={open => { if (!open) setAddPriceProduct(null) }}
         title={t('suppliers.add_price')}
+        description={addPriceProduct?.name}
         icon={<ArrowRightLeft className="h-4 w-4" />}
+        maxWidth="max-w-md"
+        dirty={!!addPriceSupplierId || !!addPriceValue}
       >
         <PremiumDialogBody>
-          <p className="text-sm font-medium truncate">{addPriceProduct?.name}</p>
-          <div className="space-y-1.5 mt-3">
-            <Label>{t('nav.suppliers')} *</Label>
+          <div className="space-y-1.5">
+            <Label>{t('nav.suppliers')}<RequiredMark /></Label>
             <Select value={addPriceSupplierId} onValueChange={setAddPriceSupplierId}>
-              <SelectTrigger><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
+              <SelectTrigger className="h-10"><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
               <SelectContent>
                 {suppliers
                   .filter(s => s.shop_id === addPriceProduct?.shop_id && s.id !== (addPriceProduct as any)?.supplier_id)
@@ -1248,59 +1422,72 @@ export default function SuppliersPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5 mt-3">
-            <Label>{t('suppliers.price_label')} *</Label>
-            <Input type="number" min={0} inputMode="numeric" value={addPriceValue} onChange={e => setAddPriceValue(e.target.value)} placeholder="0" />
+          <div className="space-y-1.5">
+            <Label htmlFor="add-price-value">{t('suppliers.price_label')}<RequiredMark /></Label>
+            <InputGroup suffix={symbol}>
+              <Input id="add-price-value" type="number" min={0} inputMode="numeric" value={addPriceValue} onChange={e => setAddPriceValue(e.target.value)} placeholder="0" />
+            </InputGroup>
           </div>
         </PremiumDialogBody>
-        <PremiumDialogFooter onCancel={() => setAddPriceProduct(null)} cancelLabel={t('actions.cancel')}>
-          <Button
-            variant="stockshop"
-            onClick={submitAddPrice}
-            loading={savingPrice}
-            disabled={!addPriceSupplierId || !addPriceValue || Number(addPriceValue) <= 0}
-            className="flex-1 h-11 rounded-lg font-semibold"
-          >
-            {t('actions.save')}
-          </Button>
-        </PremiumDialogFooter>
+        <PremiumDialogFooter
+          onCancel={() => setAddPriceProduct(null)}
+          cancelLabel={t('actions.cancel')}
+          onConfirm={submitAddPrice}
+          confirmLabel={t('actions.save')}
+          confirmLoading={savingPrice}
+          confirmDisabled={!addPriceSupplierId || !addPriceValue || Number(addPriceValue) <= 0}
+          confirmIcon={<Save className="h-4 w-4" />}
+        />
       </PremiumDialog>
 
-      <PremiumDialog
+      {/* Nouveau bon de commande : panneau de formulaire en sections */}
+      <FormDrawer
         open={showPoDialog}
-        onOpenChange={setShowPoDialog}
+        onOpenChange={open => { if (!open) setShowPoDialog(false) }}
         title={t('suppliers.new_po')}
+        description={poSupplierId ? supplierName(poSupplierId) : undefined}
         icon={<FileText className="h-4 w-4" />}
-        maxWidth="max-w-lg"
-      >
-        <PremiumDialogBody>
-          <div className="space-y-1.5">
-            <Label>{t('nav.suppliers')} *</Label>
-            <Select value={poSupplierId} onValueChange={onPoSupplierChange}>
-              <SelectTrigger><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
-              <SelectContent>
-                {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+        width="lg"
+        onSubmit={submitCreatePo}
+        submitting={creatingPo}
+        submitDisabled={!poSupplierId}
+        dirty={!!poSupplierId || !!poNotes.trim() || !!poDeliveryDate}
+        testId="po-drawer"
+        footerExtra={poSupplierId ? (
+          <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
+            <span className="text-sm font-medium">{t('suppliers.po_total_label')}</span>
+            <span className="text-base font-bold tabular-nums text-stockshop-blue dark:text-blue-400" data-testid="po-total">{fmt(poTotal)}</span>
           </div>
+        ) : undefined}
+      >
+        <DrawerSection title={t('suppliers.section_supplier')}>
+          <Select value={poSupplierId} onValueChange={onPoSupplierChange}>
+            <SelectTrigger className="h-10" data-testid="po-supplier"><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
+            <SelectContent>
+              {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </DrawerSection>
 
-          {poSupplierId && (
-            <>
-              <label className="flex items-center gap-2 mt-3 text-xs text-muted-foreground cursor-pointer select-none">
-                <input type="checkbox" checked={poShowAll} onChange={e => setPoShowAll(e.target.checked)} />
+        {poSupplierId && (
+          <>
+            <DrawerSection title={t('suppliers.section_products')}>
+              <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+                <input type="checkbox" checked={poShowAll} onChange={e => setPoShowAll(e.target.checked)} className="h-4 w-4 accent-stockshop-blue" />
                 {t('suppliers.po_show_all_products')}
               </label>
-
               {poVisibleProducts.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-4">{t('suppliers.po_no_products')}</p>
               ) : (
-                <div className="mt-2 max-h-72 overflow-y-auto space-y-1.5">
+                <div className="space-y-1.5">
                   {poVisibleProducts.map((p: any) => (
-                    <div key={p.id} className="flex items-center gap-2 rounded-lg border px-2.5 py-2">
+                    <div key={p.id} className="flex items-center gap-2 rounded-lg border bg-background px-2.5 py-2" data-testid="po-line">
                       <input
                         type="checkbox"
                         checked={!!poChecked[p.id]}
                         onChange={e => setPoChecked(prev => ({ ...prev, [p.id]: e.target.checked }))}
+                        className="h-4 w-4 accent-stockshop-blue"
+                        aria-label={p.name}
                       />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm truncate">{p.name}</p>
@@ -1332,21 +1519,23 @@ export default function SuppliersPage() {
                   ))}
                 </div>
               )}
+            </DrawerSection>
 
-              <div className="space-y-1.5 mt-3">
-                <Label>{t('suppliers.po_delivery_date_label')}</Label>
+            <DrawerSection title={t('suppliers.section_delivery')}>
+              <div className="space-y-1.5">
+                <Label htmlFor="po-delivery">{t('suppliers.po_delivery_date_label')}</Label>
                 <Input
+                  id="po-delivery"
                   type="date"
                   value={poDeliveryDate}
                   onChange={e => setPoDeliveryDate(e.target.value)}
                   min={new Date().toISOString().slice(0, 10)}
-                  className="h-9"
                 />
               </div>
-
-              <div className="space-y-1.5 mt-3">
-                <Label>{t('suppliers.po_notes_label')}</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="po-notes">{t('suppliers.po_notes_label')}</Label>
                 <textarea
+                  id="po-notes"
                   value={poNotes}
                   onChange={e => setPoNotes(e.target.value)}
                   placeholder={t('suppliers.po_notes_placeholder')}
@@ -1354,205 +1543,167 @@ export default function SuppliersPage() {
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
                 />
               </div>
+            </DrawerSection>
+          </>
+        )}
+      </FormDrawer>
 
-              <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2.5 mt-3">
-                <span className="text-sm font-medium">{t('suppliers.po_total_label')}</span>
-                <span className="text-base font-bold text-stockshop-blue dark:text-blue-400">{fmt(poTotal)}</span>
-              </div>
-            </>
-          )}
-        </PremiumDialogBody>
-        <PremiumDialogFooter onCancel={() => setShowPoDialog(false)} cancelLabel={t('actions.cancel')}>
-          <Button
-            variant="stockshop"
-            onClick={submitCreatePo}
-            loading={creatingPo}
-            disabled={!poSupplierId}
-            className="flex-1 h-11 rounded-lg font-semibold"
-          >
-            {t('actions.save')}
-          </Button>
-        </PremiumDialogFooter>
-      </PremiumDialog>
-
-      <PremiumDialog
+      {/* Modifier un bon (brouillon) : lignes en panneau */}
+      <FormDrawer
         open={!!editingPo}
         onOpenChange={open => { if (!open) setEditingPo(null) }}
         title={t('suppliers.po_edit_title')}
+        description={editingPo?.reference}
         icon={<Edit2 className="h-4 w-4" />}
-        maxWidth="max-w-lg"
+        width="lg"
+        onSubmit={submitEditPo}
+        submitting={savingEditPo}
+        submitDisabled={editItems.length === 0}
+        dirty={JSON.stringify(editItems) !== editOriginal}
+        testId="po-edit-drawer"
       >
-        {editingPo && (
-          <>
-            <PremiumDialogBody>
-              <div className="space-y-2">
-                {editItems.map((it, idx) => (
-                  <div key={it.id ?? idx} className="flex items-center gap-2 rounded-lg border px-2.5 py-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm truncate">{it.product_name}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Input
-                          type="number" min={1} inputMode="numeric"
-                          value={it.quantity_ordered}
-                          onChange={e => setEditItems(prev => prev.map((row, i) => i === idx ? { ...row, quantity_ordered: e.target.value } : row))}
-                          className="w-16 h-8 text-center text-xs"
-                        />
-                        <span className="text-[11px] text-muted-foreground">{it.unit}</span>
-                        <Input
-                          type="number" min={0} inputMode="numeric"
-                          value={it.unit_price}
-                          onChange={e => setEditItems(prev => prev.map((row, i) => i === idx ? { ...row, unit_price: e.target.value } : row))}
-                          placeholder={t('suppliers.price_label')}
-                          className="w-24 h-8 text-center text-xs"
-                        />
-                      </div>
-                    </div>
-                    <button
-                      className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors flex-shrink-0"
-                      onClick={() => setEditItems(prev => prev.filter((_, i) => i !== idx))}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
+        <DrawerSection title={t('suppliers.section_products')}>
+          <div className="space-y-2">
+            {editItems.map((it, idx) => (
+              <div key={it.id ?? idx} className="flex items-center gap-2 rounded-lg border bg-background px-2.5 py-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm truncate">{it.product_name}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Input
+                      type="number" min={1} inputMode="numeric"
+                      value={it.quantity_ordered}
+                      onChange={e => setEditItems(prev => prev.map((row, i) => i === idx ? { ...row, quantity_ordered: e.target.value } : row))}
+                      className="w-16 h-8 text-center text-xs"
+                    />
+                    <span className="text-[11px] text-muted-foreground">{it.unit}</span>
+                    <Input
+                      type="number" min={0} inputMode="numeric"
+                      value={it.unit_price}
+                      onChange={e => setEditItems(prev => prev.map((row, i) => i === idx ? { ...row, unit_price: e.target.value } : row))}
+                      placeholder={t('suppliers.price_label')}
+                      className="w-24 h-8 text-center text-xs"
+                    />
                   </div>
-                ))}
-                {editItems.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-4">{t('suppliers.po_no_products')}</p>
-                )}
+                </div>
+                <button
+                  type="button"
+                  aria-label={t('actions.remove')}
+                  className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors flex-shrink-0"
+                  onClick={() => setEditItems(prev => prev.filter((_, i) => i !== idx))}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
-            </PremiumDialogBody>
-            <PremiumDialogFooter onCancel={() => setEditingPo(null)} cancelLabel={t('actions.cancel')}>
-              <Button
-                variant="stockshop"
-                onClick={submitEditPo}
-                loading={savingEditPo}
-                disabled={editItems.length === 0}
-                className="flex-1 h-11 rounded-lg font-semibold"
-              >
-                {t('actions.save')}
-              </Button>
-            </PremiumDialogFooter>
-          </>
-        )}
-      </PremiumDialog>
+            ))}
+            {editItems.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-4">{t('suppliers.po_no_products')}</p>
+            )}
+          </div>
+        </DrawerSection>
+      </FormDrawer>
 
-      <PremiumDialog
+      {/* Commander le reste d'une livraison partielle */}
+      <FormDrawer
         open={!!reorderPo}
         onOpenChange={open => { if (!open) setReorderPo(null) }}
         title={t('suppliers.po_reorder_title')}
+        description={reorderPo ? t('suppliers.po_reorder_hint', { reference: reorderPo.reference }) : undefined}
         icon={<RotateCcw className="h-4 w-4" />}
-        maxWidth="max-w-lg"
+        width="lg"
+        onSubmit={submitReorder}
+        submitting={creatingReorder}
+        submitDisabled={reorderItems.length === 0}
+        submitLabel={t('suppliers.po_reorder_confirm')}
+        submitIcon={<RotateCcw className="h-4 w-4" />}
+        dirty={JSON.stringify(reorderItems) !== reorderOriginal}
+        testId="po-reorder-drawer"
       >
-        {reorderPo && (
-          <>
-            <PremiumDialogBody>
-              <p className="text-xs text-muted-foreground">
-                {t('suppliers.po_reorder_hint', { reference: reorderPo.reference })}
-              </p>
-              <div className="space-y-2 mt-3">
-                {reorderItems.map((it, idx) => (
-                  <div key={it.product_id ?? idx} className="flex items-center gap-2 rounded-lg border px-2.5 py-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm truncate">{it.product_name}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Input
-                          type="number" min={1} inputMode="numeric"
-                          value={it.quantity_ordered}
-                          onChange={e => setReorderItems(prev => prev.map((row, i) => i === idx ? { ...row, quantity_ordered: e.target.value } : row))}
-                          className="w-16 h-8 text-center text-xs"
-                        />
-                        <span className="text-[11px] text-muted-foreground">{it.unit}</span>
-                        <Input
-                          type="number" min={0} inputMode="numeric"
-                          value={it.unit_price}
-                          onChange={e => setReorderItems(prev => prev.map((row, i) => i === idx ? { ...row, unit_price: e.target.value } : row))}
-                          placeholder={t('suppliers.price_label')}
-                          className="w-24 h-8 text-center text-xs"
-                        />
-                      </div>
-                    </div>
-                    <button
-                      className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors flex-shrink-0"
-                      onClick={() => setReorderItems(prev => prev.filter((_, i) => i !== idx))}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
+        <DrawerSection title={t('suppliers.section_products')}>
+          <div className="space-y-2">
+            {reorderItems.map((it, idx) => (
+              <div key={it.product_id ?? idx} className="flex items-center gap-2 rounded-lg border bg-background px-2.5 py-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm truncate">{it.product_name}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Input
+                      type="number" min={1} inputMode="numeric"
+                      value={it.quantity_ordered}
+                      onChange={e => setReorderItems(prev => prev.map((row, i) => i === idx ? { ...row, quantity_ordered: e.target.value } : row))}
+                      className="w-16 h-8 text-center text-xs"
+                    />
+                    <span className="text-[11px] text-muted-foreground">{it.unit}</span>
+                    <Input
+                      type="number" min={0} inputMode="numeric"
+                      value={it.unit_price}
+                      onChange={e => setReorderItems(prev => prev.map((row, i) => i === idx ? { ...row, unit_price: e.target.value } : row))}
+                      placeholder={t('suppliers.price_label')}
+                      className="w-24 h-8 text-center text-xs"
+                    />
                   </div>
-                ))}
-                {reorderItems.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-4">{t('suppliers.po_no_products')}</p>
-                )}
+                </div>
+                <button
+                  type="button"
+                  aria-label={t('actions.remove')}
+                  className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors flex-shrink-0"
+                  onClick={() => setReorderItems(prev => prev.filter((_, i) => i !== idx))}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
-            </PremiumDialogBody>
-            <PremiumDialogFooter onCancel={() => setReorderPo(null)} cancelLabel={t('actions.cancel')}>
-              <Button
-                variant="stockshop"
-                onClick={submitReorder}
-                loading={creatingReorder}
-                disabled={reorderItems.length === 0}
-                className="flex-1 h-11 rounded-lg font-semibold"
-              >
-                {t('suppliers.po_reorder_confirm')}
-              </Button>
-            </PremiumDialogFooter>
-          </>
-        )}
-      </PremiumDialog>
+            ))}
+            {reorderItems.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-4">{t('suppliers.po_no_products')}</p>
+            )}
+          </div>
+        </DrawerSection>
+      </FormDrawer>
 
-      <PremiumDialog
+      {/* Suppression d'un bon (brouillon) */}
+      <ConfirmModal
         open={!!deletePoConfirm}
-        onOpenChange={open => { if (!open) setDeletePoConfirm(null) }}
+        onOpenChange={open => { if (!open && !deletingPo) setDeletePoConfirm(null) }}
         category={t('actions.delete')}
         title={deletePoConfirm?.reference || ''}
-        icon={<Trash2 className="h-4 w-4 text-destructive" />}
-        maxWidth="max-w-md"
-      >
-        <PremiumDialogBody>
-          <div className="rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 shadow-inner p-3 text-sm text-red-700 dark:text-red-400">
-            <p>{t('suppliers.po_delete_confirm')}</p>
-          </div>
-        </PremiumDialogBody>
-        <PremiumDialogFooter
-          onCancel={() => setDeletePoConfirm(null)}
-          cancelLabel={t('actions.cancel')}
-          onConfirm={confirmDeletePo}
-          confirmLabel={t('actions.delete')}
-          confirmLoading={deletingPo}
-          confirmDestructive
-        />
-      </PremiumDialog>
+        description={t('suppliers.po_delete_confirm')}
+        icon={<Trash2 className="h-4 w-4" />}
+        tone="danger"
+        confirmLabel={t('actions.delete')}
+        loading={deletingPo}
+        onConfirm={confirmDeletePo}
+      />
 
+      {/* Envoyer le bon : WhatsApp (numéro international) ou e-mail */}
       <PremiumDialog
         open={!!emailPo}
         onOpenChange={open => { if (!open) setEmailPo(null) }}
-        title={t('suppliers.po_email_helper')}
-        icon={<Mail className="h-4 w-4" />}
+        title={t('suppliers.po_send_title')}
+        description={emailPo ? `${emailPo.reference} · ${emailPo.suppliers?.name || supplierName(emailPo.supplier_id)}` : undefined}
+        icon={<Send className="h-4 w-4" />}
         maxWidth="max-w-lg"
+        testId="po-send-dialog"
       >
         {emailPo && (() => {
           const { subject, body } = buildPoEmailContent(emailPo)
           const supplierEmail = emailPo.suppliers?.email || ''
+          const supplierPhone = emailPo.suppliers?.phone || suppliers.find(s => s.id === emailPo.supplier_id)?.phone || ''
           const mailtoHref = `mailto:${encodeURIComponent(supplierEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
           return (
             <>
               <PremiumDialogBody>
-                <p className="text-xs text-muted-foreground">
-                  {isCapacitor() ? t('suppliers.po_email_hint_mobile') : t('suppliers.po_email_hint')}
-                </p>
-
-                <div className="space-y-1.5 mt-3">
+                <p className="text-xs text-muted-foreground">{t('suppliers.po_send_hint')}</p>
+                <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <Label>{t('suppliers.po_email_subject')}</Label>
-                    <button className="flex items-center gap-1 text-xs text-stockshop-blue dark:text-blue-400 hover:underline" onClick={() => copyToClipboard(subject, t('suppliers.po_email_subject'))}>
+                    <button type="button" className="flex items-center gap-1 text-xs text-stockshop-blue dark:text-blue-400 hover:underline" onClick={() => copyToClipboard(subject, t('suppliers.po_email_subject'))}>
                       <Copy className="h-3 w-3" />{t('suppliers.po_copy')}
                     </button>
                   </div>
                   <Input readOnly value={subject} onFocus={e => e.target.select()} />
                 </div>
-
-                <div className="space-y-1.5 mt-3">
+                <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <Label>{t('suppliers.po_email_body')}</Label>
-                    <button className="flex items-center gap-1 text-xs text-stockshop-blue dark:text-blue-400 hover:underline" onClick={() => copyToClipboard(body, t('suppliers.po_email_body'))}>
+                    <button type="button" className="flex items-center gap-1 text-xs text-stockshop-blue dark:text-blue-400 hover:underline" onClick={() => copyToClipboard(body, t('suppliers.po_email_body'))}>
                       <Copy className="h-3 w-3" />{t('suppliers.po_copy')}
                     </button>
                   </div>
@@ -1560,44 +1711,65 @@ export default function SuppliersPage() {
                     readOnly
                     value={body}
                     onFocus={e => e.target.select()}
-                    rows={10}
+                    rows={8}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
                   />
                 </div>
-
+                {!supplierPhone && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">{t('suppliers.po_no_supplier_phone')}</p>
+                )}
                 {!supplierEmail && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">{t('suppliers.po_no_supplier_email')}</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400">{t('suppliers.po_no_supplier_email')}</p>
                 )}
               </PremiumDialogBody>
-              <PremiumDialogFooter onCancel={() => setEmailPo(null)} cancelLabel={t('actions.cancel')}>
-                <Button variant="stockshop" className="flex-1 h-11 rounded-lg font-semibold min-w-0 px-2" asChild>
-                  <a href={mailtoHref} className="min-w-0">
-                    <Mail className="h-4 w-4 mr-1.5 flex-shrink-0" /><span className="truncate text-[13px] sm:text-sm">{t('suppliers.po_open_mail_app')}</span>
-                  </a>
+              <div className={`flex-shrink-0 border-t border-border bg-background px-5 py-4 ${FOOTER_ROW_CLASS}`}>
+                <Button variant="outline" className="h-11 min-w-0 flex-1 gap-2 rounded-lg px-4 font-medium sm:flex-none sm:min-w-[150px]" asChild>
+                  <a href={mailtoHref}><Mail className="h-4 w-4 flex-shrink-0" /><span className="truncate">{t('suppliers.po_send_email')}</span></a>
                 </Button>
-              </PremiumDialogFooter>
+                <Button
+                  type="button"
+                  className="h-11 min-w-0 flex-1 gap-2 rounded-lg border-0 bg-green-600 px-4 font-semibold text-white hover:bg-green-700 sm:flex-none sm:min-w-[180px]"
+                  onClick={() => sendPoWhatsApp(emailPo)}
+                  data-testid="po-send-whatsapp"
+                >
+                  <MessageCircle className="h-4 w-4 flex-shrink-0" /><span className="truncate">{t('suppliers.po_send_whatsapp')}</span>
+                </Button>
+              </div>
             </>
           )
         })()}
       </PremiumDialog>
 
-      <PremiumDialog
+      {/* Réceptionner un bon : quantités reçues puis paiement, en panneau */}
+      <FormDrawer
         open={!!receivingPo}
         onOpenChange={open => { if (!open) setReceivingPo(null) }}
         title={t('suppliers.po_receive_title')}
+        description={receivingPo ? `${receivingPo.reference} · ${receivingPo.suppliers?.name || supplierName(receivingPo.supplier_id)}` : undefined}
         icon={<CheckCircle2 className="h-4 w-4" />}
-        maxWidth="max-w-lg"
+        width="lg"
+        onSubmit={submitReceivePo}
+        submitting={receivingLoading}
+        submitLabel={t('suppliers.po_confirm_receipt')}
+        submitIcon={<CheckCircle2 className="h-4 w-4" />}
+        dirty={receiveTouched}
+        testId="po-receive-drawer"
+        footerExtra={(
+          <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
+            <span className="text-sm font-medium">{t('suppliers.po_total_label')}</span>
+            <span className="text-base font-bold tabular-nums text-stockshop-blue dark:text-blue-400">{fmt(receiveTotal)}</span>
+          </div>
+        )}
       >
         {receivingPo && (
           <>
-            <PremiumDialogBody>
-              <p className="text-xs text-muted-foreground">{t('suppliers.po_receive_hint')}</p>
-              <div className="mt-3 space-y-2">
+            <DrawerSection title={t('suppliers.section_quantities')} description={t('suppliers.po_receive_hint')}>
+              <div className="space-y-2">
                 {(receivingPo.purchase_order_items || []).map((it: any) => {
                   const received = Number(receiveQuantities[it.id])
                   const isShort = receiveQuantities[it.id] !== undefined && !isNaN(received) && received < it.quantity_ordered
                   return (
-                    <div key={it.id} className="rounded-lg border px-2.5 py-2 space-y-2">
+                    <div key={it.id} className="rounded-lg border bg-background px-2.5 py-2 space-y-2">
                       <div className="flex items-center gap-2">
                         <div className="min-w-0 flex-1">
                           <p className="text-sm truncate">{it.product_name}</p>
@@ -1606,8 +1778,9 @@ export default function SuppliersPage() {
                         <Input
                           type="number" min={0} inputMode="numeric"
                           value={receiveQuantities[it.id] ?? ''}
-                          onChange={e => setReceiveQuantities(prev => ({ ...prev, [it.id]: e.target.value }))}
+                          onChange={e => { setReceiveTouched(true); setReceiveQuantities(prev => ({ ...prev, [it.id]: e.target.value })) }}
                           className="w-20 h-9 text-center flex-shrink-0"
+                          aria-label={it.product_name}
                         />
                       </div>
                       <div className="flex items-center gap-1.5">
@@ -1615,14 +1788,14 @@ export default function SuppliersPage() {
                         <Input
                           type="date"
                           value={receiveExpiryDates[it.id] ?? ''}
-                          onChange={e => setReceiveExpiryDates(prev => ({ ...prev, [it.id]: e.target.value }))}
+                          onChange={e => { setReceiveTouched(true); setReceiveExpiryDates(prev => ({ ...prev, [it.id]: e.target.value })) }}
                           className="h-8 text-xs flex-1"
                         />
                       </div>
                       {isShort && (
                         <Input
                           value={receiveNotes[it.id] ?? ''}
-                          onChange={e => setReceiveNotes(prev => ({ ...prev, [it.id]: e.target.value }))}
+                          onChange={e => { setReceiveTouched(true); setReceiveNotes(prev => ({ ...prev, [it.id]: e.target.value })) }}
                           placeholder={t('suppliers.po_receipt_note_placeholder')}
                           className="h-8 text-xs"
                         />
@@ -1631,75 +1804,67 @@ export default function SuppliersPage() {
                   )
                 })}
               </div>
+            </DrawerSection>
 
-              <div className="mt-4 pt-3 border-t space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>{t('suppliers.po_payment_status_label')}</Label>
-                  <span className="text-xs text-muted-foreground">{t('suppliers.po_total_label')}: {fmt(receiveTotal)}</span>
-                </div>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {(['paid', 'partial', 'credit'] as const).map(status => (
-                    <button
-                      key={status}
-                      type="button"
-                      onClick={() => setReceivePaymentStatus(status)}
-                      className={`h-9 rounded-lg text-xs font-medium border transition-colors ${
-                        receivePaymentStatus === status
-                          ? status === 'paid' ? 'bg-green-600 border-green-600 text-white'
-                            : status === 'partial' ? 'bg-amber-500 border-amber-500 text-white'
-                            : 'bg-muted-foreground/80 border-muted-foreground/80 text-white'
-                          : 'border-input bg-card text-muted-foreground hover:bg-accent'
-                      }`}
-                    >
-                      {t(`suppliers.po_payment_status_${status}`)}
-                    </button>
-                  ))}
-                </div>
-                {receivePaymentStatus === 'partial' && (
+            <DrawerSection title={t('suppliers.section_payment')}>
+              <div className="grid grid-cols-3 gap-1.5">
+                {(['paid', 'partial', 'credit'] as const).map(status => (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => { setReceiveTouched(true); setReceivePaymentStatus(status) }}
+                    aria-pressed={receivePaymentStatus === status}
+                    className={`h-10 rounded-lg text-xs font-medium border transition-colors ${
+                      receivePaymentStatus === status
+                        ? status === 'paid' ? 'bg-green-600 border-green-600 text-white'
+                          : status === 'partial' ? 'bg-amber-500 border-amber-500 text-white'
+                          : 'bg-muted-foreground/80 border-muted-foreground/80 text-white'
+                        : 'border-input bg-background text-muted-foreground hover:bg-accent'
+                    }`}
+                  >
+                    {t(`suppliers.po_payment_status_${status}`)}
+                  </button>
+                ))}
+              </div>
+              {receivePaymentStatus === 'partial' && (
+                <InputGroup suffix={symbol}>
                   <Input
                     inputMode="numeric"
                     value={formatInputValue(receivePaymentAmount, symbol)}
-                    onChange={e => setReceivePaymentAmount(e.target.value.replace(/\D/g, ''))}
+                    onChange={e => { setReceiveTouched(true); setReceivePaymentAmount(e.target.value.replace(/\D/g, '')) }}
                     placeholder={t('suppliers.po_payment_amount_placeholder')}
-                    className="h-9"
                   />
-                )}
-                {receivePaymentStatus !== 'credit' && (
-                  <Select value={receivePaymentMethod} onValueChange={setReceivePaymentMethod}>
-                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cash">{t('payment.cash')}</SelectItem>
-                      <SelectItem value="transfer">{t('payment.transfer')}</SelectItem>
-                      <SelectItem value="mobile_money">{t('payment.mobile_money')}</SelectItem>
-                      <SelectItem value="other">{t('products.other')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-                {receivePaymentStatus === 'credit' && (
-                  <p className="text-[11px] text-muted-foreground">{t('suppliers.po_payment_credit_hint')}</p>
-                )}
-              </div>
-            </PremiumDialogBody>
-            <PremiumDialogFooter onCancel={() => setReceivingPo(null)} cancelLabel={t('actions.cancel')}>
-              <Button
-                variant="stockshop"
-                onClick={submitReceivePo}
-                loading={receivingLoading}
-                className="flex-1 h-11 rounded-lg font-semibold bg-green-600 hover:bg-green-700"
-              >
-                {t('suppliers.po_confirm_receipt')}
-              </Button>
-            </PremiumDialogFooter>
+                </InputGroup>
+              )}
+              {receivePaymentStatus !== 'credit' && (
+                <Select value={receivePaymentMethod} onValueChange={v => { setReceiveTouched(true); setReceivePaymentMethod(v) }}>
+                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">{t('payment.cash')}</SelectItem>
+                    <SelectItem value="transfer">{t('payment.transfer')}</SelectItem>
+                    <SelectItem value="mobile_money">{t('payment.mobile_money')}</SelectItem>
+                    <SelectItem value="other">{t('products.other')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+              {receivePaymentStatus === 'credit' && (
+                <p className="text-[11px] text-muted-foreground">{t('suppliers.po_payment_credit_hint')}</p>
+              )}
+            </DrawerSection>
           </>
         )}
-      </PremiumDialog>
+      </FormDrawer>
 
-      <PremiumDialog
+      {/* Historique d'un bon : panneau de consultation */}
+      <DetailDrawer
         open={!!journalPo}
         onOpenChange={open => { if (!open) setJournalPo(null) }}
-        title={t('suppliers.po_journal_title')}
+        category={t('suppliers.po_journal_title')}
+        title={journalPo?.reference || ''}
+        description={journalPo ? `${journalPo.suppliers?.name || supplierName(journalPo.supplier_id)} · ${fmt(poTotalOf(journalPo))}` : undefined}
         icon={<History className="h-4 w-4" />}
-        maxWidth="max-w-lg"
+        width="md"
+        testId="po-journal-drawer"
       >
         {journalPo && (() => {
           const events: { key: string; label: string; date: string; Icon: any; color: string; actorName?: string | null }[] = [
@@ -1716,10 +1881,9 @@ export default function SuppliersPage() {
           }
           events.sort((a, b) => a.date.localeCompare(b.date))
           const items = journalPo.purchase_order_items || []
-
           return (
-            <>
-              <PremiumDialogBody>
+            <div className="space-y-4">
+              <DrawerSection>
                 <div className="space-y-0">
                   {events.map((ev, idx) => (
                     <div key={ev.key} className="relative flex gap-3">
@@ -1732,173 +1896,36 @@ export default function SuppliersPage() {
                       <div className={`flex-1 min-w-0 ${idx < events.length - 1 ? 'pb-4' : ''}`}>
                         <p className="text-sm font-semibold">{ev.label}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {new Date(ev.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          {new Date(ev.date).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                           {ev.actorName && <> · {t('suppliers.po_journal_by', { name: ev.actorName })}</>}
                         </p>
                       </div>
                     </div>
                   ))}
                 </div>
-
-                {(journalPo.status === 'received' || journalPo.status === 'partial') && items.length > 0 && (
-                  <div className="pt-3 border-t">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t('suppliers.po_journal_items_title')}</p>
-                    <div className="space-y-1.5">
-                      {items.map((it: any) => (
+              </DrawerSection>
+              {items.length > 0 && (
+                <DrawerSection title={t('suppliers.po_journal_items_title')}>
+                  <div className="space-y-1.5">
+                    {items.map((it: any) => {
+                      const received = (journalPo.status === 'received' || journalPo.status === 'partial')
+                      return (
                         <div key={it.id} className="flex items-center justify-between text-sm gap-2">
                           <span className="truncate">{it.product_name}</span>
                           <span className="tabular-nums text-muted-foreground shrink-0">
-                            {(it.quantity_received ?? it.quantity_ordered)}/{it.quantity_ordered} {it.unit || ''}
+                            {received ? `${it.quantity_received ?? it.quantity_ordered}/${it.quantity_ordered}` : it.quantity_ordered} {it.unit || ''}
+                            {it.unit_price != null && <> · {fmt(it.unit_price * it.quantity_ordered)}</>}
                           </span>
                         </div>
-                      ))}
-                    </div>
+                      )
+                    })}
                   </div>
-                )}
-              </PremiumDialogBody>
-              <PremiumDialogFooter onCancel={() => setJournalPo(null)} cancelLabel={t('actions.close')} />
-            </>
+                </DrawerSection>
+              )}
+            </div>
           )
         })()}
-      </PremiumDialog>
-
-      <PremiumDialog
-        open={!!journalSupplier}
-        onOpenChange={open => { if (!open) setJournalSupplier(null) }}
-        category={t('suppliers.supplier_journal_title')}
-        title={journalSupplier?.name || ''}
-        icon={<History className="h-4 w-4" />}
-        maxWidth="max-w-lg"
-      >
-        {journalSupplier && (() => {
-          const supplierPOs = purchaseOrders.filter((po: any) => po.supplier_id === journalSupplier.id)
-          const meaningfulPOs = supplierPOs.filter((po: any) => po.status !== 'draft')
-          // 'partial' compte aussi comme une livraison reçue (argent dépensé,
-          // stock rentré) — seule la complétude diffère.
-          const receivedPOs = supplierPOs.filter((po: any) => po.status === 'received' || po.status === 'partial')
-
-          const totalSpent = receivedPOs.reduce((sum: number, po: any) =>
-            sum + (po.purchase_order_items || []).reduce((s: number, it: any) =>
-              s + (it.unit_price || 0) * (it.quantity_received ?? it.quantity_ordered), 0), 0)
-
-          const delays = receivedPOs
-            .filter((po: any) => po.sent_at && po.received_at)
-            .map((po: any) => (new Date(po.received_at).getTime() - new Date(po.sent_at).getTime()) / 86_400_000)
-          const avgDelay = delays.length ? Math.round(delays.reduce((a: number, b: number) => a + b, 0) / delays.length) : null
-
-          const completeCount = receivedPOs.filter((po: any) => po.status === 'received').length
-          const completeRate = receivedPOs.length ? Math.round((completeCount / receivedPOs.length) * 100) : null
-
-          // Tendance des prix : compare le premier et le dernier prix payé pour
-          // chaque produit, sur les commandes reçues triées chronologiquement.
-          const sortedReceived = [...receivedPOs].sort((a: any, b: any) =>
-            (a.received_at || a.created_at).localeCompare(b.received_at || b.created_at))
-          const priceHistory: Record<string, { first: number; last: number }> = {}
-          for (const po of sortedReceived) {
-            for (const it of po.purchase_order_items || []) {
-              if (!it.unit_price) continue
-              if (!priceHistory[it.product_name]) priceHistory[it.product_name] = { first: it.unit_price, last: it.unit_price }
-              else priceHistory[it.product_name].last = it.unit_price
-            }
-          }
-          const trends = Object.entries(priceHistory)
-            .filter(([, v]) => v.first !== v.last)
-            .map(([name, v]) => ({ name, ...v, pct: Math.round(((v.last - v.first) / v.first) * 100) }))
-
-          return (
-            <>
-              <PremiumDialogBody>
-                {supplierPOs.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-6">{t('suppliers.supplier_journal_no_orders')}</p>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 rounded-xl border divide-x divide-y sm:divide-y-0">
-                      <div className="flex flex-col items-center justify-center py-3 px-2 text-center">
-                        <p className="text-lg font-bold">{meaningfulPOs.length}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">{t('suppliers.supplier_journal_orders_count')}</p>
-                      </div>
-                      <div className="flex flex-col items-center justify-center py-3 px-2 text-center">
-                        <p className="text-lg font-bold">{fmt(totalSpent)}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">{t('suppliers.supplier_journal_total_spent')}</p>
-                      </div>
-                      <div className="flex flex-col items-center justify-center py-3 px-2 text-center">
-                        <p className="text-lg font-bold">
-                          {avgDelay != null ? t('suppliers.supplier_journal_avg_delay_days', { count: avgDelay }) : t('suppliers.supplier_journal_no_data')}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">{t('suppliers.supplier_journal_avg_delay')}</p>
-                      </div>
-                      <div className="flex flex-col items-center justify-center py-3 px-2 text-center">
-                        <p className={`text-lg font-bold ${completeRate == null ? '' : completeRate >= 80 ? 'text-green-600 dark:text-green-400' : completeRate >= 50 ? 'text-amber-500' : 'text-red-600 dark:text-red-400'}`}>
-                          {completeRate != null ? `${completeRate}%` : t('suppliers.supplier_journal_no_data')}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">{t('suppliers.supplier_journal_complete_rate')}</p>
-                      </div>
-                    </div>
-
-                    {Number(journalSupplier.total_owed) > 0 && (
-                      <div className="mt-3 flex items-center justify-between rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2">
-                        <span className="text-xs font-medium text-amber-700 dark:text-amber-400">{t('suppliers.supplier_journal_owed')}</span>
-                        <span className="text-sm font-bold text-amber-700 dark:text-amber-400">{fmt(journalSupplier.total_owed)}</span>
-                      </div>
-                    )}
-
-                    <div className="mt-4 divide-y divide-border/50">
-                      {supplierPOs
-                        .slice()
-                        .sort((a: any, b: any) => b.created_at.localeCompare(a.created_at))
-                        .map((po: any) => {
-                          const itemCount = (po.purchase_order_items || []).length
-                          const total = (po.purchase_order_items || []).reduce((s: number, it: any) => s + (it.unit_price || 0) * it.quantity_ordered, 0)
-                          return (
-                            <button
-                              key={po.id}
-                              className="w-full flex items-center justify-between gap-2 py-2.5 text-left hover:bg-muted/30 transition-colors"
-                              onClick={() => { setJournalSupplier(null); setJournalPo(po) }}
-                            >
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="text-sm font-medium truncate">{po.reference}</span>
-                                  <span className={`text-[10px] font-medium rounded-full px-1.5 py-0.5 ${PO_STATUS_STYLES[po.status] || PO_STATUS_STYLES.draft}`}>
-                                    {t(`suppliers.po_status_${po.status}`)}
-                                  </span>
-                                </div>
-                                <p className="text-[11px] text-muted-foreground mt-0.5">
-                                  {t('suppliers.po_items_count', { count: itemCount })} · {fmt(total)} · {new Date(po.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                </p>
-                              </div>
-                              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                            </button>
-                          )
-                        })}
-                    </div>
-
-                    {trends.length > 0 && (
-                      <div className="mt-4 pt-3 border-t">
-                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t('suppliers.supplier_journal_price_trend_title')}</p>
-                        <div className="space-y-1.5">
-                          {trends.map(tr => (
-                            <div key={tr.name} className="flex items-center justify-between text-sm gap-2">
-                              <span className="truncate">{tr.name}</span>
-                              <span className="flex items-center gap-1.5 shrink-0">
-                                <span className="text-muted-foreground text-xs tabular-nums">{fmt(tr.first)} → {fmt(tr.last)}</span>
-                                <span className={`flex items-center gap-0.5 text-xs font-semibold tabular-nums ${tr.pct > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                                  {tr.pct > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                                  {tr.pct > 0 ? '+' : ''}{tr.pct}%
-                                </span>
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </PremiumDialogBody>
-              <PremiumDialogFooter onCancel={() => setJournalSupplier(null)} cancelLabel={t('actions.close')} />
-            </>
-          )
-        })()}
-      </PremiumDialog>
+      </DetailDrawer>
     </div>
   )
 }
