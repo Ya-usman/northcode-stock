@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { DebtGauge } from '@/components/dashboard/recent-sales-feed'
 import { getCountry, getMethodType } from '@/lib/saas/countries'
+import { normalizeWhatsAppNumber } from '@/lib/utils/whatsapp'
 import { formatInputValue } from '@/lib/utils/currency'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -2043,7 +2044,7 @@ export default function CreditsPage() {
                 </Button>
               </div>
               {receiptResult.phone && (
-                <a href={`https://wa.me/${receiptResult.phone.replace(/[^\d]/g, '').replace(/^0/, '234')}?text=${encodeURIComponent(t('payments.whatsapp_receipt_message', { customer: receiptResult.customerName }))}`}
+                <a href={`https://wa.me/${normalizeWhatsAppNumber(receiptResult.phone, getCountry(shop?.country).phonePrefix)}?text=${encodeURIComponent(t('payments.whatsapp_receipt_message', { customer: receiptResult.customerName }))}`}
                   target="_blank" rel="noreferrer" className="block">
                   <Button variant="outline" className="w-full gap-2 border-green-300 dark:border-green-700/60 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/30">
                     💬 {t('payments.open_whatsapp_chat')}

@@ -1189,7 +1189,12 @@ export default function SalesHistoryPage() {
               <div key={sale.local_id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
                 <div className="min-w-0">
                   <p className="font-medium truncate">{sale.customer_name || t('sales.walk_in_short')}</p>
-                  <p className="text-xs text-muted-foreground">{format(new Date(sale.created_at), 'dd MMM · HH:mm')}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {format(new Date(sale.created_at), 'dd MMM · HH:mm')}
+                    {/* Pourquoi elle est restée sur l'appareil (enregistré depuis le 5 oct. 2026) */}
+                    {sale.offline_reason && <> · {t(`sales.offline_reason_${sale.offline_reason.startsWith('server_') ? 'server' : sale.offline_reason}` as any)}</>}
+                  </p>
+                  {sale.sync_error && <p className="truncate text-[11px] text-red-600 dark:text-red-400">{sale.sync_error}</p>}
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className="font-medium">{formatNaira(sale.total)}</span>

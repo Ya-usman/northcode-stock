@@ -91,17 +91,19 @@ export function buildReceiptWhatsAppMessage(params: {
 }
 
 /**
- * Open WhatsApp with pre-filled message
+ * Open WhatsApp with pre-filled message.
+ * Renvoie false si le navigateur a bloqué l'ouverture (ouverture automatique
+ * hors clic sur ordinateur) : l'appelant propose alors un bouton.
  */
-export function shareViaWhatsApp(phone: string, message: string): void {
+export function shareViaWhatsApp(phone: string, message: string): boolean {
   const url = buildWhatsAppLink(phone, message)
-  window.open(url, '_blank')
+  return window.open(url, '_blank') !== null
 }
 
 /**
  * Share receipt via WhatsApp (no specific number — opens chat picker)
  */
-export function shareReceiptWhatsApp(message: string): void {
+export function shareReceiptWhatsApp(message: string): boolean {
   const url = `https://wa.me/?text=${encodeURIComponent(message)}`
-  window.open(url, '_blank')
+  return window.open(url, '_blank') !== null
 }

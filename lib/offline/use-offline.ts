@@ -38,6 +38,8 @@ const monitor = {
 }
 
 function emit() { monitor.listeners.forEach(l => l()) }
+/** Dernier déclenchement de la synchro automatique à l'ouverture / au premier plan (anti-rafale) */
+let lastAutoSyncKick = 0
 function setOnline(value: boolean) {
   if (monitor.online === value) return
   monitor.online = value
@@ -180,6 +182,26 @@ export function useOffline() {
   useEffect(() => {
     refreshPendingCount()
   }, [refreshPendingCount])
+
+  // Ouverture de l'app et retour au premier plan : s'il reste des opérations
+  // en file et que le réseau est là, on synchronise TOUT DE SUITE — sans
+  // attendre la boucle de 30 s ni un appui sur « Synchroniser » (cas typique :
+  // Android a fermé l'app pendant l'envoi du reçu sur WhatsApp). Une seule
+  // fois pour toute l'app malgré la trentaine de composants qui montent ce hook.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !shopId) return
+    const kick = async () => {
+      const now = Date.now()
+      if (now - lastAutoSyncKick < 5_000) return
+      lastAutoSyncKick = now
+      await refreshPendingCount()
+      if (pendingCountRef.current > 0 && (await checkConnectivity())) sync()
+    }
+    kick()
+    const onVisible = () => { if (document.visibilityState === 'visible') kick() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [shopId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return { isOnline, pendingCount, syncing, sync, refreshPendingCount, lastSyncResult }
 }

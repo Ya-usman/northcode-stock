@@ -1002,6 +1002,13 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
           </div>
           <div className="flex items-center justify-between gap-3">
             <div>
+              <p className="text-sm font-medium">{t('settings.receipt_auto_whatsapp')}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{t('settings.receipt_auto_whatsapp_desc')}</p>
+            </div>
+            <Switch checked={ticket.autoWhatsApp} onCheckedChange={v => updateTicket({ autoWhatsApp: v })} data-testid="settings-auto-whatsapp" />
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div>
               <p className="text-sm font-medium">{t('settings.ticket_print_logo')}</p>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {shop?.logo_url ? t('settings.ticket_print_logo_desc') : t('settings.ticket_print_logo_none')}

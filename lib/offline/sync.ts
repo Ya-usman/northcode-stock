@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/client'
 import {
-  getPendingSales, markSaleSynced, markSaleError,
+  getPendingSales, markSaleSynced, markSaleError, getPendingCount,
   getPendingMovements, markMovementSynced, markMovementError,
   getPendingExpenses, markExpenseSynced, markExpenseError,
   getPendingCustomerPayments, markCustomerPaymentSynced, markCustomerPaymentError,
@@ -284,11 +284,17 @@ export async function syncPendingSales(shopId: string): Promise<SyncResult> {
       // worker's Background Sync firing while the app is also open and
       // syncing itself), which an in-memory lock alone can't prevent since
       // they don't share memory.
+      // Vente mise en file APRÈS un essai en ligne (délai dépassé, serveur
+      // indisponible) : local_id = « local-<clé de l'essai en ligne> ». Si cet
+      // essai avait en fait abouti côté serveur (réponse perdue), la vente
+      // existe déjà sous cette clé : on la retrouve au lieu de la recréer.
+      const onlineKey = sale.local_id.startsWith('local-') ? sale.local_id.slice(6) : null
       let saleAlreadyExisted = false
       const { data: alreadyCreated } = await supabase
         .from('sales')
         .select('id')
-        .eq('client_request_id', sale.local_id)
+        .in('client_request_id', onlineKey ? [sale.local_id, onlineKey] : [sale.local_id])
+        .limit(1)
         .maybeSingle()
 
       let saleData: { id: string } | null = alreadyCreated
@@ -412,6 +418,54 @@ export async function syncPendingSales(shopId: string): Promise<SyncResult> {
   }
 
   return { synced, failed, errors }
+}
+
+/**
+ * Synchronisation rapide après une mise en file (vente, paiement…) quand le
+ * téléphone a du réseau : tout de suite, puis à 5 s et 15 s tant que la file
+ * n'est pas vide. Avant, il fallait attendre la boucle de 30 s — et si Android
+ * fermait l'app entre-temps (ouverture de WhatsApp), la vente restait en file
+ * jusqu'à une synchronisation manuelle.
+ */
+export function syncSoon(shopId: string): void {
+  const delays = [0, 5_000, 15_000]
+  for (const d of delays) {
+    setTimeout(async () => {
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) return
+      try {
+        if ((await getPendingCount(shopId)) > 0) await syncAllPending(shopId)
+      } catch { /* nouvel essai au palier suivant ou par la boucle de fond */ }
+    }, d)
+  }
+}
+
+/**
+ * Synchronise MAINTENANT (au plus `timeoutMs`) et renvoie la vente telle
+ * qu'enregistrée sur le serveur (vrai numéro, lignes, client), ou null si
+ * elle n'a pas pu être envoyée. Utilisé avant d'envoyer ou d'imprimer le reçu
+ * d'une vente mise en file : jamais de lien de reçu inactif.
+ */
+export async function syncSaleNow(shopId: string, localId: string, timeoutMs = 10_000): Promise<any | null> {
+  const supabase = createClient() as any
+  const find = async () => {
+    const onlineKey = localId.startsWith('local-') ? localId.slice(6) : null
+    const { data } = await supabase
+      .from('sales')
+      .select('*, sale_items(*), customers(id, name, phone)')
+      .in('client_request_id', onlineKey ? [localId, onlineKey] : [localId])
+      .limit(1)
+      .maybeSingle()
+    return data ?? null
+  }
+  try {
+    await Promise.race([
+      syncAllPending(shopId),
+      new Promise(resolve => setTimeout(resolve, timeoutMs)),
+    ])
+    return await find()
+  } catch {
+    return null
+  }
 }
 
 export interface CombinedSyncResult {

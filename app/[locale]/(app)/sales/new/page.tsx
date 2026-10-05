@@ -32,11 +32,11 @@ import { PremiumDialog, PremiumDialogBody } from '@/components/ui/premium-dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { useCurrency } from '@/lib/hooks/use-currency'
-import { shareReceiptWhatsApp, shareViaWhatsApp, buildReceiptWhatsAppMessage, normalizeWhatsAppNumber } from '@/lib/utils/whatsapp'
+import { buildWhatsAppLink, buildReceiptWhatsAppMessage, normalizeWhatsAppNumber } from '@/lib/utils/whatsapp'
 import { generateReceiptToken, receiptUrl } from '@/lib/receipt/receipt-link'
 import { ShopLogo } from '@/components/shop/shop-logo'
 import { CustomerPicker } from '@/components/sales/customer-picker'
-import { BookUser as BookUserIcon } from 'lucide-react'
+import { BookUser as BookUserIcon, UploadCloud as CloudUpload, Loader2, ExternalLink as ExternalLinkIcon } from 'lucide-react'
 import { receiptLabelsFromT } from '@/lib/receipt/receipt-labels'
 import { sharePDFNative, isCapacitor } from '@/lib/utils/native-share'
 import type { Product, Customer, CartItem, Sale, SaleItem, Category } from '@/lib/types/database'
@@ -46,13 +46,14 @@ import { allocateCheckout, outstandingDebt } from '@/lib/utils/checkout-allocati
 import { revalidateHeldCart, heldAgeDays, HELD_STALE_DAYS, type HeldCartChange } from '@/lib/utils/held-sales'
 import { clearPageCache, clearPageCacheByPrefix } from '@/lib/offline/page-cache'
 import { cashSuggestions } from '@/lib/utils/cash-suggestions'
-import { registerBackgroundSync } from '@/lib/offline/sync'
+import { registerBackgroundSync, syncSoon, syncSaleNow } from '@/lib/offline/sync'
+import { ConfirmModal } from '@/components/ui/confirm-modal'
 
 const BarcodeScanner = dynamic(
   () => import('@/components/stock/barcode-scanner').then(m => ({ default: m.BarcodeScanner })),
   { ssr: false, loading: () => <div className="mt-1 h-12 rounded-xl bg-muted animate-pulse" /> }
 )
-import { useOffline } from '@/lib/offline/use-offline'
+import { useOffline, checkConnectivity } from '@/lib/offline/use-offline'
 import { triggerSaleFeedback, unlockAudio } from '@/lib/utils/sale-feedback'
 import { getCountry, getMethodType, getPaymentMethodLabel } from '@/lib/saas/countries'
 import { withTimeout, refreshSessionBeforeWrite } from '@/lib/utils/with-timeout'
@@ -197,6 +198,14 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const [completing, setCompleting] = useState(false)
   const [completedSale, setCompletedSale] = useState<Sale & { sale_items: SaleItem[] } | null>(null)
   const [showReceipt, setShowReceipt] = useState(false)
+  // Vente affichée dans le reçu, lisible depuis le code asynchrone (envoi / impression)
+  const completedSaleRef = useRef<any>(null)
+  useEffect(() => { completedSaleRef.current = completedSale }, [completedSale])
+  // Reçu d'une vente mise en file : synchronisation avant envoi, envoi sans lien, ouverture bloquée
+  const [preparingReceipt, setPreparingReceipt] = useState(false)
+  const [noLinkPrompt, setNoLinkPrompt] = useState(false)
+  const [waFallbackUrl, setWaFallbackUrl] = useState<string | null>(null)
+  const autoWhatsAppRef = useRef<string | null>(null)
   const [scanFlash, setScanFlash] = useState(false)
   const [showCameraScanner, setShowCameraScanner] = useState(false)
 
@@ -879,6 +888,46 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   // « 3 clients existants correspondent » sous le champ « nouveau client » : évite les doublons
   const matchingCustomers = customerName.trim().length >= 2 ? filteredCustomers.length : 0
 
+  // Suggestions DIRECTES sous le champ « nom » (dès 2 caractères) : un client
+  // déjà dans le carnet est proposé pendant la saisie, un toucher le rattache.
+  // Ordre : nom qui commence par la saisie, puis un mot qui commence par la
+  // saisie, puis nom qui la contient, puis téléphone qui contient les chiffres
+  // tapés (≥ 3). Jamais de rattachement automatique sur une simple
+  // ressemblance : le vendeur choisit (règle anti-doublon inchangée).
+  const [suggestOpen, setSuggestOpen] = useState(false)
+  const [suggestIndex, setSuggestIndex] = useState(-1)
+  const customerSuggestions = useMemo(() => {
+    const q = customerName.trim()
+    if (q.length < 2 || selectedCustomer) return [] as Customer[]
+    const nq = normalize(q)
+    const dq = q.replace(/\D/g, '')
+    return customers
+      .map(c => {
+        const n = normalize(c.name)
+        const byName = n.startsWith(nq) ? 0 : n.split(/\s+/).some(w => w.startsWith(nq)) ? 1 : n.includes(nq) ? 2 : -1
+        const byPhone = dq.length >= 3 && c.phone && c.phone.replace(/\D/g, '').includes(dq) ? 3 : -1
+        return { c, score: byName >= 0 ? byName : byPhone }
+      })
+      .filter(x => x.score >= 0)
+      .sort((a, b) => a.score - b.score || a.c.name.localeCompare(b.c.name))
+      .map(x => x.c)
+  }, [customerName, customers, selectedCustomer])
+  const SUGGEST_MAX = 5
+  const showSuggestions = suggestOpen && customerSuggestions.length > 0
+  const pickSuggestion = (c: Customer) => {
+    setSuggestOpen(false)
+    setSuggestIndex(-1)
+    linkCustomer(c)
+  }
+  const onCustomerNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions) return
+    const max = Math.min(customerSuggestions.length, SUGGEST_MAX)
+    if (e.key === 'ArrowDown') { e.preventDefault(); setSuggestIndex(i => (i + 1) % max) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setSuggestIndex(i => (i <= 0 ? max - 1 : i - 1)) }
+    else if (e.key === 'Enter' && suggestIndex >= 0) { e.preventDefault(); pickSuggestion(customerSuggestions[suggestIndex]) }
+    else if (e.key === 'Escape') { setSuggestOpen(false); setSuggestIndex(-1) }
+  }
+
   // Anti-doublon : un nom tapé qui correspond EXACTEMENT (accents et majuscules
   // ignorés) à une seule fiche existante, avec un téléphone compatible (absent
   // d'un côté ou identique), est rattaché à cette fiche — sinon la base créait
@@ -1081,8 +1130,12 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
     // ── Shared offline save (used by offline path AND as online fallback) ───
     // This function NEVER throws — it always shows the receipt to the user.
-    const saveOffline = async (toastMsg: string) => {
-      const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+    // `reason` : pourquoi la vente part en file (affiché dans l'Historique).
+    // `onlineKey` : clé de l'essai en ligne qui a échoué (délai, serveur) — la
+    // synchronisation retrouve alors la vente si cet essai avait en fait
+    // abouti côté serveur, au lieu de la créer une 2e fois.
+    const saveOffline = async (toastMsg: string, reason: string, onlineKey?: string) => {
+      const localId = onlineKey ? `local-${onlineKey}` : `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
       const saleNumber = `HL-${localId.slice(-5).toUpperCase()}`
       // Jeton du reçu tiré ici : le QR du ticket est imprimé avant la synchro
       const receiptToken = generateReceiptToken()
@@ -1124,10 +1177,15 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             payment_amount: salePaid,
             payment_reference: methodType === 'transfer' ? transferRef : null,
             synced: false,
+            offline_reason: reason,
           })
           persisted = true
           refreshPendingCount().catch(() => {})
           registerBackgroundSync()
+          // Réseau présent (délai dépassé, serveur indisponible, détection trop
+          // prudente) : envoi tout de suite puis à 5 s et 15 s, sans attendre
+          // la boucle de 30 s — le lien du reçu devient actif au plus vite.
+          if (typeof navigator === 'undefined' || navigator.onLine !== false) syncSoon(_shopId)
         } catch {
           // IndexedDB failed — sale will show in receipt but won't auto-sync
         }
@@ -1190,9 +1248,19 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     }
 
     // ── OFFLINE PATH ─────────────────────────────────────────────────────────
-    if (!isOnline) {
+    // Le moniteur peut dire « hors ligne » quelques secondes à tort (réveil de
+    // la radio au retour au premier plan) : si le système n'annonce pas
+    // « aucun réseau », on revérifie (3 s au plus) avant de mettre en file.
+    let online = isOnline
+    if (!online && (typeof navigator === 'undefined' || navigator.onLine !== false)) {
+      online = await Promise.race([
+        checkConnectivity(),
+        new Promise<boolean>(resolve => setTimeout(() => resolve(false), 3_000)),
+      ])
+    }
+    if (!online) {
       try {
-        await saveOffline(t('sales.sale_saved_offline'))
+        await saveOffline(t('sales.sale_saved_offline'), 'offline')
       } catch (err: any) {
         toast({ title: err.message || t('errors.generic'), variant: 'destructive' })
       } finally {
@@ -1224,11 +1292,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       // Single atomic round trip: customer resolve + sale + items +
       // payment(s) all happen server-side in complete_sale() (migration
       // 109) — replaces what used to be 6 sequential client-side calls.
-      const res: any = await withTimeout(
-        fetch('/api/sales/checkout', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+      const checkoutBody = JSON.stringify({
             shop_id: shop!.id,
             customer_id: selectedCustomer?.id || null,
             customer_name: !selectedCustomer && customerName.trim() ? customerName.trim() : null,
@@ -1250,15 +1314,48 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               original_price: item.product.selling_price,
             })),
             payments: paymentsPayload,
-          }),
-        }).then(async r => {
-          const body = await r.json().catch(() => ({}))
-          if (!r.ok) throw new Error(body.error || t('sales.create_error'))
-          return body
-        }),
+          })
+
+      // Chaque essai réutilise la même clé d'idempotence (clientRequestId) :
+      // complete_sale() ne crée jamais la vente deux fois.
+      const callCheckout = () => withTimeout(
+        fetch('/api/sales/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: checkoutBody })
+          .then(async r => ({ status: r.status, ok: r.ok, body: await r.json().catch(() => ({})) as any })),
         20_000,
         t('sales.db_not_responding')
       )
+      // Seule une VRAIE coupure (réseau, délai, serveur indisponible) met la
+      // vente en file. Avant, TOUTE erreur le faisait — session expirée, droit
+      // manquant, donnée refusée — et la synchronisation l'insérait ensuite
+      // sans repasser par ces contrôles. Cas typique : réseau parfait mais
+      // session à renouveler après un passage en arrière-plan → vente en file,
+      // lien du reçu « introuvable » jusqu'à la synchronisation.
+      const queueError = (message: string, reason: string) => Object.assign(new Error(message), { queueReason: reason })
+      const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+      let resp: { status: number; ok: boolean; body: any }
+      try {
+        resp = await callCheckout()
+        if (resp.status === 401) {
+          // Session à renouveler (app restée en arrière-plan) : on renouvelle et on renvoie
+          await Promise.race([supabase.auth.refreshSession(), pause(5_000)]).catch(() => {})
+          resp = await callCheckout()
+        } else if (resp.status === 429) {
+          await pause(2_000); resp = await callCheckout()
+        } else if (resp.status >= 500) {
+          await pause(1_500); resp = await callCheckout()
+        }
+      } catch (err: any) {
+        // fetch rejeté (pas de réseau) ou délai de 20 s dépassé
+        throw queueError(err?.message || t('sales.db_not_responding'), /trop lent|not responding|ne répond|timeout/i.test(err?.message || '') ? 'timeout' : 'network')
+      }
+      if (!resp.ok) {
+        const message = resp.body?.error || t('sales.create_error')
+        if (resp.status >= 500) throw queueError(message, `server_${resp.status}`)
+        if (resp.status === 429) throw queueError(message, 'rate_limited')
+        // 400 / 401 / 403 / 409 : refus réel — on l'affiche, le panier reste intact
+        throw Object.assign(new Error(resp.status === 401 ? t('sales.session_expired_retry') : message), { refused: true })
+      }
+      const res: any = resp.body
 
       sale = res.sale
 
@@ -1320,10 +1417,15 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         // a duplicate — instead surface the real error so the user knows the sale is
         // incomplete. They can see it in history to validate the payment or cancel it.
         toast({ title: err.message || t('errors.generic'), variant: 'destructive' })
+      } else if (err?.refused) {
+        // Refus réel du serveur (droit, donnée, session) : rien en file — la
+        // vente n'existe pas, le panier reste à l'écran pour corriger ou réessayer.
+        toast({ title: err.message || t('errors.generic'), variant: 'destructive' })
       } else {
-        // Sale was never created — safe to fall back to local save.
+        // Vraie coupure (ou erreur inattendue) : la vente n'a pas été créée en
+        // ligne — mise en file avec la clé de l'essai en ligne (anti-doublon).
         try {
-          await saveOffline(t('sales.unstable_connection_saved'))
+          await saveOffline(t('sales.unstable_connection_saved'), err?.queueReason || 'unexpected', checkoutIdRef.current || undefined)
         } catch {
           toast({ title: err.message || t('errors.generic'), variant: 'destructive' })
         }
@@ -1340,106 +1442,143 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     ? t('receipt.method_mixed')
     : (getCountry(shop?.country).paymentMethods.find(m => m.id === id)?.label ?? getPaymentMethodLabel(id) ?? id)
 
+  // ── Reçu d'une vente MISE EN FILE ─────────────────────────────────────────
+  // Une vente enregistrée sur l'appareil (id « local-… ») n'existe pas encore
+  // sur le serveur : son lien de reçu afficherait « Reçu introuvable » et son
+  // numéro « HL-… » est provisoire. Avant tout envoi ou impression, on la
+  // synchronise (quelques secondes au plus) et on reprend la version serveur :
+  // vrai numéro, lien actif. Jamais de lien inactif envoyé au client.
+  const isQueuedSale = (s: any) => !!s && String(s.id).startsWith('local-')
+  const ensureSyncedSale = async (timeoutMs: number, opts?: { silent?: boolean }): Promise<{ sale: any; synced: boolean }> => {
+    const current: any = completedSaleRef.current
+    if (!current || !isQueuedSale(current) || !shop?.id) return { sale: current, synced: !isQueuedSale(current) }
+    if (!opts?.silent) setPreparingReceipt(true)
+    try {
+      const server = await syncSaleNow(shop.id, current.id, timeoutMs)
+      if (server) {
+        completedSaleRef.current = server
+        setCompletedSale(server)
+        refreshPendingCount().catch(() => {})
+        return { sale: server, synced: true }
+      }
+      return { sale: current, synced: false }
+    } finally {
+      if (!opts?.silent) setPreparingReceipt(false)
+    }
+  }
+
   // « Reçu PDF » : le document A5 s'ouvre / se partage (PC : nouvel onglet à
   // enregistrer ; Android : feuille de partage). L'impression, c'est le ticket.
   const handlePrintReceipt = async () => {
     if (!completedSale || !shop) return
+    const { sale } = await ensureSyncedSale(6_000)
     const { generateReceiptPDFBlob } = await import('@/lib/utils/pdf')
     const blob = await generateReceiptPDFBlob({
-      sale: completedSale as any,
+      sale: sale as any,
       shop: shop as any,
       cashierName: profile?.full_name || '',
-      customerName: receiptCustomerName,
+      customerName: (sale as any)?.customers?.name || receiptCustomerName,
       labels: receiptLabels,
       debtRepayment: receiptDebt?.amount || 0, locale, hideBranding: hideStockShopBranding(shop),
     })
     try {
-      await sharePDFNative(blob, `Recu-${completedSale.sale_number}.pdf`, t('sales.receipt_share_title', { number: completedSale.sale_number, shop: shop?.name || '' }))
+      await sharePDFNative(blob, `Recu-${sale.sale_number}.pdf`, t('sales.receipt_share_title', { number: sale.sale_number, shop: shop?.name || '' }))
     } catch (err: any) {
       if (err?.name !== 'AbortError') toast({ title: err?.message || 'Erreur', variant: 'destructive' })
     }
   }
 
   // WhatsApp : client avec numéro → sa conversation s'ouvre directement avec le
-  // reçu en texte (un lien wa.me ne peut pas joindre un fichier) ; sinon feuille
-  // de partage avec le PDF, puis repli texte générique.
-  const handleWhatsAppReceipt = async () => {
-    if (!completedSale || !shop) return
-    const fileName = `Recu-${completedSale.sale_number}.pdf`
-    const textReceipt = () => buildReceiptWhatsAppMessage({
+  // reçu en texte et le lien ACTIF du reçu en ligne (un lien wa.me ne peut pas
+  // joindre un fichier) ; sinon feuille de partage avec le PDF, puis repli texte.
+  // Vente encore en file et serveur injoignable : on propose d'envoyer le reçu
+  // sans lien plutôt qu'un lien qui afficherait « Reçu introuvable ».
+  const openWhatsApp = (url: string) => {
+    // Ouverture bloquée (navigateur d'ordinateur, envoi automatique hors clic) → bouton dans le reçu
+    if (window.open(url, '_blank') === null) setWaFallbackUrl(url)
+  }
+  const sendWhatsAppReceipt = async (opts?: { allowNoLink?: boolean }) => {
+    if (!completedSaleRef.current || !shop) return
+    setWaFallbackUrl(null)
+    const { sale, synced } = await ensureSyncedSale(10_000)
+    if (!synced && !opts?.allowNoLink) { setNoLinkPrompt(true); return }
+    const customer = (sale as any)?.customers
+    const text = buildReceiptWhatsAppMessage({
       shopName: shop?.name || '',
-      saleNumber: completedSale.sale_number,
-      date: new Date(completedSale.created_at).toLocaleString(locale, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }),
-      items: ((completedSale as any).sale_items || []).map((i: any) => ({ name: i.product_name, qty: i.quantity, price: i.unit_price })),
-      total: completedSale.total,
-      paid: completedSale.amount_paid,
-      balance: completedSale.balance,
-      method: paymentMethodLabel(completedSale.payment_method),
-      customerName: receiptCustomerName,
+      saleNumber: sale.sale_number,
+      date: new Date(sale.created_at).toLocaleString(locale, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }),
+      items: ((sale as any).sale_items || []).map((i: any) => ({ name: i.product_name, qty: i.quantity, price: i.unit_price })),
+      total: sale.total,
+      paid: sale.amount_paid,
+      balance: sale.balance,
+      method: paymentMethodLabel(sale.payment_method),
+      customerName: customer?.name || receiptCustomerName,
       currencySymbol: symbol,
       debtRepayment: receiptDebt?.amount || 0,
-      receiptUrl: receiptUrl(completedSale.receipt_token),
+      // Lien seulement si la vente est bien sur le serveur
+      receiptUrl: synced ? receiptUrl(sale.receipt_token) : null,
       labels: {
         receipt: t('receipt.receipt'), items: t('receipt.items'), paid: t('receipt.paid'), balance: t('receipt.balance_due'),
         fullyPaid: t('receipt.fully_paid'), debtRepayment: t('receipt.debt_repayment'), totalCollected: t('receipt.total_collected'), thankYou: t('receipt.thank_you'),
         onlineReceipt: t('receipt.online_receipt'),
       },
     })
-    if (receiptCustomerPhone) {
-      const number = normalizeWhatsAppNumber(receiptCustomerPhone, getCountry(shop.country).phonePrefix)
-      if (number) { shareViaWhatsApp(number, textReceipt()); return }
+    const phone = customer?.phone || receiptCustomerPhone
+    if (phone) {
+      const number = normalizeWhatsAppNumber(phone, getCountry(shop.country).phonePrefix)
+      if (number) { openWhatsApp(buildWhatsAppLink(number, text)); return }
     }
     try {
       const { generateReceiptPDFBlob } = await import('@/lib/utils/pdf')
       const blob = await generateReceiptPDFBlob({
-        sale: completedSale as any,
+        sale: sale as any,
         shop: shop as any,
         cashierName: profile?.full_name || '',
-        customerName: receiptCustomerName,
+        customerName: customer?.name || receiptCustomerName,
         labels: receiptLabels,
         debtRepayment: receiptDebt?.amount || 0, locale, hideBranding: hideStockShopBranding(shop),
       })
-      await sharePDFNative(
-        blob,
-        fileName,
-        t('sales.receipt_share_title', { number: completedSale.sale_number, shop: shop?.name || '' }),
-      )
+      await sharePDFNative(blob, `Recu-${sale.sale_number}.pdf`, t('sales.receipt_share_title', { number: sale.sale_number, shop: shop?.name || '' }))
       return
     } catch (err: any) {
       if (err?.name === 'AbortError') return // user cancelled native share sheet
       // PDF generation or share failed — fall through to text fallback
     }
     // Last resort: WhatsApp text message (chat picker)
-    shareReceiptWhatsApp(textReceipt())
+    openWhatsApp(`https://wa.me/?text=${encodeURIComponent(text)}`)
   }
+  const handleWhatsAppReceipt = () => { sendWhatsAppReceipt().catch(() => {}) }
 
   // ── Ticket de caisse (rouleau 58/80 mm) — sortie choisie dans Paramètres ──
   // Montants sans « ₦ » (police PDF standard) : même règle que le reçu A5.
   const ticketFmt = (n: number) => currencyCode === 'NGN' ? `NGN ${Math.round(n).toLocaleString('en-NG')}` : formatNaira(n)
   const handlePrintTicket = async () => {
-    if (!completedSale || !shop) return
+    if (!completedSaleRef.current || !shop) return
+    // Vrai numéro et QR actif si la vente peut être envoyée tout de suite ;
+    // sinon le ticket sort quand même (le QR s'activera à la synchronisation)
+    const { sale } = await ensureSyncedSale(6_000)
     const methodLabel = paymentMethodLabel
     try {
       await printSaleTicket({
         settings: readTicketSettings(),
-        fileName: `Ticket-${completedSale.sale_number}.pdf`,
+        fileName: `Ticket-${sale.sale_number}.pdf`,
         logoUrl: shop.logo_url,
         data: {
           shop: { name: shop.name, city: shop.city, state: shop.state, whatsapp: shop.whatsapp, tagline: shop.receipt_tagline, legalIds: shop.receipt_legal_ids },
           footerMessage: shop.receipt_footer,
-          receiptUrl: receiptUrl(completedSale.receipt_token),
-          saleNumber: completedSale.sale_number,
-          createdAt: completedSale.created_at,
-          items: ((completedSale as any).sale_items || []).map((i: any) => ({
+          receiptUrl: receiptUrl(sale.receipt_token),
+          saleNumber: sale.sale_number,
+          createdAt: sale.created_at,
+          items: ((sale as any).sale_items || []).map((i: any) => ({
             name: i.product_name, qty: Number(i.quantity), unitPrice: Number(i.unit_price), subtotal: Number(i.subtotal),
           })),
-          subtotal: Number(completedSale.subtotal), discount: Number(completedSale.discount), tax: Number(completedSale.tax), total: Number(completedSale.total),
-          amountPaid: Number(completedSale.amount_paid), balance: Number(completedSale.balance),
-          paymentLabel: methodLabel(completedSale.payment_method),
+          subtotal: Number(sale.subtotal), discount: Number(sale.discount), tax: Number(sale.tax), total: Number(sale.total),
+          amountPaid: Number(sale.amount_paid), balance: Number(sale.balance),
+          paymentLabel: methodLabel(sale.payment_method),
           payments: receiptPay?.payments.length ? receiptPay.payments.map(p => ({ label: methodLabel(p.method), amount: p.amount })) : undefined,
           cashReceived: receiptPay?.cashReceived, change: receiptPay?.change,
           cashierName: profile?.full_name || '',
-          customerName: receiptCustomerName,
+          customerName: (sale as any)?.customers?.name || receiptCustomerName,
           debtRepayment: receiptDebt?.amount || 0,
           locale,
           fmt: ticketFmt,
@@ -1453,14 +1592,36 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       toast({ title: t(ticketErrorKey(err)), description: err?.code ? undefined : err?.message, variant: 'destructive' })
     }
   }
+
+  // Clé stable d'un reçu affiché : le jeton (identique avant et après la
+  // synchronisation d'une vente mise en file, alors que l'id change).
+  const receiptKey = completedSale ? ((completedSale as any).receipt_token || completedSale.id) : null
+
   // Impression automatique (réglage par appareil) : une seule fois par vente.
   useEffect(() => {
-    if (!showReceipt || !completedSale) return
-    if (autoPrintedRef.current === completedSale.id) return
+    if (!showReceipt || !completedSale || !receiptKey) return
+    if (autoPrintedRef.current === receiptKey) return
     if (!readTicketSettings().autoPrint) return
-    autoPrintedRef.current = completedSale.id
+    autoPrintedRef.current = receiptKey
     handlePrintTicket().catch(() => {})
-  }, [showReceipt, completedSale]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [showReceipt, receiptKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Envoi WhatsApp automatique (réglage par appareil, activé par défaut) : client
+  // avec numéro → sa conversation s'ouvre avec le reçu et le lien actif.
+  useEffect(() => {
+    if (!showReceipt || !completedSale || !receiptKey || !receiptCustomerPhone) return
+    if (autoWhatsAppRef.current === receiptKey) return
+    if (!readTicketSettings().autoWhatsApp) return
+    autoWhatsAppRef.current = receiptKey
+    sendWhatsAppReceipt().catch(() => {})
+  }, [showReceipt, receiptKey, receiptCustomerPhone]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Vente mise en file et reçu ouvert : on récupère sa version serveur dès
+  // qu'elle est synchronisée (vrai numéro à l'écran), sans bloquer l'écran.
+  useEffect(() => {
+    if (!showReceipt || !isQueuedSale(completedSale)) return
+    ensureSyncedSale(15_000, { silent: true }).catch(() => {})
+  }, [showReceipt, receiptKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── RENDER ──────────────────────────────────────────────
   return (
@@ -1940,10 +2101,16 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                     <Input
                       id="customer-name-input"
                       value={customerName}
-                      onChange={e => setCustomerName(e.target.value)}
-                      onBlur={autoLinkTypedCustomer}
+                      onChange={e => { setCustomerName(e.target.value); setSuggestOpen(true); setSuggestIndex(-1) }}
+                      onFocus={() => setSuggestOpen(true)}
+                      onBlur={() => { setSuggestOpen(false); autoLinkTypedCustomer() }}
+                      onKeyDown={onCustomerNameKeyDown}
                       placeholder={t('sales.customer_name_placeholder')}
                       className="pr-9"
+                      autoComplete="off"
+                      role="combobox"
+                      aria-expanded={showSuggestions}
+                      aria-controls="customer-suggestions"
                     />
                     {customerName && (
                       <button type="button" aria-label={t('actions.clear')}
@@ -1952,8 +2119,45 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                         <X className="h-4 w-4" />
                       </button>
                     )}
+                    {/* Clients du carnet proposés pendant la saisie (onMouseDown : le
+                        choix passe avant la sortie du champ) */}
+                    {showSuggestions && (
+                      <div id="customer-suggestions" role="listbox" data-testid="customer-suggestions"
+                        className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-lg">
+                        {customerSuggestions.slice(0, SUGGEST_MAX).map((c, i) => (
+                          <button key={c.id} type="button" role="option" aria-selected={i === suggestIndex} data-testid="customer-suggestion"
+                            onMouseDown={e => { e.preventDefault(); pickSuggestion(c) }}
+                            onMouseEnter={() => setSuggestIndex(i)}
+                            className={cn('flex w-full items-center gap-3 px-3 py-2.5 text-left tap-target', i === suggestIndex ? 'bg-stockshop-blue-muted dark:bg-blue-950/40' : 'hover:bg-muted/60')}>
+                            <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-stockshop-blue text-xs font-bold text-white dark:bg-blue-500">
+                              {c.name.split(' ').filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase()}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-medium">{c.name}</span>
+                              {c.phone && <span className="block truncate text-xs text-muted-foreground">{c.phone}</span>}
+                            </span>
+                            {Number(c.total_debt) > 0 && (
+                              <span className="flex-shrink-0 rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-700 dark:bg-orange-950/40 dark:text-orange-400">
+                                {t('sales.customer_suggest_debt', { amount: formatNaira(Number(c.total_debt)) })}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                        {customerSuggestions.length > SUGGEST_MAX && (
+                          <button type="button" onMouseDown={e => { e.preventDefault(); setSuggestOpen(false); openCustomerPicker(customerName.trim()) }}
+                            className="block w-full border-t px-3 py-2 text-left text-xs font-medium text-stockshop-blue hover:bg-muted/60 dark:text-blue-400">
+                            {t('sales.customer_suggest_more', { count: customerSuggestions.length })}
+                          </button>
+                        )}
+                        <button type="button" data-testid="customer-suggestion-new"
+                          onMouseDown={e => { e.preventDefault(); setSuggestOpen(false); setSuggestIndex(-1) }}
+                          className="flex w-full items-center gap-2 border-t px-3 py-2.5 text-left text-xs text-muted-foreground hover:bg-muted/60">
+                          <Plus className="h-3.5 w-3.5" />{t('sales.customer_suggest_new', { name: customerName.trim() })}
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  {matchingCustomers > 0 && (
+                  {matchingCustomers > 0 && !showSuggestions && (
                     <button type="button" onClick={() => openCustomerPicker(customerName.trim())}
                       className="-mt-1 text-left text-xs font-medium text-stockshop-blue hover:underline dark:text-blue-400">
                       {t(matchingCustomers === 1 ? 'sales.customer_matches_one' : 'sales.customer_matches_other', { count: matchingCustomers })}
@@ -2601,8 +2805,14 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                     {shop?.city && <p className="text-[10px] text-muted-foreground">{shop.city}</p>}
                   </div>
                 </div>
+                {isQueuedSale(completedSale) && (
+                  <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-300" data-testid="receipt-queued">
+                    <CloudUpload className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                    <span>{t('sales.receipt_queued_status')}</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-bold">
-                  <span>#{completedSale.sale_number}</span>
+                  <span data-testid="receipt-number">#{completedSale.sale_number}</span>
                   <span>{new Date(completedSale.created_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
                 {(completedSale as any).customers && (
@@ -2647,13 +2857,24 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               {/* Ticket de caisse (rouleau, sortie réglée dans Paramètres) en premier ;
                   le reçu PDF A5 reste pour l'envoi au client qui le demande. */}
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" onClick={handlePrintTicket} className="col-span-2 gap-2">
+                {preparingReceipt && (
+                  <p className="col-span-2 flex items-center justify-center gap-2 text-xs text-muted-foreground" data-testid="receipt-preparing">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />{t('sales.receipt_preparing')}
+                  </p>
+                )}
+                {waFallbackUrl && (
+                  <a href={waFallbackUrl} target="_blank" rel="noreferrer" onClick={() => setWaFallbackUrl(null)} data-testid="receipt-wa-fallback"
+                    className="col-span-2 inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[#25D366] px-4 text-sm font-semibold text-white hover:bg-[#1ebe5b]">
+                    <MessageCircle className="h-4 w-4" />{t('sales.open_whatsapp')}<ExternalLinkIcon className="h-3.5 w-3.5" />
+                  </a>
+                )}
+                <Button variant="outline" onClick={handlePrintTicket} disabled={preparingReceipt} className="col-span-2 gap-2">
                   <Printer className="h-4 w-4" /> {t('sales.print_ticket')}
                 </Button>
-                <Button variant="outline" onClick={handleWhatsAppReceipt} className="gap-2">
+                <Button variant="outline" onClick={handleWhatsAppReceipt} disabled={preparingReceipt} className="gap-2" data-testid="receipt-whatsapp">
                   <MessageCircle className="h-4 w-4" /> {t('actions.whatsapp')}
                 </Button>
-                <Button variant="outline" onClick={handlePrintReceipt} className="gap-2">
+                <Button variant="outline" onClick={handlePrintReceipt} disabled={preparingReceipt} className="gap-2">
                   {isCapacitor() ? <Share2 className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
                   {t('sales.receipt_pdf')}
                 </Button>
@@ -2666,6 +2887,23 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           )}
         </PremiumDialogBody>
       </PremiumDialog>
+
+      {/* Vente encore en file et serveur injoignable : jamais de lien inactif */}
+      <ConfirmModal
+        open={noLinkPrompt}
+        onOpenChange={setNoLinkPrompt}
+        title={t('sales.receipt_not_synced_title')}
+        description={t('sales.receipt_not_synced_desc')}
+        icon={<CloudUpload className="h-4 w-4" />}
+        tone="warning"
+        confirmLabel={t('sales.send_without_link')}
+        onConfirm={() => { setNoLinkPrompt(false); sendWhatsAppReceipt({ allowNoLink: true }).catch(() => {}) }}
+      >
+        <Button type="button" variant="outline" className="w-full gap-2" data-testid="receipt-retry-sync"
+          onClick={() => { setNoLinkPrompt(false); sendWhatsAppReceipt().catch(() => {}) }}>
+          <CloudUpload className="h-4 w-4" />{t('sales.retry_sync_send')}
+        </Button>
+      </ConfirmModal>
 
       {/* Bandeau panier (sous md) — ouvre le panneau panier plein écran.
           Masqué quand le panneau est ouvert (redondant, et il recouvrait le

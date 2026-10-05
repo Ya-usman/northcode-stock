@@ -130,6 +130,9 @@ export interface PendingSale {
   payment_reference: string | null
   synced: boolean
   sync_error?: string
+  /** Pourquoi la vente a été mise en file plutôt qu'envoyée : « offline » (aucun
+   *  réseau), « timeout », « network », « server_5xx », « rate_limited ». */
+  offline_reason?: string
 }
 
 export interface PendingSalePayment {

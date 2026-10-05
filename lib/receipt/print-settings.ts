@@ -10,6 +10,8 @@ export interface TicketPrintSettings {
   width: TicketWidth
   /** Imprimer dès que la vente est validée. */
   autoPrint: boolean
+  /** Client avec numéro : ouvrir WhatsApp avec le reçu (et son lien actif) dès la vente validée. Activé par défaut. */
+  autoWhatsApp: boolean
   /** Imprimer le logo de la boutique en tête du ticket (désactivé par défaut : papier et vitesse). */
   printLogo?: boolean
   /** Imprimante Bluetooth choisie (adresse MAC) et son nom d'affichage. */
@@ -19,7 +21,7 @@ export interface TicketPrintSettings {
 
 const KEY = 'ticket_print_v1'
 
-export const DEFAULT_TICKET_SETTINGS: TicketPrintSettings = { method: 'system', width: 80, autoPrint: false }
+export const DEFAULT_TICKET_SETTINGS: TicketPrintSettings = { method: 'system', width: 80, autoPrint: false, autoWhatsApp: true }
 
 export function readTicketSettings(): TicketPrintSettings {
   try {
@@ -30,6 +32,7 @@ export function readTicketSettings(): TicketPrintSettings {
       method: p.method === 'bluetooth' || p.method === 'network' ? p.method : 'system',
       width: p.width === 58 ? 58 : 80,
       autoPrint: p.autoPrint === true,
+      autoWhatsApp: p.autoWhatsApp !== false,
       printLogo: p.printLogo === true,
       bluetoothAddress: typeof p.bluetoothAddress === 'string' ? p.bluetoothAddress : undefined,
       bluetoothName: typeof p.bluetoothName === 'string' ? p.bluetoothName : undefined,
