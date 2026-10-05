@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { Save, Upload, Globe, Moon, Sun, ShoppingCart, History, CreditCard, Users, Package, ArrowLeftRight, Tag, Truck, BarChart2, ShieldCheck, Bell, Receipt, NotebookPen, Trash2, ClipboardList, ClipboardCheck, TrendingUp, AlertTriangle, CalendarDays, Clock, Gift, ChevronRight, Printer, Bluetooth } from 'lucide-react'
+import { Save, Upload, Globe, Moon, Sun, ShoppingCart, History, CreditCard, Users, Package, ArrowLeftRight, Tag, Truck, BarChart2, ShieldCheck, Bell, Receipt, NotebookPen, Trash2, ClipboardList, ClipboardCheck, TrendingUp, AlertTriangle, CalendarDays, Clock, Gift, ChevronRight, Printer, Bluetooth, Percent } from 'lucide-react'
 import { readTicketSettings, writeTicketSettings, DEFAULT_TICKET_SETTINGS, type TicketPrintSettings } from '@/lib/receipt/print-settings'
 import { printSaleTicket, ticketErrorKey } from '@/lib/receipt/print-ticket'
 import { BluetoothPrinter, BLUETOOTH_IMAGING_CLASS, type PairedDevice } from '@/lib/receipt/bluetooth-printer'
@@ -33,6 +33,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useRouter, usePathname } from 'next/navigation'
 import type { Shop } from '@/lib/types/database'
 import { DEFAULT_PERMISSIONS, DEFAULT_GENERAL, type AllPerms, type ConfigurableRole, type PermFeature, type RolePerms } from '@/lib/hooks/use-role-permissions'
+import { isLevelFeature, isViewerLocked, levelOf, mergeRolePerms, withLevel, type Level, type LevelFeature, type StoredPermissions } from '@/lib/permissions'
 import { cn } from '@/lib/utils/cn'
 import { CompanyCard } from '@/components/settings/company-card'
 import { withTimeout } from '@/lib/utils/with-timeout'
@@ -172,11 +173,12 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   // ── Role permissions ────────────────────────────────────────────────────────
   const [activePermRole, setActivePermRole] = useState<ConfigurableRole | 'general'>('cashier')
   const [permissions, setPermissions] = useState<AllPerms>(DEFAULT_PERMISSIONS)
-  const [generalPerms, setGeneralPerms] = useState<RolePerms>(DEFAULT_GENERAL)
+  const [generalPerms, setGeneralPerms] = useState<Record<PermFeature, boolean>>(DEFAULT_GENERAL)
   const [savingPerms, setSavingPerms] = useState(false)
 
   const PERM_FEATURES: { key: PermFeature; label: string; icon: React.ReactNode }[] = [
     { key: 'new_sale',      label: t('settings.perm_new_sale'),      icon: <ShoppingCart className="h-4 w-4" /> },
+    { key: 'discount',      label: t('settings.perm_discount'),      icon: <Percent className="h-4 w-4" /> },
     { key: 'sales_history', label: t('settings.perm_sales_history'), icon: <History className="h-4 w-4" /> },
     { key: 'payments',      label: t('settings.perm_payments'),      icon: <CreditCard className="h-4 w-4" /> },
     { key: 'customers',     label: t('settings.perm_customers'),     icon: <Users className="h-4 w-4" /> },
@@ -259,15 +261,17 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       setNotifyPushNewExpense(shopData.notify_push_new_expense ?? true)
       setNotifyPushExpiry((shopData as any).notify_push_expiry ?? true)
       setLoading(false)
-      // Load stored permissions — deep merge so partial DB objects don't lose default keys
-      const stored = (shopData as any).role_permissions as (Partial<AllPerms> & { general?: Partial<RolePerms> }) | null
+      // Réglages enregistrés fusionnés par la règle unique (mergeRolePerms) :
+      // le niveau affiché est exactement celui que le serveur applique, y
+      // compris pour les anciens « oui » explicites (= modification conservée).
+      const stored = (shopData as any).role_permissions as StoredPermissions | null
       if (stored) {
         setPermissions({
-          shop_manager:  { ...DEFAULT_PERMISSIONS.shop_manager,  ...(stored.shop_manager  ?? {}) },
-          manager:       { ...DEFAULT_PERMISSIONS.manager,       ...(stored.manager       ?? {}) },
-          cashier:       { ...DEFAULT_PERMISSIONS.cashier,       ...(stored.cashier       ?? {}) },
-          viewer:        { ...DEFAULT_PERMISSIONS.viewer,        ...(stored.viewer        ?? {}) },
-          stock_manager: { ...DEFAULT_PERMISSIONS.stock_manager, ...(stored.stock_manager ?? {}) },
+          shop_manager:  mergeRolePerms('shop_manager', stored),
+          manager:       mergeRolePerms('manager', stored),
+          cashier:       mergeRolePerms('cashier', stored),
+          viewer:        mergeRolePerms('viewer', stored),
+          stock_manager: mergeRolePerms('stock_manager', stored),
         })
         setGeneralPerms({ ...DEFAULT_GENERAL, ...(stored.general ?? {}) })
       }
@@ -417,19 +421,12 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
     }
   }
 
-  const togglePermission = async (role: ConfigurableRole, feature: PermFeature, value: boolean) => {
+  // Enregistre le JSON COMPLET (5 rôles + « general ») : le PATCH remplace
+  // tout le bloc, un envoi partiel effacerait les autres réglages.
+  const savePermissions = async (roles: AllPerms, general: Record<PermFeature, boolean>, rollback: () => void) => {
     if (!shop?.id) return
-    const prev = permissions
-    const updated: AllPerms = {
-      ...permissions,
-      [role]: { ...permissions[role], [feature]: value },
-    }
-    setPermissions(updated)
     setSavingPerms(true)
-    // The PATCH below overwrites the whole role_permissions blob, so it must
-    // always include the "general" master switch alongside the 5 roles —
-    // otherwise this save would silently wipe out the Général tab's settings.
-    const payload = { ...updated, general: generalPerms }
+    const payload = { ...roles, general }
     try {
       const res = await withTimeout(fetch('/api/team/permissions', {
         method: 'PATCH',
@@ -438,40 +435,39 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       }))
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur inconnue')
-      // Update auth context directly — avoids stale-read from DB replica after write
+      // Contexte mis à jour directement — évite une relecture périmée après écriture
       patchShop(shop.id, { role_permissions: payload })
       toast({ title: t('settings.perms_saved'), description: t('settings.perms_saved_desc'), variant: 'success' })
     } catch (err: any) {
       toast({ title: t('settings.perms_error'), description: err.message, variant: 'destructive' })
-      setPermissions(prev)
+      rollback()
     } finally {
       setSavingPerms(false)
     }
   }
 
-  const toggleGeneralPermission = async (feature: PermFeature, value: boolean) => {
-    if (!shop?.id) return
+  const togglePermission = (role: ConfigurableRole, feature: PermFeature, value: boolean) => {
+    const prev = permissions
+    const updated: AllPerms = { ...permissions, [role]: { ...permissions[role], [feature]: value } }
+    setPermissions(updated)
+    void savePermissions(updated, generalPerms, () => setPermissions(prev))
+  }
+
+  // Pages à trois niveaux (masqué · lecture · modification). L'Observateur
+  // n'a jamais « modification » : la règle unique l'ignorerait de toute façon.
+  const setPermLevel = (role: ConfigurableRole, feature: LevelFeature, level: Level) => {
+    if (level === 'write' && role === 'viewer') return
+    const prev = permissions
+    const updated: AllPerms = { ...permissions, [role]: withLevel(permissions[role], feature, level) }
+    setPermissions(updated)
+    void savePermissions(updated, generalPerms, () => setPermissions(prev))
+  }
+
+  const toggleGeneralPermission = (feature: PermFeature, value: boolean) => {
     const prev = generalPerms
-    const updated: RolePerms = { ...generalPerms, [feature]: value }
+    const updated = { ...generalPerms, [feature]: value }
     setGeneralPerms(updated)
-    setSavingPerms(true)
-    const payload = { ...permissions, general: updated }
-    try {
-      const res = await withTimeout(fetch('/api/team/permissions', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shop_id: shop.id, role_permissions: payload }),
-      }))
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur inconnue')
-      patchShop(shop.id, { role_permissions: payload })
-      toast({ title: t('settings.perms_saved'), description: t('settings.perms_saved_desc'), variant: 'success' })
-    } catch (err: any) {
-      toast({ title: t('settings.perms_error'), description: err.message, variant: 'destructive' })
-      setGeneralPerms(prev)
-    } finally {
-      setSavingPerms(false)
-    }
+    void savePermissions(permissions, updated, () => setGeneralPerms(prev))
   }
 
   const isPermChecked = (key: PermFeature) => activePermRole === 'general' ? generalPerms[key] : permissions[activePermRole][key]
@@ -1078,20 +1074,55 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
               </div>
             )}
 
-            {/* Feature toggles */}
+            {/* Fonctions : pages à trois niveaux, actions à interrupteur */}
+            {activePermRole !== 'general' && (
+              <p className="px-3 text-xs text-muted-foreground">{t('settings.perm_levels_hint')}</p>
+            )}
+            {activePermRole === 'viewer' && (
+              <div className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground" data-testid="perm-viewer-readonly">
+                {t('settings.perm_viewer_readonly')}
+              </div>
+            )}
             <div className="space-y-1">
-              {PERM_FEATURES.map(({ key, label, icon }) => (
-                <div key={key} className="flex items-center justify-between rounded-lg px-3 py-2.5 hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-2.5 text-sm">
-                    <span className="text-muted-foreground">{icon}</span>
+              {PERM_FEATURES.map(({ key, label, icon }) => {
+                const withLevels = activePermRole !== 'general' && isLevelFeature(key)
+                return (
+                <div key={key} className={cn('rounded-lg px-3 py-2.5 hover:bg-muted/50 transition-colors', withLevels ? 'flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between' : 'flex items-center justify-between gap-3')}>
+                  <div className="flex items-center gap-2.5 text-sm min-w-0">
+                    <span className="text-muted-foreground flex-shrink-0">{icon}</span>
                     <span>{label}</span>
                   </div>
-                  <Switch
-                    checked={isPermChecked(key)}
-                    onCheckedChange={val => onPermToggle(key, val)}
-                  />
+                  {withLevels ? (
+                    // Téléphone : sous le libellé, pleine largeur ; grand écran : à droite
+                    <div className="flex w-full overflow-hidden rounded-lg border border-border text-xs sm:w-auto sm:flex-shrink-0" role="radiogroup" data-testid={`perm-level-${key}`}>
+                      {(['hidden', 'read', 'write'] as Level[]).map(lvl => {
+                        const current = levelOf(permissions[activePermRole], activePermRole, key)
+                        const disabled = lvl === 'write' && activePermRole === 'viewer'
+                        return (
+                          <button
+                            key={lvl} type="button" role="radio" aria-checked={current === lvl} disabled={disabled}
+                            onClick={() => setPermLevel(activePermRole, key, lvl)}
+                            className={cn(
+                              'flex-1 px-2.5 py-2 font-medium transition-colors sm:flex-none sm:py-1.5',
+                              current === lvl ? 'bg-stockshop-blue text-white dark:bg-blue-500' : 'text-muted-foreground hover:bg-muted',
+                              disabled && 'cursor-not-allowed opacity-40 hover:bg-transparent',
+                            )}
+                          >
+                            {t(`settings.perm_level_${lvl}`)}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <Switch
+                      checked={activePermRole === 'viewer' && isViewerLocked(key) ? false : isPermChecked(key)}
+                      disabled={activePermRole === 'viewer' && isViewerLocked(key)}
+                      onCheckedChange={val => onPermToggle(key, val)}
+                    />
+                  )}
                 </div>
-              ))}
+                )
+              })}
             </div>
 
             {/* Dashboard widget toggles */}

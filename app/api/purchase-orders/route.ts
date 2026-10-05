@@ -2,14 +2,14 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
-import { hasRolePermission } from '@/lib/api/role-permissions'
+import { canWriteFeature } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
 
 // Purchase orders live inside the Suppliers page/tab client-side (gated by
 // canAccess('suppliers') — there's no dedicated toggle wired up for them),
 // so they honor the same role_permissions.suppliers setting server-side.
 async function canWritePurchaseOrders(supabase: any, role: string, shop_id: string): Promise<boolean> {
-  return hasRolePermission(supabase, role, shop_id, 'suppliers')
+  return canWriteFeature(supabase, role, shop_id, 'suppliers')
 }
 
 async function nextReference(admin: any, shopId: string): Promise<string> {

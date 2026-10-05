@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
+import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
+import { isManagerial as isManagerialRole } from '@/lib/permissions'
 import { generateDebtReceiptPDFBlob, generateReportPDFBlob } from '@/lib/utils/pdf'
 import { sharePDFNative, printPDFNative, isCapacitor, downloadOrShareCSV } from '@/lib/utils/native-share'
 import { normalize } from '@/lib/utils/normalize'
@@ -196,7 +198,7 @@ function calcFifoPOs(amount: number, pos: UnpaidPO[]): POFifoLine[] {
   return lines
 }
 
-function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedId, openRepayDialog, openHistory, onPostpone, onWriteOff, fmt, t, saving }: any) {
+function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedId, canWrite, openRepayDialog, openHistory, onPostpone, onWriteOff, fmt, t, saving }: any) {
   const paidTotal = unpaidSales.reduce((s: number, sale: UnpaidSale) => s + sale.amount_paid, 0)
   const grandTotal = unpaidSales.reduce((s: number, sale: UnpaidSale) => s + sale.total, 0)
   const progress = grandTotal > 0 ? Math.min(100, (paidTotal / grandTotal) * 100) : 0
@@ -238,11 +240,13 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
           )}
 
           <div className="flex gap-2 mt-3">
-            <Button variant="stockshop" size="sm" className="flex-1 h-9 text-xs gap-1"
-              disabled={saving}
-              onClick={() => openRepayDialog({ customer, unpaidSales, totalDebt })}>
-              <Banknote className="h-3.5 w-3.5" /> {t('payments.repay')}
-            </Button>
+            {canWrite && (
+              <Button variant="stockshop" size="sm" className="flex-1 h-9 text-xs gap-1"
+                disabled={saving} data-testid="debtor-repay"
+                onClick={() => openRepayDialog({ customer, unpaidSales, totalDebt })}>
+                <Banknote className="h-3.5 w-3.5" /> {t('payments.repay')}
+              </Button>
+            )}
             <Button size="sm" variant="outline" className="flex-1 h-9 text-xs gap-1"
               disabled={saving}
               onClick={() => openHistory({ customer, unpaidSales, totalDebt })}>
@@ -304,13 +308,15 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
                         <Ban className="h-3 w-3" /> {t('payments.write_off_action')}
                       </button>
                     )}
-                    <button
-                      type="button"
-                      className="text-[11px] text-stockshop-blue dark:text-blue-400 hover:underline flex items-center gap-1"
-                      onClick={() => onPostpone(sale, customer)}
-                    >
-                      <CalendarDays className="h-3 w-3" /> {t('payments.postpone_action')}
-                    </button>
+                    {onPostpone && (
+                      <button
+                        type="button"
+                        className="text-[11px] text-stockshop-blue dark:text-blue-400 hover:underline flex items-center gap-1"
+                        onClick={() => onPostpone(sale, customer)}
+                      >
+                        <CalendarDays className="h-3 w-3" /> {t('payments.postpone_action')}
+                      </button>
+                    )}
                   </div>
                 </div>
                 {sale.cashier_name && <p className="text-[11px] text-muted-foreground">{t('payments.sold_by')} : <strong>{sale.cashier_name}</strong></p>}
@@ -333,7 +339,7 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
   )
 }
 
-function SupplierDebtorCard({ supplier, unpaidPOs, totalOwed, isExpanded, setExpandedId, openRepayDialog, openHistory, fmt, t, saving }: any) {
+function SupplierDebtorCard({ supplier, unpaidPOs, totalOwed, isExpanded, setExpandedId, canWrite, openRepayDialog, openHistory, fmt, t, saving }: any) {
   const paidTotal = unpaidPOs.reduce((s: number, po: UnpaidPO) => s + po.amount_paid, 0)
   const grandTotal = unpaidPOs.reduce((s: number, po: UnpaidPO) => s + po.total_amount, 0)
   const progress = grandTotal > 0 ? Math.min(100, (paidTotal / grandTotal) * 100) : 0
@@ -369,11 +375,13 @@ function SupplierDebtorCard({ supplier, unpaidPOs, totalOwed, isExpanded, setExp
           )}
 
           <div className="flex gap-2 mt-3">
-            <Button variant="stockshop" size="sm" className="flex-1 h-9 text-xs gap-1"
-              disabled={saving}
-              onClick={() => openRepayDialog({ supplier, unpaidPOs, totalOwed })}>
-              <Banknote className="h-3.5 w-3.5" /> {t('payments.repay')}
-            </Button>
+            {canWrite && (
+              <Button variant="stockshop" size="sm" className="flex-1 h-9 text-xs gap-1"
+                disabled={saving}
+                onClick={() => openRepayDialog({ supplier, unpaidPOs, totalOwed })}>
+                <Banknote className="h-3.5 w-3.5" /> {t('payments.repay')}
+              </Button>
+            )}
             <Button size="sm" variant="outline" className="flex-1 h-9 text-xs gap-1"
               disabled={saving}
               onClick={() => openHistory({ supplier, unpaidPOs, totalOwed })}>
@@ -433,9 +441,15 @@ function SupplierDebtorCard({ supplier, unpaidPOs, totalOwed, isExpanded, setExp
 
 export default function CreditsPage() {
   const t = useTranslations()
-  const { shop, profile, effectiveShopIds, userShops } = useAuth()
+  const { shop, profile, effectiveShopIds, userShops, roleInActiveShop } = useAuth()
   const isMultiShop = effectiveShopIds.length > 1
-  const isManagerial = profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'shop_manager' || profile?.role === 'super_admin'
+  // Règle unique : « Paiements / Crédits » en modification pour encaisser,
+  // reporter, modifier ; direction seule pour passer en perte ou annuler
+  // (mêmes règles que /api/payments/*)
+  const { canWrite } = useRolePermissions()
+  const canWritePayments = canWrite('payments')
+  const effectiveRole = roleInActiveShop ?? profile?.role
+  const isManagerial = isManagerialRole(effectiveRole) && canWritePayments
   const { fmt, symbol } = useCurrency()
   const { toast } = useToast()
   const { isOnline } = useOffline()
@@ -1577,7 +1591,7 @@ export default function CreditsPage() {
                     {shopDebtors.map(({ customer, unpaidSales, totalDebt }) => (
                       <DebtorCard key={customer.id} customer={customer} unpaidSales={unpaidSales} totalDebt={totalDebt}
                         isExpanded={expandedId === customer.id} setExpandedId={setExpandedId}
-                        openRepayDialog={openRepayDialog} openHistory={openHistory} onPostpone={openPostponeDialog} onWriteOff={isManagerial ? openWriteOffDialog : undefined} fmt={fmt} t={t} saving={saving} />
+                        canWrite={canWritePayments} openRepayDialog={openRepayDialog} openHistory={openHistory} onPostpone={canWritePayments ? openPostponeDialog : undefined} onWriteOff={isManagerial ? openWriteOffDialog : undefined} fmt={fmt} t={t} saving={saving} />
                     ))}
                   </div>
                 )
@@ -1588,7 +1602,7 @@ export default function CreditsPage() {
               {filteredDebtors.map(({ customer, unpaidSales, totalDebt }) => (
                 <DebtorCard key={customer.id} customer={customer} unpaidSales={unpaidSales} totalDebt={totalDebt}
                   isExpanded={expandedId === customer.id} setExpandedId={setExpandedId}
-                  openRepayDialog={openRepayDialog} openHistory={openHistory} onPostpone={openPostponeDialog} onWriteOff={isManagerial ? openWriteOffDialog : undefined} fmt={fmt} t={t} />
+                  canWrite={canWritePayments} openRepayDialog={openRepayDialog} openHistory={openHistory} onPostpone={canWritePayments ? openPostponeDialog : undefined} onWriteOff={isManagerial ? openWriteOffDialog : undefined} fmt={fmt} t={t} />
               ))}
             </div>
           )}
@@ -1846,7 +1860,7 @@ export default function CreditsPage() {
                     {shopDebtors.map(({ supplier, unpaidPOs, totalOwed }) => (
                       <SupplierDebtorCard key={supplier.id} supplier={supplier} unpaidPOs={unpaidPOs} totalOwed={totalOwed}
                         isExpanded={expandedSupplierId === supplier.id} setExpandedId={setExpandedSupplierId}
-                        openRepayDialog={openSupplierRepayDialog} openHistory={openSupplierHistory} fmt={fmt} t={t} saving={savingSupplierPayment} />
+                        canWrite={canWritePayments} openRepayDialog={openSupplierRepayDialog} openHistory={openSupplierHistory} fmt={fmt} t={t} saving={savingSupplierPayment} />
                     ))}
                   </div>
                 )
@@ -1857,7 +1871,7 @@ export default function CreditsPage() {
               {filteredSupplierDebtors.map(({ supplier, unpaidPOs, totalOwed }) => (
                 <SupplierDebtorCard key={supplier.id} supplier={supplier} unpaidPOs={unpaidPOs} totalOwed={totalOwed}
                   isExpanded={expandedSupplierId === supplier.id} setExpandedId={setExpandedSupplierId}
-                  openRepayDialog={openSupplierRepayDialog} openHistory={openSupplierHistory} fmt={fmt} t={t} saving={savingSupplierPayment} />
+                  canWrite={canWritePayments} openRepayDialog={openSupplierRepayDialog} openHistory={openSupplierHistory} fmt={fmt} t={t} saving={savingSupplierPayment} />
               ))}
             </div>
           )}
@@ -2342,7 +2356,7 @@ export default function CreditsPage() {
                           ) : (
                             <div className="space-y-1.5">
                               {salePayments.map(p => {
-                                const canCancel = !p.is_cancelled && (isManagerial || (profile?.role === 'cashier' && p.received_by === profile.id))
+                                const canCancel = !p.is_cancelled && (isManagerial || (effectiveRole === 'cashier' && canWritePayments && p.received_by === profile?.id))
                                 return (
                                 <div
                                   key={p.id}
@@ -2401,7 +2415,7 @@ export default function CreditsPage() {
                                       >
                                         <Printer className="h-3.5 w-3.5" />
                                       </button>
-                                      {!p.is_cancelled && !p.is_write_off && (
+                                      {canWritePayments && !p.is_cancelled && !p.is_write_off && (
                                         <button
                                           type="button"
                                           title={t('payments.edit_action')}

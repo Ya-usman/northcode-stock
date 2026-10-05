@@ -6,6 +6,7 @@ import { Search, Plus, X, ArrowRight, Package, Download, Share2, Mail, Copy, Ban
 import { isCapacitor } from '@/lib/utils/native-share'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
+import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 import { useToast } from '@/components/ui/use-toast'
 import { normalize } from '@/lib/utils/normalize'
 import { Button } from '@/components/ui/button'
@@ -45,8 +46,9 @@ export function StockTransfersTab() {
   const { isOnline } = useOffline()
   const { toast } = useToast()
 
-  const effectiveRole = roleInActiveShop ?? profile?.role
-  const canManage = ['owner', 'manager', 'shop_manager', 'stock_manager', 'super_admin'].includes(effectiveRole || '')
+  // Règle unique : niveau « modification » de Transferts (même règle que /api/stock-transfers)
+  const { canWrite } = useRolePermissions()
+  const canManage = canWrite('transfers')
 
   const [transfers, setTransfers] = useState<any[]>(() => getPageCache<any[]>(`transfers_${shop?.id}`) || [])
   const [products, setProducts] = useState<Product[]>([])

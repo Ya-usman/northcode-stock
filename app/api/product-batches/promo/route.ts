@@ -1,14 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
-import { hasRolePermission } from '@/lib/api/role-permissions'
+import { canWriteFeature } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 
-// Same permission as /api/products' promo fields — stock/pricing concern.
-// cashier is trusted unconditionally there too (see STOCK_ALWAYS_ALLOW).
-const PROMO_ALWAYS_ALLOW = ['stock_manager', 'cashier']
-
+// Lots = niveau « modification » de Produits / Stock (règle unique, lot 1).
 // PATCH /api/product-batches/promo — set or clear a promo on one specific
 // batch. Deliberately a dedicated route rather than a direct client update:
 // product_batches' UPDATE RLS is open to any shop member (needed for the
@@ -25,7 +22,7 @@ export async function PATCH(request: Request) {
     if (!id || !shop_id) return NextResponse.json({ error: t('id_shop_id_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !(await hasRolePermission(supabase, role, shop_id, 'stock', { alwaysAllow: PROMO_ALWAYS_ALLOW })))
+    if (!role || !(await canWriteFeature(supabase, role, shop_id, 'stock')))
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     if (promo_price !== null && (!Number.isFinite(Number(promo_price)) || Number(promo_price) <= 0))

@@ -79,7 +79,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const searchParams = useSearchParams()
   const { profile, shop, roleInActiveShop, effectiveShopIds, userShops } = useAuth()
   const effectiveRole = roleInActiveShop ?? profile?.role
-  const { canAccess } = useRolePermissions()
+  const { canAccess, canWrite } = useRolePermissions()
   const isMultiShop = effectiveShopIds.length > 1
   const { fmt: formatNaira, symbol: currencySymbol } = useCurrency()
   const supabase = createClient()
@@ -170,14 +170,12 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
   // ── Suppression en masse ────────────────────────────────────────────────
   const canDeleteProducts = canAccess('delete_products')
-  // Mirrors STOCK_ALWAYS_ALLOW in app/api/products/route.ts: cashier is
-  // trusted with product writes unconditionally (e.g. restocking during
-  // checkout), regardless of the "Produits / Stock" toggle value for them.
-  const canWriteStock = effectiveRole === 'cashier' || canAccess('stock')
-  // Mêmes rôles que la création de bon de commande côté Fournisseurs
-  // (canManage dans suppliers/page.tsx) — pas canWriteStock, plus large
-  // et pas pertinent pour une décision d'achat fournisseur.
-  const canOrderStock = ['owner', 'manager', 'shop_manager', 'stock_manager', 'super_admin'].includes(effectiveRole || '')
+  // Règle unique (lib/permissions) : niveau « modification » de Produits /
+  // Stock — même règle que les routes /api/products et /api/product-batches.
+  const canWriteStock = canWrite('stock')
+  // Commander = créer un bon de commande : niveau « modification » de
+  // Fournisseurs (même règle que la page Fournisseurs).
+  const canOrderStock = canWrite('suppliers')
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   // Vue cartes / tableau (choix mémorisé) et tri du tableau (idem)
@@ -230,7 +228,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const extraFilterCount = (supplierFilter !== 'all' ? 1 : 0) + (noSku ? 1 : 0) + (noImage ? 1 : 0)
   const anyFilterActive = !!search || categoryFilter !== 'all' || statusFilter !== 'all' || shopFilter !== 'all' || extraFilterCount > 0
   // Mode sélection (cartes) : mêmes rôles qu'avant pour les actions groupées
-  const canSelectProducts = canWriteStock || canAccess('categories') || canDeleteProducts
+  const canSelectProducts = canWriteStock || canWrite('categories') || canDeleteProducts
   const [archiveDateFrom, setArchiveDateFrom] = useState('')
   const [archiveDateTo, setArchiveDateTo] = useState('')
 
@@ -2277,7 +2275,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               </button>
             </div>
             <div className="flex items-center gap-2">
-              {canAccess('categories') && (
+              {canWrite('categories') && (
                 <Button
                   size="sm"
                   variant="outline"

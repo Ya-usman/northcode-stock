@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
-import { hasRolePermission } from '@/lib/api/role-permissions'
+import { canViewFeature, canWriteFeature } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
 
 // POST /api/stock/inventory-count — apply a batch of physical stock counts
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t('shop_items_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !(await hasRolePermission(supabase, role, shop_id, 'inventory_count')))
+    if (!role || !(await canWriteFeature(supabase, role, shop_id, 'inventory_count')))
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()
@@ -47,7 +47,7 @@ export async function GET(request: Request) {
     if (!shopId) return NextResponse.json({ error: t('shop_id_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shopId)
-    if (!role || !(await hasRolePermission(supabase, role, shopId, 'inventory_count')))
+    if (!role || !(await canViewFeature(supabase, role, shopId, 'inventory_count')))
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()

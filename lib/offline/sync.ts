@@ -95,17 +95,26 @@ export async function syncPendingExpenses(shopId: string): Promise<SyncResult> {
 
   for (const expense of pending) {
     try {
-      const { error: insertError } = await supabase.from('expenses').insert({
-        shop_id:        expense.shop_id,
-        amount:         expense.amount,
-        description:    expense.description,
-        date:           expense.date,
-        category:       expense.category,
-        payment_method: expense.payment_method,
-        is_recurring:   false,
-        created_at:     expense.created_at,
+      // Par le serveur (lot 2) : mêmes contrôles qu'en ligne ; local_id = clé
+      // d'idempotence (migration 156) → jamais deux fois la même dépense, et
+      // l'heure réelle de la saisie est conservée.
+      const res = await fetch('/api/expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shop_id:           expense.shop_id,
+          amount:            expense.amount,
+          description:       expense.description,
+          date:              expense.date,
+          category:          expense.category,
+          payment_method:    expense.payment_method,
+          is_recurring:      false,
+          client_request_id: expense.local_id,
+          created_at:        expense.created_at,
+        }),
       })
-      if (insertError) throw new Error(insertError.message)
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
       await markExpenseSynced(expense.local_id)
       synced++
     } catch (err: any) {

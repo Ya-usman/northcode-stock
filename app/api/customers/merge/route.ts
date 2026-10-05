@@ -4,10 +4,11 @@ import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
+import { canWriteFeature, isManagerial } from '@/lib/api/role-permissions'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-// Propriétaire, gérant, responsable de boutique (et support) — jamais le caissier
-const MERGE_ROLES = new Set(['owner', 'manager', 'shop_manager', 'super_admin'])
+// Direction (propriétaire, Manager, Responsable, support) avec « Clients » en
+// modification — jamais le caissier ni l'Observateur
 
 // POST /api/customers/merge — fusionne un doublon (merge_id) dans la fiche
 // gardée (keep_id) : merge_customers (migration 151), en une transaction,
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
     }
 
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !MERGE_ROLES.has(role)) {
+    if (!role || !isManagerial(role) || !(await canWriteFeature(supabase, role, shop_id, 'customers'))) {
       return NextResponse.json({ error: t('merge_forbidden') }, { status: 403 })
     }
 

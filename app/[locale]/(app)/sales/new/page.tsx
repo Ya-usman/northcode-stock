@@ -14,6 +14,8 @@ import { ticketLabelsFromT } from '@/lib/receipt/ticket'
 import { hideStockShopBranding } from '@/lib/receipt/branding'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
+import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
+import { effectivePrice as sharedEffectivePrice } from '@/lib/sales/pricing'
 import { ShopSelector } from '@/components/layout/shop-selector'
 import { ProductCard, type StockVariant } from '@/components/sales/product-card'
 import { ProductThumbnail } from '@/components/stock/product-thumbnail'
@@ -79,16 +81,11 @@ const PhoneInput = dynamic(() => import('@/components/ui/phone-input').then(m =>
 // au prix produit/catalogue dès que ce lot est épuisé, puisque
 // frontBatchPromo n'est construit qu'à partir des lots avec quantity > 0 —
 // aucune action manuelle nécessaire (voir migration 095).
+// Règle unique, partagée avec le contrôle serveur de la vente
+// (lib/sales/pricing.ts, lib/api/sale-validation.ts) : plancher du prix de
+// ligne — au-dessus, libre.
 function effectivePrice(product: Product, frontBatchPromo?: Record<string, { price: number; until: string; start: string | null }>): number {
-  const now = new Date().toISOString()
-  const batchPromo = frontBatchPromo?.[product.id]
-  if (batchPromo && batchPromo.until >= now && (!batchPromo.start || batchPromo.start <= now)) {
-    return batchPromo.price
-  }
-  if (product.promo_price && product.promo_until && product.promo_until >= now && (!product.promo_start || product.promo_start <= now)) {
-    return product.promo_price
-  }
-  return product.selling_price
+  return sharedEffectivePrice(product, frontBatchPromo?.[product.id] ?? null)
 }
 
 interface Draft {
@@ -146,6 +143,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const t = useTranslations()
   const locale = useLocale()
   const { profile, shop, userShops } = useAuth()
+  // Remise : droit « Accorder une remise » (règle unique des permissions)
+  const { canAccess } = useRolePermissions()
+  const canDiscount = canAccess('discount')
   const isOwner = profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'shop_manager' || profile?.role === 'super_admin'
   const { fmt: _fmtGlobal, code: currencyCode, symbol } = useCurrency()
   // Code ISO + symbole résolus depuis la boutique active (via useCurrency,
@@ -821,7 +821,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
   // ── TOTALS ─────────────────────────────────────────────
   const subtotal = cart.reduce((s, i) => s + i.subtotal, 0)
-  const discountAmt = discount
+  // Sans le droit, une remise restée dans un panier mis de côté est ignorée
+  const discountAmt = canDiscount ? discount : 0
   const tax = Number(shop?.tax_rate || 0) > 0 ? (subtotal - discountAmt) * (shop!.tax_rate / 100) : 0
   const total = subtotal - discountAmt + tax
   // Remboursement de dette inclus dans la vente — PLAFONNÉ à la dette
@@ -1990,15 +1991,15 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           {/* Totals */}
           <Card className="border-0 shadow-sm">
             <CardContent className="p-4 space-y-3">
-              {/* Téléphone : remise repliée tant qu'elle est à 0 */}
-              {!(showDiscount || discount > 0) && (
+              {/* Téléphone : remise repliée tant qu'elle est à 0 ; masquée sans le droit */}
+              {canDiscount && !(showDiscount || discount > 0) && (
                 <button type="button" onClick={() => setShowDiscount(true)}
                   className="md:hidden flex items-center gap-2 text-sm font-medium text-stockshop-blue dark:text-blue-400 tap-target">
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-stockshop-blue-muted dark:bg-blue-950/40"><Plus className="h-3.5 w-3.5" /></span>
                   {t('sales.add_discount')}
                 </button>
               )}
-              <div className={cn('flex items-center gap-3', !(showDiscount || discount > 0) && 'hidden md:flex')}>
+              <div className={cn('flex items-center gap-3', !canDiscount && 'hidden', canDiscount && !(showDiscount || discount > 0) && 'hidden md:flex')} data-testid="sale-discount-row">
                 <Label className="text-sm w-24 flex-shrink-0">{t('sales.discount')}</Label>
                 <div className="flex flex-1 rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-0">
                   <span className="flex items-center px-2.5 bg-muted border-r text-sm text-muted-foreground font-medium whitespace-nowrap select-none">{symbol}</span>
@@ -2011,7 +2012,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                     className="flex-1 h-9 px-3 text-sm bg-card outline-none" placeholder="0" />
                 </div>
               </div>
-              <Separator className={cn(!(showDiscount || discount > 0) && 'hidden md:block')} />
+              <Separator className={cn(!canDiscount && 'hidden', canDiscount && !(showDiscount || discount > 0) && 'hidden md:block')} />
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between text-muted-foreground">
                   <span>{t('sales.subtotal')}</span><span>{formatNaira(subtotal)}</span>

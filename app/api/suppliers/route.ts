@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
-import { hasRolePermission } from '@/lib/api/role-permissions'
+import { canWriteFeature } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
 
 // POST /api/suppliers — create a supplier
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     if (!shop_id || !name) return NextResponse.json({ error: t('shop_name_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !(await hasRolePermission(supabase, role, shop_id, 'suppliers')))
+    if (!role || !(await canWriteFeature(supabase, role, shop_id, 'suppliers')))
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()
@@ -41,7 +41,7 @@ export async function PATCH(request: Request) {
     if (!id || !shop_id) return NextResponse.json({ error: t('id_shop_id_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !(await hasRolePermission(supabase, role, shop_id, 'suppliers')))
+    if (!role || !(await canWriteFeature(supabase, role, shop_id, 'suppliers')))
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()
@@ -73,7 +73,7 @@ export async function DELETE(request: Request) {
     if (!id || !shopId) return NextResponse.json({ error: t('id_shop_id_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shopId)
-    if (!role || !(await hasRolePermission(supabase, role, shopId, 'suppliers')))
+    if (!role || !(await canWriteFeature(supabase, role, shopId, 'suppliers')))
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()

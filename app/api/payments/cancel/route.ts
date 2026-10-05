@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { canWriteFeature, isManagerial as isManagerialRole } from '@/lib/api/role-permissions'
 
 // POST /api/payments/cancel — soft-cancel a recorded repayment. The row is
 // never deleted (kept for traceability in the history view + audit log);
@@ -43,8 +44,10 @@ export async function POST(request: Request) {
 
     if (!memberRow) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
-    const isManagerial = ['owner', 'manager', 'shop_manager', 'super_admin'].includes(memberRow.role)
-    const isCollectorOwn = memberRow.role === 'cashier' && payment.received_by === user.id
+    // « Paiements / Crédits » en modification dans tous les cas (jamais l'Observateur)
+    const canWritePayments = await canWriteFeature(supabase, memberRow.role, shop_id, 'payments')
+    const isManagerial = isManagerialRole(memberRow.role) && canWritePayments
+    const isCollectorOwn = memberRow.role === 'cashier' && payment.received_by === user.id && canWritePayments
 
     if (!isManagerial && !isCollectorOwn) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })

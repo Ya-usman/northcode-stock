@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { canWriteFeature, isManagerial } from '@/lib/api/role-permissions'
+import { validateLinePrices } from '@/lib/api/sale-validation'
 
 export async function POST(request: Request) {
   const t = getApiTranslator(request)
@@ -38,11 +40,19 @@ export async function POST(request: Request) {
 
     if (!memberRow) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
-    const isManager = ['owner', 'manager', 'shop_manager', 'super_admin'].includes(memberRow.role)
+    // Direction avec « Historique des ventes » en modification ; un caissier
+    // garde SA vente du jour (règle métier, hors réglages).
+    const isManager = isManagerial(memberRow.role) && await canWriteFeature(supabase, memberRow.role, sale.shop_id, 'sales_history')
     const isCashierOwn = memberRow.role === 'cashier' && sale.cashier_id === user.id
 
     if (!isManager && !isCashierOwn) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+    }
+
+    // Même plancher de prix qu'à la vente (lib/sales/pricing.ts)
+    const priceCheck = await validateLinePrices(admin, sale.shop_id, items)
+    if (!priceCheck.ok) {
+      return NextResponse.json({ error: t(priceCheck.error as any, priceCheck.params as any), code: priceCheck.error }, { status: 400 })
     }
 
     // Cashiers can only edit today's own sales

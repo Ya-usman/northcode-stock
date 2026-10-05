@@ -1,6 +1,7 @@
 ﻿import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { canWriteFeature, isManagerial } from '@/lib/api/role-permissions'
 
 export async function POST(request: Request) {
   const t = getApiTranslator(request)
@@ -24,7 +25,8 @@ export async function POST(request: Request) {
 
     if (saleErr || !sale) return NextResponse.json({ error: t('sale_not_found') }, { status: 404 })
 
-    // Check permission: owner/super_admin in THIS shop, or member with can_delete_sales
+    // Direction avec « Historique des ventes » en modification, ou membre
+    // porteur du droit individuel « peut supprimer des ventes »
     const { data: member } = await supabase
       .from('shop_members')
       .select('role, can_delete_sales')
@@ -37,7 +39,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 
-    const isOwnerOrAdmin = member.role === 'owner' || member.role === 'manager' || member.role === 'shop_manager' || member.role === 'super_admin'
+    const isOwnerOrAdmin = isManagerial(member.role) && await canWriteFeature(supabase, member.role, sale.shop_id, 'sales_history')
     if (!isOwnerOrAdmin && !member.can_delete_sales) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }

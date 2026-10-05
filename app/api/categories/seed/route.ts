@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
-import { hasRolePermission } from '@/lib/api/role-permissions'
+import { canWriteFeature } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
 
 const KEYWORD_MAP: { keywords: string[]; category: string }[] = [
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
     if (!shop_id) return NextResponse.json({ error: t('shop_id_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !(await hasRolePermission(supabase, role, shop_id, 'categories')))
+    if (!role || !(await canWriteFeature(supabase, role, shop_id, 'categories')))
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()

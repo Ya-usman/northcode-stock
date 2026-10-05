@@ -1,13 +1,10 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
-import { hasRolePermission } from '@/lib/api/role-permissions'
+import { canWriteFeature } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
 
-// Same permission tier as /api/product-batches/promo — stock/pricing concern,
-// same table. cashier trusted unconditionally (see STOCK_ALWAYS_ALLOW).
-const EXPIRY_ALWAYS_ALLOW = ['stock_manager', 'cashier']
-
+// Lots = niveau « modification » de Produits / Stock (règle unique, lot 1).
 // PATCH /api/product-batches/expiry — correct or clear a batch's expiry
 // date (e.g. it was set by mistake on a product that doesn't expire).
 // Dedicated route for the same reason as .../promo: product_batches' UPDATE
@@ -24,7 +21,7 @@ export async function PATCH(request: Request) {
     if (!id || !shop_id) return NextResponse.json({ error: t('id_shop_id_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !(await hasRolePermission(supabase, role, shop_id, 'stock', { alwaysAllow: EXPIRY_ALWAYS_ALLOW })))
+    if (!role || !(await canWriteFeature(supabase, role, shop_id, 'stock')))
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     if (expiry_date !== null && isNaN(new Date(expiry_date).getTime()))

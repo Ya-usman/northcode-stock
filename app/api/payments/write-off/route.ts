@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { canWriteFeature, isManagerial } from '@/lib/api/role-permissions'
 
 // POST /api/payments/write-off — mark an unpaid sale's remaining balance as
 // uncollectible. Modeled as a special payment (is_write_off = true, amount
@@ -20,8 +21,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t('missing_fields') }, { status: 400 })
     }
 
-    // Write-offs destroy value — restricted to managerial roles, unlike
-    // recording a repayment (which cashiers can also do).
+    // Passer une dette en perte détruit de la valeur : direction seulement,
+    // avec « Paiements / Crédits » en modification (un caissier encaisse,
+    // il n'efface pas).
     const { data: memberRow } = await supabase
       .from('shop_members')
       .select('role')
@@ -30,8 +32,8 @@ export async function POST(request: Request) {
       .eq('is_active', true)
       .single()
 
-    const isManagerial = memberRow && ['owner', 'manager', 'shop_manager', 'super_admin'].includes(memberRow.role)
-    if (!isManagerial) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+    const allowed = memberRow && isManagerial(memberRow.role) && await canWriteFeature(supabase, memberRow.role, shop_id, 'payments')
+    if (!allowed) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient() as any
 

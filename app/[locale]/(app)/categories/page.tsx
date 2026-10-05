@@ -7,6 +7,7 @@ import { Plus, Trash2, Tag, Search, RotateCcw, ChevronDown, ChevronRight, Packag
 import { CATEGORY_COLORS } from '@/lib/constants/category-colors'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext } from '@/lib/contexts/auth-context'
+import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { normalize } from '@/lib/utils/normalize'
 import { useToast } from '@/components/ui/use-toast'
@@ -144,7 +145,9 @@ export default function CategoriesPage() {
   const shopLoadTimedOut = useShopLoadTimeout(effectiveShopIds.length)
 
   const effectiveRole = roleInActiveShop ?? profile?.role
-  const canEdit = effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin'
+  // Règle unique : niveau « modification » de Catégories (même règle que /api/categories)
+  const { canWrite } = useRolePermissions()
+  const canEdit = canWrite('categories')
   // Valeur du stock (coût d'achat) : propriétaire seulement, comme dans le Stock
   const showValue = effectiveRole === 'owner' || effectiveRole === 'super_admin'
 

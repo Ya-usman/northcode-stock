@@ -99,8 +99,11 @@ export interface Expense {
   recurrence_day: number | null
   next_due_at: string | null
   template_id: string | null
+  /** Chemin dans l'espace privé « expense-receipts » (migration 156), servi via /api/expenses/receipt */
   receipt_url: string | null
   created_by: string | null
+  /** Clé d'idempotence d'une saisie hors ligne (migration 156) */
+  client_request_id?: string | null
   created_at: string
   updated_at: string
 }

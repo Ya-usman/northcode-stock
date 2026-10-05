@@ -2,17 +2,15 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
-import { hasRolePermission } from '@/lib/api/role-permissions'
+import { canWriteFeature } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
 
-// cashier/stock_manager have always been trusted with product writes here
-// regardless of the "Produits / Stock" toggle (e.g. a cashier restocking
-// during checkout) — preserved as an unconditional allow on top of the
-// dynamic role_permissions.stock check for every other role.
-const STOCK_ALWAYS_ALLOW = ['stock_manager', 'cashier']
-
+// Écriture de la fiche produit = niveau « modification » de Produits / Stock
+// (règle unique, lot 1 du 5 oct. 2026). Plus de passe-droit pour le caissier :
+// son seul besoin en caisse, le favori, est couvert par « Nouvelle vente »
+// (voir PATCH ci-dessous).
 async function canWriteProducts(supabase: any, role: string, shop_id: string): Promise<boolean> {
-  return hasRolePermission(supabase, role, shop_id, 'stock', { alwaysAllow: STOCK_ALWAYS_ALLOW })
+  return canWriteFeature(supabase, role, shop_id, 'stock')
 }
 
 // POST /api/products — create a product
@@ -188,8 +186,13 @@ export async function PATCH(request: Request) {
     const { id, shop_id, ...updates } = body
     if (!id || !shop_id) return NextResponse.json({ error: t('id_shop_id_required') }, { status: 400 })
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !(await canWriteProducts(supabase, role, shop_id)))
-      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+    if (!role) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+    // Favori seul : préférence d'affichage de la caisse, ouverte à qui peut vendre
+    const favoriteOnly = Object.keys(updates).every(k => k === 'is_favorite')
+    const allowed = favoriteOnly
+      ? await canWriteFeature(supabase, role, shop_id, 'new_sale')
+      : await canWriteProducts(supabase, role, shop_id)
+    if (!allowed) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     // Whitelist of fields a role with product write access may update via PATCH.
     // Omitting a field from this set prevents privilege escalation (e.g. a
     // cashier sending is_active:false to soft-delete a product, or clearing
@@ -330,7 +333,7 @@ export async function DELETE(request: Request) {
     if (singleId && singleShopId) {
       const role = await checkShopRole(supabase, user.id, singleShopId)
       if (!role) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
-      if (!(await hasRolePermission(supabase, role, singleShopId, 'delete_products')))
+      if (!(await canWriteFeature(supabase, role, singleShopId, 'delete_products')))
         return NextResponse.json({ error: t('insufficient_permission_delete_products') }, { status: 403 })
       const admin = await createAdminClient()
       const { data: product } = await (admin as any)
@@ -373,7 +376,7 @@ export async function DELETE(request: Request) {
     // Vérification des permissions
     const role = await checkShopRole(supabase, user.id, body.shop_id)
     if (!role) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
-    if (!(await hasRolePermission(supabase, role, body.shop_id, 'delete_products')))
+    if (!(await canWriteFeature(supabase, role, body.shop_id, 'delete_products')))
       return NextResponse.json({ error: t('insufficient_permission_delete_products') }, { status: 403 })
 
     const admin = await createAdminClient()

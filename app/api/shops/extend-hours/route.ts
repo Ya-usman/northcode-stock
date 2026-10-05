@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
-import { hasRolePermission } from '@/lib/api/role-permissions'
+import { canWriteFeature } from '@/lib/api/role-permissions'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
 
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     }
 
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !(await hasRolePermission(supabase, role, shop_id, 'extend_hours'))) {
+    if (!role || !(await canWriteFeature(supabase, role, shop_id, 'extend_hours'))) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 

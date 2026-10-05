@@ -1,14 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
-import { hasRolePermission } from '@/lib/api/role-permissions'
+import { canWriteFeature } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
 
-// manager/shop_manager keep unconditional access (existing behavior,
-// preserved) — cashier/viewer/stock_manager were never allowed before and
-// stay opt-in only, via the new "Supprimer dépenses" toggle in Accès par
-// rôle (delete_expenses defaults to false for them, like delete_products).
-const DELETE_EXPENSES_ALWAYS_ALLOW = ['manager', 'shop_manager']
+// « Supprimer des dépenses » (règle unique, lot 1) : oui par défaut pour
+// Manager et Responsable — et désormais réglable par le propriétaire.
 
 export async function POST(request: Request) {
   const t = getApiTranslator(request)
@@ -33,7 +30,7 @@ export async function POST(request: Request) {
       .single()
 
     const callerRole = callerMember?.role
-    if (!callerRole || !(await hasRolePermission(supabase, callerRole, shop_id, 'delete_expenses', { alwaysAllow: DELETE_EXPENSES_ALWAYS_ALLOW }))) {
+    if (!callerRole || !(await canWriteFeature(supabase, callerRole, shop_id, 'delete_expenses'))) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 

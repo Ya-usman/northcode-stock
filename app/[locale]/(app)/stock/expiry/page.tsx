@@ -54,8 +54,9 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
   const t = useTranslations()
   const { shop, effectiveShopIds, profile, roleInActiveShop } = useAuth()
   const effectiveRole = roleInActiveShop ?? profile?.role
-  const { canAccess } = useRolePermissions()
-  const canWriteStock = effectiveRole === 'cashier' || canAccess('stock')
+  const { canAccess, canWrite } = useRolePermissions()
+  // Règle unique : niveau « modification » de Produits / Stock
+  const canWriteStock = canWrite('stock')
   const { fmt: formatNaira } = useCurrency()
   const supabase = createClient()
   const { toast } = useToast()

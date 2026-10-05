@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
-import { hasRolePermission } from '@/lib/api/role-permissions'
+import { canWriteFeature } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
 
 // GET /api/product-supplier-prices?shop_id= — raw price comparison entries;
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t('price_must_be_positive') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !(await hasRolePermission(supabase, role, shop_id, 'suppliers')))
+    if (!role || !(await canWriteFeature(supabase, role, shop_id, 'suppliers')))
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()
@@ -79,7 +79,7 @@ export async function DELETE(request: Request) {
     if (!id || !shopId) return NextResponse.json({ error: t('id_shop_id_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shopId)
-    if (!role || !(await hasRolePermission(supabase, role, shopId, 'suppliers')))
+    if (!role || !(await canWriteFeature(supabase, role, shopId, 'suppliers')))
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()

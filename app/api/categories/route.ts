@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
-import { hasRolePermission } from '@/lib/api/role-permissions'
+import { canWriteFeature } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
 
 const KEYWORD_MAP: { keywords: string[]; category: string }[] = [
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
     const { shop_id, name, color, expiry_alert_days } = await request.json()
     if (!shop_id || !name) return NextResponse.json({ error: t('shop_name_required') }, { status: 400 })
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !(await hasRolePermission(supabase, role, shop_id, 'categories')))
+    if (!role || !(await canWriteFeature(supabase, role, shop_id, 'categories')))
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     const admin = await createAdminClient()
     const { data, error } = await (admin as any)
@@ -104,7 +104,7 @@ export async function PATCH(request: Request) {
     const { id, shop_id, name, color, expiry_alert_days } = await request.json()
     if (!id || !shop_id || !name) return NextResponse.json({ error: t('id_shop_id_required') }, { status: 400 })
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !(await hasRolePermission(supabase, role, shop_id, 'categories')))
+    if (!role || !(await canWriteFeature(supabase, role, shop_id, 'categories')))
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     const admin = await createAdminClient()
     const { data, error } = await (admin as any)
@@ -130,7 +130,7 @@ export async function PUT(request: Request) {
     const { shop_id } = await request.json()
     if (!shop_id) return NextResponse.json({ error: t('shop_id_required') }, { status: 400 })
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !(await hasRolePermission(supabase, role, shop_id, 'categories')))
+    if (!role || !(await canWriteFeature(supabase, role, shop_id, 'categories')))
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()
@@ -189,7 +189,7 @@ export async function DELETE(request: Request) {
     const shop_id = searchParams.get('shop_id')
     if (!id || !shop_id) return NextResponse.json({ error: t('id_shop_id_required') }, { status: 400 })
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !(await hasRolePermission(supabase, role, shop_id, 'categories')))
+    if (!role || !(await canWriteFeature(supabase, role, shop_id, 'categories')))
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     const admin = await createAdminClient()
 

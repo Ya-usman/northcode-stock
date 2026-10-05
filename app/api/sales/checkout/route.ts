@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
-import { hasRolePermission } from '@/lib/api/role-permissions'
+import { canWriteFeature } from '@/lib/api/role-permissions'
+import { validateSale } from '@/lib/api/sale-validation'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getApiTranslator } from '@/lib/api/i18n'
 
@@ -34,11 +35,21 @@ export async function POST(request: Request) {
     }
 
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !(await hasRolePermission(supabase, role, shop_id, 'new_sale'))) {
+    if (!role || !(await canWriteFeature(supabase, role, shop_id, 'new_sale'))) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 
     const admin = await createAdminClient() as any
+    // Contrôle serveur (lot 1, 5 oct. 2026) : chaque ligne au moins au prix en
+    // vigueur, remise soumise au droit « discount », totaux recalculés —
+    // l'écran de caisse n'est plus la seule garde.
+    const check = await validateSale(admin, shop_id, items, { subtotal, discount: discount ?? 0, tax: tax ?? 0, total }, {
+      discountAllowed: await canWriteFeature(supabase, role, shop_id, 'discount'),
+    })
+    if (!check.ok) {
+      return NextResponse.json({ error: t(check.error as any, check.params as any), code: check.error }, { status: check.error === 'discount_not_allowed' ? 403 : 400 })
+    }
+
     const { data, error } = await admin.rpc('complete_sale', {
       p_shop_id: shop_id,
       // Jamais un cashier_id venant du corps de la requête — la RLS

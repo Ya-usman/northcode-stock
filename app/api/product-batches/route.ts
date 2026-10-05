@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
-import { hasRolePermission } from '@/lib/api/role-permissions'
+import { canWriteFeature } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
 
-// Same permission tier as the other /api/product-batches/* routes.
-const DELETE_ALWAYS_ALLOW = ['stock_manager', 'cashier']
-
+// Lots = niveau « modification » de Produits / Stock (règle unique, lot 1).
 // DELETE /api/product-batches?id=&shop_id= — permanently delete an
 // erroneous batch (e.g. a duplicate created by mistake). Refused by
 // delete_product_batch() (migration 117) if the batch has already been
@@ -23,7 +21,7 @@ export async function DELETE(request: Request) {
     if (!id || !shop_id) return NextResponse.json({ error: t('id_shop_id_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !(await hasRolePermission(supabase, role, shop_id, 'stock', { alwaysAllow: DELETE_ALWAYS_ALLOW })))
+    if (!role || !(await canWriteFeature(supabase, role, shop_id, 'stock')))
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient() as any

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { canWriteFeature } from '@/lib/api/role-permissions'
 
 export async function POST(request: Request) {
   const t = getApiTranslator(request)
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
     if (!Array.isArray(rows) || rows.length === 0) return NextResponse.json({ error: t('no_rows_to_import') }, { status: 400 })
     if (rows.length > 500) return NextResponse.json({ error: t('max_500_products') }, { status: 400 })
 
-    // Verify user is an active member with write access to this shop
+    // Import = « Produits / Stock » en modification (règle unique, lot 1)
     const { data: memberRow } = await supabase
       .from('shop_members')
       .select('role')
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
       .eq('user_id', user.id)
       .eq('is_active', true)
       .single()
-    if (!memberRow || !['owner', 'manager', 'shop_manager', 'stock_manager'].includes(memberRow.role))
+    if (!memberRow || !(await canWriteFeature(supabase, memberRow.role, shop_id, 'stock')))
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = createAdminClient() as any

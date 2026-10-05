@@ -13,6 +13,7 @@ import { getCountry } from '@/lib/saas/countries'
 import { startNavigationProgress } from '@/components/layout/navigation-progress'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
+import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 import { useToast } from '@/components/ui/use-toast'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { formatInputValue } from '@/lib/utils/currency'
@@ -134,7 +135,10 @@ export default function SuppliersPage() {
   const { toast } = useToast()
 
   const effectiveRole = roleInActiveShop ?? profile?.role
-  const canManage = ['owner', 'manager', 'shop_manager', 'stock_manager', 'super_admin'].includes(effectiveRole || '')
+  // Règle unique : niveau « modification » de Fournisseurs (fiches, prix,
+  // bons de commande) — même règle que les routes /api/suppliers et /api/purchase-orders
+  const { canWrite } = useRolePermissions()
+  const canManage = canWrite('suppliers')
 
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
     const c = getPageCache<{ suppliers: Supplier[]; products: Product[] }>(`suppliers_${effectiveShopIds.join(',')}`)

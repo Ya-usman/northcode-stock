@@ -2,6 +2,7 @@
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { canWriteFeature } from '@/lib/api/role-permissions'
 
 export async function POST(request: Request) {
   const t = getApiTranslator(request)
@@ -36,7 +37,8 @@ export async function POST(request: Request) {
       .eq('is_active', true)
       .single()
 
-    if (!memberRow) {
+    // Encaisser = « Paiements / Crédits » en modification (jamais l'Observateur)
+    if (!memberRow || !(await canWriteFeature(supabase, memberRow.role, sale.shop_id, 'payments'))) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 

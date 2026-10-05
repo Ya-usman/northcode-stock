@@ -1,59 +1,31 @@
-// Server-side counterpart to lib/hooks/use-role-permissions.ts. That hook is
-// React/client-only (it reads useAuthContext), so API routes can't import it
-// directly — this reads the same shops.role_permissions JSONB column and
-// applies the same per-role defaults by hand, kept in sync manually whenever
-// DEFAULT_PERMISSIONS changes there for one of the features listed below.
+// Côté serveur de la règle unique de permissions (lib/permissions). Lit les
+// réglages de la boutique (shops.role_permissions) et applique EXACTEMENT la
+// même résolution que l'interface — plus aucune copie locale des défauts.
+//
+// Routes qui modifient des données → canWriteFeature ; routes de lecture →
+// canViewFeature. Un Observateur n'obtient jamais « write ».
 
-export type ConfigurableRole = 'manager' | 'shop_manager' | 'cashier' | 'viewer' | 'stock_manager'
+import { resolvePermission, isManagerial, type PermFeature, type StoredPermissions } from '@/lib/permissions'
 
-// Only features actually enforced server-side so far — extend as more API
-// routes adopt hasRolePermission() instead of a hardcoded role array.
-export type ServerCheckedFeature =
-  | 'stock' | 'movements' | 'categories' | 'suppliers' | 'payments'
-  | 'inventory_count' | 'delete_products' | 'delete_expenses' | 'transfers'
-  | 'extend_hours' | 'new_sale'
+export type { PermFeature }
+export { isManagerial }
 
-const FEATURE_DEFAULTS: Record<ServerCheckedFeature, Record<ConfigurableRole, boolean>> = {
-  stock:           { manager: true,  shop_manager: true,  cashier: false, viewer: true,  stock_manager: true },
-  movements:       { manager: true,  shop_manager: true,  cashier: false, viewer: true,  stock_manager: true },
-  categories:      { manager: true,  shop_manager: true,  cashier: false, viewer: true,  stock_manager: true },
-  suppliers:       { manager: true,  shop_manager: true,  cashier: false, viewer: true,  stock_manager: true },
-  payments:        { manager: true,  shop_manager: true,  cashier: true,  viewer: true,  stock_manager: false },
-  inventory_count: { manager: true,  shop_manager: true,  cashier: false, viewer: false, stock_manager: true },
-  delete_products: { manager: false, shop_manager: false, cashier: false, viewer: false, stock_manager: false },
-  delete_expenses: { manager: false, shop_manager: false, cashier: false, viewer: false, stock_manager: false },
-  transfers:       { manager: true,  shop_manager: true,  cashier: false, viewer: true,  stock_manager: true },
-  extend_hours:    { manager: false, shop_manager: false, cashier: false, viewer: false, stock_manager: false },
-  new_sale:        { manager: true,  shop_manager: true,  cashier: true,  viewer: false, stock_manager: false },
+async function loadStored(supabase: any, shop_id: string): Promise<StoredPermissions | null> {
+  const { data } = await supabase.from('shops').select('role_permissions').eq('id', shop_id).maybeSingle()
+  return (data?.role_permissions as StoredPermissions | null) ?? null
 }
 
-function isConfigurableRole(role: string): role is ConfigurableRole {
-  return role in FEATURE_DEFAULTS.stock
-}
-
-/**
- * Resolves whether `role` may use `feature` in `shop_id`, honoring the
- * owner's "Accès par rôle" overrides (shops.role_permissions) with a
- * fallback to that role's default when the owner never customized it.
- * owner/super_admin always pass; `alwaysAllow` grants extra roles an
- * unconditional pass regardless of the stored/default value (for roles a
- * route has always trusted with this action independently of the toggle).
- */
-export async function hasRolePermission(
-  supabase: any,
-  role: string | null | undefined,
-  shop_id: string,
-  feature: ServerCheckedFeature,
-  opts?: { alwaysAllow?: string[] }
-): Promise<boolean> {
+export async function canViewFeature(supabase: any, role: string | null | undefined, shop_id: string, feature: PermFeature): Promise<boolean> {
   if (!role) return false
   if (role === 'owner' || role === 'super_admin') return true
-  if (opts?.alwaysAllow?.includes(role)) return true
-  if (!isConfigurableRole(role)) return false
-
-  const { data: shopData } = await supabase
-    .from('shops').select('role_permissions').eq('id', shop_id).single()
-  const override = shopData?.role_permissions?.[role]?.[feature]
-  if (override !== undefined) return Boolean(override)
-  return FEATURE_DEFAULTS[feature][role]
+  return resolvePermission(await loadStored(supabase, shop_id), role, feature).view
 }
+
+export async function canWriteFeature(supabase: any, role: string | null | undefined, shop_id: string, feature: PermFeature): Promise<boolean> {
+  if (!role) return false
+  if (role === 'owner' || role === 'super_admin') return true
+  return resolvePermission(await loadStored(supabase, shop_id), role, feature).write
+}
+
+/** @deprecated = canViewFeature ; conservé pour les routes de lecture existantes */
+export const hasRolePermission = canViewFeature

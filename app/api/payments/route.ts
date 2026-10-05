@@ -1,7 +1,7 @@
 ﻿import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { hasRolePermission } from '@/lib/api/role-permissions'
+import { canWriteFeature } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
 
 // POST /api/payments — record FIFO repayment for a customer's unpaid sales
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
       .single()
 
     const callerRole = memberRow?.role
-    if (!callerRole || !(await hasRolePermission(supabase, callerRole, shop_id, 'payments'))) {
+    if (!callerRole || !(await canWriteFeature(supabase, callerRole, shop_id, 'payments'))) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 

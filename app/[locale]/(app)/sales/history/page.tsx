@@ -9,6 +9,8 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
+import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
+import { isManagerial } from '@/lib/permissions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -194,7 +196,10 @@ export default function SalesHistoryPage() {
 
 
   const effectiveRole = roleInActiveShop ?? profile?.role
-  const isOwner = effectiveRole === 'owner' || effectiveRole === 'manager' || effectiveRole === 'shop_manager' || effectiveRole === 'super_admin'
+  // Direction avec « Historique des ventes » en modification (même règle que
+  // /api/sales/edit et /api/sales/cancel) ; un caissier garde sa vente du jour
+  const { canWrite } = useRolePermissions()
+  const isOwner = isManagerial(effectiveRole) && canWrite('sales_history')
   const isCashier = effectiveRole === 'cashier'
 
   const getDateBounds = () => {
@@ -806,7 +811,7 @@ export default function SalesHistoryPage() {
                   <p className="text-xs text-red-500 pt-2 border-t">{t('sales.cancel_reason_label')}: {sale.cancel_reason}</p>
                 )}
                 <div className="flex flex-wrap gap-2 pt-2 border-t" onClick={e => e.stopPropagation()}>
-                  {!isCancelled && isPending && (isOwner || isCashier) && (
+                  {!isCancelled && isPending && canWrite('payments') && (
                     <Button
                       size="sm" variant="outline"
                       className="gap-1.5 text-xs h-7 border-green-300 dark:border-green-700/60 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/40"

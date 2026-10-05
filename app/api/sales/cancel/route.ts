@@ -2,6 +2,7 @@
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { canWriteFeature, isManagerial } from '@/lib/api/role-permissions'
 
 export async function POST(request: Request) {
   const t = getApiTranslator(request)
@@ -39,7 +40,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 
-    const isOwner = memberRow.role === 'owner' || memberRow.role === 'manager' || memberRow.role === 'shop_manager' || memberRow.role === 'super_admin'
+    // Direction avec « Historique des ventes » en modification ; un caissier
+    // garde l'annulation de SA vente du jour (règle métier, hors réglages).
+    const isOwner = isManagerial(memberRow.role) && await canWriteFeature(supabase, memberRow.role, sale.shop_id, 'sales_history')
     const isCashierOwn = memberRow.role === 'cashier' && sale.cashier_id === user.id
 
     if (!isOwner && !isCashierOwn) {

@@ -41,6 +41,7 @@ import { hasNativePhotoPicker, pickPhotoNative, PhotoPermissionError } from '@/l
 import { useRestoredPhoto } from '@/lib/photo/use-restored-photo'
 import { generateExpensesReportPDF } from '@/lib/utils/pdf'
 import { downloadOrShareCSV } from '@/lib/utils/native-share'
+import { receiptSrc } from '@/lib/expenses/receipts'
 
 const supabase = createClient() as any
 
@@ -70,16 +71,6 @@ function catFor(id: string) {
   return EXPENSE_CATEGORIES.find(c => c.id === id) ?? EXPENSE_CATEGORIES[EXPENSE_CATEGORIES.length - 1]
 }
 
-function advanceNextDue(dateStr: string, recurrence: 'weekly' | 'monthly', day?: number | null): string {
-  const d = new Date(dateStr + 'T12:00:00')
-  if (recurrence === 'monthly') {
-    const next = addMonths(d, 1)
-    if (day) next.setDate(Math.min(day, 28))
-    return format(next, 'yyyy-MM-dd')
-  }
-  return format(addWeeks(d, 1), 'yyyy-MM-dd')
-}
-
 export default function ExpensesPage() {
   const { shop, effectiveShopIds, profile, roleInActiveShop } = useAuth()
   const [{ monthFilter, categoryFilter, paymentFilter }, setFilter] = usePersistedFilters(
@@ -92,11 +83,12 @@ export default function ExpensesPage() {
   const t = useTranslations('expenses')
   const tPhoto = useTranslations('photo')
   const tRoot = useTranslations()
-  const { canAccess } = useRolePermissions()
-  // manager/shop_manager keep unconditional access, matching the API route —
-  // see DELETE_EXPENSES_ALWAYS_ALLOW in app/api/expenses/delete/route.ts.
+  const { canAccess, canWrite } = useRolePermissions()
+  // Règle unique : « Supprimer des dépenses » (oui par défaut pour Manager et
+  // Responsable) et niveau « modification » de Dépenses (ajout, fiche, budgets)
   const effectiveRole = roleInActiveShop ?? profile?.role
-  const canDeleteExpenses = effectiveRole === 'manager' || effectiveRole === 'shop_manager' || canAccess('delete_expenses')
+  const canDeleteExpenses = canAccess('delete_expenses')
+  const canWriteExpenses = canWrite('expenses')
   const tA = useTranslations('actions')
 
   const [expenses, setExpenses]       = useState<Expense[]>(() =>
@@ -286,51 +278,26 @@ export default function ExpensesPage() {
     }
   }, [shop?.id, isOwnerOrAdmin, isReallyOnline])
 
+  // Dépenses récurrentes générées PAR LE SERVEUR (lot 2) : une seule règle,
+  // aucun doublon possible entre appareils (index unique, migration 156), et
+  // le cron du matin fait la même chose sans ouverture de la page.
   const generateDueRecurring = useCallback(async () => {
     if (!effectiveShopIds.length || !isReallyOnline) return
-    const today = format(new Date(), 'yyyy-MM-dd')
-    const { data: due } = await supabase
-      .from('expenses')
-      .select('*')
-      .in('shop_id', effectiveShopIds)
-      .eq('is_recurring', true)
-      .lte('next_due_at', today)
-      .not('next_due_at', 'is', null)
-    if (!due?.length) return
-
     let count = 0
-    for (const tpl of due as Expense[]) {
-      let dueDate = tpl.next_due_at!
-      while (dueDate <= today) {
-        await supabase.from('expenses').insert({
-          shop_id:        tpl.shop_id,
-          amount:         tpl.amount,
-          description:    tpl.description,
-          category:       tpl.category ?? 'other',
-          payment_method: tpl.payment_method ?? 'cash',
-          date:           dueDate,
-          is_recurring:   false,
-          template_id:    tpl.id,
+    for (const shopId of effectiveShopIds) {
+      try {
+        const res = await fetch('/api/expenses/recurring', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shop_id: shopId }),
         })
-        count++
-        dueDate = advanceNextDue(dueDate, tpl.recurrence!, tpl.recurrence_day)
-      }
-      await supabase.from('expenses').update({ next_due_at: dueDate }).eq('id', tpl.id)
+        const json = await res.json().catch(() => ({}))
+        if (res.ok) count += Number(json?.created) || 0
+      } catch { /* non bloquant : le cron rattrapera */ }
     }
-
     if (count > 0) {
-      const label = count > 1 ? t('recurring_generated_plural', { n: count }) : t('recurring_generated_one')
-      toast({ title: label, variant: 'success' })
+      toast({ title: count > 1 ? t('recurring_generated_plural', { n: count }) : t('recurring_generated_one'), variant: 'success' })
       fetchExpenses()
-      if (shop?.id) {
-        fetch('/api/push/recurring-expense', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ shop_id: shop.id, count }),
-        }).catch(() => {})
-      }
     }
-  }, [shopIdsKey, fetchExpenses, shop?.id, isReallyOnline])
+  }, [shopIdsKey, fetchExpenses, isReallyOnline])
 
   useEffect(() => {
     fetchExpenses()
@@ -379,7 +346,7 @@ export default function ExpensesPage() {
       amount: String(exp.amount), description: exp.description, date: exp.date,
       category: (exp.category as CategoryId) || 'other', paymentMethod: exp.payment_method ?? 'cash',
       isRecurring: exp.is_recurring ?? false, recurrence: exp.recurrence ?? 'monthly', recurrenceDay: exp.recurrence_day ?? 1,
-      receiptPreview: exp.receipt_url ?? null,
+      receiptPreview: receiptSrc(exp.receipt_url),
     }
     setEditing(exp)
     setAmount(values.amount)
@@ -472,18 +439,17 @@ export default function ExpensesPage() {
     if (file) void attachReceipt(file)
   })
 
+  // Justificatif envoyé PAR LE SERVEUR dans l'espace privé (lot 2, migration
+  // 156) → chemin stocké ; l'ancien fichier est retiré par le serveur à la
+  // modification. Renvoie null si l'envoi échoue (la dépense n'est pas
+  // enregistrée sans son justificatif, l'utilisateur réessaie).
   const uploadReceipt = async (file: File): Promise<string | null> => {
-    const ext  = file.name.split('.').pop() ?? 'jpg'
-    const path = `${shop!.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
-    const { error } = await supabase.storage.from('expense-receipts').upload(path, file, { contentType: file.type, upsert: false })
-    if (error) return null
-    const { data } = supabase.storage.from('expense-receipts').getPublicUrl(path)
-    return data.publicUrl
-  }
-
-  const deleteReceipt = async (url: string) => {
-    const path = url.split('/expense-receipts/')[1]
-    if (path) await supabase.storage.from('expense-receipts').remove([decodeURIComponent(path)])
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('shop_id', editing?.shop_id ?? shop!.id)
+    const res = await withTimeout<Response>(fetch('/api/expenses/receipt', { method: 'POST', body: fd }), 30_000)
+    const json = await res.json().catch(() => ({}))
+    return res.ok && typeof json.path === 'string' ? json.path : null
   }
 
   const handleSave = async () => {
@@ -518,16 +484,17 @@ export default function ExpensesPage() {
 
     let receipt_url = editing?.receipt_url ?? null
     if (receiptFile) {
-      if (editing?.receipt_url) await deleteReceipt(editing.receipt_url)
       receipt_url = await uploadReceipt(receiptFile)
+      if (!receipt_url) { toast({ title: tRoot('toast.error'), variant: 'destructive' }); setSaving(false); return }
     } else if (receiptPreview === null && editing?.receipt_url) {
-      // user cleared the receipt
-      await deleteReceipt(editing.receipt_url)
-      receipt_url = null
+      receipt_url = null // justificatif retiré : le serveur supprime l'ancien fichier
     }
 
-    const payload: Partial<Expense> & { shop_id: string } = {
-      shop_id:        shop.id,
+    // Dépense PAR LE SERVEUR (lot 2) : contrôles partagés, droit « Dépenses »
+    // en modification ; l'échéancier d'un modèle récurrent est géré côté serveur.
+    const payload = {
+      id:             editing?.id,
+      shop_id:        editing?.shop_id ?? shop.id,
       amount:         Number(amount),
       description:    description.trim(),
       date,
@@ -536,24 +503,16 @@ export default function ExpensesPage() {
       is_recurring:   isRecurring,
       recurrence:     isRecurring ? recurrence : null,
       recurrence_day: isRecurring && recurrence === 'monthly' ? recurrenceDay : null,
-      // When editing an already-recurring template, keep its existing next_due_at
-      // (already advanced past the creation date) instead of resetting it back to
-      // the form's `date` field — otherwise saving the template unchanged would
-      // push next_due_at into the past and regenerate a duplicate expense.
-      next_due_at:    isRecurring ? (editing?.is_recurring ? (editing.next_due_at ?? date) : date) : null,
-      template_id:    null,
       receipt_url,
     }
     try {
-      let error: any = null
-      if (editing) {
-        ;({ error } = await withTimeout<any>(
-          supabase.from('expenses').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', editing.id)
-        ))
-      } else {
-        ;({ error } = await withTimeout<any>(supabase.from('expenses').insert(payload)))
-      }
-      if (error) { toast({ title: error.message, variant: 'destructive' }); return }
+      const res = await withTimeout<Response>(fetch('/api/expenses', {
+        method: editing ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }))
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) { toast({ title: json.error || tRoot('toast.error'), variant: 'destructive' }); return }
       toast({ title: editing ? t('updated') : (isRecurring ? t('recurring_added') : t('added')), variant: 'success' })
 
       // Notify owner when a non-owner creates a new (non-recurring) expense
@@ -633,13 +592,13 @@ export default function ExpensesPage() {
     if (!shop?.id || !budgetAmount) return
     setSavingBudget(true)
     try {
-      const { error } = await withTimeout<any>(
-        supabase.from('expense_budgets').upsert(
-          { shop_id: shop.id, category: budgetCategory, amount: Number(budgetAmount), updated_at: new Date().toISOString() },
-          { onConflict: 'shop_id,category' }
-        )
-      )
-      if (error) { toast({ title: error.message, variant: 'destructive' }); return }
+      // Budget PAR LE SERVEUR (lot 2) : droit « Dépenses » en modification
+      const res = await withTimeout<Response>(fetch('/api/expenses/budgets', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop_id: shop.id, category: budgetCategory, amount: Number(budgetAmount) }),
+      }))
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) { toast({ title: json.error || tRoot('toast.error'), variant: 'destructive' }); return }
       toast({ title: t('budget_saved'), variant: 'success' })
       setBudgetModalOpen(false)
       setBudgetAmount('')
@@ -655,8 +614,9 @@ export default function ExpensesPage() {
     if (!shop?.id) return
     setDeletingBudget(true)
     try {
-      const { error } = await withTimeout<any>(supabase.from('expense_budgets').delete().eq('shop_id', shop.id).eq('category', budgetCategory))
-      if (error) { toast({ title: error.message, variant: 'destructive' }); return }
+      const res = await withTimeout<Response>(fetch(`/api/expenses/budgets?shop_id=${shop.id}&category=${encodeURIComponent(budgetCategory)}`, { method: 'DELETE' }))
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) { toast({ title: json.error || tRoot('toast.error'), variant: 'destructive' }); return }
       toast({ title: t('budget_deleted'), variant: 'success' })
       setDeleteBudgetConfirm(false)
       setBudgetModalOpen(false)
@@ -859,10 +819,12 @@ export default function ExpensesPage() {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          <Button variant="stockshop" onClick={openAdd} className="gap-2">
-            <Plus className="h-4 w-4" />
-            {t('add')}
-          </Button>
+          {canWriteExpenses && (
+            <Button variant="stockshop" onClick={openAdd} className="gap-2" data-testid="expenses-add">
+              <Plus className="h-4 w-4" />
+              {t('add')}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -922,9 +884,12 @@ export default function ExpensesPage() {
                     </div>
                     <span className="text-sm font-bold text-red-600 dark:text-red-400 flex-shrink-0">{fmt(Number(tpl.amount))}</span>
                     <div className="flex gap-1 flex-shrink-0">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(tpl)}>
-                        <Pencil className="h-3 w-3" />
-                      </Button>
+                      {canWriteExpenses && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(tpl)}>
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                      )}
+                      {canDeleteExpenses && (
                       <Button
                         variant="ghost" size="icon"
                         className="h-7 w-7 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
@@ -933,6 +898,7 @@ export default function ExpensesPage() {
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
+                      )}
                     </div>
                   </div>
                 )
@@ -990,12 +956,14 @@ export default function ExpensesPage() {
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         {over && <span className="text-xs font-bold text-red-500 animate-pulse">⚠️</span>}
-                        <Button
-                          variant="ghost" size="icon" className="h-7 w-7"
-                          onClick={() => openBudgetModal(c.id)}
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </Button>
+                        {canWriteExpenses && (
+                          <Button
+                            variant="ghost" size="icon" className="h-7 w-7"
+                            onClick={() => openBudgetModal(c.id)}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                     {budget > 0 ? (
@@ -1003,12 +971,14 @@ export default function ExpensesPage() {
                         <div className={cn('h-full rounded-full transition-all duration-500', bar)} style={{ width: `${pct}%` }} />
                       </div>
                     ) : (
-                      <button
-                        onClick={() => openBudgetModal(c.id)}
-                        className="text-xs text-stockshop-blue dark:text-blue-400 hover:underline"
-                      >
-                        + {t('budget_set')}
-                      </button>
+                      canWriteExpenses ? (
+                        <button
+                          onClick={() => openBudgetModal(c.id)}
+                          className="text-xs text-stockshop-blue dark:text-blue-400 hover:underline"
+                        >
+                          + {t('budget_set')}
+                        </button>
+                      ) : null
                     )}
                   </div>
                 )
@@ -1191,9 +1161,11 @@ export default function ExpensesPage() {
                         </span>
                       </button>
                       <div className="flex gap-1 flex-shrink-0 items-center pr-3">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={tA('edit')} onClick={() => openEdit(exp)}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
+                        {canWriteExpenses && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={tA('edit')} onClick={() => openEdit(exp)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                         {canDeleteExpenses && (
                           <Button
                             variant="ghost" size="icon"
@@ -1606,12 +1578,16 @@ export default function ExpensesPage() {
                 <span className="ml-1.5 hidden sm:inline">{tA('delete')}</span>
               </Button>
             )}
-            <Button type="button" variant="outline" className="h-11 min-w-0 flex-1 gap-2 rounded-lg px-4 sm:flex-none" onClick={() => openDuplicate(detailExpense)} data-testid="expense-duplicate">
-              <Copy className="h-4 w-4" />{t('duplicate')}
-            </Button>
-            <Button type="button" variant="stockshop" className="h-11 min-w-0 flex-1 gap-2 rounded-lg px-5 font-semibold sm:flex-none sm:min-w-[140px]" onClick={() => { const exp = detailExpense; setDetailExpense(null); openEdit(exp) }} data-testid="expense-edit">
-              <Pencil className="h-4 w-4" />{tA('edit')}
-            </Button>
+            {canWriteExpenses && (
+              <Button type="button" variant="outline" className="h-11 min-w-0 flex-1 gap-2 rounded-lg px-4 sm:flex-none" onClick={() => openDuplicate(detailExpense)} data-testid="expense-duplicate">
+                <Copy className="h-4 w-4" />{t('duplicate')}
+              </Button>
+            )}
+            {canWriteExpenses && (
+              <Button type="button" variant="stockshop" className="h-11 min-w-0 flex-1 gap-2 rounded-lg px-5 font-semibold sm:flex-none sm:min-w-[140px]" onClick={() => { const exp = detailExpense; setDetailExpense(null); openEdit(exp) }} data-testid="expense-edit">
+                <Pencil className="h-4 w-4" />{tA('edit')}
+              </Button>
+            )}
           </div>
         ) : undefined}
       >
@@ -1621,8 +1597,8 @@ export default function ExpensesPage() {
               {detailExpense.receipt_url ? (
                 <div className="space-y-2">
                   {/\.(jpg|jpeg|png|webp|gif|heic)(\?|$)/i.test(detailExpense.receipt_url) ? (
-                    <a href={detailExpense.receipt_url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-lg border bg-muted/30">
-                      <img src={detailExpense.receipt_url} alt="justificatif" className="max-h-80 w-full object-contain" />
+                    <a href={receiptSrc(detailExpense.receipt_url)!} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-lg border bg-muted/30">
+                      <img src={receiptSrc(detailExpense.receipt_url)!} alt="justificatif" className="max-h-80 w-full object-contain" />
                     </a>
                   ) : (
                     <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-3">
@@ -1631,7 +1607,7 @@ export default function ExpensesPage() {
                     </div>
                   )}
                   <Button asChild variant="outline" size="sm" className="h-9 gap-1.5">
-                    <a href={detailExpense.receipt_url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3.5 w-3.5" />{t('receipt_open')}</a>
+                    <a href={receiptSrc(detailExpense.receipt_url)!} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3.5 w-3.5" />{t('receipt_open')}</a>
                   </Button>
                 </div>
               ) : (

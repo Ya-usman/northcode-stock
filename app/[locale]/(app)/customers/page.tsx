@@ -8,6 +8,8 @@ import { Search, Plus, Edit2, Trash2, Phone, MapPin, Store, User, Merge, AlertTr
 import { cn } from '@/lib/utils/cn'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
+import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
+import { isManagerial } from '@/lib/permissions'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -38,7 +40,7 @@ const PhoneInput = dynamic(() => import('@/components/ui/phone-input').then(m =>
   loading: () => <div className="h-10 w-full animate-pulse rounded-md border border-input bg-muted/40" />,
 })
 
-function CustomerCard({ customer, profile, formatNaira, setEditingCustomer, form, setShowModal, deleteCustomer, t }: any) {
+function CustomerCard({ customer, canEdit, formatNaira, setEditingCustomer, form, setShowModal, deleteCustomer, t }: any) {
   return (
     <div className="rounded-lg border bg-card shadow-sm p-4">
       <div className="flex items-start justify-between gap-3">
@@ -68,7 +70,7 @@ function CustomerCard({ customer, profile, formatNaira, setEditingCustomer, form
             )}
           </div>
         </div>
-        {profile?.role === 'owner' && (
+        {canEdit && (
           <div className="flex gap-1">
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0"
               onClick={() => { setEditingCustomer(customer); form.reset({ name: customer.name, phone: customer.phone || '', city: customer.city || '', credit_limit: customer.credit_limit != null ? String(customer.credit_limit) : '' }); setShowModal(true) }}>
@@ -87,8 +89,13 @@ function CustomerCard({ customer, profile, formatNaira, setEditingCustomer, form
 
 export default function CustomersPage() {
   const t = useTranslations()
-  const { profile, shop, effectiveShopIds, userShops } = useAuth()
+  const { profile, shop, effectiveShopIds, userShops, roleInActiveShop } = useAuth()
   const isMultiShop = effectiveShopIds.length > 1
+  // Règle unique : niveau « modification » de Clients (ajout, fiche, suppression) ;
+  // fusion réservée à la direction (même règle que /api/customers/merge)
+  const { canWrite } = useRolePermissions()
+  const canWriteCustomers = canWrite('customers')
+  const effectiveRole = roleInActiveShop ?? profile?.role
   const { fmt: formatNaira, symbol: currencySymbol } = useCurrency()
   const { isOnline } = useOffline()
   const supabase = createClient() as any
@@ -163,7 +170,7 @@ export default function CustomersPage() {
 
   // ── Doublons : même nom (accents et majuscules ignorés) ou même numéro, par
   // boutique. Détection seulement : la fusion est une décision du commerçant.
-  const canMerge = ['owner', 'manager', 'shop_manager', 'super_admin'].includes(profile?.role || '')
+  const canMerge = isManagerial(effectiveRole) && canWriteCustomers
   const duplicateGroups = useMemo(() => {
     const byKey = new Map<string, Customer[]>()
     const add = (key: string, c: Customer) => { const list = byKey.get(key) || []; if (!list.includes(c)) list.push(c); byKey.set(key, list) }
@@ -232,16 +239,16 @@ export default function CustomersPage() {
     setSaving(true)
     supabase.auth.getSession().catch(() => {})
     try {
-      const payload = { ...data, credit_limit: data.credit_limit ? Number(data.credit_limit) : null }
-      if (editingCustomer) {
-        const { error } = await withTimeout<any>(supabase.from('customers').update(payload).eq('id', editingCustomer.id))
-        if (error) { toast({ title: error.message, variant: 'destructive' }); return }
-        toast({ title: t('toast.customer_updated'), variant: 'success' })
-      } else {
-        const { error } = await withTimeout<any>(supabase.from('customers').insert({ ...payload, shop_id: shop!.id }))
-        if (error) { toast({ title: error.message, variant: 'destructive' }); return }
-        toast({ title: t('toast.customer_added'), variant: 'success' })
-      }
+      // Fiche client PAR LE SERVEUR (lot 2) : mêmes contrôles que le formulaire,
+      // droit « Clients » en modification — plus d'écriture directe en base.
+      const res = await withTimeout<Response>(fetch('/api/customers', {
+        method: editingCustomer ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...data, id: editingCustomer?.id, shop_id: editingCustomer?.shop_id ?? shop!.id }),
+      }))
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      toast({ title: editingCustomer ? t('toast.customer_updated') : t('toast.customer_added'), variant: 'success' })
       setShowModal(false)
       setEditingCustomer(null)
       form.reset({ name: '', phone: '', city: '', credit_limit: '' })
@@ -266,9 +273,10 @@ export default function CustomersPage() {
     if (!deleteTarget) return
     setDeleting(true)
     try {
-      // Soft delete — preserves all sales and payment history
-      const { error } = await withTimeout<any>(supabase.from('customers').update({ deleted_at: new Date().toISOString() } as any).eq('id', deleteTarget.id))
-      if (error) { toast({ title: error.message, variant: 'destructive' }); return }
+      // Suppression douce par le serveur (historique des ventes conservé ; refusée si dette en cours)
+      const res = await withTimeout<Response>(fetch(`/api/customers?id=${deleteTarget.id}&shop_id=${deleteTarget.shop_id}`, { method: 'DELETE' }))
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
       toast({ title: t('toast.customer_deleted') })
       setDeleteTarget(null)
       fetchCustomers()
@@ -292,11 +300,12 @@ export default function CustomersPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={e => setFilter({ search: e.target.value })} placeholder={t('actions.search')} className="pl-9 h-9" />
         </div>
-        {(profile?.role === 'owner' || profile?.role === 'cashier') && (
+        {canWriteCustomers && (
           <Button
             variant="stockshop"
             className="h-9 gap-1"
             size="sm"
+            data-testid="customers-add"
             onClick={() => { form.reset({ name: '', phone: '', city: '', credit_limit: '' }); setEditingCustomer(null); setShowModal(true) }}
           >
             <Plus className="h-4 w-4" />
@@ -334,7 +343,7 @@ export default function CustomersPage() {
                   <Merge className="h-3.5 w-3.5" /> {t('customers.merge')}
                 </Button>
               </div>
-              {group.map(customer => <CustomerCard key={customer.id} customer={customer} profile={profile} formatNaira={formatNaira} setEditingCustomer={setEditingCustomer} form={form} setShowModal={setShowModal} deleteCustomer={deleteCustomer} t={t} />)}
+              {group.map(customer => <CustomerCard key={customer.id} customer={customer} canEdit={canWriteCustomers} formatNaira={formatNaira} setEditingCustomer={setEditingCustomer} form={form} setShowModal={setShowModal} deleteCustomer={deleteCustomer} t={t} />)}
             </div>
           ))}
         </div>
@@ -354,14 +363,14 @@ export default function CustomersPage() {
                   <span className="text-xs font-semibold text-stockshop-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
                   <div className="flex-1 h-px bg-border" />
                 </div>
-                {shopCustomers.map(customer => <CustomerCard key={customer.id} customer={customer} profile={profile} formatNaira={formatNaira} setEditingCustomer={setEditingCustomer} form={form} setShowModal={setShowModal} deleteCustomer={deleteCustomer} t={t} />)}
+                {shopCustomers.map(customer => <CustomerCard key={customer.id} customer={customer} canEdit={canWriteCustomers} formatNaira={formatNaira} setEditingCustomer={setEditingCustomer} form={form} setShowModal={setShowModal} deleteCustomer={deleteCustomer} t={t} />)}
               </div>
             )
           })}
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map(customer => <CustomerCard key={customer.id} customer={customer} profile={profile} formatNaira={formatNaira} setEditingCustomer={setEditingCustomer} form={form} setShowModal={setShowModal} deleteCustomer={deleteCustomer} t={t} />)}
+          {filtered.map(customer => <CustomerCard key={customer.id} customer={customer} canEdit={canWriteCustomers} formatNaira={formatNaira} setEditingCustomer={setEditingCustomer} form={form} setShowModal={setShowModal} deleteCustomer={deleteCustomer} t={t} />)}
         </div>
       )}
 
