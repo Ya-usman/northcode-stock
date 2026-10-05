@@ -1,8 +1,10 @@
 import { getPlan } from './plans'
 import { writeAuditLog } from '@/lib/api/audit'
-import { getOwnerShopIds } from '@/lib/api/shop-auth'
+import { getAccountShopIds } from './team-quota'
 
 export interface EnforcementResult {
+  /** true = calcul seul, rien n'a été écrit (voir PLAN_LIMIT_ENFORCEMENT) */
+  dry_run:             boolean
   suspended_shops:     string[]  // shop ids newly suspended
   reactivated_shops:   string[]  // shop ids newly reactivated
   suspended_members:   string[]  // shop_member ids newly suspended
@@ -10,158 +12,148 @@ export interface EnforcementResult {
 }
 
 /**
- * Enforce plan limits for a given owner after a plan change.
+ * Applique les limites de la formule d'un propriétaire (après paiement,
+ * abonnement, ou sur demande).
  *
- * Suspension order: newest first (oldest shops/members are kept active first).
- * Reactivation order: oldest suspended first (they were the last ones suspended).
+ * Refonte du 5 oct. 2026 :
+ *  - Boutique « active » = non supprimée ET non suspendue par la formule
+ *    (`shops.suspended_by_plan`). L'ancienne version filtrait `shops.is_active`,
+ *    colonne qui n'existe pas : la requête échouait et RIEN n'était jamais
+ *    suspendu ni réactivé.
+ *  - Membres : règle unique de lib/saas/team-quota.ts — 1 personne distincte =
+ *    1 membre, propriétaire non compté. Une personne en trop est suspendue
+ *    dans TOUTES les boutiques du compte (affectations marquées
+ *    suspended_by_plan pour pouvoir les rendre à l'identique).
+ *  - Ordre : on garde les plus anciens (boutique créée / personne arrivée en
+ *    premier) ; on réactive d'abord les plus anciens suspendus.
  *
- * Called from /api/billing/verify after every successful payment, and from
- * /api/billing/enforce-limits for on-demand checks.
+ * SÉCURITÉ : tant que la variable d'environnement PLAN_LIMIT_ENFORCEMENT ne
+ * vaut pas « on », la fonction CALCULE seulement (dry_run) et n'écrit rien —
+ * aucun client réel ne peut être suspendu avant validation explicite.
  */
 export async function enforceOwnerPlanLimits(
   supabase: any,
   owner_id: string,
 ): Promise<EnforcementResult> {
+  const dryRun = process.env.PLAN_LIMIT_ENFORCEMENT !== 'on'
   const result: EnforcementResult = {
+    dry_run: dryRun,
     suspended_shops:   [],
     reactivated_shops: [],
     suspended_members: [],
     reactivated_members: [],
   }
 
-  // ── Fetch owner profile to read current plan ───────────────────────────────
   const { data: ownerProfile } = await supabase
     .from('profiles')
     .select('plan, plan_expires_at')
     .eq('id', owner_id)
     .single()
-
   if (!ownerProfile) return result
 
   const plan = getPlan(ownerProfile.plan)
-  const shopLimit    = plan.limits.shops        // -1 = unlimited
-  const memberLimit  = plan.limits.team_members // -1 = unlimited; owner doesn't count
+  const shopLimit   = plan.limits.shops        // -1 = illimité
+  const memberLimit = plan.limits.team_members // -1 = illimité ; propriétaire non compté
 
-  // Résolu via shop_members (fiable) plutôt que shops.owner_id, qui peut être
-  // null — une boutique orpheline échapperait sinon complètement au comptage
-  // et à la suspension/réactivation par plan (voir lib/api/shop-auth.ts).
-  const ownerShopIds = await getOwnerShopIds(supabase, owner_id)
-
-  // ── 1. SHOPS ──────────────────────────────────────────────────────────────
-  // Fetch all non-deleted shops owned by this user, ordered oldest → newest
-  const { data: allShops } = ownerShopIds.length > 0
-    ? await supabase
-        .from('shops')
-        .select('id, is_active, suspended_by_plan, created_at')
-        .in('id', ownerShopIds)
-        .is('deleted_at', null)
+  // ── 1. BOUTIQUES ──────────────────────────────────────────────────────────
+  const allShopIds = await getAccountShopIds(supabase, owner_id, { includeSuspended: true })
+  const { data: allShops } = allShopIds.length
+    ? await supabase.from('shops')
+        .select('id, suspended_by_plan, created_at')
+        .in('id', allShopIds)
         .order('created_at', { ascending: true })
     : { data: [] }
 
   if (allShops && shopLimit !== -1) {
-    const activeShops    = allShops.filter((s: any) => s.is_active)
-    const suspendedShops = allShops.filter((s: any) => !s.is_active && s.suspended_by_plan)
+    const activeShops    = allShops.filter((s: any) => !s.suspended_by_plan)
+    const suspendedShops = allShops.filter((s: any) => s.suspended_by_plan)
 
     if (activeShops.length > shopLimit) {
-      // Suspend excess — newest active shops first
+      // Les plus récentes d'abord
       const toSuspend = activeShops.slice(shopLimit).reverse()
       for (const shop of toSuspend) {
-        await supabase.from('shops')
-          .update({ is_active: false, suspended_by_plan: true })
-          .eq('id', shop.id)
-
-        // Deactivate all non-owner members of this shop
-        await supabase.from('shop_members')
-          .update({ is_active: false, suspended_by_plan: true })
-          .eq('shop_id', shop.id)
-          .neq('role', 'owner')
-
+        if (!dryRun) {
+          await supabase.from('shops').update({ suspended_by_plan: true }).eq('id', shop.id)
+          // Employés de cette boutique (le propriétaire garde son accès)
+          await supabase.from('shop_members')
+            .update({ is_active: false, suspended_by_plan: true })
+            .eq('shop_id', shop.id).eq('is_active', true).neq('role', 'owner')
+        }
         result.suspended_shops.push(shop.id)
       }
     } else if (activeShops.length < shopLimit && suspendedShops.length > 0) {
-      // Plan upgrade: reactivate oldest suspended shops first
-      const slots = shopLimit - activeShops.length
-      const toReactivate = suspendedShops.slice(0, slots)
+      const toReactivate = suspendedShops.slice(0, shopLimit - activeShops.length)
       for (const shop of toReactivate) {
-        await supabase.from('shops')
-          .update({ is_active: true, suspended_by_plan: false })
-          .eq('id', shop.id)
-
-        // Reactivate members that were suspended because of this shop
-        await supabase.from('shop_members')
-          .update({ is_active: true, suspended_by_plan: false })
-          .eq('shop_id', shop.id)
-          .eq('suspended_by_plan', true)
-
+        if (!dryRun) {
+          await supabase.from('shops').update({ suspended_by_plan: false }).eq('id', shop.id)
+          await supabase.from('shop_members')
+            .update({ is_active: true, suspended_by_plan: false })
+            .eq('shop_id', shop.id).eq('suspended_by_plan', true)
+        }
         result.reactivated_shops.push(shop.id)
       }
     }
   }
 
-  // ── 2. TEAM MEMBERS ───────────────────────────────────────────────────────
-  // Count only active non-owner members across all active shops
+  // ── 2. MEMBRES (personnes distinctes) ─────────────────────────────────────
   if (memberLimit !== -1) {
-    const { data: activeShopIds } = ownerShopIds.length > 0
-      ? await supabase
-          .from('shops')
-          .select('id')
-          .in('id', ownerShopIds)
-          .eq('is_active', true)
-          .is('deleted_at', null)
-      : { data: [] }
+    // Boutiques qui restent actives après l'étape 1
+    const activeIds = (allShops || [])
+      .filter((s: any) => (!s.suspended_by_plan && !result.suspended_shops.includes(s.id)) || result.reactivated_shops.includes(s.id))
+      .map((s: any) => s.id)
 
-    const ids = (activeShopIds || []).map((s: any) => s.id)
-
-    if (ids.length > 0) {
-      const { data: activeMembers } = await supabase
+    if (activeIds.length > 0) {
+      const { data: rows } = await supabase
         .from('shop_members')
-        .select('id, shop_id, created_at')
-        .in('shop_id', ids)
-        .eq('is_active', true)
-        .eq('suspended_by_plan', false)
-        .not('role', 'eq', 'owner')
+        .select('id, shop_id, user_id, role, is_active, suspended_by_plan, created_at')
+        .in('shop_id', activeIds)
+        .neq('role', 'owner')
+        .neq('user_id', owner_id)
         .order('created_at', { ascending: true })
 
-      const { data: suspendedMembers } = await supabase
-        .from('shop_members')
-        .select('id, shop_id, created_at')
-        .in('shop_id', ids)
-        .eq('is_active', false)
-        .eq('suspended_by_plan', true)
-        .not('role', 'eq', 'owner')
-        .order('created_at', { ascending: true })
+      // Personnes actives : ordre d'arrivée = première affectation active
+      const activeRows = (rows || []).filter((r: any) => r.is_active)
+      const suspendedRows = (rows || []).filter((r: any) => !r.is_active && r.suspended_by_plan)
+      const activePersons: string[] = []
+      for (const r of activeRows) if (!activePersons.includes(r.user_id)) activePersons.push(r.user_id)
 
-      if ((activeMembers || []).length > memberLimit) {
-        const toSuspend = (activeMembers as any[]).slice(memberLimit).reverse()
-        const memberIds = toSuspend.map((m: any) => m.id)
-        if (memberIds.length > 0) {
-          await supabase.from('shop_members')
-            .update({ is_active: false, suspended_by_plan: true })
-            .in('id', memberIds)
-          result.suspended_members.push(...memberIds)
+      if (activePersons.length > memberLimit) {
+        const excess = activePersons.slice(memberLimit)
+        const ids = activeRows.filter((r: any) => excess.includes(r.user_id)).map((r: any) => r.id)
+        if (ids.length) {
+          if (!dryRun) {
+            await supabase.from('shop_members')
+              .update({ is_active: false, suspended_by_plan: true })
+              .in('id', ids)
+          }
+          result.suspended_members.push(...ids)
         }
-      } else if ((activeMembers || []).length < memberLimit && (suspendedMembers || []).length > 0) {
-        const slots = memberLimit - (activeMembers || []).length
-        const toReactivate = (suspendedMembers as any[]).slice(0, slots)
-        const memberIds = toReactivate.map((m: any) => m.id)
-        if (memberIds.length > 0) {
-          await supabase.from('shop_members')
-            .update({ is_active: true, suspended_by_plan: false })
-            .in('id', memberIds)
-          result.reactivated_members.push(...memberIds)
+      } else if (activePersons.length < memberLimit && suspendedRows.length > 0) {
+        const waiting: string[] = []
+        for (const r of suspendedRows) if (!waiting.includes(r.user_id) && !activePersons.includes(r.user_id)) waiting.push(r.user_id)
+        const back = waiting.slice(0, memberLimit - activePersons.length)
+        // Une personne déjà active ailleurs ne consomme pas de siège : on lui rend aussi ses affectations suspendues
+        const ids = suspendedRows.filter((r: any) => back.includes(r.user_id) || activePersons.includes(r.user_id)).map((r: any) => r.id)
+        if (ids.length) {
+          if (!dryRun) {
+            await supabase.from('shop_members')
+              .update({ is_active: true, suspended_by_plan: false })
+              .in('id', ids)
+          }
+          result.reactivated_members.push(...ids)
         }
       }
     }
   }
 
-  // ── Audit log ─────────────────────────────────────────────────────────────
+  // ── Journal ───────────────────────────────────────────────────────────────
   const anythingHappened =
     result.suspended_shops.length   > 0 ||
     result.reactivated_shops.length > 0 ||
     result.suspended_members.length > 0 ||
     result.reactivated_members.length > 0
 
-  if (anythingHappened) {
+  if (anythingHappened && !dryRun) {
     await writeAuditLog({
       action: 'billing.limit_enforced',
       actor_id: owner_id,

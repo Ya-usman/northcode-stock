@@ -132,15 +132,17 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
     // while can never leave a hung request retried forever.
     withTimeout(Promise.all([
       supabase.from('products').select('id', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('is_active', true),
-      (supabase as any).from('shop_members').select('id', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('is_active', true).neq('role', 'owner'),
+      // Équipe : règle unique du serveur (personnes distinctes du compte,
+      // propriétaire non compté) — lib/saas/team-quota.ts via /api/team/quota
+      fetch(`/api/team/quota?shop_id=${shop.id}`).then(r => (r.ok ? r.json() : Promise.reject(new Error('quota')))),
       (supabase as any).from('shop_members').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('role', 'owner').eq('is_active', true),
-    ]), 20_000).then(([prodRes, teamRes, shopsRes]) => {
+    ]), 20_000).then(([prodRes, quota, shopsRes]) => {
       // A transient auth/RLS hiccup can resolve a count query with count:
       // null instead of throwing — check explicitly so a per-query failure
       // falls into the catch below (preserving the last known values) instead
       // of silently resetting that one usage bar to 0.
-      if (prodRes.error || teamRes.error || shopsRes.error) throw prodRes.error || teamRes.error || shopsRes.error
-      setUsageStats({ products: prodRes.count ?? 0, team: teamRes.count ?? 0, shops: shopsRes.count ?? 0 })
+      if (prodRes.error || shopsRes.error) throw prodRes.error || shopsRes.error
+      setUsageStats({ products: prodRes.count ?? 0, team: Number(quota?.used) || 0, shops: shopsRes.count ?? 0 })
     }).catch(() => {
       // usage bars just keep showing their last known values
     })

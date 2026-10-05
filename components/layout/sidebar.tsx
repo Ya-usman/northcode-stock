@@ -36,6 +36,7 @@ const ALL_NON_OWNER = ['owner', 'super_admin', 'manager', 'shop_manager', 'cashi
 
 export function Sidebar({ locale, role, profile, onSignOut, signingOut = false, userEmail = '', hasUnreadAnnouncement = false, onOpenWhatsNew }: SidebarProps) {
   const t = useTranslations('nav')
+  const tRoles = useTranslations('roles')
   const pathname = usePathname()
   const { isOnline } = useOffline()
   const { canAccess } = useRolePermissions()
@@ -72,7 +73,7 @@ export function Sidebar({ locale, role, profile, onSignOut, signingOut = false, 
         { href: `/${locale}/notes`,    icon: NotebookPen, label: t('notes'),    roles: ALL_NON_OWNER, feature: 'notes' as PermFeature },
         { href: `/${locale}/expenses`, icon: Receipt,     label: t('expenses'), roles: ALL_NON_OWNER, feature: 'expenses' as PermFeature },
         { href: `/${locale}/team`, icon: Users, label: t('team'), roles: ['owner', 'manager', 'shop_manager'] },
-        { href: `/${locale}/shops`, icon: Store, label: t('shops'), roles: ['owner'] },
+        { href: `/${locale}/shops`, icon: Store, label: t('shops'), roles: ['owner', 'shop_manager', 'manager'] },
         { href: `/${locale}/settings`, icon: Settings, label: t('settings'), roles: ['owner', 'manager'] },
         { href: `/${locale}/billing`, icon: Zap, label: t('billing'), roles: ['owner'] },
         { href: `/${locale}/help`, icon: BookOpen, label: t('help'), roles: ALL_NON_OWNER },
@@ -185,7 +186,7 @@ export function Sidebar({ locale, role, profile, onSignOut, signingOut = false, 
           </Avatar>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium truncate">{profile.full_name}</p>
-            <p className="text-xs text-muted-foreground capitalize">{profile.role.replace('_', ' ')}</p>
+            <p className="text-xs text-muted-foreground">{/* Rôle dans la boutique active (shop_members), traduit — pas l'ancien profiles.role */}{tRoles(role as any)}</p>
           </div>
           <Button
             variant="ghost"

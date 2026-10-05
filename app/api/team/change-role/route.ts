@@ -3,16 +3,19 @@ import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { validateBody, uuid } from '@/lib/api/validate'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { checkShopRole } from '@/lib/api/shop-auth'
+import { canManageRole, ASSIGNABLE_ROLES } from '@/lib/team/roles'
 import { z } from 'zod'
-
-const SUBORDINATE_ROLES = ['cashier', 'stock_manager', 'viewer']
 
 const changeRoleSchema = z.object({
   member_id: uuid,
   shop_id: uuid,
-  new_role: z.enum(['shop_manager', 'manager', 'cashier', 'stock_manager', 'viewer']),
+  new_role: z.enum(ASSIGNABLE_ROLES as [string, ...string[]]),
 })
 
+// POST /api/team/change-role — rôle d'une personne DANS une boutique
+// (shop_members est par boutique). Hiérarchie unique lib/team/roles.ts :
+// l'appelant doit pouvoir gérer l'ancien ET le nouveau rôle.
 export async function POST(request: Request) {
   const t = getApiTranslator(request)
   try {
@@ -25,58 +28,35 @@ export async function POST(request: Request) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
-    // Check caller is owner/manager of this shop (via shop_members OR profiles fallback)
-    const { data: memberRow } = await supabase
-      .from('shop_members')
-      .select('role')
-      .eq('shop_id', shop_id)
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .single()
-
-    let callerRole = memberRow?.role
-    if (!callerRole) {
-      const { data: profile } = await supabase.from('profiles').select('role, shop_id').eq('id', user.id).single()
-      if ((profile as any)?.shop_id === shop_id) callerRole = (profile as any)?.role
-    }
-
-    if (!callerRole || !['owner', 'manager', 'shop_manager', 'super_admin'].includes(callerRole)) {
-      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
-    }
+    const callerRole = await checkShopRole(supabase, user.id, shop_id)
+    if (!callerRole) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()
 
-    // Fetch the target row (current role) — needed for the subordinate check
-    // below. profiles has no FK to shop_members (both reference auth.users
-    // independently), so the name is fetched separately below — a nested
-    // `profiles(full_name)` embed here would fail with no relationship found.
+    // profiles has no FK to shop_members (both reference auth.users
+    // independently), so the name is fetched separately below.
     const { data: targetMember } = await (admin as any)
       .from('shop_members')
-      .select('role, user_id')
+      .select('role, user_id, is_active')
       .eq('id', member_id)
       .eq('shop_id', shop_id)
       .single()
 
-    if (!targetMember) return NextResponse.json({ error: t('member_not_found') }, { status: 404 })
+    if (!targetMember || !targetMember.is_active) return NextResponse.json({ error: t('member_not_found') }, { status: 404 })
+
+    if (targetMember.user_id === user.id) {
+      return NextResponse.json({ error: t('cannot_modify_own_role') }, { status: 400 })
+    }
+
+    if (!canManageRole(callerRole, targetMember.role) || !canManageRole(callerRole, new_role)) {
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+    }
 
     const { data: targetProfile } = await (admin as any)
       .from('profiles')
       .select('full_name')
       .eq('id', targetMember.user_id)
       .single()
-
-    if (targetMember.user_id === user.id) {
-      return NextResponse.json({ error: t('cannot_modify_own_role') }, { status: 400 })
-    }
-
-    // Managers (manager/shop_manager) can only act on subordinate roles — never
-    // touch the owner or peer managers, and never promote someone to
-    // manager/shop_manager themselves. Only owner/super_admin bypass this.
-    if (!['owner', 'super_admin'].includes(callerRole)) {
-      if (!SUBORDINATE_ROLES.includes(targetMember.role) || !SUBORDINATE_ROLES.includes(new_role)) {
-        return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
-      }
-    }
 
     const { error: updateError } = await (admin as any)
       .from('shop_members')

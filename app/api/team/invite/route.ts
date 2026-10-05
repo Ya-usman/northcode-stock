@@ -1,16 +1,19 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
-import { getPlan } from '@/lib/saas/plans'
-import { validateBody, uuid, email as emailSchema, shortText, roleEnum } from '@/lib/api/validate'
+import { validateBody, uuid, email as emailSchema, shortText } from '@/lib/api/validate'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { checkShopRole } from '@/lib/api/shop-auth'
+import { canManageRole, ASSIGNABLE_ROLES } from '@/lib/team/roles'
+import { resolveAccountOwnerId, checkTeamSeat } from '@/lib/saas/team-quota'
+import { findAccountMemberByEmail } from '@/lib/api/team-account'
 import { z } from 'zod'
 
 const inviteSchema = z.object({
   email: emailSchema,
   full_name: shortText,
-  role: roleEnum,
+  role: z.enum(ASSIGNABLE_ROLES as [string, ...string[]]),
   shop_id: uuid,
   invited_by: uuid.optional().nullable(),
 })
@@ -24,54 +27,50 @@ function getAdminClient() {
   )
 }
 
+// POST /api/team/invite — inviter une NOUVELLE personne dans une boutique.
+// Si l'adresse appartient déjà à une personne du compte, on ne crée rien et
+// on renvoie 409 { code: 'member_exists', user_id, full_name } : l'interface
+// propose alors « Affecter ce membre à cette boutique » (/api/team/assign).
 export async function POST(request: Request) {
   const t = getApiTranslator(request)
   try {
-    // Verify caller is authenticated and is an owner of the target shop
     const supabase = await createServerClient() as any
     const { data: { user: caller } } = await supabase.auth.getUser()
-
     if (!caller) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const body = await request.json()
     const validated = validateBody(inviteSchema, body)
     if ('error' in validated) return validated.error
-    const { email, full_name, role, shop_id, invited_by } = validated.data
+    const { email, full_name, role, shop_id } = validated.data
 
-    // Only owners and super_admins can invite
-    const { data: callerMember } = await supabase
-      .from('shop_members')
-      .select('role')
-      .eq('shop_id', shop_id)
-      .eq('user_id', caller.id)
-      .eq('is_active', true)
-      .single()
-
-    if (!callerMember || !['owner', 'manager', 'shop_manager', 'super_admin'].includes(callerMember.role)) {
+    // Hiérarchie unique (lib/team/roles.ts) : Propriétaire → tous les rôles ;
+    // Manager → Responsable et équipe opérationnelle ; Responsable → équipe opérationnelle.
+    const callerRole = await checkShopRole(supabase, caller.id, shop_id)
+    if (!canManageRole(callerRole, role)) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 
-    // Enforce team member limit based on owner plan — billing is owner-level
-    // (profiles is the single source of truth, see migration 047).
-    const { data: shopRow } = await supabase.from('shops').select('owner_id').eq('id', shop_id).single()
-    const { data: ownerProfile } = (shopRow as any)?.owner_id
-      ? await supabase.from('profiles').select('plan, plan_expires_at').eq('id', (shopRow as any).owner_id).single()
-      : { data: null }
-    const plan = getPlan((ownerProfile as any)?.plan)
-    if (plan.limits.team_members !== -1) {
-      // Count active non-owner members
-      const { count: memberCount } = await supabase
-        .from('shop_members').select('id', { count: 'exact', head: true })
-        .eq('shop_id', shop_id).eq('is_active', true).neq('role', 'owner')
-      if ((memberCount ?? 0) >= plan.limits.team_members) {
-        return NextResponse.json(
-          { error: t('team_limit_reached', { plan: plan.name, limit: plan.limits.team_members }) },
-          { status: 403 }
-        )
-      }
+    const admin = getAdminClient() as any
+    const ownerId = await resolveAccountOwnerId(admin, shop_id)
+    if (!ownerId) return NextResponse.json({ error: t('shop_not_found') }, { status: 404 })
+
+    // Personne déjà dans le compte → jamais de doublon d'utilisateur
+    const existing = await findAccountMemberByEmail(admin, ownerId, email)
+    if (existing) {
+      return NextResponse.json(
+        { error: t('member_exists', { name: existing.full_name || email }), code: 'member_exists', user_id: existing.id, full_name: existing.full_name },
+        { status: 409 }
+      )
     }
 
-    const admin = getAdminClient()
+    // Quota : règle unique (personne distincte, propriétaire non compté)
+    const { ok, seats } = await checkTeamSeat(admin, ownerId)
+    if (!ok) {
+      return NextResponse.json(
+        { error: t('team_limit_reached', { plan: seats.planName, limit: seats.limit }), code: 'team_limit' },
+        { status: 403 }
+      )
+    }
 
     // Read caller's locale from cookie so the invite link lands on the right language
     const locale = (request.headers.get('cookie') ?? '').match(/NEXT_LOCALE=([^;]+)/)?.[1] ?? 'fr'
@@ -90,6 +89,10 @@ export async function POST(request: Request) {
     })
 
     if (inviteError) {
+      // Adresse déjà utilisée par une personne d'un AUTRE compte StockShop
+      if (/already.*(registered|exists)/i.test(inviteError.message)) {
+        return NextResponse.json({ error: t('email_other_account'), code: 'email_other_account' }, { status: 409 })
+      }
       return NextResponse.json({ error: inviteError.message }, { status: 400 })
     }
 
@@ -117,7 +120,7 @@ export async function POST(request: Request) {
       role,
       is_active: true,
       can_delete_sales: false,
-      invited_by: invited_by || null,
+      invited_by: caller.id,
     }, { onConflict: 'shop_id,user_id' })
     if (memberError) {
       console.error('Shop member upsert error:', memberError)
@@ -130,7 +133,7 @@ export async function POST(request: Request) {
       actor_email: caller.email,
       target_id: user.id,
       target_type: 'profile',
-      metadata: { email, role },
+      metadata: { email, role, member_name: full_name },
       ip: getClientIp(request),
     })
 

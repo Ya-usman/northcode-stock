@@ -49,8 +49,11 @@ export async function checkShopRole(supabase: any, userId: string, shopId: strin
     if (profile.shop_id === shopId) return 'owner'
     return null
   }
-  // Non-owner: full role only in their primary shop; viewer elsewhere
-  if (profile.shop_id === shopId) return member?.role ?? profile.role
-  if (member?.role) return 'viewer'
-  return null
+  // Non-owner: the role of their membership in THIS shop (shop_members is
+  // per-shop). No membership = no access — never fall back to the legacy
+  // profiles.role, which can outlive a removal from the shop. Same rule as
+  // resolveRoleInShop (lib/contexts/auth-context.tsx). Before the 5 Oct. 2026
+  // Boutiques/Équipe refonte a non-owner was 'viewer' outside their primary
+  // shop, which made multi-shop assignment of employees impossible.
+  return member?.role ?? null
 }

@@ -30,6 +30,8 @@ interface AuthContextValue extends AuthState {
   dashboardShopFilter: string | null
   setDashboardShopFilter: (id: string | null) => void
   effectiveShopIds: string[]
+  /** Rôle de l'utilisateur dans chacune de ses boutiques (même règle que roleInActiveShop) */
+  roleByShop: Record<string, UserRole>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -39,8 +41,11 @@ type MemberRow = { role: UserRole; is_active: boolean; shops: Shop | null }
 
 // Resolve the effective role for a given shop.
 // owner / super_admin keep their full role anywhere.
-// Other members (cashier, stock_manager, viewer) have full access only in
-// their primary shop; in any other shop they are downgraded to 'viewer'.
+// Other members: the role of their membership IN THAT SHOP (shop_members is
+// per-shop by design, refonte Boutiques/Équipe du 5 oct. 2026). Before, a
+// non-owner was downgraded to 'viewer' outside their primary shop, which made
+// multi-shop assignment of employees impossible. Same rule as checkShopRole
+// (lib/api/shop-auth.ts) on the server.
 function resolveRoleInShop(
   memberRole: UserRole | undefined | null,
   profile: Profile | null,
@@ -49,11 +54,9 @@ function resolveRoleInShop(
   if (!profile) return memberRole ?? null
   if (profile.role === 'super_admin') return 'super_admin'
   if (profile.role === 'owner') return memberRole ?? (profile.shop_id === shopId ? 'owner' : null)
-  // Non-owner: full role only in primary shop
-  if (profile.shop_id === shopId) return memberRole ?? profile.role
-  // In a non-primary shop: read-only if they have any membership
-  if (memberRole) return 'viewer'
-  return null
+  // Non-owner: no active membership = no access (never fall back to the
+  // legacy profiles.role, which can outlive a removal from the shop)
+  return memberRole ?? null
 }
 
 // ── localStorage cache for profile + shops ──────────────────────────────────
@@ -153,7 +156,9 @@ async function fetchUserData(userId: string): Promise<{
   const rows = (memberships ?? []) as MemberRow[]
   const userShops = rows.map(m => m.shops).filter(Boolean) as Shop[]
 
-  if (userShops.length === 0 && profile?.shop_id) {
+  // Legacy owner without a shop_members row only — an employee removed from
+  // every shop must not get their old primary shop back through this path.
+  if (userShops.length === 0 && profile?.shop_id && (profile.role === 'owner' || profile.role === 'super_admin')) {
     const { data: shop } = await supabase.from('shops').select('*').eq('id', profile.shop_id).single()
     if (shop) {
       await attachOwnerPlan(supabase, [shop as Shop])
@@ -705,6 +710,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return [dashboardShopFilter]
   }, [dashboardShopFilter, state.userShops])
 
+  const roleByShop = useMemo<Record<string, UserRole>>(() => {
+    const out: Record<string, UserRole> = {}
+    for (const s of state.userShops) {
+      const r = resolveRoleInShop(memberships.find(m => m.shops?.id === s.id)?.role, state.profile, s.id)
+      if (r) out[s.id] = r
+    }
+    return out
+  }, [state.userShops, state.profile, memberships])
+
   const value = useMemo<AuthContextValue>(() => ({
     ...state,
     shop: state.activeShop,
@@ -717,7 +731,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     dashboardShopFilter,
     setDashboardShopFilter,
     effectiveShopIds,
-  }), [state, signOut, refreshShop, patchShop, switchShop, updateLocale, dashboardShopFilter, setDashboardShopFilter, effectiveShopIds])
+    roleByShop,
+  }), [state, signOut, refreshShop, patchShop, switchShop, updateLocale, dashboardShopFilter, setDashboardShopFilter, effectiveShopIds, roleByShop])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

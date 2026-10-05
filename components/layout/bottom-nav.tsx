@@ -53,7 +53,7 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
     { href: `/${locale}/notes`,    icon: NotebookPen, label: t('notes'),    roles: ALL_NON_OWNER, feature: 'notes' as PermFeature,    primary: false },
     { href: `/${locale}/expenses`, icon: Receipt,     label: t('expenses'), roles: ALL_NON_OWNER, feature: 'expenses' as PermFeature, primary: false },
     { href: `/${locale}/team`,            icon: Users,           label: t('team'),          roles: ['owner', 'manager', 'shop_manager'],                  primary: false },
-    { href: `/${locale}/shops`,           icon: Store,           label: t('shops'),         roles: ['owner'],                                                primary: false },
+    { href: `/${locale}/shops`,           icon: Store,           label: t('shops'),         roles: ['owner', 'shop_manager', 'manager'],                                                primary: false },
     { href: `/${locale}/billing`,         icon: Zap,             label: t('billing'),       roles: ['owner'],                                                primary: false },
     { href: `/${locale}/settings`,        icon: Settings,        label: t('settings'),      roles: ['owner', 'manager'],                                     primary: false },
     { href: `/${locale}/help`,            icon: BookOpen,        label: t('help'),          roles: ALL_NON_OWNER,                                                primary: false },

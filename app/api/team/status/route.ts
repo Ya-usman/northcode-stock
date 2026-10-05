@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { checkShopRole } from '@/lib/api/shop-auth'
+import { isTeamManager } from '@/lib/team/roles'
+import { resolveAccountOwnerId } from '@/lib/saas/team-quota'
+import { listAccountPersonIds } from '@/lib/api/team-account'
 
 function getAdminClient() {
   return createClient(
@@ -11,8 +15,10 @@ function getAdminClient() {
   )
 }
 
-// Returns email_confirmed_at and last_sign_in_at for a list of user IDs
-// Only accessible by owners/managers/super_admin
+// POST /api/team/status — e-mail, confirmation d'e-mail et dernière connexion
+// des personnes demandées. Réservé à la gestion d'équipe (Propriétaire,
+// Manager, Responsable) et LIMITÉ aux personnes du compte de la boutique
+// (avant le 5 oct. 2026, n'importe quel identifiant était accepté).
 export async function POST(request: Request) {
   const t = getApiTranslator(request)
   try {
@@ -25,31 +31,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t('invalid_data') }, { status: 400 })
     }
 
-    // Verify caller is owner/manager of this shop
-    const { data: callerMember } = await supabase
-      .from('shop_members')
-      .select('role')
-      .eq('shop_id', shop_id)
-      .eq('user_id', caller.id)
-      .eq('is_active', true)
-      .single()
-
-    if (!callerMember || !['owner', 'manager', 'shop_manager', 'super_admin'].includes(callerMember.role)) {
+    const callerRole = await checkShopRole(supabase, caller.id, shop_id)
+    if (!isTeamManager(callerRole)) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 
-    const admin = getAdminClient()
+    const admin = getAdminClient() as any
+    const ownerId = await resolveAccountOwnerId(admin, shop_id)
+    if (!ownerId) return NextResponse.json({ status: {} })
+    const allowed = new Set([ownerId, ...(await listAccountPersonIds(admin, ownerId))])
+    const ids = (user_ids as string[]).filter(id => typeof id === 'string' && allowed.has(id)).slice(0, 200)
 
-    // Fetch auth status for each member in parallel
-    const results = await Promise.allSettled(
-      user_ids.map((id: string) => admin.auth.admin.getUserById(id))
-    )
+    const results = await Promise.allSettled(ids.map(id => admin.auth.admin.getUserById(id)))
 
-    const statusMap: Record<string, { email_confirmed_at: string | null; last_sign_in_at: string | null }> = {}
-    results.forEach((result, i) => {
+    const statusMap: Record<string, { email: string | null; email_confirmed_at: string | null; last_sign_in_at: string | null }> = {}
+    results.forEach((result: any, i) => {
       if (result.status === 'fulfilled' && result.value.data.user) {
         const u = result.value.data.user
-        statusMap[user_ids[i]] = {
+        statusMap[ids[i]] = {
+          email: u.email ?? null,
           email_confirmed_at: u.email_confirmed_at ?? null,
           last_sign_in_at: u.last_sign_in_at ?? null,
         }

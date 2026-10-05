@@ -38,7 +38,7 @@ import { withTimeout } from '@/lib/utils/with-timeout'
 
 export default function SettingsPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations()
-  const { shop: shopData, profile, refreshShop, patchShop, updateLocale } = useAuth()
+  const { shop: shopData, profile, refreshShop, patchShop, updateLocale, roleInActiveShop } = useAuth()
   const supabase = createClient() as any
   const { toast } = useToast()
   const router = useRouter()
@@ -50,6 +50,10 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   // aligné sur la vérification réelle de /api/shops/settings, pour ne pas
   // afficher une carte qu'un manager pourrait remplir mais jamais enregistrer.
   const canManageHours = profile?.role === 'owner' || profile?.role === 'super_admin'
+  // Accès par rôle : réservé au PROPRIÉTAIRE de la boutique (décision du 5 oct.
+  // 2026, même règle que /api/team/permissions) — un Manager ou un Responsable
+  // ne modifie jamais les droits, pas même ceux de son propre rôle.
+  const canEditPermissions = roleInActiveShop === 'owner' || roleInActiveShop === 'super_admin'
 
   const [shop, setShop] = useState<Shop | null>(shopData)
   const [saving, setSaving] = useState(false)
@@ -1013,7 +1017,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       </Card>
 
       {/* Role Permissions — owner only */}
-      {isOwner && (
+      {canEditPermissions && (
         <Card className="border-0 shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">

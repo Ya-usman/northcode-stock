@@ -16,6 +16,14 @@ async function canWriteProducts(supabase: any, role: string, shop_id: string): P
 }
 
 // POST /api/products — create a product
+// Une catégorie ne peut ranger que des produits de SA boutique (anomalie du
+// 5 oct. 2026 : 3 produits rangés dans la catégorie d'une autre boutique).
+async function categoryInShop(admin: any, categoryId: unknown, shopId: string): Promise<boolean> {
+  if (!categoryId) return true
+  const { data } = await admin.from('categories').select('shop_id').eq('id', categoryId as string).maybeSingle()
+  return data?.shop_id === shopId
+}
+
 export async function POST(request: Request) {
   const t = getApiTranslator(request)
   try {
@@ -30,6 +38,7 @@ export async function POST(request: Request) {
     // Always null-ify empty SKU to avoid unique constraint on empty strings
     body.sku = body.sku?.trim() || null
     const admin = await createAdminClient()
+    if (!(await categoryInShop(admin, body.category_id, shop_id))) return NextResponse.json({ error: t('category_wrong_shop') }, { status: 400 })
     const { data, error } = await (admin as any).from('products').insert(body).select().single()
     if (error) {
       const msg = error.message?.includes('product_sku_shop_unique') || error.message?.includes('sku')
@@ -143,6 +152,7 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
       const admin = await createAdminClient()
+      if (!(await categoryInShop(admin, category_id, shop_id))) return NextResponse.json({ error: t('category_wrong_shop') }, { status: 400 })
       const { data: updated, error } = await (admin as any)
         .from('products')
         .update({ category_id: category_id || null })
@@ -208,6 +218,8 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: t('no_valid_fields') }, { status: 400 })
     if ('sku' in safeUpdates) safeUpdates.sku = (safeUpdates.sku as string)?.trim() || null
     const admin = await createAdminClient()
+    if ('category_id' in safeUpdates && !(await categoryInShop(admin, safeUpdates.category_id, shop_id)))
+      return NextResponse.json({ error: t('category_wrong_shop') }, { status: 400 })
 
     // Snapshot avant modification, pour le journal d'audit
     const TRACKED_FIELDS = ['name', 'selling_price', 'buying_price', 'low_stock_threshold', 'sku', 'category_id', 'supplier_id', 'promo_price', 'promo_until', 'promo_start'] as const

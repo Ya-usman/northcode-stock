@@ -30,7 +30,10 @@ const ROLE_ACCESS: Record<string, string[]> = {
   '/team':     ['owner', 'manager', 'shop_manager', 'super_admin'],
   '/settings': ['owner', 'manager', 'super_admin'],
   '/billing':  ['owner', 'super_admin'],
-  '/shops':    ['owner', 'super_admin'],
+  // Boutiques : le Manager et le Responsable voient LEURS boutiques (refonte du
+  // 5 oct. 2026) ; création, suppression et abonnement restent au propriétaire
+  // (contrôlés par les routes API).
+  '/shops':    ['owner', 'shop_manager', 'manager', 'super_admin'],
 }
 
 const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean)

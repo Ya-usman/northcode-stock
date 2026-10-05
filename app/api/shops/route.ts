@@ -2,21 +2,39 @@
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getPlan } from '@/lib/saas/plans'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { getOwnerShopIds } from '@/lib/api/shop-auth'
+import { validateShopIdentity, isShopCodeTaken } from '@/lib/saas/shop-identity'
 
 export async function POST(request: Request) {
   const t = getApiTranslator(request)
   try {
-    const { name, city, country: requestCountry } = await request.json()
+    const body = await request.json()
+    const { name, city, country: requestCountry } = body
 
     if (!name?.trim()) {
       return NextResponse.json({ error: t('name_required') }, { status: 400 })
     }
+
+    // Champs d'identité facultatifs (migration 152)
+    const identity = validateShopIdentity(body)
+    const identityError = Object.values(identity.errors)[0]
+    if (identityError) return NextResponse.json({ error: t(identityError as any), field: Object.keys(identity.errors)[0] }, { status: 400 })
 
     // Get current user
     const supabase = await createClient() as any
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
+
+    // Seul un propriétaire crée des boutiques (refonte du 5 oct. 2026) : un
+    // employé (Manager, Responsable, Caissier…) qui n'est propriétaire
+    // d'aucune boutique ne peut pas en créer. Un nouveau compte (aucune
+    // affectation) garde la possibilité de créer sa première boutique.
+    const { data: myMemberships } = await supabase
+      .from('shop_members').select('role').eq('user_id', user.id).eq('is_active', true)
+    if ((myMemberships || []).length > 0 && !(myMemberships || []).some((m: any) => m.role === 'owner')) {
+      return NextResponse.json({ error: t('owner_only_shops') }, { status: 403 })
+    }
 
     // Get owner profile: country + owner-level plan (single source of truth)
     const { data: profile } = await supabase
@@ -65,7 +83,19 @@ export async function POST(request: Request) {
     // to set here (no double billing, no separate trial to track).
     const admin = await createAdminClient()
 
+    // Code boutique unique dans le compte
+    if (identity.values.code) {
+      const ownerShopIds = await getOwnerShopIds(admin, user.id)
+      if (await isShopCodeTaken(admin, ownerShopIds, identity.values.code)) {
+        return NextResponse.json({ error: t('shop_code_taken'), field: 'code' }, { status: 409 })
+      }
+    }
+    // Seules les valeurs renseignées sont envoyées : une création sans ces
+    // champs reste possible même avant l'application de la migration 152.
+    const identityValues = Object.fromEntries(Object.entries(identity.values).filter(([, v]) => v))
+
     const { data: shop, error: shopError } = await admin.from('shops').insert({
+      ...identityValues,
       name: name.trim(),
       city: city?.trim() || '',
       state: '',
@@ -78,6 +108,7 @@ export async function POST(request: Request) {
     } as any).select().single()
 
     if (shopError || !shop) {
+      if ((shopError as any)?.code === '23505') return NextResponse.json({ error: t('shop_code_taken'), field: 'code' }, { status: 409 })
       return NextResponse.json({ error: shopError?.message ?? t('create_error') }, { status: 500 })
     }
 

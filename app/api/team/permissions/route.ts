@@ -1,6 +1,12 @@
-﻿import { NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { checkShopRole } from '@/lib/api/shop-auth'
+import { isAccountOwner } from '@/lib/team/roles'
+
+// Configuration des permissions — RÉSERVÉE AU PROPRIÉTAIRE (décision du
+// 5 oct. 2026). Avant, un Manager ou un Responsable pouvait modifier
+// shops.role_permissions, donc s'attribuer lui-même des droits.
 
 // PATCH /api/team/permissions — save role_permissions JSON on a shop (bypasses RLS via admin client)
 export async function PATCH(request: Request) {
@@ -15,17 +21,9 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: t('missing_fields') }, { status: 400 })
     }
 
-    // Verify caller is owner or manager of this shop
-    const { data: callerMember } = await supabase
-      .from('shop_members')
-      .select('role')
-      .eq('shop_id', shop_id)
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .single()
-
-    if (!callerMember || !['owner', 'manager', 'shop_manager', 'super_admin'].includes(callerMember.role)) {
-      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+    const callerRole = await checkShopRole(supabase, user.id, shop_id)
+    if (!isAccountOwner(callerRole)) {
+      return NextResponse.json({ error: t('owner_only_permissions') }, { status: 403 })
     }
 
     const admin = await createAdminClient() as any
@@ -49,17 +47,9 @@ export async function PUT(request: Request) {
     const { shop_id, user_id, can_delete_sales } = await request.json()
     if (!shop_id || !user_id) return NextResponse.json({ error: t('missing_fields') }, { status: 400 })
 
-    // Verify caller is owner of this specific shop (via user client — respects session)
-    const { data: callerMember } = await supabase
-      .from('shop_members')
-      .select('role')
-      .eq('shop_id', shop_id)
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .single()
-
-    const isOwner = callerMember?.role === 'owner' || callerMember?.role === 'manager' || callerMember?.role === 'super_admin'
-    if (!isOwner) return NextResponse.json({ error: t('owner_only_permissions') }, { status: 403 })
+    const callerRole = await checkShopRole(supabase, user.id, shop_id)
+    if (!isAccountOwner(callerRole)) return NextResponse.json({ error: t('owner_only_permissions') }, { status: 403 })
+    if (user_id === user.id) return NextResponse.json({ error: t('cannot_modify_own_account') }, { status: 400 })
 
     const admin = await createAdminClient() as any
 

@@ -12,6 +12,13 @@ export interface Shop {
   state: string
   whatsapp: string | null
   logo_url: string | null
+  /** Fiche boutique (migration 152) : facultatifs ; code unique dans le compte */
+  code?: string | null
+  address?: string | null
+  phone?: string | null
+  email?: string | null
+  /** Boutique suspendue par la formule (lib/saas/enforce-limits.ts) */
+  suspended_by_plan?: boolean
   /** Identité sur les reçus et tickets (migration 149) : activité sous le nom, mentions légales (une par ligne), message de pied. */
   receipt_tagline: string | null
   receipt_legal_ids: string | null

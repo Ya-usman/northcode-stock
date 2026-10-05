@@ -1,8 +1,11 @@
-﻿import { NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { validateBody, uuid } from '@/lib/api/validate'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { checkShopRole } from '@/lib/api/shop-auth'
+import { canManageRole } from '@/lib/team/roles'
+import { syncPrimaryShop } from '@/lib/api/team-account'
 import { z } from 'zod'
 
 const deleteSchema = z.object({
@@ -10,6 +13,12 @@ const deleteSchema = z.object({
   shop_id: uuid,
 })
 
+// POST /api/team/delete — « Retirer de cette boutique ».
+// Désactive UNIQUEMENT l'affectation à cette boutique (ligne conservée :
+// historique et ré-affectation possibles). Le compte de la personne n'est
+// JAMAIS désactivé ici, même s'il ne lui reste aucune boutique (décision du
+// 5 oct. 2026) — la désactivation du compte est une action distincte et
+// confirmée (/api/team/toggle-active). La boutique principale est recalée.
 export async function POST(request: Request) {
   const t = getApiTranslator(request)
   try {
@@ -18,67 +27,39 @@ export async function POST(request: Request) {
     if ('error' in validated) return validated.error
     const { employee_id, shop_id } = validated.data
 
-    // Verify caller is owner or super_admin
     const supabase = await createClient() as any
     const { data: { user } } = await supabase.auth.getUser()
-
     if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
-    // Verify caller is owner/super_admin of THIS specific shop
-    const { data: callerMember } = await supabase
-      .from('shop_members')
-      .select('role')
-      .eq('shop_id', shop_id)
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .single()
-
-    const callerRole = callerMember?.role
-    if (!callerRole || !['owner', 'manager', 'shop_manager', 'super_admin'].includes(callerRole)) {
-      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
-    }
-
-    // Prevent deleting yourself
     if (employee_id === user.id) {
       return NextResponse.json({ error: t('cannot_delete_self') }, { status: 400 })
     }
 
+    const callerRole = await checkShopRole(supabase, user.id, shop_id)
+
     const admin = createAdminClient() as any
-
-    // Capture the member's name before deletion, for a readable audit log entry.
-    const { data: targetProfile } = await admin.from('profiles').select('full_name').eq('id', employee_id).single()
-
-    // Managers (manager/shop_manager) can only delete subordinate roles —
-    // never the owner or peer managers. Only owner/super_admin bypass this.
-    if (!['owner', 'super_admin'].includes(callerRole)) {
-      const { data: targetMember } = await admin
-        .from('shop_members')
-        .select('role')
-        .eq('user_id', employee_id)
-        .eq('shop_id', shop_id)
-        .single()
-      if (!targetMember || !['cashier', 'stock_manager', 'viewer'].includes(targetMember.role)) {
-        return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
-      }
-    }
-
-    // 1. Deactivate membership for this shop (soft delete — preserves sales attribution)
-    await admin.from('shop_members')
-      .update({ is_active: false })
+    const { data: targetMember } = await admin
+      .from('shop_members')
+      .select('id, role, is_active')
       .eq('user_id', employee_id)
       .eq('shop_id', shop_id)
+      .maybeSingle()
+    if (!targetMember || !targetMember.is_active) return NextResponse.json({ error: t('member_not_found') }, { status: 404 })
+    if (targetMember.role === 'owner') return NextResponse.json({ error: t('cannot_remove_owner') }, { status: 403 })
 
-    // 2. Check if the user has active memberships in other shops
-    const { data: otherActiveMemberships } = await admin
-      .from('shop_members')
-      .select('id')
-      .eq('user_id', employee_id)
-      .eq('is_active', true)
-
-    // 3. If no other active shop, deactivate the profile (no auth deletion — history preserved)
-    if (!otherActiveMemberships || otherActiveMemberships.length === 0) {
-      await admin.from('profiles').update({ is_active: false }).eq('id', employee_id)
+    // Hiérarchie unique (lib/team/roles.ts)
+    if (!canManageRole(callerRole, targetMember.role)) {
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
+
+    const { data: targetProfile } = await admin.from('profiles').select('full_name').eq('id', employee_id).maybeSingle()
+
+    const { error } = await admin.from('shop_members')
+      .update({ is_active: false })
+      .eq('id', targetMember.id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    await syncPrimaryShop(admin, employee_id)
 
     await writeAuditLog({
       action: 'member.delete',
@@ -87,7 +68,7 @@ export async function POST(request: Request) {
       actor_email: user.email,
       target_id: employee_id,
       target_type: 'profile',
-      metadata: { member_name: targetProfile?.full_name ?? null },
+      metadata: { member_name: targetProfile?.full_name ?? null, role: targetMember.role, scope: 'shop' },
       ip: getClientIp(request),
     })
 

@@ -3,6 +3,9 @@ import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { normalizeCurrency, currencyCodeForCountry } from '@/lib/saas/currencies'
+import { validateShopIdentity, isShopCodeTaken, SHOP_IDENTITY_FIELDS } from '@/lib/saas/shop-identity'
+import { resolveAccountOwnerId } from '@/lib/saas/team-quota'
+import { getOwnerShopIds } from '@/lib/api/shop-auth'
 
 const HOURS_FIELDS = ['hours_enabled', 'opening_time', 'closing_time', 'hours_manual_override'] as const
 
@@ -51,6 +54,12 @@ export async function PATCH(request: Request) {
       }
       updates[field] = clean || null
     }
+
+    // Identité de la boutique (migration 152) : code, adresse, téléphone, e-mail
+    const identity = validateShopIdentity(rawUpdates)
+    const identityError = Object.entries(identity.errors)[0]
+    if (identityError) return NextResponse.json({ error: t(identityError[1] as any), field: identityError[0] }, { status: 400 })
+    Object.assign(updates, identity.values)
 
     if ('hours_manual_override' in updates) {
       const v = updates.hours_manual_override
@@ -145,8 +154,47 @@ export async function PATCH(request: Request) {
       }
     }
 
+    // Code unique dans le compte + valeurs avant pour le journal
+    const INFO_FIELDS = ['name', 'city', 'country', ...SHOP_IDENTITY_FIELDS] as const
+    const touchesInfo = SHOP_IDENTITY_FIELDS.some(f => f in identity.values)
+    let currentInfo: Record<string, unknown> | null = null
+    if (touchesInfo) {
+      const { data } = await admin.from('shops').select(INFO_FIELDS.join(',')).eq('id', shop_id).maybeSingle()
+      currentInfo = data
+      if (identity.values.code && identity.values.code !== currentInfo?.code) {
+        const ownerId = await resolveAccountOwnerId(admin, shop_id)
+        const ownerShopIds = ownerId ? await getOwnerShopIds(admin, ownerId) : []
+        if (await isShopCodeTaken(admin, ownerShopIds, identity.values.code, shop_id)) {
+          return NextResponse.json({ error: t('shop_code_taken'), field: 'code' }, { status: 409 })
+        }
+      }
+    }
+
     const { error } = await admin.from('shops').update(updates).eq('id', shop_id)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) {
+      if ((error as any).code === '23505') return NextResponse.json({ error: t('shop_code_taken'), field: 'code' }, { status: 409 })
+      if (touchesInfo && /column .* does not exist|schema cache/i.test(error.message)) return NextResponse.json({ error: t('migration_required') }, { status: 503 })
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    if (touchesInfo && currentInfo) {
+      const changed = INFO_FIELDS.filter(f => f in updates && (updates[f] ?? null) !== (currentInfo![f] ?? null))
+      if (changed.length) {
+        await writeAuditLog({
+          action: 'shop.update_info',
+          shop_id,
+          actor_id: user.id,
+          actor_email: user.email,
+          target_id: shop_id,
+          target_type: 'shop',
+          metadata: {
+            before: Object.fromEntries(changed.map(f => [f, currentInfo![f] ?? null])),
+            after: Object.fromEntries(changed.map(f => [f, updates[f] ?? null])),
+          },
+          ip: getClientIp(request),
+        })
+      }
+    }
 
     if (hoursChanged && currentHours) {
       await writeAuditLog({

@@ -361,10 +361,13 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
     if (!shop?.id || profile?.role !== 'owner') return
     Promise.all([
       supabase.from('products').select('id', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('is_active', true),
-      supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('is_active', true),
-    ]).then(([{ count: pCount }, { count: tCount }]) => {
+      // Équipe : règle unique du serveur (personnes distinctes du compte,
+      // propriétaire non compté). L'ancien comptage par profils rattachés à la
+      // boutique comptait le propriétaire.
+      fetch(`/api/team/quota?shop_id=${shop.id}`).then(r => (r.ok ? r.json() : null)).catch(() => null),
+    ]).then(([{ count: pCount }, quota]) => {
       setProductCount(pCount || 0)
-      setTeamCount(tCount || 0)
+      setTeamCount(Number(quota?.used) || 0)
     })
   }, [shop?.id, profile?.role])
 
