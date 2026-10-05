@@ -2648,6 +2648,7 @@
   },
   "plan_usage": {
     "shops": "Boutiques",
+    "offered": "{count, plural, one {dont # offert} other {dont # offerts}}",
     "employees": "Employés",
     "products": "Produits",
     "history": "Historique",

@@ -41,7 +41,8 @@ interface EntityView {
   billing_contact_name?: string | null; billing_email?: string | null; billing_phone?: string | null
   billing_address?: string | null; billing_city?: string | null; billing_country?: string | null; tax_id?: string | null
   plan?: string; plan_expires_at?: string | null; trial_ends_at?: string | null
-  quota?: { shops_used: number; shops_limit: number; members_used: number; members_limit: number }
+  /** Limites effectives (formule + gestes commerciaux) ; *_offered = part offerte */
+  quota?: { shops_used: number; shops_limit: number; shops_offered?: number; members_used: number; members_limit: number; members_offered?: number }
 }
 
 export default function CompanySettingsPage() {
@@ -244,11 +245,12 @@ export default function CompanySettingsPage() {
             </Button>
           </div>
           <div className="grid gap-3 sm:grid-cols-2" data-testid="company-quota">
-            {([[Store, t('entity.usage_establishments'), entity.quota.shops_used, entity.quota.shops_limit], [Users, t('entity.usage_members'), entity.quota.members_used, entity.quota.members_limit]] as const).map(([Icon, label, used, limit]) => (
+            {([[Store, t('entity.usage_establishments'), entity.quota.shops_used, entity.quota.shops_limit, entity.quota.shops_offered ?? 0], [Users, t('entity.usage_members'), entity.quota.members_used, entity.quota.members_limit, entity.quota.members_offered ?? 0]] as const).map(([Icon, label, used, limit, offered]) => (
               <div key={label} className="rounded-lg border p-3">
                 <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><Icon className="h-3.5 w-3.5" />{label}</p>
                 <p className={cn('mt-1 text-lg font-bold tabular-nums', limit !== -1 && used >= limit && 'text-amber-600 dark:text-amber-400')}>
                   {limit === -1 ? used : `${used} / ${limit}`}
+                  {limit !== -1 && offered > 0 && <span className="ml-1.5 text-xs font-medium text-muted-foreground" data-testid="company-quota-offered">({t('plan_usage.offered', { count: offered })})</span>}
                 </p>
                 {limit !== -1 && (
                   <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">

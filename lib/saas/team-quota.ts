@@ -4,6 +4,8 @@
 //   boutiques de l'entreprise auxquelles elle est affectée.
 //   Le propriétaire de l'entreprise n'est PAS compté.
 //
+// Limite = formule + gestes commerciaux actifs (lib/saas/grants.ts).
+//
 // Utilisée par : invitation, affectation d'un membre existant, réactivation
 // de compte, bandeau et page Abonnement (GET /api/team/quota), contrôle après
 // paiement (lib/saas/enforce-limits.ts). Aucune autre méthode de comptage.
@@ -12,6 +14,7 @@
 
 import { getPlan } from './plans'
 import { getAccountForShop, getEntityShopIds, type EntityAccount } from './entity'
+import { getGrantBonus, effectiveLimit } from './grants'
 
 export type { EntityAccount }
 
@@ -20,8 +23,12 @@ export interface TeamSeats {
   ownerId: string | null
   plan: string
   planName: string
-  /** -1 = illimité */
+  /** Limite effective = formule + gestes commerciaux actifs (migration 157) ; -1 = illimité */
   limit: number
+  /** Limite de la formule seule */
+  planLimit: number
+  /** Membres offerts (gestes actifs) */
+  offered: number
   used: number
   /** Personnes comptées (user_id distincts) */
   personIds: string[]
@@ -40,7 +47,7 @@ export function getAccountShopIds(admin: any, account: Pick<EntityAccount, 'enti
 /** Sièges utilisés par l'entreprise : personnes distinctes actives hors propriétaire */
 export async function countTeamSeats(admin: any, account: EntityAccount): Promise<TeamSeats> {
   const plan = getPlan(account.plan)
-  const shopIds = await getEntityShopIds(admin, account)
+  const [shopIds, bonus] = await Promise.all([getEntityShopIds(admin, account), getGrantBonus(admin, account.entityId)])
   let personIds: string[] = []
   if (shopIds.length) {
     const { data: rows } = await admin
@@ -55,11 +62,20 @@ export async function countTeamSeats(admin: any, account: EntityAccount): Promis
     ownerId: account.ownerId,
     plan: plan.id,
     planName: plan.name,
-    limit: plan.limits.team_members,
+    limit: effectiveLimit(plan.limits.team_members, bonus.team_seats),
+    planLimit: plan.limits.team_members,
+    offered: plan.limits.team_members === -1 ? 0 : bonus.team_seats,
     used: personIds.length,
     personIds,
     shopIds,
   }
+}
+
+/** Limite de boutiques de l'entreprise : formule + boutiques offertes ; -1 = illimité */
+export async function getShopLimit(admin: any, account: Pick<EntityAccount, 'entityId' | 'plan'>): Promise<{ limit: number; planLimit: number; offered: number }> {
+  const planLimit = getPlan(account.plan).limits.shops
+  const bonus = await getGrantBonus(admin, account.entityId)
+  return { limit: effectiveLimit(planLimit, bonus.shops), planLimit, offered: planLimit === -1 ? 0 : bonus.shops }
 }
 
 /**

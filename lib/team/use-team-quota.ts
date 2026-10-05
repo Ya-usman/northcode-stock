@@ -5,7 +5,11 @@
 
 import { useCallback, useEffect, useState } from 'react'
 
-export interface TeamQuota { used: number; limit: number; plan: string; planName: string }
+/** limit / shops_limit = limites effectives (formule + gestes commerciaux) ; offered = part offerte */
+export interface TeamQuota {
+  used: number; limit: number; offered?: number; plan: string; planName: string
+  shops_limit?: number; shops_offered?: number
+}
 
 export function useTeamQuota(shopId: string | null | undefined) {
   const [data, setData] = useState<TeamQuota | null>(null)

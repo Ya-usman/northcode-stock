@@ -211,6 +211,7 @@ export default function TeamPage() {
           {quota.data && (
             <p className={cn('text-xs font-medium', quota.data.limit !== -1 && quota.data.used >= quota.data.limit ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground')} data-testid="team-quota">
               {quota.data.limit === -1 ? t('team.quota_unlimited', { used: quota.data.used }) : t('team.quota', { used: quota.data.used, limit: quota.data.limit, plan: quota.data.planName })}
+              {quota.data.limit !== -1 && (quota.data.offered ?? 0) > 0 && <span data-testid="team-quota-offered"> ({t('plan_usage.offered', { count: quota.data.offered! })})</span>}
             </p>
           )}
         </div>

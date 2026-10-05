@@ -2648,6 +2648,7 @@
   },
   "plan_usage": {
     "shops": "Shops",
+    "offered": "incl. {count} complimentary",
     "employees": "Employees",
     "products": "Products",
     "history": "History",

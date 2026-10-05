@@ -5,8 +5,7 @@ import { checkShopRole } from '@/lib/api/shop-auth'
 import { isAccountOwner, isTeamManager } from '@/lib/team/roles'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { isValidPhone } from '@/lib/validations/customer'
-import { getPlan } from '@/lib/saas/plans'
-import { countTeamSeats, resolveAccount, getAccountShopIds } from '@/lib/saas/team-quota'
+import { countTeamSeats, resolveAccount, getAccountShopIds, getShopLimit } from '@/lib/saas/team-quota'
 
 // /api/entity?shop_id=… — l'ENTREPRISE de la boutique (migration 153).
 //  GET   : propriétaire et gestion d'équipe (Manager, Responsable) — lecture ;
@@ -45,8 +44,11 @@ export async function GET(request: Request) {
   const { data: e } = await admin.from('entities').select('*').eq('id', account.entityId).single()
   const { data: owner } = e?.owner_user_id ? await admin.from('profiles').select('full_name').eq('id', e.owner_user_id).maybeSingle() : { data: null }
   const owner_view = isAccountOwner(role)
-  const plan = getPlan(e.plan)
-  const [seats, shopIds] = await Promise.all([countTeamSeats(admin, account), getAccountShopIds(admin, account, { includeSuspended: true })])
+  const [seats, shopIds, shopLimit] = await Promise.all([
+    countTeamSeats(admin, account),
+    getAccountShopIds(admin, account, { includeSuspended: true }),
+    getShopLimit(admin, account),
+  ])
 
   return NextResponse.json({
     entity: {
@@ -58,7 +60,11 @@ export async function GET(request: Request) {
         billing_contact_name: e.billing_contact_name, billing_email: e.billing_email, billing_phone: e.billing_phone,
         billing_address: e.billing_address, billing_city: e.billing_city, billing_country: e.billing_country, tax_id: e.tax_id,
         plan: e.plan, plan_expires_at: e.plan_expires_at, trial_ends_at: e.trial_ends_at, plan_grace_ends_at: e.plan_grace_ends_at,
-        quota: { shops_used: shopIds.length, shops_limit: plan.limits.shops, members_used: seats.used, members_limit: seats.limit },
+        // Limites effectives (formule + offert) ; *_offered > 0 → « dont N offert »
+        quota: {
+          shops_used: shopIds.length, shops_limit: shopLimit.limit, shops_offered: shopLimit.offered,
+          members_used: seats.used, members_limit: seats.limit, members_offered: seats.offered,
+        },
       } : {}),
     },
     can_edit: owner_view,

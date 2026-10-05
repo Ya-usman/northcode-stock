@@ -160,7 +160,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
           {kpi(Wallet, t('shops.kpi_cash_today'), loaded ? sumByCurrency(id => stats[id]?.cashToday || 0) : '…')}
           {kpi(ShoppingCart, t('shops.kpi_sales_today'), loaded ? totals.salesCount : '…', loaded ? sumByCurrency(id => stats[id]?.salesToday || 0) : undefined)}
           {isOwner && kpi(Package, t('shops.kpi_stock_value'), loaded ? sumByCurrency(id => stats[id]?.stockValue || 0) : '…')}
-          {kpi(Users, t('shops.kpi_team'), quota.data ? (quota.data.limit === -1 ? quota.data.used : `${quota.data.used} / ${quota.data.limit}`) : new Set(people.filter(p => p.accountActive && p.memberships.some(m => m.role !== 'owner')).map(p => p.user_id)).size, quota.data ? planLabel(quota.data.plan) : undefined)}
+          {kpi(Users, t('shops.kpi_team'), quota.data ? (quota.data.limit === -1 ? quota.data.used : `${quota.data.used} / ${quota.data.limit}`) : new Set(people.filter(p => p.accountActive && p.memberships.some(m => m.role !== 'owner')).map(p => p.user_id)).size, quota.data ? planLabel(quota.data.plan) + ((quota.data.offered ?? 0) > 0 && quota.data.limit !== -1 ? ` · ${t('plan_usage.offered', { count: quota.data.offered! })}` : '') : undefined)}
           {kpi(AlertTriangle, t('shops.kpi_alerts'), loaded ? totals.out + totals.low : '…', loaded ? `${t('shops.out_count', { count: totals.out })} · ${t('shops.low_count', { count: totals.low })}` : undefined, totals.out ? 'text-red-600 dark:text-red-400' : undefined)}
         </div>
       )}

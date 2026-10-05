@@ -13,10 +13,12 @@ interface PlanLimitAlertProps {
   currentPlan: string | null
   productCount: number
   teamMemberCount: number
+  /** Limite effective du serveur (formule + membres offerts) ; à défaut, celle de la formule */
+  teamLimit?: number
   locale: string
 }
 
-export function PlanLimitAlert({ currentPlan, productCount, teamMemberCount, locale }: PlanLimitAlertProps) {
+export function PlanLimitAlert({ currentPlan, productCount, teamMemberCount, teamLimit, locale }: PlanLimitAlertProps) {
   const t = useTranslations('saas')
   const { symbol } = useCurrency()
   const [dismissed, setDismissed] = useState(false)
@@ -44,14 +46,15 @@ export function PlanLimitAlert({ currentPlan, productCount, teamMemberCount, loc
     }
 
     // Team members limit
-    if (limits.team_members !== -1) {
-      if (teamMemberCount >= limits.team_members) {
-        setMessage(t('team_limit_reached', { limit: limits.team_members, plan: plan.name }))
+    const memberLimit = teamLimit ?? limits.team_members
+    if (memberLimit !== -1) {
+      if (teamMemberCount >= memberLimit) {
+        setMessage(t('team_limit_reached', { limit: memberLimit, plan: plan.name }))
         setIsWarning(false)
         setDismissed(false)
         return
-      } else if (teamMemberCount / limits.team_members >= 0.8) {
-        setMessage(t('team_limit_warning', { count: teamMemberCount, limit: limits.team_members }))
+      } else if (teamMemberCount / memberLimit >= 0.8) {
+        setMessage(t('team_limit_warning', { count: teamMemberCount, limit: memberLimit }))
         setIsWarning(true)
         setDismissed(false)
         return
@@ -59,7 +62,7 @@ export function PlanLimitAlert({ currentPlan, productCount, teamMemberCount, loc
     }
 
     setMessage(null)
-  }, [currentPlan, productCount, teamMemberCount, t])
+  }, [currentPlan, productCount, teamMemberCount, teamLimit, t])
 
   // Find next plan to recommend
   const planOrder: PlanId[] = ['trial', 'starter', 'pro', 'business']

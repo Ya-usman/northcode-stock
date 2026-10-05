@@ -2648,6 +2648,7 @@
   },
   "plan_usage": {
     "shops": "Shaguna",
+    "offered": "ciki har da {count} kyauta",
     "employees": "Ma'aikata",
     "products": "Kayayyaki",
     "history": "Tarihi",

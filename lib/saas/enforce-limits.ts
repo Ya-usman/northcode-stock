@@ -2,6 +2,7 @@ import { getPlan } from './plans'
 import { writeAuditLog } from '@/lib/api/audit'
 import { getAccountShopIds } from './team-quota'
 import { getAccountForShop, type EntityAccount } from './entity'
+import { getGrantBonus, effectiveLimit } from './grants'
 
 export interface EnforcementResult {
   /** true = calcul seul, rien n'a été écrit (voir PLAN_LIMIT_ENFORCEMENT) */
@@ -66,9 +67,12 @@ export async function enforceAccountPlanLimits(
     reactivated_members: [],
   }
 
+  // Limites effectives = formule + gestes commerciaux actifs (migration 157) :
+  // un membre ou une boutique offert n'est jamais suspendu par ce contrôle.
   const plan = getPlan(account.plan)
-  const shopLimit   = plan.limits.shops        // -1 = illimité
-  const memberLimit = plan.limits.team_members // -1 = illimité ; propriétaire non compté
+  const bonus = await getGrantBonus(supabase, account.entityId)
+  const shopLimit   = effectiveLimit(plan.limits.shops, bonus.shops)               // -1 = illimité
+  const memberLimit = effectiveLimit(plan.limits.team_members, bonus.team_seats)   // -1 = illimité ; propriétaire non compté
 
   // ── 1. BOUTIQUES ──────────────────────────────────────────────────────────
   const allShopIds = await getAccountShopIds(supabase, account, { includeSuspended: true })
@@ -174,6 +178,8 @@ export async function enforceAccountPlanLimits(
       actor_id: owner_id,
       metadata: {
         plan: plan.id,
+        offered_shops: bonus.shops,
+        offered_members: bonus.team_seats,
         suspended_shops:     result.suspended_shops.length,
         reactivated_shops:   result.reactivated_shops.length,
         suspended_members:   result.suspended_members.length,

@@ -13,6 +13,11 @@ interface PlanUsageCardProps {
   productCount: number
   teamCount: number    // active non-owner members
   shopCount: number    // active shops owned
+  /** Limites effectives du serveur (formule + gestes commerciaux) ; à défaut, celles de la formule */
+  teamLimit?: number
+  shopLimit?: number
+  teamOffered?: number
+  shopOffered?: number
   locale: string
 }
 
@@ -22,6 +27,8 @@ interface UsageStat {
   used: number
   limit: number   // -1 = unlimited
   unit?: string
+  /** Part offerte (gestes commerciaux) */
+  offered?: number
 }
 
 function StatusIcon({ pct }: { pct: number | null }) {
@@ -32,6 +39,7 @@ function StatusIcon({ pct }: { pct: number | null }) {
 }
 
 function UsageRow({ stat }: { stat: UsageStat }) {
+  const t = useTranslations('plan_usage')
   const isUnlimited = stat.limit === -1
   const pct = isUnlimited ? null : Math.min(1, stat.used / stat.limit)
   const barColor = pct === null
@@ -53,6 +61,7 @@ function UsageRow({ stat }: { stat: UsageStat }) {
           </span>
           <span className="text-xs text-muted-foreground">
             / {isUnlimited ? '∞' : `${stat.limit}${stat.unit ? ` ${stat.unit}` : ''}`}
+            {!isUnlimited && (stat.offered ?? 0) > 0 && ` (${t('offered', { count: stat.offered! })})`}
           </span>
           <StatusIcon pct={pct} />
         </div>
@@ -70,6 +79,7 @@ function UsageRow({ stat }: { stat: UsageStat }) {
 export function PlanUsageCard({
   plan, planExpiresAt, trialEndsAt,
   productCount, teamCount, shopCount,
+  teamLimit, shopLimit, teamOffered, shopOffered,
 }: PlanUsageCardProps) {
   const t = useTranslations('plan_usage')
   const planData = getPlan(plan)
@@ -82,13 +92,15 @@ export function PlanUsageCard({
       icon: <Store className="h-4 w-4" />,
       label: t('shops'),
       used: shopCount,
-      limit: planData.limits.shops,
+      limit: shopLimit ?? planData.limits.shops,
+      offered: shopOffered,
     },
     {
       icon: <Users className="h-4 w-4" />,
       label: t('employees'),
       used: teamCount,
-      limit: planData.limits.team_members,
+      limit: teamLimit ?? planData.limits.team_members,
+      offered: teamOffered,
     },
     {
       icon: <Package className="h-4 w-4" />,
@@ -103,7 +115,7 @@ export function PlanUsageCard({
       limit: planData.limits.history_days,
       unit: t('days_unit'),
     },
-  ], [planData, shopCount, teamCount, productCount, t])
+  ], [planData, shopCount, teamCount, productCount, teamLimit, shopLimit, teamOffered, shopOffered, t])
 
   // Expiry countdown
   const daysLeft = isSubscribed && planExpiresAt

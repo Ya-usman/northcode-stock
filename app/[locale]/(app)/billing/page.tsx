@@ -36,7 +36,8 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   const { isOnline } = useOffline()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
-  const [usageStats, setUsageStats] = useState({ products: 0, team: 0, shops: 0 })
+  // Limites effectives du serveur (formule + gestes commerciaux) — undefined tant qu'elles ne sont pas lues
+  const [usageStats, setUsageStats] = useState<{ products: number; team: number; shops: number; teamLimit?: number; shopLimit?: number; teamOffered?: number; shopOffered?: number }>({ products: 0, team: 0, shops: 0 })
   const [enforcement, setEnforcement] = useState<{ suspended_shops: number; suspended_members: number; reactivated_shops: number; reactivated_members: number } | null>(null)
   const [period, setPeriod] = useState<BillingPeriod>('monthly')
   const searchParams = useSearchParams()
@@ -142,7 +143,13 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
       // falls into the catch below (preserving the last known values) instead
       // of silently resetting that one usage bar to 0.
       if (prodRes.error || shopsRes.error) throw prodRes.error || shopsRes.error
-      setUsageStats({ products: prodRes.count ?? 0, team: Number(quota?.used) || 0, shops: shopsRes.count ?? 0 })
+      setUsageStats({
+        products: prodRes.count ?? 0, team: Number(quota?.used) || 0, shops: shopsRes.count ?? 0,
+        teamLimit: typeof quota?.limit === 'number' ? quota.limit : undefined,
+        shopLimit: typeof quota?.shops_limit === 'number' ? quota.shops_limit : undefined,
+        teamOffered: Number(quota?.offered) || 0,
+        shopOffered: Number(quota?.shops_offered) || 0,
+      })
     }).catch(() => {
       // usage bars just keep showing their last known values
     })
@@ -340,6 +347,10 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
             productCount={usageStats.products}
             teamCount={usageStats.team}
             shopCount={usageStats.shops}
+            teamLimit={usageStats.teamLimit}
+            shopLimit={usageStats.shopLimit}
+            teamOffered={usageStats.teamOffered}
+            shopOffered={usageStats.shopOffered}
             locale={locale}
           />
         )}

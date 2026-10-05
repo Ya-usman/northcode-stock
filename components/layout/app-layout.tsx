@@ -77,6 +77,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   const title = usePageTitle(pathname, locale)
   const [productCount, setProductCount] = useState(0)
   const [teamCount, setTeamCount] = useState(0)
+  const [teamLimit, setTeamLimit] = useState<number | undefined>(undefined)
   const [authRecovering, setAuthRecovering] = useState(true)
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [whatsNewOpen, setWhatsNewOpen] = useState(false)
@@ -368,6 +369,8 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
     ]).then(([{ count: pCount }, quota]) => {
       setProductCount(pCount || 0)
       setTeamCount(Number(quota?.used) || 0)
+      // Limite effective (formule + membres offerts) : un geste commercial ne déclenche pas d'alerte
+      setTeamLimit(typeof quota?.limit === 'number' ? quota.limit : undefined)
     })
   }, [shop?.id, profile?.role])
 
@@ -478,6 +481,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
             currentPlan={shop?.plan ?? null}
             productCount={productCount}
             teamMemberCount={teamCount}
+            teamLimit={teamLimit}
             locale={locale}
           />
         )}

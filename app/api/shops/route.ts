@@ -1,6 +1,7 @@
 ﻿import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getPlan } from '@/lib/saas/plans'
+import { getShopLimit } from '@/lib/saas/team-quota'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { getOwnerShopIds } from '@/lib/api/shop-auth'
 import { validateShopIdentity, isShopCodeTaken } from '@/lib/saas/shop-identity'
@@ -61,27 +62,30 @@ export async function POST(request: Request) {
     const currency = currencyCodeForCountry(country)
 
     // Formule de l'ENTREPRISE du propriétaire (migration 153) — source unique
-    const { data: ownEntity } = await supabase.from('entities').select('plan').eq('owner_user_id', user.id).order('created_at', { ascending: true }).limit(1).maybeSingle()
+    const { data: ownEntity } = await supabase.from('entities').select('id, plan').eq('owner_user_id', user.id).order('created_at', { ascending: true }).limit(1).maybeSingle()
     const refPlan: string = (ownEntity as any)?.plan ?? 'trial'
-
-    // Enforce shop limit based on owner's plan
-    const plan = getPlan(refPlan)
-    if (plan.limits.shops !== -1) {
-      const { count } = await supabase
-        .from('shop_members').select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id).eq('role', 'owner').eq('is_active', true)
-      if ((count ?? 0) >= plan.limits.shops) {
-        return NextResponse.json(
-          { error: t('shop_limit_reached', { plan: plan.name, limit: plan.limits.shops }) },
-          { status: 403 }
-        )
-      }
-    }
 
     // La nouvelle boutique rejoint l'entreprise du propriétaire (trigger
     // shops_assign_entity, migration 153) et partage son abonnement : rien à
     // écrire ici (ni double facturation, ni essai séparé).
     const admin = await createAdminClient()
+
+    // Limite de boutiques = formule + boutiques offertes (gestes commerciaux)
+    const plan = getPlan(refPlan)
+    const shopLimit = (ownEntity as any)?.id
+      ? (await getShopLimit(admin, { entityId: (ownEntity as any).id, plan: refPlan })).limit
+      : plan.limits.shops
+    if (shopLimit !== -1) {
+      const { count } = await supabase
+        .from('shop_members').select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id).eq('role', 'owner').eq('is_active', true)
+      if ((count ?? 0) >= shopLimit) {
+        return NextResponse.json(
+          { error: t('shop_limit_reached', { plan: plan.name, limit: shopLimit }) },
+          { status: 403 }
+        )
+      }
+    }
 
     // Code boutique unique dans le compte
     if (identity.values.code) {
