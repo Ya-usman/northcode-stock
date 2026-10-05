@@ -1,167 +1,133 @@
-export interface EveningSummaryData {
-  date: string
-  totalSales: number
-  totalRevenue: number
-  totalExpenses: number
-  netRevenue: number
-  newCustomers: number
-  unpaidSales: number
-  activeShops: number
-  lowStockShops: { shopName: string; count: number }[]
-  topProducts: { name: string; shopName: string; qty: number }[]
+// Résumé de la journée — e-mail du soir au PROPRIÉTAIRE (option « Résumé
+// quotidien » d'une boutique). UN e-mail par propriétaire, une section par
+// boutique ayant l'option. Même charte que les autres e-mails (brand.ts).
+// Fonction pure (testable).
+
+import { esc, emailShell } from './brand'
+import { formatCurrency } from '@/lib/utils/currency'
+import type { ShopDay } from '@/lib/reports/evening-report'
+
+const METHOD_LABEL: Record<string, string> = {
+  cash: 'Espèces', mobile_money: 'Mobile Money', wave: 'Wave', transfer: 'Virement', pos: 'Carte / TPE',
+  card: 'Carte', credit: 'Crédit', mixed: 'Paiement mixte', paystack: 'Paiement en ligne', other: 'Autre',
+}
+export const methodLabel = (m: string) => METHOD_LABEL[m] || m
+
+const sectionTitle = (t: string) => `<p style="margin:18px 0 8px;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.8px;">${t}</p>`
+const tableOpen = `<table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;border-collapse:separate;">`
+const row = (left: string, right: string, strong = false) => `<tr>
+  <td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:14px;color:#1f2937;">${left}</td>
+  <td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:14px;color:#0f172a;text-align:right;white-space:nowrap;${strong ? 'font-weight:700;' : ''}">${right}</td></tr>`
+function tile(value: string, label: string, sub = '', tone: 'neutral' | 'warn' | 'good' = 'neutral'): string {
+  const c = tone === 'warn' ? { bg: '#fffbeb', border: '#fde68a', v: '#b45309' } : tone === 'good' ? { bg: '#f0fdf4', border: '#bbf7d0', v: '#15803d' } : { bg: '#f8fafc', border: '#e5e7eb', v: '#0f172a' }
+  return `<td width="50%" style="padding:4px;vertical-align:top;"><div style="background:${c.bg};border:1px solid ${c.border};border-radius:10px;padding:12px 14px;">
+    <div style="font-size:20px;font-weight:700;color:${c.v};line-height:1.2;">${value}</div>
+    <div style="font-size:12px;color:#6b7280;margin-top:2px;">${label}</div>${sub ? `<div style="font-size:11px;margin-top:4px;">${sub}</div>` : ''}</div></td>`
+}
+const tiles = (cells: string[]) => {
+  const rows: string[] = []
+  for (let i = 0; i < cells.length; i += 2) rows.push(`<tr>${cells[i]}${cells[i + 1] ?? '<td width="50%"></td>'}</tr>`)
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;">${rows.join('')}</table>`
 }
 
-export function buildEveningSummaryHtml(data: EveningSummaryData): string {
-  const fmt = (n: number) =>
-    new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0 }).format(Math.round(n))
+/** Écart en % par rapport à une base (null si base nulle) */
+export function trend(current: number, base: number): number | null {
+  if (!(base > 0)) return null
+  return Math.round(((current - base) / base) * 100)
+}
+function trendText(pct: number | null): string {
+  if (pct === null) return `<span style="color:#9ca3af;">— vs même jour la semaine dernière</span>`
+  const up = pct >= 0
+  return `<span style="color:${up ? '#15803d' : '#b91c1c'};font-weight:600;">${up ? '↑ +' : '↓ '}${pct} %</span> <span style="color:#9ca3af;">vs même jour la semaine dernière</span>`
+}
 
-  const lowStockRows = data.lowStockShops.length
-    ? data.lowStockShops.map(s => `
-        <tr>
-          <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-size:13px;color:#374151;">${s.shopName}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-size:13px;font-weight:600;color:#dc2626;text-align:right;">${s.count} produit(s)</td>
-        </tr>`).join('')
-    : `<tr><td colspan="2" style="padding:12px;text-align:center;font-size:13px;color:#16a34a;">✅ Aucune alerte stock</td></tr>`
+/** La journée a-t-elle eu une activité ? (sinon : résumé court) */
+export const hasActivity = (s: ShopDay) => s.salesCount > 0 || s.collected > 0 || s.expenses > 0 || s.cancelled.count > 0
 
-  const topProductRows = data.topProducts.length
-    ? data.topProducts.slice(0, 5).map((p, i) => `
-        <tr>
-          <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-size:13px;color:#6b7280;text-align:center;">${i + 1}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-size:13px;color:#374151;">${p.name}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-size:13px;color:#6b7280;font-size:12px;">${p.shopName}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-size:13px;font-weight:600;color:#073e8a;text-align:right;">${p.qty}</td>
-        </tr>`).join('')
-    : `<tr><td colspan="4" style="padding:12px;text-align:center;font-size:13px;color:#9ca3af;">Aucune vente aujourd'hui</td></tr>`
+function shopBlock(s: ShopDay, appUrl: string, multi: boolean): string {
+  const money = (n: number) => formatCurrency(Math.round(n), s.currency)
+  const head = multi ? `<h2 style="margin:26px 0 2px;font-size:17px;color:#073e8a;">${esc(s.name)}</h2>` : ''
+  if (!hasActivity(s)) {
+    return `${head}<p style="margin:${multi ? '4px' : '16px'} 0 0;font-size:14px;color:#4b5563;">Aucune vente ni dépense enregistrée aujourd'hui.${s.totalDebt > 0 ? ` Dettes clients en cours : <strong>${money(s.totalDebt)}</strong>.` : ''}</p>`
+  }
+  const avg = s.salesCount ? s.revenue / s.salesCount : 0
+  const cashFlow = s.collected - s.expenses
 
-  return `<!DOCTYPE html>
-<html lang="fr">
-<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/></head>
-<body style="margin:0;padding:0;background:#f4f6fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6fb;padding:32px 16px;">
-  <tr><td align="center">
-    <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+  let b = head
+  b += sectionTitle('Chiffres de la journée')
+  b += tiles([
+    tile(money(s.revenue), `chiffre d'affaires · ${s.salesCount} vente${s.salesCount > 1 ? 's' : ''}`, trendText(trend(s.revenue, s.revenueLastWeek))),
+    tile(money(s.collected), 'encaissé aujourd\'hui', `<span style="color:#6b7280;">panier moyen ${money(avg)}</span>`, 'good'),
+    tile(s.grossMargin === null ? '—' : money(s.grossMargin), 'marge brute', s.grossMargin === null
+      ? '<span style="color:#9ca3af;">prix d\'achat non renseignés</span>'
+      : s.marginCoverage < 0.95 ? `<span style="color:#9ca3af;">sur ${Math.round(s.marginCoverage * 100)} % des ventes (prix d'achat connus)</span>` : ''),
+    tile(money(cashFlow), 'encaissé − dépenses', `<span style="color:#6b7280;">dépenses ${money(s.expenses)}</span>`, cashFlow < 0 ? 'warn' : 'neutral'),
+  ])
 
-      <!-- Header -->
-      <tr><td align="center" style="padding-bottom:20px;">
-        <table cellpadding="0" cellspacing="0">
-          <tr><td style="background:#073e8a;border-radius:12px;padding:10px 22px;">
-            <span style="color:#fff;font-size:17px;font-weight:700;">StockShop</span>
-            <span style="color:#D4AF37;font-size:17px;font-weight:700;">.</span>
-          </td></tr>
-        </table>
-      </td></tr>
+  if (s.byMethod.length) {
+    b += sectionTitle('Encaissements par mode de paiement')
+    b += tableOpen + s.byMethod.map(m => row(esc(methodLabel(m.method)), money(m.amount))).join('') + row('<strong>Total encaissé</strong>', money(s.collected), true) + '</table>'
+  }
 
-      <!-- Card -->
-      <tr><td style="background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(7,62,138,0.08);overflow:hidden;">
+  if (s.creditSold > 0 || s.repayments > 0 || s.totalDebt > 0) {
+    b += sectionTitle('Crédit clients')
+    b += tableOpen
+      + row('Vendu à crédit aujourd\'hui', money(s.creditSold))
+      + row('Dettes remboursées aujourd\'hui', money(s.repayments))
+      + row('<strong>Total restant dû par les clients</strong>', money(s.totalDebt), true) + '</table>'
+  }
 
-        <!-- Top bar -->
-        <table width="100%" cellpadding="0" cellspacing="0">
-          <tr><td style="background:linear-gradient(135deg,#073e8a 0%,#0d52b8 100%);padding:28px 36px 24px;">
-            <p style="margin:0 0 6px;color:rgba(255,255,255,0.7);font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;">Résumé du jour</p>
-            <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">🌙 Bilan de la journée</h1>
-            <p style="margin:6px 0 0;color:rgba(255,255,255,0.8);font-size:13px;">${data.date}</p>
-          </td></tr>
-        </table>
+  if (s.topProducts.length) {
+    b += sectionTitle('Meilleures ventes')
+    b += tableOpen + s.topProducts.map((p, i) => row(`${i + 1}. ${esc(p.name)} <span style="color:#9ca3af;font-size:12px;">· ${p.quantity.toLocaleString('fr-FR')} vendu${p.quantity > 1 ? 's' : ''}</span>`, money(p.amount))).join('') + '</table>'
+  }
 
-        <!-- Body -->
-        <table width="100%" cellpadding="0" cellspacing="0">
-          <tr><td style="padding:28px 36px;">
+  if (s.sellers.length > 1 || s.discounts.count || s.cancelled.count) {
+    b += sectionTitle('Équipe et contrôle')
+    b += tableOpen
+    if (s.sellers.length > 1) b += s.sellers.map(v => row(`${esc(v.name)} <span style="color:#9ca3af;font-size:12px;">· ${v.count} vente${v.count > 1 ? 's' : ''}</span>`, money(v.amount))).join('')
+    b += row(`Remises accordées <span style="color:#9ca3af;font-size:12px;">· ${s.discounts.count} vente${s.discounts.count > 1 ? 's' : ''}</span>`, s.discounts.count ? money(s.discounts.amount) : '—')
+    b += row(`Ventes annulées <span style="color:#9ca3af;font-size:12px;">· ${s.cancelled.count}</span>`, s.cancelled.count ? `<span style="color:#b91c1c;">${money(s.cancelled.amount)}</span>` : '—')
+    b += '</table>'
+  }
 
-            <!-- Key metrics grid -->
-            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
-              <tr>
-                <td style="width:50%;padding-right:8px;">
-                  <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:16px;text-align:center;">
-                    <div style="font-size:22px;font-weight:700;color:#073e8a;">${data.totalSales}</div>
-                    <div style="font-size:11px;color:#6b7280;margin-top:4px;text-transform:uppercase;letter-spacing:0.5px;">Ventes</div>
-                  </div>
-                </td>
-                <td style="width:50%;padding-left:8px;">
-                  <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px;text-align:center;">
-                    <div style="font-size:22px;font-weight:700;color:#16a34a;">${fmt(data.totalRevenue)} F</div>
-                    <div style="font-size:11px;color:#6b7280;margin-top:4px;text-transform:uppercase;letter-spacing:0.5px;">Recettes</div>
-                  </div>
-                </td>
-              </tr>
-              <tr style="height:8px;"></tr>
-              <tr>
-                <td style="width:50%;padding-right:8px;">
-                  <div style="background:#fef9f0;border:1px solid #fde68a;border-radius:10px;padding:16px;text-align:center;">
-                    <div style="font-size:22px;font-weight:700;color:#d97706;">${fmt(data.totalExpenses)} F</div>
-                    <div style="font-size:11px;color:#6b7280;margin-top:4px;text-transform:uppercase;letter-spacing:0.5px;">Dépenses</div>
-                  </div>
-                </td>
-                <td style="width:50%;padding-left:8px;">
-                  <div style="background:${data.netRevenue >= 0 ? '#f0fdf4' : '#fef2f2'};border:1px solid ${data.netRevenue >= 0 ? '#bbf7d0' : '#fecaca'};border-radius:10px;padding:16px;text-align:center;">
-                    <div style="font-size:22px;font-weight:700;color:${data.netRevenue >= 0 ? '#16a34a' : '#dc2626'};">${data.netRevenue >= 0 ? '+' : ''}${fmt(data.netRevenue)} F</div>
-                    <div style="font-size:11px;color:#6b7280;margin-top:4px;text-transform:uppercase;letter-spacing:0.5px;">Net</div>
-                  </div>
-                </td>
-              </tr>
-            </table>
+  if (s.stock.out || s.stock.low) {
+    b += `<p style="margin:14px 0 0;font-size:13px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;">
+      Stock : <strong>${s.stock.out}</strong> produit${s.stock.out > 1 ? 's' : ''} en rupture, <strong>${s.stock.low}</strong> en stock faible. <a href="${appUrl}/fr/stock" style="color:#b45309;">Voir le stock</a></p>`
+  }
+  return b
+}
 
-            <!-- Secondary stats -->
-            <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:10px;padding:4px 0;margin-bottom:24px;">
-              <tr>
-                <td style="padding:10px 16px;font-size:13px;color:#374151;border-bottom:1px solid #f3f4f6;">
-                  👥 Nouveaux clients
-                </td>
-                <td style="padding:10px 16px;font-size:13px;font-weight:600;color:#073e8a;text-align:right;border-bottom:1px solid #f3f4f6;">
-                  ${data.newCustomers}
-                </td>
-              </tr>
-              <tr>
-                <td style="padding:10px 16px;font-size:13px;color:#374151;border-bottom:1px solid #f3f4f6;">
-                  ⏳ Ventes impayées
-                </td>
-                <td style="padding:10px 16px;font-size:13px;font-weight:600;color:${data.unpaidSales > 0 ? '#d97706' : '#16a34a'};text-align:right;border-bottom:1px solid #f3f4f6;">
-                  ${data.unpaidSales}
-                </td>
-              </tr>
-              <tr>
-                <td style="padding:10px 16px;font-size:13px;color:#374151;">
-                  🏪 Boutiques actives
-                </td>
-                <td style="padding:10px 16px;font-size:13px;font-weight:600;color:#073e8a;text-align:right;">
-                  ${data.activeShops}
-                </td>
-              </tr>
-            </table>
+export function buildEveningSummaryEmail(p: { ownerName: string | null; dateStr: string; shops: ShopDay[]; appUrl: string }): { subject: string; html: string } {
+  const multi = p.shops.length > 1
+  const active = p.shops.filter(hasActivity)
+  // Objet : le chiffre clé (une seule devise → total ; sinon nombre de ventes)
+  const currencies = Array.from(new Set(p.shops.map(s => s.currency)))
+  const sales = p.shops.reduce((n, s) => n + s.salesCount, 0)
+  const total = currencies.length === 1 ? formatCurrency(Math.round(p.shops.reduce((n, s) => n + s.revenue, 0)), currencies[0]) : null
+  const who = multi ? `${p.shops.length} boutiques` : p.shops[0]?.name || ''
+  const subject = active.length
+    ? `Votre journée — ${who} : ${sales} vente${sales > 1 ? 's' : ''}${total ? ` · ${total}` : ''}`
+    : `Votre journée — ${who} : aucune vente aujourd'hui`
 
-            <!-- Top products -->
-            <p style="margin:0 0 10px;font-size:13px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:0.5px;">🏆 Produits les plus vendus</p>
-            <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin-bottom:24px;">
-              <tr style="background:#f9fafb;">
-                <th style="padding:8px 12px;font-size:11px;color:#6b7280;text-align:center;font-weight:600;">#</th>
-                <th style="padding:8px 12px;font-size:11px;color:#6b7280;text-align:left;font-weight:600;">Produit</th>
-                <th style="padding:8px 12px;font-size:11px;color:#6b7280;text-align:left;font-weight:600;">Boutique</th>
-                <th style="padding:8px 12px;font-size:11px;color:#6b7280;text-align:right;font-weight:600;">Qté</th>
-              </tr>
-              ${topProductRows}
-            </table>
+  // Vue d'ensemble multi-boutiques, par devise (jamais d'addition de devises différentes)
+  let overview = ''
+  if (multi) {
+    overview = tableOpen + `<tr><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;background:#f8fafc;">Boutique</td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;text-align:right;background:#f8fafc;">Ventes · CA</td></tr>`
+      + p.shops.map(s => row(esc(s.name), `${s.salesCount} · ${formatCurrency(Math.round(s.revenue), s.currency)}`)).join('')
+      + currencies.map(c => { const sh = p.shops.filter(s => s.currency === c); return row(`<strong>Total${currencies.length > 1 ? ` (${esc(c)})` : ''}</strong>`, `${sh.reduce((n, s) => n + s.salesCount, 0)} · ${formatCurrency(Math.round(sh.reduce((n, s) => n + s.revenue, 0)), c)}`, true) }).join('')
+      + '</table>'
+  }
 
-            <!-- Low stock -->
-            <p style="margin:0 0 10px;font-size:13px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:0.5px;">⚠️ Alertes stock faible</p>
-            <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">
-              ${lowStockRows}
-            </table>
+  const body = `
+    <p style="margin:0;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:1px;">Résumé de la journée · ${esc(p.dateStr)}</p>
+    <p style="margin:8px 0 0;font-size:15px;color:#1f2937;">Bonsoir${p.ownerName ? ' ' + esc(p.ownerName) : ''},</p>
+    <p style="margin:6px 0 0;font-size:15px;color:#1f2937;">Voici le bilan de ${multi ? 'vos boutiques' : `<strong>${esc(p.shops[0]?.name || '')}</strong>`} pour aujourd'hui.</p>
+    ${overview ? `<div style="margin-top:14px;">${overview}</div>` : ''}
+    ${p.shops.map(s => shopBlock(s, p.appUrl, multi)).join('')}
+    <p style="margin:24px 0 20px;text-align:center;"><a href="${p.appUrl}/fr/reports" style="display:inline-block;background:#073e8a;color:#fff;text-decoration:none;padding:12px 26px;border-radius:8px;font-weight:600;font-size:14px;">Voir les rapports détaillés</a></p>`
 
-          </td></tr>
-        </table>
-
-        <!-- Footer bar -->
-        <table width="100%" cellpadding="0" cellspacing="0">
-          <tr><td style="background:#f9fafb;border-top:3px solid #D4AF37;padding:14px 36px;">
-            <p style="margin:0;color:#9ca3af;font-size:11px;text-align:center;">
-              StockShop Stock Manager · Rapport automatique de fin de journée
-            </p>
-          </td></tr>
-        </table>
-
-      </td></tr>
-    </table>
-  </td></tr>
-</table>
-</body>
-</html>`
+  const footer = `Vous recevez ce résumé car l'option « Résumé quotidien » est activée pour : ${p.shops.map(s => esc(s.name)).join(', ')}.<br/>
+    Un e-mail par soir, uniquement les jours d'activité. <a href="${p.appUrl}/fr/settings#notifications" style="color:#073e8a;">Gérer mes e-mails</a>`
+  return { subject, html: emailShell({ appUrl: p.appUrl, body, footer }) }
 }

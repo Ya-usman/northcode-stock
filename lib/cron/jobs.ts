@@ -15,5 +15,5 @@ export const CRON_JOBS: CronJob[] = [
   { name: 'owner-alerts',       label: 'E-mail d\'alertes aux propriétaires', utc: '07:15' },
   { name: 'grant-reminders',    label: 'Fin des gestes commerciaux',           utc: '08:00' },
   { name: 'renewal-check',      label: 'Renouvellement des abonnements',       utc: '09:00' },
-  { name: 'evening-summary',    label: 'Résumé du soir',                       utc: '17:00' },
+  { name: 'evening-summary',    label: 'Résumé du soir aux propriétaires',     utc: '19:30' },
 ]
