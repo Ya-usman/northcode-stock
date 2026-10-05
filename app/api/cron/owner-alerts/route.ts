@@ -5,6 +5,7 @@ import { logCronRun } from '@/lib/api/cron-log'
 import { EMAIL_FROM, appBaseUrl } from '@/lib/email/sender'
 import { getLowStockAlerts, getExpiryAlerts } from '@/lib/alerts/stock-alerts'
 import { buildOwnerAlertsEmail, countAlerts, type ShopAlerts } from '@/lib/email/owner-alerts-template'
+import { emailI18n } from '@/lib/email/i18n'
 
 // E-mail quotidien d'alertes de stock — UN par propriétaire (entreprise),
 // toutes ses boutiques regroupées, envoyé seulement s'il y a au moins une
@@ -27,7 +28,8 @@ export async function GET(request: Request) {
   try {
     const admin = await createAdminClient() as any
     const today = new Date()
-    const dateStr = today.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Lagos' })
+    // Simulation seulement : &locale=en|ha pour voir l'e-mail dans une autre langue
+    const forcedLocale = dry ? params.get('locale') : null
 
     const { data: shops, error } = await admin.from('shops')
       .select('id, name, entity_id, low_stock_threshold, expiry_alert_days, notify_email_low_stock, notify_email_expiry, created_at')
@@ -60,9 +62,12 @@ export async function GET(request: Request) {
         admin.auth.admin.getUserById(ent.owner_user_id),
       ])
       const email: string | null = authUser?.user?.email ?? null
-      const mail = buildOwnerAlertsEmail({ ownerName: owner?.full_name ?? null, dateStr, shops: shopAlerts, appUrl })
+      // Langue du propriétaire (profiles.locale), français à défaut
+      const i18n = emailI18n(forcedLocale || owner?.locale)
+      const dateStr = i18n.date(today, { day: 'numeric', month: 'long', year: 'numeric' }, 'Africa/Lagos')
+      const mail = buildOwnerAlertsEmail({ ownerName: owner?.full_name ?? null, dateStr, shops: shopAlerts, appUrl, i18n })
       firstHtml ??= mail.html
-      const r: any = { entity_id: ent.id, to: mask(email), shops: shopAlerts.filter(a => countAlerts(a) > 0).map(a => `${a.name} (${countAlerts(a)})`), total: mail.total, subject: mail.subject, status: 'dry' }
+      const r: any = { entity_id: ent.id, to: mask(email), locale: i18n.locale, shops: shopAlerts.filter(a => countAlerts(a) > 0).map(a => `${a.name} (${countAlerts(a)})`), total: mail.total, subject: mail.subject, status: 'dry' }
 
       if (!dry) {
         if (!email) r.status = 'no_email'

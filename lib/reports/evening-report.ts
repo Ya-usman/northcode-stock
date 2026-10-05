@@ -22,7 +22,8 @@ export interface ShopDay {
   /** Part du chiffre d'affaires couverte par un prix d'achat connu (0–1) */
   marginCoverage: number
   topProducts: { name: string; quantity: number; amount: number }[]
-  sellers: { name: string; count: number; amount: number }[]
+  /** name null = vendeur non renseigné (traduit dans l'e-mail) */
+  sellers: { name: string | null; count: number; amount: number }[]
   discounts: { count: number; amount: number }
   cancelled: { count: number; amount: number }
   stock: { out: number; low: number }
@@ -78,7 +79,7 @@ export async function collectShopDay(admin: any, shop: { id: string; name: strin
   }
   const sellerIds = Array.from(bySeller.keys()).filter(k => k !== 'unknown')
   const { data: people } = sellerIds.length ? await admin.from('profiles').select('id, full_name').in('id', sellerIds) : { data: [] }
-  const nameOf = (id: string) => (people || []).find((p: any) => p.id === id)?.full_name || 'Non renseigné'
+  const nameOf = (id: string): string | null => (people || []).find((p: any) => p.id === id)?.full_name || null
 
   const methods = new Map<string, number>()
   for (const p of payments || []) methods.set(p.method || 'other', (methods.get(p.method || 'other') || 0) + (Number(p.amount) || 0))
@@ -99,7 +100,7 @@ export async function collectShopDay(admin: any, shop: { id: string; name: strin
     grossMargin: covered > 0 ? margin : null,
     marginCoverage: itemsTotal > 0 ? covered / itemsTotal : 0,
     topProducts: Array.from(byProduct, ([name, v]) => ({ name, ...v })).sort((a, b) => b.amount - a.amount).slice(0, 3),
-    sellers: Array.from(bySeller, ([id, v]) => ({ name: id === 'unknown' ? 'Non renseigné' : nameOf(id), ...v })).sort((a, b) => b.amount - a.amount),
+    sellers: Array.from(bySeller, ([id, v]) => ({ name: id === 'unknown' ? null : nameOf(id), ...v })).sort((a, b) => b.amount - a.amount),
     discounts: { count: discounted.length, amount: sum(discounted, 'discount') },
     cancelled: { count: (cancelled || []).length, amount: sum(cancelled, 'total') },
     stock: { out: stock.outOfStock.length, low: stock.lowStock.length },

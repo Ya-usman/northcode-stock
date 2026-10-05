@@ -3,7 +3,9 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/api/require-admin'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { Resend } from 'resend'
-import { EMAIL_FROM } from '@/lib/email/sender'
+import { EMAIL_FROM, appBaseUrl } from '@/lib/email/sender'
+import { emailI18n } from '@/lib/email/i18n'
+import { buildUrgentEmail } from '@/lib/email/notice-templates'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -50,23 +52,15 @@ export async function POST(req: Request) {
         const { data: ownerMember } = await admin
           .from('shop_members').select('user_id').eq('shop_id', shop_id).eq('role', 'owner').eq('is_active', true).maybeSingle()
         if (ownerMember?.user_id) {
-          const { data: ownerAuth } = await admin.auth.admin.getUserById(ownerMember.user_id)
+          const [{ data: ownerAuth }, { data: ownerProfile }] = await Promise.all([
+            admin.auth.admin.getUserById(ownerMember.user_id),
+            admin.from('profiles').select('locale').eq('id', ownerMember.user_id).maybeSingle(),
+          ])
           const ownerEmail = ownerAuth?.user?.email
           if (ownerEmail) {
-            const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.stockshop.tech'
-            await resend.emails.send({
-              from: EMAIL_FROM,
-              to: ownerEmail,
-              subject: `🔴 ${title.trim()} — ${shop?.name || 'StockShop'}`,
-              html: `
-                <p>Bonjour,</p>
-                <p>Le support StockShop vous a envoyé un message urgent concernant <strong>${shop?.name || 'votre boutique'}</strong> :</p>
-                <blockquote style="border-left:3px solid #dc2626;margin:12px 0;padding:8px 16px;background:#fef2f2;">
-                  <strong>${title.trim()}</strong><br/>${message.trim()}
-                </blockquote>
-                <p><a href="${appUrl}" style="background:#073e8a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">Ouvrir StockShop</a></p>
-              `,
-            })
+            // Cadre dans la langue du propriétaire ; le titre et le message restent tels qu'écrits (échappés)
+            const mail = buildUrgentEmail(emailI18n(ownerProfile?.locale), { shop: shop?.name ?? null, title: title.trim(), message: message.trim(), appUrl: appBaseUrl() })
+            await resend.emails.send({ from: EMAIL_FROM, to: ownerEmail, subject: mail.subject, html: mail.html })
           }
         }
       } catch {

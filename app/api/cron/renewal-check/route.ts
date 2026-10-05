@@ -5,7 +5,10 @@ import { fetchWithTimeout } from '@/lib/api/fetch'
 import { logCronRun } from '@/lib/api/cron-log'
 import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
 import { Resend } from 'resend'
-import { EMAIL_FROM } from '@/lib/email/sender'
+import { EMAIL_FROM, appBaseUrl } from '@/lib/email/sender'
+import { emailI18n } from '@/lib/email/i18n'
+import { buildRenewalEmail } from '@/lib/email/notice-templates'
+import { getPlan } from '@/lib/saas/plans'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -115,20 +118,11 @@ export async function GET(request: NextRequest) {
     // ── Reminder email for non-Paystack gateways ───────────────────────────
     if (sub.gateway_email && process.env.RESEND_API_KEY) {
       try {
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.stockshop.tech'
-        const planLabel = (sub.plan as string).charAt(0).toUpperCase() + (sub.plan as string).slice(1)
-        await resend.emails.send({
-          from: EMAIL_FROM,
-          to: sub.gateway_email,
-          subject: `Renouvellement de votre abonnement StockShop ${planLabel}`,
-          html: `
-            <p>Bonjour,</p>
-            <p>Votre abonnement StockShop <strong>${planLabel}</strong> expire dans moins de 3 jours.</p>
-            <p>Renouvelez dès maintenant pour garder accès à toutes vos données :</p>
-            <p><a href="${appUrl}/fr/billing" style="background:#073e8a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">Renouveler mon abonnement</a></p>
-            <p style="color:#666;font-size:12px;">Si vous ne souhaitez plus être contacté, vous pouvez désactiver le renouvellement automatique depuis votre espace facturation.</p>
-          `,
-        })
+        // Langue du propriétaire de l'entreprise de la boutique, français à défaut
+        const account = await getAccountForShop(supabase, sub.shop_id)
+        const { data: owner } = account?.ownerId ? await supabase.from('profiles').select('locale').eq('id', account.ownerId).maybeSingle() : { data: null }
+        const mail = buildRenewalEmail(emailI18n(owner?.locale), { plan: getPlan(sub.plan).name, appUrl: appBaseUrl() })
+        await resend.emails.send({ from: EMAIL_FROM, to: sub.gateway_email, subject: mail.subject, html: mail.html })
         reminded++
       } catch {
         // Email failure is non-critical

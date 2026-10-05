@@ -6,6 +6,7 @@ import { EMAIL_FROM, appBaseUrl } from '@/lib/email/sender'
 import { collectShopDay, type ShopDay } from '@/lib/reports/evening-report'
 import { buildEveningSummaryEmail, hasActivity } from '@/lib/email/evening-summary-template'
 import { timeZoneFor } from '@/lib/reports/day-window'
+import { emailI18n } from '@/lib/email/i18n'
 
 // Résumé de la journée — UN e-mail par propriétaire (entreprise), une section
 // par boutique ayant l'option « Résumé quotidien » (shops.notify_email_daily).
@@ -61,15 +62,17 @@ export async function GET(request: Request) {
       if (!days.some(hasActivity)) { results.push({ entity_id: ent.id, shops: days.map(d => d.name), status: 'no_activity' }); continue }
 
       const [{ data: owner }, { data: authUser }] = await Promise.all([
-        admin.from('profiles').select('full_name').eq('id', ent.owner_user_id).maybeSingle(),
+        admin.from('profiles').select('full_name, locale').eq('id', ent.owner_user_id).maybeSingle(),
         admin.auth.admin.getUserById(ent.owner_user_id),
       ])
       const email: string | null = authUser?.user?.email ?? null
+      // Langue du propriétaire (profiles.locale), français à défaut ; &locale= en simulation
+      const i18n = emailI18n((dry && params.get('locale')) || owner?.locale)
       const tz = timeZoneFor(byEntity[ent.id][0].country)
-      const dateStr = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: tz })
-      const mail = buildEveningSummaryEmail({ ownerName: owner?.full_name ?? null, dateStr, shops: days, appUrl })
+      const dateStr = i18n.date(now, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }, tz)
+      const mail = buildEveningSummaryEmail({ ownerName: owner?.full_name ?? null, dateStr, shops: days, appUrl, i18n })
       firstHtml ??= mail.html
-      const r: any = { entity_id: ent.id, to: mask(email), shops: days.map(d => `${d.name} (${d.salesCount})`), subject: mail.subject, status: 'dry' }
+      const r: any = { entity_id: ent.id, to: mask(email), locale: i18n.locale, shops: days.map(d => `${d.name} (${d.salesCount})`), subject: mail.subject, status: 'dry' }
 
       if (!dry) {
         if (!email) r.status = 'no_email'

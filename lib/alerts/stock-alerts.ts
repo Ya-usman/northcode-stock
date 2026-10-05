@@ -7,6 +7,14 @@ import { getExpiryAlertDays } from '@/lib/utils/expiry'
 export interface LowStockItem { id: string; name: string; name_hausa: string | null; quantity: number; unit: string | null; threshold: number }
 export interface ExpiryItem { product_id: string; name: string; name_hausa: string | null; unit: string | null; quantity: number; expiry_date: string }
 
+/** Langue enregistrée de chaque utilisateur (profiles.locale) — pour les notifications push */
+export async function userLocales(admin: any, userIds: (string | null)[]): Promise<Map<string, string | null>> {
+  const ids = Array.from(new Set(userIds.filter(Boolean))) as string[]
+  if (!ids.length) return new Map()
+  const { data } = await admin.from('profiles').select('id, locale').in('id', ids)
+  return new Map((data || []).map((p: any) => [p.id, p.locale ?? null]))
+}
+
 /** Produits actifs sous leur seuil (seuil produit, sinon celui de la boutique, sinon 10) */
 export async function getLowStockAlerts(admin: any, shop: { id: string; low_stock_threshold?: number | null }) {
   const threshold = shop.low_stock_threshold ?? 10

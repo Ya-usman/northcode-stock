@@ -16,9 +16,9 @@ export function brandHeader(appUrl: string): string {
 }
 
 /** Squelette commun : fond clair, marque, carte blanche, pied gris */
-export function emailShell(p: { appUrl: string; body: string; footer: string }): string {
+export function emailShell(p: { appUrl: string; body: string; footer: string; lang?: string }): string {
   return `<!DOCTYPE html>
-<html lang="fr"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<html lang="${p.lang || 'fr'}"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap" rel="stylesheet"/></head>
 <body style="margin:0;padding:0;background:#f4f6fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6fb;padding:28px 12px;"><tr><td align="center">
