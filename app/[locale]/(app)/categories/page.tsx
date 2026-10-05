@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useTranslations } from 'next-intl'
-import { Plus, Trash2, Tag, Search, RotateCcw, ChevronDown, ChevronRight, Package, Store, AlertTriangle, Edit2, Check } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
+import { useTranslations, useLocale } from 'next-intl'
+import { Plus, Trash2, Tag, Search, RotateCcw, ChevronDown, ChevronRight, Package, Store, Edit2, Check, ExternalLink, Save, ArrowUpDown } from 'lucide-react'
 import { CATEGORY_COLORS } from '@/lib/constants/category-colors'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext } from '@/lib/contexts/auth-context'
@@ -15,6 +16,9 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
+import { ConfirmModal } from '@/components/ui/confirm-modal'
+import { RequiredMark } from '@/components/ui/input-group'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils/cn'
 import type { Category, Product } from '@/lib/types/database'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
@@ -24,16 +28,30 @@ import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { useShopLoadTimeout } from '@/lib/hooks/use-shop-load-timeout'
 import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { withTimeout } from '@/lib/utils/with-timeout'
+import { fetchSoldQty30d, lowStockThresholdOf } from '@/lib/stock/signals'
+import { presetPersistedFilters } from '@/lib/hooks/use-persisted-filters'
+import { startNavigationProgress } from '@/components/layout/navigation-progress'
+
+// Catégories : repères par catégorie (produits, ruptures, stock bas, ventes
+// 30 j, valeur du stock pour le propriétaire), part dans le stock, tri, liens
+// vers la liste Produits filtrée ; une seule modale pour ajouter / modifier ;
+// suppression avec déplacement des produits ; restauration confirmée.
+
+type SortKey = 'name' | 'products' | 'value' | 'sales'
+
+interface CatStats { count: number; out: number; low: number; value: number; sold: number }
 
 function ColorPicker({ value, onChange }: { value: string | null; onChange: (color: string) => void }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-2" role="radiogroup">
       {CATEGORY_COLORS.map(color => (
         <button
           key={color}
           type="button"
+          role="radio"
+          aria-checked={value === color}
           onClick={() => onChange(color)}
-          className="h-8 w-8 rounded-full flex items-center justify-center transition-transform hover:scale-110"
+          className={cn('h-8 w-8 rounded-full flex items-center justify-center transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2', value === color && 'ring-2 ring-offset-2 ring-foreground/40')}
           style={{ backgroundColor: color }}
           aria-label={color}
         >
@@ -44,121 +62,16 @@ function ColorPicker({ value, onChange }: { value: string | null; onChange: (col
   )
 }
 
-function CategoryCard({ cat, products, expandedId, setExpandedId, canEdit, deleteCategory, openEdit, t, fmt }: any) {
-  const catProducts = products.filter((p: any) => p.category_id === cat.id)
-  const isExpanded = expandedId === cat.id
-  return (
-    <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
-      <button
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors text-left"
-        onClick={() => setExpandedId(isExpanded ? null : cat.id)}
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <div
-            className={cn('h-8 w-8 rounded-md flex items-center justify-center shrink-0', !cat.color && 'bg-stockshop-blue-muted dark:bg-blue-950/30')}
-            style={cat.color ? { backgroundColor: `${cat.color}20` } : undefined}
-          >
-            <Tag className={cn('h-4 w-4', !cat.color && 'text-stockshop-blue dark:text-blue-400')} style={cat.color ? { color: cat.color } : undefined} />
-          </div>
-          <span className="font-medium text-sm truncate">{cat.name}</span>
-          <Badge variant="secondary" className="text-xs shrink-0">{catProducts.length}</Badge>
-        </div>
-        <div className="flex items-center gap-1 ml-2 shrink-0">
-          {canEdit && (
-            <>
-              <span
-                role="button"
-                className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                onClick={(e: any) => { e.stopPropagation(); openEdit(cat) }}
-              >
-                <Edit2 className="h-3.5 w-3.5" />
-              </span>
-              <span
-                role="button"
-                className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-                onClick={(e: any) => { e.stopPropagation(); deleteCategory(cat) }}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </span>
-            </>
-          )}
-          {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-        </div>
-      </button>
-      {isExpanded && (
-        <div className="border-t bg-muted/10">
-          {catProducts.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-4">{t('categories.no_products_in_cat')}</p>
-          ) : (
-            <div className="divide-y divide-border/50">
-              {catProducts.map((p: any) => (
-                <div key={p.id} className="flex items-center justify-between px-4 py-2.5">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Package className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span className="text-sm truncate">{p.name}</span>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0 ml-2">
-                    <span className="text-xs text-muted-foreground">{p.quantity} {p.unit}</span>
-                    <span className="text-sm font-semibold text-stockshop-blue dark:text-blue-400">
-                      {fmt(p.selling_price)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function UncategorizedCard({ products, shopId, expandedId, setExpandedId, t, fmt }: any) {
-  const key = `__none__${shopId}`
-  const isExpanded = expandedId === key
-  return (
-    <div className="rounded-lg border border-dashed bg-card shadow-sm overflow-hidden">
-      <button
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors text-left"
-        onClick={() => setExpandedId(isExpanded ? null : key)}
-      >
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-md bg-stockshop-blue-muted/50 dark:bg-blue-950/20 flex items-center justify-center shrink-0">
-            <Tag className="h-4 w-4 text-stockshop-blue/60 dark:text-blue-400/60" />
-          </div>
-          <span className="font-medium text-sm text-muted-foreground">{t('categories.uncategorized')}</span>
-          <Badge variant="outline" className="text-xs">{products.length}</Badge>
-        </div>
-        {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-      </button>
-      {isExpanded && (
-        <div className="border-t bg-muted/10 divide-y divide-border/50">
-          {products.map((p: any) => (
-            <div key={p.id} className="flex items-center justify-between px-4 py-2.5">
-              <div className="flex items-center gap-2 min-w-0">
-                <Package className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="text-sm truncate">{p.name}</span>
-              </div>
-              <span className="text-sm font-semibold text-stockshop-blue dark:text-blue-400 shrink-0 ml-2">
-                {fmt(p.selling_price)}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 export default function CategoriesPage() {
   const t = useTranslations()
+  const locale = useLocale()
+  const router = useRouter()
   const { shop, profile, roleInActiveShop, effectiveShopIds, userShops } = useAuthContext()
   const { fmt } = useCurrency()
   const { isOnline } = useOffline()
   const isMultiShop = effectiveShopIds.length > 1
   const supabase = createClient()
   const { toast } = useToast()
-  const inputRef = useRef<HTMLInputElement>(null)
 
   const [categories, setCategories] = useState<Category[]>(() => {
     const c = getPageCache<{ categories: Category[]; products: Product[] }>(`categories_${effectiveShopIds.join(',')}`)
@@ -168,24 +81,29 @@ export default function CategoriesPage() {
     const c = getPageCache<{ categories: Category[]; products: Product[] }>(`categories_${effectiveShopIds.join(',')}`)
     return c?.products || []
   })
-  const [loading, setLoading] = useState(() =>
-    !getPageCache(`categories_${effectiveShopIds.join(',')}`)
-  )
-  const [newName, setNewName] = useState('')
-  const [newColor, setNewColor] = useState<string | null>(null)
-  const [newAlertDays, setNewAlertDays] = useState('')
-  const [saving, setSaving] = useState(false)
+  const [soldQty, setSoldQty] = useState<Record<string, number> | null>(null)
+  const [loading, setLoading] = useState(() => !getPageCache(`categories_${effectiveShopIds.join(',')}`))
   const [search, setSearch] = useState('')
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [seeding, setSeeding] = useState(false)
+  const [sortKey, setSortKey] = useState<SortKey>('name')
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [confirmDeleteCat, setConfirmDeleteCat] = useState<Category | null>(null)
-  const [deleting, setDeleting] = useState(false)
+
+  // Formulaire unique : ajout (editingCat = null) ou modification
+  const [formOpen, setFormOpen] = useState(false)
   const [editingCat, setEditingCat] = useState<Category | null>(null)
-  const [editName, setEditName] = useState('')
-  const [editColor, setEditColor] = useState<string | null>(null)
-  const [editAlertDays, setEditAlertDays] = useState('')
-  const [editSaving, setEditSaving] = useState(false)
+  const [formName, setFormName] = useState('')
+  const [formColor, setFormColor] = useState<string | null>(null)
+  const [formAlertDays, setFormAlertDays] = useState('')
+  const [formInitial, setFormInitial] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  // Suppression avec déplacement facultatif des produits
+  const [deleteCat, setDeleteCat] = useState<Category | null>(null)
+  const [deleteMode, setDeleteMode] = useState<'leave' | 'move'>('leave')
+  const [moveTarget, setMoveTarget] = useState('')
+  const [deleting, setDeleting] = useState(false)
+
+  const [restoreOpen, setRestoreOpen] = useState(false)
+  const [seeding, setSeeding] = useState(false)
 
   const fetchData = async () => {
     if (!effectiveShopIds.length) return
@@ -197,7 +115,7 @@ export default function CategoriesPage() {
       // a while can never leave `loading` stuck true forever.
       const [catData, prodData] = await withTimeout(Promise.all([
         supabase.from('categories').select('*').in('shop_id', effectiveShopIds).order('name'),
-        supabase.from('products').select('id, name, selling_price, quantity, unit, category_id, shop_id').in('shop_id', effectiveShopIds).eq('is_active', true).order('name'),
+        supabase.from('products').select('id, name, selling_price, buying_price, quantity, unit, category_id, shop_id, low_stock_threshold').in('shop_id', effectiveShopIds).eq('is_active', true).order('name'),
       ]), 20_000, 'Chargement des catégories trop lent — réessayez.')
       // A transient auth/RLS hiccup can resolve with data: null instead of
       // throwing — check explicitly so the catch below preserves the cache
@@ -213,9 +131,11 @@ export default function CategoriesPage() {
     } finally {
       setLoading(false)
     }
+    // Ventes des 30 derniers jours par produit (repère secondaire, sans bloquer la liste)
+    fetchSoldQty30d(supabase, effectiveShopIds).then(setSoldQty).catch(() => {})
   }
 
-  useEffect(() => { fetchData() }, [effectiveShopIds.join(',')])
+  useEffect(() => { fetchData() }, [effectiveShopIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Refresh when the user comes back to this tab — catches categories/products
   // added or edited by other team members while this page sat in the background.
@@ -223,29 +143,86 @@ export default function CategoriesPage() {
   useRefetchOnReconnect(fetchData, isOnline)
   const shopLoadTimedOut = useShopLoadTimeout(effectiveShopIds.length)
 
-  const openDialog = () => {
-    setNewName('')
-    setNewColor(CATEGORY_COLORS[0])
-    setNewAlertDays('')
-    setDialogOpen(true)
-    setTimeout(() => inputRef.current?.focus(), 50)
+  const effectiveRole = roleInActiveShop ?? profile?.role
+  const canEdit = effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin'
+  // Valeur du stock (coût d'achat) : propriétaire seulement, comme dans le Stock
+  const showValue = effectiveRole === 'owner' || effectiveRole === 'super_admin'
+
+  // Catégorie effective d'un produit : seulement si elle appartient à SA boutique
+  // (un produit rattaché à la catégorie d'une autre boutique compte comme « sans catégorie »)
+  const catShop = useMemo(() => new Map(categories.map(c => [c.id, c.shop_id])), [categories])
+  const catOf = (p: { category_id: string | null; shop_id: string }) => (p.category_id && catShop.get(p.category_id) === p.shop_id ? p.category_id : null)
+
+  // Repères par catégorie (clé « __none__<shop> » pour les produits sans catégorie)
+  const statsByCat = useMemo(() => {
+    const map: Record<string, CatStats> = {}
+    for (const p of products as any[]) {
+      const key = catOf(p) || `__none__${p.shop_id}`
+      const s = map[key] || (map[key] = { count: 0, out: 0, low: 0, value: 0, sold: 0 })
+      const qty = Number(p.quantity) || 0
+      s.count++
+      if (qty <= 0) s.out++
+      else if (qty <= lowStockThresholdOf(p, shop?.low_stock_threshold)) s.low++
+      s.value += qty * (Number(p.buying_price) || 0)
+      s.sold += soldQty?.[p.id] || 0
+    }
+    return map
+  }, [products, soldQty, shop?.low_stock_threshold, catShop]) // eslint-disable-line react-hooks/exhaustive-deps
+  const totals = useMemo(() => {
+    const all = Object.values(statsByCat)
+    return { count: all.reduce((a, s) => a + s.count, 0), value: all.reduce((a, s) => a + s.value, 0) }
+  }, [statsByCat])
+  const statsOf = (key: string): CatStats => statsByCat[key] || { count: 0, out: 0, low: 0, value: 0, sold: 0 }
+
+  const filtered = useMemo(() => {
+    const list = categories.filter(c => normalize(c.name).includes(normalize(search)))
+    const by = (c: Category) => statsOf(c.id)
+    return [...list].sort((a, b) => {
+      if (sortKey === 'products') return by(b).count - by(a).count || a.name.localeCompare(b.name, locale)
+      if (sortKey === 'value') return by(b).value - by(a).value || a.name.localeCompare(b.name, locale)
+      if (sortKey === 'sales') return by(b).sold - by(a).sold || a.name.localeCompare(b.name, locale)
+      return a.name.localeCompare(b.name, locale)
+    })
+  }, [categories, search, sortKey, statsByCat, locale]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Liste Produits filtrée (catégorie, ou « sans catégorie »)
+  const openInProducts = (categoryId: string) => {
+    presetPersistedFilters('stock', shop?.id, { categoryFilter: categoryId, statusFilter: 'all', search: '' })
+    const href = `/${locale}/stock/products`
+    startNavigationProgress(href)
+    router.push(href)
   }
 
-  const addCategory = async () => {
-    if (!shop?.id || !newName.trim()) return
+  // ── Formulaire ajouter / modifier ─────────────────────────────────────────
+  const snap = (n: string, c: string | null, d: string) => JSON.stringify([n.trim(), c, d])
+  const openForm = (cat: Category | null) => {
+    const name = cat?.name ?? ''
+    const color = cat?.color || CATEGORY_COLORS[0]
+    const days = cat?.expiry_alert_days != null ? String(cat.expiry_alert_days) : ''
+    setEditingCat(cat)
+    setFormName(name); setFormColor(color); setFormAlertDays(days)
+    setFormInitial(snap(name, color, days))
+    setFormOpen(true)
+  }
+  const formDirty = formOpen && snap(formName, formColor, formAlertDays) !== formInitial
+
+  const submitForm = async () => {
+    if (!shop?.id || !formName.trim()) return
     setSaving(true)
     try {
+      const body = { name: formName.trim(), color: formColor, expiry_alert_days: formAlertDays ? Number(formAlertDays) : null }
       const res = await withTimeout(fetch('/api/categories', {
-        method: 'POST',
+        method: editingCat ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shop_id: shop.id, name: newName.trim(), color: newColor, expiry_alert_days: newAlertDays ? Number(newAlertDays) : null }),
+        // Modification : la boutique de la catégorie (vue multi-boutiques)
+        body: JSON.stringify(editingCat ? { id: editingCat.id, shop_id: editingCat.shop_id, ...body } : { shop_id: shop.id, ...body }),
       }))
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
-      setDialogOpen(false)
-      setNewName('')
+      toast({ title: editingCat ? t('categories.updated') : t('categories.added'), variant: 'success' })
+      setFormOpen(false)
+      setEditingCat(null)
       fetchData()
-      toast({ title: t('categories.added'), variant: 'success' })
     } catch (err: any) {
       toast({ title: err.message || t('toast.retry_error'), variant: 'destructive' })
     } finally {
@@ -253,40 +230,36 @@ export default function CategoriesPage() {
     }
   }
 
-  const openEdit = (cat: Category) => {
-    setEditingCat(cat)
-    setEditName(cat.name)
-    setEditColor(cat.color || CATEGORY_COLORS[0])
-    setEditAlertDays(cat.expiry_alert_days != null ? String(cat.expiry_alert_days) : '')
+  // ── Suppression (avec déplacement facultatif des produits) ───────────────
+  const openDelete = (cat: Category) => {
+    setDeleteCat(cat)
+    setDeleteMode('leave')
+    setMoveTarget('')
   }
+  const deleteProductIds = deleteCat ? products.filter(p => catOf(p) === deleteCat.id).map(p => p.id) : []
+  const moveOptions = deleteCat ? categories.filter(c => c.id !== deleteCat.id && c.shop_id === deleteCat.shop_id) : []
 
-  const saveEdit = async () => {
-    if (!editingCat || !shop?.id || !editName.trim()) return
-    setEditSaving(true)
-    try {
-      const res = await withTimeout(fetch('/api/categories', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: editingCat.id, shop_id: shop.id, name: editName.trim(), color: editColor, expiry_alert_days: editAlertDays ? Number(editAlertDays) : null }),
-      }))
-      const json = await res.json()
-      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
-      setEditingCat(null)
-      fetchData()
-      toast({ title: t('categories.updated'), variant: 'success' })
-    } catch (err: any) {
-      toast({ title: err.message || t('toast.retry_error'), variant: 'destructive' })
-    } finally {
-      setEditSaving(false)
-    }
-  }
-
-  const deleteCategory = async (cat: Category) => {
+  const confirmDelete = async () => {
+    const cat = deleteCat
+    if (!cat) return
     setDeleting(true)
     try {
-      const res = await withTimeout(fetch(`/api/categories?id=${cat.id}&shop_id=${shop?.id}`, { method: 'DELETE' }))
+      if (deleteMode === 'move' && moveTarget && deleteProductIds.length > 0) {
+        // Affectation groupée existante (même route que « Changer de catégorie » dans Produits)
+        const moveRes = await withTimeout(fetch('/api/products', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shop_id: cat.shop_id, ids: deleteProductIds, category_id: moveTarget }),
+        }), 30_000)
+        if (!moveRes.ok) {
+          const json = await moveRes.json().catch(() => ({}))
+          toast({ title: json.error || t('categories.delete_error'), variant: 'destructive' })
+          return
+        }
+      }
+      const res = await withTimeout(fetch(`/api/categories?id=${cat.id}&shop_id=${cat.shop_id}`, { method: 'DELETE' }))
       if (!res.ok) { toast({ title: t('categories.delete_error'), variant: 'destructive' }); return }
-      setConfirmDeleteCat(null)
+      setDeleteCat(null)
       fetchData()
       toast({ title: t('categories.deleted') })
     } catch (err: any) {
@@ -296,64 +269,184 @@ export default function CategoriesPage() {
     }
   }
 
+  // ── Restauration des catégories par défaut (confirmée) ────────────────────
   const restoreDefaults = async () => {
     if (!shop?.id) return
     setSeeding(true)
     try {
-      const res = await fetch('/api/categories', {
+      const res = await withTimeout(fetch('/api/categories', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ shop_id: shop.id }),
-      })
+      }), 30_000)
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      setRestoreOpen(false)
       await fetchData()
       toast({
         title: t('categories.restored'),
-        description: `${json.categoriesCreated} catégorie(s) ajoutée(s) · ${json.productsAssigned} produit(s) mis à jour`,
+        description: t('categories.restore_result', { created: json.categoriesCreated ?? 0, assigned: json.productsAssigned ?? 0 }),
         variant: 'success',
       })
-    } catch {
-      toast({ title: t('toast.error'), variant: 'destructive' })
+    } catch (err: any) {
+      toast({ title: err?.message || t('toast.error'), variant: 'destructive' })
     } finally {
       setSeeding(false)
     }
   }
 
-  const effectiveRole = roleInActiveShop ?? profile?.role
-  const canEdit = effectiveRole === 'owner' || effectiveRole === 'stock_manager' || effectiveRole === 'super_admin'
-  const filtered = categories.filter(c => normalize(c.name).includes(normalize(search)))
+  // ── Rendu d'une carte ─────────────────────────────────────────────────────
+  const shareBar = (s: CatStats) => {
+    const pct = showValue && totals.value > 0
+      ? Math.round((s.value / totals.value) * 100)
+      : totals.count > 0 ? Math.round((s.count / totals.count) * 100) : 0
+    return (
+      <div className="space-y-1" title={showValue ? t('categories.share_value', { pct }) : t('categories.share_products', { pct })}>
+        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+          <div className="h-full rounded-full bg-stockshop-blue/70 dark:bg-blue-500/70" style={{ width: `${Math.min(pct, 100)}%` }} />
+        </div>
+        <p className="text-[10px] text-muted-foreground">{showValue ? t('categories.share_value', { pct }) : t('categories.share_products', { pct })}</p>
+      </div>
+    )
+  }
 
-  // Products without any category
-  const uncategorized = products.filter(p => !p.category_id)
+  const statLine = (s: CatStats) => (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground" data-testid="category-stats">
+      <span>{t('categories.products_count', { count: s.count })}</span>
+      {s.out > 0 && <span className="font-medium text-red-600 dark:text-red-400">{t('categories.out_count', { count: s.out })}</span>}
+      {s.low > 0 && <span className="font-medium text-amber-600 dark:text-amber-400">{t('categories.low_count', { count: s.low })}</span>}
+      {soldQty && <span>{t('categories.sold_30d', { count: s.sold })}</span>}
+      {showValue && <span>{t('categories.stock_value', { amount: fmt(s.value) })}</span>}
+    </div>
+  )
+
+  const productRows = (list: any[]) => (
+    list.length === 0 ? (
+      <p className="text-xs text-muted-foreground text-center py-4">{t('categories.no_products_in_cat')}</p>
+    ) : (
+      <div className="divide-y divide-border/50">
+        {list.map((p: any) => (
+          <div key={p.id} className="flex items-center justify-between px-4 py-2.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <Package className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span className="text-sm truncate">{p.name}</span>
+            </div>
+            <div className="flex items-center gap-3 shrink-0 ml-2">
+              <span className={cn('text-xs', Number(p.quantity) <= 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground')}>{p.quantity} {p.unit}</span>
+              <span className="text-sm font-semibold text-stockshop-blue dark:text-blue-400">{fmt(p.selling_price)}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  )
+
+  const renderCategory = (cat: Category) => {
+    const s = statsOf(cat.id)
+    const isExpanded = expandedId === cat.id
+    return (
+      <div key={cat.id} className="rounded-lg border bg-card shadow-sm overflow-hidden" data-testid="category-card">
+        <div className="flex items-start gap-2 px-4 py-3">
+          <button
+            type="button"
+            aria-expanded={isExpanded}
+            onClick={() => setExpandedId(isExpanded ? null : cat.id)}
+            className="flex min-w-0 flex-1 items-start gap-3 text-left"
+          >
+            <div
+              className={cn('mt-0.5 h-8 w-8 rounded-md flex items-center justify-center shrink-0', !cat.color && 'bg-stockshop-blue-muted dark:bg-blue-950/30')}
+              style={cat.color ? { backgroundColor: `${cat.color}20` } : undefined}
+            >
+              <Tag className={cn('h-4 w-4', !cat.color && 'text-stockshop-blue dark:text-blue-400')} style={cat.color ? { color: cat.color } : undefined} />
+            </div>
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-sm truncate">{cat.name}</span>
+                <Badge variant="secondary" className="text-xs shrink-0">{s.count}</Badge>
+              </div>
+              {statLine(s)}
+              {shareBar(s)}
+            </div>
+          </button>
+          <div className="flex items-center gap-0.5 shrink-0">
+            {s.count > 0 && (
+              <button type="button" className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors" title={t('categories.view_products')} aria-label={t('categories.view_products')} onClick={() => openInProducts(cat.id)} data-testid="category-view-products">
+                <ExternalLink className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {canEdit && (
+              <>
+                <button type="button" className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors" aria-label={t('categories.edit_dialog_title')} onClick={() => openForm(cat)} data-testid="category-edit">
+                  <Edit2 className="h-3.5 w-3.5" />
+                </button>
+                <button type="button" className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors" aria-label={t('actions.delete')} onClick={() => openDelete(cat)} data-testid="category-delete">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </>
+            )}
+            <button type="button" className="p-1.5 text-muted-foreground" aria-label={t('actions.view')} onClick={() => setExpandedId(isExpanded ? null : cat.id)}>
+              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+        {isExpanded && <div className="border-t bg-muted/10">{productRows(products.filter(p => catOf(p) === cat.id))}</div>}
+      </div>
+    )
+  }
+
+  const renderUncategorized = (list: any[], shopId: string) => {
+    const key = `__none__${shopId}`
+    const isExpanded = expandedId === key
+    return (
+      <div key={key} className="rounded-lg border border-dashed bg-card shadow-sm overflow-hidden" data-testid="uncategorized-card">
+        <div className="flex items-center gap-2 px-4 py-3">
+          <button type="button" aria-expanded={isExpanded} onClick={() => setExpandedId(isExpanded ? null : key)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+            <div className="h-8 w-8 rounded-md bg-stockshop-blue-muted/50 dark:bg-blue-950/20 flex items-center justify-center shrink-0">
+              <Tag className="h-4 w-4 text-stockshop-blue/60 dark:text-blue-400/60" />
+            </div>
+            <span className="font-medium text-sm text-muted-foreground">{t('categories.uncategorized')}</span>
+            <Badge variant="outline" className="text-xs">{list.length}</Badge>
+          </button>
+          <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => openInProducts('uncategorized')} data-testid="classify-products">
+            <ExternalLink className="h-3 w-3" />{t('categories.classify')}
+          </Button>
+          <button type="button" className="p-1.5 text-muted-foreground" aria-label={t('actions.view')} onClick={() => setExpandedId(isExpanded ? null : key)}>
+            {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </button>
+        </div>
+        {isExpanded && <div className="border-t bg-muted/10">{productRows(list)}</div>}
+      </div>
+    )
+  }
+
+  const uncategorized = products.filter(p => !catOf(p))
 
   return (
     <div className="space-y-4">
-
-      {/* Search + Add row */}
-      <div className="flex gap-2">
-        <div className="relative flex-1">
+      {/* Recherche, tri, actions */}
+      <div className="flex flex-wrap gap-2">
+        <div className="relative min-w-[180px] flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder={t('categories.search_placeholder')}
-            className="pl-9 h-9"
-          />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('categories.search_placeholder')} aria-label={t('categories.search_placeholder')} className="pl-9 h-9" />
         </div>
+        <Select value={sortKey} onValueChange={v => setSortKey(v as SortKey)}>
+          <SelectTrigger className="h-9 w-[180px] text-xs" aria-label={t('categories.sort_label')} data-testid="category-sort">
+            <ArrowUpDown className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" /><SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="name">{t('categories.sort_name')}</SelectItem>
+            <SelectItem value="products">{t('categories.sort_products')}</SelectItem>
+            {showValue && <SelectItem value="value">{t('categories.sort_value')}</SelectItem>}
+            <SelectItem value="sales">{t('categories.sort_sales')}</SelectItem>
+          </SelectContent>
+        </Select>
         {canEdit && (
           <div className="flex gap-2 shrink-0">
-            <Button
-              variant="outline"
-              onClick={restoreDefaults}
-              loading={seeding}
-              className="gap-1.5 h-9 px-3 text-sm text-muted-foreground"
-              title={t('categories.restore_hint')}
-            >
+            <Button variant="outline" onClick={() => setRestoreOpen(true)} className="gap-1.5 h-9 px-3 text-sm text-muted-foreground" title={t('categories.restore_hint')} aria-label={t('categories.restore')}>
               <RotateCcw className="h-4 w-4" />
               <span className="hidden sm:inline">{t('categories.restore')}</span>
             </Button>
-            <Button variant="stockshop" onClick={openDialog} className="gap-1.5 h-9 px-3 text-sm">
+            <Button variant="stockshop" onClick={() => openForm(null)} className="gap-1.5 h-9 px-3 text-sm">
               <Plus className="h-4 w-4" />
               {t('categories.add')}
             </Button>
@@ -361,13 +454,13 @@ export default function CategoriesPage() {
         )}
       </div>
 
-      {/* Category list with products */}
+      {/* Liste */}
       <div className="space-y-2">
         {loading && shopLoadTimedOut && effectiveShopIds.length === 0 ? (
           <LoadErrorFallback />
         ) : loading ? (
-          [...Array(4)].map((_, i) => <Skeleton key={i} className="h-14 rounded-lg" />)
-        ) : filtered.length === 0 ? (
+          [...Array(4)].map((_, i) => <Skeleton key={i} className="h-20 rounded-lg" />)
+        ) : filtered.length === 0 && (search || uncategorized.length === 0) ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <Tag className="h-10 w-10 mb-3 opacity-30 text-stockshop-blue dark:text-blue-400" />
             <p className="text-sm">{search ? t('categories.no_results') : t('categories.none')}</p>
@@ -376,25 +469,24 @@ export default function CategoriesPage() {
         ) : isMultiShop ? (
           userShops.filter(s => effectiveShopIds.includes(s.id)).map(shopEntry => {
             const shopCats = filtered.filter(c => c.shop_id === shopEntry.id)
-            const shopUncategorized = !search ? products.filter(p => p.shop_id === shopEntry.id && !p.category_id) : []
+            const shopUncategorized = !search ? products.filter(p => p.shop_id === shopEntry.id && !catOf(p)) : []
             if (shopCats.length === 0 && shopUncategorized.length === 0) return null
             return (
               <div key={shopEntry.id} className="space-y-2">
-                {/* Shop section header */}
                 <div className="flex items-center gap-2 pt-2">
                   <Store className="h-3.5 w-3.5 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
                   <span className="text-xs font-semibold text-stockshop-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
                   <div className="flex-1 h-px bg-border" />
                 </div>
-                {shopCats.map(cat => <CategoryCard key={cat.id} cat={cat} products={products} expandedId={expandedId} setExpandedId={setExpandedId} canEdit={canEdit} deleteCategory={setConfirmDeleteCat} openEdit={openEdit} t={t} fmt={fmt} />)}
-                {shopUncategorized.length > 0 && <UncategorizedCard products={shopUncategorized} shopId={shopEntry.id} expandedId={expandedId} setExpandedId={setExpandedId} t={t} fmt={fmt} />}
+                {shopCats.map(renderCategory)}
+                {shopUncategorized.length > 0 && renderUncategorized(shopUncategorized, shopEntry.id)}
               </div>
             )
           })
         ) : (
           <>
-            {filtered.map(cat => <CategoryCard key={cat.id} cat={cat} products={products} expandedId={expandedId} setExpandedId={setExpandedId} canEdit={canEdit} deleteCategory={setConfirmDeleteCat} openEdit={openEdit} t={t} fmt={fmt} />)}
-            {!search && uncategorized.length > 0 && <UncategorizedCard products={uncategorized} shopId={shop?.id || ''} expandedId={expandedId} setExpandedId={setExpandedId} t={t} fmt={fmt} />}
+            {filtered.map(renderCategory)}
+            {!search && uncategorized.length > 0 && renderUncategorized(uncategorized, shop?.id || '')}
           </>
         )}
       </div>
@@ -405,29 +497,31 @@ export default function CategoriesPage() {
         </p>
       )}
 
-      {/* Add category dialog */}
+      {/* Ajouter / modifier : une seule modale */}
       <PremiumDialog
-        open={dialogOpen}
-        onOpenChange={open => { setDialogOpen(open); if (!open) setNewName('') }}
-        title={t('categories.add_dialog_title')}
-        icon={<Tag className="h-4 w-4" />}
+        open={formOpen}
+        onOpenChange={open => { if (!open) { setFormOpen(false); setEditingCat(null) } }}
+        title={editingCat ? t('categories.edit_dialog_title') : t('categories.add_dialog_title')}
+        description={editingCat?.name}
+        icon={editingCat ? <Edit2 className="h-4 w-4" /> : <Tag className="h-4 w-4" />}
+        maxWidth="max-w-md"
+        dirty={formDirty}
+        testId="category-dialog"
       >
         <PremiumDialogBody>
           <div className="space-y-1.5">
-            <Label htmlFor="cat-name">{t('categories.add_dialog_label')}</Label>
+            <Label htmlFor="cat-name">{t('categories.name_label')}<RequiredMark /></Label>
             <Input
               id="cat-name"
-              ref={inputRef}
-              value={newName}
-              onChange={e => setNewName(e.target.value)}
+              value={formName}
+              onChange={e => setFormName(e.target.value)}
               placeholder={t('categories.add_placeholder')}
-              onKeyDown={e => e.key === 'Enter' && addCategory()}
-              autoFocus
+              onKeyDown={e => e.key === 'Enter' && submitForm()}
             />
           </div>
           <div className="space-y-1.5">
             <Label>{t('categories.color_label')}</Label>
-            <ColorPicker value={newColor} onChange={setNewColor} />
+            <ColorPicker value={formColor} onChange={setFormColor} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="cat-alert-days">{t('categories.expiry_alert_days_label')}</Label>
@@ -435,89 +529,78 @@ export default function CategoriesPage() {
               id="cat-alert-days"
               type="number"
               min={1}
-              value={newAlertDays}
-              onChange={e => setNewAlertDays(e.target.value)}
+              value={formAlertDays}
+              onChange={e => setFormAlertDays(e.target.value)}
               placeholder={t('categories.expiry_alert_days_placeholder', { days: shop?.expiry_alert_days ?? 14 })}
             />
           </div>
         </PremiumDialogBody>
         <PremiumDialogFooter
-          onCancel={() => setDialogOpen(false)}
+          onCancel={() => { setFormOpen(false); setEditingCat(null) }}
           cancelLabel={t('actions.cancel')}
-          onConfirm={addCategory}
-          confirmLabel={t('categories.add')}
-          confirmDisabled={!newName.trim()}
+          onConfirm={submitForm}
+          confirmLabel={editingCat ? t('actions.save') : t('categories.add')}
+          confirmDisabled={!formName.trim()}
           confirmLoading={saving}
+          confirmIcon={editingCat ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
         />
       </PremiumDialog>
 
-      {/* Edit category dialog */}
-      <PremiumDialog
-        open={!!editingCat}
-        onOpenChange={open => { if (!open) setEditingCat(null) }}
-        title={t('categories.edit_dialog_title')}
-        icon={<Edit2 className="h-4 w-4" />}
+      {/* Suppression : laisser les produits sans catégorie ou les déplacer */}
+      <ConfirmModal
+        open={!!deleteCat}
+        onOpenChange={open => { if (!open && !deleting) setDeleteCat(null) }}
+        category={t('actions.delete')}
+        title={deleteCat ? t('categories.delete_confirm_title', { name: deleteCat.name }) : ''}
+        icon={<Trash2 className="h-4 w-4" />}
+        tone="danger"
+        confirmLabel={t('actions.delete')}
+        loading={deleting}
+        disabled={deleteMode === 'move' && !moveTarget}
+        onConfirm={confirmDelete}
+        maxWidth="max-w-md"
       >
-        <PremiumDialogBody>
-          <div className="space-y-1.5">
-            <Label htmlFor="cat-edit-name">{t('categories.add_dialog_label')}</Label>
-            <Input
-              id="cat-edit-name"
-              value={editName}
-              onChange={e => setEditName(e.target.value)}
-              placeholder={t('categories.add_placeholder')}
-              onKeyDown={e => e.key === 'Enter' && saveEdit()}
-              autoFocus
-            />
+        {deleteProductIds.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t('categories.delete_no_products')}</p>
+        ) : (
+          <div className="space-y-3" data-testid="category-delete-options">
+            <p className="text-sm font-medium">{t('categories.delete_products_question', { count: deleteProductIds.length })}</p>
+            <div className="space-y-2" role="radiogroup">
+              {(['leave', 'move'] as const).map(mode => (
+                <label key={mode} className={cn('flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm transition-colors', deleteMode === mode ? 'border-stockshop-blue bg-stockshop-blue-muted dark:border-blue-700 dark:bg-blue-950/40' : 'hover:bg-muted/50', mode === 'move' && moveOptions.length === 0 && 'pointer-events-none opacity-50')}>
+                  <input type="radio" name="delete-mode" className="accent-stockshop-blue" checked={deleteMode === mode} disabled={mode === 'move' && moveOptions.length === 0} onChange={() => setDeleteMode(mode)} />
+                  {mode === 'leave' ? t('categories.delete_leave') : t('categories.delete_move')}
+                </label>
+              ))}
+            </div>
+            {deleteMode === 'move' && (
+              <div className="space-y-1.5">
+                <Label>{t('categories.delete_move_target')}<RequiredMark /></Label>
+                <Select value={moveTarget} onValueChange={setMoveTarget}>
+                  <SelectTrigger className="h-10" data-testid="category-move-target"><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
+                  <SelectContent>
+                    {moveOptions.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
-          <div className="space-y-1.5">
-            <Label>{t('categories.color_label')}</Label>
-            <ColorPicker value={editColor} onChange={setEditColor} />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="cat-edit-alert-days">{t('categories.expiry_alert_days_label')}</Label>
-            <Input
-              id="cat-edit-alert-days"
-              type="number"
-              min={1}
-              value={editAlertDays}
-              onChange={e => setEditAlertDays(e.target.value)}
-              placeholder={t('categories.expiry_alert_days_placeholder', { days: shop?.expiry_alert_days ?? 14 })}
-            />
-          </div>
-        </PremiumDialogBody>
-        <PremiumDialogFooter
-          onCancel={() => setEditingCat(null)}
-          cancelLabel={t('actions.cancel')}
-          onConfirm={saveEdit}
-          confirmLabel={t('actions.save')}
-          confirmDisabled={!editName.trim()}
-          confirmLoading={editSaving}
-        />
-      </PremiumDialog>
+        )}
+      </ConfirmModal>
 
-      {/* Delete category confirmation dialog */}
-      <PremiumDialog
-        open={!!confirmDeleteCat}
-        onOpenChange={open => { if (!open) setConfirmDeleteCat(null) }}
-        title={t('categories.delete_confirm_title', { name: confirmDeleteCat?.name || '' })}
-        icon={<Trash2 className="h-4 w-4 text-destructive" />}
-      >
-        <PremiumDialogBody>
-          <div className="flex items-start gap-3 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 p-3">
-            <AlertTriangle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
-            <p className="text-sm text-red-700 dark:text-red-400">{t('categories.delete_confirm', { name: confirmDeleteCat?.name || '' })}</p>
-          </div>
-        </PremiumDialogBody>
-        <PremiumDialogFooter
-          onCancel={() => setConfirmDeleteCat(null)}
-          cancelLabel={t('actions.cancel')}
-          onConfirm={() => confirmDeleteCat && deleteCategory(confirmDeleteCat)}
-          confirmLabel={t('actions.delete') || 'Supprimer'}
-          confirmDestructive
-          confirmLoading={deleting}
-        />
-      </PremiumDialog>
+      {/* Restauration des catégories par défaut : confirmation explicative */}
+      <ConfirmModal
+        open={restoreOpen}
+        onOpenChange={open => { if (!open && !seeding) setRestoreOpen(false) }}
+        title={t('categories.restore_title')}
+        description={t('categories.restore_confirm')}
+        icon={<RotateCcw className="h-4 w-4" />}
+        tone="primary"
+        confirmLabel={t('categories.restore')}
+        loading={seeding}
+        onConfirm={restoreDefaults}
+        maxWidth="max-w-md"
+      />
     </div>
   )
 }
