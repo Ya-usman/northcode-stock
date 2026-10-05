@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { createAdminClient } from '@/lib/supabase/server'
-import { buildMorningCheckHtml, type ServiceCheck, type ServiceStatus } from '@/lib/email/morning-check-template'
-import { format } from 'date-fns'
-import { fr } from 'date-fns/locale'
+import { buildMorningCheckEmail, type ServiceCheck, type ExpiringPlan } from '@/lib/email/morning-check-template'
 import { logCronRun } from '@/lib/api/cron-log'
-import { EMAIL_FROM } from '@/lib/email/sender'
+import { EMAIL_FROM, appBaseUrl } from '@/lib/email/sender'
+import { getPlan } from '@/lib/saas/plans'
+
+// Bilan du matin — état des services et activité de la plateforme, envoyé
+// chaque matin aux administrateurs (SUPER_ADMIN_EMAILS).
+// ?dry=1 : calcule sans envoyer ni journaliser (&html=1 : contenu de l'e-mail).
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -14,105 +17,95 @@ const ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || '')
   .map(e => e.trim())
   .filter(Boolean)
 
-// ── Service health checks ────────────────────────────────────────────────────
+// ── Vérification des services ───────────────────────────────────────────────
 
 async function checkService(name: string, fn: () => Promise<void>): Promise<ServiceCheck> {
   const start = Date.now()
   try {
     await fn()
-    return { name, status: 'ok', detail: 'No issues reported.', responseMs: Date.now() - start }
+    return { name, status: 'ok', detail: '', responseMs: Date.now() - start }
   } catch (err: any) {
-    return { name, status: 'incident', detail: err?.message || 'Error', responseMs: Date.now() - start }
+    return { name, status: 'incident', detail: err?.message || 'Erreur', responseMs: Date.now() - start }
   }
 }
 
 async function checkUrl(url: string, timeoutMs = 6000): Promise<void> {
-  const res = await fetch(url, {
-    method: 'HEAD',
-    signal: AbortSignal.timeout(timeoutMs),
-    cache: 'no-store',
-  })
+  const res = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(timeoutMs), cache: 'no-store' })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
 }
 
-// ── Metrics from Supabase ───────────────────────────────────────────────────
+// ── Indicateurs ─────────────────────────────────────────────────────────────
 
-async function getMetrics(admin: Awaited<ReturnType<typeof createAdminClient>>) {
-  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-  const in7days  = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-  const today    = new Date().toISOString()
+async function getMetrics(admin: any) {
+  const now = Date.now()
+  const since24h = new Date(now - 24 * 3600_000).toISOString()
+  const in7days = new Date(now + 7 * 86_400_000).toISOString()
 
   const [
     { count: newShops },
     { count: totalShops },
     { count: totalUsers },
     { data: recentSales },
-    { count: failedPayments },
-    { count: expiringPlans },
+    { count: unpaidSales },
+    { data: expiring },
   ] = await Promise.all([
-    admin.from('shops').select('id', { count: 'exact', head: true }).gte('created_at', since24h),
-    admin.from('shops').select('id', { count: 'exact', head: true }),
+    admin.from('shops').select('id', { count: 'exact', head: true }).gte('created_at', since24h).is('deleted_at', null),
+    admin.from('shops').select('id', { count: 'exact', head: true }).is('deleted_at', null),
     admin.from('profiles').select('id', { count: 'exact', head: true }),
-    admin.from('sales')
-      .select('shop_id, total')
-      .gte('created_at', since24h)
-      .eq('sale_status', 'active'),
+    admin.from('sales').select('shop_id').gte('created_at', since24h).eq('sale_status', 'active'),
     admin.from('sales').select('id', { count: 'exact', head: true })
-      .gte('created_at', since24h)
-      .eq('payment_status', 'unpaid')
-      .eq('payment_method', 'cash'),
-    // Abonnement porté par l'ENTREPRISE (migration 153) : une entreprise
-    // comptée une fois, quel que soit son nombre de boutiques.
-    admin.from('entities').select('id', { count: 'exact', head: true })
-      .not('plan_expires_at', 'is', null)
-      .lte('plan_expires_at', in7days)
-      .gte('plan_expires_at', today),
+      .gte('created_at', since24h).eq('payment_status', 'unpaid').eq('payment_method', 'cash'),
+    // Abonnement porté par l'ENTREPRISE (migration 153) : une ligne par entreprise
+    admin.from('entities').select('name, plan, plan_expires_at, is_internal')
+      .not('plan_expires_at', 'is', null).lte('plan_expires_at', in7days).gte('plan_expires_at', new Date(now).toISOString())
+      .order('plan_expires_at', { ascending: true }),
   ])
 
   const sales = recentSales || []
-  const activeSaleShops = new Set(sales.map((s: any) => s.shop_id)).size
-  const totalRevenue = sales.reduce((sum: number, s: any) => sum + Number(s.total), 0)
+  const expiringPlans: ExpiringPlan[] = (expiring || [])
+    .filter((e: any) => !e.is_internal)
+    .map((e: any) => ({ name: e.name || 'Entreprise sans nom', plan: getPlan(e.plan).name, expires_at: e.plan_expires_at }))
 
   return {
-    newShops:       newShops       ?? 0,
-    totalShops:     totalShops     ?? 0,
-    totalUsers:     totalUsers     ?? 0,
-    activeSaleShops,
-    totalSales:     sales.length,
-    totalRevenue,
-    failedPayments: failedPayments ?? 0,
-    expiringPlans:  expiringPlans  ?? 0,
+    metrics: {
+      newShops: newShops ?? 0,
+      totalShops: totalShops ?? 0,
+      totalUsers: totalUsers ?? 0,
+      activeSaleShops: new Set(sales.map((s: any) => s.shop_id)).size,
+      totalSales: sales.length,
+      unpaidSales: unpaidSales ?? 0,
+    },
+    expiringPlans,
   }
 }
 
-// ── Main handler ─────────────────────────────────────────────────────────────
+// ── Tâche ───────────────────────────────────────────────────────────────────
 
 export async function GET(request: Request) {
-  // Vercel Cron passes the CRON_SECRET via Authorization header
-  const authHeader = request.headers.get('authorization')
+  // Vercel Cron transmet CRON_SECRET dans l'en-tête Authorization
   const secret = process.env.CRON_SECRET
-  if (secret && authHeader !== `Bearer ${secret}`) {
+  if (secret && request.headers.get('authorization') !== `Bearer ${secret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const params = new URL(request.url).searchParams
+  const dry = params.get('dry') === '1'
 
   try {
-    const admin = await createAdminClient()
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://northcode-stock.vercel.app'
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+    const admin = await createAdminClient() as any
+    const appUrl = appBaseUrl()
 
-    // Run all service checks + metrics in parallel
-    const [services, metrics] = await Promise.all([
+    const [services, { metrics, expiringPlans }] = await Promise.all([
       Promise.all([
-        checkService('API / Serveur', () => checkUrl(`${siteUrl}/api/health`)),
-        checkService('Base de données (Supabase)', async () => {
+        checkService('Site et API', () => checkUrl(`${appUrl}/api/health`)),
+        checkService('Base de données', async () => {
           const { error } = await admin.from('shops').select('id').limit(1)
           if (error) throw new Error(error.message)
         }),
-        checkService('Authentification (Supabase Auth)', async () => {
+        checkService('Connexion des utilisateurs', async () => {
           const { error } = await admin.auth.admin.listUsers({ perPage: 1 })
           if (error) throw new Error(error.message)
         }),
-        checkService('Supabase Storage', async () => {
+        checkService('Stockage des fichiers', async () => {
           const { error } = await admin.storage.listBuckets()
           if (error) throw new Error(error.message)
         }),
@@ -120,40 +113,23 @@ export async function GET(request: Request) {
       getMetrics(admin),
     ])
 
-    const hasIncident   = services.some(s => s.status === 'incident')
-    const hasDisruption = services.some(s => s.status === 'disruption')
+    const now = new Date()
+    const date = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Lagos' })
+    const time = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Lagos' }).replace(':', ' h ')
+    const mail = buildMorningCheckEmail({ date, time, services, metrics, expiringPlans, appUrl })
 
-    const date = format(new Date(), "EEEE d MMMM yyyy", { locale: fr })
-
-    const html = buildMorningCheckHtml({
-      date,
-      services,
-      metrics,
-      hasIncident,
-      hasDisruption,
-    })
-
-    const overallLabel = hasIncident
-      ? '⛈️ INCIDENT — StockShop Daily Check'
-      : hasDisruption
-        ? '🌦️ PERTURBATION — StockShop Daily Check'
-        : '☀️ All OK — StockShop Daily Check'
+    const summary = { services: services.map(s => ({ name: s.name, status: s.status, ms: s.responseMs })), metrics, expiring: expiringPlans.length, subject: mail.subject }
+    if (dry) return NextResponse.json(params.get('html') === '1' ? { dry, ...summary, html: mail.html } : { dry, ...summary })
 
     const recipients = ADMIN_EMAILS.length ? ADMIN_EMAILS : ['yahaya.dev@gmail.com']
-    const { error: sendError } = await resend.emails.send({
-      from: EMAIL_FROM,
-      to: recipients,
-      subject: `${overallLabel} | ${format(new Date(), 'dd/MM/yyyy')}`,
-      html,
-    })
+    const { error: sendError } = await resend.emails.send({ from: EMAIL_FROM, to: recipients, subject: mail.subject, html: mail.html })
     if (sendError) throw new Error(sendError.message)
 
-    const summary = { services: services.map(s => ({ name: s.name, status: s.status })), metrics }
     await logCronRun('morning-check', 'success', summary)
     return NextResponse.json({ ok: true, ...summary })
   } catch (err: any) {
     console.error('[morning-check]', err)
-    await logCronRun('morning-check', 'error', undefined, err.message)
+    if (!dry) await logCronRun('morning-check', 'error', undefined, err.message)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
