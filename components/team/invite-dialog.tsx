@@ -8,7 +8,7 @@
 
 import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { UserPlus, Mail, Send, Store, Info } from 'lucide-react'
+import { UserPlus, Mail, Send, Store, Info, AlertTriangle, UserCheck } from 'lucide-react'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import { RequiredMark } from '@/components/ui/input-group'
 import { Button } from '@/components/ui/button'
@@ -19,6 +19,7 @@ import { useToast } from '@/components/ui/use-toast'
 import type { Shop, UserRole } from '@/lib/types/database'
 import { manageableRoles } from '@/lib/team/roles'
 import { teamActions } from '@/lib/team/team-actions'
+import { sharedAccountSignals } from '@/lib/team/shared-account-signals'
 
 interface Props {
   open: boolean
@@ -46,6 +47,8 @@ export function InviteDialog({ open, onOpenChange, shops, defaultShopId, fixedSh
   const effectiveShopId = fixedShopId || shopId
   const roleOptions = manageableRoles(roleByShop[effectiveShopId])
   const shopName = shops.find(s => s.id === effectiveShopId)?.name || ''
+  // Règle « un membre = une personne » : avertissement doux, jamais bloquant
+  const signals = sharedAccountSignals({ fullName, email: /@/.test(email) ? email : '', shopNames: shops.map(s => s.name) })
 
   useEffect(() => {
     if (!open) return
@@ -134,6 +137,12 @@ export function InviteDialog({ open, onOpenChange, shops, defaultShopId, fixedSh
             <SelectContent>{roleOptions.map(r => <SelectItem key={r} value={r}>{t(`roles.${r}` as any)}</SelectItem>)}</SelectContent>
           </Select>
         </div>
+        {signals.length > 0 && !existing && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-300" data-testid="invite-shared-warning">
+            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+            <span>{signals.includes('collective_name') ? t('team.shared_warning_name') : t('team.shared_warning_email')}</span>
+          </div>
+        )}
         {existing ? (
           <div className="space-y-3 rounded-lg border border-stockshop-blue/30 bg-stockshop-blue-muted p-3 dark:border-blue-800/50 dark:bg-blue-950/30" data-testid="invite-member-exists">
             <p className="flex items-start gap-2 text-sm text-stockshop-blue dark:text-blue-300">
@@ -145,8 +154,9 @@ export function InviteDialog({ open, onOpenChange, shops, defaultShopId, fixedSh
             </Button>
           </div>
         ) : (
-          <div className="rounded-lg border border-stockshop-blue/20 bg-stockshop-blue-muted p-3 text-sm text-stockshop-blue dark:border-blue-800/40 dark:bg-blue-950/30 dark:text-blue-400">
-            {t('team.invite_info')}
+          <div className="space-y-1.5 rounded-lg border border-stockshop-blue/20 bg-stockshop-blue-muted p-3 text-sm text-stockshop-blue dark:border-blue-800/40 dark:bg-blue-950/30 dark:text-blue-400" data-testid="invite-personal-rule">
+            <p className="flex items-start gap-2 font-medium"><UserCheck className="mt-0.5 h-4 w-4 flex-shrink-0" />{t('team.personal_account_rule')}</p>
+            <p className="pl-6 text-xs opacity-90">{t('team.invite_info')}</p>
           </div>
         )}
       </PremiumDialogBody>

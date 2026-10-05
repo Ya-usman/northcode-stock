@@ -1101,6 +1101,10 @@
   },
   "team": {
     "title": "Team",
+    "personal_account_rule": "Each member must have their own account, with their personal email address. Accounts shared by several people are not allowed: they make it impossible to know who did what.",
+    "shared_warning_name": "This name looks like a group or a team. If several people need StockShop, invite each of them with their own account. A phone or till can be shared, an account cannot.",
+    "shared_warning_email": "This address looks like the shop’s or a department’s. Prefer the member’s personal email address so their actions are attributed to them.",
+    "assign_personal_rule": "You are assigning a person: their account remains strictly personal.",
     "account_deactivate": "Deactivate account",
     "account_reactivate": "Reactivate account",
     "account_deactivate_title": "Deactivate {name}’s account?",

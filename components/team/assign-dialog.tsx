@@ -138,6 +138,7 @@ export function AssignDialog({ open, onOpenChange, shops, roleByShop, people, fi
               <SelectContent>{roleOptions.map(r => <SelectItem key={r} value={r}>{t(`roles.${r}` as any)}</SelectItem>)}</SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">{t('team.assign_hint')}</p>
+            <p className="text-xs text-muted-foreground" data-testid="assign-personal-rule">{t('team.assign_personal_rule')}</p>
           </div>
         )}
         {onInviteNew && (

@@ -1101,6 +1101,10 @@
   },
   "team": {
     "title": "Ma'aikata",
+    "personal_account_rule": "Kowane memba dole ne ya sami asusunsa na kansa, da imel ɗinsa na kansa. Ba a yarda mutane da yawa su yi amfani da asusu ɗaya ba: hakan yana hana a san wanda ya yi me.",
+    "shared_warning_name": "Wannan suna yana kama da na ƙungiya. Idan mutane da yawa za su yi amfani da StockShop, gayyaci kowannensu da asusunsa. Ana iya raba waya ko na’urar sayarwa, amma ba asusu ba.",
+    "shared_warning_email": "Wannan imel yana kama da na shago ko na wani sashe. Gara a yi amfani da imel na kansa na memban, don a danganta ayyukansa da shi.",
+    "assign_personal_rule": "Kuna sanya mutum ɗaya: asusunsa ya kasance na kansa kawai.",
     "account_deactivate": "Kashe asusu",
     "account_reactivate": "Sake kunna asusu",
     "account_deactivate_title": "A kashe asusun {name}?",
