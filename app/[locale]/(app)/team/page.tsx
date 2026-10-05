@@ -1,12 +1,18 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import {
   UserPlus, Shield, Mail, ShieldOff, ShieldCheck,
   AlertTriangle, Trash2, Store, RotateCcw,
-  CheckCircle2, Clock,
+  CheckCircle2, Clock, Search, ChevronRight, ChevronDown, Users, Send, UserMinus, UserCog,
 } from 'lucide-react'
+import { normalize } from '@/lib/utils/normalize'
+import { DetailDrawer } from '@/components/ui/detail-drawer'
+import { DrawerSection } from '@/components/ui/app-drawer'
+import { ConfirmModal } from '@/components/ui/confirm-modal'
+import { RequiredMark } from '@/components/ui/input-group'
+import { FOOTER_ROW_CLASS } from '@/components/ui/premium-dialog'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { ShopSelector } from '@/components/layout/shop-selector'
@@ -109,6 +115,17 @@ export default function TeamPage() {
   const [view, setView] = useState<'team' | 'journal'>('team')
   const [auditLogs, setAuditLogs] = useState<any[]>([])
   const [loadingJournal, setLoadingJournal] = useState(false)
+  const [journalPeriod, setJournalPeriod] = useState<'all' | 'today' | '7d' | '30d'>('all')
+  const [journalAction, setJournalAction] = useState<'all' | 'member.invite' | 'member.role_change' | 'member.toggle_active' | 'member.delete'>('all')
+  const [journalExpanded, setJournalExpanded] = useState<string | null>(null)
+
+  // ── Liste : recherche, filtres, fiche, changement de rôle confirmé ──────
+  const [search, setSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'pending'>('all')
+  const [sheetMemberId, setSheetMemberId] = useState<string | null>(null)
+  const [roleChange, setRoleChange] = useState<{ member: Member; to: UserRole } | null>(null)
+  const [inviteErrors, setInviteErrors] = useState<{ name?: string; email?: string }>({})
 
   const isOwner = myProfile?.role === 'owner' || myProfile?.role === 'manager' || myProfile?.role === 'shop_manager' || myProfile?.role === 'super_admin'
   // True owners (and super_admin) manage everyone. Managers (manager/shop_manager) only
@@ -207,22 +224,28 @@ export default function TeamPage() {
     if (!shopId) return
     setLoadingJournal(true)
     try {
-      // Bounded so a stale connection/session after the app sat backgrounded
-      // a while can never leave the journal spinning forever.
-      const { data } = await withTimeout<any>(supabase
+      let query = supabase
         .from('audit_logs')
         .select('*')
         .eq('shop_id', shopId)
-        .in('action', ['member.invite', 'member.delete', 'member.role_change', 'member.toggle_active'])
+        .in('action', journalAction === 'all' ? ['member.invite', 'member.delete', 'member.role_change', 'member.toggle_active'] : [journalAction])
         .order('created_at', { ascending: false })
-        .limit(50), 20_000, 'Chargement du journal trop lent — réessayez.')
+        .limit(100)
+      if (journalPeriod !== 'all') {
+        const d = new Date(); d.setHours(0, 0, 0, 0)
+        d.setDate(d.getDate() - (journalPeriod === 'today' ? 0 : journalPeriod === '7d' ? 6 : 29))
+        query = query.gte('created_at', d.toISOString())
+      }
+      // Bounded so a stale connection/session after the app sat backgrounded
+      // a while can never leave the journal spinning forever.
+      const { data } = await withTimeout<any>(query, 20_000, 'Chargement du journal trop lent — réessayez.')
       setAuditLogs(data || [])
     } catch {
       // journal just stays empty/stale — non-critical secondary tab
     } finally {
       setLoadingJournal(false)
     }
-  }, [shopId])
+  }, [shopId, journalAction, journalPeriod])
 
   useEffect(() => { if (view === 'journal') fetchAuditLogs() }, [view, fetchAuditLogs])
 
@@ -301,10 +324,12 @@ export default function TeamPage() {
   }
 
   const inviteEmployee = async () => {
-    if (!inviteEmail || !inviteFullName) {
-      toast({ title: t('toast.invite_fields_required'), variant: 'destructive' })
-      return
-    }
+    // Erreurs sous les champs plutôt qu'une notification
+    const errors: { name?: string; email?: string } = {}
+    if (!inviteFullName.trim()) errors.name = t('team.name_required')
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail.trim())) errors.email = t('errors.email_invalid')
+    setInviteErrors(errors)
+    if (errors.name || errors.email) return
     setInviting(true)
     try {
       const res = await withTimeout(fetch('/api/team/invite', {
@@ -360,8 +385,29 @@ export default function TeamPage() {
     : members
   ).filter(m => !(isSubManager && m.role === 'owner'))
 
+  const isPending = (m: Member) => !!m.authStatus && !m.authStatus.email_confirmed_at
   const activeCount = displayedMembers.filter(m => m.is_active).length
-  const pendingCount = displayedMembers.filter(m => m.authStatus && !m.authStatus.email_confirmed_at).length
+  const pendingCount = displayedMembers.filter(isPending).length
+
+  // Recherche (nom, e-mail) et filtres (rôle, statut)
+  const q = normalize(search.trim())
+  const visibleMembers = displayedMembers.filter(m => {
+    if (q && !normalize(m.profiles?.full_name || '').includes(q) && !normalize(m.email || '').includes(q)) return false
+    if (roleFilter !== 'all' && m.role !== roleFilter) return false
+    if (statusFilter === 'active' && !m.is_active) return false
+    if (statusFilter === 'inactive' && m.is_active) return false
+    if (statusFilter === 'pending' && !isPending(m)) return false
+    return true
+  })
+  const filtersActive = !!q || roleFilter !== 'all' || statusFilter !== 'all'
+  const rolesPresent = Array.from(new Set(displayedMembers.map(m => m.role)))
+
+  // Fiche ouverte : toujours la version à jour du membre (après une action)
+  const sheetMember = sheetMemberId ? members.find(m => m.id === sheetMemberId) ?? null : null
+  const assignableRoles: UserRole[] = [
+    ...(isFullOwner ? (['shop_manager', 'manager'] as UserRole[]) : []),
+    'cashier', 'stock_manager', 'viewer',
+  ]
 
   const renderMemberStatus = (member: Member) => {
     const p = member.profiles
@@ -373,24 +419,10 @@ export default function TeamPage() {
     // Email not confirmed → invitation pending
     if (auth && !auth.email_confirmed_at) {
       return (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium">
-            <AlertTriangle className="h-3 w-3" />
-            {t('team.invite_pending')}
-          </span>
-          {isOwner && (
-            <button
-              onClick={() => resendInvite(member)}
-              disabled={actionLoading === member.id + '_resend'}
-              className="inline-flex items-center gap-1 text-[10px] text-stockshop-blue dark:text-blue-400 hover:underline disabled:opacity-50"
-            >
-              {actionLoading === member.id + '_resend'
-                ? <span className="h-2.5 w-2.5 rounded-full border border-current border-t-transparent animate-spin" />
-                : <RotateCcw className="h-2.5 w-2.5" />}
-              {t('team.resend')}
-            </button>
-          )}
-        </div>
+        <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+          <AlertTriangle className="h-3 w-3" />
+          {t('team.invite_pending')}
+        </span>
       )
     }
 
@@ -404,22 +436,12 @@ export default function TeamPage() {
       )
     }
 
-    // Last sign in (from auth) takes priority over last_seen
-    if (auth?.last_sign_in_at) {
+    const seen = p?.last_seen || auth?.last_sign_in_at
+    if (seen) {
       return (
         <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
           <span className={cn('h-1.5 w-1.5 rounded-full flex-shrink-0', isOnline ? 'bg-green-500' : isAway ? 'bg-amber-400' : 'bg-gray-400')} />
-          {isOnline ? 'En ligne' : formatDistanceToNow(new Date(p?.last_seen || auth.last_sign_in_at), { addSuffix: true, locale: dateFnsLocale })}
-        </span>
-      )
-    }
-
-    // Fallback: use last_seen from profiles
-    if (p?.last_seen) {
-      return (
-        <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-          <span className={cn('h-1.5 w-1.5 rounded-full flex-shrink-0', isOnline ? 'bg-green-500' : isAway ? 'bg-amber-400' : 'bg-gray-400')} />
-          {isOnline ? 'En ligne' : formatDistanceToNow(new Date(p.last_seen), { addSuffix: true, locale: dateFnsLocale })}
+          {isOnline ? t('team.online') : formatDistanceToNow(new Date(seen), { addSuffix: true, locale: dateFnsLocale })}
         </span>
       )
     }
@@ -427,128 +449,103 @@ export default function TeamPage() {
     return <span className="text-[10px] text-muted-foreground italic">{t('team.never_connected')}</span>
   }
 
+  const initialsOf = (name: string) => name.split(' ').filter(Boolean).map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() || '?'
+
+  // Carte allégée : un clic ouvre la fiche, où se trouvent les actions
   const renderMember = (member: Member) => {
     const p = member.profiles
     if (!p) return null
-    const initials = p.full_name.split(' ').filter(Boolean).map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() || '?'
     const isMe = member.user_id === myProfile?.id
-    const isLoadingAction = actionLoading === member.id || actionLoading === member.id + '_role'
-    const emailNotConfirmed = member.authStatus && !member.authStatus.email_confirmed_at
+    const emailNotConfirmed = isPending(member)
 
     return (
-      <div
+      <button
+        type="button"
         key={member.id}
+        onClick={() => setSheetMemberId(member.id)}
+        data-testid="member-card"
         className={cn(
-          'rounded-xl border bg-card shadow-sm transition-all',
+          'flex w-full items-center gap-3 rounded-xl border bg-card p-3.5 text-left shadow-sm transition-colors hover:bg-muted/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           !member.is_active && 'opacity-60 border-red-100 dark:border-red-900/30 bg-red-50/20 dark:bg-red-950/10',
           emailNotConfirmed && member.is_active && 'border-amber-200 dark:border-amber-800/40',
         )}
       >
-        <div className="flex items-center gap-3 p-3.5">
-          {/* Avatar */}
-          <div className="relative flex-shrink-0">
-            <Avatar className="h-9 w-9">
-              <AvatarFallback className={cn('text-white text-xs font-bold', member.is_active ? (ROLE_AVATAR_COLORS[member.role] || 'bg-gray-500') : 'bg-gray-400')}>
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            {member.is_active && p.last_seen && !emailNotConfirmed && (() => {
-              const ms = Date.now() - new Date(p.last_seen).getTime()
-              const online = ms < 5 * 60 * 1000
-              const away = !online && ms < 2 * 60 * 60 * 1000
-              return (
-                <span className={cn('absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card', online ? 'bg-green-500' : away ? 'bg-amber-400' : 'bg-gray-300 dark:bg-gray-600')} />
-              )
-            })()}
-          </div>
-
-          {/* Info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <p className="font-semibold text-sm leading-tight truncate max-w-[140px]">{p.full_name}</p>
-              {isMe && <Badge variant="outline" className="text-[9px] px-1 h-4 flex-shrink-0">{t('team.me')}</Badge>}
-              {!member.is_active && <Badge className="text-[9px] px-1.5 h-4 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800/60 flex-shrink-0">{t('team.deactivated_badge')}</Badge>}
-            </div>
-            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-              <span className={cn('inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium', ROLE_COLORS[member.role] || ROLE_COLORS.viewer)}>
-                <Shield className="h-2.5 w-2.5" />
-                {t(`roles.${member.role}` as any) || member.role}
-              </span>
-              {renderMemberStatus(member)}
-            </div>
-          </div>
-
-          {/* Joined date */}
-          {member.joined_at && (
-            <div className="hidden sm:flex flex-col items-end flex-shrink-0">
-              <span className="text-[9px] text-muted-foreground flex items-center gap-1">
-                <Clock className="h-2.5 w-2.5" />
-                {new Date(member.joined_at).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', { day: '2-digit', month: 'short', year: '2-digit' })}
-              </span>
-            </div>
-          )}
+        {/* Avatar */}
+        <div className="relative flex-shrink-0">
+          <Avatar className="h-9 w-9">
+            <AvatarFallback className={cn('text-white text-xs font-bold', member.is_active ? (ROLE_AVATAR_COLORS[member.role] || 'bg-gray-500') : 'bg-gray-400')}>
+              {initialsOf(p.full_name)}
+            </AvatarFallback>
+          </Avatar>
+          {member.is_active && p.last_seen && !emailNotConfirmed && (() => {
+            const ms = Date.now() - new Date(p.last_seen).getTime()
+            const online = ms < 5 * 60 * 1000
+            const away = !online && ms < 2 * 60 * 60 * 1000
+            return (
+              <span className={cn('absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card', online ? 'bg-green-500' : away ? 'bg-amber-400' : 'bg-gray-300 dark:bg-gray-600')} />
+            )
+          })()}
         </div>
 
-        {/* Actions (owners manage everyone; managers only manage subordinate roles) */}
-        {!isMe && member.role !== 'owner' && isOwner && canManageMember(member) && (
-          <div className="flex items-center gap-2 px-3.5 pb-3 pt-0 border-t border-border/50 mt-0 pt-2.5">
-            <Select
-              value={member.role}
-              onValueChange={v => changeRole(member, v as UserRole)}
-              disabled={isLoadingAction || !member.is_active}
-            >
-              <SelectTrigger className="h-7 w-[130px] text-xs border-border/60">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {isFullOwner && <SelectItem value="shop_manager">{t('roles.shop_manager')}</SelectItem>}
-                {isFullOwner && <SelectItem value="manager">{t('roles.manager')}</SelectItem>}
-                <SelectItem value="cashier">{t('roles.cashier')}</SelectItem>
-                <SelectItem value="stock_manager">{t('roles.stock_manager')}</SelectItem>
-                <SelectItem value="viewer">{t('roles.viewer')}</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <div className="flex items-center gap-1.5 ml-auto">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={isLoadingAction}
-                onClick={() => setConfirmDialog({ open: true, member, action: member.is_active ? 'deactivate' : 'reactivate' })}
-                className={cn('h-7 gap-1 text-xs px-2.5', member.is_active ? 'border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20' : 'border-green-200 dark:border-green-800/60 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/20')}
-              >
-                {isLoadingAction && actionLoading === member.id
-                  ? <span className="h-3 w-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                  : member.is_active
-                    ? <><ShieldOff className="h-3 w-3" />{t('team.deactivate')}</>
-                    : <><ShieldCheck className="h-3 w-3" />{t('team.reactivate')}</>}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={isLoadingAction}
-                onClick={() => setDeleteDialog({ open: true, member })}
-                className="h-7 w-7 p-0 border-red-200 dark:border-red-800/60 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
-                title={t('team.delete_title')}
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            </div>
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="font-semibold text-sm leading-tight truncate">{p.full_name}</p>
+            {isMe && <Badge variant="outline" className="text-[9px] px-1 h-4 flex-shrink-0">{t('team.me')}</Badge>}
+            {!member.is_active && <Badge className="text-[9px] px-1.5 h-4 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800/60 flex-shrink-0">{t('team.deactivated_badge')}</Badge>}
           </div>
-        )}
-      </div>
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+            <span className={cn('inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium', ROLE_COLORS[member.role] || ROLE_COLORS.viewer)}>
+              <Shield className="h-2.5 w-2.5" />
+              {t(`roles.${member.role}` as any) || member.role}
+            </span>
+            {renderMemberStatus(member)}
+          </div>
+        </div>
+        <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+      </button>
     )
   }
+
+  // Journal : libellé, détail et changement Avant / Après par entrée
+  type LogRow = { label: string; from?: string; to: string }
+  const describeLog = (log: any): { label: string; who: string; Icon: typeof Send; tone: string; rows: LogRow[] } => {
+    const meta = log.metadata || {}
+    const roleLabel = (r?: string) => (r ? t(`roles.${r}` as any) : '—')
+    if (log.action === 'member.invite') return { label: t('team.journal_invited'), who: meta.email || '—', Icon: Send, tone: 'bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-400', rows: [{ label: t('team.role_label'), to: roleLabel(meta.role) }, { label: t('team.invite_email'), to: meta.email || '—' }] }
+    if (log.action === 'member.delete') return { label: t('team.journal_deleted'), who: meta.member_name || '—', Icon: Trash2, tone: 'bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400', rows: [] }
+    if (log.action === 'member.role_change') return { label: t('team.journal_role_changed'), who: meta.member_name || '—', Icon: UserCog, tone: 'bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400', rows: [{ label: t('team.role_label'), from: roleLabel(meta.old_role), to: roleLabel(meta.new_role) }] }
+    return { label: t('team.journal_toggled'), who: meta.member_name || '—', Icon: meta.new_active ? ShieldCheck : UserMinus, tone: meta.new_active ? 'bg-green-50 text-green-600 dark:bg-green-950/40 dark:text-green-400' : 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400', rows: [{ label: t('team.sheet_status'), from: meta.new_active ? t('status.inactive') : t('status.active'), to: meta.new_active ? t('status.active') : t('status.inactive') }] }
+  }
+
+  const journalGroups = useMemo(() => {
+    const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const today = iso(new Date())
+    const y = new Date(); y.setDate(y.getDate() - 1)
+    const yesterday = iso(y)
+    const out: { key: string; label: string; items: any[] }[] = []
+    for (const log of auditLogs) {
+      const d = new Date(log.created_at)
+      const key = iso(d)
+      let g = out[out.length - 1]
+      if (!g || g.key !== key) {
+        g = { key, label: key === today ? t('activity_journal.today') : key === yesterday ? t('activity_journal.yesterday') : d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' }), items: [] }
+        out.push(g)
+      }
+      g.items.push(log)
+    }
+    return out
+  }, [auditLogs, locale, t])
 
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <p className="text-xs text-muted-foreground">
-            {activeCount} {activeCount === 1 ? 'membre actif' : 'membres actifs'}
+          <p className="text-xs text-muted-foreground" data-testid="team-counts">
+            {t('team.active_count', { count: activeCount })}
             {pendingCount > 0 && (
-              <span className="text-amber-500 ml-1">· {pendingCount} invitation{pendingCount > 1 ? 's' : ''} en attente</span>
+              <span className="text-amber-500 ml-1">· {t('team.pending_count', { count: pendingCount })}</span>
             )}
           </p>
         </div>
@@ -562,7 +559,7 @@ export default function TeamPage() {
               variant="stockshop"
               className="gap-2"
               disabled={inviting}
-              onClick={() => { setInviteShopId(shopId ?? ''); setShowInviteModal(true) }}
+              onClick={() => { setInviteShopId(shopId ?? ''); setInviteErrors({}); setShowInviteModal(true) }}
             >
               <UserPlus className="h-4 w-4" />
               {t('team.invite_btn')}
@@ -591,148 +588,323 @@ export default function TeamPage() {
 
       {/* Member list */}
       {view === 'team' && (
-        loading && shopLoadTimedOut && effectiveShopIds.length === 0 ? (
-          <LoadErrorFallback />
-        ) : loading ? (
-          <div className="space-y-2.5">
-            {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-[72px] rounded-xl" />)}
-          </div>
-        ) : displayedMembers.length === 0 ? (
-          <div className="flex h-32 items-center justify-center text-muted-foreground text-sm rounded-xl border bg-card">
-            {t('team.no_members')}
-          </div>
-        ) : (
-          <div className="space-y-2.5">
-            {displayedMembers.map(member => renderMember(member))}
-          </div>
-        )
+        <>
+          {displayedMembers.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              <div className="relative min-w-[180px] flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('team.search_placeholder')} aria-label={t('team.search_placeholder')} className="h-9 pl-9" />
+              </div>
+              <Select value={roleFilter} onValueChange={setRoleFilter}>
+                <SelectTrigger className="h-9 w-[160px] text-xs" aria-label={t('team.role_label')} data-testid="team-role-filter"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('team.filter_role_all')}</SelectItem>
+                  {rolesPresent.map(r => <SelectItem key={r} value={r}>{t(`roles.${r}` as any)}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={v => setStatusFilter(v as typeof statusFilter)}>
+                <SelectTrigger className="h-9 w-[170px] text-xs" aria-label={t('team.sheet_status')} data-testid="team-status-filter"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('team.filter_status_all')}</SelectItem>
+                  <SelectItem value="active">{t('team.status_active')}</SelectItem>
+                  <SelectItem value="inactive">{t('team.status_inactive')}</SelectItem>
+                  <SelectItem value="pending">{t('team.status_pending')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {loading && shopLoadTimedOut && effectiveShopIds.length === 0 ? (
+            <LoadErrorFallback />
+          ) : loading ? (
+            <div className="space-y-2.5">
+              {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-[72px] rounded-xl" />)}
+            </div>
+          ) : displayedMembers.length === 0 ? (
+            <div className="flex h-32 items-center justify-center text-muted-foreground text-sm rounded-xl border bg-card">
+              {t('team.no_members')}
+            </div>
+          ) : visibleMembers.length === 0 ? (
+            <div className="flex h-24 flex-col items-center justify-center gap-2 rounded-xl border bg-card text-sm text-muted-foreground">
+              {t('team.no_results_filtered')}
+              {filtersActive && (
+                <button type="button" className="text-xs font-medium text-stockshop-blue hover:underline dark:text-blue-400" onClick={() => { setSearch(''); setRoleFilter('all'); setStatusFilter('all') }}>
+                  {t('activity_journal.reset')}
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {visibleMembers.map(member => renderMember(member))}
+            </div>
+          )}
+        </>
       )}
 
       {/* Journal */}
       {view === 'journal' && isFullOwner && (
-        <div className="space-y-1.5">
-          {loadingJournal ? (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2 sm:max-w-md">
+            <Select value={journalPeriod} onValueChange={v => setJournalPeriod(v as typeof journalPeriod)}>
+              <SelectTrigger className="h-9 text-xs" aria-label={t('activity_journal.period_label')} data-testid="team-journal-period"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('activity_journal.period_all')}</SelectItem>
+                <SelectItem value="today">{t('activity_journal.today')}</SelectItem>
+                <SelectItem value="7d">{t('activity_journal.period_7d')}</SelectItem>
+                <SelectItem value="30d">{t('activity_journal.period_30d')}</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={journalAction} onValueChange={v => setJournalAction(v as typeof journalAction)}>
+              <SelectTrigger className="h-9 text-xs" aria-label={t('activity_journal.action_label')} data-testid="team-journal-action"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('activity_journal.action_all')}</SelectItem>
+                <SelectItem value="member.invite">{t('team.journal_filter_invites')}</SelectItem>
+                <SelectItem value="member.role_change">{t('team.journal_filter_roles')}</SelectItem>
+                <SelectItem value="member.toggle_active">{t('team.journal_filter_status')}</SelectItem>
+                <SelectItem value="member.delete">{t('team.journal_filter_deletes')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {loadingJournal && auditLogs.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-3">{t('team.journal_loading')}</p>
           ) : auditLogs.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-3">{t('team.journal_empty')}</p>
           ) : (
-            auditLogs.map((log: any) => {
-              const meta = log.metadata || {}
-              const actor = log.actor_email || '—'
-              const when = new Date(log.created_at).toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US', {
-                day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-              })
-              let label = ''
-              let detail = ''
-              if (log.action === 'member.invite') {
-                label = t('team.journal_invited')
-                detail = `${meta.email || '—'} · ${meta.role ? t(`roles.${meta.role}`) : '—'}`
-              } else if (log.action === 'member.delete') {
-                label = t('team.journal_deleted')
-                detail = meta.member_name || '—'
-              } else if (log.action === 'member.role_change') {
-                label = t('team.journal_role_changed')
-                detail = `${meta.member_name || '—'} · ${meta.old_role ? t(`roles.${meta.old_role}`) : '—'} → ${meta.new_role ? t(`roles.${meta.new_role}`) : '—'}`
-              } else {
-                label = t('team.journal_toggled')
-                detail = `${meta.member_name || '—'} · ${meta.new_active ? t('status.active') : t('status.inactive')}`
-              }
-              return (
-                <div key={log.id} className="flex items-start gap-2.5 rounded-lg bg-muted/40 border px-3 py-2.5 text-xs">
-                  <Clock className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-foreground/80">{label}</p>
-                    <p className="text-muted-foreground truncate">{detail}</p>
-                    <p className="text-muted-foreground/70 mt-0.5">{actor} · {when}</p>
-                  </div>
-                </div>
-              )
-            })
+            journalGroups.map(g => (
+              <section key={g.key} className="space-y-2" data-testid="team-journal-day">
+                <h4 className="px-1 pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{g.label}</h4>
+                {g.items.map((log: any) => {
+                  const d = describeLog(log)
+                  const isOpen = journalExpanded === log.id
+                  const time = new Date(log.created_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+                  return (
+                    <div key={log.id} className="overflow-hidden rounded-lg border bg-card">
+                      <button
+                        type="button"
+                        aria-expanded={isOpen}
+                        onClick={() => setJournalExpanded(isOpen ? null : log.id)}
+                        className="flex w-full items-start gap-3 px-3 py-2.5 text-left hover:bg-muted/40"
+                        data-testid="team-journal-entry"
+                      >
+                        <span className={cn('mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full', d.tone)}><d.Icon className="h-4 w-4" /></span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium">{d.who}</span>
+                          <span className="block truncate text-xs text-muted-foreground">{d.label}</span>
+                          <span className="mt-0.5 block text-xs text-muted-foreground/80">{log.actor_email || '—'} · {time}</span>
+                        </span>
+                        <ChevronDown className={cn('mt-1.5 h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform', isOpen && 'rotate-180')} />
+                      </button>
+                      {isOpen && (
+                        <div className="space-y-3 border-t bg-muted/30 px-3 py-3 text-xs" data-testid="team-journal-detail">
+                          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                            <dt className="text-muted-foreground">{t('activity_journal.who')}</dt>
+                            <dd className="font-medium">{log.actor_email || '—'}</dd>
+                            <dt className="text-muted-foreground">{t('activity_journal.when')}</dt>
+                            <dd className="first-letter:uppercase">{new Date(log.created_at).toLocaleString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</dd>
+                            <dt className="text-muted-foreground">{t('team.journal_member')}</dt>
+                            <dd>{d.who}</dd>
+                          </dl>
+                          {d.rows.length > 0 && (
+                            <div className="overflow-hidden rounded-lg border bg-background">
+                              <table className="w-full">
+                                <thead className="bg-muted/50 text-muted-foreground">
+                                  <tr>
+                                    <th className="px-3 py-2 text-left font-medium">{t('activity_journal.field')}</th>
+                                    {d.rows.some(r => r.from !== undefined) && <th className="px-3 py-2 text-left font-medium">{t('activity_journal.before')}</th>}
+                                    <th className="px-3 py-2 text-left font-medium">{d.rows.some(r => r.from !== undefined) ? t('activity_journal.after') : t('activity_journal.value')}</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y">
+                                  {d.rows.map(r => (
+                                    <tr key={r.label}>
+                                      <td className="px-3 py-2 text-muted-foreground">{r.label}</td>
+                                      {d.rows.some(x => x.from !== undefined) && <td className="px-3 py-2 text-muted-foreground line-through">{r.from ?? '—'}</td>}
+                                      <td className="px-3 py-2 font-medium">{r.to}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </section>
+            ))
           )}
         </div>
       )}
 
-      {/* Confirm deactivation / reactivation dialog */}
-      <PremiumDialog
+      {/* Fiche d'un membre : informations et actions */}
+      <DetailDrawer
+        open={!!sheetMember}
+        onOpenChange={open => { if (!open) setSheetMemberId(null) }}
+        title={sheetMember?.profiles?.full_name || ''}
+        description={sheetMember ? (t(`roles.${sheetMember.role}` as any) as string) : undefined}
+        icon={<Users className="h-4 w-4" />}
+        width="sm"
+        testId="member-sheet"
+        actions={sheetMember && sheetMember.user_id !== myProfile?.id && sheetMember.role !== 'owner' && isOwner && canManageMember(sheetMember) ? (
+          <div className={FOOTER_ROW_CLASS}>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 min-w-0 rounded-lg border-red-200 px-3 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/20"
+              aria-label={t('team.delete_title')}
+              onClick={() => setDeleteDialog({ open: true, member: sheetMember })}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className={cn('h-11 min-w-0 flex-1 gap-2 rounded-lg px-4 sm:flex-none', sheetMember.is_active ? 'border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400' : 'border-green-200 text-green-600 hover:bg-green-50 dark:border-green-800 dark:text-green-400')}
+              loading={actionLoading === sheetMember.id}
+              onClick={() => setConfirmDialog({ open: true, member: sheetMember, action: sheetMember.is_active ? 'deactivate' : 'reactivate' })}
+              data-testid="member-toggle"
+            >
+              {sheetMember.is_active ? <><ShieldOff className="h-4 w-4" />{t('team.deactivate')}</> : <><ShieldCheck className="h-4 w-4" />{t('team.reactivate')}</>}
+            </Button>
+          </div>
+        ) : undefined}
+      >
+        {sheetMember && (
+          <div className="space-y-4">
+            <DrawerSection title={t('team.sheet_info')}>
+              <div className="flex items-center gap-3">
+                <Avatar className="h-11 w-11">
+                  <AvatarFallback className={cn('text-white text-sm font-bold', sheetMember.is_active ? (ROLE_AVATAR_COLORS[sheetMember.role] || 'bg-gray-500') : 'bg-gray-400')}>
+                    {initialsOf(sheetMember.profiles?.full_name || '')}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{sheetMember.profiles?.full_name}</p>
+                  {renderMemberStatus(sheetMember)}
+                </div>
+              </div>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+                <dt className="text-muted-foreground">{t('team.role_label')}</dt>
+                <dd>
+                  <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', ROLE_COLORS[sheetMember.role] || ROLE_COLORS.viewer)}>
+                    <Shield className="h-3 w-3" />{t(`roles.${sheetMember.role}` as any)}
+                  </span>
+                </dd>
+                <dt className="text-muted-foreground">{t('team.shop')}</dt>
+                <dd>{userShops.find(s => s.id === sheetMember.shop_id)?.name || '—'}</dd>
+                <dt className="text-muted-foreground">{t('team.sheet_status')}</dt>
+                <dd>{!sheetMember.is_active ? t('team.status_inactive') : isPending(sheetMember) ? t('team.status_pending') : t('team.status_active')}</dd>
+                {sheetMember.joined_at && (
+                  <>
+                    <dt className="text-muted-foreground">{t('team.sheet_joined')}</dt>
+                    <dd>{new Date(sheetMember.joined_at).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' })}</dd>
+                  </>
+                )}
+              </dl>
+              {isPending(sheetMember) && isOwner && (
+                <Button type="button" variant="outline" size="sm" className="h-9 gap-1.5" loading={actionLoading === sheetMember.id + '_resend'} onClick={() => resendInvite(sheetMember)}>
+                  <RotateCcw className="h-3.5 w-3.5" />{t('team.resend')}
+                </Button>
+              )}
+            </DrawerSection>
+
+            {sheetMember.user_id !== myProfile?.id && sheetMember.role !== 'owner' && isOwner && canManageMember(sheetMember) && (
+              <DrawerSection title={t('team.sheet_role_hint')}>
+                <Select
+                  value={sheetMember.role}
+                  onValueChange={v => { if (v !== sheetMember.role) setRoleChange({ member: sheetMember, to: v as UserRole }) }}
+                  disabled={actionLoading === sheetMember.id + '_role' || !sheetMember.is_active}
+                >
+                  <SelectTrigger className="h-10" data-testid="member-role-select"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {assignableRoles.map(r => <SelectItem key={r} value={r}>{t(`roles.${r}` as any)}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">{t('team.role_change_hint')}</p>
+              </DrawerSection>
+            )}
+          </div>
+        )}
+      </DetailDrawer>
+
+      {/* Changement de rôle : confirmation (ambre si le rôle peut gérer l'équipe) */}
+      <ConfirmModal
+        open={!!roleChange}
+        onOpenChange={open => { if (!open) setRoleChange(null) }}
+        title={t('team.role_change_title')}
+        description={roleChange ? t('team.role_change_confirm', { name: roleChange.member.profiles?.full_name || '', from: t(`roles.${roleChange.member.role}` as any), to: t(`roles.${roleChange.to}` as any) }) : undefined}
+        icon={<UserCog className="h-4 w-4" />}
+        tone={roleChange && (roleChange.to === 'manager' || roleChange.to === 'shop_manager') ? 'warning' : 'primary'}
+        confirmLabel={t('team.role_change_title')}
+        loading={!!roleChange && actionLoading === roleChange.member.id + '_role'}
+        onConfirm={async () => { if (!roleChange) return; await changeRole(roleChange.member, roleChange.to); setRoleChange(null) }}
+      >
+        <p className="text-xs text-muted-foreground">{t('team.role_change_hint')}</p>
+        {roleChange && (roleChange.to === 'manager' || roleChange.to === 'shop_manager') && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400">
+            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />{t('team.role_change_manager_hint')}
+          </div>
+        )}
+      </ConfirmModal>
+
+      {/* Désactivation / réactivation */}
+      <ConfirmModal
         open={confirmDialog.open}
         onOpenChange={open => setConfirmDialog(d => ({ ...d, open }))}
         title={confirmDialog.action === 'deactivate' ? t('team.deactivate_title') : t('team.reactivate_title')}
+        description={confirmDialog.action === 'deactivate'
+          ? t('team.deactivate_confirm', { name: confirmDialog.member?.profiles?.full_name })
+          : t('team.reactivate_confirm', { name: confirmDialog.member?.profiles?.full_name })}
         icon={confirmDialog.action === 'deactivate' ? <ShieldOff className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
+        tone={confirmDialog.action === 'deactivate' ? 'danger' : 'primary'}
+        confirmLabel={confirmDialog.action === 'deactivate' ? t('team.yes_deactivate') : t('team.yes_reactivate')}
+        onConfirm={doToggleActive}
       >
-        <PremiumDialogBody>
-          {confirmDialog.action === 'deactivate' ? (
-            <div className="flex items-start gap-2 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 p-3">
-              <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-red-700 dark:text-red-400">
-                <p className="font-semibold mb-1">{t('team.deactivate_confirm', { name: confirmDialog.member?.profiles?.full_name })}</p>
-                <ul className="text-xs space-y-1 text-red-600 dark:text-red-500">
-                  <li>• {t('team.deactivate_effect_session')}</li>
-                  <li>• {t('team.deactivate_effect_login')}</li>
-                  <li>• {t('team.deactivate_effect_sales')}</li>
-                </ul>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-start gap-2 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900/30 p-3">
-              <ShieldCheck className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-green-700 dark:text-green-400">{t('team.reactivate_confirm', { name: confirmDialog.member?.profiles?.full_name })}</p>
-            </div>
-          )}
-        </PremiumDialogBody>
-        <PremiumDialogFooter
-          onCancel={() => setConfirmDialog(d => ({ ...d, open: false }))}
-          cancelLabel={t('actions.cancel')}
-          onConfirm={doToggleActive}
-          confirmLabel={confirmDialog.action === 'deactivate' ? t('team.yes_deactivate') : t('team.yes_reactivate')}
-          confirmDestructive={confirmDialog.action === 'deactivate'}
-        />
-      </PremiumDialog>
+        {confirmDialog.action === 'deactivate' && (
+          <ul className="space-y-1 rounded-lg border border-red-100 bg-red-50 p-3 text-xs text-red-600 dark:border-red-900/30 dark:bg-red-950/20 dark:text-red-400">
+            <li>• {t('team.deactivate_effect_session')}</li>
+            <li>• {t('team.deactivate_effect_login')}</li>
+            <li>• {t('team.deactivate_effect_sales')}</li>
+          </ul>
+        )}
+      </ConfirmModal>
 
-      {/* Delete dialog */}
-      <PremiumDialog
+      {/* Suppression définitive */}
+      <ConfirmModal
         open={deleteDialog.open}
-        onOpenChange={open => !open && setDeleteDialog({ open: false, member: null })}
+        onOpenChange={open => { if (!open && !deleting) setDeleteDialog({ open: false, member: null }) }}
         title={t('team.delete_title')}
+        description={t('team.delete_confirm', { name: deleteDialog.member?.profiles?.full_name })}
         icon={<Trash2 className="h-4 w-4" />}
+        tone="danger"
+        confirmLabel={t('actions.delete')}
+        loading={deleting}
+        onConfirm={async () => { await doDeleteMember(); setSheetMemberId(null) }}
       >
-        <PremiumDialogBody>
-          <div className="flex items-start gap-2 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 p-3">
-            <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-red-700 dark:text-red-400">
-              <p className="font-semibold mb-1">{t('team.delete_confirm', { name: deleteDialog.member?.profiles?.full_name })}</p>
-              <ul className="text-xs space-y-1 text-red-600 dark:text-red-500">
-                <li>• {t('team.delete_effect_permanent')}</li>
-                <li>• {t('team.deactivate_effect_login')}</li>
-                <li>• {t('team.deactivate_effect_sales')}</li>
-                <li>• {t('team.delete_effect_irreversible')}</li>
-              </ul>
-            </div>
-          </div>
-        </PremiumDialogBody>
-        <PremiumDialogFooter
-          onCancel={() => setDeleteDialog({ open: false, member: null })}
-          cancelLabel={t('actions.cancel')}
-          onConfirm={doDeleteMember}
-          confirmLabel={t('actions.delete')}
-          confirmDisabled={deleting}
-          confirmLoading={deleting}
-          confirmDestructive
-        />
-      </PremiumDialog>
+        <ul className="space-y-1 rounded-lg border border-red-100 bg-red-50 p-3 text-xs text-red-600 dark:border-red-900/30 dark:bg-red-950/20 dark:text-red-400">
+          <li>• {t('team.delete_effect_permanent')}</li>
+          <li>• {t('team.deactivate_effect_login')}</li>
+          <li>• {t('team.deactivate_effect_sales')}</li>
+          <li>• {t('team.delete_effect_irreversible')}</li>
+        </ul>
+      </ConfirmModal>
 
-      {/* Invite modal */}
+      {/* Invitation : formulaire court → modale */}
       <PremiumDialog
         open={showInviteModal}
         onOpenChange={setShowInviteModal}
         title={t('team.invite_title')}
         icon={<UserPlus className="h-4 w-4" />}
+        maxWidth="max-w-md"
+        dirty={!!inviteEmail.trim() || !!inviteFullName.trim()}
+        testId="invite-dialog"
       >
         <PremiumDialogBody>
           {isOwner && userShops.length > 1 && (
             <div className="space-y-1.5">
-              <Label className="text-xs">{t('team.shop_label')}</Label>
+              <Label>{t('team.shop')}<RequiredMark /></Label>
               <Select value={inviteShopId} onValueChange={setInviteShopId}>
-                <SelectTrigger>
+                <SelectTrigger className="h-10">
                   <Store className="h-4 w-4 mr-2 text-muted-foreground" />
                   <SelectValue />
                 </SelectTrigger>
@@ -743,36 +915,40 @@ export default function TeamPage() {
             </div>
           )}
           <div className="space-y-1.5">
-            <Label>{t('team.full_name_label')}</Label>
+            <Label htmlFor="invite-name">{t('team.full_name')}<RequiredMark /></Label>
             <Input
+              id="invite-name"
+              name="full_name"
               value={inviteFullName}
-              onChange={e => setInviteFullName(e.target.value)}
+              onChange={e => { setInviteFullName(e.target.value); if (inviteErrors.name) setInviteErrors(x => ({ ...x, name: undefined })) }}
               placeholder={t('team.name_placeholder')}
+              aria-invalid={!!inviteErrors.name}
             />
+            {inviteErrors.name && <p className="text-xs text-destructive">{inviteErrors.name}</p>}
           </div>
           <div className="space-y-1.5">
-            <Label>{t('team.invite_email')} *</Label>
+            <Label htmlFor="invite-email">{t('team.invite_email')}<RequiredMark /></Label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
+                id="invite-email"
+                name="email"
                 type="email"
                 value={inviteEmail}
-                onChange={e => setInviteEmail(e.target.value)}
+                onChange={e => { setInviteEmail(e.target.value); if (inviteErrors.email) setInviteErrors(x => ({ ...x, email: undefined })) }}
                 className="pl-9"
                 placeholder="employe@email.com"
+                aria-invalid={!!inviteErrors.email}
               />
             </div>
+            {inviteErrors.email && <p className="text-xs text-destructive">{inviteErrors.email}</p>}
           </div>
           <div className="space-y-1.5">
             <Label>{t('team.role_label')}</Label>
             <Select value={inviteRole} onValueChange={v => setInviteRole(v as UserRole)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {isFullOwner && <SelectItem value="shop_manager">{t('roles.shop_manager')}</SelectItem>}
-                {isFullOwner && <SelectItem value="manager">{t('roles.manager')}</SelectItem>}
-                <SelectItem value="cashier">{t('roles.cashier')}</SelectItem>
-                <SelectItem value="stock_manager">{t('roles.stock_manager')}</SelectItem>
-                <SelectItem value="viewer">{t('roles.viewer')}</SelectItem>
+                {assignableRoles.map(r => <SelectItem key={r} value={r}>{t(`roles.${r}` as any)}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -786,6 +962,7 @@ export default function TeamPage() {
           onConfirm={inviteEmployee}
           confirmLabel={t('team.send_invite')}
           confirmLoading={inviting}
+          confirmIcon={<Send className="h-4 w-4" />}
         />
       </PremiumDialog>
     </div>
