@@ -5,6 +5,7 @@ import { buildMorningCheckHtml, type ServiceCheck, type ServiceStatus } from '@/
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { logCronRun } from '@/lib/api/cron-log'
+import { EMAIL_FROM } from '@/lib/email/sender'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -140,7 +141,7 @@ export async function GET(request: Request) {
 
     const recipients = ADMIN_EMAILS.length ? ADMIN_EMAILS : ['yahaya.dev@gmail.com']
     const { error: sendError } = await resend.emails.send({
-      from: 'StockShop <onboarding@resend.dev>',
+      from: EMAIL_FROM,
       to: recipients,
       subject: `${overallLabel} | ${format(new Date(), 'dd/MM/yyyy')}`,
       html,

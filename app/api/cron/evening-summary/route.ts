@@ -6,6 +6,7 @@ import { fr } from 'date-fns/locale'
 import { logCronRun } from '@/lib/api/cron-log'
 import { formatCurrency } from '@/lib/utils/currency'
 import { resolveCurrencyCode } from '@/lib/saas/currencies'
+import { EMAIL_FROM } from '@/lib/email/sender'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -14,6 +15,14 @@ export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET
   if (secret && authHeader !== `Bearer ${secret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // EN PAUSE tant que EVENING_SUMMARY_EMAILS ne vaut pas « on » (décision du
+  // 5 oct. 2026) : e-mail quotidien jamais reçu jusqu'ici (expéditeur de test),
+  // à annoncer aux clients avant de l'activer. Rien n'est calculé ni envoyé.
+  if (process.env.EVENING_SUMMARY_EMAILS !== 'on') {
+    await logCronRun('evening-summary', 'success', { paused: true })
+    return NextResponse.json({ ok: true, paused: true })
   }
 
   try {
@@ -27,6 +36,7 @@ export async function GET(request: Request) {
       .from('shops')
       .select('id, name, owner_id, currency, country, low_stock_threshold, notify_email_daily')
       .eq('notify_email_daily', true)
+      .is('deleted_at', null)
 
     if (!shops?.length) {
       await logCronRun('evening-summary', 'success', { sent: 0 })
@@ -96,7 +106,7 @@ export async function GET(request: Request) {
       const fmt2 = (n: number) => formatCurrency(Math.round(n), code)
 
       const { error: sendError } = await resend.emails.send({
-        from: 'StockShop <onboarding@resend.dev>',
+        from: EMAIL_FROM,
         to: ownerEmail,
         subject: `🌙 Bilan du ${format(today, 'dd/MM')} — ${shop.name} · ${salesCount} vente(s) · ${fmt2(totalRevenue)}`,
         html: buildDailyEmailHtml(shop.name, dateStr, {

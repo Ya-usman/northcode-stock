@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/api/require-admin'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { Resend } from 'resend'
+import { EMAIL_FROM } from '@/lib/email/sender'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -54,7 +55,7 @@ export async function POST(req: Request) {
           if (ownerEmail) {
             const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.stockshop.tech'
             await resend.emails.send({
-              from: 'StockShop <no-reply@stockshop.tech>',
+              from: EMAIL_FROM,
               to: ownerEmail,
               subject: `🔴 ${title.trim()} — ${shop?.name || 'StockShop'}`,
               html: `

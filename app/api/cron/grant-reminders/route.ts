@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import webpush from 'web-push'
 import { Resend } from 'resend'
+import { EMAIL_FROM } from '@/lib/email/sender'
 import { createAdminClient } from '@/lib/supabase/server'
 import { logCronRun } from '@/lib/api/cron-log'
 import { writeAuditLog } from '@/lib/api/audit'
@@ -137,7 +138,7 @@ export async function GET(request: Request) {
           const cta = members ? t('cta_team') : t('cta_billing')
           const href = `${appUrl}/${locale}/${members ? 'team' : 'billing'}`
           const { error: mailError } = await resend.emails.send({
-            from: 'StockShop <no-reply@stockshop.tech>',
+            from: EMAIL_FROM,
             to: r.owner_email,
             subject: t('email_subject', { date }),
             html: `
@@ -163,7 +164,7 @@ export async function GET(request: Request) {
     if (!dry && reminders.length && adminEmails.length && process.env.RESEND_API_KEY) {
       const rows = reminders.map(r => `<li><strong>${esc(r.entity_name)}</strong> — +${r.quantity} ${r.kind === 'team_seats' ? 'membre(s)' : 'boutique(s)'} jusqu'au ${esc(formatDate(r.expires_at, 'fr'))} · ensuite ${r.used} / ${r.limit_after}${r.over ? ` · <span style="color:#b45309">${r.over} en trop</span>` : ''} · propriétaire : push ${r.push}, e-mail ${r.email}</li>`).join('')
       await resend.emails.send({
-        from: 'StockShop <no-reply@stockshop.tech>',
+        from: EMAIL_FROM,
         to: adminEmails,
         subject: `Gestes commerciaux : ${reminders.length} fin(s) prochaine(s)`,
         html: `<p>Rappels envoyés ce matin aux propriétaires :</p><ul>${rows}</ul><p style="color:#666;font-size:12px;">Détail et retrait : Admin → fiche boutique → Facturation → Gestes commerciaux.</p>`,

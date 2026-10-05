@@ -11,11 +11,12 @@ import { fr } from 'date-fns/locale'
 // dans chaque route app/api/cron/*/route.ts.
 const CRON_JOBS = [
   { name: 'morning-check',     label: 'Bilan du matin',              schedule: '07h00, quotidien' },
-  { name: 'low-stock-alert',   label: 'Alerte stock faible',         schedule: '07h00, quotidien' },
-  { name: 'expiry-alert',      label: 'Alerte péremption',           schedule: '07h00, quotidien' },
+  { name: 'low-stock-alert',   label: 'Alerte stock faible (push)',  schedule: '07h00, quotidien' },
+  { name: 'expiry-alert',      label: 'Alerte péremption (push)',    schedule: '07h00, quotidien' },
+  { name: 'owner-alerts',      label: 'E-mail d\'alertes aux propriétaires', schedule: '07h15, quotidien' },
   { name: 'grant-reminders',   label: 'Fin des gestes commerciaux',  schedule: '08h00, quotidien' },
   { name: 'renewal-check',     label: 'Renouvellement abonnements',  schedule: '09h00, quotidien' },
-  { name: 'evening-summary',   label: 'Résumé du soir',              schedule: '17h00, quotidien' },
+  { name: 'evening-summary',   label: 'Résumé du soir (en pause sauf EVENING_SUMMARY_EMAILS=on)', schedule: '17h00, quotidien' },
   { name: 'orphan-shop-check', label: 'Boutiques orphelines',        schedule: '04h00, quotidien' },
   { name: 'recurring-expenses', label: 'Dépenses récurrentes',       schedule: '04h30, quotidien' },
   { name: 'referral-maturity', label: 'Maturation récompenses parrainage', schedule: '05h00, quotidien' },

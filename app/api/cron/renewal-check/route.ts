@@ -5,6 +5,7 @@ import { fetchWithTimeout } from '@/lib/api/fetch'
 import { logCronRun } from '@/lib/api/cron-log'
 import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
 import { Resend } from 'resend'
+import { EMAIL_FROM } from '@/lib/email/sender'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -117,7 +118,7 @@ export async function GET(request: NextRequest) {
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.stockshop.tech'
         const planLabel = (sub.plan as string).charAt(0).toUpperCase() + (sub.plan as string).slice(1)
         await resend.emails.send({
-          from: 'StockShop <no-reply@stockshop.tech>',
+          from: EMAIL_FROM,
           to: sub.gateway_email,
           subject: `Renouvellement de votre abonnement StockShop ${planLabel}`,
           html: `

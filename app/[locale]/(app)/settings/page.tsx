@@ -695,8 +695,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
             </Card>
           )}
 
-          {/* Notifications */}
-          <Card className="border-0 shadow-sm">
+          {/* Notifications — ancre « #notifications » : lien « Gérer mes alertes » des e-mails */}
+          <Card id="notifications" className="scroll-mt-20 border-0 shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold">{t('settings.notifications')}</CardTitle>
             </CardHeader>
