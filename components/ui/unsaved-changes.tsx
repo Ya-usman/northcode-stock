@@ -44,26 +44,26 @@ export function UnsavedChangesDialog({ open, onKeepEditing, onDiscard }: Unsaved
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onKeepEditing() }}>
       <DialogContent
-        className="max-w-sm p-0 gap-0 overflow-hidden max-sm:!top-1/2 max-sm:!-translate-y-1/2 [&>button]:hidden"
+        className="max-w-sm p-0 gap-0 overflow-hidden rounded-xl max-sm:!top-1/2 max-sm:!-translate-y-1/2 [&>button]:hidden"
         onPointerDownOutside={e => e.preventDefault()}
         onInteractOutside={e => e.preventDefault()}
         data-testid="unsaved-changes-dialog"
       >
         <DialogTitle className="sr-only">{t('unsaved_title')}</DialogTitle>
         <DialogDescription className="sr-only">{t('unsaved_body')}</DialogDescription>
-        <PremiumHeader icon={<AlertTriangle className="h-4 w-4" />} title={t('unsaved_title')} description={t('unsaved_body')} />
-        <div className="flex flex-col-reverse gap-2 px-5 py-4 sm:flex-row sm:justify-end">
+        <PremiumHeader icon={<AlertTriangle className="h-4 w-4" />} title={t('unsaved_title')} description={t('unsaved_body')} className="border-b-0" />
+        <div className="flex flex-col-reverse gap-2 px-5 pb-5 pt-1 sm:flex-row sm:justify-end sm:gap-3">
           <Button
             type="button"
-            variant="ghost"
-            className="h-11 rounded-xl border border-border text-foreground/80 hover:text-foreground"
+            variant="outline"
+            className="h-11 rounded-lg px-5 font-medium"
             onClick={onKeepEditing}
           >
             {t('unsaved_continue')}
           </Button>
           <Button
             type="button"
-            className="h-11 rounded-xl border-0 bg-red-500 font-semibold text-white hover:bg-red-600"
+            className="h-11 rounded-lg border-0 bg-red-500 px-5 font-semibold text-white hover:bg-red-600"
             onClick={onDiscard}
           >
             {t('unsaved_discard')}

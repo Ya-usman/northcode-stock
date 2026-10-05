@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
-import { Search, Plus, Edit2, Trash2, Phone, MapPin, Store, User, Merge, AlertTriangle } from 'lucide-react'
+import { Search, Plus, Edit2, Trash2, Phone, MapPin, Store, User, Merge, AlertTriangle, Save } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -13,12 +13,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
+import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter, FOOTER_PRIMARY_CLASS } from '@/components/ui/premium-dialog'
+import { ConfirmModal } from '@/components/ui/confirm-modal'
+import { InputGroup, RequiredMark } from '@/components/ui/input-group'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { customerSchema, type CustomerFormData } from '@/lib/validations/customer'
+import { createCustomerSchema, type CustomerFormData } from '@/lib/validations/customer'
 import type { Customer } from '@/lib/types/database'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
@@ -79,7 +81,7 @@ export default function CustomersPage() {
   const t = useTranslations()
   const { profile, shop, effectiveShopIds, userShops } = useAuth()
   const isMultiShop = effectiveShopIds.length > 1
-  const { fmt: formatNaira } = useCurrency()
+  const { fmt: formatNaira, symbol: currencySymbol } = useCurrency()
   const { isOnline } = useOffline()
   const supabase = createClient() as any
   const { toast } = useToast()
@@ -94,7 +96,16 @@ export default function CustomersPage() {
   const [showModal, setShowModal] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
   const [saving, setSaving] = useState(false)
+  // Suppression : confirmation commune (ConfirmModal) au lieu du confirm() natif
+  const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
+  // Messages de validation traduits (le schéma par défaut est en anglais)
+  const customerSchema = useMemo(() => createCustomerSchema({
+    name_required: t('errors.customer_name_required'),
+    phone_invalid: t('errors.phone_invalid'),
+    credit_limit_invalid: t('errors.credit_limit_invalid'),
+  }), [t])
   const form = useForm<CustomerFormData>({ resolver: zodResolver(customerSchema) })
 
   const fetchCustomers = async () => {
@@ -228,16 +239,35 @@ export default function CustomersPage() {
     }
   }
 
-  const deleteCustomer = async (c: Customer) => {
+  const deleteCustomer = (c: Customer) => {
     if (c.total_debt > 0) {
       toast({ title: t('toast.customer_has_debt', { name: c.name, amount: formatNaira(c.total_debt) }), variant: 'destructive' })
       return
     }
-    if (!confirm(t('confirm.delete_customer'))) return
-    // Soft delete — preserves all sales and payment history
-    await supabase.from('customers').update({ deleted_at: new Date().toISOString() } as any).eq('id', c.id)
-    toast({ title: t('toast.customer_deleted') })
-    fetchCustomers()
+    setDeleteTarget(c)
+  }
+
+  const confirmDeleteCustomer = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      // Soft delete — preserves all sales and payment history
+      const { error } = await withTimeout<any>(supabase.from('customers').update({ deleted_at: new Date().toISOString() } as any).eq('id', deleteTarget.id))
+      if (error) { toast({ title: error.message, variant: 'destructive' }); return }
+      toast({ title: t('toast.customer_deleted') })
+      setDeleteTarget(null)
+      fetchCustomers()
+    } catch (err: any) {
+      toast({ title: err.message || t('toast.retry_error'), variant: 'destructive' })
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const closeCustomerForm = () => {
+    setShowModal(false)
+    setEditingCustomer(null)
+    form.reset({ name: '', phone: '', city: '', credit_limit: '' })
   }
 
   return (
@@ -320,52 +350,78 @@ export default function CustomersPage() {
         </div>
       )}
 
+      {/* Fiche client (ajout / modification) : formulaire court → modale,
+          boutons sous le contenu, garde de fermeture */}
       <PremiumDialog
         open={showModal}
-        onOpenChange={open => { if (!open) { setShowModal(false); setEditingCustomer(null); form.reset({ name: '', phone: '', city: '', credit_limit: '' }) } }}
-        title={editingCustomer ? t('actions.edit') : t('customers.add_customer')}
+        onOpenChange={open => { if (!open) closeCustomerForm() }}
+        title={editingCustomer ? t('customers.edit_customer') : t('customers.add_customer')}
+        description={editingCustomer?.name}
         icon={<User className="h-4 w-4" />}
+        maxWidth="max-w-lg"
+        dirty={form.formState.isDirty}
+        testId="customer-dialog"
       >
-        <form onSubmit={form.handleSubmit(onSubmit)}>
+        <form id="customer-form" onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col" noValidate>
           <PremiumDialogBody>
             <div className="space-y-1.5">
-              <Label>{t('customers.name')} *</Label>
-              <Input {...form.register('name')} placeholder={t('customers.name_placeholder')} />
+              <Label htmlFor="customer-name">{t('customers.name')}<RequiredMark /></Label>
+              <Input id="customer-name" {...form.register('name')} placeholder={t('customers.name_placeholder')} aria-invalid={!!form.formState.errors.name} />
               {form.formState.errors.name && <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>}
             </div>
-            <div className="space-y-1.5">
-              <Label>{t('customers.phone')}</Label>
-              <Input {...form.register('phone')} placeholder="08012345678" type="tel" />
-              {form.formState.errors.phone && <p className="text-xs text-destructive">{form.formState.errors.phone.message}</p>}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="customer-phone">{t('customers.phone')}</Label>
+                <Input id="customer-phone" {...form.register('phone')} placeholder="+237 6 12 34 56 78" type="tel" aria-invalid={!!form.formState.errors.phone} />
+                {form.formState.errors.phone && <p className="text-xs text-destructive">{form.formState.errors.phone.message}</p>}
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="customer-city">{t('customers.city')}</Label>
+                <Input id="customer-city" {...form.register('city')} placeholder={t('customers.city_placeholder')} />
+              </div>
             </div>
             <div className="space-y-1.5">
-              <Label>{t('customers.city')}</Label>
-              <Input {...form.register('city')} placeholder={t('customers.city_placeholder')} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>{t('customers.credit_limit')} <span className="text-muted-foreground font-normal">({t('form.optional')})</span></Label>
-              <Input {...form.register('credit_limit')} type="number" min="0" placeholder={t('customers.credit_limit_placeholder')} />
+              <Label htmlFor="customer-credit-limit">{t('customers.credit_limit')} <span className="text-muted-foreground font-normal">({t('form.optional')})</span></Label>
+              <InputGroup suffix={currencySymbol}>
+                <Input id="customer-credit-limit" {...form.register('credit_limit')} type="number" min="0" placeholder={t('customers.credit_limit_placeholder')} aria-invalid={!!form.formState.errors.credit_limit} />
+              </InputGroup>
               {form.formState.errors.credit_limit && <p className="text-xs text-destructive">{form.formState.errors.credit_limit.message}</p>}
             </div>
           </PremiumDialogBody>
-          <PremiumDialogFooter
-            onCancel={() => setShowModal(false)}
-            cancelLabel={t('actions.cancel')}
-          >
-            <Button variant="stockshop" type="submit" loading={saving} className="flex-1 h-11 rounded-xl font-semibold">
-              {t('actions.save')}
+          <PremiumDialogFooter onCancel={closeCustomerForm} cancelLabel={t('actions.cancel')}>
+            <Button type="submit" variant="stockshop" className={FOOTER_PRIMARY_CLASS} loading={saving} data-testid="dialog-submit">
+              {!saving && <Save className="h-4 w-4" />}
+              {editingCustomer ? t('actions.update') : t('actions.save')}
             </Button>
           </PremiumDialogFooter>
         </form>
       </PremiumDialog>
 
+      {/* Suppression (douce) : confirmation commune, bouton rouge */}
+      <ConfirmModal
+        open={!!deleteTarget}
+        onOpenChange={open => { if (!open && !deleting) setDeleteTarget(null) }}
+        category={t('actions.delete')}
+        title={deleteTarget?.name || ''}
+        description={t('customers.delete_hint')}
+        icon={<Trash2 className="h-4 w-4" />}
+        tone="danger"
+        confirmLabel={t('actions.delete')}
+        loading={deleting}
+        onConfirm={confirmDeleteCustomer}
+      />
+
       {/* Fusion de doublons : choix de la fiche gardée, récapitulatif, puis serveur (transaction + journal) */}
-      <PremiumDialog
+      <ConfirmModal
         open={!!mergeGroup}
         onOpenChange={open => { if (!open && !merging) setMergeGroup(null) }}
         title={t('customers.merge_title')}
         icon={<Merge className="h-4 w-4" />}
         maxWidth="max-w-md"
+        confirmLabel={t('customers.merge_confirm')}
+        loading={merging}
+        disabled={!isOnline || !mergeGroup || mergeGroup.filter(c => c.id !== (mergeGroup.find(x => x.id === keepId) || mergeGroup[0]).id).length === 0}
+        onConfirm={runMerge}
       >
         {mergeGroup && (() => {
           const keep = mergeGroup.find(c => c.id === keepId) || mergeGroup[0]
@@ -374,7 +430,6 @@ export default function CustomersPage() {
           const debt = others.reduce((s, c) => s + Number(c.total_debt || 0), 0)
           return (
             <>
-              <PremiumDialogBody>
                 <p className="text-sm font-medium">{t('customers.merge_keep')}</p>
                 <div className="space-y-2">
                   {mergeGroup.map(c => (
@@ -396,19 +451,10 @@ export default function CustomersPage() {
                   <p className="font-medium">{t('customers.merge_summary', { name: keep.name, sales, debt: formatNaira(debt) })}</p>
                   <p className="mt-1 text-xs text-muted-foreground">{t('customers.merge_note')}</p>
                 </div>
-              </PremiumDialogBody>
-              <PremiumDialogFooter
-                onCancel={() => setMergeGroup(null)}
-                cancelLabel={t('actions.cancel')}
-                onConfirm={runMerge}
-                confirmLabel={t('customers.merge_confirm')}
-                confirmLoading={merging}
-                confirmDisabled={!isOnline || others.length === 0}
-              />
             </>
           )
         })()}
-      </PremiumDialog>
+      </ConfirmModal>
     </div>
   )
 }

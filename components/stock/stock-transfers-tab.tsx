@@ -443,12 +443,12 @@ export function StockTransfersTab() {
           </div>
         ) : (
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
-            <Button type="button" variant="ghost" className="h-11 rounded-xl border border-border text-foreground/70 hover:text-foreground" onClick={requestClose} disabled={creating}>
+            <Button type="button" variant="ghost" className="h-11 rounded-lg border border-border text-foreground/70 hover:text-foreground" onClick={requestClose} disabled={creating}>
               {t('actions.cancel')}
             </Button>
             <Button
               variant="stockshop"
-              className="h-11 rounded-xl font-semibold sm:min-w-[150px]"
+              className="h-11 rounded-lg font-semibold sm:min-w-[150px]"
               onClick={submitNewTransfer}
               loading={creating}
               disabled={!newDestShopId || newItems.length === 0}
@@ -489,7 +489,7 @@ export function StockTransfersTab() {
                   />
                 </div>
                 {newProductResults.length > 0 && (
-                  <div className="max-h-40 overflow-y-auto rounded-lg border divide-y">
+                  <div className="max-h-40 overflow-y-auto rounded-lg border bg-card divide-y">
                     {newProductResults.slice(0, 20).map(p => (
                       <button
                         key={p.id}
@@ -508,7 +508,7 @@ export function StockTransfersTab() {
               {newItems.length > 0 && (
                 <div className="mt-3 space-y-1.5">
                   {newItems.map(it => (
-                    <div key={it.product_id} className="flex items-center gap-2 rounded-lg border px-2.5 py-2">
+                    <div key={it.product_id} className="flex items-center gap-2 rounded-lg border bg-card px-2.5 py-2">
                       <div className="min-w-0 flex-1">
                         <p className="text-sm truncate">{it.name}</p>
                         <p className="text-[11px] text-muted-foreground">{t('transfers.available_short')}: {it.available} {it.unit}</p>
@@ -571,7 +571,7 @@ export function StockTransfersTab() {
                     : []
                   const matchedProduct = products.find(p => p.id === line.destination_product_id)
                   return (
-                    <div key={item.id} className="rounded-lg border px-2.5 py-2 space-y-2">
+                    <div key={item.id} className="rounded-lg border bg-card px-2.5 py-2 space-y-2">
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <p className="text-sm truncate">{item.product_name}</p>
@@ -699,7 +699,7 @@ export function StockTransfersTab() {
                 </div>
               </PremiumDialogBody>
               <PremiumDialogFooter onCancel={() => setEmailTransfer(null)} cancelLabel={t('actions.cancel')}>
-                <Button variant="stockshop" className="flex-1 h-11 rounded-xl font-semibold min-w-0 px-2" asChild>
+                <Button variant="stockshop" className="flex-1 h-11 rounded-lg font-semibold min-w-0 px-2" asChild>
                   <a href={mailtoHref} className="min-w-0">
                     <Mail className="h-4 w-4 mr-1.5 flex-shrink-0" /><span className="truncate text-[13px] sm:text-sm">{t('suppliers.po_open_mail_app')}</span>
                   </a>

@@ -1222,7 +1222,7 @@ export default function SuppliersPage() {
             onCancel={() => setShowModal(false)}
             cancelLabel={t('actions.cancel')}
           >
-            <Button variant="stockshop" type="submit" loading={saving} className="flex-1 h-11 rounded-xl font-semibold">
+            <Button variant="stockshop" type="submit" loading={saving} className="flex-1 h-11 rounded-lg font-semibold">
               {t('actions.save')}
             </Button>
           </PremiumDialogFooter>
@@ -1259,7 +1259,7 @@ export default function SuppliersPage() {
             onClick={submitAddPrice}
             loading={savingPrice}
             disabled={!addPriceSupplierId || !addPriceValue || Number(addPriceValue) <= 0}
-            className="flex-1 h-11 rounded-xl font-semibold"
+            className="flex-1 h-11 rounded-lg font-semibold"
           >
             {t('actions.save')}
           </Button>
@@ -1368,7 +1368,7 @@ export default function SuppliersPage() {
             onClick={submitCreatePo}
             loading={creatingPo}
             disabled={!poSupplierId}
-            className="flex-1 h-11 rounded-xl font-semibold"
+            className="flex-1 h-11 rounded-lg font-semibold"
           >
             {t('actions.save')}
           </Button>
@@ -1426,7 +1426,7 @@ export default function SuppliersPage() {
                 onClick={submitEditPo}
                 loading={savingEditPo}
                 disabled={editItems.length === 0}
-                className="flex-1 h-11 rounded-xl font-semibold"
+                className="flex-1 h-11 rounded-lg font-semibold"
               >
                 {t('actions.save')}
               </Button>
@@ -1489,7 +1489,7 @@ export default function SuppliersPage() {
                 onClick={submitReorder}
                 loading={creatingReorder}
                 disabled={reorderItems.length === 0}
-                className="flex-1 h-11 rounded-xl font-semibold"
+                className="flex-1 h-11 rounded-lg font-semibold"
               >
                 {t('suppliers.po_reorder_confirm')}
               </Button>
@@ -1570,7 +1570,7 @@ export default function SuppliersPage() {
                 )}
               </PremiumDialogBody>
               <PremiumDialogFooter onCancel={() => setEmailPo(null)} cancelLabel={t('actions.cancel')}>
-                <Button variant="stockshop" className="flex-1 h-11 rounded-xl font-semibold min-w-0 px-2" asChild>
+                <Button variant="stockshop" className="flex-1 h-11 rounded-lg font-semibold min-w-0 px-2" asChild>
                   <a href={mailtoHref} className="min-w-0">
                     <Mail className="h-4 w-4 mr-1.5 flex-shrink-0" /><span className="truncate text-[13px] sm:text-sm">{t('suppliers.po_open_mail_app')}</span>
                   </a>
@@ -1685,7 +1685,7 @@ export default function SuppliersPage() {
                 variant="stockshop"
                 onClick={submitReceivePo}
                 loading={receivingLoading}
-                className="flex-1 h-11 rounded-xl font-semibold bg-green-600 hover:bg-green-700"
+                className="flex-1 h-11 rounded-lg font-semibold bg-green-600 hover:bg-green-700"
               >
                 {t('suppliers.po_confirm_receipt')}
               </Button>

@@ -679,7 +679,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
               {isStripe ? (
                 <a
                   href={`mailto:support@stockshop.tech?subject=Abonnement ${checkoutPlan} - ${country.name}&body=Bonjour, je souhaite souscrire au plan ${checkoutPlan} (${formatPrice(checkoutPlan)}/mois) pour ma boutique.`}
-                  className="flex-1 h-11 rounded-xl font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500 text-white flex items-center justify-center gap-2 transition-colors"
+                  className="flex-1 h-11 rounded-lg font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500 text-white flex items-center justify-center gap-2 transition-colors"
                 >
                   <Mail className="h-4 w-4" />
                   Nous contacter
@@ -690,7 +690,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                   loading={loading}
                   disabled={!selectedMethod || loading}
                   variant="stockshop"
-                  className="flex-1 h-11 rounded-xl font-semibold"
+                  className="flex-1 h-11 rounded-lg font-semibold"
                 >
                   {(() => {
                     const preview = creditPreview(checkoutPlan)

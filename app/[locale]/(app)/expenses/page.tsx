@@ -1352,7 +1352,7 @@ export default function ExpensesPage() {
             loading={saving}
             disabled={!amount || !description.trim() || saving || (!isReallyOnline && (!!editing || isRecurring))}
             variant="stockshop"
-            className="flex-1 h-11 rounded-xl font-semibold"
+            className="flex-1 h-11 rounded-lg font-semibold"
           >
             {editing ? t('save') : !isReallyOnline ? `${t('add')} (hors ligne)` : t('add')}
           </Button>
@@ -1389,7 +1389,7 @@ export default function ExpensesPage() {
             <Button
               type="button"
               variant="ghost"
-              className="flex-1 h-11 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 border border-red-200 dark:border-red-800"
+              className="flex-1 h-11 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 border border-red-200 dark:border-red-800"
               onClick={deleteBudget}
             >
               <Trash2 className="h-4 w-4 mr-1.5" />
@@ -1401,7 +1401,7 @@ export default function ExpensesPage() {
             loading={savingBudget}
             disabled={!budgetAmount || savingBudget}
             variant="stockshop"
-            className="flex-1 h-11 rounded-xl font-semibold"
+            className="flex-1 h-11 rounded-lg font-semibold"
           >
             {t('save')}
           </Button>

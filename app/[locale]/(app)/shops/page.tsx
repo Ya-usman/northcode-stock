@@ -181,7 +181,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
             loading={loading}
             disabled={!newName.trim() || loading}
             variant="stockshop"
-            className="flex-1 h-11 rounded-xl font-semibold"
+            className="flex-1 h-11 rounded-lg font-semibold"
           >
             {t('shops.create')}
           </Button>

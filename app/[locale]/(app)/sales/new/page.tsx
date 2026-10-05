@@ -2398,12 +2398,12 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   </div>
                 </div>
                 <div className="flex gap-2.5">
-                  <Button variant="outline" className="flex-1 h-11 rounded-xl" onClick={() => setPriceModalItem(null)}>
+                  <Button variant="outline" className="flex-1 h-11 rounded-lg" onClick={() => setPriceModalItem(null)}>
                     Annuler
                   </Button>
                   <Button
                     variant="stockshop"
-                    className="flex-1 h-11 rounded-xl font-semibold"
+                    className="flex-1 h-11 rounded-lg font-semibold"
                     disabled={!priceModalInput || Number(priceModalInput) < minPrice}
                     onClick={() => {
                       updateItemPrice(priceModalItem.product.id, Number(priceModalInput))
@@ -2648,7 +2648,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   {t('sales.receipt_pdf')}
                 </Button>
               </div>
-              <Button variant="stockshop" className="w-full h-11 rounded-xl font-semibold"
+              <Button variant="stockshop" className="w-full h-11 rounded-lg font-semibold"
                 onClick={() => { setShowReceipt(false) }}>
                 {t('sales.new_sale_cta')}
               </Button>

@@ -329,7 +329,7 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
           </div>
         </PremiumDialogBody>
         <PremiumDialogFooter onCancel={() => setConfirmOpen(false)} cancelLabel={t('cancel')}>
-          <Button variant="stockshop" onClick={submit} loading={submitting} className="flex-1 h-11 rounded-xl font-semibold">
+          <Button variant="stockshop" onClick={submit} loading={submitting} className="flex-1 h-11 rounded-lg font-semibold">
             {t('confirm_button')}
           </Button>
         </PremiumDialogFooter>

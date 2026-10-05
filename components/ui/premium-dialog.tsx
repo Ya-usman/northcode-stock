@@ -10,13 +10,13 @@ import { cn } from '@/lib/utils/cn'
 
 // ── PremiumDialog (AppModal) ─────────────────────────────────────────────────
 // Modale centrée pour les actions courtes (≤ 6-7 champs) et les confirmations :
-// en-tête premium compact partagé avec les panneaux, corps défilant, pied fixe.
+// en-tête blanc partagé avec les panneaux, corps défilant, pied fixe.
 // `dirty` active la garde « modifications non enregistrées » à la fermeture.
 
 export interface PremiumDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** Small uppercase label shown above the title in the blue header */
+  /** Étiquette en capitales au-dessus du titre (action, contexte) ; jamais l'onglet courant */
   category?: string
   title: string
   /** Sous-titre affiché sous le titre (aussi lu par les lecteurs d'écran) */
@@ -29,21 +29,43 @@ export interface PremiumDialogProps {
   centered?: boolean
   /** Saisie en cours non enregistrée : la fermeture demande confirmation */
   dirty?: boolean
+  /** Attribut data-testid posé sur la fenêtre */
+  testId?: string
   children: React.ReactNode
 }
 
+const FIELD_SELECTOR = 'input:not([type=hidden]):not([disabled]):not([readonly]), textarea:not([disabled]), select:not([disabled]), [data-autofocus]'
+
 export function PremiumDialog({
-  open, onOpenChange, category, title, description, icon, maxWidth = 'max-w-sm', centered, dirty = false, children,
+  open, onOpenChange, category, title, description, icon, maxWidth = 'max-w-sm', centered, dirty = false, testId, children,
 }: PremiumDialogProps) {
   const tActions = useTranslations('actions')
+  const contentRef = React.useRef<HTMLDivElement>(null)
   const close = React.useCallback(() => onOpenChange(false), [onOpenChange])
   const guard = useCloseGuard({ open, dirty, onClose: close })
+
+  // Le X de l'en-tête est le premier élément focusable : sans cela, le focus
+  // initial tomberait dessus. Ordinateur : premier champ ; téléphone : la
+  // fenêtre elle-même (pas de clavier qui surgit) ; sans champ : la fenêtre.
+  const handleAutoFocus = (e: Event) => {
+    const root = contentRef.current
+    if (!root) return
+    e.preventDefault()
+    const desktop = typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches
+    const first = desktop ? root.querySelector<HTMLElement>(FIELD_SELECTOR) : null
+    if (first) first.focus({ preventScroll: true })
+    else root.focus({ preventScroll: true })
+  }
+
   return (
     <Dialog open={open} onOpenChange={v => { if (v) onOpenChange(true); else guard.requestClose() }}>
       <DialogContent
+        ref={contentRef}
+        data-testid={testId}
+        onOpenAutoFocus={handleAutoFocus}
         className={cn(
-          'p-0 gap-0 flex flex-col max-h-[90dvh] overflow-hidden',
-          // Le X de l'en-tête premium remplace celui de la modale shadcn
+          'p-0 gap-0 flex flex-col max-h-[90dvh] overflow-hidden rounded-xl',
+          // Le X de l'en-tête commun remplace celui de la modale shadcn
           '[&>button]:hidden',
           centered && 'max-sm:!top-1/2 max-sm:!-translate-y-1/2',
           maxWidth
@@ -54,7 +76,7 @@ export function PremiumDialog({
       >
         <DialogTitle className="sr-only">{title}</DialogTitle>
         {description && <DialogDescription className="sr-only">{description}</DialogDescription>}
-        <div className="flex flex-col flex-1 min-h-0 rounded-lg overflow-hidden">
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
           <PremiumHeader
             category={category}
             title={title}
@@ -62,10 +84,9 @@ export function PremiumDialog({
             icon={icon}
             onClose={guard.requestClose}
             closeLabel={tActions('close')}
-            className="rounded-t-lg"
           />
           {/* Body — scrollable, footer stays pinned below */}
-          <div className="flex flex-col flex-1 min-h-0 bg-background rounded-b-lg overflow-hidden">
+          <div className="flex flex-col flex-1 min-h-0 bg-background overflow-hidden">
             {children}
           </div>
         </div>
@@ -103,6 +124,8 @@ interface PremiumDialogFooterProps {
   confirmDestructive?: boolean
   /** Couleur du bouton principal : bleu (défaut), rouge (suppression), ambre (avertissement) */
   confirmTone?: ConfirmButtonTone
+  /** Icône rendue avant le libellé du bouton principal */
+  confirmIcon?: React.ReactNode
   /** Render custom buttons instead of the default confirm button */
   children?: React.ReactNode
 }
@@ -113,10 +136,14 @@ const TONE_CLASSES: Record<ConfirmButtonTone, string> = {
   warning: 'bg-amber-500 hover:bg-amber-600 text-white border-0',
 }
 
+/** Classes communes des boutons de pied (modales et panneaux) */
+export const FOOTER_CANCEL_CLASS = 'h-11 rounded-lg px-5 font-medium sm:min-w-[110px]'
+export const FOOTER_PRIMARY_CLASS = 'h-11 rounded-lg px-5 font-semibold gap-2 sm:min-w-[140px]'
+
 export function PremiumDialogFooter({
   onCancel, cancelLabel,
   onConfirm, confirmLabel,
-  confirmDisabled, confirmLoading, confirmDestructive, confirmTone,
+  confirmDisabled, confirmLoading, confirmDestructive, confirmTone, confirmIcon,
   children,
 }: PremiumDialogFooterProps) {
   const t = useTranslations('actions')
@@ -124,11 +151,11 @@ export function PremiumDialogFooter({
   confirmLabel = confirmLabel ?? t('confirm')
   const tone: ConfirmButtonTone = confirmTone ?? (confirmDestructive ? 'danger' : 'primary')
   return (
-    <div className="flex-shrink-0 px-5 pb-5 pt-3 flex justify-center gap-3 border-t border-border bg-background">
+    <div className="flex-shrink-0 flex flex-col-reverse gap-2 border-t border-border bg-background px-5 py-4 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
       <Button
         type="button"
-        variant="ghost"
-        className="flex-1 h-11 rounded-xl text-foreground/70 hover:text-foreground hover:bg-foreground/8 border border-border"
+        variant="outline"
+        className={FOOTER_CANCEL_CLASS}
         onClick={onCancel}
         disabled={confirmLoading}
       >
@@ -138,12 +165,13 @@ export function PremiumDialogFooter({
       {onConfirm && (
         <Button
           type="button"
-          className={cn('flex-1 h-11 rounded-xl font-semibold', TONE_CLASSES[tone])}
+          className={cn(FOOTER_PRIMARY_CLASS, TONE_CLASSES[tone])}
           disabled={confirmDisabled}
           loading={confirmLoading}
           onClick={onConfirm}
           data-tone={tone}
         >
+          {!confirmLoading && confirmIcon}
           {confirmLabel}
         </Button>
       )}

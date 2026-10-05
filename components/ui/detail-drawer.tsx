@@ -17,8 +17,8 @@ export interface DetailDrawerProps extends Omit<AppDrawerProps, 'footer' | 'dirt
 export function DetailDrawer({ meta, actions, children, bodyClassName, ...drawer }: DetailDrawerProps) {
   return (
     <AppDrawer {...drawer} footer={actions} bodyClassName={cn('px-0 py-0', bodyClassName)}>
-      {meta && <div className="border-b border-border bg-muted/40 px-5 py-3">{meta}</div>}
-      <div className="px-5 py-4">{children}</div>
+      {meta && <div className="border-b border-border bg-background px-4 py-3">{meta}</div>}
+      <div className="px-4 py-4">{children}</div>
     </AppDrawer>
   )
 }

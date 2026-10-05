@@ -418,7 +418,7 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
               </div>
             </PremiumDialogBody>
             <PremiumDialogFooter onCancel={() => setAdjustBatch(null)} cancelLabel={t('actions.cancel')}>
-              <Button variant="stockshop" className="flex-1 h-11 rounded-xl font-semibold" onClick={submitAdjustQuantity} loading={savingAdjust} disabled={adjustQuantity === ''}>
+              <Button variant="stockshop" className="flex-1 h-11 rounded-lg font-semibold" onClick={submitAdjustQuantity} loading={savingAdjust} disabled={adjustQuantity === ''}>
                 {t('actions.save')}
               </Button>
             </PremiumDialogFooter>

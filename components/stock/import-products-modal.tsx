@@ -168,12 +168,12 @@ export function ImportProductsModal({ open, onClose, shopId, onImported }: Props
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
           {!result ? (
             <>
-              <Button type="button" variant="ghost" className="h-11 rounded-xl border border-border text-foreground/70 hover:text-foreground" onClick={requestClose} disabled={importing}>
+              <Button type="button" variant="ghost" className="h-11 rounded-lg border border-border text-foreground/70 hover:text-foreground" onClick={requestClose} disabled={importing}>
                 {tRoot('actions.cancel')}
               </Button>
               <Button
                 variant="stockshop"
-                className="h-11 rounded-xl font-semibold sm:min-w-[150px]"
+                className="h-11 rounded-lg font-semibold sm:min-w-[150px]"
                 disabled={rows.length === 0 || importing}
                 loading={importing}
                 onClick={handleImport}
@@ -182,7 +182,7 @@ export function ImportProductsModal({ open, onClose, shopId, onImported }: Props
               </Button>
             </>
           ) : (
-            <Button variant="stockshop" className="h-11 rounded-xl font-semibold sm:min-w-[150px]" onClick={closeAll}>
+            <Button variant="stockshop" className="h-11 rounded-lg font-semibold sm:min-w-[150px]" onClick={closeAll}>
               {t('close')}
             </Button>
           )}
@@ -192,7 +192,7 @@ export function ImportProductsModal({ open, onClose, shopId, onImported }: Props
       <div className="space-y-4">
 
         {/* Step 1 */}
-        <div className="rounded-xl border bg-muted/40 p-4 space-y-2">
+        <div className="rounded-xl border bg-card p-4 space-y-2">
           <p className="text-sm font-semibold">{t('step1_title')}</p>
           <p className="text-xs text-muted-foreground">{t('step1_desc')}</p>
           <Button variant="outline" size="sm" className="gap-2" onClick={downloadTemplate}>
@@ -207,7 +207,7 @@ export function ImportProductsModal({ open, onClose, shopId, onImported }: Props
           {!fileName ? (
             <button
               onClick={() => fileRef.current?.click()}
-              className="w-full h-20 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:border-primary hover:text-foreground transition-colors"
+              className="w-full h-20 border-2 border-dashed border-border rounded-xl bg-card flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:border-primary hover:text-foreground transition-colors"
             >
               <Upload className="h-5 w-5" />
               <span className="text-xs">{t('drop_hint')}</span>
@@ -228,7 +228,7 @@ export function ImportProductsModal({ open, onClose, shopId, onImported }: Props
 
         {/* Preview */}
         {rows.length > 0 && !result && (
-          <div className="rounded-xl border overflow-hidden">
+          <div className="rounded-xl border bg-card overflow-hidden">
             <div className="bg-muted/50 px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               {t('preview_title')} ({Math.min(rows.length, 3)} / {rows.length})
             </div>

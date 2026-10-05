@@ -1573,7 +1573,7 @@ export default function SalesHistoryPage() {
           cancelLabel={t('actions.cancel')}
         >
           <Button
-            className={`flex-1 h-11 rounded-xl font-semibold text-white border-0 ${dialog?.type === 'cancel' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-green-600 hover:bg-green-700'}`}
+            className={`flex-1 h-11 rounded-lg font-semibold text-white border-0 ${dialog?.type === 'cancel' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-green-600 hover:bg-green-700'}`}
             loading={actionLoading}
             onClick={doAction}
           >

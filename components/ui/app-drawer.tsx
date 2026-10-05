@@ -106,13 +106,21 @@ export function AppDrawer({
             icon={icon}
             onClose={guard.requestClose}
             closeLabel={tActions('close')}
-            className={cn(mobile === 'fullscreen' && 'max-sm:safe-top', mobile === 'sheet' && 'max-sm:rounded-t-2xl')}
+            // Téléphone plein écran : 20 px au-dessus du titre, plus la zone
+            // sûre de l'appareil (encoche, barre d'état) s'il en a une
+            className={cn(
+              mobile === 'fullscreen' && 'max-sm:pt-[calc(1.25rem_+_env(safe-area-inset-top,0px))] max-sm:pb-5 max-sm:[&>button]:top-[calc(1.25rem_+_env(safe-area-inset-top,0px))]',
+              mobile === 'sheet' && 'max-sm:rounded-t-2xl',
+            )}
           />
-          <div className={cn('min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4', bodyClassName)}>
+          {/* Corps gris doux : les sections (DrawerSection) sont des cartes blanches */}
+          <div className={cn('min-h-0 flex-1 overflow-y-auto overscroll-contain bg-muted/40 px-4 py-4 dark:bg-muted/20', bodyClassName)}>
             {children}
           </div>
           {footer && (
-            <div className="flex-shrink-0 border-t border-border bg-background px-5 py-3 safe-bottom">
+            // Marge sous les boutons : 20 px sur téléphone (plus la zone sûre
+            // de l'appareil s'il en a une), 16 px sur ordinateur
+            <div className="flex-shrink-0 border-t border-border bg-background px-5 pt-4 pb-[calc(1.25rem_+_env(safe-area-inset-bottom,0px))] sm:pb-4">
               {typeof footer === 'function' ? footer({ requestClose: guard.requestClose }) : footer}
             </div>
           )}
@@ -124,9 +132,9 @@ export function AppDrawer({
 }
 
 // ── DrawerSection ────────────────────────────────────────────────────────────
-// Section de panneau : titre, description, contenu ; repliable si demandé.
-// Le contenu replié reste monté (champs de formulaire enregistrés, valeurs
-// conservées), il est seulement masqué.
+// Section de panneau = carte blanche : bandeau de titre, contenu ; repliable
+// si demandé (barre d'accent bleue, sous-titre, chevron). Le contenu replié
+// reste monté (champs enregistrés, valeurs conservées), il est seulement masqué.
 
 export interface DrawerSectionProps {
   title?: string
@@ -152,29 +160,32 @@ export function DrawerSection({
     onOpenChange?.(next)
   }
   return (
-    <section className={cn('border-t border-border pt-4 first:border-t-0 first:pt-0', className)}>
+    <section className={cn('overflow-hidden rounded-xl border border-border bg-card shadow-sm', className)}>
       {title && (
         collapsible ? (
           <button
             type="button"
             aria-expanded={isOpen}
             onClick={toggle}
-            className="-mx-1 flex w-full items-center justify-between gap-3 rounded-lg px-1 py-1 text-left hover:bg-muted/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-muted/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           >
-            <span className="min-w-0">
-              <span className="block text-sm font-semibold text-foreground">{title}</span>
-              {description && <span className="block text-xs text-muted-foreground">{description}</span>}
+            <span className="flex min-w-0 items-start gap-3">
+              <span className="mt-0.5 h-5 w-[3px] flex-shrink-0 rounded-full bg-stockshop-blue dark:bg-blue-400" aria-hidden="true" />
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-foreground">{title}</span>
+                {description && <span className="block text-xs text-muted-foreground">{description}</span>}
+              </span>
             </span>
             <ChevronDown className={cn('h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform', isOpen && 'rotate-180')} />
           </button>
         ) : (
-          <div className="mb-3">
+          <div className="border-b border-border bg-muted/30 px-4 py-3">
             <h3 className="text-sm font-semibold text-foreground">{title}</h3>
             {description && <p className="text-xs text-muted-foreground">{description}</p>}
           </div>
         )
       )}
-      <div className={cn('space-y-4', collapsible && title && 'mt-3', !isOpen && 'hidden')}>
+      <div className={cn('space-y-4 px-4 py-4', collapsible && title && 'border-t border-border', !isOpen && 'hidden')}>
         {children}
       </div>
     </section>

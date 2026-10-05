@@ -2035,7 +2035,7 @@ export default function CreditsPage() {
                   </Button>
                 </a>
               )}
-              <Button variant="stockshop" className="w-full h-11 rounded-xl font-semibold"
+              <Button variant="stockshop" className="w-full h-11 rounded-lg font-semibold"
                 onClick={() => { setRepayDebtor(null); setReceiptResult(null) }}>
                 {t('actions.close')}
               </Button>

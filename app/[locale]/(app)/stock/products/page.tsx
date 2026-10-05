@@ -1676,7 +1676,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             type="button"
             variant="outline"
             disabled={saving || addFormState.busy}
-            className="h-11 rounded-xl gap-2 text-stockshop-blue dark:text-blue-400 border-stockshop-blue/40 hover:bg-stockshop-blue/5"
+            className="h-11 rounded-lg gap-2 text-stockshop-blue dark:text-blue-400 border-stockshop-blue/40 hover:bg-stockshop-blue/5"
             onClick={() => requestProductFormSubmit(PRODUCT_FORM_INTENT_ADD_ANOTHER)}
           >
             <PlusCircle className="h-4 w-4" />
@@ -1823,7 +1823,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             </div>
           </PremiumDialogBody>
           <PremiumDialogFooter onCancel={() => setShowRestockModal(false)} cancelLabel={t('actions.cancel')}>
-            <Button variant="stockshop" type="submit" loading={saving} className="flex-1 h-11 rounded-xl font-semibold">{t('actions.restock')}</Button>
+            <Button variant="stockshop" type="submit" loading={saving} className="flex-1 h-11 rounded-lg font-semibold">{t('actions.restock')}</Button>
           </PremiumDialogFooter>
         </form>
       </PremiumDialog>
@@ -1938,14 +1938,14 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               {(promoBatch ? promoBatch.promo_price : promoProduct.promo_price) && (
                 <Button
                   variant="outline"
-                  className="flex-1 h-11 rounded-xl font-semibold text-destructive border-destructive/30 hover:bg-red-50 dark:hover:bg-red-950/40"
+                  className="flex-1 h-11 rounded-lg font-semibold text-destructive border-destructive/30 hover:bg-red-50 dark:hover:bg-red-950/40"
                   onClick={removePromo}
                   loading={savingPromo}
                 >
                   {t('products.promo_remove')}
                 </Button>
               )}
-              <Button variant="stockshop" className="flex-1 h-11 rounded-xl font-semibold" onClick={submitPromo} loading={savingPromo}>
+              <Button variant="stockshop" className="flex-1 h-11 rounded-lg font-semibold" onClick={submitPromo} loading={savingPromo}>
                 {t('actions.save')}
               </Button>
             </PremiumDialogFooter>
@@ -1979,7 +1979,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                     const sourceLabel = t(`products.batch_source_${b.source}` as any) || b.source
                     const batchPromoActive = isPromoActive(b)
                     return (
-                      <div key={b.id} className="rounded-lg border px-3 py-2.5 space-y-1">
+                      <div key={b.id} className="rounded-lg border bg-card px-3 py-2.5 space-y-1">
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-sm font-semibold flex items-center gap-1">
                             {b.quantity} {batchesProduct.unit}
@@ -2080,11 +2080,11 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             </PremiumDialogBody>
             <PremiumDialogFooter onCancel={() => setExpiryBatch(null)} cancelLabel={t('actions.cancel')}>
               {expiryBatch.expiry_date && (
-                <Button variant="outline" className="h-11 rounded-xl font-semibold text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300" onClick={clearExpiry} loading={savingExpiry}>
+                <Button variant="outline" className="h-11 rounded-lg font-semibold text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300" onClick={clearExpiry} loading={savingExpiry}>
                   {t('products.clear_expiry_action')}
                 </Button>
               )}
-              <Button variant="stockshop" className="flex-1 h-11 rounded-xl font-semibold" onClick={submitExpiry} loading={savingExpiry} disabled={!expiryDate}>
+              <Button variant="stockshop" className="flex-1 h-11 rounded-lg font-semibold" onClick={submitExpiry} loading={savingExpiry} disabled={!expiryDate}>
                 {t('actions.save')}
               </Button>
             </PremiumDialogFooter>
@@ -2125,7 +2125,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               </div>
             </PremiumDialogBody>
             <PremiumDialogFooter onCancel={() => setAdjustBatch(null)} cancelLabel={t('actions.cancel')}>
-              <Button variant="stockshop" className="flex-1 h-11 rounded-xl font-semibold" onClick={submitAdjustQuantity} loading={savingAdjust} disabled={adjustQuantity === ''}>
+              <Button variant="stockshop" className="flex-1 h-11 rounded-lg font-semibold" onClick={submitAdjustQuantity} loading={savingAdjust} disabled={adjustQuantity === ''}>
                 {t('actions.save')}
               </Button>
             </PremiumDialogFooter>

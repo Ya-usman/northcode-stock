@@ -9,6 +9,7 @@ import { NumericInput } from '@/components/ui/numeric-input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DrawerSection } from '@/components/ui/app-drawer'
+import { InputGroup, RequiredMark } from '@/components/ui/input-group'
 import { createProductSchema, type ProductFormData } from '@/lib/validations/product'
 import type { Category, Supplier } from '@/lib/types/database'
 import dynamic from 'next/dynamic'
@@ -24,10 +25,11 @@ import { compressImage } from '@/lib/utils/compress-image'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { hasNativePhotoPicker, pickPhotoNative, PhotoPermissionError, type PhotoSource } from '@/lib/photo/pick-photo'
 
-// Corps du panneau « Ajouter / Modifier un produit » : sections Informations
-// principales · Tarification · Stock · Options avancées (fournisseur, photo,
-// repliée par défaut). Les boutons vivent dans le pied du FormDrawer hôte, qui
-// soumet ce <form id="product-form"> et reçoit l'état (modifié, occupé).
+// Corps du panneau « Ajouter / Modifier un produit » : une carte
+// « Informations principales » (nom, catégorie, prix avec devise, stock initial
+// avec unité, SKU avec scanner accolé, seuil, fournisseur) et une carte
+// « Options avancées » repliée (photo). Les boutons vivent dans le pied du
+// FormDrawer hôte, qui soumet ce <form id="product-form"> et reçoit l'état.
 
 interface ProductFormProps {
   categories: Category[]
@@ -53,6 +55,8 @@ interface ProductFormProps {
 const FieldError = ({ message }: { message?: string }) =>
   message ? <p className="text-xs text-destructive">{message}</p> : null
 
+const UNITS = ['piece', 'kg', 'g', 'litre', 'ml', 'pack', 'carton', 'dozen', 'bag', 'bottle', 'tin', 'box']
+
 export function ProductForm({
   categories, suppliers, currency, isOwner, shopId, isEdit,
   defaultValues, sessionCount, initialPhoto, productId, startDirty = false, onSubmit, onSaveAndAdd, onStateChange,
@@ -67,7 +71,7 @@ export function ProductForm({
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [imagePreview, setImagePreview] = useState<string>(defaultValues?.image_url || '')
   // Options avancées ouvertes d'emblée si elles portent déjà une valeur
-  const [advancedOpen, setAdvancedOpen] = useState(!!(defaultValues?.supplier_id || defaultValues?.image_url || initialPhoto))
+  const [advancedOpen, setAdvancedOpen] = useState(!!(defaultValues?.image_url || initialPhoto))
   // Chargé à la demande : le panneau hôte a déjà posé son focus avant que ce
   // formulaire existe. Sur ordinateur, le nom prend le focus au montage ; sur
   // téléphone, non (le clavier ne doit pas surgir à l'ouverture).
@@ -223,7 +227,7 @@ export function ProductForm({
   const optional = <span className="text-muted-foreground text-xs font-normal">({t('form.optional')})</span>
 
   return (
-    <form id={PRODUCT_FORM_ID} onSubmit={handleFormSubmit} className="space-y-5" noValidate>
+    <form id={PRODUCT_FORM_ID} onSubmit={handleFormSubmit} className="space-y-4" noValidate>
 
       {/* Session counter */}
       {!!sessionCount && sessionCount > 0 && (
@@ -237,121 +241,122 @@ export function ProductForm({
 
       {/* ── Informations principales ─────────────────────────────────── */}
       <DrawerSection title={t('products.section_main')}>
-        <div className="space-y-1">
-          <Label htmlFor="product-name">{t('products.name')} *</Label>
-          <Input id="product-name" {...form.register('name')} placeholder={t('products.name')} aria-invalid={!!errors.name} autoFocus={autoFocusName} />
+        <div className="space-y-1.5">
+          <Label htmlFor="product-name">{t('products.name')}<RequiredMark /></Label>
+          <Input id="product-name" {...form.register('name')} placeholder={t('product_form.name_placeholder')} aria-invalid={!!errors.name} autoFocus={autoFocusName} />
           <FieldError message={errors.name?.message} />
         </div>
 
+        <div className="space-y-1.5">
+          <Label>{t('products.category')} {optional}</Label>
+          <Select value={categoryId} onValueChange={v => form.setValue('category_id', v === NONE ? '' : v, { shouldDirty: true })}>
+            <SelectTrigger className="h-10"><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE}>{t('form.none_female')}</SelectItem>
+              {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
+          <div className="space-y-1.5">
+            <Label>{t('products.selling_price')}<RequiredMark /></Label>
+            <Controller control={form.control} name="selling_price" render={({ field }) => (
+              <InputGroup suffix={currency}>
+                <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" currency={currency} className="h-10" aria-invalid={!!errors.selling_price} />
+              </InputGroup>
+            )} />
+            <FieldError message={errors.selling_price?.message} />
+          </div>
+          {isOwner && (
+            <div className="space-y-1.5">
+              <Label>{t('products.buying_price')}</Label>
+              <Controller control={form.control} name="buying_price" render={({ field }) => (
+                <InputGroup suffix={currency}>
+                  <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" currency={currency} className="h-10" />
+                </InputGroup>
+              )} />
+              <FieldError message={errors.buying_price?.message} />
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          {!isEdit && (
+            <div className="space-y-1.5">
+              <Label>{t('product_form.initial_stock')}<RequiredMark /></Label>
+              <Controller control={form.control} name="quantity" render={({ field }) => (
+                <InputGroup suffix={unit}>
+                  <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" currency={currency} className="h-10" aria-invalid={!!errors.quantity} />
+                </InputGroup>
+              )} />
+              <FieldError message={errors.quantity?.message} />
+            </div>
+          )}
+          <div className="space-y-1.5">
             <Label>{t('products.unit')}</Label>
             <Select value={unit} onValueChange={v => form.setValue('unit', v, { shouldDirty: true })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {['piece', 'kg', 'g', 'litre', 'ml', 'pack', 'carton', 'dozen', 'bag', 'bottle', 'tin', 'box'].map(u => (
-                  <SelectItem key={u} value={u}>{u}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1">
-            <Label>{t('products.category')} {optional}</Label>
-            <Select value={categoryId} onValueChange={v => form.setValue('category_id', v === NONE ? '' : v, { shouldDirty: true })}>
-              <SelectTrigger><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>{t('form.none_female')}</SelectItem>
-                {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                {UNITS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
         </div>
 
-        {/* SKU / Barcode */}
-        <div className="space-y-1">
+        {/* SKU / Barcode, scanner accolé */}
+        <div className="space-y-1.5">
           <Label htmlFor="product-sku" className="flex items-center gap-1.5">
             <ScanLine className="h-3.5 w-3.5 text-muted-foreground" />
             {t('products.sku')} {optional}
           </Label>
-          <div className="flex gap-2">
-            <Input
-              id="product-sku"
-              {...form.register('sku')}
-              placeholder={t('product_form.sku_placeholder')}
-              className="font-mono text-sm flex-1"
-            />
-            <button
-              type="button"
-              onClick={() => setShowScanner(v => !v)}
-              className="h-10 px-3 flex items-center gap-1.5 text-xs font-medium border border-border rounded-lg bg-muted hover:bg-accent transition-colors shrink-0"
-            >
-              <Camera className="h-3.5 w-3.5" />
-              {t('product_form.scan')}
-            </button>
-          </div>
+          <InputGroup
+            action={(
+              <button
+                type="button"
+                onClick={() => setShowScanner(v => !v)}
+                aria-pressed={showScanner}
+                className="inline-flex h-10 flex-shrink-0 items-center gap-1.5 rounded-r-md border border-l-0 border-input bg-muted px-3 text-xs font-medium transition-colors hover:bg-accent"
+              >
+                <Camera className="h-3.5 w-3.5" />
+                {t('product_form.scan')}
+              </button>
+            )}
+          >
+            <Input id="product-sku" {...form.register('sku')} placeholder={t('product_form.sku_placeholder')} className="font-mono text-sm" />
+          </InputGroup>
           <p className="text-[11px] text-muted-foreground">{t('product_form.scanner_hint')}</p>
           <FieldError message={errors.sku?.message} />
           {showScanner && (
             <BarcodeScanner onDetected={handleBarcodeDetected} onClose={() => setShowScanner(false)} />
           )}
         </div>
-      </DrawerSection>
 
-      {/* ── Tarification ──────────────────────────────────────────────── */}
-      <DrawerSection title={t('products.section_pricing')}>
         <div className="grid grid-cols-2 gap-3">
-          {isOwner && (
-            <div className="space-y-1">
-              <Label>
-                {t('products.buying_price')}{' '}
-                <span className="text-muted-foreground text-xs">({currency})</span>
-              </Label>
-              <Controller control={form.control} name="buying_price" render={({ field }) => (
-                <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" currency={currency} />
-              )} />
-              <FieldError message={errors.buying_price?.message} />
-            </div>
-          )}
-          <div className="space-y-1">
-            <Label>
-              {t('products.selling_price')} *{' '}
-              <span className="text-muted-foreground text-xs">({currency})</span>
-            </Label>
-            <Controller control={form.control} name="selling_price" render={({ field }) => (
-              <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" currency={currency} />
-            )} />
-            <FieldError message={errors.selling_price?.message} />
-          </div>
-        </div>
-      </DrawerSection>
-
-      {/* ── Stock ─────────────────────────────────────────────────────── */}
-      <DrawerSection title={t('products.section_stock')}>
-        <div className="grid grid-cols-2 gap-3">
-          {!isEdit && (
-            <div className="space-y-1">
-              <Label>{t('products.quantity')} *</Label>
-              <Controller control={form.control} name="quantity" render={({ field }) => (
-                <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" currency={currency} />
-              )} />
-              <FieldError message={errors.quantity?.message} />
-            </div>
-          )}
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <Label>
               {t('products.low_stock_threshold')}{' '}
               <span className="text-muted-foreground text-xs font-normal">({t('form.alert_label')})</span>
             </Label>
             <Controller control={form.control} name="low_stock_threshold" render={({ field }) => (
-              <NumericInput value={field.value ?? 0} onChange={field.onChange} onBlur={field.onBlur} placeholder="10" />
+              <NumericInput value={field.value ?? 0} onChange={field.onChange} onBlur={field.onBlur} placeholder="10" className="h-10" />
             )} />
             <FieldError message={errors.low_stock_threshold?.message} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>{t('products.supplier')} {optional}</Label>
+            <Select value={supplierId} onValueChange={v => form.setValue('supplier_id', v === NONE ? '' : v, { shouldDirty: true })}>
+              <SelectTrigger className="h-10"><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>{t('form.none_male')}</SelectItem>
+                {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </DrawerSection>
 
-      {/* ── Options avancées : fournisseur, photo ─────────────────────── */}
+      {/* ── Options avancées : photo ───────────────────────────────────── */}
       <DrawerSection
         title={t('dialogs.advanced_options')}
         description={t('products.section_advanced_hint')}
@@ -359,17 +364,6 @@ export function ProductForm({
         open={advancedOpen}
         onOpenChange={setAdvancedOpen}
       >
-        <div className="space-y-1">
-          <Label>{t('products.supplier')} {optional}</Label>
-          <Select value={supplierId} onValueChange={v => form.setValue('supplier_id', v === NONE ? '' : v, { shouldDirty: true })}>
-            <SelectTrigger><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE}>{t('form.none_male')}</SelectItem>
-              {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-
         <div className="space-y-1.5">
           <Label className="flex items-center gap-1.5">
             <ImagePlus className="h-3.5 w-3.5 text-muted-foreground" />
