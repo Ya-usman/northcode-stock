@@ -14,6 +14,7 @@ export type AuditAction =
   | 'billing.subscribe'
   | 'billing.verify'
   | 'billing.limit_enforced'
+  | 'billing.grant_expiry_reminder'
   | 'account.register'
   | 'account.delete'
   | 'sale.cancel'

@@ -2771,5 +2771,18 @@
     "establishments_count": "{count, plural, =0 {Babu wuri} one {Wuri #} other {Wurare #}}",
     "read_only": "Maigida kaɗai ne zai iya gyara waɗannan bayanai.",
     "not_available": "Bayanan kasuwanci ba su samuwa ga matsayinku."
+  },
+  "grant_reminder": {
+    "title": "Kyautarku za ta ƙare ranar {date}",
+    "email_subject": "StockShop — kyautarku za ta ƙare ranar {date}",
+    "greeting": "Sannu {name},",
+    "members_body": "{entity}: {count, plural, one {ma'aikaci # na kyauta zai ƙare} other {ma'aikata # na kyauta za su ƙare}} ranar {date}. Daga nan shirin {plan} naku zai ba da damar ma'aikata {limit}; kuna da {used} masu aiki.",
+    "shops_body": "{entity}: {count, plural, one {shago # na kyauta zai ƙare} other {shaguna # na kyauta za su ƙare}} ranar {date}. Daga nan shirin {plan} naku zai ba da damar shaguna {limit}; kuna da {used}.",
+    "members_over": "Don ku zauna cikin iyaka, ku kashe asusu {over} daga Ma'aikata, ko ku ɗaga shirinku. Ƙarshen kyautar ba zai dakatar da kowa ba, amma ba za ku iya gayyatar sababbi ba.",
+    "shops_over": "Don ku zauna cikin iyaka, ku rufe shago {over}, ko ku ɗaga shirinku. Ƙarshen kyautar ba zai dakatar da wani shago ba, amma ba za ku iya ƙirƙirar sabo ba.",
+    "within_limit": "Kuna cikin iyakar shirinku: babu abin da za ku yi.",
+    "cta_team": "Duba ma'aikatana",
+    "cta_billing": "Duba shirye-shirye",
+    "footer": "Ƙungiyar StockShop ce ta ba ku wannan kyauta."
   }
 }

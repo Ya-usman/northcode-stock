@@ -13,6 +13,7 @@ const CRON_JOBS = [
   { name: 'morning-check',     label: 'Bilan du matin',              schedule: '07h00, quotidien' },
   { name: 'low-stock-alert',   label: 'Alerte stock faible',         schedule: '07h00, quotidien' },
   { name: 'expiry-alert',      label: 'Alerte péremption',           schedule: '07h00, quotidien' },
+  { name: 'grant-reminders',   label: 'Fin des gestes commerciaux',  schedule: '08h00, quotidien' },
   { name: 'renewal-check',     label: 'Renouvellement abonnements',  schedule: '09h00, quotidien' },
   { name: 'evening-summary',   label: 'Résumé du soir',              schedule: '17h00, quotidien' },
   { name: 'orphan-shop-check', label: 'Boutiques orphelines',        schedule: '04h00, quotidien' },

@@ -35,6 +35,29 @@ export function effectiveLimit(planLimit: number, bonus: number): number {
   return planLimit === -1 ? -1 : planLimit + Math.max(0, bonus)
 }
 
+/**
+ * Rappel de fin de geste (tâche quotidienne du matin) :
+ *  'week' = la fin tombe dans 7 jours ou moins ;
+ *  'eve'  = la fin tombe dans 2 jours ou moins (la tâche passant chaque matin,
+ *           c'est le rappel « la veille »).
+ * Geste sans date de fin ou déjà terminé : aucun rappel.
+ */
+export type ReminderStage = 'week' | 'eve'
+export function reminderStage(expiresAt: string | null, now = new Date()): ReminderStage | null {
+  if (!expiresAt) return null
+  const days = (new Date(expiresAt).getTime() - now.getTime()) / 86_400_000
+  if (!(days > 0) || days > 7) return null
+  return days <= 2 ? 'eve' : 'week'
+}
+
+/** Rappel à envoyer compte tenu de ceux déjà envoyés (clés « grantId:stage ») ; jamais de 'week' après un 'eve' */
+export function reminderToSend(grant: Pick<EntityGrant, 'id' | 'expires_at' | 'revoked_at'>, sent: Set<string>, now = new Date()): ReminderStage | null {
+  if (grant.revoked_at) return null
+  const stage = reminderStage(grant.expires_at, now)
+  if (!stage || sent.has(`${grant.id}:${stage}`) || sent.has(`${grant.id}:eve`)) return null
+  return stage
+}
+
 /** Gestes actifs d'une entreprise. Table absente (migration 157 non appliquée) → aucun geste. */
 export async function getGrantBonus(admin: any, entityId: string): Promise<GrantBonus> {
   const { data, error } = await admin.from('entity_grants')

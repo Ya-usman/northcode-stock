@@ -15,6 +15,20 @@ function getRequestLocale(request: Request): ApiLocale {
   return raw === 'en' || raw === 'ha' ? raw : 'fr'
 }
 
+/** Langue enregistrée d'une personne (profiles.locale) ramenée à fr / en / ha */
+export function normalizeLocale(raw: string | null | undefined): ApiLocale {
+  return raw === 'en' || raw === 'ha' ? raw : 'fr'
+}
+
+/**
+ * Traducteur hors requête (tâches planifiées : la langue est celle du
+ * destinataire, pas celle d'un cookie), scopé sur un namespace.
+ */
+export function getLocaleTranslator(locale: string | null | undefined, namespace: string) {
+  const l = normalizeLocale(locale)
+  return createTranslator({ locale: l, messages: CATALOGS[l] as any, namespace: namespace as any })
+}
+
 /**
  * Traducteur pour les messages d'erreur/succès renvoyés par les routes API,
  * scopé sur le namespace `api_errors` de messages/{fr,en,ha}.json.

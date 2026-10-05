@@ -22,6 +22,12 @@ interface Situation {
 const KIND_LABEL = { team_seats: 'membre(s) supplémentaire(s)', shops: 'boutique(s) supplémentaire(s)' } as const
 const fmtDate = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
 const fmtLimit = (n: number) => (n === -1 ? 'illimité' : String(n))
+/** Jours restants si la fin tombe dans 7 jours ou moins, sinon null */
+const endsSoon = (d: string | null) => {
+  if (!d) return null
+  const days = Math.ceil((new Date(d).getTime() - Date.now()) / 86_400_000)
+  return days > 0 && days <= 7 ? days : null
+}
 
 export function EntityGrantsPanel({ shopId, canWrite }: { shopId: string; canWrite: boolean }) {
   const { toast } = useToast()
@@ -144,7 +150,14 @@ export function EntityGrantsPanel({ shopId, canWrite }: { shopId: string; canWri
           {active.map(g => (
             <li key={g.id} className="flex items-start justify-between gap-3 px-3 py-2.5 text-sm">
               <div className="min-w-0">
-                <p className="font-medium text-foreground">+{g.quantity} {KIND_LABEL[g.kind]}</p>
+                <p className="font-medium text-foreground">
+                  +{g.quantity} {KIND_LABEL[g.kind]}
+                  {endsSoon(g.expires_at) !== null && (
+                    <span className="ml-2 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400" data-testid="grant-ends-soon">
+                      fin dans {endsSoon(g.expires_at)} j · propriétaire prévenu à J-7 et la veille
+                    </span>
+                  )}
+                </p>
                 <p className="text-xs text-muted-foreground">{g.reason} · depuis le {fmtDate(g.granted_at)} · {g.expires_at ? `jusqu'au ${fmtDate(g.expires_at)}` : 'durée indéterminée'}</p>
               </div>
               {canWrite && (

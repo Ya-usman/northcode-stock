@@ -2771,5 +2771,18 @@
     "establishments_count": "{count, plural, =0 {Aucun établissement} one {# établissement} other {# établissements}}",
     "read_only": "Seul le propriétaire peut modifier ces informations.",
     "not_available": "Les informations de l’entreprise ne sont pas disponibles pour votre rôle."
+  },
+  "grant_reminder": {
+    "title": "Fin de votre geste commercial le {date}",
+    "email_subject": "StockShop — fin de votre geste commercial le {date}",
+    "greeting": "Bonjour {name},",
+    "members_body": "{entity} : {count, plural, one {le membre offert prend fin} other {les # membres offerts prennent fin}} le {date}. Votre formule {plan} compte ensuite {limit, plural, one {# membre} other {# membres}} ; vous en avez {used} actifs.",
+    "shops_body": "{entity} : {count, plural, one {la boutique offerte prend fin} other {les # boutiques offertes prennent fin}} le {date}. Votre formule {plan} compte ensuite {limit, plural, one {# boutique} other {# boutiques}} ; vous en avez {used}.",
+    "members_over": "Pour rester dans la limite, désactivez {over, plural, one {# compte} other {# comptes}} depuis Équipe ou passez à une formule supérieure. La fin du geste ne suspend personne, mais les nouvelles invitations seront bloquées.",
+    "shops_over": "Pour rester dans la limite, fermez {over, plural, one {# boutique} other {# boutiques}} ou passez à une formule supérieure. La fin du geste ne suspend aucune boutique, mais vous ne pourrez plus en créer.",
+    "within_limit": "Vous restez dans la limite de votre formule : rien à faire.",
+    "cta_team": "Voir mon équipe",
+    "cta_billing": "Voir les formules",
+    "footer": "Ce geste commercial vous avait été accordé par l’équipe StockShop."
   }
 }

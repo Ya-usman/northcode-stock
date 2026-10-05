@@ -2771,5 +2771,18 @@
     "establishments_count": "{count, plural, =0 {No establishment} one {# establishment} other {# establishments}}",
     "read_only": "Only the owner can edit this information.",
     "not_available": "Company information is not available for your role."
+  },
+  "grant_reminder": {
+    "title": "Your complimentary offer ends on {date}",
+    "email_subject": "StockShop — your complimentary offer ends on {date}",
+    "greeting": "Hello {name},",
+    "members_body": "{entity}: {count, plural, one {the complimentary member ends} other {the # complimentary members end}} on {date}. Your {plan} plan then includes {limit, plural, one {# member} other {# members}}; you have {used} active.",
+    "shops_body": "{entity}: {count, plural, one {the complimentary shop ends} other {the # complimentary shops end}} on {date}. Your {plan} plan then includes {limit, plural, one {# shop} other {# shops}}; you have {used}.",
+    "members_over": "To stay within the limit, deactivate {over, plural, one {# account} other {# accounts}} from Team or upgrade your plan. Nobody is suspended when the offer ends, but new invitations will be blocked.",
+    "shops_over": "To stay within the limit, close {over, plural, one {# shop} other {# shops}} or upgrade your plan. No shop is suspended when the offer ends, but you won't be able to create new ones.",
+    "within_limit": "You stay within your plan's limit: nothing to do.",
+    "cta_team": "View my team",
+    "cta_billing": "View plans",
+    "footer": "This complimentary offer was granted to you by the StockShop team."
   }
 }
