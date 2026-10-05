@@ -24,7 +24,7 @@ export function emailShell(p: { appUrl: string; body: string; footer: string }):
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6fb;padding:28px 12px;"><tr><td align="center">
 <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
   <tr><td style="padding:0 4px 14px;">${brandHeader(p.appUrl)}</td></tr>
-  <tr><td style="background:#fff;border-radius:14px;padding:24px 24px 8px;box-shadow:0 2px 12px rgba(7,62,138,0.06);">
+  <tr><td style="background:#fff;border-radius:14px;padding:22px 18px 8px;box-shadow:0 2px 12px rgba(7,62,138,0.06);">
     ${p.body}
   </td></tr>
   <tr><td style="padding:16px 8px 0;font-size:12px;line-height:1.5;color:#6b7280;text-align:center;">${p.footer}</td></tr>

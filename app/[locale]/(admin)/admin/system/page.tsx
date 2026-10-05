@@ -5,23 +5,10 @@ import { AdminPageHeader } from '@/components/admin/ui/admin-page-header'
 import { CheckCircle2, XCircle, AlertTriangle, HelpCircle, Clock } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { CRON_JOBS as CATALOG } from '@/lib/cron/jobs'
 
-// Catalogue des tâches cron connues (voir vercel.json) — le nom doit
-// correspondre exactement au job_name journalisé par lib/api/cron-log.ts
-// dans chaque route app/api/cron/*/route.ts.
-const CRON_JOBS = [
-  { name: 'morning-check',     label: 'Bilan du matin',              schedule: '07h00, quotidien' },
-  { name: 'low-stock-alert',   label: 'Alerte stock faible (push)',  schedule: '07h00, quotidien' },
-  { name: 'expiry-alert',      label: 'Alerte péremption (push)',    schedule: '07h00, quotidien' },
-  { name: 'owner-alerts',      label: 'E-mail d\'alertes aux propriétaires', schedule: '07h15, quotidien' },
-  { name: 'grant-reminders',   label: 'Fin des gestes commerciaux',  schedule: '08h00, quotidien' },
-  { name: 'renewal-check',     label: 'Renouvellement abonnements',  schedule: '09h00, quotidien' },
-  { name: 'evening-summary',   label: 'Résumé du soir (en pause sauf EVENING_SUMMARY_EMAILS=on)', schedule: '17h00, quotidien' },
-  { name: 'orphan-shop-check', label: 'Boutiques orphelines',        schedule: '04h00, quotidien' },
-  { name: 'recurring-expenses', label: 'Dépenses récurrentes',       schedule: '04h30, quotidien' },
-  { name: 'referral-maturity', label: 'Maturation récompenses parrainage', schedule: '05h00, quotidien' },
-  { name: 'exchange-rates',    label: 'Taux de change (reporting)',   schedule: '06h00, quotidien' },
-]
+// Catalogue des tâches : lib/cron/jobs.ts (partagé avec le bilan du matin)
+const CRON_JOBS = CATALOG.map(j => ({ ...j, schedule: `${j.utc.replace(/:/g, 'h')} UTC, quotidien` }))
 
 // Marge de sécurité avant de considérer une tâche quotidienne "en retard"
 // (fuseaux horaires, léger retard Vercel...).
