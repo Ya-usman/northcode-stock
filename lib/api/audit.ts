@@ -21,6 +21,7 @@ export type AuditAction =
   | 'sale.validate_payment'
   | 'sale.edit'
   | 'sale.offline_synced'
+  | 'shop.update_logo'
   | 'sale.reviewed'
   | 'sale.delete'
   | 'sale.postpone_due_date'

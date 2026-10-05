@@ -400,11 +400,13 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
         .upload(path, blob, { upsert: true, contentType: 'image/png' }))
       if (uploadError) throw uploadError
 
-      // Add timestamp to bust CDN cache
-      const { data: { publicUrl } } = supabase.storage.from('shop-logos').getPublicUrl(path)
-      const urlWithBust = `${publicUrl}?t=${Date.now()}`
-
-      await withTimeout(supabase.from('shops').update({ logo_url: urlWithBust }).eq('id', shop.id))
+      // Adresse enregistrée par le serveur (vérifie le dossier, ajoute l'anti-cache)
+      const res = await withTimeout<Response>(fetch('/api/shops/logo', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shop_id: shop.id }),
+      }))
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error || t('toast.network_error'))
+      const urlWithBust: string = json.logo_url
 
       // Update local state immediately so the image shows right away
       setShop(prev => prev ? { ...prev, logo_url: urlWithBust } : prev)
