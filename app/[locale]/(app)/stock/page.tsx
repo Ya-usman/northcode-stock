@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type ComponentType } from 'react'
 import { useRouter } from 'next/navigation'
+import { startNavigationProgress } from '@/components/layout/navigation-progress'
 import { useTranslations } from 'next-intl'
 import {
   ArrowRight, CalendarClock, CheckCircle2, Lightbulb, Package, PackageMinus, PackageX,
@@ -157,11 +158,15 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
   // immédiatement. Repli ?status= si la boutique n'est pas connue.
   const goToProducts = (status?: string) => {
     const ok = presetPersistedFilters('stock', shop?.id, { statusFilter: status ?? 'all' })
-    router.push(`/${locale}/stock/products${!ok && status ? `?status=${status}` : ''}`)
+    const href = `/${locale}/stock/products${!ok && status ? `?status=${status}` : ''}`
+    startNavigationProgress(href)
+    router.push(href)
   }
   const goToLots = (status: string) => {
     const ok = presetPersistedFilters('expiry', shop?.id, { statusFilter: status })
-    router.push(`/${locale}/stock/expiry${ok ? '' : `?status=${status}`}`)
+    const href = `/${locale}/stock/expiry${ok ? '' : `?status=${status}`}`
+    startNavigationProgress(href)
+    router.push(href)
   }
   const reorderCount = kpis.out + kpis.low
 

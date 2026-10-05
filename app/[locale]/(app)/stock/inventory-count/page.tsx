@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { startNavigationProgress } from '@/components/layout/navigation-progress'
 import { useTranslations } from 'next-intl'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -184,6 +185,7 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
       setConfirmOpen(false)
       setCounts({})
       setReasons({})
+      startNavigationProgress(`/${locale}/stock`)
       router.push(`/${locale}/stock`)
     } finally {
       setSubmitting(false)

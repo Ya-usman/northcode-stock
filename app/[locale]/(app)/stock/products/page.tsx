@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { startNavigationProgress } from '@/components/layout/navigation-progress'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
@@ -1096,7 +1097,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               {canOrderStock && product.quantity <= threshold && (
                 <Button
                   variant="outline" size="sm" className="h-7 px-2 text-xs"
-                  onClick={() => router.push(`/${locale}/suppliers?order_product=${product.id}`)}
+                  onClick={() => { const href = `/${locale}/suppliers?order_product=${product.id}`; startNavigationProgress(href); router.push(href) }}
                 >
                   <ShoppingCart className="h-3 w-3 mr-1" />
                   {t('actions.order')}
@@ -1245,7 +1246,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     onSortChange: setTableSort,
     // Colonnes financières (coût, valeur) réservées au propriétaire, quel que soit l'appareil
     columns: tableColumns.filter(k => isOwnerRole || !OPTIONAL_COLUMNS.find(c => c.key === k)?.ownerOnly),
-    onOrder: (p: Product) => router.push(`/${locale}/suppliers?order_product=${p.id}`),
+    onOrder: (p: Product) => { const href = `/${locale}/suppliers?order_product=${p.id}`; startNavigationProgress(href); router.push(href) },
     onRestock: (p: Product) => { setEditingProduct(null); setShowAddModal(false); setRestockProduct(p); restockForm.reset({ product_id: p.id, quantity: 1 }); setShowRestockModal(true) },
     onEdit: (p: Product) => { setShowAddModal(false); setShowRestockModal(false); setEditingProduct(p) },
     onPromo: openPromoDialog,

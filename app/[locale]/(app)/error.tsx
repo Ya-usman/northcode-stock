@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { WifiOff, RefreshCw, LayoutDashboard, ShoppingCart, Package, BarChart2, Users, Receipt, FileText } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { startNavigationProgress } from '@/components/layout/navigation-progress'
 import { useTranslations } from 'next-intl'
 
 const NAV_ITEMS = [
@@ -69,6 +70,7 @@ export default function AppError({
   // Navigation client-side (jamais window.location.href — évite l'erreur Android native)
   const navigate = (route: string) => {
     const locale = getLocale()
+    startNavigationProgress(`/${locale}/${route}`)
     router.push(`/${locale}/${route}`)
   }
 

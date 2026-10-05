@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { startNavigationProgress } from '@/components/layout/navigation-progress'
 import { useTranslations } from 'next-intl'
 import { useToast } from '@/components/ui/use-toast'
 import { isCapacitor } from '@/lib/utils/native-share'
@@ -39,7 +40,7 @@ export function PhotoRestoreHandler() {
         publishRestoredPhoto({ draft, file })
         toast({ title: file ? t('restored') : t('restored_no_photo'), variant: 'success' })
         // Lu au moment de l'événement, pas au montage : la page a pu changer entre-temps
-        if (window.location.pathname !== draft.route) router.push(draft.route)
+        if (window.location.pathname !== draft.route) { startNavigationProgress(draft.route); router.push(draft.route) }
       })
       remove = () => { handle.then(h => h.remove()) }
     })

@@ -3,108 +3,135 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 
+// ════════════════════════════════════════════════════════════════════════
+// BARRE DE NAVIGATION — StockShop
+// ════════════════════════════════════════════════════════════════════════
+// Démarre seulement sur une VRAIE intention de navigation :
+//   • clic gauche sur un lien interne vers une adresse différente (pas de
+//     Ctrl / Cmd / Maj / Alt, pas de nouvel onglet, pas de téléchargement) ;
+//   • navigation lancée par le code via startNavigationProgress(href).
+// Elle n'intercepte plus history.pushState / replaceState : Next.js et
+// plusieurs pages réécrivent l'adresse SANS changer de page (onglet déjà
+// actif, filtres retirés de l'URL, langue), ce qui laissait la barre figée à
+// 80 % pendant 4 s.
+// Fin : dès que l'adresse (chemin OU paramètres) diffère de celle du départ,
+// ou au retour arrière du navigateur. Progression continue qui ralentit en
+// approchant de 90 % ; affichage différé de 150 ms (aucun clignotement sur
+// une navigation instantanée) ; sécurité à 12 s.
+
+const EVENT = 'stockshop:navigation-start'
+const SHOW_DELAY = 150
+const SAFETY_MS = 12_000
+
+const currentUrl = () => window.location.pathname + window.location.search
+
+/** Adresse interne différente de l'adresse actuelle ? (sinon : pas de barre) */
+function isRealNavigation(href: string): boolean {
+  try {
+    const u = new URL(href, window.location.href)
+    if (u.origin !== window.location.origin) return false
+    return u.pathname + u.search !== currentUrl()
+  } catch {
+    return false
+  }
+}
+
+/** À appeler juste avant router.push / router.replace vers une autre page. */
+export function startNavigationProgress(href?: string) {
+  if (typeof window === 'undefined') return
+  if (href && !isRealNavigation(href)) return
+  window.dispatchEvent(new Event(EVENT))
+}
+
 export function NavigationProgress() {
   const pathname = usePathname()
   const [visible, setVisible] = useState(false)
   const [width, setWidth] = useState(0)
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
-  const doneRef = useRef(false)
-  // Prevents double-start when a <Link> click fires both the click handler
-  // and the history.pushState patch simultaneously.
-  const runningRef = useRef(false)
+  const running = useRef(false)
+  const startUrl = useRef('')
+  const timers = useRef<{ show?: ReturnType<typeof setTimeout>; trickle?: ReturnType<typeof setInterval>; watch?: ReturnType<typeof setInterval>; safety?: ReturnType<typeof setTimeout>; hide?: ReturnType<typeof setTimeout> }>({})
 
-  const startBar = () => {
-    if (runningRef.current) return
-    runningRef.current = true
-    doneRef.current = false
-    setVisible(true)
-    setWidth(15)
-    if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => !doneRef.current && setWidth(60), 80)
-    timerRef.current = setTimeout(() => !doneRef.current && setWidth(80), 400)
-    timerRef.current = setTimeout(() => {
-      if (!doneRef.current) {
-        doneRef.current = true
-        runningRef.current = false
-        setVisible(false)
-        setWidth(0)
-      }
-    }, 4000)
+  const clearAll = () => {
+    const t = timers.current
+    if (t.show) clearTimeout(t.show)
+    if (t.trickle) clearInterval(t.trickle)
+    if (t.watch) clearInterval(t.watch)
+    if (t.safety) clearTimeout(t.safety)
+    if (t.hide) clearTimeout(t.hide)
+    timers.current = {}
   }
 
-  // Start bar on any internal <a> click
+  const finish = () => {
+    if (!running.current) return
+    running.current = false
+    clearAll()
+    // Affichée : on la complète puis on l'efface ; jamais affichée : rien
+    setVisible(v => {
+      if (v) {
+        setWidth(100)
+        timers.current.hide = setTimeout(() => { setVisible(false); setWidth(0) }, 300)
+      }
+      return v
+    })
+  }
+
+  const start = () => {
+    if (running.current) return
+    running.current = true
+    startUrl.current = currentUrl()
+    clearAll()
+    setWidth(0)
+    timers.current.show = setTimeout(() => {
+      if (!running.current) return
+      setVisible(true)
+      setWidth(12)
+      // Avance toujours, de moins en moins vite, sans jamais atteindre 90 %
+      timers.current.trickle = setInterval(() => {
+        setWidth(w => (w >= 90 ? w : w + Math.max(0.4, (90 - w) * 0.08)))
+      }, 200)
+    }, SHOW_DELAY)
+    // L'adresse change à la fin de la navigation (chemin ou paramètres)
+    timers.current.watch = setInterval(() => { if (currentUrl() !== startUrl.current) finish() }, 100)
+    timers.current.safety = setTimeout(finish, SAFETY_MS)
+  }
+
+  // Clic sur un lien interne vers une autre adresse
   useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      const link = (e.target as HTMLElement).closest('a')
+    const onClick = (e: MouseEvent) => {
+      if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return
+      const link = (e.target as HTMLElement | null)?.closest?.('a')
       if (!link) return
       const href = link.getAttribute('href')
-      if (!href || href.startsWith('http') || href.startsWith('#') || href.startsWith('mailto') || href.startsWith('blob:') || href.startsWith('data:')) return
-      if (link.target === '_blank') return
-      const targetPath = href.split('?')[0].split('#')[0]
-      if (targetPath === window.location.pathname) return
-      startBar()
+      if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:') || href.startsWith('blob:') || href.startsWith('data:')) return
+      if ((link.target && link.target !== '_self') || link.hasAttribute('download')) return
+      if (!isRealNavigation(href)) return
+      start()
     }
-    document.addEventListener('click', handleClick, true)
-    return () => document.removeEventListener('click', handleClick, true)
-  }, [])
-
-  // Also start bar on programmatic router.push() / router.replace() navigations.
-  // Next.js App Router uses history.pushState/replaceState internally.
-  useEffect(() => {
-    const origPush    = history.pushState.bind(history)
-    const origReplace = history.replaceState.bind(history)
-
-    // Next's App Router itself calls history.pushState/replaceState from inside
-    // a useInsertionEffect (HistoryUpdater), which triggers a harmless dev-only
-    // "useInsertionEffect must not schedule updates" warning here. Deferring
-    // this call (setTimeout/queueMicrotask) was tried and reverted: it runs
-    // after the "complete on pathname change" effect below has already reset
-    // runningRef, so it restarts the bar for a navigation that already
-    // finished — a real double-load bug, worse than the console warning.
-    history.pushState = (...args) => {
-      startBar()
-      return origPush(...args)
-    }
-    history.replaceState = (...args) => {
-      startBar()
-      return origReplace(...args)
-    }
-
+    const onStart = () => start()
+    const onPop = () => finish()
+    document.addEventListener('click', onClick, true)
+    window.addEventListener(EVENT, onStart)
+    window.addEventListener('popstate', onPop)
     return () => {
-      history.pushState    = origPush
-      history.replaceState = origReplace
+      document.removeEventListener('click', onClick, true)
+      window.removeEventListener(EVENT, onStart)
+      window.removeEventListener('popstate', onPop)
+      clearAll()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Complete when route changes
-  useEffect(() => {
-    doneRef.current = true
-    runningRef.current = false
-    if (!visible) return
-    setWidth(100)
-    if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => {
-      setVisible(false)
-      setWidth(0)
-    }, 350)
-  }, [pathname])
+  // Nouvelle page affichée
+  useEffect(() => { finish() }, [pathname]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!visible && width === 0) return null
 
-  const widthTransition = width === 100
-    ? 'width 200ms ease-out'
-    : width <= 15
-    ? 'width 100ms ease-out'
-    : 'width 300ms ease-in-out'
-
   return (
     <div
-      className="fixed top-0 left-0 z-[9999] h-[3px] bg-stockshop-blue dark:bg-blue-500 shadow-sm shadow-blue-400/50"
-      style={{
-        width: `${width}%`,
-        opacity: visible ? 1 : 0,
-        transition: `${widthTransition}, opacity 200ms ease-out`,
-      }}
+      aria-hidden="true"
+      data-testid="navigation-progress"
+      className="fixed left-0 top-0 z-[9999] h-[3px] bg-stockshop-blue shadow-sm shadow-blue-400/50 transition-[width,opacity] duration-200 ease-out motion-reduce:transition-none dark:bg-blue-500"
+      style={{ width: `${width}%`, opacity: visible ? 1 : 0 }}
     />
   )
 }
