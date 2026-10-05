@@ -3,7 +3,7 @@ import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { checkShopRole } from '@/lib/api/shop-auth'
 import { isTeamManager } from '@/lib/team/roles'
-import { resolveAccountOwnerId, countTeamSeats } from '@/lib/saas/team-quota'
+import { resolveAccount, countTeamSeats } from '@/lib/saas/team-quota'
 
 // GET /api/team/quota?shop_id=… — sièges d'équipe du compte auquel appartient
 // la boutique : { used, limit, plan, planName }. Même fonction que
@@ -22,10 +22,10 @@ export async function GET(request: Request) {
     if (!isTeamManager(role)) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = createAdminClient() as any
-    const ownerId = await resolveAccountOwnerId(admin, shopId)
-    if (!ownerId) return NextResponse.json({ error: t('shop_not_found') }, { status: 404 })
+    const account = await resolveAccount(admin, shopId)
+    if (!account) return NextResponse.json({ error: t('shop_not_found') }, { status: 404 })
 
-    const seats = await countTeamSeats(admin, ownerId)
+    const seats = await countTeamSeats(admin, account)
     return NextResponse.json({ used: seats.used, limit: seats.limit, plan: seats.plan, planName: seats.planName })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })

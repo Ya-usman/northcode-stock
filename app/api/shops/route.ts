@@ -36,10 +36,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t('owner_only_shops') }, { status: 403 })
     }
 
-    // Get owner profile: country + owner-level plan (single source of truth)
+    // Profil du propriétaire : pays par défaut de la nouvelle boutique
     const { data: profile } = await supabase
       .from('profiles')
-      .select('shop_id, country, plan, plan_expires_at, trial_ends_at')
+      .select('shop_id, country')
       .eq('id', user.id)
       .single()
 
@@ -60,9 +60,9 @@ export async function POST(request: Request) {
     }
     const currency = currencyCodeForCountry(country)
 
-    // Read plan from owner profile — the single source of truth for billing
-    // (profiles.plan has a DB DEFAULT 'trial', always populated).
-    const refPlan: string = (profile as any)?.plan ?? 'trial'
+    // Formule de l'ENTREPRISE du propriétaire (migration 153) — source unique
+    const { data: ownEntity } = await supabase.from('entities').select('plan').eq('owner_user_id', user.id).order('created_at', { ascending: true }).limit(1).maybeSingle()
+    const refPlan: string = (ownEntity as any)?.plan ?? 'trial'
 
     // Enforce shop limit based on owner's plan
     const plan = getPlan(refPlan)
@@ -78,9 +78,9 @@ export async function POST(request: Request) {
       }
     }
 
-    // New shop automatically inherits the owner's plan — plan is resolved
-    // from profiles via the owner, not stored per-shop, so there is nothing
-    // to set here (no double billing, no separate trial to track).
+    // La nouvelle boutique rejoint l'entreprise du propriétaire (trigger
+    // shops_assign_entity, migration 153) et partage son abonnement : rien à
+    // écrire ici (ni double facturation, ni essai séparé).
     const admin = await createAdminClient()
 
     // Code boutique unique dans le compte

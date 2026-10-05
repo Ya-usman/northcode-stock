@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { getCountry, detectCountryFromIso } from '@/lib/saas/countries'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
 
 const COOKIE_OPTS = {
   httpOnly: true,
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
     // Look up role from shop_members (source of truth)
     let query = supabase
       .from('shop_members')
-      .select('role')
+      .select('role, shop_id')
       .eq('user_id', user.id)
       .eq('is_active', true)
 
@@ -36,24 +37,23 @@ export async function POST(request: Request) {
     let role = data?.role
     let planOkUntil: string | null = null
     {
-      // profiles is the single source of truth for billing (owner-level —
-      // see migration 047 and lib/saas/resolve-owner-plan.ts). shops no
-      // longer carries its own copy, so there's nothing left to compare.
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role, plan, plan_expires_at, trial_ends_at, is_internal')
+        .select('role, is_internal')
         .eq('id', user.id)
         .single()
 
       if (!role) role = profile?.role
 
-      planOkUntil = profile?.plan && profile.plan !== 'trial'
-        ? (profile.plan_expires_at ?? null)
-        : (profile?.trial_ends_at ?? null)
+      // Abonnement de l'ENTREPRISE de la boutique (migration 153) — source unique
+      const account = data?.shop_id ? await getAccountForShop(await createAdminClient() as any, data.shop_id) : null
+      planOkUntil = account?.plan && account.plan !== 'trial'
+        ? (account.plan_expires_at ?? null)
+        : (account?.trial_ends_at ?? null)
 
       // Compte interne (superadmin de test) — jamais bloqué par le mur de
       // facturation.
-      if (profile?.is_internal) {
+      if (account?.is_internal || profile?.is_internal) {
         planOkUntil = new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString()
       }
     }
@@ -104,11 +104,11 @@ export async function POST(request: Request) {
           role: 'owner',
           is_active: true,
           country: countryConfig.code,
-          plan: 'trial',
-          trial_ends_at: trialEndsAt,
-          plan_expires_at: null,
         })
         if (!profileError) {
+          // Essai sur l'ENTREPRISE (créée avec la boutique, migration 153), après le profil
+          const account = await getAccountForShop(admin, newShop.id)
+          if (account) await setAccountPlan(admin, account, { plan: 'trial', trial_ends_at: trialEndsAt, plan_expires_at: null })
           const { error: memberError } = await admin.from('shop_members').insert({
             shop_id: newShop.id,
             user_id: user.id,

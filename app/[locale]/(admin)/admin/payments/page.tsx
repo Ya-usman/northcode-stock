@@ -47,11 +47,10 @@ export default async function AdminPaymentsPage({
 
   const availableCountries = Array.from(new Set(shops.map((s: any) => s.country || 'NG').filter(Boolean))).sort() as string[]
 
-  // Facturation au niveau propriétaire (voir lib/saas/resolve-owner-plan.ts)
-  // — "abonnements actifs" compte des propriétaires distincts, pas des
-  // lignes subscriptions ni des boutiques.
-  const { data: ownerProfiles } = await supabase.from('profiles').select('id, plan, plan_expires_at').eq('role', 'owner')
-  const activeOwners = (ownerProfiles || []).filter((o: any) => hasActiveSubscription(o.plan, o.plan_expires_at)).length
+  // Abonnement porté par l'ENTREPRISE (migration 153) — « abonnements actifs »
+  // compte des entreprises distinctes, pas des lignes subscriptions ni des boutiques.
+  const { data: accountPlans } = await supabase.from('entities').select('id, plan, plan_expires_at')
+  const activeOwners = (accountPlans || []).filter((o: any) => hasActiveSubscription(o.plan, o.plan_expires_at)).length
 
   // Determine which shop IDs to include based on filters
   let filteredShopIds: string[] | null = null

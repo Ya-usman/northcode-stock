@@ -39,7 +39,7 @@ async function getData(supabase: any) {
     { count: salesToday },
     { count: sales7d },
   ] = await Promise.all([
-    supabase.from('shops').select('id, name, owner_id, created_at, currency, country, billing_country').is('deleted_at', null).order('created_at', { ascending: false }),
+    supabase.from('shops').select('id, name, owner_id, entity_id, created_at, currency, country, billing_country').is('deleted_at', null).order('created_at', { ascending: false }),
     supabase.from('subscriptions').select('id, shop_id, plan, amount, status, paystack_reference, starts_at, created_at').order('created_at', { ascending: false }),
     supabase.from('subscriptions').select('shop_id, amount').eq('status', 'active').gte('created_at', startOfMonth),
     supabase.from('subscriptions').select('shop_id, amount').eq('status', 'active').gte('created_at', startOfLastMonth).lte('created_at', endOfLastMonth),
@@ -50,7 +50,7 @@ async function getData(supabase: any) {
     supabase.from('sales').select('id', { count: 'exact', head: true }).eq('sale_status', 'active').gte('created_at', start7d),
   ])
 
-  // Plan/trial are owner-level (profiles), not columns on shops anymore.
+  // Abonnement = celui de l'entreprise de la boutique (migration 153), résolu par attachOwnerPlan.
   await attachOwnerPlan(supabase, shops || [])
 
   return {

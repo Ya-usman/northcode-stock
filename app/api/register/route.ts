@@ -7,6 +7,7 @@ import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { notifyReferral } from '@/lib/referrals/notify'
 import { getReferralConfig } from '@/lib/referrals/config'
 import { assessReferralRisk } from '@/lib/referrals/fraud'
+import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
 import { z } from 'zod'
 
 const registerSchema = z.object({
@@ -101,7 +102,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: shopError?.message || 'Erreur création boutique' }, { status: 500 })
     }
 
-    // Create owner profile — store country + plan so billing is owner-level
+    // Profil = la PERSONNE (pays, langue…). L'abonnement d'essai est écrit sur
+    // l'ENTREPRISE (créée par le trigger de la migration 153 avec la boutique),
+    // juste après le profil — voir plus bas.
     const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
     const { error: profileError } = await supabase
       .from('profiles')
@@ -112,15 +115,16 @@ export async function POST(request: Request) {
         role: 'owner',
         is_active: true,
         country: countryConfig.code,
-        plan: 'trial',
-        trial_ends_at: trialEndsAt,
-        plan_expires_at: null,
       } as any)
 
     if (profileError) {
       await cleanup(shop.id)
       return NextResponse.json({ error: profileError.message }, { status: 500 })
     }
+
+    // Essai de 30 jours sur l'entreprise (après le profil : sa création ne doit pas l'écraser)
+    const account = await getAccountForShop(supabase, shop.id)
+    if (account) await setAccountPlan(supabase, account, { plan: 'trial', trial_ends_at: trialEndsAt, plan_expires_at: null })
 
     // Create shop_members entry so RLS lets the owner read their own shop
     const { error: memberError } = await supabase

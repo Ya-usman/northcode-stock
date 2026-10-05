@@ -181,9 +181,9 @@ async function fetchUserData(userId: string): Promise<{
     }
   }
 
-  // Plan/trial fields are owner-level (profiles), not raw columns on shops
-  // anymore — resolve them here so every consumer of `Shop` keeps working
-  // unchanged (see lib/saas/resolve-owner-plan.ts).
+  // Abonnement = celui de l'entreprise (migration 153), pas des colonnes de
+  // shops : résolu ici pour que chaque consommateur de `Shop` le reçoive
+  // (lib/saas/resolve-owner-plan.ts).
   await attachOwnerPlan(supabase, userShops)
 
   return { profile, userShops, memberships: rows }

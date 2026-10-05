@@ -6,8 +6,9 @@ import { validateBody, uuid, email as emailSchema, billingPeriodEnum, planEnum }
 import { fetchWithTimeout } from '@/lib/api/fetch'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
-import { enforceOwnerPlanLimits } from '@/lib/saas/enforce-limits'
+import { enforceShopPlanLimits } from '@/lib/saas/enforce-limits'
 import { previewWalletCredit, applyWalletCredit } from '@/lib/referrals/apply-credit'
+import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
 import { z } from 'zod'
 
 const subscribeSchema = z.object({
@@ -80,7 +81,9 @@ export async function POST(request: Request) {
     // passerelle — pas `country` (modifiable par l'owner dans Paramètres), sinon le
     // prix affiché sur la page billing (qui utilise déjà billing_country) diverge
     // silencieusement du montant réellement facturé ici.
-    const country = getCountry((shopData as any)?.billing_country || (shopData as any)?.country)
+    // Pays de facturation de l'ENTREPRISE (migration 153), sinon celui de la boutique
+    const account = await getAccountForShop(supabase, shop_id)
+    const country = getCountry(account?.billing_country || (shopData as any)?.billing_country || (shopData as any)?.country)
     // Devise de FACTURATION (jamais country.currency directement) : pour les
     // 27 pays UE, StockShop facture toujours en EUR, quelle que soit la
     // devise boutique du pays (PLN, SEK, CZK…) — voir getBillingCurrency.
@@ -116,9 +119,8 @@ export async function POST(request: Request) {
           const days = getPeriodDays(period)
           const plan_expires_at = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
 
-          await supabase.from('profiles').update({
-            plan: plan_id, plan_expires_at, trial_ends_at: null,
-          } as any).eq('id', owner_id)
+          // Abonnement de l'entreprise (source de vérité, migration 153)
+          if (account) await setAccountPlan(supabase, account, { plan: plan_id, plan_expires_at, trial_ends_at: null })
 
           const { data: newSub } = await supabase.from('subscriptions').insert({
             shop_id, plan: plan_id, amount: 0, billing_period: period,
@@ -141,7 +143,7 @@ export async function POST(request: Request) {
             // Pas d'appel à processReferralReward ici : aucun paiement réel
             // (montant facturé = 0) ne doit consommer le "premier paiement"
             // du filleul — voir lib/referrals/process-reward.ts.
-            enforceOwnerPlanLimits(supabase, owner_id).catch(() => {})
+            enforceShopPlanLimits(supabase, shop_id).catch(() => {})
           }
 
           return NextResponse.json({ fully_paid: true, credit_applied: creditApplied })

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { Plus, Store, UserCheck, Trash2, Shield, Crown, Mail, Search } from 'lucide-react'
@@ -39,6 +40,8 @@ function shopCountryLabel(country?: string) {
 export function ManagersView({ shops: initialShops, managers: initialManagers }: Props) {
   const { toast } = useToast()
   const router = useRouter()
+  // Libellés des rôles : vocabulaire central (messages/*.json → roles)
+  const tRoles = useTranslations('roles')
   const [managers, setManagers] = useState(initialManagers)
   const [adding, setAdding] = useState(false)
   const [search, setSearch] = useState('')
@@ -258,7 +261,7 @@ export function ManagersView({ shops: initialShops, managers: initialManagers }:
                             ? 'bg-amber-400/10 text-amber-400'
                             : 'bg-violet-400/10 text-violet-400'
                         }`}>
-                          {isOwner ? 'Propriétaire' : 'Responsable'}
+                          {tRoles(isOwner ? 'owner' : 'manager')}
                         </span>
                       </div>
                       {m.email && (

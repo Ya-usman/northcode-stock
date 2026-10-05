@@ -129,6 +129,10 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
     <div className="mx-auto max-w-5xl space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-5 shadow-sm">
         <div className="min-w-0">
+          {/* Entreprise propriétaire des établissements (migration 153) */}
+          {shops[0]?.entity_name && (
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground" data-testid="shops-entity-name">{t('entity.label')} · {shops[0].entity_name}</p>
+          )}
           <h1 className="text-lg font-bold">{t('shops.title')}</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             {t('shops.count', { count: shops.length })}

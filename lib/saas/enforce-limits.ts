@@ -1,6 +1,7 @@
 import { getPlan } from './plans'
 import { writeAuditLog } from '@/lib/api/audit'
 import { getAccountShopIds } from './team-quota'
+import { getAccountForShop, type EntityAccount } from './entity'
 
 export interface EnforcementResult {
   /** true = calcul seul, rien n'a été écrit (voir PLAN_LIMIT_ENFORCEMENT) */
@@ -31,10 +32,31 @@ export interface EnforcementResult {
  * vaut pas « on », la fonction CALCULE seulement (dry_run) et n'écrit rien —
  * aucun client réel ne peut être suspendu avant validation explicite.
  */
-export async function enforceOwnerPlanLimits(
+const emptyResult = (): EnforcementResult => ({ dry_run: process.env.PLAN_LIMIT_ENFORCEMENT !== 'on', suspended_shops: [], reactivated_shops: [], suspended_members: [], reactivated_members: [] })
+
+/**
+ * Après un paiement : limites de l'entreprise de la boutique payée, relue ICI
+ * (donc avec la formule qui vient d'être écrite).
+ */
+export async function enforceShopPlanLimits(supabase: any, shopId: string): Promise<EnforcementResult> {
+  const account = await getAccountForShop(supabase, shopId)
+  return account ? enforceAccountPlanLimits(supabase, account) : emptyResult()
+}
+
+/** Sur demande du propriétaire : limites de l'entreprise dont il est propriétaire */
+export async function enforceOwnerPlanLimits(supabase: any, owner_id: string): Promise<EnforcementResult> {
+  const { data: e } = await supabase.from('entities').select('id').eq('owner_user_id', owner_id).order('created_at', { ascending: true }).limit(1).maybeSingle()
+  if (!e?.id) return emptyResult()
+  const { data: s } = await supabase.from('shops').select('id').eq('entity_id', e.id).is('deleted_at', null).limit(1).maybeSingle()
+  return s?.id ? enforceShopPlanLimits(supabase, s.id) : emptyResult()
+}
+
+/** Applique les limites de la formule de l'ENTREPRISE (source de vérité : entities) */
+export async function enforceAccountPlanLimits(
   supabase: any,
-  owner_id: string,
+  account: EntityAccount,
 ): Promise<EnforcementResult> {
+  const owner_id = account.ownerId
   const dryRun = process.env.PLAN_LIMIT_ENFORCEMENT !== 'on'
   const result: EnforcementResult = {
     dry_run: dryRun,
@@ -44,19 +66,12 @@ export async function enforceOwnerPlanLimits(
     reactivated_members: [],
   }
 
-  const { data: ownerProfile } = await supabase
-    .from('profiles')
-    .select('plan, plan_expires_at')
-    .eq('id', owner_id)
-    .single()
-  if (!ownerProfile) return result
-
-  const plan = getPlan(ownerProfile.plan)
+  const plan = getPlan(account.plan)
   const shopLimit   = plan.limits.shops        // -1 = illimité
   const memberLimit = plan.limits.team_members // -1 = illimité ; propriétaire non compté
 
   // ── 1. BOUTIQUES ──────────────────────────────────────────────────────────
-  const allShopIds = await getAccountShopIds(supabase, owner_id, { includeSuspended: true })
+  const allShopIds = await getAccountShopIds(supabase, account, { includeSuspended: true })
   const { data: allShops } = allShopIds.length
     ? await supabase.from('shops')
         .select('id, suspended_by_plan, created_at')
@@ -108,7 +123,7 @@ export async function enforceOwnerPlanLimits(
         .select('id, shop_id, user_id, role, is_active, suspended_by_plan, created_at')
         .in('shop_id', activeIds)
         .neq('role', 'owner')
-        .neq('user_id', owner_id)
+        .neq('user_id', owner_id ?? '00000000-0000-0000-0000-000000000000') // entreprise sans propriétaire : aucun exclu
         .order('created_at', { ascending: true })
 
       // Personnes actives : ordre d'arrivée = première affectation active

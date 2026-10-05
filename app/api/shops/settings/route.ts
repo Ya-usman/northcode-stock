@@ -4,8 +4,7 @@ import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { normalizeCurrency, currencyCodeForCountry } from '@/lib/saas/currencies'
 import { validateShopIdentity, isShopCodeTaken, SHOP_IDENTITY_FIELDS } from '@/lib/saas/shop-identity'
-import { resolveAccountOwnerId } from '@/lib/saas/team-quota'
-import { getOwnerShopIds } from '@/lib/api/shop-auth'
+import { resolveAccount, getAccountShopIds } from '@/lib/saas/team-quota'
 
 const HOURS_FIELDS = ['hours_enabled', 'opening_time', 'closing_time', 'hours_manual_override'] as const
 
@@ -162,9 +161,10 @@ export async function PATCH(request: Request) {
       const { data } = await admin.from('shops').select(INFO_FIELDS.join(',')).eq('id', shop_id).maybeSingle()
       currentInfo = data
       if (identity.values.code && identity.values.code !== currentInfo?.code) {
-        const ownerId = await resolveAccountOwnerId(admin, shop_id)
-        const ownerShopIds = ownerId ? await getOwnerShopIds(admin, ownerId) : []
-        if (await isShopCodeTaken(admin, ownerShopIds, identity.values.code, shop_id)) {
+        // Unicité dans l'ENTREPRISE (toutes ses boutiques)
+        const account = await resolveAccount(admin, shop_id)
+        const entityShopIds = account ? await getAccountShopIds(admin, account, { includeSuspended: true }) : []
+        if (await isShopCodeTaken(admin, entityShopIds, identity.values.code, shop_id)) {
           return NextResponse.json({ error: t('shop_code_taken'), field: 'code' }, { status: 409 })
         }
       }

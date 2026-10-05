@@ -12,12 +12,12 @@ export async function GET(request: Request) {
   const admin = createAdminClient() as any
 
   const [{ data: shops }, { data: profiles }, { data: subs }] = await Promise.all([
-    admin.from('shops').select('id, name, city, country, currency, billing_country, created_at, whatsapp, owner_id').is('deleted_at', null).order('created_at', { ascending: false }),
+    admin.from('shops').select('id, name, city, country, currency, billing_country, created_at, whatsapp, owner_id, entity_id').is('deleted_at', null).order('created_at', { ascending: false }),
     admin.from('profiles').select('id, full_name, shop_id, is_active, last_seen').eq('role', 'owner'),
     admin.from('subscriptions').select('shop_id, amount').eq('status', 'active'),
   ])
 
-  // Plan/trial are owner-level (profiles), not columns on shops anymore.
+  // Abonnement = celui de l'entreprise de la boutique (migration 153), résolu par attachOwnerPlan.
   await attachOwnerPlan(admin, shops || [])
 
   const ownersByShop: Record<string, any> = {}

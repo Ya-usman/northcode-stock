@@ -34,6 +34,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import type { Shop } from '@/lib/types/database'
 import { DEFAULT_PERMISSIONS, DEFAULT_GENERAL, type AllPerms, type ConfigurableRole, type PermFeature, type RolePerms } from '@/lib/hooks/use-role-permissions'
 import { cn } from '@/lib/utils/cn'
+import { CompanyCard } from '@/components/settings/company-card'
 import { withTimeout } from '@/lib/utils/with-timeout'
 
 export default function SettingsPage({ params: { locale } }: { params: { locale: string } }) {
@@ -487,6 +488,9 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
 
   return (
     <div className="space-y-4 max-w-5xl">
+
+      {/* Entreprise (racine du compte) : nom, propriétaire, facturation, abonnement */}
+      {isOwner && <CompanyCard />}
 
       {/* Owner-only sections: shop info, business settings, notifications */}
       {isOwner && (

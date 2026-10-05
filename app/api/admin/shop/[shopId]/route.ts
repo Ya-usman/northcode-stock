@@ -51,7 +51,7 @@ export async function GET(_req: Request, { params }: { params: { shopId: string 
       admin.from('customers').select('id', { count: 'exact', head: true }).eq('shop_id', shopId).not('deleted_at', 'is', null),
     ])
 
-    // Plan/trial are owner-level (profiles), not columns on `shops` anymore.
+    // Abonnement = celui de l'entreprise de la boutique (migration 153), résolu par attachOwnerPlan.
     if (shop) await attachOwnerPlan(admin, [shop])
 
     // Owner email via auth.users (service role)

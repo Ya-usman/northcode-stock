@@ -5,7 +5,7 @@ import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { checkShopRole } from '@/lib/api/shop-auth'
 import { isAccountOwner } from '@/lib/team/roles'
-import { resolveAccountOwnerId, getAccountShopIds, checkTeamSeat } from '@/lib/saas/team-quota'
+import { resolveAccount, getAccountShopIds, checkTeamSeat } from '@/lib/saas/team-quota'
 import { listAccountPersonIds, syncPrimaryShop } from '@/lib/api/team-account'
 import { z } from 'zod'
 
@@ -43,14 +43,15 @@ export async function POST(request: Request) {
     if (!isAccountOwner(callerRole)) return NextResponse.json({ error: t('owner_only_account') }, { status: 403 })
 
     const admin = createAdminClient() as any
-    const ownerId = await resolveAccountOwnerId(admin, shop_id)
-    if (!ownerId) return NextResponse.json({ error: t('shop_not_found') }, { status: 404 })
+    const account = await resolveAccount(admin, shop_id)
+    if (!account?.ownerId) return NextResponse.json({ error: t('shop_not_found') }, { status: 404 })
+    const ownerId = account.ownerId
     if (employee_id === ownerId) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
-    const people = await listAccountPersonIds(admin, ownerId)
+    const people = await listAccountPersonIds(admin, account)
     if (!people.includes(employee_id)) return NextResponse.json({ error: t('member_not_found') }, { status: 404 })
 
-    const accountShopIds = await getAccountShopIds(admin, ownerId, { includeSuspended: true })
+    const accountShopIds = await getAccountShopIds(admin, account, { includeSuspended: true })
     const { data: targetProfile } = await admin.from('profiles').select('full_name, is_active').eq('id', employee_id).maybeSingle()
 
     let changed = 0
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
         await admin.auth.admin.signOut(employee_id, 'global').catch(() => {})
       }
     } else {
-      const { ok, seats } = await checkTeamSeat(admin, ownerId, employee_id)
+      const { ok, seats } = await checkTeamSeat(admin, account, employee_id)
       if (!ok) {
         return NextResponse.json(
           { error: t('team_limit_reached', { plan: seats.planName, limit: seats.limit }), code: 'team_limit' },

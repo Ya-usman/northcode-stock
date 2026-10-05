@@ -9,6 +9,7 @@ export type AuditAction =
   | 'permissions.update'
   | 'shop.update_hours'
   | 'shop.update_info'
+  | 'entity.update'
   | 'shop.extend_hours'
   | 'billing.subscribe'
   | 'billing.verify'

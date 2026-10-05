@@ -1,11 +1,12 @@
 // Outils serveur partagés par les routes /api/team/* (refonte Boutiques /
 // Équipe du 5 oct. 2026). Toujours appelés avec un client admin (service role).
 
-import { getAccountShopIds } from '@/lib/saas/team-quota'
+import { getAccountShopIds, type EntityAccount } from '@/lib/saas/team-quota'
 
-/** Toutes les personnes (hors propriétaire) ayant ou ayant eu une affectation dans le compte */
-export async function listAccountPersonIds(admin: any, ownerId: string): Promise<string[]> {
-  const shopIds = await getAccountShopIds(admin, ownerId, { includeSuspended: true })
+/** Toutes les personnes (hors propriétaire) ayant ou ayant eu une affectation dans l'entreprise */
+export async function listAccountPersonIds(admin: any, account: Pick<EntityAccount, 'entityId' | 'ownerId'>): Promise<string[]> {
+  const ownerId = account.ownerId
+  const shopIds = await getAccountShopIds(admin, account, { includeSuspended: true })
   if (!shopIds.length) return []
   const { data } = await admin.from('shop_members').select('user_id').in('shop_id', shopIds)
   return Array.from(new Set((data || []).map((r: any) => r.user_id as string).filter((id: string) => id !== ownerId)))
@@ -16,9 +17,9 @@ export async function listAccountPersonIds(admin: any, ownerId: string): Promise
  * Les e-mails ne sont pas copiés dans `profiles` : on lit auth.users pour les
  * seules personnes du compte (quelques dizaines au plus, formule Business = 30).
  */
-export async function findAccountMemberByEmail(admin: any, ownerId: string, email: string): Promise<{ id: string; full_name: string | null } | null> {
+export async function findAccountMemberByEmail(admin: any, account: Pick<EntityAccount, 'entityId' | 'ownerId'>, email: string): Promise<{ id: string; full_name: string | null } | null> {
   const target = email.trim().toLowerCase()
-  const ids = await listAccountPersonIds(admin, ownerId)
+  const ids = await listAccountPersonIds(admin, account)
   const users = await Promise.all(ids.map(id => admin.auth.admin.getUserById(id).then((r: any) => r.data?.user).catch(() => null)))
   const hit = users.find((u: any) => u?.email?.toLowerCase() === target)
   if (!hit) return null

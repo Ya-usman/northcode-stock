@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getPeriodDays, type BillingPeriod } from '@/lib/saas/countries'
 import { fetchWithTimeout } from '@/lib/api/fetch'
 import { logCronRun } from '@/lib/api/cron-log'
+import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
 import { Resend } from 'resend'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
@@ -75,9 +76,9 @@ export async function GET(request: NextRequest) {
             .from('shop_members').select('user_id').eq('shop_id', sub.shop_id).eq('role', 'owner').eq('is_active', true).maybeSingle()
           const { data: shopRow } = await supabase.from('shops').select('owner_id').eq('id', sub.shop_id).single()
           const owner_id = ownerMember?.user_id ?? (shopRow as any)?.owner_id
-          if (owner_id) {
-            await supabase.from('profiles').update({ plan: sub.plan, plan_expires_at: newExpiry } as any).eq('id', owner_id)
-          }
+          // Renouvellement porté par l'ENTREPRISE de la boutique (migration 153)
+          const account = await getAccountForShop(supabase, sub.shop_id)
+          if (account) await setAccountPlan(supabase, account, { plan: sub.plan, plan_expires_at: newExpiry })
 
           await supabase.from('subscriptions').insert({
             shop_id: sub.shop_id,

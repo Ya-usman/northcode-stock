@@ -382,7 +382,8 @@ const SECTIONS: ManualSection[] = [
       description: 'Invitez des membres et gérez leurs rôles et accès.',
       tips: [
         '<strong>Inviter</strong> — Envoyez une invitation par email à un nouveau membre.',
-        '<strong>Rôles</strong> — Propriétaire, Caissier, Gestionnaire stock, Viewer.',
+        '<strong>Rôles</strong> — Propriétaire (l\'entreprise), Manager (plusieurs boutiques), Responsable (sa boutique), Caissier, Gestionnaire de stock, Observateur.',
+        '<strong>Une personne = un membre</strong> — Une même personne affectée à plusieurs boutiques ne compte qu\'une fois dans votre formule.',
         '<strong>Statut</strong> — Badge vert = En ligne, badge jaune = Absent.',
         '<strong>Désactiver</strong> — Empêche temporairement le membre de se connecter.',
         '<strong>Supprimer 🗑️</strong> — Retire définitivement un membre.',
@@ -399,6 +400,7 @@ const SECTIONS: ManualSection[] = [
       image: 'shops.png', alt: 'Mes boutiques', reverse: true,
       description: 'Si votre plan le permet, créez et gérez plusieurs boutiques depuis un seul compte.',
       tips: [
+        '<strong>Entreprise</strong> — Paramètres → Entreprise : nom, facturation et abonnement communs à toutes vos boutiques (propriétaire uniquement).',
         '<strong>Nouvelle boutique</strong> — Bouton « + Nouvelle boutique ».',
         '<strong>Boutique active</strong> — Encadrée en bleu avec le badge « Active ».',
         '<strong>Changer de boutique</strong> — Bouton « Changer ».',

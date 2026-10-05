@@ -4,7 +4,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { checkShopRole } from '@/lib/api/shop-auth'
 import { isTeamManager } from '@/lib/team/roles'
-import { resolveAccountOwnerId } from '@/lib/saas/team-quota'
+import { resolveAccount } from '@/lib/saas/team-quota'
 import { listAccountPersonIds } from '@/lib/api/team-account'
 
 function getAdminClient() {
@@ -37,9 +37,9 @@ export async function POST(request: Request) {
     }
 
     const admin = getAdminClient() as any
-    const ownerId = await resolveAccountOwnerId(admin, shop_id)
-    if (!ownerId) return NextResponse.json({ status: {} })
-    const allowed = new Set([ownerId, ...(await listAccountPersonIds(admin, ownerId))])
+    const account = await resolveAccount(admin, shop_id)
+    if (!account?.ownerId) return NextResponse.json({ status: {} })
+    const allowed = new Set([account.ownerId, ...(await listAccountPersonIds(admin, account))])
     const ids = (user_ids as string[]).filter(id => typeof id === 'string' && allowed.has(id)).slice(0, 200)
 
     const results = await Promise.allSettled(ids.map(id => admin.auth.admin.getUserById(id)))

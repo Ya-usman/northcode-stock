@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getOwnerShopIds } from '@/lib/api/shop-auth'
 import { requireAdmin } from '@/lib/api/require-admin'
+import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
 import { normalizeCurrency, currencyCodeForCountry } from '@/lib/saas/currencies'
 
 export async function POST(request: Request) {
@@ -28,19 +29,24 @@ export async function POST(request: Request) {
       .from('shop_members').select('user_id').eq('shop_id', shop_id).eq('role', 'owner').eq('is_active', true).maybeSingle()
     const { data: targetShop } = await admin.from('shops').select('owner_id').eq('id', shop_id).single()
     const owner_id = ownerMember?.user_id ?? (targetShop as any)?.owner_id
+    // Abonnement de l'ENTREPRISE de la boutique (source de vérité, migration 153)
+    const account = await getAccountForShop(admin, shop_id)
+    // Les actions sur l'abonnement portent sur l'entreprise : sans elle, refus
+    // explicite (jamais un « succès » qui n'aurait rien modifié).
+    const PLAN_ACTIONS = ['suspend', 'reactivate', 'extend', 'grant_plan']
+    if (PLAN_ACTIONS.includes(action) && !account) {
+      return NextResponse.json({ error: 'Boutique sans entreprise rattachée' }, { status: 409 })
+    }
 
     switch (action) {
       case 'suspend': {
-        // Billing is owner-level (plan lives only on profiles) — expiring the
-        // plan necessarily affects all of this owner's shops, not just this one.
+        // L'abonnement appartient à l'entreprise : le faire expirer touche
+        // nécessairement toutes ses boutiques, pas seulement celle-ci.
         if (!owner_id) return NextResponse.json({ error: 'Boutique sans propriétaire résolu' }, { status: 400 })
         const expiredAt = new Date(Date.now() - 1000).toISOString()
         // Deactivate all profiles for this shop
         await admin.from('profiles').update({ is_active: false }).eq('shop_id', shop_id)
-        await admin.from('profiles').update({
-          plan_expires_at: expiredAt,
-          trial_ends_at: expiredAt,
-        } as any).eq('id', owner_id)
+        await setAccountPlan(admin, account!, { plan_expires_at: expiredAt, trial_ends_at: expiredAt })
         await writeAuditLog({ action: 'admin.suspend_shop', shop_id, actor_id: user.id, actor_email: user.email, target_id: shop_id, target_type: 'shop', ip: getClientIp(request) })
         return NextResponse.json({ success: true, message: 'Shop suspended' })
       }
@@ -50,11 +56,7 @@ export async function POST(request: Request) {
         const newTrial = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
         // Reactivate all profiles for this shop
         await admin.from('profiles').update({ is_active: true }).eq('shop_id', shop_id)
-        await admin.from('profiles').update({
-          plan: 'trial',
-          plan_expires_at: null,
-          trial_ends_at: newTrial,
-        } as any).eq('id', owner_id)
+        await setAccountPlan(admin, account!, { plan: 'trial', plan_expires_at: null, trial_ends_at: newTrial })
         await writeAuditLog({ action: 'admin.reactivate_shop', shop_id, actor_id: user.id, actor_email: user.email, target_id: shop_id, target_type: 'shop', ip: getClientIp(request) })
         return NextResponse.json({ success: true, message: 'Shop reactivated' })
       }
@@ -62,20 +64,19 @@ export async function POST(request: Request) {
       case 'extend': {
         if (!owner_id) return NextResponse.json({ error: 'Boutique sans propriétaire résolu' }, { status: 400 })
         const daysToAdd = Number(days) || 30
-        const { data: ownerProfile } = await admin.from('profiles').select('plan, plan_expires_at, trial_ends_at').eq('id', owner_id).single()
-        const hasActivePlan = ownerProfile?.plan && ownerProfile.plan !== 'trial' && ownerProfile?.plan_expires_at && new Date(ownerProfile.plan_expires_at) > new Date()
+        const hasActivePlan = !!account!.plan && account!.plan !== 'trial' && !!account!.plan_expires_at && new Date(account!.plan_expires_at) > new Date()
 
         if (hasActivePlan) {
-          const current = new Date(ownerProfile.plan_expires_at)
+          const current = new Date(account!.plan_expires_at as string)
           current.setDate(current.getDate() + daysToAdd)
           const newExpiry = current.toISOString()
-          await admin.from('profiles').update({ plan_expires_at: newExpiry } as any).eq('id', owner_id)
+          await setAccountPlan(admin, account!, { plan_expires_at: newExpiry })
         } else {
-          const current = ownerProfile?.trial_ends_at ? new Date(ownerProfile.trial_ends_at) : new Date()
+          const current = account!.trial_ends_at ? new Date(account!.trial_ends_at) : new Date()
           if (current < new Date()) current.setTime(Date.now())
           current.setDate(current.getDate() + daysToAdd)
           const newTrial = current.toISOString()
-          await admin.from('profiles').update({ trial_ends_at: newTrial } as any).eq('id', owner_id)
+          await setAccountPlan(admin, account!, { trial_ends_at: newTrial })
         }
         await writeAuditLog({ action: 'admin.extend_access', shop_id, actor_id: user.id, actor_email: user.email, target_id: shop_id, target_type: 'shop', metadata: { days: daysToAdd }, ip: getClientIp(request) })
         return NextResponse.json({ success: true, message: `Extended by ${daysToAdd} days` })
@@ -86,22 +87,20 @@ export async function POST(request: Request) {
         const planId = days // reuse 'days' param for plan id
         const expires = new Date(Date.now() + 31 * 24 * 60 * 60 * 1000).toISOString()
         await admin.from('profiles').update({ is_active: true }).eq('shop_id', shop_id)
-        await admin.from('profiles').update({
-          plan: planId,
-          plan_expires_at: expires,
-          trial_ends_at: null,
-        } as any).eq('id', owner_id)
+        await setAccountPlan(admin, account!, { plan: planId, plan_expires_at: expires, trial_ends_at: null })
         await writeAuditLog({ action: 'admin.grant_plan', shop_id, actor_id: user.id, actor_email: user.email, target_id: shop_id, target_type: 'shop', metadata: { plan: planId }, ip: getClientIp(request) })
         return NextResponse.json({ success: true, message: `Plan ${planId} granted` })
       }
 
       case 'set_internal': {
         const isInternal = !!internal
-        // profiles.is_internal fait foi (au niveau owner) ; shops.is_internal est une
-        // copie miroir pour lecture directe côté shop, appliquée à TOUTES les boutiques
-        // non supprimées de ce owner — la demande porte sur le owner, pas une boutique isolée.
+        // entities.is_internal fait foi (migration 153) ; profiles.is_internal
+        // (accès de la personne) et shops.is_internal (lecture directe côté
+        // boutique) restent alignés sur toutes les boutiques non supprimées.
         if (owner_id) {
           await admin.from('profiles').update({ is_internal: isInternal } as any).eq('id', owner_id)
+          // Compte interne = propriété de l'ENTREPRISE (migration 153)
+          if (account?.entityId) await admin.from('entities').update({ is_internal: isInternal }).eq('id', account.entityId)
           // via shop_members (fiable) — shops.owner_id peut être null, voir
           // lib/api/shop-auth.ts:getOwnerShopIds.
           const ownerShopIds = await getOwnerShopIds(admin, owner_id)

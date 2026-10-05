@@ -19,6 +19,12 @@ export interface Shop {
   email?: string | null
   /** Boutique suspendue par la formule (lib/saas/enforce-limits.ts) */
   suspended_by_plan?: boolean
+  /** Entreprise propriétaire de l'établissement (migration 153) */
+  entity_id?: string | null
+  /** Nom de l'entreprise, résolu par attachOwnerPlan (pas une colonne de shops) */
+  entity_name?: string | null
+  /** Type d'établissement : 'shop' aujourd'hui ; restaurant, hôtel… plus tard */
+  establishment_type?: 'shop' | 'restaurant' | 'service' | 'hotel' | 'beauty' | 'other'
   /** Identité sur les reçus et tickets (migration 149) : activité sous le nom, mentions légales (une par ligne), message de pied. */
   receipt_tagline: string | null
   receipt_legal_ids: string | null
@@ -38,9 +44,9 @@ export interface Shop {
   notify_push_new_expense: boolean
   notify_push_expiry: boolean
   created_at: string
-  // SaaS fields — DERIVED from the owner's profile (see lib/saas/resolve-owner-plan.ts),
-  // not raw columns on this table anymore. Always populate via attachOwnerPlan()
-  // after fetching shops; never write these directly to `shops`.
+  // Abonnement — celui de l'ENTREPRISE (migration 153), pas des colonnes de
+  // shops : toujours renseigné par attachOwnerPlan() après lecture des
+  // boutiques (lib/saas/resolve-owner-plan.ts) ; jamais écrit sur `shops`.
   plan: string | null
   trial_ends_at: string | null
   plan_expires_at: string | null
@@ -74,13 +80,8 @@ export interface Profile {
   created_at: string
   locale: string | null
   country: string | null
-  // SaaS fields — single source of truth for billing (owner-level).
-  // `shops.plan`/`plan_expires_at`/`trial_ends_at` no longer exist as columns;
-  // Shop.plan/etc below are resolved from here via attachOwnerPlan().
-  plan: string | null
-  plan_expires_at: string | null
-  trial_ends_at: string | null
-  plan_grace_ends_at: string | null
+  // L'abonnement n'est PAS sur le profil : il appartient à l'entreprise
+  // (table entities, migration 153 ; colonnes du profil retirées par la 155).
   last_seen_announcement_at: string | null
   is_internal: boolean
 }

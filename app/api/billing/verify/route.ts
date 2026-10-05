@@ -4,9 +4,10 @@ import { PLANS } from '@/lib/saas/plans'
 import { getPeriodDays, type BillingPeriod } from '@/lib/saas/countries'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { fetchWithTimeout } from '@/lib/api/fetch'
-import { enforceOwnerPlanLimits } from '@/lib/saas/enforce-limits'
+import { enforceShopPlanLimits } from '@/lib/saas/enforce-limits'
 import { processReferralReward } from '@/lib/referrals/process-reward'
 import { applyWalletCredit } from '@/lib/referrals/apply-credit'
+import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
 import { currencyCodeForCountry } from '@/lib/saas/currencies'
 
 // inline=1 → appelé depuis le callback PaystackPop (client-side fetch) → retourne JSON
@@ -74,20 +75,18 @@ export async function GET(request: NextRequest) {
     const days = getPeriodDays(billing_period as BillingPeriod)
     const plan_expires_at = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
 
-    // Get owner_id and agent_id to update profile (owner-level billing)
+    // Propriétaire et agent de la boutique payée (commission, parrainage) ; l'abonnement est écrit sur l'entreprise
     const { data: shopRow } = await supabase.from('shops').select('owner_id, agent_id, currency, country').eq('id', shop_id).single()
     const owner_id = (shopRow as any)?.owner_id
     const agent_id = (shopRow as any)?.agent_id
 
-    if (owner_id) {
-      // Update profiles — single source of truth for billing (owner-level).
-      // Every shop of this owner reads its plan from here (attachOwnerPlan),
-      // so there is nothing else to sync.
-      await supabase.from('profiles').update({
-        plan: plan_id,
-        plan_expires_at,
-        trial_ends_at: null,
-      } as any).eq('id', owner_id)
+    // Abonnement de l'ENTREPRISE de la boutique payée (source de vérité depuis
+    // la migration 153 ; le profil du propriétaire reste aligné par le trigger
+    // miroir). Sans migration : profil du propriétaire, comme avant.
+    const account = await getAccountForShop(supabase, shop_id)
+    if (account) {
+      const { error: planError } = await setAccountPlan(supabase, account, { plan: plan_id, plan_expires_at, trial_ends_at: null })
+      if (planError) console.error('[billing/verify] no resolvable owner for shop', 'plan non enregistré', shop_id, planError)
     } else {
       console.error('[billing/verify] no resolvable owner for shop', shop_id)
     }
@@ -184,9 +183,7 @@ export async function GET(request: NextRequest) {
     // Enforce plan limits after every plan change (handles both downgrades
     // that suspend excess shops/members and upgrades that reactivate them).
     // Runs after the audit log so it never blocks the payment confirmation.
-    if (owner_id) {
-      enforceOwnerPlanLimits(supabase, owner_id).catch(() => {})
-    }
+    enforceShopPlanLimits(supabase, shop_id).catch(() => {})
 
     return reply(inline, locale, baseUrl, true)
   } catch (err: any) {

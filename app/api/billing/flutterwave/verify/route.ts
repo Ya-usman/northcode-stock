@@ -5,6 +5,7 @@ import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { fetchWithTimeout } from '@/lib/api/fetch'
 import { processReferralReward } from '@/lib/referrals/process-reward'
 import { applyWalletCredit } from '@/lib/referrals/apply-credit'
+import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
 import { currencyCodeForCountry } from '@/lib/saas/currencies'
 
 export async function GET(request: NextRequest) {
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest) {
     const days = getPeriodDays(billing_period as BillingPeriod)
     const plan_expires_at = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
 
-    // Get owner_id to update profile (owner-level billing) — via shop_members
+    // Propriétaire de la boutique payée (parrainage, journal) — via shop_members ; l'abonnement est écrit sur l'entreprise
     // d'abord (fiable), shops.owner_id en repli seulement (peut être null,
     // voir lib/api/shop-auth.ts:getOwnerShopIds).
     const { data: ownerMember } = await supabase
@@ -66,13 +67,13 @@ export async function GET(request: NextRequest) {
     const { data: shopRow } = await supabase.from('shops').select('owner_id, currency, country').eq('id', shop_id).single()
     const owner_id = ownerMember?.user_id ?? (shopRow as any)?.owner_id
 
-    if (owner_id) {
-      // Update profiles — single source of truth for billing (owner-level).
-      await supabase.from('profiles').update({
-        plan: plan_id,
-        plan_expires_at,
-        trial_ends_at: null,
-      } as any).eq('id', owner_id)
+    // Abonnement de l'ENTREPRISE de la boutique payée (source de vérité depuis
+    // la migration 153 ; le profil du propriétaire reste aligné par le trigger
+    // miroir). Sans migration : profil du propriétaire, comme avant.
+    const account = await getAccountForShop(supabase, shop_id)
+    if (account) {
+      const { error: planError } = await setAccountPlan(supabase, account, { plan: plan_id, plan_expires_at, trial_ends_at: null })
+      if (planError) console.error('[billing/flutterwave/verify] no resolvable owner for shop', 'plan non enregistré', shop_id, planError)
     } else {
       console.error('[billing/flutterwave/verify] no resolvable owner for shop', shop_id)
     }

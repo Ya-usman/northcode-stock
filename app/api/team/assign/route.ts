@@ -5,7 +5,7 @@ import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { checkShopRole } from '@/lib/api/shop-auth'
 import { canManageRole, ASSIGNABLE_ROLES } from '@/lib/team/roles'
-import { resolveAccountOwnerId, checkTeamSeat } from '@/lib/saas/team-quota'
+import { resolveAccount, checkTeamSeat } from '@/lib/saas/team-quota'
 import { listAccountPersonIds, syncPrimaryShop } from '@/lib/api/team-account'
 import { z } from 'zod'
 
@@ -37,12 +37,13 @@ export async function POST(request: Request) {
     if (!canManageRole(callerRole, role)) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = createAdminClient() as any
-    const ownerId = await resolveAccountOwnerId(admin, shop_id)
-    if (!ownerId) return NextResponse.json({ error: t('shop_not_found') }, { status: 404 })
+    const account = await resolveAccount(admin, shop_id)
+    if (!account?.ownerId) return NextResponse.json({ error: t('shop_not_found') }, { status: 404 })
+    const ownerId = account.ownerId
     if (user_id === ownerId) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     // La personne doit déjà appartenir au compte
-    const accountPeople = await listAccountPersonIds(admin, ownerId)
+    const accountPeople = await listAccountPersonIds(admin, account)
     if (!accountPeople.includes(user_id)) return NextResponse.json({ error: t('not_in_account') }, { status: 404 })
 
     const [{ data: profile }, { data: memberships }] = await Promise.all([
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const { ok, seats } = await checkTeamSeat(admin, ownerId, user_id)
+    const { ok, seats } = await checkTeamSeat(admin, account, user_id)
     if (!ok) {
       return NextResponse.json(
         { error: t('team_limit_reached', { plan: seats.planName, limit: seats.limit }), code: 'team_limit' },

@@ -60,10 +60,9 @@ async function getMetrics(admin: Awaited<ReturnType<typeof createAdminClient>>) 
       .gte('created_at', since24h)
       .eq('payment_status', 'unpaid')
       .eq('payment_method', 'cash'),
-    // Plan/trial are owner-level (profiles), not columns on shops anymore —
-    // this also correctly counts distinct paying owners instead of
-    // double-counting owners with several shops.
-    admin.from('profiles').select('id', { count: 'exact', head: true })
+    // Abonnement porté par l'ENTREPRISE (migration 153) : une entreprise
+    // comptée une fois, quel que soit son nombre de boutiques.
+    admin.from('entities').select('id', { count: 'exact', head: true })
       .not('plan_expires_at', 'is', null)
       .lte('plan_expires_at', in7days)
       .gte('plan_expires_at', today),

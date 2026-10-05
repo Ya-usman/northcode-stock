@@ -6,7 +6,7 @@ import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { checkShopRole } from '@/lib/api/shop-auth'
 import { canManageRole, ASSIGNABLE_ROLES } from '@/lib/team/roles'
-import { resolveAccountOwnerId, checkTeamSeat } from '@/lib/saas/team-quota'
+import { resolveAccount, checkTeamSeat } from '@/lib/saas/team-quota'
 import { findAccountMemberByEmail } from '@/lib/api/team-account'
 import { z } from 'zod'
 
@@ -51,11 +51,12 @@ export async function POST(request: Request) {
     }
 
     const admin = getAdminClient() as any
-    const ownerId = await resolveAccountOwnerId(admin, shop_id)
-    if (!ownerId) return NextResponse.json({ error: t('shop_not_found') }, { status: 404 })
+    const account = await resolveAccount(admin, shop_id)
+    if (!account?.ownerId) return NextResponse.json({ error: t('shop_not_found') }, { status: 404 })
+    const ownerId = account.ownerId
 
     // Personne déjà dans le compte → jamais de doublon d'utilisateur
-    const existing = await findAccountMemberByEmail(admin, ownerId, email)
+    const existing = await findAccountMemberByEmail(admin, account, email)
     if (existing) {
       return NextResponse.json(
         { error: t('member_exists', { name: existing.full_name || email }), code: 'member_exists', user_id: existing.id, full_name: existing.full_name },
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
     }
 
     // Quota : règle unique (personne distincte, propriétaire non compté)
-    const { ok, seats } = await checkTeamSeat(admin, ownerId)
+    const { ok, seats } = await checkTeamSeat(admin, account)
     if (!ok) {
       return NextResponse.json(
         { error: t('team_limit_reached', { plan: seats.planName, limit: seats.limit }), code: 'team_limit' },

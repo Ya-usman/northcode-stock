@@ -18,11 +18,11 @@ import type { DatedAmount } from '@/lib/saas/exchange'
 
 async function getData(supabase: any) {
   const [{ data: shops }, { data: subs }, { data: owners }] = await Promise.all([
-    supabase.from('shops').select('id, name, owner_id, created_at, currency, country, billing_country').is('deleted_at', null).order('created_at', { ascending: true }),
+    supabase.from('shops').select('id, name, owner_id, entity_id, created_at, currency, country, billing_country').is('deleted_at', null).order('created_at', { ascending: true }),
     supabase.from('subscriptions').select('id, shop_id, plan, amount, status, created_at').order('created_at', { ascending: false }),
     supabase.from('profiles').select('id, shop_id, last_seen').eq('role', 'owner'),
   ])
-  // Plan/trial are owner-level (profiles), not columns on shops anymore.
+  // Abonnement = celui de l'entreprise de la boutique (migration 153), résolu par attachOwnerPlan.
   await attachOwnerPlan(supabase, shops || [])
   return { shops: shops || [], subs: subs || [], owners: owners || [] }
 }

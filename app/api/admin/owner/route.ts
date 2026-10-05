@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { requireAdmin } from '@/lib/api/require-admin'
+import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
 import { currencyCodeForCountry } from '@/lib/saas/currencies'
 
 // POST /api/admin/owner — créer un nouveau propriétaire depuis l'admin
@@ -57,10 +58,11 @@ export async function POST(request: Request) {
       role: 'owner',
       shop_id: shopId,
       is_active: true,
-      plan: 'trial',
-      plan_expires_at: null,
-      trial_ends_at: trialEndsAt,
     }, { onConflict: 'id' })
+
+    // Essai sur l'ENTREPRISE (créée avec la boutique, migration 153), après le profil
+    const account = await getAccountForShop(admin, shopId)
+    if (account) await setAccountPlan(admin, account, { plan: 'trial', trial_ends_at: trialEndsAt, plan_expires_at: null })
 
     // 4. Créer l'entrée shop_members
     await admin.from('shop_members').upsert({

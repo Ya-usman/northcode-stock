@@ -16,7 +16,7 @@ export default async function AdminShopsPage({ params: { locale } }: { params: {
   const tier = (user ? await getAdminTier(user.id) : null) ?? 'support'
 
   const [{ data: shops }, { data: deletedShops }, { data: subs }, { data: profiles }] = await Promise.all([
-    supabase.from('shops').select('id, name, city, country, currency, billing_country, created_at, whatsapp, owner_id')
+    supabase.from('shops').select('id, name, city, country, currency, billing_country, created_at, whatsapp, owner_id, entity_id')
       .is('deleted_at', null)
       .order('created_at', { ascending: false }),
     supabase.from('shops').select('id, name, city, country, owner_id, deleted_at, created_at')
@@ -26,7 +26,7 @@ export default async function AdminShopsPage({ params: { locale } }: { params: {
     supabase.from('profiles').select('id, full_name, shop_id, role, is_active, last_seen').eq('role', 'owner'),
   ])
 
-  // Plan/trial are owner-level (profiles), not columns on shops anymore —
+  // Abonnement = celui de l'entreprise de la boutique (migration 153), résolu par attachOwnerPlan. À faire avant les vues ci-dessous —
   // resolve them before building any of the views below.
   await attachOwnerPlan(supabase, shops || [])
 

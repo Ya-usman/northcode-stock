@@ -86,7 +86,8 @@ export async function GET() {
       referredIds.length
         ? Promise.all([
             admin.from('shop_members').select('user_id, shop_id').in('user_id', referredIds).eq('role', 'owner').eq('is_active', true),
-            admin.from('profiles').select('id, plan').in('id', referredIds),
+            // Formule = celle de l'ENTREPRISE du filleul (migration 153)
+            admin.from('entities').select('owner_user_id, plan').in('owner_user_id', referredIds),
           ])
         : Promise.resolve([{ data: [] }, { data: [] }]),
       referralIds.length
@@ -107,7 +108,7 @@ export async function GET() {
 
     // Mes filleuls — nom de boutique + statut, pas d'infos personnelles inutiles (point 19)
     const planByUser: Record<string, string | null> = {}
-    for (const p of profiles || []) planByUser[p.id] = p.plan
+    for (const e of profiles || []) planByUser[(e as any).owner_user_id] = (e as any).plan
     const shopIds = (members || []).map((m: any) => m.shop_id)
     // Vague 4 — dépend des membres résolus en vague 3, ne peut pas être parallélisée avec elle.
     const { data: shops } = shopIds.length
