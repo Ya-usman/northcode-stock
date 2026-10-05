@@ -27,6 +27,8 @@ export interface ShopDay {
   discounts: { count: number; amount: number }
   cancelled: { count: number; amount: number }
   stock: { out: number; low: number }
+  /** Ventes hors ligne enregistrées « à vérifier », pas encore vérifiées (toutes dates) */
+  toReview: number
 }
 
 const sum = (rows: any[] | null | undefined, k: string) => (rows || []).reduce((n, r) => n + (Number(r[k]) || 0), 0)
@@ -37,7 +39,7 @@ export async function collectShopDay(admin: any, shop: { id: string; name: strin
   const lastWeek = localDay(tz, now, 7)
   const S = today.start.toISOString(), E = today.end.toISOString()
 
-  const [rSales, rWeek, rPay, rDebts, rExp, rCancel, stock] = await Promise.all([
+  const [rSales, rWeek, rPay, rDebts, rExp, rCancel, stock, rReview] = await Promise.all([
     admin.from('sales').select('id, total, balance, discount, cashier_id').eq('shop_id', shop.id).eq('sale_status', 'active').gte('created_at', S).lt('created_at', E),
     admin.from('sales').select('total').eq('shop_id', shop.id).eq('sale_status', 'active').gte('created_at', lastWeek.start.toISOString()).lt('created_at', lastWeek.end.toISOString()),
     // Encaissements du jour (ventes du jour ET remboursements de dettes), hors annulés / pertes
@@ -47,6 +49,7 @@ export async function collectShopDay(admin: any, shop: { id: string; name: strin
     admin.from('expenses').select('amount').eq('shop_id', shop.id).eq('date', today.date),
     admin.from('sales').select('total').eq('shop_id', shop.id).eq('sale_status', 'cancelled').gte('cancelled_at', S).lt('cancelled_at', E),
     getLowStockAlerts(admin, shop),
+    admin.from('sales').select('id', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('sale_status', 'active').not('review_reason', 'is', null).is('reviewed_at', null),
   ])
   // Une requête en échec ne doit jamais se transformer en « 0 » dans l'e-mail
   for (const [label, r] of [['ventes', rSales], ['semaine précédente', rWeek], ['encaissements', rPay], ['dettes', rDebts], ['dépenses', rExp], ['annulations', rCancel]] as const) {
@@ -104,5 +107,7 @@ export async function collectShopDay(admin: any, shop: { id: string; name: strin
     discounts: { count: discounted.length, amount: sum(discounted, 'discount') },
     cancelled: { count: (cancelled || []).length, amount: sum(cancelled, 'total') },
     stock: { out: stock.outOfStock.length, low: stock.lowStock.length },
+    // Colonne absente avant la migration 159 : 0, jamais d'échec du résumé
+    toReview: (rReview as any).error ? 0 : (rReview as any).count ?? 0,
   }
 }

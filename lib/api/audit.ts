@@ -20,6 +20,8 @@ export type AuditAction =
   | 'sale.cancel'
   | 'sale.validate_payment'
   | 'sale.edit'
+  | 'sale.offline_synced'
+  | 'sale.reviewed'
   | 'sale.delete'
   | 'sale.postpone_due_date'
   | 'payment.cancel'

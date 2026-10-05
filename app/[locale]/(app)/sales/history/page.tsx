@@ -229,7 +229,7 @@ export default function SalesHistoryPage() {
   const buildSalesQuery = (start: Date, end: Date, offset: number, searchMode = false) => {
     let query = supabase
       .from('sales')
-      .select('*, customers(name, phone), sale_items(product_id, product_name, quantity, unit_price, subtotal, products(image_url))')
+      .select('*, customers(name, phone), sale_items(product_id, product_name, quantity, unit_price, subtotal, stock_shortfall, products(image_url))')
       .in('shop_id', effectiveShopIds)
       .gte('created_at', start.toISOString())
       .lte('created_at', end.toISOString())
@@ -704,6 +704,26 @@ export default function SalesHistoryPage() {
     }
   }
 
+  // Vente hors ligne « à vérifier » → vérifiée (propriétaire / gestion)
+  const [reviewingId, setReviewingId] = useState<string | null>(null)
+  const markReviewed = async (saleId: string) => {
+    setReviewingId(saleId)
+    try {
+      const res = await withTimeout(fetch('/api/sales/review', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sale_id: saleId }),
+      }))
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error || t('errors.generic'))
+      toast({ title: t('sales.review_marked'), variant: 'success' })
+      invalidateSalesData(queryClient)
+      fetchSales()
+    } catch (err: any) {
+      toast({ title: err.message, variant: 'destructive' })
+    } finally {
+      setReviewingId(null)
+    }
+  }
+
   const doAction = async () => {
     if (!dialog) return
     setActionLoading(true)
@@ -741,6 +761,9 @@ export default function SalesHistoryPage() {
   const renderSaleRow = (sale: Sale) => {
     const isCancelled = sale.sale_status === 'cancelled'
     const isPending = sale.payment_status === 'pending' || sale.payment_status === 'partial'
+    // Vente hors ligne enregistrée « à vérifier » (migration 159) — motifs séparés par des virgules
+    const reviewReasons: string[] = (sale as any).review_reason ? String((sale as any).review_reason).split(',').filter(Boolean) : []
+    const toReview = !isCancelled && reviewReasons.length > 0 && !(sale as any).reviewed_at
     const canCancelThis = !isCancelled && (
       isOwner ||
       (isCashier && sale.cashier_id === profile?.id && new Date(sale.created_at) >= startOfDay(new Date()))
@@ -755,6 +778,9 @@ export default function SalesHistoryPage() {
             #{sale.sale_number}
             {isCancelled && (
               <span className="ml-1.5 text-[10px] font-semibold text-red-500 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded px-1">{t('sales.cancelled_badge')}</span>
+            )}
+            {toReview && (
+              <span className="ml-1.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 rounded px-1" data-testid="sale-review-badge">{t('sales.review_badge')}</span>
             )}
           </TableCell>
           <TableCell className="text-sm">{(sale as any).customers?.name || t('sales.walk_in_short')}</TableCell>
@@ -800,10 +826,29 @@ export default function SalesHistoryPage() {
                         <img src={item.products.image_url} alt={item.product_name} loading="lazy" decoding="async" className="h-8 w-8 rounded object-cover border border-border shrink-0" />
                       )}
                       <span className="truncate">{item.product_name} × {item.quantity} @ {formatNaira(item.unit_price)}</span>
+                      {Number(item.stock_shortfall) > 0 && (
+                        <span className="shrink-0 text-[10px] font-semibold text-amber-700 dark:text-amber-300">{t('sales.review_shortfall', { count: item.stock_shortfall })}</span>
+                      )}
                     </div>
                     <span className="font-medium shrink-0">{formatNaira(item.subtotal)}</span>
                   </div>
                 ))}
+                {reviewReasons.length > 0 && !isCancelled && (
+                  <div className={`rounded-md border p-2.5 text-xs ${toReview ? 'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40' : 'border-border bg-muted/30'}`} data-testid="sale-review-box" onClick={e => e.stopPropagation()}>
+                    <p className={`font-semibold ${toReview ? 'text-amber-800 dark:text-amber-300' : 'text-muted-foreground'}`}>
+                      {toReview ? t('sales.review_title') : `${t('sales.reviewed_label')} · ${t('sales.review_title')}`}
+                    </p>
+                    <ul className="mt-1 list-disc pl-4 text-foreground/80">
+                      {reviewReasons.map(r => <li key={r}>{t(`sales.review_reason_${r}` as any)}</li>)}
+                    </ul>
+                    {toReview && <p className="mt-1 text-muted-foreground">{t('sales.review_hint')}</p>}
+                    {toReview && isOwner && (
+                      <Button size="sm" variant="outline" className="mt-2 h-7 gap-1.5 text-xs" disabled={reviewingId === sale.id} onClick={() => markReviewed(sale.id)} data-testid="sale-review-mark">
+                        <CheckCircle2 className="h-3 w-3" /> {t('sales.review_mark')}
+                      </Button>
+                    )}
+                  </div>
+                )}
                 {sale.notes && (
                   <p className="text-xs text-muted-foreground pt-2 border-t">{t('sales.note_label')}: {sale.notes}</p>
                 )}

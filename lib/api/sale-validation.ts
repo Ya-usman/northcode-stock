@@ -57,7 +57,9 @@ export async function validateSale(
   shopId: string,
   items: SaleLineInput[],
   amounts: SaleAmountsInput,
-  opts: { discountAllowed: boolean },
+  /** at : instant de la vente (ISO) — vente hors ligne synchronisée plus tard :
+   *  les promotions sont jugées telles qu'elles étaient à ce moment-là. */
+  opts: { discountAllowed: boolean; at?: string },
 ): Promise<SaleValidation> {
   if (!Array.isArray(items) || !items.length) return { ok: false, error: 'invalid_data' }
   for (const it of items) {
@@ -70,7 +72,7 @@ export async function validateSale(
     admin.from('shops').select('tax_rate').eq('id', shopId).maybeSingle(),
   ])
   const byId = new Map<string, any>((products || []).map((p: any) => [p.id, p]))
-  const now = new Date().toISOString()
+  const now = opts.at || new Date().toISOString()
   for (const it of items) {
     const p = byId.get(it.product_id)
     if (!p) continue // produit d'une autre boutique : refusé par complete_sale (P0008)

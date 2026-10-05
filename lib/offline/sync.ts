@@ -238,174 +238,21 @@ export async function syncPendingSales(shopId: string): Promise<SyncResult> {
 
   for (const sale of pending) {
     try {
-      // Resolve customer_id: use saved ID, or look up by phone, or create new
-      let customerId = sale.customer_id ?? null
-      if (!customerId && sale.customer_name) {
-        if (sale.customer_phone) {
-          const { data: existing } = await supabase
-            .from('customers')
-            .select('id')
-            .eq('shop_id', sale.shop_id)
-            .eq('phone', sale.customer_phone)
-            .maybeSingle()
-          customerId = existing?.id ?? null
-        }
-        if (!customerId) {
-          const { data: newCust } = await supabase
-            .from('customers')
-            .insert({ shop_id: sale.shop_id, name: sale.customer_name, phone: sale.customer_phone || null })
-            .select('id')
-            .single()
-          customerId = newCust?.id ?? null
-        }
-      }
-
-      // Paiement(s) de la vente. Depuis la correction du paiement mixte hors
-      // ligne, la vente en attente porte `payments` (même forme que le
-      // chemin en ligne → complete_sale) : 2 lignes pour un paiement mixte,
-      // et payment_method = 'mixed', valeur acceptée en base depuis la
-      // migration 012 (le chemin en ligne l'enregistre déjà ainsi).
-      //
-      // Ventes enregistrées AVANT cette correction (encore en attente sur
-      // un appareil) : pas de `payments` → ancien comportement, un seul
-      // paiement de payment_amount. Elles ne portaient jamais 'mixed'
-      // (seul le 1er moyen était gardé), la branche 'mixed' ci-dessous ne
-      // sert que par sécurité.
-      const hasPaymentsList = Array.isArray(sale.payments)
-      const isMixedPayment = !hasPaymentsList && sale.payment_method === 'mixed'
-      const dbPaymentMethod = isMixedPayment ? 'cash' : sale.payment_method
-      const paymentRows = hasPaymentsList
-        ? sale.payments!.filter(p => Number(p.amount) > 0)
-        : (dbPaymentMethod !== 'credit' && sale.payment_amount > 0
-            ? [{ amount: sale.payment_amount, method: dbPaymentMethod, reference: sale.payment_reference }]
-            : [])
-      // Même garde-fou que complete_sale (P0007) — refusé AVANT de créer la
-      // vente, pour ne jamais laisser une vente orpheline sans paiement.
-      const paymentsTotal = paymentRows.reduce((s, p) => s + Number(p.amount), 0)
-      if (paymentsTotal > Number(sale.total) + 0.01) {
-        throw new Error(`Total des paiements (${paymentsTotal}) supérieur au total de la vente (${sale.total})`)
-      }
-
-      // local_id is stable across sync retries (it's the IndexedDB keyPath,
-      // generated once when the sale was first saved offline) — reuse it as
-      // the server-side idempotency key. This protects against the sync
-      // running from two different JS contexts at once (e.g. the service
-      // worker's Background Sync firing while the app is also open and
-      // syncing itself), which an in-memory lock alone can't prevent since
-      // they don't share memory.
-      // Vente mise en file APRÈS un essai en ligne (délai dépassé, serveur
-      // indisponible) : local_id = « local-<clé de l'essai en ligne> ». Si cet
-      // essai avait en fait abouti côté serveur (réponse perdue), la vente
-      // existe déjà sous cette clé : on la retrouve au lieu de la recréer.
-      const onlineKey = sale.local_id.startsWith('local-') ? sale.local_id.slice(6) : null
-      let saleAlreadyExisted = false
-      const { data: alreadyCreated } = await supabase
-        .from('sales')
-        .select('id')
-        .in('client_request_id', onlineKey ? [sale.local_id, onlineKey] : [sale.local_id])
-        .limit(1)
-        .maybeSingle()
-
-      let saleData: { id: string } | null = alreadyCreated
-      if (alreadyCreated) {
-        saleAlreadyExisted = true
-      } else {
-        const { data: inserted, error: saleError } = await supabase
-          .from('sales')
-          .insert({
-            shop_id: sale.shop_id,
-            cashier_id: sale.cashier_id,
-            customer_id: customerId,
-            subtotal: sale.subtotal,
-            discount: sale.discount,
-            tax: sale.tax,
-            total: sale.total,
-            payment_method: dbPaymentMethod,
-            payment_status: 'pending',
-            // Always start at 0; the after_payment_insert trigger increments amount_paid when the
-            // payment record is inserted below (same flow as the online path).
-            // Setting amount_paid directly AND inserting a payment record would fire the trigger
-            // and double-count: amount_paid = initial_value + payment_amount > total → balance < 0.
-            amount_paid: 0,
-            notes: sale.notes,
-            sale_status: 'active',
-            created_at: sale.created_at,
-            client_request_id: sale.local_id,
-            // Jeton du QR déjà imprimé hors ligne ; absent → la base en tire un
-            receipt_token: sale.receipt_token || undefined,
-          })
-          .select('id')
-          .single()
-
-        if (saleError?.code === '23505' && saleError.message?.includes('client_request_id')) {
-          const { data: raced } = await supabase.from('sales').select('id').eq('client_request_id', sale.local_id).maybeSingle()
-          saleData = raced ?? null
-          saleAlreadyExisted = Boolean(raced)
-        } else if (saleError || !inserted) {
-          throw new Error(saleError?.message || 'Failed to insert sale')
-        } else {
-          saleData = inserted
-        }
-      }
-
-      if (!saleData) throw new Error('Failed to insert sale')
-
-      // If the sale already existed (idempotent retry), its items/payment were
-      // presumably already inserted by the earlier successful attempt.
-      let itemsAlreadyExist = false
-      let paymentAlreadyExists = false
-      if (saleAlreadyExisted) {
-        const [{ count: itemsCount }, { count: paymentsCount }] = await Promise.all([
-          supabase.from('sale_items').select('id', { count: 'exact', head: true }).eq('sale_id', saleData.id),
-          supabase.from('payments').select('id', { count: 'exact', head: true }).eq('sale_id', saleData.id),
-        ])
-        itemsAlreadyExist = Boolean(itemsCount)
-        paymentAlreadyExists = Boolean(paymentsCount)
-      }
-
-      if (sale.items.length > 0 && !itemsAlreadyExist) {
-        const { error: itemsError } = await supabase
-          .from('sale_items')
-          .insert(sale.items.map(item => ({
-            sale_id: saleData.id,
-            product_id: item.product_id,
-            product_name: item.product_name,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            original_price: item.original_price ?? null,
-            // subtotal is GENERATED (quantity * unit_price) — do not insert it
-          })))
-        if (itemsError) throw new Error(itemsError.message)
-      }
-
-      if (paymentRows.length > 0 && !paymentAlreadyExists) {
-        // UN seul insert pour toutes les lignes = une seule instruction SQL,
-        // tout ou rien : un paiement mixte ne peut pas se retrouver à moitié
-        // enregistré (la relance suivante sauterait alors le 2e paiement,
-        // puisque paymentAlreadyExists ne regarde que "au moins un").
-        const { error: paymentError } = await supabase.from('payments').insert(paymentRows.map(p => ({
-          sale_id: saleData.id,
-          amount: p.amount,
-          method: p.method,
-          reference: p.reference || null,
-          received_by: sale.cashier_id,
-          // Preserve original sale timestamp so the is_repayment heuristic
-          // (paid_at > created_at + 5 min) doesn't fire for delayed syncs.
-          paid_at: sale.created_at,
-          notes: isMixedPayment ? 'Paiement mixte (sync offline — méthode enregistrée comme espèces, détail du split non disponible)' : null,
-        })))
-        if (paymentError) {
-          // Don't throw here: the sale + items already exist online, so retrying
-          // this sale on the next sync pass would re-insert it as a duplicate.
-          // payment_status was already set to 'pending' at sale creation above,
-          // so this safely surfaces as a debt to reconcile instead of hiding it.
-          // Count it under `failed` (even though the sale itself did sync) so the
-          // offline banner actually shows this to the user instead of a silent
-          // success checkmark hiding an unconfirmed payment.
-          console.error('[sync] Sale synced but payment record failed', sale.local_id, paymentError)
-          errors.push(`Vente #${sale.local_id} synchronisée mais paiement non confirmé : ${paymentError.message}`)
-          failed++
-        }
+      // Lot 3 (migration 159) : la vente passe par le serveur — mêmes contrôles
+      // que la caisse en ligne, tout ou rien (complete_sale), jamais en double
+      // (clé = local_id), heure réelle conservée. Une vente non conforme n'est
+      // pas refusée : elle est enregistrée et marquée « à vérifier » (l'argent
+      // est encaissé). Seules les vraies erreurs restent en file avec leur message.
+      const res = await fetch('/api/sales/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sale),
+        signal: AbortSignal.timeout(30_000),
+      })
+      if (res.status === 401) throw new Error('Session expirée — reconnectez-vous pour synchroniser.')
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body?.error || `Erreur serveur (${res.status})`)
       }
 
       await markSaleSynced(sale.local_id)

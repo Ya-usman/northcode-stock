@@ -78,12 +78,13 @@ function shopBlock(i: EmailI18n, s: ShopDay, appUrl: string, multi: boolean): st
     b += tableOpen + s.topProducts.map((p, k) => row(`${k + 1}. ${esc(p.name)} ${muted(t('evening.sold_qty', { count: p.quantity }))}`, money(p.amount))).join('') + '</table>'
   }
 
-  if (s.sellers.length > 1 || s.discounts.count || s.cancelled.count) {
+  if (s.sellers.length > 1 || s.discounts.count || s.cancelled.count || s.toReview) {
     b += sectionTitle(t('evening.section_team'))
     b += tableOpen
     if (s.sellers.length > 1) b += s.sellers.map(v => row(`${esc(v.name ?? t('evening.unknown_seller'))} ${muted(t('evening.sales_count', { count: v.count }))}`, money(v.amount))).join('')
     b += row(`${esc(t('evening.discounts'))} ${muted(t('evening.sales_count', { count: s.discounts.count }))}`, s.discounts.count ? money(s.discounts.amount) : '—')
     b += row(`${esc(t('evening.cancelled'))} ${muted(String(s.cancelled.count))}`, s.cancelled.count ? `<span style="color:#b91c1c;">${money(s.cancelled.amount)}</span>` : '—')
+    if (s.toReview) b += row(`<a href="${appUrl}/${i.locale}/sales/history" style="color:#b45309;">${esc(t('evening.to_review'))}</a>`, `<span style="color:#b45309;font-weight:700;">${i.num(s.toReview)}</span>`)
     b += '</table>'
   }
 
