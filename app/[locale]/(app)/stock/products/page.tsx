@@ -1641,7 +1641,18 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       )}
 
       {/* Journal d'activité (panneau latéral, propriétaire seulement) */}
-      <ProductActivityJournal open={journalOpen} onOpenChange={setJournalOpen} shopId={shop?.id} />
+      <ProductActivityJournal
+        open={journalOpen}
+        onOpenChange={setJournalOpen}
+        shopId={shop?.id}
+        productExists={id => products.some(p => p.id === id)}
+        onOpenProduct={id => {
+          const p = products.find(x => x.id === id)
+          if (!p) return false
+          setShowAddModal(false); setShowRestockModal(false); setEditingProduct(p)
+          return true
+        }}
+      />
 
       {/* Bulk Add Modal */}
       {shop?.id && (
