@@ -3,6 +3,7 @@ import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { canWriteFeature } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { RECEIPT_BUCKET, isReceiptPathOfShop } from '@/lib/expenses/receipts'
 
 // « Supprimer des dépenses » (règle unique, lot 1) : oui par défaut pour
 // Manager et Responsable — et désormais réglable par le propriétaire.
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
     // Fetch expense details before deletion so we can store them in the audit log
     const { data: expense, error: fetchError } = await admin
       .from('expenses')
-      .select('amount, category, description, date, is_recurring')
+      .select('amount, category, description, date, is_recurring, receipt_url')
       .eq('id', expense_id)
       .eq('shop_id', shop_id)
       .single()
@@ -57,6 +58,13 @@ export async function POST(request: Request) {
 
     if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 })
 
+    // Justificatif retiré avec la dépense (document financier, jamais laissé
+    // orphelin) — même règle que le remplacement dans PATCH /api/expenses.
+    // Uniquement un chemin de l'espace privé appartenant à cette boutique.
+    if (expense.receipt_url && isReceiptPathOfShop(expense.receipt_url, shop_id)) {
+      await admin.storage.from(RECEIPT_BUCKET).remove([expense.receipt_url]).catch(() => {})
+    }
+
     // Write audit log — never blocks the response
     await writeAuditLog({
       action: 'expense.delete',
@@ -71,6 +79,7 @@ export async function POST(request: Request) {
         description: expense.description,
         date: expense.date,
         is_recurring: expense.is_recurring,
+        receipt_removed: !!expense.receipt_url,
       },
       ip: getClientIp(request),
     })
