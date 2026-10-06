@@ -21,6 +21,7 @@ import { UpgradeWall } from '@/components/saas/upgrade-wall'
 import { PlanLimitAlert } from '@/components/saas/plan-limit-alert'
 import { GracePeriodBanner } from '@/components/saas/grace-period-banner'
 import { WhatsNewPanel, PageAnnouncement } from '@/components/announcements/whats-new'
+import { OnboardingProvider } from '@/components/onboarding/onboarding-provider'
 import { useAnnouncements, appPath } from '@/lib/announcements/use-announcements'
 import { ShopClosedWall } from '@/components/saas/shop-closed-wall'
 import { ShopHoursCountdownBanner } from '@/components/saas/shop-hours-countdown-banner'
@@ -413,6 +414,8 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   const isBillingPage  = pathname.includes('/billing')
 
   return (
+    // Accompagnement « Bien démarrer » : état et tours guidés disponibles sur toutes les pages
+    <OnboardingProvider userId={profile.id}>
     <div className="min-h-screen bg-background">
       <NavigationProgress />
       {!accessAllowed && !isBillingPage && (
@@ -515,5 +518,6 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         }}
       />
     </div>
+    </OnboardingProvider>
   )
 }

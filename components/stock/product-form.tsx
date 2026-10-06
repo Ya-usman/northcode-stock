@@ -228,7 +228,7 @@ export function ProductForm({
 
       {/* ── Informations principales ─────────────────────────────────── */}
       <DrawerSection title={t('products.section_main')}>
-        <div className="space-y-1.5">
+        <div className="space-y-1.5" data-tour="product-name">
           <Label htmlFor="product-name">{t('products.name')}<RequiredMark /></Label>
           <Input id="product-name" {...form.register('name')} placeholder={t('product_form.name_placeholder')} aria-invalid={!!errors.name} autoFocus={autoFocusName} />
           <FieldError message={errors.name?.message} />
@@ -245,7 +245,7 @@ export function ProductForm({
           </Select>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3" data-tour="product-prices">
           <div className="space-y-1.5">
             <Label>{t('products.selling_price')}<RequiredMark /></Label>
             <Controller control={form.control} name="selling_price" render={({ field }) => (
@@ -269,7 +269,7 @@ export function ProductForm({
         </div>
 
         {/* Unité d'abord : le suffixe du stock initial reprend le choix fait juste avant */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3" data-tour="product-stock">
           <div className="space-y-1.5">
             <Label>{t('products.unit')}</Label>
             <Select value={unit} onValueChange={v => form.setValue('unit', v, { shouldDirty: true })}>

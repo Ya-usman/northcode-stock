@@ -130,6 +130,7 @@ export function Sidebar({ locale, role, profile, onSignOut, signingOut = false, 
                 return (
                   <Link
                     key={item.href}
+                    data-tour={`nav-${item.href.split('/').slice(2).join('-')}`}
                     href={item.href}
                     prefetch={true}
                     isOnline={isOnline}

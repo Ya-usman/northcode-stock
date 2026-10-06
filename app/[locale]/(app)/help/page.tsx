@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { ChevronDown, ChevronUp, MessageCircle, Mail, BookOpen, HelpCircle, List } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import Image from 'next/image'
+import { HelpTours } from '@/components/onboarding/help-tours'
 
 // ── FAQ ───────────────────────────────────────────────────────────────────────
 
@@ -564,6 +565,9 @@ export default function HelpPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-4">
+      {/* Tours guidés et guide « Bien démarrer » */}
+      <HelpTours />
+
       {/* Header */}
       <div className="rounded-xl border bg-card p-5 shadow-sm">
         <h1 className="font-bold text-lg mb-1">Aide & Documentation</h1>

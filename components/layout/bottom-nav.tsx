@@ -90,6 +90,7 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
             return (
               <Link
                 key={item.href}
+                data-tour={`nav-${item.href.split('/').slice(2).join('-')}`}
                 href={available ? item.href : '#'}
                 prefetch={true}
                 isOnline={isOnline}
@@ -115,6 +116,7 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
           {/* More button */}
           {moreItems.length > 0 && (
             <button
+              data-tour="nav-more"
               onClick={() => setMoreOpen(o => !o)}
               className={cn(
                 'relative flex flex-1 flex-col items-center justify-center gap-0.5 text-xs transition-colors tap-target',
@@ -154,6 +156,7 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
                   return (
                     <Link
                       key={item.href}
+                      data-tour={`nav-${item.href.split('/').slice(2).join('-')}`}
                       href={available ? item.href : '#'}
                       prefetch={true}
                       isOnline={isOnline}

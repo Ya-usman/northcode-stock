@@ -1961,6 +1961,137 @@
     "kind_improvement": "Ingantawa",
     "kind_fix": "Gyara"
   },
+  "onboarding": {
+    "guide_title": "Fara aiki da StockShop",
+    "guide_subtitle": "Matakai biyar don shagonka ya fara aiki. Kowanne yana kammala kansa idan an yi shi.",
+    "guide_all_done": "Madalla, komai ya shirya! Za ka iya ɓoye wannan jagorar.",
+    "guide_progress": "Matakai {done} cikin {total}",
+    "quick_tour_cta": "Zagaye cikin sauri (minti 1)",
+    "quick_tour_short": "Zagaye",
+    "expand": "Nuna matakai",
+    "collapse": "Rufe",
+    "hide_guide": "Ɓoye jagorar (tana nan a Taimako)",
+    "step_done": "An yi",
+    "show_me": "Nuna mini",
+    "go": "Je can",
+    "steps": {
+      "product": {
+        "title": "Ƙara kayayyakinka",
+        "body": "Suna, farashi da adadi: tushen komai."
+      },
+      "sale": {
+        "title": "Yi sayarwa ta farko",
+        "body": "Karɓi kuɗi daga asusu, kaya za su sabunta kansu."
+      },
+      "category": {
+        "title": "Ƙirƙiri rukuni",
+        "body": "Tsara kayayyakinka (abin sha, kayan abinci…) don samun su da sauri."
+      },
+      "team": {
+        "title": "Gayyaci ma’aikaci",
+        "body": "Kowane ma’aikaci yana da asusunsa da izininsa."
+      },
+      "receipt": {
+        "title": "Keɓance rasidinka",
+        "body": "Ƙara tambarinka da bayananka a rasidin da ake aika wa abokan ciniki."
+      }
+    },
+    "help_title": "Zagaye masu jagora",
+    "help_subtitle": "Mintuna kaɗan a ainihin shafuka, ka sake kallo a duk lokacin da kake so.",
+    "show_guide": "Nuna jagorar farawa",
+    "replay": "Sake kallo",
+    "start": "Fara",
+    "tour_names": {
+      "quick_tour": "Zagaye cikin sauri",
+      "add_product": "Ƙara kaya",
+      "first_sale": "Yi sayarwa"
+    },
+    "tour_desc": {
+      "quick_tour": "Muhimman wurare na manhajar cikin minti ɗaya.",
+      "add_product": "Ƙirƙiri kaya tare da farashinsa da adadinsa.",
+      "first_sale": "Yi sayarwa daga farko har ƙarshe."
+    },
+    "step_of": "{current}/{total}",
+    "skip": "Dakatar da zagayen",
+    "next": "Na gaba",
+    "finish": "Gama",
+    "do_action": "Kai ne: yi shi don ci gaba",
+    "open_page": "Buɗe shafin",
+    "page_hint": "Wannan matakin yana kan wani shafi.",
+    "continue_with": "Ci gaba: {name}",
+    "tours": {
+      "quick_tour": {
+        "intro": {
+          "title": "Barka da zuwa StockShop",
+          "body": "Cikin minti ɗaya, ga inda muhimman abubuwa suke. Za ka iya tsayawa a kowane lokaci."
+        },
+        "sell": {
+          "title": "Sayarwa",
+          "body": "Asusu: taɓa kayayyaki, karɓi kuɗi, aika rasidi."
+        },
+        "stock": {
+          "title": "Kayanka",
+          "body": "Kayayyakinka, adadi, waɗanda suka ƙare da wa’adinsu."
+        },
+        "history": {
+          "title": "Tarihin sayarwa",
+          "body": "Duk sayarwa, rasidai da bashin abokan ciniki. A waya: a cikin “Ƙari”."
+        },
+        "reports": {
+          "title": "Rahotanni",
+          "body": "Kuɗin shiga, riba da kayan da suka fi sayuwa. A waya, sauran shafuka suna cikin “Ƙari”."
+        },
+        "help": {
+          "title": "Sababbin abubuwa da taimako",
+          "body": "Sababbin abubuwa suna bayyana a nan. Zagaye masu jagora suna shafin Taimako."
+        },
+        "done": {
+          "title": "Ka san hanyoyin",
+          "body": "Mataki na gaba: ƙara kayanka na farko."
+        }
+      },
+      "add_product": {
+        "open": {
+          "title": "Ƙara kaya",
+          "body": "Buɗe “Ƙara”, sannan ka zaɓi “Ƙara kaya”."
+        },
+        "name": {
+          "title": "Sunan",
+          "body": "Sunan kamar yadda kake faɗa wa abokan ciniki (misali “Shinkafa kg 25”)."
+        },
+        "prices": {
+          "title": "Farashi",
+          "body": "Farashin sayarwa dole ne. Farashin saye yana ba da damar lissafin ribarka."
+        },
+        "stock": {
+          "title": "Adadi",
+          "body": "Ma’auni (guda, kg, kwali…) da adadin da kake da shi yau."
+        },
+        "save": {
+          "title": "Ajiye",
+          "body": "Danna “Ajiye”. Kayan zai kasance a asusu nan take."
+        },
+        "done": {
+          "title": "Kayanka na farko yana nan",
+          "body": "Ƙara sauran haka nan, ko shigo da su gaba ɗaya. Mataki na gaba: sayarwarka ta farko."
+        }
+      },
+      "first_sale": {
+        "pick": {
+          "title": "Zaɓi kaya",
+          "body": "Taɓa kaya don saka shi a kwando. Sake taɓawa don ƙara ɗaya."
+        },
+        "pay": {
+          "title": "Karɓi kuɗi",
+          "body": "Zaɓi hanyar biya (tsabar kuɗi, kuɗin waya…) sannan ka tabbatar da sayarwar. A waya, buɗe kwandon da farko."
+        },
+        "done": {
+          "title": "An yi rajistar sayarwa ta farko",
+          "body": "Kaya sun sabunta kuma rasidi ya shirya don aika wa abokin ciniki."
+        }
+      }
+    }
+  },
   "notes": {
     "load_timeout": "Loda bayanan kula yana ɗaukar lokaci mai yawa — sake gwadawa.",
     "updated_toast": "An gyara bayanin kula",

@@ -1926,6 +1926,137 @@
     "kind_improvement": "Amélioration",
     "kind_fix": "Correction"
   },
+  "onboarding": {
+    "guide_title": "Bien démarrer avec StockShop",
+    "guide_subtitle": "Cinq étapes pour que votre boutique tourne. Chacune se coche toute seule quand c’est fait.",
+    "guide_all_done": "Bravo, tout est prêt ! Vous pouvez masquer ce guide.",
+    "guide_progress": "{done} sur {total} étapes",
+    "quick_tour_cta": "Visite express (1 min)",
+    "quick_tour_short": "Visite",
+    "expand": "Afficher les étapes",
+    "collapse": "Replier",
+    "hide_guide": "Masquer le guide (il reste dans Aide)",
+    "step_done": "Fait",
+    "show_me": "Me montrer",
+    "go": "Y aller",
+    "steps": {
+      "product": {
+        "title": "Ajouter vos produits",
+        "body": "Nom, prix et quantité : c’est la base de tout le reste."
+      },
+      "sale": {
+        "title": "Faire une première vente",
+        "body": "Encaissez depuis la caisse, le stock se met à jour tout seul."
+      },
+      "category": {
+        "title": "Créer une catégorie",
+        "body": "Rangez vos produits (boissons, épicerie…) pour les retrouver vite."
+      },
+      "team": {
+        "title": "Inviter un membre de l’équipe",
+        "body": "Chaque employé a son compte et ses droits."
+      },
+      "receipt": {
+        "title": "Personnaliser votre reçu",
+        "body": "Ajoutez votre logo et vos mentions sur les reçus envoyés aux clients."
+      }
+    },
+    "help_title": "Tours guidés",
+    "help_subtitle": "Quelques minutes sur les vrais écrans, à relancer quand vous voulez.",
+    "show_guide": "Afficher le guide de démarrage",
+    "replay": "Revoir",
+    "start": "Lancer",
+    "tour_names": {
+      "quick_tour": "Visite express",
+      "add_product": "Ajouter un produit",
+      "first_sale": "Faire une vente"
+    },
+    "tour_desc": {
+      "quick_tour": "Les repères de l’application en une minute.",
+      "add_product": "Créer un produit avec son prix et son stock.",
+      "first_sale": "Encaisser une vente de bout en bout."
+    },
+    "step_of": "{current}/{total}",
+    "skip": "Arrêter le tour",
+    "next": "Suivant",
+    "finish": "Terminer",
+    "do_action": "À vous : faites-le pour continuer",
+    "open_page": "Ouvrir la page",
+    "page_hint": "Cette étape se passe sur une autre page.",
+    "continue_with": "Continuer : {name}",
+    "tours": {
+      "quick_tour": {
+        "intro": {
+          "title": "Bienvenue dans StockShop",
+          "body": "En une minute, voici où se trouve l’essentiel. Vous pouvez arrêter à tout moment."
+        },
+        "sell": {
+          "title": "Vendre",
+          "body": "La caisse : touchez les produits, encaissez, envoyez le reçu."
+        },
+        "stock": {
+          "title": "Votre stock",
+          "body": "Vos produits, les quantités, les ruptures et les péremptions."
+        },
+        "history": {
+          "title": "Historique des ventes",
+          "body": "Toutes les ventes, les reçus et les crédits clients. Sur téléphone : dans « Plus »."
+        },
+        "reports": {
+          "title": "Rapports",
+          "body": "Chiffre d’affaires, marges et meilleures ventes. Sur téléphone, les autres pages sont dans « Plus »."
+        },
+        "help": {
+          "title": "Nouveautés et aide",
+          "body": "Les nouveautés arrivent ici. Les tours guidés sont dans la page Aide."
+        },
+        "done": {
+          "title": "Vous avez les repères",
+          "body": "Prochaine étape : ajouter votre premier produit."
+        }
+      },
+      "add_product": {
+        "open": {
+          "title": "Ajouter un produit",
+          "body": "Ouvrez « Ajouter », puis choisissez « Ajouter un produit »."
+        },
+        "name": {
+          "title": "Le nom",
+          "body": "Le nom tel que vous le dites à vos clients (ex. « Riz 25 kg »)."
+        },
+        "prices": {
+          "title": "Les prix",
+          "body": "Le prix de vente est obligatoire. Le prix d’achat permet de calculer votre marge."
+        },
+        "stock": {
+          "title": "La quantité",
+          "body": "L’unité (pièce, kg, carton…) et la quantité que vous avez aujourd’hui."
+        },
+        "save": {
+          "title": "Enregistrez",
+          "body": "Appuyez sur « Enregistrer ». Le produit est aussitôt disponible en caisse."
+        },
+        "done": {
+          "title": "Votre premier produit est en stock",
+          "body": "Ajoutez les autres de la même façon, ou importez-les d’un coup. Prochaine étape : votre première vente."
+        }
+      },
+      "first_sale": {
+        "pick": {
+          "title": "Choisissez un produit",
+          "body": "Touchez un produit pour l’ajouter au panier. Touchez-le encore pour en ajouter un de plus."
+        },
+        "pay": {
+          "title": "Encaissez",
+          "body": "Choisissez le mode de paiement (espèces, mobile money…) puis validez la vente. Sur téléphone, ouvrez d’abord le panier."
+        },
+        "done": {
+          "title": "Première vente enregistrée",
+          "body": "Le stock est à jour et le reçu est prêt à envoyer au client."
+        }
+      }
+    }
+  },
   "notes": {
     "load_timeout": "Chargement des notes trop lent — réessayez.",
     "updated_toast": "Note modifiée",

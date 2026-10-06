@@ -1926,6 +1926,137 @@
     "kind_improvement": "Improvement",
     "kind_fix": "Fix"
   },
+  "onboarding": {
+    "guide_title": "Get started with StockShop",
+    "guide_subtitle": "Five steps to get your shop running. Each one ticks itself off when done.",
+    "guide_all_done": "Well done, everything is set! You can hide this guide.",
+    "guide_progress": "{done} of {total} steps",
+    "quick_tour_cta": "Quick tour (1 min)",
+    "quick_tour_short": "Tour",
+    "expand": "Show steps",
+    "collapse": "Collapse",
+    "hide_guide": "Hide the guide (it stays in Help)",
+    "step_done": "Done",
+    "show_me": "Show me",
+    "go": "Go",
+    "steps": {
+      "product": {
+        "title": "Add your products",
+        "body": "Name, price and quantity: the basis for everything else."
+      },
+      "sale": {
+        "title": "Make a first sale",
+        "body": "Check out from the till, the stock updates by itself."
+      },
+      "category": {
+        "title": "Create a category",
+        "body": "Group your products (drinks, groceries…) to find them fast."
+      },
+      "team": {
+        "title": "Invite a team member",
+        "body": "Each employee has their own account and permissions."
+      },
+      "receipt": {
+        "title": "Customise your receipt",
+        "body": "Add your logo and details to the receipts sent to customers."
+      }
+    },
+    "help_title": "Guided tours",
+    "help_subtitle": "A few minutes on the real screens, replay them anytime.",
+    "show_guide": "Show the getting-started guide",
+    "replay": "Replay",
+    "start": "Start",
+    "tour_names": {
+      "quick_tour": "Quick tour",
+      "add_product": "Add a product",
+      "first_sale": "Make a sale"
+    },
+    "tour_desc": {
+      "quick_tour": "The app’s landmarks in one minute.",
+      "add_product": "Create a product with its price and stock.",
+      "first_sale": "Ring up a sale from start to finish."
+    },
+    "step_of": "{current}/{total}",
+    "skip": "Stop the tour",
+    "next": "Next",
+    "finish": "Finish",
+    "do_action": "Your turn: do it to continue",
+    "open_page": "Open the page",
+    "page_hint": "This step takes place on another page.",
+    "continue_with": "Continue: {name}",
+    "tours": {
+      "quick_tour": {
+        "intro": {
+          "title": "Welcome to StockShop",
+          "body": "In one minute, here is where the essentials are. You can stop at any time."
+        },
+        "sell": {
+          "title": "Sell",
+          "body": "The till: tap products, take payment, send the receipt."
+        },
+        "stock": {
+          "title": "Your stock",
+          "body": "Your products, quantities, stock-outs and expiry dates."
+        },
+        "history": {
+          "title": "Sales history",
+          "body": "All sales, receipts and customer credit. On a phone: under “More”."
+        },
+        "reports": {
+          "title": "Reports",
+          "body": "Revenue, margins and best sellers. On a phone, the other pages are under “More”."
+        },
+        "help": {
+          "title": "What’s new and help",
+          "body": "New features show up here. Guided tours are on the Help page."
+        },
+        "done": {
+          "title": "You know your way around",
+          "body": "Next step: add your first product."
+        }
+      },
+      "add_product": {
+        "open": {
+          "title": "Add a product",
+          "body": "Open “Add”, then choose “Add a product”."
+        },
+        "name": {
+          "title": "The name",
+          "body": "The name as you say it to customers (e.g. “Rice 25 kg”)."
+        },
+        "prices": {
+          "title": "The prices",
+          "body": "The selling price is required. The cost price lets us work out your margin."
+        },
+        "stock": {
+          "title": "The quantity",
+          "body": "The unit (piece, kg, carton…) and the quantity you have today."
+        },
+        "save": {
+          "title": "Save",
+          "body": "Tap “Save”. The product is immediately available at the till."
+        },
+        "done": {
+          "title": "Your first product is in stock",
+          "body": "Add the others the same way, or import them in one go. Next step: your first sale."
+        }
+      },
+      "first_sale": {
+        "pick": {
+          "title": "Pick a product",
+          "body": "Tap a product to add it to the cart. Tap again to add one more."
+        },
+        "pay": {
+          "title": "Take payment",
+          "body": "Choose the payment method (cash, mobile money…) then confirm the sale. On a phone, open the cart first."
+        },
+        "done": {
+          "title": "First sale recorded",
+          "body": "Stock is up to date and the receipt is ready to send to the customer."
+        }
+      }
+    }
+  },
   "notes": {
     "load_timeout": "Notes are taking too long to load — try again.",
     "updated_toast": "Note updated",

@@ -66,6 +66,7 @@ import { invalidateSalesData } from '@/lib/query-keys'
 import { formatInputValue, formatCurrency } from '@/lib/utils/currency'
 import { checkAndNotifyLowStock, notifyNewSale } from '@/lib/push'
 import { samePhone, resolveStoredPhone } from '@/lib/phone/compare'
+import { emitOnboarding } from '@/lib/onboarding/events'
 
 // Champ téléphone international (indicatif dans une liste) : chargé à l'usage,
 // seulement quand le vendeur ouvre la saisie d'un nouveau client
@@ -178,6 +179,12 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const [frontBatchExpired, setFrontBatchExpired] = useState<Record<string, boolean>>({})
   const [categories, setCategories] = useState<Category[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
+  // Tour guidé « Faire une vente » : un article vient d'entrer dans le panier
+  const cartLenRef = useRef(0)
+  useEffect(() => {
+    if (cart.length > cartLenRef.current) emitOnboarding('cart_item_added')
+    cartLenRef.current = cart.length
+  }, [cart.length])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [customerName, setCustomerName] = useState('')
@@ -1206,6 +1213,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       }
 
       // Always show receipt regardless of persistence outcome
+      emitOnboarding('sale_completed') // tour guidé « Faire une vente » (vente mise en file hors ligne)
       setReceiptPay({ payments: salePayments.map(p => ({ method: p.method, amount: p.amount })), cashReceived: !splitPayment && methodType === 'cash' ? (Number(amountPaid) || 0) : 0, change, customerName: selectedCustomer?.name || customerName.trim() || undefined, customerPhone: selectedCustomer?.phone || customerPhone.trim() || undefined })
       setCompletedSale({
         id: localId,
@@ -1392,6 +1400,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
       invalidateSalesData(queryClient)
       setReceiptPay({ payments: salePayments.map(p => ({ method: p.method, amount: p.amount })), cashReceived: !splitPayment && methodType === 'cash' ? (Number(amountPaid) || 0) : 0, change, customerName: selectedCustomer?.name || customerName.trim() || undefined, customerPhone: selectedCustomer?.phone || customerPhone.trim() || undefined })
+      emitOnboarding('sale_completed') // tour guidé « Faire une vente »
       setCompletedSale(fullSale as any)
       setShowReceipt(true)
       resetForm()
@@ -1791,7 +1800,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             {/* Téléphone : 3 colonnes compactes (~110 px) pour voir ~9 produits
                 par écran au lieu de 4–5 — 2 colonnes seulement sous 340 px.
                 À partir de md (desktop/tablette), tailles d'origine. */}
-            <div className="grid grid-cols-2 min-[340px]:grid-cols-3 gap-1.5 md:grid-cols-3 md:gap-2">
+            <div className="grid grid-cols-2 min-[340px]:grid-cols-3 gap-1.5 md:grid-cols-3 md:gap-2" data-tour="pos-grid">
               {filteredProducts.slice(0, visibleCount).map(product => (
                 <ProductCard
                   key={product.id}
@@ -2229,7 +2238,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               {/* Libellé court dès 380 px, comme à l'étape paiement : une icône pause seule n'est pas évidente */}
               <span className="hidden min-[380px]:inline">{t('sales.hold_short')}</span>
             </Button>
-            <Button variant="stockshop" className="flex-1 h-12 text-base gap-2" onClick={() => setMobileStep('payment')}>
+            <Button variant="stockshop" className="flex-1 h-12 text-base gap-2" onClick={() => setMobileStep('payment')} data-tour="pos-collect">
               <CreditCard className="h-5 w-5" />
               {t('sales.checkout_collect', { amount: formatNaira(collectedNow) })}
             </Button>
@@ -2545,6 +2554,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
             <Button
               variant="stockshop"
               className="flex-1 md:flex-[2] h-12 text-base"
+              data-tour="pos-checkout"
               onClick={completeSale}
               loading={completing}
               disabled={cart.length === 0 || completing}
@@ -2936,6 +2946,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           {cart.length > 0 && (
             <button
               type="button"
+              data-tour="pos-open-cart"
               onClick={() => { setMobileStep('cart'); setMobileCartOpen(true) }}
               className="flex flex-1 items-center justify-between gap-3 bg-stockshop-blue text-white px-4 py-3"
             >

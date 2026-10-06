@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import { FormDrawer } from '@/components/ui/form-drawer'
+import { emitOnboarding } from '@/lib/onboarding/events'
 import { DetailDrawer } from '@/components/ui/detail-drawer'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
 import { PRODUCT_FORM_ID, type ProductFormState } from '@/components/stock/product-form-submit'
@@ -501,6 +502,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const onAddProduct = async (data: ProductFormData) => {
     const ok = await saveProduct(data)
     if (!ok) return
+    emitOnboarding('product_created') // tour guidé « Ajouter un produit »
     toast({ title: t('toast.product_added'), variant: 'success' })
     setShowAddModal(false)
     setSessionAddCount(0)
@@ -509,6 +511,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const onSaveAndAdd = async (data: ProductFormData) => {
     const ok = await saveProduct(data)
     if (!ok) return
+    emitOnboarding('product_created')
     setSessionAddCount(c => c + 1)
     setAddFormKey(k => k + 1)
     toast({ title: t('toast.product_added'), variant: 'success' })
@@ -1384,14 +1387,14 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           {canWriteStock && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="stockshop" size="sm" className="h-9 gap-1.5" disabled={saving}>
+                <Button variant="stockshop" size="sm" className="h-9 gap-1.5" disabled={saving} data-tour="add-product-menu">
                   <Plus className="h-4 w-4" />
                   {t('products.add_menu')}
                   <ChevronDown className="h-3.5 w-3.5 opacity-70" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-[230px]">
-                <DropdownMenuItem onClick={() => { setEditingProduct(null); setShowRestockModal(false); setSessionAddCount(0); setAddFormKey(k => k + 1); setShowAddModal(true) }}>
+                <DropdownMenuItem data-tour="add-product-item" onClick={() => { setEditingProduct(null); setShowRestockModal(false); setSessionAddCount(0); setAddFormKey(k => k + 1); setShowAddModal(true) }}>
                   <Plus className="mr-2 h-4 w-4" /> {t('actions.add_product')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowBulkModal(true)}><Zap className="mr-2 h-4 w-4" /> {t('products.add_quick')}</DropdownMenuItem>
