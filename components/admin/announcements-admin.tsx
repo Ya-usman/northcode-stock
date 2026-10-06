@@ -22,16 +22,17 @@ import { AdminPageHeader } from '@/components/admin/ui/admin-page-header'
 import { AnnouncementCard, PageAnnouncement } from '@/components/announcements/whats-new'
 import { cn } from '@/lib/utils/cn'
 import {
-  ANNOUNCEMENT_PAGES, ANNOUNCEMENT_ROLES, ANNOUNCEMENT_KINDS, TITLE_MAX, DESCRIPTION_MAX,
+  ANNOUNCEMENT_PAGES, ANNOUNCEMENT_ROLES, ANNOUNCEMENT_KINDS, ANNOUNCEMENT_TOURS, TITLE_MAX, DESCRIPTION_MAX,
   announcementStatus, validateAnnouncement, type AnnouncementStatus,
 } from '@/lib/announcements/catalog'
 import type { Announcement } from '@/lib/announcements/use-announcements'
+import type { TourId } from '@/lib/onboarding/tours'
 
 interface Row {
   id: string; kind: 'new' | 'improvement' | 'fix'
   title: string; description: string
   title_en: string | null; description_en: string | null; title_ha: string | null; description_ha: string | null
-  target_path: string | null; cta_path: string | null; roles: string[] | null
+  target_path: string | null; cta_path: string | null; tour_id: TourId | null; roles: string[] | null
   published_at: string; expires_at: string | null; is_active: boolean
   stats?: { dismissed: number; seen: number | null }
 }
@@ -46,6 +47,7 @@ const STATUS: Record<AnnouncementStatus, { label: string; cls: string }> = {
   ended: { label: 'Terminée', cls: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' },
 }
 const pageLabel = (p: string | null) => (p ? ANNOUNCEMENT_PAGES.find(x => x.path === p)?.label ?? p : '—')
+const tourLabel = (id: string | null) => (id ? ANNOUNCEMENT_TOURS.find(x => x.tour === id)?.label ?? id : '—')
 const rolesLabel = (r: string[] | null) => (!r?.length ? 'Tout le monde' : r.map(x => ANNOUNCEMENT_ROLES.find(y => y.role === x)?.label ?? x).join(', '))
 const fmtDate = (iso: string) => new Date(iso).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 /** <input type="datetime-local"> en heure locale du navigateur */
@@ -58,7 +60,7 @@ const fromLocalInput = (v: string) => (v ? new Date(v).toISOString() : null)
 
 const emptyDraft = (): Draft => ({
   kind: 'new', title: '', description: '', title_en: null, description_en: null, title_ha: null, description_ha: null,
-  target_path: null, cta_path: null, roles: null, published_at: new Date().toISOString(), expires_at: null, is_active: true, schedule: 'now',
+  target_path: null, cta_path: null, tour_id: null, roles: null, published_at: new Date().toISOString(), expires_at: null, is_active: true, schedule: 'now',
 })
 
 export function AnnouncementsAdmin({ canEdit }: { canEdit: boolean }) {
@@ -93,7 +95,7 @@ export function AnnouncementsAdmin({ canEdit }: { canEdit: boolean }) {
     ...(d.id ? { id: d.id } : {}),
     kind: d.kind, title: d.title, description: d.description,
     title_en: d.title_en, description_en: d.description_en, title_ha: d.title_ha, description_ha: d.description_ha,
-    target_path: d.target_path, cta_path: d.cta_path, roles: d.roles,
+    target_path: d.target_path, cta_path: d.cta_path, tour_id: d.tour_id, roles: d.roles,
     // « Maintenant » : la date d'origine est gardée pour une annonce déjà en ligne
     published_at: d.schedule === 'later' ? d.published_at
       : d.id && new Date(d.published_at).getTime() <= Date.now() ? d.published_at : new Date().toISOString(),
@@ -140,7 +142,7 @@ export function AnnouncementsAdmin({ canEdit }: { canEdit: boolean }) {
     const d = previewLang === 'en' ? draft.description_en : previewLang === 'ha' ? draft.description_ha : null
     return {
       id: 'preview', kind: draft.kind, title: t || draft.title || 'Titre de l’annonce', description: d || draft.description || 'Texte de l’annonce.',
-      ctaPath: draft.cta_path, targetPath: draft.target_path, publishedAt: payload(draft).published_at, unread: true,
+      ctaPath: draft.cta_path, targetPath: draft.target_path, tourId: draft.tour_id, publishedAt: payload(draft).published_at, unread: true,
     }
   }, [draft, previewLang]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -178,7 +180,7 @@ export function AnnouncementsAdmin({ canEdit }: { canEdit: boolean }) {
                       <dl className="mt-2 grid gap-x-4 gap-y-0.5 text-xs text-muted-foreground sm:grid-cols-2">
                         <div><dt className="inline">Publication : </dt><dd className="inline text-foreground">{fmtDate(r.published_at)}</dd>{r.expires_at && <> · fin {fmtDate(r.expires_at)}</>}</div>
                         <div><dt className="inline">Public : </dt><dd className="inline text-foreground">{rolesLabel(r.roles)}</dd></div>
-                        <div><dt className="inline">Page : </dt><dd className="inline text-foreground">{pageLabel(r.target_path)}</dd> · Essayer → {pageLabel(r.cta_path)}</div>
+                        <div><dt className="inline">Page : </dt><dd className="inline text-foreground">{pageLabel(r.target_path)}</dd> · Essayer → {pageLabel(r.cta_path)}{r.tour_id && <> · Me montrer → {tourLabel(r.tour_id)}</>}</div>
                         <div data-testid="ann-stats"><dt className="inline">Vue (estimation) : </dt><dd className="inline text-foreground">{r.stats?.seen ?? '—'}</dd> · bandeau fermé : <span className="text-foreground">{r.stats?.dismissed ?? 0}</span></div>
                       </dl>
                     </div>
@@ -263,6 +265,17 @@ export function AnnouncementsAdmin({ canEdit }: { canEdit: boolean }) {
                 </Select>
               </div>
             </div>
+            <div className="mt-3 space-y-1">
+              <Label>Tour guidé « Me montrer »</Label>
+              <Select value={draft.tour_id ?? NONE} onValueChange={v => set({ tour_id: v === NONE ? null : (v as TourId) })}>
+                <SelectTrigger data-testid="ann-tour"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>Aucun</SelectItem>
+                  {ANNOUNCEMENT_TOURS.map(x => <SelectItem key={x.tour} value={x.tour}>{x.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Montre comment faire, sur les vrais écrans. Le bouton n’apparaît qu’aux personnes qui peuvent suivre ce tour ; les autres gardent « Essayer ».</p>
+            </div>
             <div className="mt-3 space-y-2">
               <Label>Public</Label>
               <div className="flex flex-wrap gap-2">
@@ -319,7 +332,7 @@ export function AnnouncementsAdmin({ canEdit }: { canEdit: boolean }) {
             {preview && (
               <div className="space-y-3" data-testid="ann-preview">
                 <p className="text-xs font-medium text-muted-foreground">Panneau Nouveautés</p>
-                <ol><AnnouncementCard item={preview} /></ol>
+                <ol><AnnouncementCard item={preview} preview /></ol>
                 {draft.target_path ? (
                   <>
                     <p className="text-xs font-medium text-muted-foreground">Bandeau sur « {pageLabel(draft.target_path)} »</p>

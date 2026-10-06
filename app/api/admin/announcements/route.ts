@@ -8,7 +8,7 @@ import { validateAnnouncement, ANNOUNCEMENT_KINDS } from '@/lib/announcements/ca
 // création / modification / activation : administrateur complet, journalisé.
 // Jamais de suppression : une annonce se désactive (brouillon).
 
-const FIELDS = 'id, kind, title, description, title_en, description_en, title_ha, description_ha, target_path, cta_path, roles, published_at, expires_at, is_active'
+const FIELDS = 'id, kind, title, description, title_en, description_en, title_ha, description_ha, target_path, cta_path, tour_id, roles, published_at, expires_at, is_active'
 
 /** Colonnes historiques (migration 070) tenues cohérentes avec le type */
 const legacy = (kind: string) => {

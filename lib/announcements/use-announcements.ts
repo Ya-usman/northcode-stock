@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/lib/types/database'
+import { TOUR_IDS, type TourId } from '@/lib/onboarding/tours'
 
 const supabase = createClient() as any
 const DAY = 86_400_000
@@ -35,6 +36,7 @@ export interface AnnouncementRow {
   kind?: AnnouncementKind | null
   cta_path?: string | null
   target_path?: string | null
+  tour_id?: string | null
   roles?: string[] | null
   expires_at?: string | null
   published_at: string
@@ -47,6 +49,8 @@ export interface Announcement {
   kind: AnnouncementKind
   ctaPath: string | null
   targetPath: string | null
+  /** Tour guidé proposé (« Me montrer »), migration 165 */
+  tourId: TourId | null
   publishedAt: string
   unread: boolean
 }
@@ -98,6 +102,7 @@ export function useAnnouncements(profile: Profile | null, role: string | null | 
         kind: (a.kind || 'new') as AnnouncementKind,
         ctaPath: a.cta_path || null,
         targetPath: a.target_path || null,
+        tourId: a.tour_id && (TOUR_IDS as string[]).includes(a.tour_id) ? (a.tour_id as TourId) : null,
         publishedAt: a.published_at,
         unread: new Date(a.published_at).getTime() > cursor,
       }))

@@ -20,7 +20,7 @@ import { TrialBanner } from '@/components/saas/trial-banner'
 import { UpgradeWall } from '@/components/saas/upgrade-wall'
 import { PlanLimitAlert } from '@/components/saas/plan-limit-alert'
 import { GracePeriodBanner } from '@/components/saas/grace-period-banner'
-import { WhatsNewPanel, PageAnnouncement } from '@/components/announcements/whats-new'
+import { WhatsNewPanel, LivePageAnnouncement } from '@/components/announcements/whats-new'
 import { OnboardingProvider } from '@/components/onboarding/onboarding-provider'
 import { useAnnouncements, appPath } from '@/lib/announcements/use-announcements'
 import { ShopClosedWall } from '@/components/saas/shop-closed-wall'
@@ -460,7 +460,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
 
         <main className="flex-1 p-4 sm:p-6 pb-24 sm:pb-6 overflow-x-hidden">
           <CacheBanner ageMs={cacheAgeMs} isOnline={!isOffline} />
-          {pageAnnouncement && <PageAnnouncement item={pageAnnouncement} currentPath={appPath(pathname)} onDismiss={whatsNew.dismiss} />}
+          {pageAnnouncement && <LivePageAnnouncement item={pageAnnouncement} currentPath={appPath(pathname)} onDismiss={whatsNew.dismiss} />}
           {children}
         </main>
       </div>

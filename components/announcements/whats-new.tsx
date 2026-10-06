@@ -6,12 +6,15 @@
 
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
-import { ArrowRight, Sparkles, TrendingUp, Wrench, X } from 'lucide-react'
+import { ArrowRight, PlayCircle, Sparkles, TrendingUp, Wrench, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AppDrawer } from '@/components/ui/app-drawer'
 import { cn } from '@/lib/utils/cn'
 import { startNavigationProgress } from '@/components/layout/navigation-progress'
+import { useOnboarding } from '@/components/onboarding/onboarding-provider'
+import { useAvailableTours } from '@/components/onboarding/use-available-tours'
 import type { Announcement, AnnouncementKind } from '@/lib/announcements/use-announcements'
+import type { TourId } from '@/lib/onboarding/tours'
 
 const KIND: Record<AnnouncementKind, { icon: typeof Sparkles; chip: string }> = {
   new: { icon: Sparkles, chip: 'bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-950/50 dark:text-blue-400' },
@@ -41,9 +44,17 @@ export function WhatsNewButton({ hasUnread, onOpen }: { hasUnread: boolean; onOp
   )
 }
 
+/** « Me montrer » d'une nouveauté : seulement si la personne peut suivre ce tour */
+function useShowMe() {
+  const { startTour } = useOnboarding()
+  const available = useAvailableTours()
+  return (tour: TourId | null) => (tour && available.includes(tour) ? () => startTour(tour) : undefined)
+}
+
 export function WhatsNewPanel({ open, onOpenChange, items }: { open: boolean; onOpenChange: (o: boolean) => void; items: Announcement[] }) {
   const t = useTranslations('whats_new')
   const go = useGo()
+  const showMe = useShowMe()
   return (
     <AppDrawer open={open} onOpenChange={onOpenChange} category="StockShop" title={t('title')} description={t('subtitle')}
       icon={<Sparkles className="h-4 w-4" />} width="md" testId="whats-new-panel">
@@ -51,18 +62,26 @@ export function WhatsNewPanel({ open, onOpenChange, items }: { open: boolean; on
         <p className="py-10 text-center text-sm text-muted-foreground">{t('empty')}</p>
       ) : (
         <ol className="space-y-3">
-          {items.map(a => <AnnouncementCard key={a.id} item={a} onTry={() => { onOpenChange(false); go(a.ctaPath!) }} />)}
+          {items.map(a => {
+            const start = showMe(a.tourId)
+            // Le panneau se ferme d'abord : le tour éclaire l'écran, pas le panneau
+            return <AnnouncementCard key={a.id} item={a} onTry={() => { onOpenChange(false); go(a.ctaPath!) }}
+              onShowMe={start && (() => { onOpenChange(false); setTimeout(start, 250) })} />
+          })}
         </ol>
       )}
     </AppDrawer>
   )
 }
 
-/** Carte d'une nouveauté (panneau ; aperçu de l'éditeur admin avec onTry absent) */
-export function AnnouncementCard({ item: a, onTry }: { item: Announcement; onTry?: () => void }) {
+/** Carte d'une nouveauté (panneau ; aperçu de l'éditeur admin avec onTry absent).
+ *  Avec un tour suivable : « Me montrer » en premier, « Essayer » en second. */
+export function AnnouncementCard({ item: a, onTry, onShowMe, preview = false }: { item: Announcement; onTry?: () => void; onShowMe?: () => void; preview?: boolean }) {
   const t = useTranslations('whats_new')
+  const tOnb = useTranslations('onboarding')
   const locale = useLocale()
   const k = KIND[a.kind] ?? KIND.new
+  const withTour = !!a.tourId && (!!onShowMe || preview)
   return (
     <li className="list-none rounded-xl border bg-card p-4 shadow-sm" data-testid="whats-new-item">
       <div className="flex flex-wrap items-center gap-2">
@@ -76,22 +95,41 @@ export function AnnouncementCard({ item: a, onTry }: { item: Announcement; onTry
       </div>
       <h3 className="mt-2 break-words text-sm font-semibold">{a.title}</h3>
       <p className="mt-1 break-words text-sm leading-relaxed text-muted-foreground">{a.description}</p>
-      {a.ctaPath && (
-        <Button variant="outline" size="sm" className="mt-3 h-9 gap-1.5" onClick={onTry} disabled={!onTry} tabIndex={onTry ? undefined : -1}>
-          {t('try')}<ArrowRight className="h-3.5 w-3.5" />
-        </Button>
+      {(withTour || a.ctaPath) && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {withTour && (
+            <Button variant="stockshop" size="sm" className="h-9 gap-1.5" onClick={onShowMe} disabled={!onShowMe} tabIndex={onShowMe ? undefined : -1} data-testid="whats-new-show-me">
+              <PlayCircle className="h-4 w-4" />{tOnb('show_me')}
+            </Button>
+          )}
+          {a.ctaPath && (
+            <Button variant={withTour ? 'ghost' : 'outline'} size="sm" className="h-9 gap-1.5" onClick={onTry} disabled={!onTry} tabIndex={onTry ? undefined : -1}>
+              {t('try')}<ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
       )}
     </li>
   )
 }
 
+/** Bandeau de l'app : « Me montrer » lance le tour et range le bandeau (la nouveauté est vue) */
+export function LivePageAnnouncement({ item, currentPath, onDismiss }: { item: Announcement; currentPath: string; onDismiss: (id: string) => void }) {
+  const showMe = useShowMe()
+  const start = showMe(item.tourId)
+  return <PageAnnouncement item={item} currentPath={currentPath} onDismiss={onDismiss} onShowMe={start && (() => { onDismiss(item.id); start() })} />
+}
+
 /** Bandeau discret en haut de la page concernée ; fermé une fois pour toutes par la personne */
-export function PageAnnouncement({ item, currentPath, onDismiss, preview = false }: { item: Announcement; currentPath: string; onDismiss: (id: string) => void; preview?: boolean }) {
+export function PageAnnouncement({ item, currentPath, onDismiss, onShowMe, preview = false }: { item: Announcement; currentPath: string; onDismiss: (id: string) => void; onShowMe?: () => void; preview?: boolean }) {
   const t = useTranslations('whats_new')
+  const tOnb = useTranslations('onboarding')
   const navigate = useGo()
   const go = (path: string) => { if (!preview) navigate(path) } // aperçu admin : boutons inertes
   const k = KIND[item.kind] ?? KIND.new
-  const showTry = item.ctaPath && currentPath !== item.ctaPath
+  const withTour = !!item.tourId && (!!onShowMe || preview)
+  // Un seul bouton dans le bandeau : le tour s'il est proposé, sinon « Essayer »
+  const showTry = !withTour && item.ctaPath && currentPath !== item.ctaPath
   return (
     <div role="status" className="mb-4 flex items-start gap-3 rounded-xl border border-stockshop-blue/20 bg-stockshop-blue-muted/60 px-4 py-3 dark:border-blue-900/60 dark:bg-blue-950/30" data-testid="page-announcement">
       <k.icon className="mt-0.5 h-4 w-4 flex-shrink-0 text-stockshop-blue dark:text-blue-400" />
@@ -102,6 +140,11 @@ export function PageAnnouncement({ item, currentPath, onDismiss, preview = false
         </p>
         <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{item.description}</p>
       </div>
+      {withTour && (
+        <Button variant="ghost" size="sm" className="h-8 flex-shrink-0 gap-1 px-2 text-xs font-medium text-stockshop-blue hover:text-stockshop-blue dark:text-blue-400" onClick={() => { if (!preview) onShowMe?.() }} data-testid="page-announcement-show-me">
+          <PlayCircle className="h-3.5 w-3.5" />{tOnb('show_me')}
+        </Button>
+      )}
       {showTry && (
         <Button variant="ghost" size="sm" className="h-8 flex-shrink-0 gap-1 px-2 text-xs font-medium text-stockshop-blue hover:text-stockshop-blue dark:text-blue-400" onClick={() => go(item.ctaPath!)}>
           {t('try')}<ArrowRight className="h-3.5 w-3.5" />

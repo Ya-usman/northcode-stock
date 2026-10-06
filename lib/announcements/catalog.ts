@@ -3,6 +3,8 @@
 // le bandeau et le lien « Essayer », rôles ciblables, règles de saisie.
 // Un chemin hors catalogue est refusé (pas de lien cassé, pas de faute de frappe).
 
+import { TOUR_IDS, type TourId } from '@/lib/onboarding/tours'
+
 export const ANNOUNCEMENT_PAGES: { path: string; label: string }[] = [
   { path: 'dashboard', label: 'Tableau de bord' },
   { path: 'sales/new', label: 'Nouvelle vente' },
@@ -39,6 +41,17 @@ export const ANNOUNCEMENT_ROLES: { role: string; label: string }[] = [
 ]
 const ROLE_SET = new Set(ANNOUNCEMENT_ROLES.map(r => r.role))
 
+// Tours guidés qu'une nouveauté peut lancer (« Me montrer ») — migration 165.
+// Le bouton n'est montré qu'à qui peut suivre le tour (use-available-tours).
+export const ANNOUNCEMENT_TOURS: { tour: TourId; label: string }[] = [
+  { tour: 'quick_tour', label: 'Visite express' },
+  { tour: 'add_product', label: 'Ajouter un produit' },
+  { tour: 'first_sale', label: 'Faire une vente' },
+  { tour: 'add_category', label: 'Créer une catégorie' },
+  { tour: 'invite_member', label: 'Inviter un membre (gestion d’équipe)' },
+  { tour: 'customize_receipt', label: 'Personnaliser le reçu (propriétaire)' },
+]
+
 export const ANNOUNCEMENT_KINDS = [
   { kind: 'new', label: 'Nouveau', badge: 'Nouveau', color: 'blue' },
   { kind: 'improvement', label: 'Amélioration', badge: 'Amélioration', color: 'green' },
@@ -59,6 +72,7 @@ export interface AnnouncementInput {
   description_ha: string | null
   target_path: string | null
   cta_path: string | null
+  tour_id: TourId | null
   roles: string[] | null
   published_at: string
   expires_at: string | null
@@ -93,6 +107,7 @@ export function validateAnnouncement(raw: any): { value?: AnnouncementInput; err
     description_ha: optional(raw?.description_ha),
     target_path: optional(raw?.target_path),
     cta_path: optional(raw?.cta_path),
+    tour_id: optional(raw?.tour_id) as TourId | null,
     roles: Array.isArray(raw?.roles) && raw.roles.length ? Array.from(new Set(raw.roles.map(String))) : null,
     published_at: text(raw?.published_at) || new Date().toISOString(),
     expires_at: optional(raw?.expires_at),
@@ -107,6 +122,7 @@ export function validateAnnouncement(raw: any): { value?: AnnouncementInput; err
   }
   if (value.target_path && !PAGE_SET.has(value.target_path)) errors.push('Page concernée inconnue.')
   if (value.cta_path && !PAGE_SET.has(value.cta_path)) errors.push('Page du lien « Essayer » inconnue.')
+  if (value.tour_id && !TOUR_IDS.includes(value.tour_id)) errors.push('Tour guidé inconnu.')
   if (value.roles?.some(r => !ROLE_SET.has(r))) errors.push('Rôle inconnu dans le public.')
   if (value.roles && value.roles.length === ROLE_SET.size) value.roles = null // tout le monde
   const pub = new Date(value.published_at)
