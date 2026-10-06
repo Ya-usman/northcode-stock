@@ -7,7 +7,7 @@ import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
 import dynamic from 'next/dynamic'
-import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag, CalendarClock, ShoppingCart, X, LayoutGrid, List, SlidersHorizontal, ChevronDown, MoreHorizontal, Zap, Columns3 } from 'lucide-react'
+import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag, CalendarClock, ShoppingCart, X, LayoutGrid, List, SlidersHorizontal, ChevronDown, MoreHorizontal, Zap, Columns3, FileSpreadsheet } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { createClient } from '@/lib/supabase/client'
@@ -48,9 +48,10 @@ import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 
 import { savePendingMovement, updateCachedProductQuantity } from '@/lib/offline/db'
 import { registerBackgroundSync } from '@/lib/offline/sync'
-import { downloadOrShareCSV } from '@/lib/utils/native-share'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 import { EmptyGuide } from '@/components/onboarding/empty-guide'
+import { useTableExport } from '@/lib/export/use-table-export'
+import { PRODUCT_UNITS } from '@/lib/import/products-import'
 import { useStockRealtime } from '@/lib/hooks/use-realtime'
 import { StockTabs } from '@/components/stock/stock-tabs'
 import { withTimeout } from '@/lib/utils/with-timeout'
@@ -843,28 +844,25 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     }
   }
 
-  const exportCSV = async () => {
-    const rows = [
-      [
-        t('products.name'), t('products.category'),
-        t('products.buying_price'), t('products.selling_price'),
-        t('products.quantity'), t('products.unit'), t('products.pdf_col_status'),
+  // Export : mêmes colonnes que le modèle d'import (fichier réimportable), puis catégorie et statut
+  const productsExport = useTableExport()
+  const exportProducts = (format: 'xlsx' | 'csv') => {
+    const col = (f: string) => t(`import.xlsx.col.${f}.header` as any)
+    const unitLabel = (u: string) => (PRODUCT_UNITS as readonly string[]).includes(u) ? t(`import.xlsx.units.${u}` as any) : u
+    productsExport.run({
+      kind: productsExport.kind('products'),
+      shopName: shop?.name || 'StockShop',
+      columns: [
+        { header: col('name') }, { header: `${col('selling_price')} (${currencySymbol})`, type: 'money' }, { header: `${col('buying_price')} (${currencySymbol})`, type: 'money' },
+        { header: col('quantity'), type: 'int' }, { header: col('unit') }, { header: col('sku') }, { header: col('low_stock_threshold'), type: 'int' },
+        { header: t('exports.col_category') }, { header: t('exports.col_status') },
       ],
-      ...filtered.map(p => {
+      rows: filtered.map(p => {
         const threshold = p.low_stock_threshold || shop?.low_stock_threshold || 10
-        const status = p.quantity === 0
-          ? t('status.out_of_stock')
-          : p.quantity <= threshold ? t('status.low_stock') : t('status.in_stock')
-        return [
-          `"${(p.name || '').replace(/"/g, '""')}"`,
-          `"${((p as any).categories?.name || '').replace(/"/g, '""')}"`,
-          p.buying_price, p.selling_price, p.quantity, p.unit,
-          `"${status}"`,
-        ]
-      })
-    ]
-    const csv = rows.map(r => r.join(',')).join('\n')
-    await downloadOrShareCSV(csv, `${t('actions.csv_stock')}-${shop?.name?.replace(/\s+/g, '-') || 'export'}-${Date.now()}.csv`)
+        const status = p.quantity === 0 ? t('status.out_of_stock') : p.quantity <= threshold ? t('status.low_stock') : t('status.in_stock')
+        return [p.name, p.selling_price, p.buying_price, p.quantity, unitLabel(p.unit || 'piece'), p.sku || '', p.low_stock_threshold ?? '', (p as any).categories?.name || '', status]
+      }),
+    }, format)
   }
 
   const toggleSelectAll = () => {
@@ -1381,7 +1379,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-[210px]">
                 <DropdownMenuItem onClick={() => setShowImportModal(true)}><Upload className="mr-2 h-4 w-4" /> {t('products.import_csv')}</DropdownMenuItem>
-                <DropdownMenuItem onClick={exportCSV}><FileDown className="mr-2 h-4 w-4" /> {t('actions.export_csv')}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportProducts('xlsx')} data-testid="export-xlsx"><FileSpreadsheet className="mr-2 h-4 w-4" /> {t('exports.excel')}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportProducts('csv')} data-testid="export-csv"><FileDown className="mr-2 h-4 w-4" /> {t('exports.csv')}</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           )}

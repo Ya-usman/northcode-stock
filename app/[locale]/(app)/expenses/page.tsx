@@ -19,7 +19,7 @@ import { DetailDrawer } from '@/components/ui/detail-drawer'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
 import { InputGroup, RequiredMark } from '@/components/ui/input-group'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Plus, Pencil, Trash2, Receipt, RefreshCw, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Target, FileDown, FileText, Table2, Camera, Paperclip, X, WifiOff, Clock, AlertTriangle, Search, Copy, TrendingUp, TrendingDown, ExternalLink, Save } from 'lucide-react'
+import { Plus, Pencil, Trash2, Receipt, RefreshCw, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Target, FileDown, FileText, Table2, Camera, Paperclip, X, WifiOff, Clock, AlertTriangle, Search, Copy, TrendingUp, TrendingDown, ExternalLink, Save, FileSpreadsheet } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { NumericInput } from '@/components/ui/numeric-input'
@@ -40,7 +40,7 @@ import { compressImage } from '@/lib/utils/compress-image'
 import { hasNativePhotoPicker, pickPhotoNative, PhotoPermissionError } from '@/lib/photo/pick-photo'
 import { useRestoredPhoto } from '@/lib/photo/use-restored-photo'
 import { generateExpensesReportPDF } from '@/lib/utils/pdf'
-import { downloadOrShareCSV } from '@/lib/utils/native-share'
+import { useTableExport } from '@/lib/export/use-table-export'
 import { receiptSrc } from '@/lib/expenses/receipts'
 
 const supabase = createClient() as any
@@ -90,6 +90,7 @@ export default function ExpensesPage() {
   const canDeleteExpenses = canAccess('delete_expenses')
   const canWriteExpenses = canWrite('expenses')
   const tA = useTranslations('actions')
+  const expensesExport = useTableExport()
 
   const [expenses, setExpenses]       = useState<Expense[]>(() =>
     getPageCache<Expense[]>(`expenses_${effectiveShopIds.join(',')}_${monthFilter}`) || []
@@ -733,23 +734,19 @@ export default function ExpensesPage() {
     }
   }
 
-  const exportCSV = async () => {
-    const header = [t('pdf_col_date'), t('pdf_col_desc'), t('pdf_col_cat'), t('pdf_col_payment'), t('pdf_col_amount')]
-    const rows = filtered.map(e => [
-      e.date,
-      `"${e.description.replace(/"/g, '""')}"`,
-      catLabels[e.category || 'other'] || e.category,
-      pmLabels[e.payment_method || 'cash'] || e.payment_method,
-      String(Number(e.amount)),
-    ])
-    rows.push(['', '', '', t('pdf_grand_total'), String(total)])
-    const csv = [header, ...rows].map(r => r.join(';')).join('\n')
-    const filename = `${t('csv_filename_prefix')}-${shop?.name.replace(/\s+/g, '-')}-${monthFilter}.csv`
-    try {
-      await downloadOrShareCSV(csv, filename)
-    } catch (err: any) {
-      toast({ title: t('download_error'), variant: 'destructive' })
-    }
+  // Export Excel / CSV : dépenses du mois affiché (filtres appliqués), total en bas
+  const exportExpenses = (fmtOut: 'xlsx' | 'csv') => {
+    expensesExport.run({
+      kind: expensesExport.kind('expenses'),
+      shopName: shop?.name || 'StockShop',
+      period: monthLabel,
+      columns: [
+        { header: t('date'), type: 'date' }, { header: t('description') }, { header: t('category_label') },
+        { header: t('payment_method_label') }, { header: `${t('amount')} (${symbol})`, type: 'money' },
+      ],
+      rows: filtered.map(e => [e.date, e.description, catLabels[e.category || 'other'] || e.category, pmLabels[e.payment_method || 'cash'] || e.payment_method, Number(e.amount)]),
+      totals: [t('pdf_grand_total'), null, null, null, total],
+    }, fmtOut, monthFilter)
   }
 
   // ─── Render ──────────────────────────────────────────────────────────────
@@ -805,7 +802,7 @@ export default function ExpensesPage() {
           {expenses.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" className="h-9 w-9" loading={exporting} aria-label={tA('download')} title={tA('download')}>
+                <Button variant="outline" size="icon" className="h-9 w-9" loading={exporting || expensesExport.exporting} aria-label={tA('download')} title={tA('download')}>
                   <FileDown className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -813,8 +810,11 @@ export default function ExpensesPage() {
                 <DropdownMenuItem onClick={exportPDF} className="gap-2.5">
                   <FileText className="h-4 w-4 text-red-500 flex-shrink-0" />{t('export_pdf')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={exportCSV} className="gap-2.5">
-                  <Table2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />{t('export_csv')}
+                <DropdownMenuItem onClick={() => exportExpenses('xlsx')} className="gap-2.5" data-testid="export-xlsx">
+                  <FileSpreadsheet className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />{tRoot('exports.excel')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportExpenses('csv')} className="gap-2.5" data-testid="export-csv">
+                  <Table2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />{tRoot('exports.csv')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

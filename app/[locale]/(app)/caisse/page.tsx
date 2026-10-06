@@ -16,10 +16,11 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   ChevronLeft, ChevronRight, ClipboardList, ShoppingCart,
-  TrendingUp, ChevronDown, ChevronUp, Table2, Users, RotateCcw,
+  TrendingUp, ChevronDown, ChevronUp, Table2, Users, RotateCcw, FileDown, FileSpreadsheet,
 } from 'lucide-react'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { useTableExport } from '@/lib/export/use-table-export'
 import { cn } from '@/lib/utils/cn'
-import { downloadOrShareCSV } from '@/lib/utils/native-share'
 import { withTimeout } from '@/lib/utils/with-timeout'
 
 const supabase = createClient() as any
@@ -60,9 +61,11 @@ const RANK_STYLES = [
 const DEFAULT_RANK = 'bg-stockshop-blue-muted dark:bg-blue-950/30 text-stockshop-blue dark:text-blue-400'
 
 export default function CaissePage() {
-  const { effectiveShopIds, profile, roleInActiveShop } = useAuthContext()
+  const { effectiveShopIds, profile, roleInActiveShop, shop, userShops } = useAuthContext()
   const t = useTranslations('caisse')
-  const { fmt } = useCurrency()
+  const tRoot = useTranslations()
+  const { fmt, symbol } = useCurrency()
+  const cashExport = useTableExport()
 
   const role = roleInActiveShop ?? profile?.role
   const { canAccess } = useRolePermissions()
@@ -82,7 +85,6 @@ export default function CaissePage() {
     !getPageCache(`caisse_${effectiveShopIds.join(',')}_${format(new Date(), 'yyyy-MM-dd')}`)
   )
   const [expandedCashier, setExpandedCashier] = useState<string | null>(null)
-  const [exporting, setExporting] = useState(false)
 
   const shopIdsKey = effectiveShopIds.join(',')
 
@@ -247,21 +249,20 @@ export default function CaissePage() {
     ? t('today')
     : selectedDate.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
 
-  const exportCSV = async () => {
-    setExporting(true)
-    const header = [t('col_cashier'), t('col_sales_count'), t('col_sales_total'), t('col_repayments_count'), t('col_repayments_total'), t('col_total')]
-    const rows = cashierSummaries.map(c => [
-      c.name,
-      String(c.salesCount), String(c.salesTotal),
-      String(c.repaymentsCount), String(c.repaymentsTotal),
-      String(c.total),
-    ])
-    rows.push([t('grand_total'), String(grandSalesCount), String(grandSalesTotal), '', String(grandRepayTotal), String(grandTotal)])
-    const csv = [header, ...rows].map(r => r.join(';')).join('\n')
-    try {
-      await downloadOrShareCSV(csv, `caisse-${format(selectedDate, 'yyyy-MM-dd')}.csv`)
-    } catch { /* ignore */ }
-    setExporting(false)
+  // Export Excel / CSV : une ligne par caissier, ligne de totaux, journée en tête
+  const exportCash = (fmtOut: 'xlsx' | 'csv') => {
+    const money = (h: string) => `${h} (${symbol})`
+    cashExport.run({
+      kind: cashExport.kind('cash'),
+      shopName: userShops.filter(x => effectiveShopIds.includes(x.id)).map(x => x.name).join(', ') || shop?.name || 'StockShop',
+      period: cashExport.day(selectedDate),
+      columns: [
+        { header: t('col_cashier') }, { header: t('col_sales_count'), type: 'int' }, { header: money(t('col_sales_total')), type: 'money' },
+        { header: t('col_repayments_count'), type: 'int' }, { header: money(t('col_repayments_total')), type: 'money' }, { header: money(t('col_total')), type: 'money' },
+      ],
+      rows: cashierSummaries.map(c => [c.name, c.salesCount, c.salesTotal, c.repaymentsCount, c.repaymentsTotal, c.total]),
+      totals: [t('grand_total'), grandSalesCount, grandSalesTotal, cashierSummaries.reduce((n, c) => n + c.repaymentsCount, 0), grandRepayTotal, grandTotal],
+    }, fmtOut, format(selectedDate, 'yyyy-MM-dd'))
   }
 
   if (!isAuthorized) {
@@ -281,9 +282,21 @@ export default function CaissePage() {
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-lg font-bold">{t('title')}</h1>
         {hasAny && (
-          <Button variant="outline" size="icon" className="h-9 w-9" onClick={exportCSV} disabled={exporting}>
-            <Table2 className="h-4 w-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="h-9 w-9" loading={cashExport.exporting} aria-label={tRoot('actions.download')} title={tRoot('actions.download')} data-testid="export-menu">
+                <FileDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem onClick={() => exportCash('xlsx')} className="gap-2.5" data-testid="export-xlsx">
+                <FileSpreadsheet className="h-4 w-4 flex-shrink-0 text-green-600 dark:text-green-400" />{tRoot('exports.excel')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportCash('csv')} className="gap-2.5" data-testid="export-csv">
+                <Table2 className="h-4 w-4 flex-shrink-0 text-muted-foreground" />{tRoot('exports.csv')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
 

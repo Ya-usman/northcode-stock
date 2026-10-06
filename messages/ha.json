@@ -2703,6 +2703,25 @@
     "edit_requires_connection": "Gyara yana buƙatar haɗin intanet.",
     "recurring_requires_connection": "Kashe-kashe masu maimaitawa suna buƙatar haɗin intanet."
   },
+  "exports": {
+    "excel": "Fitar zuwa Excel",
+    "csv": "Fitar zuwa CSV",
+    "exported_on": "An fitar a {date}",
+    "period_range": "daga {from} zuwa {to}",
+    "total": "Jimla",
+    "error": "Ba a iya fitarwa ba. Sake gwadawa nan da ɗan lokaci.",
+    "kinds": {
+      "products": "Kaya",
+      "sales": "Sayarwa",
+      "cash": "Asusu",
+      "expenses": "Kashe kuɗi",
+      "debts": "Bashi",
+      "expiry": "Ƙarewa"
+    },
+    "col_category": "Rukuni",
+    "col_status": "Matsayi",
+    "col_stock_value": "Darajar kaya"
+  },
   "import": {
     "title": "Shigo da kayayyaki",
     "step1_title": "1 · Saukar da samfurin Excel",

@@ -2703,6 +2703,25 @@
     "edit_requires_connection": "La modification nécessite une connexion internet.",
     "recurring_requires_connection": "Les dépenses récurrentes nécessitent une connexion internet."
   },
+  "exports": {
+    "excel": "Exporter en Excel",
+    "csv": "Exporter en CSV",
+    "exported_on": "Exporté le {date}",
+    "period_range": "du {from} au {to}",
+    "total": "Total",
+    "error": "Export impossible. Réessayez dans un instant.",
+    "kinds": {
+      "products": "Produits",
+      "sales": "Ventes",
+      "cash": "Caisse",
+      "expenses": "Dépenses",
+      "debts": "Créances",
+      "expiry": "Péremptions"
+    },
+    "col_category": "Catégorie",
+    "col_status": "Statut",
+    "col_stock_value": "Valeur du stock"
+  },
   "import": {
     "title": "Importer des produits",
     "step1_title": "1 · Télécharger le modèle Excel",

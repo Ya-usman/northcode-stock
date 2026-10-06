@@ -5,12 +5,13 @@ import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
 import {
   Search, FileDown, FileText, Table2, ChevronDown, ChevronUp,
-  XCircle, CheckCircle2, Printer, Share2, Store, CornerDownLeft, Activity, Edit2, Trash2, Plus, Clock, ShoppingCart,
+  XCircle, CheckCircle2, Printer, Share2, Store, CornerDownLeft, Activity, Edit2, Trash2, Plus, Clock, ShoppingCart, FileSpreadsheet,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 import { EmptyGuide } from '@/components/onboarding/empty-guide'
+import { useTableExport } from '@/lib/export/use-table-export'
 import { isManagerial } from '@/lib/permissions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,7 +24,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { useCurrency } from '@/lib/hooks/use-currency'
-import { sharePDFNative, downloadOrShareCSV, isCapacitor } from '@/lib/utils/native-share'
+import { sharePDFNative, isCapacitor } from '@/lib/utils/native-share'
 import { getCountry } from '@/lib/saas/countries'
 import { useLocale } from 'next-intl'
 import { readTicketSettings } from '@/lib/receipt/print-settings'
@@ -618,28 +619,38 @@ export default function SalesHistoryPage() {
     balance: filtered.filter(x => x.sale_status !== 'cancelled').reduce((s, x) => s + Number(x.balance), 0),
   } : null
 
-  const exportCSV = async () => {
+  // Export Excel / CSV : période en tête, montants en nombres, totaux des ventes actives
+  const salesExport = useTableExport()
+  const exportSales = (fmtOut: 'xlsx' | 'csv') => {
     setExportMenuOpen(false)
-    const pmLabels = Object.fromEntries(
-      getCountry(shop?.country).paymentMethods.map(m => [m.id, m.label])
-    )
-    const translateMethod = (method: string) =>
-      pmLabels[method] ?? (method ? t(`payment.${method}` as any, { defaultValue: method }) : '')
-
-    const rows = [
-      [t('sales.sale_number'), t('sales.date'), t('sales.customer'), t('sales.total'), t('payment.amount_paid'), t('payment.balance'), t('sales.col_payment_method'), t('sales.col_payment_status'), t('sales.col_sale_status')],
-      ...filtered.map(s => [
-        s.sale_number,
-        format(new Date(s.created_at), 'dd/MM/yyyy HH:mm'),
-        (s as any).customers?.name || t('sales.walk_in'),
-        s.total, s.amount_paid, s.balance,
-        translateMethod(s.payment_method),
-        s.payment_status ? t(`status.${s.payment_status}` as any, { defaultValue: s.payment_status }) : '',
-        s.sale_status ? t(`status.${s.sale_status}` as any, { defaultValue: s.sale_status }) : t('status.active'),
+    const pmLabels = Object.fromEntries(getCountry(shop?.country).paymentMethods.map(m => [m.id, m.label]))
+    const translateMethod = (method: string) => pmLabels[method] ?? (method ? t(`payment.${method}` as any, { defaultValue: method }) : '')
+    const shopNameOf = (id: string) => userShops.find(x => x.id === id)?.name || ''
+    const { start, end } = getDateBounds()
+    const active = filtered.filter(x => x.sale_status !== 'cancelled')
+    const sum = (k: 'total' | 'amount_paid' | 'balance') => active.reduce((acc, x) => acc + Number((x as any)[k] || 0), 0)
+    const money = (h: string) => `${h} (${symbol})`
+    salesExport.run({
+      kind: salesExport.kind('sales'),
+      shopName: isMultiShop ? userShops.filter(x => effectiveShopIds.includes(x.id)).map(x => x.name).join(', ') : (shop?.name || 'StockShop'),
+      period: salesExport.range(start, end),
+      columns: [
+        { header: t('sales.sale_number') }, { header: t('sales.date'), type: 'datetime' },
+        ...(isMultiShop ? [{ header: t('team.shop') }] : []),
+        { header: t('sales.customer') }, { header: money(t('sales.total')), type: 'money' }, { header: money(t('payment.amount_paid')), type: 'money' },
+        { header: money(t('payment.balance')), type: 'money' }, { header: t('sales.col_payment_method') }, { header: t('sales.col_payment_status') }, { header: t('sales.col_sale_status') },
+      ],
+      rows: filtered.map(x => [
+        x.sale_number, new Date(x.created_at),
+        ...(isMultiShop ? [shopNameOf((x as any).shop_id)] : []),
+        (x as any).customers?.name || t('sales.walk_in'),
+        Number(x.total), Number(x.amount_paid), Number(x.balance),
+        translateMethod(x.payment_method),
+        x.payment_status ? t(`status.${x.payment_status}` as any, { defaultValue: x.payment_status }) : '',
+        x.sale_status ? t(`status.${x.sale_status}` as any, { defaultValue: x.sale_status }) : t('status.active'),
       ]),
-    ]
-    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
-    await downloadOrShareCSV(csv, `${t('actions.csv_sales')}-${dateFilter}-${Date.now()}.csv`)
+      totals: [salesExport.total, null, ...(isMultiShop ? [null] : []), null, sum('total'), sum('amount_paid'), sum('balance'), null, null, null],
+    }, fmtOut)
   }
 
   const exportPDF = async () => {
@@ -1067,7 +1078,7 @@ export default function SalesHistoryPage() {
               variant="outline"
               size="icon"
               className="h-9 w-9"
-              loading={exportingPDF}
+              loading={exportingPDF || salesExport.exporting}
               onClick={() => setExportMenuOpen(v => !v)}
               aria-label={t('actions.export_pdf')}
             >
@@ -1085,11 +1096,20 @@ export default function SalesHistoryPage() {
                     <span>{t('actions.export_pdf')}</span>
                   </button>
                   <button
-                    onClick={exportCSV}
+                    onClick={() => exportSales('xlsx')}
                     className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left"
+                    data-testid="export-xlsx"
                   >
-                    <Table2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
-                    <span>{t('actions.export_csv')}</span>
+                    <FileSpreadsheet className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                    <span>{t('exports.excel')}</span>
+                  </button>
+                  <button
+                    onClick={() => exportSales('csv')}
+                    className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left"
+                    data-testid="export-csv"
+                  >
+                    <Table2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <span>{t('exports.csv')}</span>
                   </button>
                 </div>
               </>

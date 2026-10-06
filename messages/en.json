@@ -2703,6 +2703,25 @@
     "edit_requires_connection": "Editing requires an internet connection.",
     "recurring_requires_connection": "Recurring expenses require an internet connection."
   },
+  "exports": {
+    "excel": "Export to Excel",
+    "csv": "Export to CSV",
+    "exported_on": "Exported on {date}",
+    "period_range": "from {from} to {to}",
+    "total": "Total",
+    "error": "Export failed. Please try again in a moment.",
+    "kinds": {
+      "products": "Products",
+      "sales": "Sales",
+      "cash": "Cash",
+      "expenses": "Expenses",
+      "debts": "Debts",
+      "expiry": "Expiry"
+    },
+    "col_category": "Category",
+    "col_status": "Status",
+    "col_stock_value": "Stock value"
+  },
   "import": {
     "title": "Import products",
     "step1_title": "1 · Download the Excel template",
