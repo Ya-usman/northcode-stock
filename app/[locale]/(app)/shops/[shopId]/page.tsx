@@ -1,13 +1,16 @@
 'use client'
 
 // FICHE BOUTIQUE — page dédiée à sous-onglets (refonte du 5 oct. 2026).
-// Phase 2 : Vue d'ensemble + Équipe. (Stock, Caisse, Horaires, Paramètres,
-// Historique : phase 3.) Données réelles uniquement (lib/shops/shop-insights.ts).
+// Phase 2 : Vue d'ensemble + Équipe. Phase 3 (lot 3A, 6 oct.) : Stock, Caisse,
+// Historique — résumés en lecture seule qui ouvrent le module complet sur
+// cette boutique (components/shops/shop-detail-tabs.tsx). Chaque onglet suit
+// les droits du rôle DANS cette boutique (lib/permissions). Données réelles
+// uniquement (lib/shops/shop-insights.ts, lib/shops/shop-detail-data.ts).
 // L'onglet Équipe n'a AUCUNE logique propre : mêmes données (useTeamPeople),
 // même fiche (MemberSheet), mêmes fenêtres (AssignDialog, InviteDialog) que
 // la page Équipe globale.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations, useLocale } from 'next-intl'
@@ -38,9 +41,19 @@ import { MemberSheet } from '@/components/team/member-sheet'
 import { AssignDialog } from '@/components/team/assign-dialog'
 import { InviteDialog } from '@/components/team/invite-dialog'
 import { ShopFormDrawer } from '@/components/shops/shop-form-drawer'
+import dynamic from 'next/dynamic'
+import { presetPersistedFilters } from '@/lib/hooks/use-persisted-filters'
+import { canView } from '@/lib/permissions'
 import type { UserRole } from '@/lib/types/database'
 
-type Tab = 'overview' | 'team'
+// Onglets Stock / Caisse / Historique chargés à l'ouverture : la vue d'ensemble reste légère
+const tabFallback = () => <div className="space-y-3"><Skeleton className="h-32 rounded-xl" /><Skeleton className="h-32 rounded-xl" /></div>
+const ShopStockTab = dynamic(() => import('@/components/shops/shop-detail-tabs').then(m => m.ShopStockTab), { loading: tabFallback })
+const ShopCashTab = dynamic(() => import('@/components/shops/shop-detail-tabs').then(m => m.ShopCashTab), { loading: tabFallback })
+const ShopHistoryTab = dynamic(() => import('@/components/shops/shop-detail-tabs').then(m => m.ShopHistoryTab), { loading: tabFallback })
+
+const TABS = ['overview', 'team', 'stock', 'cash', 'history'] as const
+type Tab = typeof TABS[number]
 
 export default function ShopDetailPage({ params: { shopId } }: { params: { shopId: string } }) {
   const t = useTranslations()
@@ -59,8 +72,8 @@ export default function ShopDetailPage({ params: { shopId } }: { params: { shopI
   const ownerShopCount = userShops.filter(s => isAccountOwner(roleByShop[s.id])).length
   const multi = managedShops.length > 1
 
-  const tab: Tab = searchParams.get('tab') === 'team' ? 'team' : 'overview'
-  const setTab = (next: Tab) => router.replace(`/${locale}/shops/${shopId}${next === 'team' ? '?tab=team' : ''}`, { scroll: false })
+  const requestedTab = searchParams.get('tab') as Tab | null
+  const setTab = (next: Tab) => router.replace(`/${locale}/shops/${shopId}${next === 'overview' ? '' : `?tab=${next}`}`, { scroll: false })
 
   const shopList = useMemo(() => (shop ? [shop] : []), [shop])
   const { stats, loaded, refresh: refreshStats } = useShopStats(shopList)
@@ -79,6 +92,16 @@ export default function ShopDetailPage({ params: { shopId } }: { params: { shopI
   const [sheetUserId, setSheetUserId] = useState<string | null>(null)
   const [assignOpen, setAssignOpen] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(false)
+
+  // Téléphone : la barre d'onglets défile ; l'onglet ouvert doit rester visible
+  useEffect(() => {
+    if (authLoading) return
+    const el = document.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')
+    const bar = el?.parentElement?.parentElement
+    if (!el || !bar) return
+    const offset = el.getBoundingClientRect().left - bar.getBoundingClientRect().left + bar.scrollLeft
+    bar.scrollTo({ left: Math.max(0, offset - (bar.clientWidth - el.offsetWidth) / 2), behavior: 'smooth' })
+  }, [requestedTab, authLoading])
 
   if (authLoading) {
     return <div className="mx-auto max-w-5xl space-y-3"><Skeleton className="h-28 rounded-xl" /><Skeleton className="h-10 w-64 rounded-lg" /><Skeleton className="h-64 rounded-xl" /></div>
@@ -113,13 +136,27 @@ export default function ShopDetailPage({ params: { shopId } }: { params: { shopI
   const sheetPerson = sheetUserId ? people.find(p => p.user_id === sheetUserId) ?? null : null
 
   // Liens vers les modules existants, filtrés sur cette boutique
-  const goTo = (path: string) => {
+  const goTo = (path: string, preset?: { page: string; filters: Record<string, unknown> }) => {
+    // Filtres posés pour CETTE boutique avant la navigation (lus au premier rendu de la page cible)
+    if (preset) presetPersistedFilters(preset.page, shopId, preset.filters)
     if (!isActive) switchShop(shopId)
     setDashboardShopFilter(shopId)
     const href = `/${locale}/${path}`
     startNavigationProgress(href)
     router.push(href)
   }
+
+  // Onglets selon les droits du rôle DANS cette boutique (mêmes règles que les modules)
+  const perms = shop.role_permissions as any
+  const can = (f: Parameters<typeof canView>[2]) => canView(perms, myRole, f)
+  const tabs: { key: Tab; Icon: typeof Store; label: string }[] = [
+    { key: 'overview', Icon: LayoutGrid, label: t('shops.tab_overview') },
+    { key: 'team', Icon: Users, label: t('shops.tab_team') },
+    ...(can('stock') ? [{ key: 'stock' as Tab, Icon: Package, label: t('shop_detail.tab_stock') }] : []),
+    ...(can('caisse') || can('payments') || can('sales_history') ? [{ key: 'cash' as Tab, Icon: Wallet, label: t('shop_detail.tab_cash') }] : []),
+    ...(isOwner ? [{ key: 'history' as Tab, Icon: History, label: t('shop_detail.tab_history') }] : []),
+  ]
+  const tab: Tab = tabs.some(x => x.key === requestedTab) ? requestedTab! : 'overview'
 
   const handleDelete = async () => {
     setDeleting(true)
@@ -193,7 +230,8 @@ export default function ShopDetailPage({ params: { shopId } }: { params: { shopI
           </div>
           <div className="flex w-full flex-wrap gap-2 sm:w-auto">
             {!isActive && (
-              <Button variant="stockshop" className="h-10 flex-1 gap-2 sm:flex-none" onClick={() => { switchShop(shopId); setDashboardShopFilter(shopId) }} data-testid="shop-switch">
+              // Téléphone : seul sur sa ligne, pleine largeur (libellé long, coupé quand il partageait la ligne)
+              <Button variant="stockshop" className="h-10 w-full basis-full gap-2 sm:w-auto sm:basis-auto sm:flex-none" onClick={() => { switchShop(shopId); setDashboardShopFilter(shopId) }} data-testid="shop-switch">
                 <ArrowLeftRight className="h-4 w-4" />{t('shops.switch_to')}
               </Button>
             )}
@@ -216,14 +254,16 @@ export default function ShopDetailPage({ params: { shopId } }: { params: { shopI
         </div>
       </div>
 
-      {/* Sous-onglets (phase 2 : Vue d'ensemble, Équipe) */}
-      <div className="flex w-full gap-1 overflow-x-auto rounded-lg border bg-muted/30 p-1 sm:w-fit" role="tablist">
-        {([['overview', LayoutGrid, t('shops.tab_overview')], ['team', Users, t('shops.tab_team')]] as const).map(([key, Icon, label]) => (
-          <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)} data-testid={`shop-tab-${key}`}
-            className={cn('flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-4 py-1.5 text-sm font-medium transition-colors sm:flex-none', tab === key ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
-            <Icon className="h-3.5 w-3.5" />{label}{key === 'team' && <span className="text-xs text-muted-foreground">{nonOwnerCount}</span>}
-          </button>
-        ))}
+      {/* Sous-onglets : défilent horizontalement sur téléphone */}
+      <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex w-max min-w-full gap-1 rounded-lg border bg-muted/30 p-1 sm:min-w-0" role="tablist">
+          {tabs.map(({ key, Icon, label }) => (
+            <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)} data-testid={`shop-tab-${key}`}
+              className={cn('flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors sm:flex-none', tab === key ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+              <Icon className="h-3.5 w-3.5" />{label}{key === 'team' && <span className="text-xs text-muted-foreground">{nonOwnerCount}</span>}
+            </button>
+          ))}
+        </div>
       </div>
 
       {tab === 'overview' && (
@@ -346,6 +386,16 @@ export default function ShopDetailPage({ params: { shopId } }: { params: { shopI
           ))}
         </div>
       )}
+
+      {tab === 'stock' && (
+        <ShopStockTab shop={shop} isOwner={isOwner} fmt={fmt} openPage={goTo}
+          can={{ expiry: can('expiry_list'), transfers: can('transfers'), purchaseOrders: can('suppliers') }} />
+      )}
+      {tab === 'cash' && (
+        <ShopCashTab shop={shop} fmt={fmt} openPage={p => goTo(p)}
+          can={{ caisse: can('caisse'), credit: can('payments'), review: can('sales_history') }} />
+      )}
+      {tab === 'history' && isOwner && <ShopHistoryTab shopId={shopId} fmt={fmt} />}
 
       <MemberSheet
         person={sheetPerson}

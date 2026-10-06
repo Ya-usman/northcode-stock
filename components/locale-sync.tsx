@@ -23,8 +23,9 @@ export function LocaleSync({ currentLocale }: { currentLocale: string }) {
     // Cookie was cleared (iOS PWA 7-day expiry) but localStorage still has it.
     // Re-write the cookie so the middleware enforces it on the next navigation.
     setLocaleCookie(saved)
-    const newPath = pathname.replace(`/${currentLocale}`, `/${saved}`)
-    router.replace(newPath)
+    // Seule la langue en tête du chemin change ; paramètres (?tab=, ?view=…) et ancre conservés
+    const newPath = pathname.replace(new RegExp(`^/${currentLocale}(?=/|$)`), `/${saved}`)
+    router.replace(newPath + window.location.search + window.location.hash)
   }, [])
 
   return null

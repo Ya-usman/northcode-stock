@@ -162,7 +162,8 @@ export default function SuppliersPage() {
   const shopCountries = useMemo(() => userShops.map(s => s.country), [userShops])
 
   // ── Comparateur de prix par produit ─────────────────────────────────────
-  const [view, setView] = useState<'suppliers' | 'by_product' | 'purchase_orders'>('suppliers')
+  // ?view=purchase_orders : ouverture directe sur les bons de commande (fiche boutique → Stock)
+  const [view, setView] = useState<'suppliers' | 'by_product' | 'purchase_orders'>(() => searchParams.get('view') === 'purchase_orders' ? 'purchase_orders' : 'suppliers')
   const [productSearch, setProductSearch] = useState('')
   const [productPrices, setProductPrices] = useState<{ id: string; product_id: string; supplier_id: string; price: number; updated_at?: string }[]>([])
   const [addPriceProduct, setAddPriceProduct] = useState<Product | null>(null)
