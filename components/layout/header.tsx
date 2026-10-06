@@ -10,6 +10,7 @@ import { useAuthContext } from '@/lib/contexts/auth-context'
 import { ShopSelector } from '@/components/layout/shop-selector'
 import { NotificationBell } from '@/components/layout/notification-bell'
 import { useTheme } from '@/lib/hooks/use-theme'
+import { WhatsNewButton } from '@/components/announcements/whats-new'
 
 const LOCALE_FLAGS: Record<string, string> = {
   en: '🇬🇧',
@@ -21,9 +22,11 @@ interface HeaderProps {
   title: string
   locale: string
   onSignOut?: () => void
+  /** Nouveautés : icône avec point bleu tant qu'il y a du nouveau */
+  whatsNew?: { hasUnread: boolean; onOpen: () => void }
 }
 
-export function Header({ title, locale }: HeaderProps) {
+export function Header({ title, locale, whatsNew }: HeaderProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { updateLocale } = useAuthContext()
@@ -50,6 +53,8 @@ export function Header({ title, locale }: HeaderProps) {
 
         {/* Messages du support — visible seulement pour le owner (voir notification-bell.tsx) */}
         <NotificationBell />
+
+        {whatsNew && <WhatsNewButton hasUnread={whatsNew.hasUnread} onOpen={whatsNew.onOpen} />}
 
         {/* Dark / Light toggle */}
         <Button variant="ghost" size="icon" onClick={toggle} className="h-8 w-8 text-muted-foreground hover:text-foreground">

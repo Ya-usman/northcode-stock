@@ -24,14 +24,15 @@ interface BottomNavProps {
   onSignOut?: () => void
   signingOut?: boolean
   userEmail?: string
-  hasUnreadAnnouncement?: boolean
+  /** Pages qui portent le badge « Nouveau » (premier segment du chemin, sans langue) */
+  newNavPaths?: Set<string>
   crispUnread?: number
   onOpenChat?: () => void
 }
 
 const ALL_NON_OWNER = ['super_admin', 'owner', 'manager', 'shop_manager', 'cashier', 'viewer', 'stock_manager']
 
-export function BottomNav({ locale, role, onSignOut, signingOut = false, userEmail = '', hasUnreadAnnouncement = false, crispUnread = 0, onOpenChat }: BottomNavProps) {
+export function BottomNav({ locale, role, onSignOut, signingOut = false, userEmail = '', newNavPaths, crispUnread = 0, onOpenChat }: BottomNavProps) {
   const t = useTranslations('nav')
   const pathname = usePathname()
   const [moreOpen, setMoreOpen] = useState(false)
@@ -61,6 +62,9 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
 
   const primaryItems = allItems.filter(i => i.primary)
   const moreItems = allItems.filter(i => !i.primary)
+  // Point « Nouveau » : nouveauté récente qui concerne cette page
+  const isNew = (href: string) => !!newNavPaths?.has(href.split('/')[2] ?? '')
+  const NewDot = () => <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-stockshop-blue ring-2 ring-card dark:bg-blue-400" data-testid="nav-new-dot" />
 
   return (
     <>
@@ -86,7 +90,10 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
                   !available && 'opacity-35 pointer-events-none'
                 )}
               >
-                <Icon className={cn('h-5 w-5', isActive && 'text-stockshop-blue dark:text-blue-400')} strokeWidth={isActive ? 2.5 : 2} />
+                <span className="relative">
+                  <Icon className={cn('h-5 w-5', isActive && 'text-stockshop-blue dark:text-blue-400')} strokeWidth={isActive ? 2.5 : 2} />
+                  {isNew(item.href) && !isActive && <NewDot />}
+                </span>
                 <span className="text-[10px] font-medium leading-none">{item.label}</span>
                 {isActive && <span className="absolute bottom-0 h-0.5 w-8 rounded-full bg-stockshop-blue dark:bg-blue-400" />}
               </Link>
@@ -102,7 +109,10 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
                 moreOpen ? 'text-stockshop-blue dark:text-blue-400' : 'text-muted-foreground'
               )}
             >
-              {moreOpen ? <X className="h-5 w-5" /> : <MoreHorizontal className="h-5 w-5" />}
+              <span className="relative">
+                {moreOpen ? <X className="h-5 w-5" /> : <MoreHorizontal className="h-5 w-5" />}
+                {!moreOpen && moreItems.some(i => isNew(i.href)) && <NewDot />}
+              </span>
               <span className="text-[10px] font-medium leading-none">{t('more')}</span>
             </button>
           )}
@@ -128,8 +138,7 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
                   const Icon = item.icon
                   const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
                   const available = isAvailable(item.href)
-                  const isHelp = item.href.endsWith('/help')
-                  const showBadge = isHelp && hasUnreadAnnouncement
+                  const showBadge = isNew(item.href) && !isActive
                   return (
                     <Link
                       key={item.href}
@@ -149,9 +158,7 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
                     >
                       <div className="relative">
                         <Icon className="h-5 w-5" strokeWidth={isActive ? 2.5 : 2} />
-                        {showBadge && (
-                          <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-1 ring-card" />
-                        )}
+                        {showBadge && <NewDot />}
                       </div>
                       <span className="text-[10px] font-medium leading-none text-center">{item.label}</span>
                     </Link>

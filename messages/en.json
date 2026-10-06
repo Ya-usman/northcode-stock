@@ -1886,6 +1886,19 @@
       "bulk_update_promo": "Promotion on several products"
     }
   },
+  "whats_new": {
+    "title": "What’s new",
+    "subtitle": "The latest StockShop improvements",
+    "open": "What’s new",
+    "open_unread": "What’s new — something new to discover",
+    "empty": "Nothing new for now.",
+    "try": "Try it",
+    "dismiss": "Hide",
+    "unread": "Unread",
+    "kind_new": "New",
+    "kind_improvement": "Improvement",
+    "kind_fix": "Fix"
+  },
   "notes": {
     "load_timeout": "Notes are taking too long to load — try again.",
     "updated_toast": "Note updated",

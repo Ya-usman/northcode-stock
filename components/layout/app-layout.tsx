@@ -20,7 +20,8 @@ import { TrialBanner } from '@/components/saas/trial-banner'
 import { UpgradeWall } from '@/components/saas/upgrade-wall'
 import { PlanLimitAlert } from '@/components/saas/plan-limit-alert'
 import { GracePeriodBanner } from '@/components/saas/grace-period-banner'
-import { WhatsNewModal, type Announcement } from '@/components/saas/whats-new-modal'
+import { WhatsNewPanel, PageAnnouncement } from '@/components/announcements/whats-new'
+import { useAnnouncements, appPath } from '@/lib/announcements/use-announcements'
 import { ShopClosedWall } from '@/components/saas/shop-closed-wall'
 import { ShopHoursCountdownBanner } from '@/components/saas/shop-hours-countdown-banner'
 import { getTrialDaysLeft, hasActiveSubscription, isAccessAllowed, getGraceDaysLeft, isBetaPeriod } from '@/lib/saas/plans'
@@ -79,9 +80,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   const [teamCount, setTeamCount] = useState(0)
   const [teamLimit, setTeamLimit] = useState<number | undefined>(undefined)
   const [authRecovering, setAuthRecovering] = useState(true)
-  const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [whatsNewOpen, setWhatsNewOpen] = useState(false)
-  const [hasUnread, setHasUnread] = useState(false)
   const [crispUnread, setCrispUnread] = useState(0)
   const recoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { toast } = useToast()
@@ -119,42 +118,10 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
     }
   }, [loading, user])
 
-  // ── ANNOUNCEMENTS: fetch & show modal if unread ──────────────────────────
-  useEffect(() => {
-    if (!profile?.id) return
-    supabase
-      .from('announcements' as any)
-      .select('*')
-      .eq('is_active', true)
-      .order('published_at', { ascending: false })
-      .limit(10)
-      .then(({ data }: { data: any }) => {
-        if (!data?.length) return
-        const lastSeen = profile.last_seen_announcement_at
-          ? new Date(profile.last_seen_announcement_at)
-          : null
-        // N'affiche que les annonces publiées depuis la dernière visite — sans
-        // ce filtre, une seule nouvelle annonce réaffichait aussi toutes les
-        // précédentes (jusqu'à 10) déjà vues et fermées par l'utilisateur.
-        const unseen = lastSeen
-          ? (data as Announcement[]).filter(a => new Date(a.published_at) > lastSeen)
-          : (data as Announcement[])
-        if (unseen.length === 0) return
-        setAnnouncements(unseen)
-        setWhatsNewOpen(true)
-        setHasUnread(true)
-      })
-  }, [profile?.id])
-
-  const handleCloseWhatsNew = async () => {
-    setWhatsNewOpen(false)
-    setHasUnread(false)
-    if (!profile?.id) return
-    await (supabase
-      .from('profiles') as any)
-      .update({ last_seen_announcement_at: new Date().toISOString() })
-      .eq('id', profile.id)
-  }
+  // ── NOUVEAUTÉS (V2, migration 162) : panneau à la demande, bandeau sur la
+  // page concernée, badge du menu — plus jamais de fenêtre à la connexion
+  const whatsNew = useAnnouncements(profile ?? null, roleInActiveShop ?? profile?.role, locale)
+  const openWhatsNew = () => { setWhatsNewOpen(true); whatsNew.markAllSeen() }
 
   // ── CRISP: cacher le widget — observer ciblé pour ne pas bloquer le scroll
   useEffect(() => {
@@ -424,7 +391,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
     )
   }
 
-  const hasUnreadAnnouncement = hasUnread
+  const pageAnnouncement = whatsNew.bannerFor(pathname)
 
   const trialDaysLeft  = getTrialDaysLeft(shop?.trial_ends_at ?? null)
   const graceDaysLeft  = getGraceDaysLeft(shop?.plan ?? null, shop?.plan_expires_at ?? null)
@@ -454,7 +421,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         <ShopClosedWall locale={locale} shopName={shop?.name} openingTime={shop!.opening_time!} closingTime={shop!.closing_time!} />
       )}
 
-      <Sidebar locale={locale} role={roleInActiveShop ?? profile.role} profile={profile} onSignOut={handleSignOut} signingOut={signingOut} userEmail={user.email ?? ''} hasUnreadAnnouncement={hasUnreadAnnouncement} onOpenWhatsNew={() => setWhatsNewOpen(true)} />
+      <Sidebar locale={locale} role={roleInActiveShop ?? profile.role} profile={profile} onSignOut={handleSignOut} signingOut={signingOut} userEmail={user.email ?? ''} newNavPaths={whatsNew.newNavPaths} />
 
       <div className="sm:pl-64 flex flex-col min-h-screen">
         <OfflineBanner />
@@ -474,7 +441,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
           />
         )}
 
-        <Header title={title} locale={locale} onSignOut={handleSignOut} />
+        <Header title={title} locale={locale} onSignOut={handleSignOut} whatsNew={{ hasUnread: whatsNew.hasUnread, onOpen: openWhatsNew }} />
 
         {profile.role === 'owner' && accessAllowed && !isBillingPage && (
           <PlanLimitAlert
@@ -488,11 +455,12 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
 
         <main className="flex-1 p-4 sm:p-6 pb-24 sm:pb-6 overflow-x-hidden">
           <CacheBanner ageMs={cacheAgeMs} isOnline={!isOffline} />
+          {pageAnnouncement && <PageAnnouncement item={pageAnnouncement} currentPath={appPath(pathname)} onDismiss={whatsNew.dismiss} />}
           {children}
         </main>
       </div>
 
-      <BottomNav locale={locale} role={roleInActiveShop ?? profile.role} onSignOut={handleSignOut} signingOut={signingOut} userEmail={user.email ?? ''} hasUnreadAnnouncement={hasUnreadAnnouncement} crispUnread={crispUnread} onOpenChat={handleOpenChat} />
+      <BottomNav locale={locale} role={roleInActiveShop ?? profile.role} onSignOut={handleSignOut} signingOut={signingOut} userEmail={user.email ?? ''} newNavPaths={whatsNew.newNavPaths} crispUnread={crispUnread} onOpenChat={handleOpenChat} />
 
       {/* Sign-out protection dialog */}
       <Dialog open={signOutDialogOpen} onOpenChange={open => { if (!open && !forcingSignOut) setSignOutDialogOpen(false) }}>
@@ -535,9 +503,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         </DialogContent>
       </Dialog>
 
-      {whatsNewOpen && announcements.length > 0 && (
-        <WhatsNewModal announcements={announcements} onClose={handleCloseWhatsNew} />
-      )}
+      <WhatsNewPanel open={whatsNewOpen} onOpenChange={setWhatsNewOpen} items={whatsNew.items} />
 
       <Script
         id="crisp-widget"

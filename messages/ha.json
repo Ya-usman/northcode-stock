@@ -1921,6 +1921,19 @@
       "bulk_update_promo": "Rangwame a kan kayayyaki da yawa"
     }
   },
+  "whats_new": {
+    "title": "Sababbin abubuwa",
+    "subtitle": "Sabbin ingantattun abubuwa na StockShop",
+    "open": "Sababbin abubuwa",
+    "open_unread": "Sababbin abubuwa — akwai sabon abu",
+    "empty": "Babu sabon abu a yanzu.",
+    "try": "Gwada",
+    "dismiss": "Ɓoye",
+    "unread": "Ba a karanta ba",
+    "kind_new": "Sabo",
+    "kind_improvement": "Ingantawa",
+    "kind_fix": "Gyara"
+  },
   "notes": {
     "load_timeout": "Loda bayanan kula yana ɗaukar lokaci mai yawa — sake gwadawa.",
     "updated_toast": "An gyara bayanin kula",

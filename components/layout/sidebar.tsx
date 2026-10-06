@@ -28,13 +28,13 @@ interface SidebarProps {
   onSignOut: () => void
   signingOut?: boolean
   userEmail?: string
-  hasUnreadAnnouncement?: boolean
-  onOpenWhatsNew?: () => void
+  /** Pages qui portent le badge « Nouveau » (premier segment du chemin, sans langue) */
+  newNavPaths?: Set<string>
 }
 
 const ALL_NON_OWNER = ['owner', 'super_admin', 'manager', 'shop_manager', 'cashier', 'viewer', 'stock_manager']
 
-export function Sidebar({ locale, role, profile, onSignOut, signingOut = false, userEmail = '', hasUnreadAnnouncement = false, onOpenWhatsNew }: SidebarProps) {
+export function Sidebar({ locale, role, profile, onSignOut, signingOut = false, userEmail = '', newNavPaths }: SidebarProps) {
   const t = useTranslations('nav')
   const tRoles = useTranslations('roles')
   const pathname = usePathname()
@@ -125,15 +125,14 @@ export function Sidebar({ locale, role, profile, onSignOut, signingOut = false, 
               {visibleItems.map(item => {
                 const Icon = item.icon
                 const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
-                const isHelp = item.href.endsWith('/help')
-                const showBadge = isHelp && hasUnreadAnnouncement
+                // Badge « Nouveau » : nouveauté récente qui concerne cette page
+                const showBadge = !!newNavPaths?.has(item.href.split('/')[2] ?? '')
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
                     prefetch={true}
                     isOnline={isOnline}
-                    onClick={isHelp && hasUnreadAnnouncement && onOpenWhatsNew ? () => { onOpenWhatsNew() } : undefined}
                     className={cn(
                       'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors tap-target',
                       isActive
@@ -141,15 +140,10 @@ export function Sidebar({ locale, role, profile, onSignOut, signingOut = false, 
                         : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                     )}
                   >
-                    <div className="relative flex-shrink-0">
-                      <Icon className="h-4 w-4" />
-                      {showBadge && (
-                        <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-500 ring-1 ring-card" />
-                      )}
-                    </div>
+                    <Icon className="h-4 w-4 flex-shrink-0" />
                     {item.label}
                     {showBadge && !isActive && (
-                      <span className="ml-auto text-[10px] font-semibold text-red-500">{t('new_badge')}</span>
+                      <span className="ml-auto rounded-full bg-stockshop-blue-muted px-1.5 py-0.5 text-[10px] font-semibold text-stockshop-blue dark:bg-blue-950/60 dark:text-blue-400" data-testid="nav-new-badge">{t('new_badge')}</span>
                     )}
                     {isActive && !showBadge && <ChevronRight className="ml-auto h-3 w-3" />}
                   </Link>

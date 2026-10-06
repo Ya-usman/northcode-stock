@@ -1886,6 +1886,19 @@
       "bulk_update_promo": "Promotion sur plusieurs produits"
     }
   },
+  "whats_new": {
+    "title": "Nouveautés",
+    "subtitle": "Les dernières améliorations de StockShop",
+    "open": "Nouveautés",
+    "open_unread": "Nouveautés — du nouveau à découvrir",
+    "empty": "Aucune nouveauté pour le moment.",
+    "try": "Essayer",
+    "dismiss": "Masquer",
+    "unread": "Non lue",
+    "kind_new": "Nouveau",
+    "kind_improvement": "Amélioration",
+    "kind_fix": "Correction"
+  },
   "notes": {
     "load_timeout": "Chargement des notes trop lent — réessayez.",
     "updated_toast": "Note modifiée",
