@@ -16,7 +16,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations, useLocale } from 'next-intl'
 import {
   ArrowLeft, Store, Pencil, ArrowLeftRight, Trash2, Plus, Wallet, ShoppingCart, TrendingUp, Package, AlertTriangle, PackageX, Users,
-  MapPin, Phone, Mail, Hash, Globe, Coins, CalendarDays, Clock, CreditCard, BarChart2, History, UserPlus, Store as StoreIcon, ChevronRight, LayoutGrid,
+  MapPin, Phone, Mail, Hash, Globe, Coins, CalendarDays, Clock, CreditCard, BarChart2, History, UserPlus, Store as StoreIcon, ChevronRight, LayoutGrid, Settings as SettingsIcon,
 } from 'lucide-react'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { Button } from '@/components/ui/button'
@@ -51,8 +51,10 @@ const tabFallback = () => <div className="space-y-3"><Skeleton className="h-32 r
 const ShopStockTab = dynamic(() => import('@/components/shops/shop-detail-tabs').then(m => m.ShopStockTab), { loading: tabFallback })
 const ShopCashTab = dynamic(() => import('@/components/shops/shop-detail-tabs').then(m => m.ShopCashTab), { loading: tabFallback })
 const ShopHistoryTab = dynamic(() => import('@/components/shops/shop-detail-tabs').then(m => m.ShopHistoryTab), { loading: tabFallback })
+const ShopHoursTab = dynamic(() => import('@/components/shops/shop-detail-tabs-3b').then(m => m.ShopHoursTab), { loading: tabFallback })
+const ShopSettingsTab = dynamic(() => import('@/components/shops/shop-detail-tabs-3b').then(m => m.ShopSettingsTab), { loading: tabFallback })
 
-const TABS = ['overview', 'team', 'stock', 'cash', 'history'] as const
+const TABS = ['overview', 'team', 'stock', 'cash', 'hours', 'settings', 'history'] as const
 type Tab = typeof TABS[number]
 
 export default function ShopDetailPage({ params: { shopId } }: { params: { shopId: string } }) {
@@ -154,8 +156,22 @@ export default function ShopDetailPage({ params: { shopId } }: { params: { shopI
     { key: 'team', Icon: Users, label: t('shops.tab_team') },
     ...(can('stock') ? [{ key: 'stock' as Tab, Icon: Package, label: t('shop_detail.tab_stock') }] : []),
     ...(can('caisse') || can('payments') || can('sales_history') ? [{ key: 'cash' as Tab, Icon: Wallet, label: t('shop_detail.tab_cash') }] : []),
+    { key: 'hours', Icon: Clock, label: t('shop_detail.tab_hours') },
+    ...(isOwner ? [{ key: 'settings' as Tab, Icon: SettingsIcon, label: t('shop_detail.tab_settings') }] : []),
     ...(isOwner ? [{ key: 'history' as Tab, Icon: History, label: t('shop_detail.tab_history') }] : []),
   ]
+
+  // Paramètres complets de CETTE boutique : bascule visible avant d'ouvrir la page
+  const openSettings = () => {
+    if (!isActive) {
+      switchShop(shopId)
+      setDashboardShopFilter(shopId)
+      toast({ title: t('shop_detail.switched_to', { name: shop.name }) })
+    }
+    const href = `/${locale}/settings`
+    startNavigationProgress(href)
+    router.push(href)
+  }
   const tab: Tab = tabs.some(x => x.key === requestedTab) ? requestedTab! : 'overview'
 
   const handleDelete = async () => {
@@ -395,6 +411,8 @@ export default function ShopDetailPage({ params: { shopId } }: { params: { shopI
         <ShopCashTab shop={shop} fmt={fmt} openPage={p => goTo(p)}
           can={{ caisse: can('caisse'), credit: can('payments'), review: can('sales_history') }} />
       )}
+      {tab === 'hours' && <ShopHoursTab shop={shop} isOwner={isOwner} canExtend={can('extend_hours')} />}
+      {tab === 'settings' && isOwner && <ShopSettingsTab shop={shop} onOpenSettings={openSettings} />}
       {tab === 'history' && isOwner && <ShopHistoryTab shopId={shopId} fmt={fmt} />}
 
       <MemberSheet

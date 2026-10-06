@@ -37,6 +37,7 @@ import { isLevelFeature, isViewerLocked, levelOf, mergeRolePerms, withLevel, typ
 import { cn } from '@/lib/utils/cn'
 import { CompanyCard } from '@/components/settings/company-card'
 import { withTimeout } from '@/lib/utils/with-timeout'
+import { ShopHoursEditor } from '@/components/shops/shop-hours-editor'
 
 export default function SettingsPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations()
@@ -643,56 +644,11 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                 <p className="text-xs text-muted-foreground mt-1">{t('settings.hours_desc')}</p>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label>{t('settings.hours_enabled')}</Label>
-                  <Switch checked={hoursEnabled} onCheckedChange={setHoursEnabled} />
-                </div>
-
-                {hoursEnabled && (
-                  <>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <Label>{t('settings.hours_opening')}</Label>
-                        <Input type="time" value={openingTime} onChange={e => setOpeningTime(e.target.value)} />
-                      </div>
-                      <div className="space-y-1">
-                        <Label>{t('settings.hours_closing')}</Label>
-                        <Input type="time" value={closingTime} onChange={e => setClosingTime(e.target.value)} />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label>{t('settings.hours_override')}</Label>
-                      <div className="flex gap-2 flex-wrap">
-                        {([
-                          ['auto', t('settings.hours_override_auto')],
-                          ['open', t('settings.hours_override_open')],
-                          ['closed', t('settings.hours_override_closed')],
-                        ] as const).map(([value, label]) => (
-                          <button
-                            key={value}
-                            type="button"
-                            onClick={() => setHoursOverride(value)}
-                            className={cn(
-                              'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors border',
-                              hoursOverride === value
-                                ? 'bg-stockshop-blue text-white border-stockshop-blue dark:border-blue-500'
-                                : 'border-border text-muted-foreground hover:bg-muted'
-                            )}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {hoursOverride !== 'auto' && (
-                      <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-                        {t('settings.hours_override_warning')}
-                      </div>
-                    )}
-                  </>
-                )}
+                {/* Même formulaire que la fiche boutique → Horaires */}
+                <ShopHoursEditor
+                  value={{ enabled: hoursEnabled, opening: openingTime, closing: closingTime, override: hoursOverride }}
+                  onChange={v => { setHoursEnabled(v.enabled); setOpeningTime(v.opening); setClosingTime(v.closing); setHoursOverride(v.override) }}
+                />
               </CardContent>
             </Card>
           )}

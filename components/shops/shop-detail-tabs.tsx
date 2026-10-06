@@ -23,7 +23,7 @@ import type { Shop } from '@/lib/types/database'
 
 // ── Éléments communs ────────────────────────────────────────────────────────
 
-function Section({ title, icon: Icon, summary, action, children, testId }: {
+export function Section({ title, icon: Icon, summary, action, children, testId }: {
   title: string; icon: typeof Store; summary?: React.ReactNode; action?: React.ReactNode; children: React.ReactNode; testId?: string
 }) {
   return (

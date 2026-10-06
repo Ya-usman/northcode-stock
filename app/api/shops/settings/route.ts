@@ -18,7 +18,10 @@ export async function PATCH(request: Request) {
 
     const { shop_id, ...rawUpdates } = await request.json()
     if (!shop_id) return NextResponse.json({ error: t('shop_id_required') }, { status: 400 })
-    if (!rawUpdates.name?.trim()) return NextResponse.json({ error: t('shop_name_field_required') }, { status: 400 })
+    // Nom exigé s'il est envoyé (Paramètres l'envoie toujours ; la fiche
+    // boutique → Horaires n'envoie que les horaires)
+    if ('name' in rawUpdates && !String(rawUpdates.name ?? '').trim()) return NextResponse.json({ error: t('shop_name_field_required') }, { status: 400 })
+    if (!Object.keys(rawUpdates).length) return NextResponse.json({ error: t('invalid_data') }, { status: 400 })
 
     // Liste blanche stricte : sans elle, un propriétaire authentifié pourrait glisser
     // n'importe quelle colonne (billing_country, plan, plan_expires_at, trial_ends_at,
