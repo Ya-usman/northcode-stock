@@ -3230,6 +3230,33 @@
     "footer": "Ce geste commercial vous avait été accordé par l’équipe StockShop."
   },
   "emails": {
+    "support_contact": {
+      "hello_name": "Bonjour {name},",
+      "hello": "Bonjour,",
+      "closing": "Une question ? Répondez simplement à ce message.\n\nBien à vous,",
+      "team": "Support StockShop",
+      "footer": "Message envoyé par le support StockShop (support@stockshop.tech). Répondez à cet e-mail pour nous écrire.",
+      "welcome_product": {
+        "subject": "{shop} : ajoutez vos premiers produits",
+        "body": "Je suis {sender}, de l’équipe StockShop. Merci d’avoir créé « {shop} » !\n\nPour bien démarrer, la première étape est d’ajouter vos produits (nom, prix, quantité). Ce lien vous montre comment faire, pas à pas, directement dans l’application :\n\n{link}\n\nSi vous préférez, envoyez-moi simplement votre liste de produits, même une photo de votre cahier, et je vous aide à tout mettre en place.",
+        "cta": "Ajouter mes produits"
+      },
+      "late_product": {
+        "subject": "{shop} : besoin d’un coup de main pour démarrer ?",
+        "body": "Je suis {sender}, de l’équipe StockShop. J’ai vu que « {shop} » n’a pas encore de produits : c’est souvent l’étape la plus longue, et nous pouvons vous aider.\n\nLe guide pas à pas dans l’application :\n\n{link}\n\nVous pouvez aussi importer tous vos produits d’un coup depuis un fichier Excel, ou m’envoyer votre liste (même une photo) : nous la mettons en place avec vous.\n\nSi c’est plus simple, donnez-moi votre numéro WhatsApp et nous regardons ensemble en 10 minutes.",
+        "cta": "Ajouter mes produits"
+      },
+      "first_sale": {
+        "subject": "{shop} : faites votre première vente",
+        "body": "Je suis {sender}, de l’équipe StockShop. Bravo, vos produits sont en place dans « {shop} » !\n\nÉtape suivante : encaisser une première vente. Le stock se met à jour tout seul et le reçu part en un clic. Ce lien vous montre comment faire :\n\n{link}\n\nUn conseil : commencez par une vente test avec un petit article ; vous pourrez l’annuler ensuite depuis l’historique des ventes.",
+        "cta": "Faire ma première vente"
+      },
+      "free": {
+        "subject": "StockShop · {shop}",
+        "body": "",
+        "cta": ""
+      }
+    },
     "methods": {
       "cash": "Espèces",
       "mobile_money": "Mobile Money",

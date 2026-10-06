@@ -93,6 +93,19 @@ export async function GET() {
         hasReceipt: c.owned.some(s => s.logo_url || s.receipt_tagline || s.receipt_footer || s.receipt_legal_ids),
       }
     }))
+    // Derniers messages du support (migration 167 ; table pas encore créée → aucun)
+    if (accounts.length) {
+      const sc = await admin.from('support_contacts').select('user_id, channel, created_at, sent_by').in('user_id', accounts.map(a => a.ownerId)).order('created_at', { ascending: false })
+      if (sc.error && !/support_contacts|does not exist|PGRST205/i.test(sc.error.message)) throw new Error(sc.error.message)
+      const rows = (sc.data || []) as any[]
+      const senderIds = Array.from(new Set(rows.map(r => r.sent_by).filter(Boolean))) as string[]
+      const senders = senderIds.length ? must(await admin.from('profiles').select('id, full_name').in('id', senderIds)).data as any[] : []
+      const senderName = new Map(senders.map(p => [p.id, p.full_name]))
+      for (const a of accounts) {
+        const r = rows.find(x => x.user_id === a.ownerId)
+        a.lastContact = r ? { at: r.created_at, channel: r.channel, by: senderName.get(r.sent_by) ?? null } : null
+      }
+    }
     const byOwner = new Map(accounts.map(a => [a.ownerId, a]))
 
     // ── Tours guidés (personnes de la plateforme, administrateurs et adresses de test exclus) ──

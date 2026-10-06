@@ -80,6 +80,9 @@ export async function GET(request: Request) {
         admin.from('user_onboarding').select('nudges_unsubscribed_at').eq('user_id', userId).maybeSingle(),
         admin.from('profiles').select('full_name, locale').eq('id', userId).maybeSingle(),
       ])).map(must) as any[]
+      // Message personnel récent du support (migration 167) ; table pas encore créée → aucun
+      const support = await admin.from('support_contacts').select('created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(1)
+      if (support.error && !/support_contacts|does not exist|PGRST205/i.test(support.error.message)) throw new Error(support.error.message)
       const sent: Partial<Record<NudgeId, Date>> = {}
       for (const r of sentRows || []) sent[r.nudge as NudgeId] = new Date(r.sent_at)
       const ends = (ents || []).map((e: any) => (e.plan === 'trial' || !e.plan ? e.trial_ends_at : e.plan_expires_at)).filter(Boolean).map((d: string) => new Date(d).getTime())
@@ -92,6 +95,7 @@ export async function GET(request: Request) {
         sent,
         unsubscribed: !!ob?.nudges_unsubscribed_at,
         internal: live.some((s: any) => s.is_internal) || (ents || []).some((e: any) => e.is_internal),
+        lastSupportContactAt: support.data?.[0] ? new Date(support.data[0].created_at) : null,
         billingEndsAt: (() => { const up = ends.filter((e: number) => e > now.getTime() - DAY); return up.length ? new Date(Math.min(...up)) : null })(),
       })
       const r: any = { user: userId.slice(0, 8), products, sales }

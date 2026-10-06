@@ -7,7 +7,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useLocale, useTranslations } from 'next-intl'
-import { Clock, Mail, Package, Phone, RefreshCw, ShoppingCart, UserPlus } from 'lucide-react'
+import { CheckCircle2, Clock, Mail, Package, PenLine, Phone, RefreshCw, ShoppingCart, UserPlus } from 'lucide-react'
+import { SupportContactDrawer } from '@/components/admin/support-contact-drawer'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AdminPageHeader } from '@/components/admin/ui/admin-page-header'
@@ -33,12 +34,20 @@ const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0)
 const duration = (h: number | null) => (h === null ? '—' : h < 1 ? '< 1 h' : h < 48 ? `${Math.round(h)} h` : `${Math.round(h / 24)} j`)
 const weekLabel = (t: number) => new Date(t).toLocaleDateString('fr-FR', { timeZone: 'UTC', day: 'numeric', month: 'short' })
 
+/** « Contacté le 6 oct. par Ghislain (e-mail) » */
+function LastContact({ c }: { c: ActivationAccount['lastContact'] }) {
+  if (!c) return null
+  const when = new Date(c.at).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'short' })
+  return <p className="flex items-center gap-1 text-xs text-green-700 dark:text-green-400" data-testid="last-contact"><CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" />Contacté le {when}{c.by ? ` par ${c.by.split(' ')[0]}` : ''} ({c.channel === 'email' ? 'e-mail' : 'WhatsApp'})</p>
+}
+
 export function ActivationAdmin() {
   const locale = useLocale()
   const t = useTranslations('onboarding')
   const [data, setData] = useState<Data | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [contactOwner, setContactOwner] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -91,10 +100,12 @@ export function ActivationAdmin() {
                 <div className="min-w-0">
                   <Link href={`/${locale}/admin/shops/${r.account.shopId}`} className="font-medium text-stockshop-blue hover:underline dark:text-blue-400">{r.account.shopName}</Link>
                   <p className="text-sm text-muted-foreground">{r.account.ownerName || '—'} · {r.ageDays === 0 ? 'inscrit aujourd’hui' : `inscrit il y a ${r.ageDays} j`}</p>
+                  <LastContact c={r.account.lastContact} />
                 </div>
                 <span className={cn('flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-medium', r.missing === 'product' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400' : 'bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-400')}>{r.missing === 'product' ? 'Premier produit' : 'Première vente'}</span>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
+                <Button variant="stockshop" size="sm" className="h-10 gap-1.5" onClick={() => setContactOwner(r.account.ownerId)} data-testid="help-write"><PenLine className="h-4 w-4" />Écrire</Button>
                 {r.account.phone && <Button asChild variant="outline" size="sm" className="h-10 gap-1.5"><a href={`tel:${r.account.phone.replace(/\s+/g, '')}`}><Phone className="h-4 w-4" />Appeler</a></Button>}
                 {r.account.email && <Button asChild variant="outline" size="sm" className="h-10 min-w-0 max-w-full gap-1.5"><a href={`mailto:${r.account.email}`}><Mail className="h-4 w-4 flex-shrink-0" /><span className="truncate">{r.account.email}</span></a></Button>}
               </div>
@@ -109,7 +120,7 @@ export function ActivationAdmin() {
           emptyMessage="Aucun compte récent bloqué."
           columns={[
             { key: 'shop', header: 'Boutique' }, { key: 'owner', header: 'Propriétaire' }, { key: 'contact', header: 'Contact' },
-            { key: 'age', header: 'Inscrit', align: 'right' }, { key: 'missing', header: 'Bloqué à' }, { key: 'counts', header: 'Produits · ventes', align: 'right' },
+            { key: 'age', header: 'Inscrit', align: 'right' }, { key: 'missing', header: 'Bloqué à' }, { key: 'counts', header: 'Produits · ventes', align: 'right' }, { key: 'act', header: '', align: 'right' },
           ]}
           renderRow={r => (<>
             <td className="px-3 py-2.5"><Link href={`/${locale}/admin/shops/${r.account.shopId}`} className="font-medium text-stockshop-blue hover:underline dark:text-blue-400">{r.account.shopName}</Link>{r.account.shopCount > 1 && <span className="ml-1 text-xs text-muted-foreground">+{r.account.shopCount - 1}</span>}</td>
@@ -123,6 +134,12 @@ export function ActivationAdmin() {
             <td className="px-3 py-2.5 text-right tabular-nums whitespace-nowrap">{r.ageDays === 0 ? 'aujourd’hui' : `il y a ${r.ageDays} j`}</td>
             <td className="px-3 py-2.5 whitespace-nowrap"><span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', r.missing === 'product' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400' : 'bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-400')}>{r.missing === 'product' ? 'Premier produit' : 'Première vente'}</span></td>
             <td className="px-3 py-2.5 text-right tabular-nums">{r.account.products} · {r.account.sales}</td>
+            <td className="px-3 py-2.5 text-right">
+              <div className="flex flex-col items-end gap-1">
+                <Button variant="stockshop" size="sm" className="h-8 gap-1.5" onClick={() => setContactOwner(r.account.ownerId)} data-testid="help-write"><PenLine className="h-3.5 w-3.5" />Écrire</Button>
+                <LastContact c={r.account.lastContact} />
+              </div>
+            </td>
           </>)}
         />
         </div>
@@ -205,6 +222,8 @@ export function ActivationAdmin() {
           {data && <p className="text-xs text-muted-foreground" data-testid="activation-unsub">Désinscriptions des conseils : {data.unsubscribed}</p>}
         </section>
       </div>
+
+      <SupportContactDrawer ownerId={contactOwner} onOpenChange={o => { if (!o) setContactOwner(null) }} onSent={load} />
 
       {data && <p className="text-xs text-muted-foreground">Calculé le {new Date(data.generatedAt).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'medium', timeStyle: 'short' })} (heure de Paris).</p>}
     </div>

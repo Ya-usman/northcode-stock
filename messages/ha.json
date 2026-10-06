@@ -3230,6 +3230,33 @@
     "footer": "Ƙungiyar StockShop ce ta ba ku wannan kyauta."
   },
   "emails": {
+    "support_contact": {
+      "hello_name": "Sannu {name},",
+      "hello": "Sannu,",
+      "closing": "Kana da tambaya? Kawai ka amsa wannan saƙon.\n\nGaisuwa,",
+      "team": "Tallafin StockShop",
+      "footer": "Saƙon da tallafin StockShop ya aiko (support@stockshop.tech). Ka amsa wannan imel don rubuta mana.",
+      "welcome_product": {
+        "subject": "{shop}: ƙara kayanka na farko",
+        "body": "Ni ne {sender}, daga ƙungiyar StockShop. Mun gode da ka buɗe “{shop}”!\n\nDon farawa, mataki na farko shi ne ƙara kayayyakinka (suna, farashi, adadi). Wannan mahaɗin yana nuna maka yadda ake yi, mataki-mataki, kai tsaye a cikin manhajar:\n\n{link}\n\nIn ka fi so, kawai aiko mini da jerin kayayyakinka, ko da hoton littafinka ne, zan taimaka maka ka shirya komai.",
+        "cta": "Ƙara kayayyakina"
+      },
+      "late_product": {
+        "subject": "{shop}: kana buƙatar taimako don farawa?",
+        "body": "Ni ne {sender}, daga ƙungiyar StockShop. Na ga “{shop}” ba ta da kaya tukuna: sau da yawa wannan mataki ne mafi tsawo, kuma za mu iya taimaka maka.\n\nJagora mataki-mataki a cikin manhajar:\n\n{link}\n\nKana iya kuma shigo da dukan kayayyakinka a lokaci ɗaya daga fayil ɗin Excel, ko ka aiko mini da jerinka (ko da hoto ne): za mu shirya shi tare da kai.\n\nIn ya fi sauƙi, ba ni lambar WhatsApp ɗinka mu duba tare cikin minti 10.",
+        "cta": "Ƙara kayayyakina"
+      },
+      "first_sale": {
+        "subject": "{shop}: yi sayarwarka ta farko",
+        "body": "Ni ne {sender}, daga ƙungiyar StockShop. Madalla, kayayyakinka sun shirya a “{shop}”!\n\nMataki na gaba: karɓi kuɗin sayarwa ta farko. Kaya za su sabunta kansu kuma rasidi zai tafi da taɓawa ɗaya. Wannan mahaɗin yana nuna maka yadda ake yi:\n\n{link}\n\nShawara: fara da sayarwar gwaji ta ƙaramin kaya; za ka iya soke ta daga baya a tarihin sayarwa.",
+        "cta": "Yi sayarwata ta farko"
+      },
+      "free": {
+        "subject": "StockShop · {shop}",
+        "body": "",
+        "cta": ""
+      }
+    },
     "methods": {
       "cash": "Tsabar kuɗi",
       "mobile_money": "Mobile Money",

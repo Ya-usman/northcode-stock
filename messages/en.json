@@ -3230,6 +3230,33 @@
     "footer": "This complimentary offer was granted to you by the StockShop team."
   },
   "emails": {
+    "support_contact": {
+      "hello_name": "Hello {name},",
+      "hello": "Hello,",
+      "closing": "Any questions? Just reply to this message.\n\nBest regards,",
+      "team": "StockShop Support",
+      "footer": "Message sent by StockShop support (support@stockshop.tech). Reply to this email to write to us.",
+      "welcome_product": {
+        "subject": "{shop}: add your first products",
+        "body": "I’m {sender} from the StockShop team. Thank you for creating “{shop}”!\n\nTo get started, the first step is to add your products (name, price, quantity). This link shows you how, step by step, right in the app:\n\n{link}\n\nIf you prefer, just send me your product list, even a photo of your notebook, and I’ll help you set everything up.",
+        "cta": "Add my products"
+      },
+      "late_product": {
+        "subject": "{shop}: need a hand getting started?",
+        "body": "I’m {sender} from the StockShop team. I noticed “{shop}” doesn’t have any products yet: it’s often the longest step, and we can help.\n\nThe step-by-step guide in the app:\n\n{link}\n\nYou can also import all your products at once from an Excel file, or send me your list (even a photo): we’ll set it up with you.\n\nIf it’s easier, share your WhatsApp number and we’ll go through it together in 10 minutes.",
+        "cta": "Add my products"
+      },
+      "first_sale": {
+        "subject": "{shop}: make your first sale",
+        "body": "I’m {sender} from the StockShop team. Well done, your products are set up in “{shop}”!\n\nNext step: ring up a first sale. Stock updates automatically and the receipt goes out in one tap. This link shows you how:\n\n{link}\n\nA tip: start with a test sale of a small item; you can cancel it afterwards from the sales history.",
+        "cta": "Make my first sale"
+      },
+      "free": {
+        "subject": "StockShop · {shop}",
+        "body": "",
+        "cta": ""
+      }
+    },
     "methods": {
       "cash": "Cash",
       "mobile_money": "Mobile Money",

@@ -70,6 +70,7 @@ export type AuditAction =
   | 'admin.send_notification'
   | 'admin.announcement_create'
   | 'admin.announcement_update'
+  | 'admin.support_contact'
   | 'referral.associated'
   | 'referral.reward_created'
   | 'referral.credit_applied'

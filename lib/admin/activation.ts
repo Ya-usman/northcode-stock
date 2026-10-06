@@ -31,6 +31,8 @@ export interface ActivationAccount {
   hasCategory: boolean
   hasMember: boolean
   hasReceipt: boolean
+  /** Dernier message du support (migration 167) */
+  lastContact?: { at: string; channel: 'email' | 'whatsapp'; by: string | null } | null
 }
 
 export type FunnelStep = 'product' | 'sale' | 'category' | 'member' | 'receipt'

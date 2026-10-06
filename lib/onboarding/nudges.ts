@@ -29,6 +29,8 @@ export interface NudgeInput {
   internal: boolean
   /** Fin d'essai ou d'abonnement la plus proche (null si inconnue) */
   billingEndsAt: Date | null
+  /** Dernier message personnel du support (Admin → Activation) : la relance attend 2 jours */
+  lastSupportContactAt?: Date | null
 }
 
 export type NudgeDecision = { nudge: NudgeId; variant: NudgeVariant } | { skip: string }
@@ -41,6 +43,7 @@ export function decideNudge(x: NudgeInput): NudgeDecision {
   if (x.hasProduct && x.hasSale) return { skip: 'activated' }
   const last = Object.values(x.sent).reduce<number>((m, d) => Math.max(m, d ? d.getTime() : 0), 0)
   if (last && x.now.getTime() - last < MIN_GAP_MS) return { skip: 'too_soon' }
+  if (x.lastSupportContactAt && x.now.getTime() - x.lastSupportContactAt.getTime() < MIN_GAP_MS) return { skip: 'recent_support_contact' }
   if (x.billingEndsAt) {
     const left = x.billingEndsAt.getTime() - x.now.getTime()
     if (left > -DAY && left < BILLING_QUIET_MS) return { skip: 'billing_quiet' }
