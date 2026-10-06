@@ -3223,6 +3223,48 @@
       "expired_many": "{count} products have expired.",
       "expiring_one": "{name} expires soon.",
       "expiring_many": "{count} products expire soon."
+    },
+    "onboarding": {
+      "eyebrow": "Getting started",
+      "greeting": "Hello,",
+      "greeting_name": "Hello {name},",
+      "product_step1": "Open Stock, then “Add a product”",
+      "product_step2": "Enter the name, selling price and quantity",
+      "product_step3": "Save: the product is immediately available at the till",
+      "sale_step1": "Open the till (“New sale”)",
+      "sale_step2": "Tap a product to add it to the cart",
+      "sale_step3": "Choose the payment method and confirm: the receipt is ready",
+      "import_hint": "Lots of products? Import them in one go from an Excel file.",
+      "footer_reason": "You are receiving these tips because you recently created a StockShop account.",
+      "unsubscribe": "Stop receiving these tips",
+      "d1_product": {
+        "subject": "Add your first product in 2 minutes",
+        "intro": "“{shop}” is ready. To start selling with StockShop, just add your products:",
+        "button": "Add my first product"
+      },
+      "d3_product": {
+        "subject": "{shop}: your stock is waiting",
+        "intro": "“{shop}” has no products yet. Once your products are in, StockShop tracks your sales, stock and profit for you:",
+        "button": "Add my products"
+      },
+      "d3_sale": {
+        "subject": "{shop}: make your first sale",
+        "intro": "Your products are in, well done! Now ring up your first sale: stock updates by itself and the receipt goes out in one tap.",
+        "button": "Make my first sale"
+      },
+      "d7": {
+        "subject": "Need a hand getting started?",
+        "intro": "We can see “{shop}” hasn’t started on StockShop yet. Don’t worry, we are here to help you set everything up. Write to us and we will reply quickly:",
+        "button": "Pick up where I left off"
+      },
+      "d7_contact_chat": "In the app: Help page (contact), or “Support” in the “More” menu on a phone (live chat)",
+      "d7_contact_whatsapp": "On WhatsApp: {number}",
+      "d7_contact_email": "By email: {email} (or simply reply to this message)",
+      "unsub_done_title": "Done",
+      "unsub_done_body": "You will no longer receive our getting-started tips. Important emails (security, subscription) are not affected.",
+      "unsub_invalid_title": "Invalid link",
+      "unsub_invalid_body": "This unsubscribe link is incomplete or has been altered. Please use the link in the email you received.",
+      "unsub_open_app": "Open StockShop"
     }
   }
 }

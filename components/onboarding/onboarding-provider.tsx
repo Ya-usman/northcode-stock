@@ -102,6 +102,20 @@ export function OnboardingProvider({ userId, children }: { userId: string | null
     record({ action: 'tour', tour: id, status })
   }, [active, record])
 
+  // Lien d'une relance e-mail (?tour=add_product…) : le tour démarre seul, puis
+  // le paramètre est retiré de l'adresse (un rechargement ne le relance pas)
+  const pathname = usePathname()
+  useEffect(() => {
+    if (!userId || typeof window === 'undefined') return
+    const url = new URL(window.location.href)
+    const id = url.searchParams.get('tour') as TourId | null
+    if (!id || !(id in TOURS)) return
+    url.searchParams.delete('tour')
+    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash)
+    const timer = setTimeout(() => startTour(id), 600) // laisse la page s'afficher
+    return () => clearTimeout(timer)
+  }, [userId, pathname]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const dismissGuide = useCallback(() => { setState(s => ({ ...s, guideDismissed: true })); record({ action: 'dismiss_guide' }) }, [record])
   const restoreGuide = useCallback(() => { setState(s => ({ ...s, guideDismissed: false })); record({ action: 'restore_guide' }) }, [record])
 

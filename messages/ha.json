@@ -3223,6 +3223,48 @@
       "expired_many": "Kaya {count} wa'adinsu ya ƙare.",
       "expiring_one": "Wa'adin {name} na gab da ƙarewa.",
       "expiring_many": "Kaya {count} wa'adinsu na gab da ƙarewa."
+    },
+    "onboarding": {
+      "eyebrow": "Fara aiki",
+      "greeting": "Sannu,",
+      "greeting_name": "Sannu {name},",
+      "product_step1": "Buɗe Kaya, sannan “Ƙara kaya”",
+      "product_step2": "Shigar da suna, farashin sayarwa da adadi",
+      "product_step3": "Ajiye: kayan zai kasance a asusu nan take",
+      "sale_step1": "Buɗe asusu (“Sabuwar sayarwa”)",
+      "sale_step2": "Taɓa kaya don saka shi a kwando",
+      "sale_step3": "Zaɓi hanyar biya ka tabbatar: rasidi ya shirya",
+      "import_hint": "Kayayyaki da yawa? Shigo da su gaba ɗaya daga fayil ɗin Excel.",
+      "footer_reason": "Kana karɓar waɗannan shawarwari ne saboda ka buɗe asusun StockShop kwanan nan.",
+      "unsubscribe": "Kada a sake aiko mini waɗannan shawarwari",
+      "d1_product": {
+        "subject": "Ƙara kayanka na farko cikin minti 2",
+        "intro": "“{shop}” ya shirya. Don fara sayarwa da StockShop, kawai ka ƙara kayayyakinka:",
+        "button": "Ƙara kayana na farko"
+      },
+      "d3_product": {
+        "subject": "{shop}: kayanka suna jiranka",
+        "intro": "“{shop}” bai da kaya tukuna. Idan ka ƙara kayayyakinka, StockShop zai bibiyi sayarwarka, kayanka da ribarka a madadinka:",
+        "button": "Ƙara kayayyakina"
+      },
+      "d3_sale": {
+        "subject": "{shop}: yi sayarwarka ta farko",
+        "intro": "Kayayyakinka suna nan, madalla! Yanzu yi sayarwarka ta farko: kaya za su sabunta kansu kuma rasidi zai tafi da taɓawa ɗaya.",
+        "button": "Yi sayarwata ta farko"
+      },
+      "d7": {
+        "subject": "Kana buƙatar taimako don farawa?",
+        "intro": "Mun ga cewa “{shop}” bai fara aiki a StockShop ba tukuna. Kada ka damu, muna nan don taimaka maka shirya komai. Rubuta mana, za mu amsa da sauri:",
+        "button": "Ci gaba daga inda na tsaya"
+      },
+      "d7_contact_chat": "A cikin manhaja: shafin Taimako (tuntuɓa), ko “Tallafi” a menu na “Ƙari” a waya (hira kai tsaye)",
+      "d7_contact_whatsapp": "A WhatsApp: {number}",
+      "d7_contact_email": "Ta imel: {email} (ko kawai ka amsa wannan saƙo)",
+      "unsub_done_title": "An lura",
+      "unsub_done_body": "Ba za ka sake karɓar shawarwarinmu na farawa ba. Imel masu muhimmanci (tsaro, biyan kuɗin shiga) ba su shafa ba.",
+      "unsub_invalid_title": "Mahaɗin bai inganta ba",
+      "unsub_invalid_body": "Wannan mahaɗin cire rajista bai cika ba ko an canza shi. Yi amfani da mahaɗin da ke cikin imel ɗin da ka karɓa.",
+      "unsub_open_app": "Buɗe StockShop"
     }
   }
 }

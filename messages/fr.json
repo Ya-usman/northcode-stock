@@ -3223,6 +3223,48 @@
       "expired_many": "{count} produits périmés.",
       "expiring_one": "{name} périme bientôt.",
       "expiring_many": "{count} produits périment bientôt."
+    },
+    "onboarding": {
+      "eyebrow": "Bien démarrer",
+      "greeting": "Bonjour,",
+      "greeting_name": "Bonjour {name},",
+      "product_step1": "Ouvrez Stock, puis « Ajouter un produit »",
+      "product_step2": "Indiquez le nom, le prix de vente et la quantité",
+      "product_step3": "Enregistrez : le produit est aussitôt disponible en caisse",
+      "sale_step1": "Ouvrez la caisse (« Nouvelle vente »)",
+      "sale_step2": "Touchez un produit pour l’ajouter au panier",
+      "sale_step3": "Choisissez le mode de paiement et validez : le reçu est prêt",
+      "import_hint": "Beaucoup de produits ? Importez-les d’un coup depuis un fichier Excel.",
+      "footer_reason": "Vous recevez ces conseils parce que vous avez créé un compte StockShop récemment.",
+      "unsubscribe": "Ne plus recevoir ces conseils",
+      "d1_product": {
+        "subject": "Ajoutez votre premier produit en 2 minutes",
+        "intro": "« {shop} » est prête. Pour commencer à vendre avec StockShop, il suffit d’ajouter vos produits :",
+        "button": "Ajouter mon premier produit"
+      },
+      "d3_product": {
+        "subject": "{shop} : votre stock vous attend",
+        "intro": "« {shop} » n’a pas encore de produit. Une fois vos produits ajoutés, StockShop suit vos ventes, votre stock et vos bénéfices à votre place :",
+        "button": "Ajouter mes produits"
+      },
+      "d3_sale": {
+        "subject": "{shop} : faites votre première vente",
+        "intro": "Vos produits sont en place, bravo ! Encaissez maintenant votre première vente : le stock se met à jour tout seul et le reçu part en un clic.",
+        "button": "Faire ma première vente"
+      },
+      "d7": {
+        "subject": "Besoin d’un coup de main pour démarrer ?",
+        "intro": "Nous voyons que « {shop} » n’a pas encore démarré sur StockShop. Pas d’inquiétude : nous sommes là pour vous aider à tout mettre en place. Écrivez-nous, nous vous répondons rapidement :",
+        "button": "Reprendre où j’en étais"
+      },
+      "d7_contact_chat": "Depuis l’application : page Aide (contact), ou « Support » dans le menu « Plus » sur téléphone (discussion en direct)",
+      "d7_contact_whatsapp": "Sur WhatsApp : {number}",
+      "d7_contact_email": "Par e-mail : {email} (ou répondez simplement à ce message)",
+      "unsub_done_title": "C’est noté",
+      "unsub_done_body": "Vous ne recevrez plus nos conseils pour bien démarrer. Les e-mails importants (sécurité, abonnement) ne sont pas concernés.",
+      "unsub_invalid_title": "Lien non valable",
+      "unsub_invalid_body": "Ce lien de désinscription est incomplet ou a été modifié. Utilisez le lien présent dans l’e-mail reçu.",
+      "unsub_open_app": "Ouvrir StockShop"
     }
   }
 }

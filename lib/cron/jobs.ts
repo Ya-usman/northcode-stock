@@ -13,6 +13,7 @@ export const CRON_JOBS: CronJob[] = [
   { name: 'low-stock-alert',    label: 'Alerte stock faible (push)',           utc: '07:00' },
   { name: 'expiry-alert',       label: 'Alerte péremption (push)',             utc: '07:00' },
   { name: 'owner-alerts',       label: 'E-mail d\'alertes aux propriétaires', utc: '07:15' },
+  { name: 'onboarding-nudges',  label: 'Relances « Bien démarrer » (e-mail)', utc: '08:00' },
   { name: 'grant-reminders',    label: 'Fin des gestes commerciaux',           utc: '08:00' },
   { name: 'renewal-check',      label: 'Renouvellement des abonnements',       utc: '09:00' },
   { name: 'evening-summary',    label: 'Résumé du soir aux propriétaires',     utc: '19:30' },
