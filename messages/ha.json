@@ -38,7 +38,10 @@
     "admin_panel": "Admin Panel",
     "unavailable_offline": "Ba ya samuwa ba tare da intanet ba",
     "support": "Tallafi",
-    "admin": "Admin"
+    "admin": "Admin",
+    "theme_dark": "Yanayin duhu",
+    "theme_light": "Yanayin haske",
+    "language": "Harshe"
   },
   "auth": {
     "login": "Shiga",
@@ -1940,7 +1943,10 @@
     "not_set": "Ba a cika ba",
     "roles_default": "Saitunan asali ga duk matsayi.",
     "roles_custom": "An keɓance ga: {roles}",
-    "roles_general_off": "{count, plural, one {an kashe aiki # ga kowa} other {an kashe ayyuka # ga kowa}}"
+    "roles_general_off": "{count, plural, one {an kashe aiki # ga kowa} other {an kashe ayyuka # ga kowa}}",
+    "selected": "Wanda aka zaɓa",
+    "no_alert": "Babu faɗakarwa",
+    "load_more": "Nuna ƙari"
   },
   "whats_new": {
     "title": "Sababbin abubuwa",

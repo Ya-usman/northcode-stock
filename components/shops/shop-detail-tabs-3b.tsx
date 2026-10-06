@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { withTimeout } from '@/lib/utils/with-timeout'
-import { getMsUntilClosing } from '@/lib/saas/shop-hours'
+import { getMsUntilClosing, extensionsUsedToday, shopLocalDate } from '@/lib/saas/shop-hours'
 import { useShopStatus } from '@/lib/shops/shop-insights'
 import { cn } from '@/lib/utils/cn'
 import { Section } from '@/components/shops/shop-detail-tabs'
@@ -42,7 +42,7 @@ export function ShopHoursTab({ shop, isOwner, canExtend }: { shop: Shop; isOwner
   const dirty = JSON.stringify(value) !== JSON.stringify(saved)
   const status = hoursOf(shop)
   const msLeft = getMsUntilClosing(shop.hours_enabled, shop.opening_time, shop.closing_time, shop.hours_manual_override, shop.hours_extension_until)
-  const used = shop.hours_extension_count ?? 0
+  const used = extensionsUsedToday(shop) // un compteur d'hier ne compte plus
   const remaining = Math.max(0, 2 - used)
   const extensionActive = !!shop.hours_extension_until && new Date(shop.hours_extension_until).getTime() > now
   // Même règle que le bandeau de fermeture : 30 dernières minutes, sans dérogation, 2 par jour
@@ -73,7 +73,7 @@ export function ShopHoursTab({ shop, isOwner, canExtend }: { shop: Shop; isOwner
       }))
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json.error || t('toast.error'))
-      patchShop(shop.id, { hours_extension_until: json.hours_extension_until, hours_extension_count: json.hours_extension_count } as any)
+      patchShop(shop.id, { hours_extension_until: json.hours_extension_until, hours_extension_count: json.hours_extension_count, hours_extension_count_date: shopLocalDate(shop.country) } as any)
       toast({ title: t('shop_hours.extend_success', { minutes }), variant: 'success' })
     } catch (e: any) {
       toast({ title: e.message || t('toast.network_error'), variant: 'destructive' })

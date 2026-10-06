@@ -16,7 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils/cn'
 import {
-  useShopStockDetail, useShopCashDetail, useShopHistory, historyGroupOf, HISTORY_GROUPS,
+  useShopStockDetail, useShopCashDetail, useShopHistory, historyGroupOf, HISTORY_GROUPS, HISTORY_PAGE,
   type HistoryEntry, type HistoryGroup,
 } from '@/lib/shops/shop-detail-data'
 import type { Shop } from '@/lib/types/database'
@@ -305,7 +305,10 @@ export function ShopHistoryTab({ shopId, fmt }: { shopId: string; fmt: (n: numbe
   const [period, setPeriod] = useState<'all' | 'today' | '7d' | '30d'>('7d')
   const [group, setGroup] = useState<'all' | HistoryGroup>('all')
   const [open, setOpen] = useState<string | null>(null)
-  const { entries, error, loading, refresh } = useShopHistory(shopId, true, period)
+  const [limit, setLimit] = useState(HISTORY_PAGE)
+  const { entries, error, loading, refresh } = useShopHistory(shopId, true, period, limit)
+  // Chaque période repart de la première page
+  const changePeriod = (p: typeof period) => { setPeriod(p); setLimit(HISTORY_PAGE) }
 
   const visible = useMemo(() => (entries || []).filter(e => group === 'all' || historyGroupOf(e.action) === group), [entries, group])
   const days = useMemo(() => {
@@ -362,7 +365,7 @@ export function ShopHistoryTab({ shopId, fmt }: { shopId: string; fmt: (n: numbe
   return (
     <div className="space-y-3" data-testid="shop-history">
       <div className="grid grid-cols-2 gap-2 sm:max-w-md">
-        <Select value={period} onValueChange={v => setPeriod(v as typeof period)}>
+        <Select value={period} onValueChange={v => changePeriod(v as typeof period)}>
           <SelectTrigger className="h-9 text-xs" aria-label={t('activity_journal.period_label')} data-testid="shop-history-period"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="today">{t('activity_journal.today')}</SelectItem>
@@ -448,6 +451,15 @@ export function ShopHistoryTab({ shopId, fmt }: { shopId: string; fmt: (n: numbe
           })}
         </section>
       ))}
+
+      {/* Page suivante : la base en renvoie autant que demandé → il en reste peut-être */}
+      {entries && entries.length >= limit && (
+        <div className="flex justify-center pt-1">
+          <Button variant="outline" size="sm" className="h-9" disabled={loading} onClick={() => setLimit(l => l + HISTORY_PAGE)} data-testid="shop-history-more">
+            {loading ? '…' : t('shop_detail.load_more')}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Clock } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { getMsUntilClosing } from '@/lib/saas/shop-hours'
+import { getMsUntilClosing, shopLocalDate } from '@/lib/saas/shop-hours'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { withTimeout } from '@/lib/utils/with-timeout'
@@ -16,8 +16,11 @@ interface ShopHoursCountdownBannerProps {
   closingTime: string | null
   manualOverride: 'open' | 'closed' | null
   extensionUntil: string | null
+  /** Prolongations utilisées AUJOURD'HUI (extensionsUsedToday) */
   extensionCount: number
   canExtend: boolean
+  /** Pays de la boutique : date du compteur de prolongations (même jour que la base) */
+  country?: string | null
 }
 
 const PRESET_MINUTES = [15, 30, 45, 60] as const
@@ -37,7 +40,7 @@ function formatDuration(ms: number): string {
 // qui n'est pas non plus dismissible.
 export function ShopHoursCountdownBanner({
   shopId, hoursEnabled, openingTime, closingTime, manualOverride,
-  extensionUntil, extensionCount, canExtend,
+  extensionUntil, extensionCount, canExtend, country,
 }: ShopHoursCountdownBannerProps) {
   const t = useTranslations('shop_hours')
   const tRoot = useTranslations()
@@ -83,7 +86,8 @@ export function ShopHoursCountdownBanner({
       patchShop(shopId, {
         hours_extension_until: json.hours_extension_until,
         hours_extension_count: json.hours_extension_count,
-      })
+        hours_extension_count_date: shopLocalDate(country),
+      } as any)
       toast({ title: t('extend_success', { minutes }), variant: 'success' })
     } catch (err: any) {
       toast({ title: err.message || tRoot('toast.network_error'), variant: 'destructive' })

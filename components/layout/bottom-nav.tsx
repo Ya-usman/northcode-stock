@@ -1,13 +1,15 @@
 ﻿'use client'
 
 import { useState } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { useTheme } from '@/lib/hooks/use-theme'
+import { useAuthContext } from '@/lib/contexts/auth-context'
 import { OfflineLink as Link } from '@/components/ui/offline-link'
 import { useTranslations } from 'next-intl'
 import {
   LayoutDashboard, ShoppingCart, Package, BarChart2, Settings,
   MoreHorizontal, History, CreditCard, Users, Truck, Zap,
-  X, LogOut, Store, Tag, Receipt, ShieldCheck, NotebookPen, BookOpen, MessageCircle, Loader2, ClipboardList,
+  X, LogOut, Store, Tag, Receipt, ShieldCheck, NotebookPen, BookOpen, MessageCircle, Loader2, ClipboardList, Sun, Moon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import type { UserRole } from '@/lib/types/database'
@@ -36,6 +38,16 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
   const t = useTranslations('nav')
   const pathname = usePathname()
   const [moreOpen, setMoreOpen] = useState(false)
+  const router = useRouter()
+  const { isDark, toggle } = useTheme()
+  const { updateLocale } = useAuthContext()
+  // Même logique que l'en-tête ; paramètres de l'adresse conservés
+  const switchLanguage = (next: string) => {
+    if (next === locale) return
+    updateLocale(next)
+    setMoreOpen(false)
+    router.replace(pathname.replace(new RegExp(`^/${locale}(?=/|$)`), `/${next}`) + window.location.search)
+  }
   const { canAccess } = useRolePermissions()
   const { isOnline } = useOffline()
   const { isOffline, isAvailable } = useOfflineRoutes(isOnline)
@@ -210,6 +222,21 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
                     <span className="text-[10px] font-medium leading-none">{signingOut ? '…' : t('logout')}</span>
                   </button>
                 )}
+              </div>
+
+              {/* Affichage : mode sombre et langue (retirés de l'en-tête sur téléphone, trop chargé) */}
+              <div className="mt-3 flex items-center gap-2 border-t pt-3" data-testid="more-display">
+                <button type="button" onClick={toggle} className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border text-sm text-muted-foreground hover:bg-accent hover:text-foreground" data-testid="more-theme">
+                  {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}{isDark ? t('theme_light') : t('theme_dark')}
+                </button>
+                <div className="flex h-11 items-center gap-0.5 rounded-xl border p-1" role="group" aria-label={t('language')}>
+                  {(['fr', 'en', 'ha'] as const).map(l => (
+                    <button key={l} type="button" onClick={() => switchLanguage(l)} aria-pressed={locale === l} data-testid={`more-lang-${l}`}
+                      className={cn('h-full rounded-lg px-3 text-xs font-semibold uppercase', locale === l ? 'bg-stockshop-blue text-white dark:bg-blue-600' : 'text-muted-foreground hover:text-foreground')}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
             {/* Safe area padding */}

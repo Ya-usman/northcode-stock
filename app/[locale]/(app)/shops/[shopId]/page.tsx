@@ -74,8 +74,15 @@ export default function ShopDetailPage({ params: { shopId } }: { params: { shopI
   const ownerShopCount = userShops.filter(s => isAccountOwner(roleByShop[s.id])).length
   const multi = managedShops.length > 1
 
-  const requestedTab = searchParams.get('tab') as Tab | null
-  const setTab = (next: Tab) => router.replace(`/${locale}/shops/${shopId}${next === 'overview' ? '' : `?tab=${next}`}`, { scroll: false })
+  // Onglet affiché tout de suite (clic, clavier), l'adresse suit ; ?tab= fait foi au chargement
+  const urlTab = searchParams.get('tab') as Tab | null
+  const [pendingTab, setPendingTab] = useState<Tab | null>(null)
+  useEffect(() => { setPendingTab(null) }, [urlTab])
+  const requestedTab = pendingTab ?? urlTab
+  const setTab = (next: Tab) => {
+    setPendingTab(next)
+    router.replace(`/${locale}/shops/${shopId}${next === 'overview' ? '' : `?tab=${next}`}`, { scroll: false })
+  }
 
   const shopList = useMemo(() => (shop ? [shop] : []), [shop])
   const { stats, loaded, refresh: refreshStats } = useShopStats(shopList)
@@ -197,7 +204,7 @@ export default function ShopDetailPage({ params: { shopId } }: { params: { shopI
   const kpi = (Icon: typeof Store, label: string, value: React.ReactNode, hint?: React.ReactNode, tone?: string) => (
     <div className="rounded-xl border bg-card p-3.5 shadow-sm">
       <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><Icon className="h-3.5 w-3.5" />{label}</p>
-      <p className={cn('mt-1 truncate text-lg font-bold tabular-nums', tone)}>{value}</p>
+      <p className={cn('mt-1 break-words text-base font-bold leading-tight tabular-nums sm:text-lg', tone)}>{value}</p>
       {hint && <p className="truncate text-[11px] text-muted-foreground">{hint}</p>}
     </div>
   )
@@ -236,7 +243,8 @@ export default function ShopDetailPage({ params: { shopId } }: { params: { shopI
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="truncate text-xl font-bold">{shop.name}</h1>
               {shop.code && <span className="rounded-md border bg-muted/50 px-1.5 py-0.5 font-mono text-xs text-muted-foreground">{shop.code}</span>}
-              {isActive && <span className="rounded-full bg-stockshop-blue px-2 py-0.5 text-[10px] font-medium text-white dark:bg-blue-500">{t('shops.active')}</span>}
+              {/* « Sélectionnée » = boutique dans laquelle on travaille (≠ statut « Active » de la boutique) */}
+              {isActive && <span className="rounded-full bg-stockshop-blue px-2 py-0.5 text-[10px] font-medium text-white dark:bg-blue-500" data-testid="shop-selected-badge">{t('shop_detail.selected')}</span>}
             </div>
             <p className="text-sm text-muted-foreground">{[shop.city, country ? t(`countries.${shop.country}` as any) : null].filter(Boolean).join(' · ') || '—'}</p>
             <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium',
@@ -272,9 +280,20 @@ export default function ShopDetailPage({ params: { shopId } }: { params: { shopI
 
       {/* Sous-onglets : défilent horizontalement sur téléphone */}
       <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="flex w-max min-w-full gap-1 rounded-lg border bg-muted/30 p-1 sm:min-w-0" role="tablist">
+        {/* Clavier : ← → Début Fin (onglets à focus itinérant, motif ARIA « tabs ») */}
+        <div className="flex w-max min-w-full gap-1 rounded-lg border bg-muted/30 p-1 sm:min-w-0" role="tablist" aria-label={shop.name}
+          onKeyDown={e => {
+            const i = tabs.findIndex(x => x.key === tab)
+            const next = e.key === 'ArrowRight' ? (i + 1) % tabs.length : e.key === 'ArrowLeft' ? (i - 1 + tabs.length) % tabs.length
+              : e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : -1
+            if (next < 0) return
+            e.preventDefault()
+            setTab(tabs[next].key)
+            document.getElementById(`shop-tab-btn-${tabs[next].key}`)?.focus()
+          }}>
           {tabs.map(({ key, Icon, label }) => (
-            <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)} data-testid={`shop-tab-${key}`}
+            <button key={key} type="button" role="tab" id={`shop-tab-btn-${key}`} aria-selected={tab === key} aria-controls={`shop-panel-${key}`} tabIndex={tab === key ? 0 : -1}
+              onClick={() => setTab(key)} data-testid={`shop-tab-${key}`}
               className={cn('flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors sm:flex-none', tab === key ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
               <Icon className="h-3.5 w-3.5" />{label}{key === 'team' && <span className="text-xs text-muted-foreground">{nonOwnerCount}</span>}
             </button>
@@ -282,6 +301,7 @@ export default function ShopDetailPage({ params: { shopId } }: { params: { shopI
         </div>
       </div>
 
+      <div role="tabpanel" id={`shop-panel-${tab}`} aria-labelledby={`shop-tab-btn-${tab}`} className="focus-visible:outline-none">
       {tab === 'overview' && (
         <div className="space-y-4" data-testid="shop-overview">
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -295,10 +315,11 @@ export default function ShopDetailPage({ params: { shopId } }: { params: { shopI
             {isOwner && kpi(Coins, t('shops.kpi_stock_value'), loaded && st ? fmt(st.stockValue) : '…')}
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => goTo('reports')}><BarChart2 className="h-3.5 w-3.5" />{t('shops.see_reports')}</Button>
-            <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => goTo('stock')}><Package className="h-3.5 w-3.5" />{t('shops.see_stock')}</Button>
-            <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => goTo('sales/history')}><History className="h-3.5 w-3.5" />{t('shops.see_sales')}</Button>
+          {/* Raccourcis : les onglets Stock et Caisse de cette fiche, puis les Rapports */}
+          <div className="flex flex-wrap gap-2" data-testid="shop-overview-shortcuts">
+            {tabs.some(x => x.key === 'stock') && <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setTab('stock')}><Package className="h-3.5 w-3.5" />{t('shop_detail.tab_stock')}</Button>}
+            {tabs.some(x => x.key === 'cash') && <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setTab('cash')}><Wallet className="h-3.5 w-3.5" />{t('shop_detail.tab_cash')}</Button>}
+            {can('reports') && <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => goTo('reports')}><BarChart2 className="h-3.5 w-3.5" />{t('nav.reports')}</Button>}
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
@@ -414,6 +435,7 @@ export default function ShopDetailPage({ params: { shopId } }: { params: { shopI
       {tab === 'hours' && <ShopHoursTab shop={shop} isOwner={isOwner} canExtend={can('extend_hours')} />}
       {tab === 'settings' && isOwner && <ShopSettingsTab shop={shop} onOpenSettings={openSettings} />}
       {tab === 'history' && isOwner && <ShopHistoryTab shopId={shopId} fmt={fmt} />}
+      </div>
 
       <MemberSheet
         person={sheetPerson}

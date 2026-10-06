@@ -95,3 +95,37 @@ export function getMsUntilClosing(
   const diff = closeInstant.getTime() - now.getTime()
   return diff > 0 ? diff : null
 }
+
+// ── Prolongations du jour ───────────────────────────────────────────────────
+// Le compteur hours_extension_count n'est remis à zéro par la base qu'à la
+// prochaine prolongation (grant_hours_extension, migration 108) : affiché
+// tel quel, un « 2/2 » d'hier bloquait la prolongation aujourd'hui. Même
+// « jour de la boutique » que la base : décalage FIXE par pays
+// (shop_utc_offset_minutes), pas le fuseau réel — sinon les deux divergent.
+
+const UTC_PLUS_1 = ['NG', 'CM', 'NE', 'BJ', 'CD', 'CG', 'GA', 'GQ', 'CF', 'TD']
+const UTC_0 = ['CI', 'ML', 'SN', 'TG', 'GH', 'BF', 'GN', 'GW', 'GM', 'SL', 'LR', 'MR']
+
+/** Copie conforme de shop_utc_offset_minutes (migration 108) */
+export function shopUtcOffsetMinutes(country: string | null | undefined): number {
+  const c = (country || '').toUpperCase()
+  if (UTC_0.includes(c)) return 0
+  if (c === 'CV') return -60
+  if (UTC_PLUS_1.includes(c)) return 60
+  return 60 // repli de la base (EU/US/CA)
+}
+
+/** Date AAAA-MM-JJ du « jour de la boutique » au sens de la base */
+export function shopLocalDate(country: string | null | undefined, now = new Date()): string {
+  return new Date(now.getTime() + shopUtcOffsetMinutes(country) * 60_000).toISOString().slice(0, 10)
+}
+
+/** Prolongations réellement utilisées AUJOURD'HUI (0 si le compteur date d'un autre jour) */
+export function extensionsUsedToday(
+  shop: { hours_extension_count?: number | null; hours_extension_count_date?: string | null; country?: string | null },
+  now = new Date(),
+): number {
+  const count = shop.hours_extension_count ?? 0
+  if (!count || !shop.hours_extension_count_date) return 0
+  return shop.hours_extension_count_date === shopLocalDate(shop.country, now) ? count : 0
+}

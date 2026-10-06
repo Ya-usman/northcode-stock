@@ -24,6 +24,7 @@ import { WhatsNewPanel, PageAnnouncement } from '@/components/announcements/what
 import { useAnnouncements, appPath } from '@/lib/announcements/use-announcements'
 import { ShopClosedWall } from '@/components/saas/shop-closed-wall'
 import { ShopHoursCountdownBanner } from '@/components/saas/shop-hours-countdown-banner'
+import { extensionsUsedToday } from '@/lib/saas/shop-hours'
 import { getTrialDaysLeft, hasActiveSubscription, isAccessAllowed, getGraceDaysLeft, isBetaPeriod } from '@/lib/saas/plans'
 import { isShopOpenNow } from '@/lib/saas/shop-hours'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
@@ -436,7 +437,8 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
             closingTime={shop.closing_time}
             manualOverride={shop.hours_manual_override}
             extensionUntil={shop.hours_extension_until}
-            extensionCount={shop.hours_extension_count ?? 0}
+            extensionCount={extensionsUsedToday(shop)}
+            country={shop.country}
             canExtend={canAccess('extend_hours')}
           />
         )}

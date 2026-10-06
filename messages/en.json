@@ -38,7 +38,10 @@
     "admin_panel": "Admin Panel",
     "unavailable_offline": "Unavailable offline",
     "support": "Support",
-    "admin": "Admin"
+    "admin": "Admin",
+    "theme_dark": "Dark mode",
+    "theme_light": "Light mode",
+    "language": "Language"
   },
   "auth": {
     "login": "Log In",
@@ -1905,7 +1908,10 @@
     "not_set": "Not set",
     "roles_default": "Default settings for all roles.",
     "roles_custom": "Customised for: {roles}",
-    "roles_general_off": "{count, plural, one {# feature turned off for everyone} other {# features turned off for everyone}}"
+    "roles_general_off": "{count, plural, one {# feature turned off for everyone} other {# features turned off for everyone}}",
+    "selected": "Current",
+    "no_alert": "No alert",
+    "load_more": "Show more"
   },
   "whats_new": {
     "title": "What’s new",

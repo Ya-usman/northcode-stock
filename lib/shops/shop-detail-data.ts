@@ -252,7 +252,9 @@ export function historyGroupOf(action: string): HistoryGroup | null {
 
 export interface HistoryEntry { id: string; action: string; actor_email: string | null; created_at: string; metadata: Record<string, any>; target_id: string | null }
 
-export function useShopHistory(shopId: string | null, enabled: boolean, period: 'all' | 'today' | '7d' | '30d') {
+export const HISTORY_PAGE = 200
+
+export function useShopHistory(shopId: string | null, enabled: boolean, period: 'all' | 'today' | '7d' | '30d', limit = HISTORY_PAGE) {
   const [entries, setEntries] = useState<HistoryEntry[] | null>(null)
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -264,7 +266,7 @@ export function useShopHistory(shopId: string | null, enabled: boolean, period: 
       // Actions internes de l'équipe StockShop (admin.*) exclues : notes internes
       let query = supabase.from('audit_logs').select('id, action, actor_email, created_at, metadata, target_id')
         .eq('shop_id', shopId).not('action', 'like', 'admin.%')
-        .order('created_at', { ascending: false }).limit(200)
+        .order('created_at', { ascending: false }).limit(limit)
       if (period !== 'all') {
         const d = new Date(); d.setHours(0, 0, 0, 0)
         d.setDate(d.getDate() - (period === 'today' ? 0 : period === '7d' ? 6 : 29))
@@ -279,7 +281,7 @@ export function useShopHistory(shopId: string | null, enabled: boolean, period: 
     } finally {
       setLoading(false)
     }
-  }, [shopId, enabled, period])
+  }, [shopId, enabled, period, limit])
 
   useEffect(() => { refresh() }, [refresh])
   return { entries, error, loading, refresh }

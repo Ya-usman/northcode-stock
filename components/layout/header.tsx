@@ -33,9 +33,9 @@ export function Header({ title, locale, whatsNew }: HeaderProps) {
   const { isDark, toggle } = useTheme()
 
   const switchLanguage = (newLocale: string) => {
-    const newPath = pathname.replace(`/${locale}`, `/${newLocale}`)
+    const newPath = pathname.replace(new RegExp(`^/${locale}(?=/|$)`), `/${newLocale}`)
     updateLocale(newLocale)
-    router.replace(newPath)
+    router.replace(newPath + window.location.search) // paramètres de l'adresse conservés
   }
 
   return (
@@ -56,15 +56,16 @@ export function Header({ title, locale, whatsNew }: HeaderProps) {
 
         {whatsNew && <WhatsNewButton hasUnread={whatsNew.hasUnread} onOpen={whatsNew.onOpen} />}
 
+        {/* Mode sombre et langue : ordinateur seulement ; sur téléphone, menu « Plus » (en-tête trop chargé) */}
         {/* Dark / Light toggle */}
-        <Button variant="ghost" size="icon" onClick={toggle} className="h-8 w-8 text-muted-foreground hover:text-foreground">
+        <Button variant="ghost" size="icon" onClick={toggle} className="hidden h-8 w-8 text-muted-foreground hover:text-foreground sm:inline-flex">
           {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
 
         {/* Language toggle */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-base">
+            <Button variant="ghost" size="icon" className="hidden h-8 w-8 text-base sm:inline-flex">
               {LOCALE_FLAGS[locale] ?? '🌐'}
             </Button>
           </DropdownMenuTrigger>

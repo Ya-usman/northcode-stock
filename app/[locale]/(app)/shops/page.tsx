@@ -95,7 +95,8 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
   const kpi = (Icon: typeof Store, label: string, value: React.ReactNode, hint?: React.ReactNode, tone?: string) => (
     <div className="rounded-xl border bg-card p-3.5 shadow-sm">
       <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><Icon className="h-3.5 w-3.5" />{label}</p>
-      <p className={cn('mt-1 truncate text-lg font-bold tabular-nums', tone)}>{value}</p>
+      {/* Montant à la ligne plutôt que coupé (« 116 125 195 F … » sur téléphone) */}
+      <p className={cn('mt-1 break-words text-base font-bold leading-tight tabular-nums sm:text-lg', tone)}>{value}</p>
       {hint && <p className="truncate text-[11px] text-muted-foreground">{hint}</p>}
     </div>
   )
@@ -103,7 +104,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
   const alertCell = (id: string) => {
     const st = stats[id]
     if (!st) return <span className="text-muted-foreground">—</span>
-    if (!st.out && !st.low) return <span className="text-muted-foreground">0</span>
+    if (!st.out && !st.low) return <span className="text-xs text-muted-foreground">{t('shop_detail.no_alert')}</span>
     return (
       <span className="inline-flex flex-wrap gap-x-2 text-xs">
         {st.out > 0 && <span className="font-medium text-red-600 dark:text-red-400">{t('shops.out_count', { count: st.out })}</span>}
