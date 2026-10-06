@@ -17,6 +17,8 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
+import { emitOnboarding } from '@/lib/onboarding/events'
+import { EmptyGuide } from '@/components/onboarding/empty-guide'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
 import { RequiredMark } from '@/components/ui/input-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -222,6 +224,7 @@ export default function CategoriesPage() {
       }))
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      if (!editingCat) emitOnboarding('category_created') // tour guidé « Créer une catégorie »
       toast({ title: editingCat ? t('categories.updated') : t('categories.added'), variant: 'success' })
       setFormOpen(false)
       setEditingCat(null)
@@ -449,7 +452,7 @@ export default function CategoriesPage() {
               <RotateCcw className="h-4 w-4" />
               <span className="hidden sm:inline">{t('categories.restore')}</span>
             </Button>
-            <Button variant="stockshop" onClick={() => openForm(null)} className="gap-1.5 h-9 px-3 text-sm">
+            <Button variant="stockshop" onClick={() => openForm(null)} className="gap-1.5 h-9 px-3 text-sm" data-tour="add-category">
               <Plus className="h-4 w-4" />
               {t('categories.add')}
             </Button>
@@ -457,13 +460,19 @@ export default function CategoriesPage() {
         )}
       </div>
 
+      {/* Aucune catégorie encore : on explique à quoi elles servent (les produits
+          non rangés restent listés dessous) */}
+      {!loading && !search && filtered.length === 0 && (
+        <EmptyGuide icon={Tag} title={t('onboarding.empty.categories.title')} body={t('onboarding.empty.categories.body')} tour={canEdit ? 'add_category' : undefined} />
+      )}
+
       {/* Liste */}
       <div className="space-y-2">
         {loading && shopLoadTimedOut && effectiveShopIds.length === 0 ? (
           <LoadErrorFallback />
         ) : loading ? (
           [...Array(4)].map((_, i) => <Skeleton key={i} className="h-20 rounded-lg" />)
-        ) : filtered.length === 0 && (search || uncategorized.length === 0) ? (
+        ) : filtered.length === 0 && !search && uncategorized.length === 0 ? null : filtered.length === 0 && (search || uncategorized.length === 0) ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <Tag className="h-10 w-10 mb-3 opacity-30 text-stockshop-blue dark:text-blue-400" />
             <p className="text-sm">{search ? t('categories.no_results') : t('categories.none')}</p>

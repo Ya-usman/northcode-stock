@@ -26,9 +26,9 @@ type StepId = 'product' | 'sale' | 'category' | 'team' | 'receipt'
 const STEPS: { id: StepId; path: string; tour?: TourId }[] = [
   { id: 'product', path: 'stock/products', tour: 'add_product' },
   { id: 'sale', path: 'sales/new', tour: 'first_sale' },
-  { id: 'category', path: 'categories' },
-  { id: 'team', path: 'team' },
-  { id: 'receipt', path: 'settings' },
+  { id: 'category', path: 'categories', tour: 'add_category' },
+  { id: 'team', path: 'team', tour: 'invite_member' },
+  { id: 'receipt', path: 'settings', tour: 'customize_receipt' },
 ]
 
 /** État des 5 étapes pour les boutiques du propriétaire (null = en cours de lecture) */

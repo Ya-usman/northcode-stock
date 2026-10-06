@@ -1927,6 +1927,34 @@
     "kind_fix": "Fix"
   },
   "onboarding": {
+    "welcome": {
+      "title": "Welcome to the team!",
+      "title_name": "Welcome to the team, {name}!",
+      "body": {
+        "cashier": "You are on the till. See in one minute how to ring up a sale, from product to receipt.",
+        "stock_manager": "You manage the stock. See in one minute how to add a product with its price and quantity.",
+        "other": "One minute to find your way: the till, stock, sales history and reports."
+      },
+      "later": "Hide"
+    },
+    "empty": {
+      "products": {
+        "title": "No products yet",
+        "body": "Add your first product with its price and quantity: it is instantly available at the till. Lots of items? Import them from an Excel file."
+      },
+      "categories": {
+        "title": "No categories yet",
+        "body": "Categories group your products (Drinks, Groceries…) so you find them faster, at the till and in stock."
+      },
+      "customers": {
+        "title": "No customers yet",
+        "body": "When you enter a customer’s name at the till, their record is created here automatically. You’ll use it for credit sales and sending receipts."
+      },
+      "history": {
+        "title": "No sales yet",
+        "body": "Every completed sale appears here with its receipt, which you can resend or print at any time."
+      }
+    },
     "guide_title": "Get started with StockShop",
     "guide_subtitle": "Five steps to get your shop running. Each one ticks itself off when done.",
     "guide_all_done": "Well done, everything is set! You can hide this guide.",
@@ -1967,11 +1995,17 @@
     "replay": "Replay",
     "start": "Start",
     "tour_names": {
+      "add_category": "Create a category",
+      "invite_member": "Invite a member",
+      "customize_receipt": "Customise the receipt",
       "quick_tour": "Quick tour",
       "add_product": "Add a product",
       "first_sale": "Make a sale"
     },
     "tour_desc": {
+      "add_category": "Group your products by family.",
+      "invite_member": "Give an employee access, with the right role.",
+      "customize_receipt": "Your logo and details on receipts.",
       "quick_tour": "The app’s landmarks in one minute.",
       "add_product": "Create a product with its price and stock.",
       "first_sale": "Ring up a sale from start to finish."
@@ -1985,6 +2019,76 @@
     "page_hint": "This step takes place on another page.",
     "continue_with": "Continue: {name}",
     "tours": {
+      "add_category": {
+        "nav": {
+          "title": "Open Categories",
+          "body": "Tap “Categories” in the menu. On a phone, it is under “More”."
+        },
+        "open": {
+          "title": "New category",
+          "body": "Tap “Add”."
+        },
+        "name": {
+          "title": "Its name",
+          "body": "A short name the whole team understands: Drinks, Groceries, Cosmetics…"
+        },
+        "save": {
+          "title": "Save",
+          "body": "Confirm the category. You can then file your products under it."
+        },
+        "done": {
+          "title": "Category created",
+          "body": "To file a product under it, pick it on the product’s page (Stock → Products)."
+        }
+      },
+      "invite_member": {
+        "nav": {
+          "title": "Open Team",
+          "body": "Tap “Team” in the menu. On a phone, it is under “More”."
+        },
+        "open": {
+          "title": "Invite an employee",
+          "body": "Tap “Invite”."
+        },
+        "identity": {
+          "title": "Who are you inviting?",
+          "body": "Their name and email address: each employee has their own account."
+        },
+        "role": {
+          "title": "Their role",
+          "body": "The role decides what they can see and do: a cashier sells, a stock manager handles products…"
+        },
+        "send": {
+          "title": "Send the invitation",
+          "body": "They get an email to choose a password, then join your shop."
+        },
+        "done": {
+          "title": "Invitation sent",
+          "body": "Find it in Team: you can change their role or remove their access at any time."
+        }
+      },
+      "customize_receipt": {
+        "nav": {
+          "title": "Open Settings",
+          "body": "Tap “Settings” in the menu. On a phone, it is under “More”."
+        },
+        "logo": {
+          "title": "Your logo",
+          "body": "Add your shop’s logo: it appears at the top of your receipts."
+        },
+        "texts": {
+          "title": "Receipt details",
+          "body": "Your trade under the name, your legal IDs (TIN, RC…) and a closing message."
+        },
+        "save": {
+          "title": "Save",
+          "body": "Tap “Save” to apply your changes to the next receipts."
+        },
+        "done": {
+          "title": "Receipt customised",
+          "body": "Your next receipts will carry your logo and details."
+        }
+      },
       "quick_tour": {
         "intro": {
           "title": "Welcome to StockShop",
@@ -2016,6 +2120,14 @@
         }
       },
       "add_product": {
+        "nav": {
+          "title": "Open Stock",
+          "body": "Tap “Stock” in the menu: your products are managed from there."
+        },
+        "tab": {
+          "title": "The Products tab",
+          "body": "Stock has several tabs. Tap “Products”: it lists all your items."
+        },
         "open": {
           "title": "Add a product",
           "body": "Open “Add”, then choose “Add a product”."
@@ -2042,6 +2154,10 @@
         }
       },
       "first_sale": {
+        "nav": {
+          "title": "Open the till",
+          "body": "Tap “New sale” in the menu."
+        },
         "pick": {
           "title": "Pick a product",
           "body": "Tap a product to add it to the cart. Tap again to add one more."
@@ -3228,7 +3344,7 @@
       "eyebrow": "Getting started",
       "greeting": "Hello,",
       "greeting_name": "Hello {name},",
-      "product_step1": "Open Stock, then “Add a product”",
+      "product_step1": "Open Stock, the “Products” tab, then “Add” → “Add a product”",
       "product_step2": "Enter the name, selling price and quantity",
       "product_step3": "Save: the product is immediately available at the till",
       "sale_step1": "Open the till (“New sale”)",

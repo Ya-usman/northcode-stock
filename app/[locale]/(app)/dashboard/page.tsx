@@ -31,6 +31,7 @@ import { getPageCache, setPageCache } from '@/lib/offline/page-cache'
 import { runIdlePrefetch, type PrefetchTask } from '@/lib/utils/idle-prefetch'
 import { onSalesDataChanged } from '@/lib/data-refresh'
 import { GettingStarted } from '@/components/onboarding/getting-started'
+import { TeamWelcome } from '@/components/onboarding/team-welcome'
 
 const supabase = createClient() as any
 
@@ -657,6 +658,8 @@ export default function DashboardPage() {
 
       {/* Guide « Bien démarrer » : propriétaire d'un compte qui débute (s'efface de lui-même) */}
       <GettingStarted />
+      {/* Employé qui arrive : le tour qui correspond à son poste */}
+      <TeamWelcome />
 
       {/* Plan status banner — owner only */}
       {profile?.role === 'owner' && shop && (

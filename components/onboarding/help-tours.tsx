@@ -1,7 +1,8 @@
 'use client'
 
-// Page Aide → « Tours guidés » : relancer un tour à tout moment, et réafficher
-// le guide « Bien démarrer » s'il a été masqué (propriétaire).
+// Page Aide → « Tours guidés » : relancer un tour à tout moment (seulement ceux
+// que le rôle permet de suivre), et réafficher le guide « Bien démarrer » s'il a
+// été masqué (propriétaire).
 
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
@@ -10,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { useOnboarding } from '@/components/onboarding/onboarding-provider'
 import { useGettingStarted } from '@/components/onboarding/getting-started'
 import { startNavigationProgress } from '@/components/layout/navigation-progress'
-import { TOUR_IDS } from '@/lib/onboarding/tours'
+import { useAvailableTours } from '@/components/onboarding/use-available-tours'
 
 export function HelpTours() {
   const t = useTranslations('onboarding')
@@ -18,6 +19,7 @@ export function HelpTours() {
   const locale = useLocale()
   const { state, startTour, restoreGuide } = useOnboarding()
   const { isOwner } = useGettingStarted()
+  const tours = useAvailableTours()
 
   const showGuide = () => {
     restoreGuide()
@@ -40,7 +42,7 @@ export function HelpTours() {
         )}
       </div>
       <ul className="mt-4 grid gap-2 sm:grid-cols-3">
-        {TOUR_IDS.map(id => {
+        {tours.map(id => {
           const done = state.tours[id]?.status === 'completed'
           return (
             <li key={id} className="flex flex-col justify-between gap-2 rounded-lg border p-3">

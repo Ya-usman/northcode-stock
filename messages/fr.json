@@ -1927,6 +1927,34 @@
     "kind_fix": "Correction"
   },
   "onboarding": {
+    "welcome": {
+      "title": "Bienvenue dans l’équipe !",
+      "title_name": "Bienvenue dans l’équipe, {name} !",
+      "body": {
+        "cashier": "Vous êtes à la caisse. Voyez en une minute comment encaisser une vente, du produit au reçu.",
+        "stock_manager": "Vous gérez le stock. Voyez en une minute comment ajouter un produit avec son prix et sa quantité.",
+        "other": "Une minute pour repérer l’essentiel : la caisse, le stock, l’historique et les rapports."
+      },
+      "later": "Masquer"
+    },
+    "empty": {
+      "products": {
+        "title": "Aucun produit pour l’instant",
+        "body": "Ajoutez votre premier produit avec son prix et sa quantité : il sera aussitôt disponible en caisse. Beaucoup d’articles ? Importez-les depuis un fichier Excel."
+      },
+      "categories": {
+        "title": "Aucune catégorie pour l’instant",
+        "body": "Les catégories rangent vos produits (Boissons, Épicerie…) pour les retrouver plus vite, en caisse comme dans le stock."
+      },
+      "customers": {
+        "title": "Aucun client pour l’instant",
+        "body": "Quand vous indiquez le nom d’un client en caisse, sa fiche se crée toute seule ici. Vous la retrouvez pour les ventes à crédit et l’envoi des reçus."
+      },
+      "history": {
+        "title": "Aucune vente pour l’instant",
+        "body": "Chaque vente encaissée apparaît ici avec son reçu, que vous pouvez renvoyer ou imprimer à tout moment."
+      }
+    },
     "guide_title": "Bien démarrer avec StockShop",
     "guide_subtitle": "Cinq étapes pour que votre boutique tourne. Chacune se coche toute seule quand c’est fait.",
     "guide_all_done": "Bravo, tout est prêt ! Vous pouvez masquer ce guide.",
@@ -1967,11 +1995,17 @@
     "replay": "Revoir",
     "start": "Lancer",
     "tour_names": {
+      "add_category": "Créer une catégorie",
+      "invite_member": "Inviter un membre",
+      "customize_receipt": "Personnaliser le reçu",
       "quick_tour": "Visite express",
       "add_product": "Ajouter un produit",
       "first_sale": "Faire une vente"
     },
     "tour_desc": {
+      "add_category": "Ranger vos produits par famille.",
+      "invite_member": "Donner un accès à un employé, avec le bon rôle.",
+      "customize_receipt": "Votre logo et vos mentions sur les reçus.",
       "quick_tour": "Les repères de l’application en une minute.",
       "add_product": "Créer un produit avec son prix et son stock.",
       "first_sale": "Encaisser une vente de bout en bout."
@@ -1985,6 +2019,76 @@
     "page_hint": "Cette étape se passe sur une autre page.",
     "continue_with": "Continuer : {name}",
     "tours": {
+      "add_category": {
+        "nav": {
+          "title": "Ouvrez Catégories",
+          "body": "Touchez « Catégories » dans le menu. Sur téléphone, elles sont rangées dans « Plus »."
+        },
+        "open": {
+          "title": "Nouvelle catégorie",
+          "body": "Touchez « Ajouter »."
+        },
+        "name": {
+          "title": "Son nom",
+          "body": "Un nom court que toute l’équipe comprend : Boissons, Épicerie, Cosmétiques…"
+        },
+        "save": {
+          "title": "Enregistrez",
+          "body": "Validez la catégorie. Vous pourrez ensuite y ranger vos produits."
+        },
+        "done": {
+          "title": "Catégorie créée",
+          "body": "Pour y ranger un produit, choisissez-la dans sa fiche (Stock → Produits)."
+        }
+      },
+      "invite_member": {
+        "nav": {
+          "title": "Ouvrez Équipe",
+          "body": "Touchez « Équipe » dans le menu. Sur téléphone, elle est rangée dans « Plus »."
+        },
+        "open": {
+          "title": "Inviter un employé",
+          "body": "Touchez « Inviter »."
+        },
+        "identity": {
+          "title": "Qui invitez-vous ?",
+          "body": "Son nom et son adresse e-mail : chaque employé a son propre compte."
+        },
+        "role": {
+          "title": "Son rôle",
+          "body": "Le rôle décide de ce qu’il peut voir et faire : un caissier encaisse, un gestionnaire de stock gère les produits…"
+        },
+        "send": {
+          "title": "Envoyez l’invitation",
+          "body": "Il reçoit un e-mail pour choisir son mot de passe, puis rejoint votre boutique."
+        },
+        "done": {
+          "title": "Invitation envoyée",
+          "body": "Retrouvez-la dans Équipe : vous pouvez changer son rôle ou retirer son accès à tout moment."
+        }
+      },
+      "customize_receipt": {
+        "nav": {
+          "title": "Ouvrez Paramètres",
+          "body": "Touchez « Paramètres » dans le menu. Sur téléphone, ils sont rangés dans « Plus »."
+        },
+        "logo": {
+          "title": "Votre logo",
+          "body": "Ajoutez le logo de votre boutique : il s’affiche en haut de vos reçus."
+        },
+        "texts": {
+          "title": "Les mentions du reçu",
+          "body": "Votre activité sous le nom, vos mentions légales (NIU, RCCM…) et un message de fin."
+        },
+        "save": {
+          "title": "Enregistrez",
+          "body": "Touchez « Enregistrer » pour appliquer vos changements aux prochains reçus."
+        },
+        "done": {
+          "title": "Reçu personnalisé",
+          "body": "Vos prochains reçus porteront votre logo et vos mentions."
+        }
+      },
       "quick_tour": {
         "intro": {
           "title": "Bienvenue dans StockShop",
@@ -2016,6 +2120,14 @@
         }
       },
       "add_product": {
+        "nav": {
+          "title": "Ouvrez le Stock",
+          "body": "Touchez « Stock » dans le menu : vos produits se gèrent depuis ce module."
+        },
+        "tab": {
+          "title": "L’onglet Produits",
+          "body": "Le Stock a plusieurs onglets. Touchez « Produits » : c’est la liste de tous vos articles."
+        },
         "open": {
           "title": "Ajouter un produit",
           "body": "Ouvrez « Ajouter », puis choisissez « Ajouter un produit »."
@@ -2042,6 +2154,10 @@
         }
       },
       "first_sale": {
+        "nav": {
+          "title": "Ouvrez la caisse",
+          "body": "Touchez « Nouvelle vente » dans le menu."
+        },
         "pick": {
           "title": "Choisissez un produit",
           "body": "Touchez un produit pour l’ajouter au panier. Touchez-le encore pour en ajouter un de plus."
@@ -3228,7 +3344,7 @@
       "eyebrow": "Bien démarrer",
       "greeting": "Bonjour,",
       "greeting_name": "Bonjour {name},",
-      "product_step1": "Ouvrez Stock, puis « Ajouter un produit »",
+      "product_step1": "Ouvrez Stock, onglet « Produits », puis « Ajouter » → « Ajouter un produit »",
       "product_step2": "Indiquez le nom, le prix de vente et la quantité",
       "product_step3": "Enregistrez : le produit est aussitôt disponible en caisse",
       "sale_step1": "Ouvrez la caisse (« Nouvelle vente »)",

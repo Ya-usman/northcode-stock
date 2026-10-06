@@ -50,6 +50,7 @@ import { savePendingMovement, updateCachedProductQuantity } from '@/lib/offline/
 import { registerBackgroundSync } from '@/lib/offline/sync'
 import { downloadOrShareCSV } from '@/lib/utils/native-share'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
+import { EmptyGuide } from '@/components/onboarding/empty-guide'
 import { useStockRealtime } from '@/lib/hooks/use-realtime'
 import { StockTabs } from '@/components/stock/stock-tabs'
 import { withTimeout } from '@/lib/utils/with-timeout'
@@ -1531,6 +1532,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-32 rounded-lg" />)}
           </div>
         )
+      ) : products.length === 0 ? (
+        <EmptyGuide icon={Package} title={t('onboarding.empty.products.title')} body={t('onboarding.empty.products.body')} tour={canWriteStock ? 'add_product' : undefined} />
       ) : filtered.length === 0 ? (
         <div className="flex h-48 flex-col items-center justify-center text-muted-foreground">
           <Package className="h-12 w-12 mb-3 opacity-30" />

@@ -7,14 +7,13 @@
 // clic dans la bulle n'est pas vu comme un « clic à l'extérieur » par Radix.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
-import { useLocale, useTranslations } from 'next-intl'
+import { usePathname } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { ArrowRight, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils/cn'
-import { startNavigationProgress } from '@/components/layout/navigation-progress'
-import { TOURS, type TourId } from '@/lib/onboarding/tours'
+import { TOURS, onAppPage, type TourId } from '@/lib/onboarding/tours'
 import { onOnboarding } from '@/lib/onboarding/events'
 import { appPath } from '@/lib/announcements/use-announcements'
 
@@ -146,8 +145,6 @@ function TourOverlay({ tour, step, onStep, onEnd, onChain }: {
   onChain: (next: TourId) => void
 }) {
   const t = useTranslations('onboarding')
-  const router = useRouter()
-  const locale = useLocale()
   const pathname = usePathname()
   const steps = TOURS[tour]
   const s = steps[step]
@@ -159,16 +156,18 @@ function TourOverlay({ tour, step, onStep, onEnd, onChain }: {
   const scrolled = useRef(false)
   const bubbleRef = useRef<HTMLDivElement>(null)
 
-  const onPage = !s.path || appPath(pathname) === s.path || appPath(pathname).startsWith(s.path + '/')
-
-  // Ouvre la page de l'étape (une fois, au début de l'étape)
+  // Le tour ne change JAMAIS de page tout seul : il montre le chemin (menu, onglet)
+  // et avance quand la personne y arrive ; déjà sur place → étape de chemin sautée
+  const current = appPath(pathname)
+  const onPage = !s.page || onAppPage(current, s.page)
   useEffect(() => {
-    if (s.path && !onPage) {
-      const href = `/${locale}/${s.path}`
-      startNavigationProgress(href)
-      router.push(href)
+    if (s.waitFor?.path && onAppPage(current, s.waitFor.path)) { onStep(step + 1); return }
+    // Page quittée en cours de route : retour à l'étape du chemin (sans la ramener de force)
+    if (!onPage && s.leaveTo !== undefined) {
+      const timer = setTimeout(() => onStep(s.leaveTo!), 600)
+      return () => clearTimeout(timer)
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [current]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Téléphone : à chaque étape, le curseur quitte le champ (y compris celui placé
   // automatiquement à l'ouverture d'un formulaire) → le clavier ne s'ouvre que
@@ -232,11 +231,13 @@ function TourOverlay({ tour, step, onStep, onEnd, onChain }: {
     if (j >= 0) onStep(j + 1)
   }), [step]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Échap = passer, sauf si une fenêtre est ouverte (Échap la ferme d'abord)
+  // Échap = passer, sauf si une fenêtre est ouverte (Échap la ferme d'abord).
+  // Phase de capture : on regarde AVANT que la fenêtre ne se ferme (sinon fermer
+  // un formulaire au clavier arrêtait aussi le tour)
   useEffect(() => {
     const key = (e: KeyboardEvent) => { if (e.key === 'Escape' && !document.querySelector('[role="dialog"][data-state="open"]')) onEnd('skipped') }
-    window.addEventListener('keydown', key)
-    return () => window.removeEventListener('keydown', key)
+    window.addEventListener('keydown', key, true)
+    return () => window.removeEventListener('keydown', key, true)
   }, [onEnd])
 
   // Étapes d'explication sans élément : le focus va au bouton principal
@@ -295,16 +296,14 @@ function TourOverlay({ tour, step, onStep, onEnd, onChain }: {
         </div>
         <h2 id="tour-title" className="mt-1 text-base font-semibold">{t(`${k}.title` as any)}</h2>
         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-          {!onPage ? t('page_hint') : t(`${k}.body` as any)}
+          {t(`${k}.body` as any)}
         </p>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex gap-1" aria-hidden>
             {steps.map((_, i) => <span key={i} className={cn('h-1.5 rounded-full', i === step ? 'w-4 bg-stockshop-blue dark:bg-blue-400' : 'w-1.5 bg-muted-foreground/30')} />)}
           </div>
           <div className="flex flex-wrap gap-2">
-            {!onPage ? (
-              <Button size="sm" variant="stockshop" className="h-9" data-primary onClick={() => { const href = `/${locale}/${s.path}`; startNavigationProgress(href); router.push(href) }}>{t('open_page')}</Button>
-            ) : isLast ? (
+            {isLast ? (
               <>
                 {nextTour && <Button size="sm" variant="outline" className="h-9 gap-1" onClick={() => onChain(nextTour)} data-testid="tour-chain">{t('continue_with', { name: t(`tour_names.${nextTour}` as any) })}<ArrowRight className="h-3.5 w-3.5" /></Button>}
                 <Button size="sm" variant="stockshop" className="h-9" data-primary onClick={() => onEnd('completed')} data-testid="tour-finish">{t('finish')}</Button>

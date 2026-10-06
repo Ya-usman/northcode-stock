@@ -38,6 +38,7 @@ import { cn } from '@/lib/utils/cn'
 import { CompanyCard } from '@/components/settings/company-card'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { ShopHoursEditor } from '@/components/shops/shop-hours-editor'
+import { emitOnboarding } from '@/lib/onboarding/events'
 
 export default function SettingsPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations()
@@ -378,6 +379,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       // Non-blocking background refresh after a short delay to catch any other
       // server-side changes (triggers, computed columns) without reverting patchShop.
       setTimeout(() => refreshShop().catch(() => {}), 3000)
+      emitOnboarding('settings_saved') // tour guidé « Personnaliser le reçu »
       toast({ title: t('settings.saved'), variant: 'success' })
     } catch (err: any) {
       toast({ title: err.message || t('toast.network_error'), variant: 'destructive' })
@@ -516,7 +518,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
               <CardTitle className="text-sm font-semibold">{t('settings.shop_info')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4" data-tour="settings-logo">
                 <ShopLogo src={shop?.logo_url} name={shop?.name || name} size="lg" shape="auto" />
                 <div>
                   <p className="text-sm font-medium">{t('settings.logo')}</p>
@@ -577,7 +579,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
               </div>
 
               {/* Identité imprimée sur les reçus et tickets (migration 149) */}
-              <div className="space-y-4 border-t pt-4">
+              <div className="space-y-4 border-t pt-4" data-tour="settings-receipt">
                 <p className="text-sm font-medium">{t('settings.receipt_section')}</p>
                 <div className="space-y-1">
                   <Label>{t('settings.receipt_tagline')}</Label>
@@ -1131,6 +1133,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       {/* Save button — owner only */}
       {isOwner && (
         <Button
+          data-tour="settings-save"
           onClick={saveSettings}
           loading={saving}
           variant="stockshop"

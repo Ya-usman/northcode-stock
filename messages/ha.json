@@ -1962,6 +1962,34 @@
     "kind_fix": "Gyara"
   },
   "onboarding": {
+    "welcome": {
+      "title": "Barka da shigowa ƙungiyar!",
+      "title_name": "Barka da shigowa ƙungiyar, {name}!",
+      "body": {
+        "cashier": "Kai ne a asusu. Duba cikin minti ɗaya yadda ake karɓar kuɗin sayarwa, daga kaya har rasidi.",
+        "stock_manager": "Kai ne ke kula da kaya. Duba cikin minti ɗaya yadda ake ƙara kaya da farashinsa da adadinsa.",
+        "other": "Minti ɗaya don gane muhimman wurare: asusu, kaya, tarihin sayarwa da rahotanni."
+      },
+      "later": "Ɓoye"
+    },
+    "empty": {
+      "products": {
+        "title": "Babu kaya tukuna",
+        "body": "Ƙara kayanka na farko tare da farashinsa da adadinsa: zai kasance a asusu nan take. Kaya da yawa? Shigo da su daga fayil ɗin Excel."
+      },
+      "categories": {
+        "title": "Babu rukuni tukuna",
+        "body": "Rukunai suna tsara kayayyakinka (abin sha, kayan abinci…) don samun su da sauri, a asusu da cikin kaya."
+      },
+      "customers": {
+        "title": "Babu abokin ciniki tukuna",
+        "body": "Idan ka rubuta sunan abokin ciniki a asusu, takardarsa za ta ƙirƙira kanta a nan. Za ka same ta don sayarwa bashi da aika rasidi."
+      },
+      "history": {
+        "title": "Babu sayarwa tukuna",
+        "body": "Kowace sayarwa da aka karɓi kuɗinta za ta bayyana a nan tare da rasidinta, wanda za ka iya sake aikawa ko bugawa a kowane lokaci."
+      }
+    },
     "guide_title": "Fara aiki da StockShop",
     "guide_subtitle": "Matakai biyar don shagonka ya fara aiki. Kowanne yana kammala kansa idan an yi shi.",
     "guide_all_done": "Madalla, komai ya shirya! Za ka iya ɓoye wannan jagorar.",
@@ -2002,11 +2030,17 @@
     "replay": "Sake kallo",
     "start": "Fara",
     "tour_names": {
+      "add_category": "Ƙirƙiri rukuni",
+      "invite_member": "Gayyaci ma’aikaci",
+      "customize_receipt": "Keɓance rasidi",
       "quick_tour": "Zagaye cikin sauri",
       "add_product": "Ƙara kaya",
       "first_sale": "Yi sayarwa"
     },
     "tour_desc": {
+      "add_category": "Tsara kayayyakinka ta rukuni.",
+      "invite_member": "Ba ma’aikaci damar shiga, tare da matsayin da ya dace.",
+      "customize_receipt": "Tambarinka da bayananka a rasidi.",
       "quick_tour": "Muhimman wurare na manhajar cikin minti ɗaya.",
       "add_product": "Ƙirƙiri kaya tare da farashinsa da adadinsa.",
       "first_sale": "Yi sayarwa daga farko har ƙarshe."
@@ -2020,6 +2054,76 @@
     "page_hint": "Wannan matakin yana kan wani shafi.",
     "continue_with": "Ci gaba: {name}",
     "tours": {
+      "add_category": {
+        "nav": {
+          "title": "Buɗe Nau’ikan",
+          "body": "Taɓa “Nau'ikan” a menu. A waya, yana cikin “Ƙari”."
+        },
+        "open": {
+          "title": "Sabon rukuni",
+          "body": "Taɓa “Ƙara”."
+        },
+        "name": {
+          "title": "Sunansa",
+          "body": "Gajeren suna da kowa a ƙungiyar zai gane: Abin sha, Kayan abinci, Kayan kwalliya…"
+        },
+        "save": {
+          "title": "Ajiye",
+          "body": "Tabbatar da rukunin. Daga nan za ka iya saka kayayyakinka a cikinsa."
+        },
+        "done": {
+          "title": "An ƙirƙiri rukuni",
+          "body": "Don saka kaya a cikinsa, zaɓe shi a takardar kayan (Kaya → Kaya)."
+        }
+      },
+      "invite_member": {
+        "nav": {
+          "title": "Buɗe Ma’aikata",
+          "body": "Taɓa “Ma'aikata” a menu. A waya, yana cikin “Ƙari”."
+        },
+        "open": {
+          "title": "Gayyaci ma’aikaci",
+          "body": "Taɓa “Gayyata”."
+        },
+        "identity": {
+          "title": "Wa kake gayyata?",
+          "body": "Sunansa da adireshin imel ɗinsa: kowane ma’aikaci yana da asusunsa."
+        },
+        "role": {
+          "title": "Matsayinsa",
+          "body": "Matsayi ne ke ƙayyade abin da zai iya gani da yi: mai karɓar kuɗi yana sayarwa, mai kula da kaya yana sarrafa kayayyaki…"
+        },
+        "send": {
+          "title": "Aika gayyatar",
+          "body": "Zai karɓi imel don zaɓar kalmar sirrinsa, sannan ya shiga kantinka."
+        },
+        "done": {
+          "title": "An aika gayyata",
+          "body": "Za ka same ta a Ma’aikata: za ka iya canza matsayinsa ko cire damarsa a kowane lokaci."
+        }
+      },
+      "customize_receipt": {
+        "nav": {
+          "title": "Buɗe Saiti",
+          "body": "Taɓa “Saiti” a menu. A waya, yana cikin “Ƙari”."
+        },
+        "logo": {
+          "title": "Tambarinka",
+          "body": "Ƙara tambarin kantinka: zai bayyana a saman rasidanka."
+        },
+        "texts": {
+          "title": "Bayanan rasidi",
+          "body": "Sana’arka a ƙarƙashin suna, bayanan doka (NIU, RCCM…) da saƙon ƙarshe."
+        },
+        "save": {
+          "title": "Ajiye",
+          "body": "Taɓa “Ajiye” don amfani da canje-canjenka a rasidai na gaba."
+        },
+        "done": {
+          "title": "An keɓance rasidi",
+          "body": "Rasidanka na gaba za su ɗauki tambarinka da bayananka."
+        }
+      },
       "quick_tour": {
         "intro": {
           "title": "Barka da zuwa StockShop",
@@ -2051,6 +2155,14 @@
         }
       },
       "add_product": {
+        "nav": {
+          "title": "Buɗe Kaya",
+          "body": "Taɓa “Kaya” a menu: a nan ake sarrafa kayayyakinka."
+        },
+        "tab": {
+          "title": "Shafin Kaya",
+          "body": "Sashen Kaya yana da shafuka da yawa. Taɓa shafin “Kaya”: jerin dukan kayayyakinka ne."
+        },
         "open": {
           "title": "Ƙara kaya",
           "body": "Buɗe “Ƙara”, sannan ka zaɓi “Ƙara kaya”."
@@ -2077,6 +2189,10 @@
         }
       },
       "first_sale": {
+        "nav": {
+          "title": "Buɗe asusu",
+          "body": "Taɓa “Sabuwar Sayarwa” a menu."
+        },
         "pick": {
           "title": "Zaɓi kaya",
           "body": "Taɓa kaya don saka shi a kwando. Sake taɓawa don ƙara ɗaya."
@@ -3228,7 +3344,7 @@
       "eyebrow": "Fara aiki",
       "greeting": "Sannu,",
       "greeting_name": "Sannu {name},",
-      "product_step1": "Buɗe Kaya, sannan “Ƙara kaya”",
+      "product_step1": "Buɗe Kaya, shafin “Kaya”, sannan “Ƙara” → “Ƙara kaya”",
       "product_step2": "Shigar da suna, farashin sayarwa da adadi",
       "product_step3": "Ajiye: kayan zai kasance a asusu nan take",
       "sale_step1": "Buɗe asusu (“Sabuwar sayarwa”)",

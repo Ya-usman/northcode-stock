@@ -5,11 +5,12 @@ import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
 import {
   Search, FileDown, FileText, Table2, ChevronDown, ChevronUp,
-  XCircle, CheckCircle2, Printer, Share2, Store, CornerDownLeft, Activity, Edit2, Trash2, Plus, Clock,
+  XCircle, CheckCircle2, Printer, Share2, Store, CornerDownLeft, Activity, Edit2, Trash2, Plus, Clock, ShoppingCart,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
+import { EmptyGuide } from '@/components/onboarding/empty-guide'
 import { isManagerial } from '@/lib/permissions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -198,9 +199,21 @@ export default function SalesHistoryPage() {
   const effectiveRole = roleInActiveShop ?? profile?.role
   // Direction avec « Historique des ventes » en modification (même règle que
   // /api/sales/edit et /api/sales/cancel) ; un caissier garde sa vente du jour
-  const { canWrite } = useRolePermissions()
+  const { canWrite, canAccess } = useRolePermissions()
   const isOwner = isManagerial(effectiveRole) && canWrite('sales_history')
   const isCashier = effectiveRole === 'cashier'
+
+  // Écran vide guidé : seulement si la boutique n'a JAMAIS vendu (une journée
+  // sans vente chez un commerçant installé garde le message court habituel)
+  const [neverSold, setNeverSold] = useState(false)
+  const soldShopsKey = effectiveShopIds.join(',')
+  useEffect(() => {
+    if (loading || sales.length > 0 || !soldShopsKey) { setNeverSold(false); return }
+    let cancelled = false
+    supabase.from('sales').select('id', { count: 'exact', head: true }).in('shop_id', soldShopsKey.split(','))
+      .then(({ count, error }: any) => { if (!cancelled) setNeverSold(!error && count === 0) })
+    return () => { cancelled = true }
+  }, [loading, sales.length, soldShopsKey])
 
   const getDateBounds = () => {
     const now = new Date()
@@ -1264,6 +1277,8 @@ export default function SalesHistoryPage() {
           <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
             <div className="p-4 space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
           </div>
+        ) : filtered.length === 0 && neverSold ? (
+          <EmptyGuide icon={ShoppingCart} title={t('onboarding.empty.history.title')} body={t('onboarding.empty.history.body')} tour={canAccess('new_sale') ? 'first_sale' : undefined} />
         ) : filtered.length === 0 ? (
           <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
             <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">{t('sales.no_sales')}</div>

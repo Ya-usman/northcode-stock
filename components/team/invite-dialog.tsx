@@ -20,6 +20,7 @@ import type { Shop, UserRole } from '@/lib/types/database'
 import { manageableRoles } from '@/lib/team/roles'
 import { teamActions } from '@/lib/team/team-actions'
 import { sharedAccountSignals } from '@/lib/team/shared-account-signals'
+import { emitOnboarding } from '@/lib/onboarding/events'
 
 interface Props {
   open: boolean
@@ -78,6 +79,7 @@ export function InviteDialog({ open, onOpenChange, shops, defaultShopId, fixedSh
       else toast({ title: r.error || t('toast.retry_error'), variant: 'destructive' })
       return
     }
+    emitOnboarding('member_invited') // tour guidé « Inviter un membre »
     toast({ title: t('toast.invite_sent', { email: email.trim() }), variant: 'success' })
     onOpenChange(false)
     onDone()
@@ -89,6 +91,7 @@ export function InviteDialog({ open, onOpenChange, shops, defaultShopId, fixedSh
     const r = await teamActions.assign({ shop_id: effectiveShopId, user_id: existing.user_id, role })
     setSending(false)
     if (!r.ok) { toast({ title: r.error || t('toast.retry_error'), variant: 'destructive' }); return }
+    emitOnboarding('member_invited')
     toast({ title: t('team.assign_done', { name: existing.full_name || email, shop: shopName }), variant: 'success' })
     onOpenChange(false)
     onDone()
@@ -115,6 +118,8 @@ export function InviteDialog({ open, onOpenChange, shops, defaultShopId, fixedSh
             </Select>
           </div>
         )}
+        {/* Nom + e-mail regroupés (repère du tour guidé « Inviter un membre ») — même espacement que le corps */}
+        <div className="space-y-4" data-tour="invite-identity">
         <div className="space-y-1.5">
           <Label htmlFor="invite-name">{t('team.full_name')}<RequiredMark /></Label>
           <Input id="invite-name" name="full_name" value={fullName} placeholder={t('team.name_placeholder')} aria-invalid={!!errors.name}
@@ -129,6 +134,7 @@ export function InviteDialog({ open, onOpenChange, shops, defaultShopId, fixedSh
               onChange={e => { setEmail(e.target.value); setExisting(null); if (errors.email) setErrors(x => ({ ...x, email: undefined })) }} />
           </div>
           {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
+        </div>
         </div>
         <div className="space-y-1.5">
           <Label>{t('team.role_label')}</Label>

@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils/cn'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
+import { EmptyGuide } from '@/components/onboarding/empty-guide'
 import { isManagerial } from '@/lib/permissions'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
@@ -347,6 +348,8 @@ export default function CustomersPage() {
             </div>
           ))}
         </div>
+      ) : filtered.length === 0 && !search ? (
+        <EmptyGuide icon={User} title={t('onboarding.empty.customers.title')} body={t('onboarding.empty.customers.body')} />
       ) : filtered.length === 0 ? (
         <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
           {t('customers.no_customers')}

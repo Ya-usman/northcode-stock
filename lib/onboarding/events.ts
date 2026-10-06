@@ -2,7 +2,7 @@
 // (produit enregistré, article ajouté au panier, vente validée) ; un tour
 // guidé en attente de cette action passe à l'étape suivante.
 
-export type OnboardingEvent = 'product_created' | 'cart_item_added' | 'sale_completed'
+export type OnboardingEvent = 'product_created' | 'cart_item_added' | 'sale_completed' | 'category_created' | 'member_invited' | 'settings_saved'
 
 const NAME = 'stockshop:onboarding'
 

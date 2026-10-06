@@ -66,6 +66,8 @@ export function StockTabs({ locale }: { locale: string }) {
           <Link
             key={tab.href}
             href={tab.href}
+            // Repère des tours guidés : stock-tab-products, stock-tab-expiry…
+            data-tour={`stock-tab-${tab.href.split('/').slice(3).join('-') || 'overview'}`}
             isOnline={isOnline}
             role="tab"
             aria-selected={isActive}
