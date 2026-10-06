@@ -89,6 +89,7 @@ export function useAnnouncements(profile: Profile | null, role: string | null | 
     const now = Date.now()
     const cursor = Math.max(seenAt ? new Date(seenAt).getTime() : 0, profile?.created_at ? new Date(profile.created_at).getTime() : 0)
     return rows
+      .filter(a => new Date(a.published_at).getTime() <= now) // programmée : pas avant sa date
       .filter(a => !a.expires_at || new Date(a.expires_at).getTime() > now)
       .filter(a => role === 'super_admin' || !a.roles?.length || (!!role && a.roles.includes(role)))
       .map(a => ({

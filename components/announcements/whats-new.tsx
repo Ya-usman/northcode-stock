@@ -43,7 +43,6 @@ export function WhatsNewButton({ hasUnread, onOpen }: { hasUnread: boolean; onOp
 
 export function WhatsNewPanel({ open, onOpenChange, items }: { open: boolean; onOpenChange: (o: boolean) => void; items: Announcement[] }) {
   const t = useTranslations('whats_new')
-  const locale = useLocale()
   const go = useGo()
   return (
     <AppDrawer open={open} onOpenChange={onOpenChange} category="StockShop" title={t('title')} description={t('subtitle')}
@@ -52,39 +51,45 @@ export function WhatsNewPanel({ open, onOpenChange, items }: { open: boolean; on
         <p className="py-10 text-center text-sm text-muted-foreground">{t('empty')}</p>
       ) : (
         <ol className="space-y-3">
-          {items.map(a => {
-            const k = KIND[a.kind] ?? KIND.new
-            return (
-              <li key={a.id} className="rounded-xl border bg-card p-4 shadow-sm" data-testid="whats-new-item">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium', k.chip)}>
-                    <k.icon className="h-3 w-3" />{t(`kind_${a.kind}` as any)}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(a.publishedAt).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' })}
-                  </span>
-                  {a.unread && <span className="ml-auto h-2 w-2 rounded-full bg-stockshop-blue dark:bg-blue-400" aria-label={t('unread')} />}
-                </div>
-                <h3 className="mt-2 text-sm font-semibold">{a.title}</h3>
-                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{a.description}</p>
-                {a.ctaPath && (
-                  <Button variant="outline" size="sm" className="mt-3 h-9 gap-1.5" onClick={() => { onOpenChange(false); go(a.ctaPath!) }}>
-                    {t('try')}<ArrowRight className="h-3.5 w-3.5" />
-                  </Button>
-                )}
-              </li>
-            )
-          })}
+          {items.map(a => <AnnouncementCard key={a.id} item={a} onTry={() => { onOpenChange(false); go(a.ctaPath!) }} />)}
         </ol>
       )}
     </AppDrawer>
   )
 }
 
-/** Bandeau discret en haut de la page concernée ; fermé une fois pour toutes par la personne */
-export function PageAnnouncement({ item, currentPath, onDismiss }: { item: Announcement; currentPath: string; onDismiss: (id: string) => void }) {
+/** Carte d'une nouveauté (panneau ; aperçu de l'éditeur admin avec onTry absent) */
+export function AnnouncementCard({ item: a, onTry }: { item: Announcement; onTry?: () => void }) {
   const t = useTranslations('whats_new')
-  const go = useGo()
+  const locale = useLocale()
+  const k = KIND[a.kind] ?? KIND.new
+  return (
+    <li className="list-none rounded-xl border bg-card p-4 shadow-sm" data-testid="whats-new-item">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium', k.chip)}>
+          <k.icon className="h-3 w-3" />{t(`kind_${a.kind}` as any)}
+        </span>
+        <span className="text-xs text-muted-foreground">
+          {new Date(a.publishedAt).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' })}
+        </span>
+        {a.unread && <span className="ml-auto h-2 w-2 rounded-full bg-stockshop-blue dark:bg-blue-400" aria-label={t('unread')} />}
+      </div>
+      <h3 className="mt-2 break-words text-sm font-semibold">{a.title}</h3>
+      <p className="mt-1 break-words text-sm leading-relaxed text-muted-foreground">{a.description}</p>
+      {a.ctaPath && (
+        <Button variant="outline" size="sm" className="mt-3 h-9 gap-1.5" onClick={onTry} disabled={!onTry} tabIndex={onTry ? undefined : -1}>
+          {t('try')}<ArrowRight className="h-3.5 w-3.5" />
+        </Button>
+      )}
+    </li>
+  )
+}
+
+/** Bandeau discret en haut de la page concernée ; fermé une fois pour toutes par la personne */
+export function PageAnnouncement({ item, currentPath, onDismiss, preview = false }: { item: Announcement; currentPath: string; onDismiss: (id: string) => void; preview?: boolean }) {
+  const t = useTranslations('whats_new')
+  const navigate = useGo()
+  const go = (path: string) => { if (!preview) navigate(path) } // aperçu admin : boutons inertes
   const k = KIND[item.kind] ?? KIND.new
   const showTry = item.ctaPath && currentPath !== item.ctaPath
   return (

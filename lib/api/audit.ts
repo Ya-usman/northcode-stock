@@ -68,6 +68,8 @@ export type AuditAction =
   | 'admin.repair_orphan_shop'
   | 'admin.orphan_shop_alert'
   | 'admin.send_notification'
+  | 'admin.announcement_create'
+  | 'admin.announcement_update'
   | 'referral.associated'
   | 'referral.reward_created'
   | 'referral.credit_applied'
