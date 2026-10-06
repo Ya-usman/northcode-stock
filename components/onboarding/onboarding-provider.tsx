@@ -98,7 +98,8 @@ export function OnboardingProvider({ userId, children }: { userId: string | null
     const id = active.id
     setActive(null)
     setState(s => ({ ...s, tours: { ...s.tours, [id]: { ...s.tours[id], status } } }))
-    record({ action: 'tour', tour: id, status })
+    // Abandon : l'étape où la personne s'est arrêtée (Admin → Activation)
+    record({ action: 'tour', tour: id, status, ...(status === 'skipped' ? { step: TOURS[id][active.step]?.id } : {}) })
   }, [active, record])
 
   // Lien d'une relance e-mail (?tour=add_product…) : le tour démarre seul, puis

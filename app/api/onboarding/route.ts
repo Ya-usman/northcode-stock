@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
-import { TOUR_IDS } from '@/lib/onboarding/tours'
+import { TOUR_IDS, TOURS, type TourId } from '@/lib/onboarding/tours'
 
 // POST /api/onboarding — accompagnement « Bien démarrer » (migration 163) de la
 // personne connectée : masquer / réafficher le guide, suivi des tours guidés.
 //   { action: 'dismiss_guide' } · { action: 'restore_guide' }
-//   { action: 'tour', tour: '<id>', status: 'started' | 'completed' | 'skipped' }
+//   { action: 'tour', tour: '<id>', status: 'started' | 'completed' | 'skipped', step?: '<étape>' }
+//   (step : étape d'abandon, gardée dans tours.<id>.skipped_step pour Admin → Activation)
 // Préférences personnelles : pas de journal d'audit.
 export async function POST(request: Request) {
   const t = getApiTranslator(request)
@@ -31,9 +32,11 @@ export async function POST(request: Request) {
       }
       const tours = { ...(row?.tours || {}) }
       const prev = tours[tour] || {}
+      // Abandon : étape où la personne s'est arrêtée (identifiant connu du tour seulement)
+      const step = status === 'skipped' && TOURS[tour as TourId].some(s => s.id === body?.step) ? body.step : undefined
       tours[tour] = status === 'started'
         ? { ...prev, started_at: now, status: prev.status === 'completed' ? 'completed' : 'started' }
-        : { ...prev, status, ended_at: now }
+        : { ...prev, status, ended_at: now, skipped_step: step ?? null }
       update = { tours }
     } else {
       return NextResponse.json({ error: t('invalid_data') }, { status: 400 })
