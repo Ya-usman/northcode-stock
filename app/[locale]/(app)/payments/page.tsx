@@ -7,7 +7,9 @@ import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 import { isManagerial as isManagerialRole } from '@/lib/permissions'
 import { generateDebtReceiptPDFBlob, generateReportPDFBlob } from '@/lib/utils/pdf'
-import { sharePDFNative, printPDFNative, isCapacitor, downloadOrShareCSV } from '@/lib/utils/native-share'
+import { sharePDFNative, printPDFNative, isCapacitor } from '@/lib/utils/native-share'
+import { useTableExport } from '@/lib/export/use-table-export'
+import { saveFile } from '@/lib/utils/save-file'
 import { normalize } from '@/lib/utils/normalize'
 import { cn } from '@/lib/utils/cn'
 import { withTimeout } from '@/lib/utils/with-timeout'
@@ -24,7 +26,7 @@ import type { Customer, Supplier } from '@/lib/types/database'
 import {
   ChevronDown, ChevronUp, Clock, CheckCircle2,
   History, User, RefreshCw, Banknote, Store,
-  Printer, Share2, Search, CalendarDays, Pencil, Ban, FileText, FileDown, Table2,
+  Printer, Share2, Search, CalendarDays, Pencil, Ban, FileText, FileDown, Table2, FileSpreadsheet,
 } from 'lucide-react'
 import { DebtGauge } from '@/components/dashboard/recent-sales-feed'
 import { getCountry, getMethodType } from '@/lib/saas/countries'
@@ -466,6 +468,7 @@ export default function CreditsPage() {
   const [overdueOnly, setOverdueOnly] = useState(false)
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const debtsExport = useTableExport()
 
   // ── Repayment dialog ─────────────────────────────────────
   const [repayDebtor, setRepayDebtor] = useState<CustomerDebt | null>(null)
@@ -1204,7 +1207,8 @@ export default function CreditsPage() {
           rows,
         }],
       })
-      printPDFNative(result.blob, `Releve-${historyDebtor.customer.name.replace(/\s+/g, '-')}-${Date.now()}.pdf`)
+      // Export : enregistré sur l'appareil (le partage est proposé dans le message)
+      await saveFile(result.blob, `StockShop - Relevé - ${historyDebtor.customer.name}.pdf`)
     } catch (e: any) {
       toast({ title: e.message, variant: 'destructive' })
     }
@@ -1229,7 +1233,7 @@ export default function CreditsPage() {
           ]),
         }],
       })
-      printPDFNative(result.blob, `Creances-${shop.name.replace(/\s+/g, '-')}-${Date.now()}.pdf`)
+      await saveFile(result.blob, `StockShop - Créances - ${shop.name}.pdf`)
     } catch (e: any) {
       toast({ title: e.message, variant: 'destructive' })
     } finally {
@@ -1237,22 +1241,21 @@ export default function CreditsPage() {
     }
   }
 
-  const exportDebtorsCSV = async () => {
+  // Export Excel / CSV des créances clients (liste filtrée), total en bas
+  const exportDebtors = (fmtOut: 'xlsx' | 'csv') => {
     setExportMenuOpen(false)
-    const header = [
-      t('payments.export_col_client'), t('payments.export_col_phone'),
-      t('payments.export_col_invoices'), t('payments.export_col_amount'),
-    ]
-    const rows = filteredDebtors.map(({ customer, unpaidSales, totalDebt }) => [
-      `"${customer.name.replace(/"/g, '""')}"`, customer.phone || '', String(unpaidSales.length), String(totalDebt),
-    ])
-    const csv = [header, ...rows].map(r => r.join(';')).join('\n')
-    try {
-      await downloadOrShareCSV(csv, `Creances-${shop?.name.replace(/\s+/g, '-')}-${Date.now()}.csv`)
-    } catch {
-      toast({ title: t('toast.retry_error'), variant: 'destructive' })
-    }
+    debtsExport.run({
+      kind: debtsExport.kind('debts'),
+      shopName: userShops.filter(x => effectiveShopIds.includes(x.id)).map(x => x.name).join(', ') || shop?.name || 'StockShop',
+      columns: [
+        { header: t('payments.export_col_client') }, { header: t('payments.export_col_phone') },
+        { header: t('payments.export_col_invoices'), type: 'int' }, { header: `${t('payments.export_col_amount')} (${symbol})`, type: 'money' },
+      ],
+      rows: filteredDebtors.map(({ customer, unpaidSales, totalDebt }) => [customer.name, customer.phone || '', unpaidSales.length, totalDebt]),
+      totals: [t('exports.total'), null, filteredDebtors.reduce((n, d) => n + d.unpaidSales.length, 0), filteredDebtors.reduce((n, d) => n + d.totalDebt, 0)],
+    }, fmtOut)
   }
+
 
   const openEditPayment = (payment: PaymentRecord) => {
     setEditingPayment(payment)
@@ -1527,7 +1530,7 @@ export default function CreditsPage() {
                     variant="outline"
                     size="icon"
                     className="h-9 w-9"
-                    loading={exporting}
+                    loading={exporting || debtsExport.exporting}
                     onClick={() => setExportMenuOpen(v => !v)}
                     aria-label={t('actions.export_pdf')}
                   >
@@ -1545,11 +1548,20 @@ export default function CreditsPage() {
                           <span>{t('actions.export_pdf')}</span>
                         </button>
                         <button
-                          onClick={exportDebtorsCSV}
+                          onClick={() => exportDebtors('xlsx')}
                           className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left"
+                          data-testid="export-xlsx"
                         >
-                          <Table2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
-                          <span>{t('actions.export_csv')}</span>
+                          <FileSpreadsheet className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                          <span>{t('exports.excel')}</span>
+                        </button>
+                        <button
+                          onClick={() => exportDebtors('csv')}
+                          className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left"
+                          data-testid="export-csv"
+                        >
+                          <Table2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <span>{t('exports.csv')}</span>
                         </button>
                       </div>
                     </>

@@ -918,29 +918,10 @@ export async function generateReportPDFBlob(params: ReportParams): Promise<{ blo
 }
 
 export async function savePDF(blob: Blob, fileName: string): Promise<void> {
-  const { isCapacitor } = await import('@/lib/utils/native-share')
-
-  // Capacitor natif : écrit dans le cache + partage natif. Évite le fetch
-  // réseau qui plante sur Android avec une erreur non-JSON.
-  if (isCapacitor()) {
-    const { Filesystem, Directory } = await import('@capacitor/filesystem')
-    const { Share } = await import('@capacitor/share')
-    const base64 = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve((reader.result as string).split(',')[1])
-      reader.onerror = reject
-      reader.readAsDataURL(blob)
-    })
-    // Les slashes dans le nom (ex: dates "01/06-30/06") sont interprétés
-    // comme des sous-répertoires par Filesystem → on les remplace par des tirets.
-    const safeName = fileName.replace(/[/\\:*?"<>|]/g, '-')
-    const result = await Filesystem.writeFile({ path: safeName, data: base64, directory: Directory.Cache })
-    await Share.share({ title: safeName, url: result.uri, dialogTitle: safeName })
-    return
-  }
-
-  const { downloadFile } = await import('@/lib/utils/download')
-  await downloadFile(blob, fileName)
+  // Enregistré sur l’appareil (Documents › StockShop dans l’app, Téléchargements sinon) ;
+  // le partage est proposé dans le message de confirmation (lib/utils/save-file)
+  const { saveFile } = await import('@/lib/utils/save-file')
+  await saveFile(blob, fileName)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

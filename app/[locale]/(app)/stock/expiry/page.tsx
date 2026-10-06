@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { format } from 'date-fns'
-import { Search, FileDown, FileText, Table2, AlertTriangle, Edit2, Trash2 } from 'lucide-react'
+import { Search, FileDown, FileText, Table2, AlertTriangle, Edit2, Trash2, FileSpreadsheet } from 'lucide-react'
+import { useTableExport } from '@/lib/export/use-table-export'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
@@ -19,7 +20,7 @@ import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { getExpiryAlertDays } from '@/lib/utils/expiry'
 import { generateReportPDFBlob } from '@/lib/utils/pdf'
-import { printPDFNative, downloadOrShareCSV } from '@/lib/utils/native-share'
+import { saveFile } from '@/lib/utils/save-file'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -52,12 +53,13 @@ const REASON_CODES = ['correction', 'damage', 'loss', 'theft', 'expiry', 'other'
 
 export default function ExpiryPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations()
-  const { shop, effectiveShopIds, profile, roleInActiveShop } = useAuth()
+  const { shop, effectiveShopIds, profile, roleInActiveShop, userShops } = useAuth()
   const effectiveRole = roleInActiveShop ?? profile?.role
   const { canAccess, canWrite } = useRolePermissions()
   // Règle unique : niveau « modification » de Produits / Stock
   const canWriteStock = canWrite('stock')
-  const { fmt: formatNaira } = useCurrency()
+  const { fmt: formatNaira, symbol } = useCurrency()
+  const expiryExport = useTableExport()
   const supabase = createClient()
   const { toast } = useToast()
   const { isOnline } = useOffline()
@@ -226,7 +228,7 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
           rows: exportRows(),
         }],
       })
-      printPDFNative(result.blob, `Peremptions-${shop.name.replace(/\s+/g, '-')}-${Date.now()}.pdf`)
+      await saveFile(result.blob, `StockShop - Péremptions - ${shop.name}.pdf`)
     } catch (e: any) {
       toast({ title: e.message, variant: 'destructive' })
     } finally {
@@ -234,19 +236,24 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
     }
   }
 
-  const exportCSV = async () => {
-    const header = [
-      t('expiry.col_product'), t('expiry.col_category'), t('expiry.col_quantity'),
-      t('expiry.col_value'), t('expiry.col_received'), t('expiry.col_expiry'), t('expiry.col_status'),
-    ]
-    const rows = exportRows().map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`))
-    const csv = [header, ...rows].map(r => r.join(';')).join('\n')
-    try {
-      await downloadOrShareCSV(csv, `Peremptions-${shop?.name.replace(/\s+/g, '-')}-${Date.now()}.csv`)
-    } catch {
-      toast({ title: t('errors.generic'), variant: 'destructive' })
-    }
+  // Export Excel / CSV des lots affichés : quantités et valeurs en nombres, vraies dates
+  const exportExpiry = (fmtOut: 'xlsx' | 'csv') => {
+    expiryExport.run({
+      kind: expiryExport.kind('expiry'),
+      shopName: (userShops || []).filter(x => effectiveShopIds.includes(x.id)).map(x => x.name).join(', ') || shop?.name || 'StockShop',
+      columns: [
+        { header: t('expiry.col_product') }, { header: t('expiry.col_category') }, { header: t('expiry.col_quantity'), type: 'int' },
+        { header: `${t('expiry.col_value')} (${symbol})`, type: 'money' }, { header: t('expiry.col_received'), type: 'date' },
+        { header: t('expiry.col_expiry'), type: 'date' }, { header: t('expiry.col_status') },
+      ],
+      rows: filtered.map(b => [
+        b.products?.name || '—', b.products?.categories?.name || '', b.quantity, b.quantity * (b.buying_price || 0),
+        b.received_at ? new Date(b.received_at) : null, b.expiry_date ? new Date(b.expiry_date) : null, statusLabelOf(statusOf(b)),
+      ]),
+      totals: [t('exports.total'), null, filtered.reduce((n, b) => n + b.quantity, 0), filtered.reduce((n, b) => n + b.quantity * (b.buying_price || 0), 0), null, null, null],
+    }, fmtOut)
   }
+
 
   return (
     <div className="space-y-4">
@@ -295,7 +302,7 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
         {filtered.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0" loading={exporting} aria-label={t('actions.download')} title={t('actions.download')}>
+              <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0" loading={exporting || expiryExport.exporting} aria-label={t('actions.download')} title={t('actions.download')}>
                 <FileDown className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -304,9 +311,13 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
                 <FileText className="h-4 w-4 text-red-500 flex-shrink-0" />
                 {t('actions.export_pdf')}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={exportCSV} className="gap-2.5">
-                <Table2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
-                {t('actions.export_csv')}
+              <DropdownMenuItem onClick={() => exportExpiry('xlsx')} className="gap-2.5" data-testid="export-xlsx">
+                <FileSpreadsheet className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                {t('exports.excel')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportExpiry('csv')} className="gap-2.5" data-testid="export-csv">
+                <Table2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                {t('exports.csv')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

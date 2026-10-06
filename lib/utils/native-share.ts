@@ -105,23 +105,9 @@ export async function downloadOrShareCSV(csvContent: string, fileName: string): 
   await downloadOrShareBlob(blob, fileName)
 }
 
-/** N'importe quel fichier (Excel, PDF…) : partage natif dans l'app Android, téléchargement sur le web */
+/** Téléchargement d'un fichier (Excel, CSV…) : ENREGISTRÉ sur l'appareil (lib/utils/save-file),
+ *  le partage reste proposé dans le message de confirmation — jamais imposé */
 export async function downloadOrShareBlob(blob: Blob, fileName: string): Promise<void> {
-  if (isCapacitor()) {
-    const { Filesystem, Directory } = await import('@capacitor/filesystem')
-    const { Share } = await import('@capacitor/share')
-    const base64 = await blobToBase64(blob)
-    const safeName = fileName.replace(/[/\\:*?"<>|]/g, '-')
-    const result = await Filesystem.writeFile({
-      path: safeName,
-      data: base64,
-      directory: Directory.Cache,
-    })
-    await Share.share({ title: safeName, url: result.uri, dialogTitle: safeName })
-    return
-  }
-
-  // Web : délègue à downloadFile (blob URL sur navigateur, Supabase en PWA)
-  const { downloadFile } = await import('@/lib/utils/download')
-  await downloadFile(blob, fileName)
+  const { saveFile } = await import('@/lib/utils/save-file')
+  await saveFile(blob, fileName)
 }
