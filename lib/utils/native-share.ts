@@ -102,7 +102,11 @@ export async function printPDFNative(blob: Blob, fileName: string): Promise<void
  */
 export async function downloadOrShareCSV(csvContent: string, fileName: string): Promise<void> {
   const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+  await downloadOrShareBlob(blob, fileName)
+}
 
+/** N'importe quel fichier (Excel, PDF…) : partage natif dans l'app Android, téléchargement sur le web */
+export async function downloadOrShareBlob(blob: Blob, fileName: string): Promise<void> {
   if (isCapacitor()) {
     const { Filesystem, Directory } = await import('@capacitor/filesystem')
     const { Share } = await import('@capacitor/share')

@@ -1677,7 +1677,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           open={showImportModal}
           onClose={() => setShowImportModal(false)}
           shopId={shop.id}
-          onImported={(count) => { setShowImportModal(false); fetchProducts(); }}
+          // Le panneau reste ouvert sur le bilan (importés, déjà en stock, à corriger) ; la liste se met à jour derrière
+          onImported={() => { fetchProducts() }}
         />
       )}
 

@@ -1,13 +1,23 @@
 'use client'
 
-import { useRef, useState } from 'react'
-import { Upload, Download, CheckCircle2, AlertCircle, X } from 'lucide-react'
+// Import de produits (lot 1, 7 oct. 2026) : 1) modèle Excel prêt à remplir
+// (onglet « Mode d'emploi », menus déroulants, code-barres en texte) ;
+// 2) fichier Excel ou CSV, lu dans le navigateur ; 3) VÉRIFICATION complète
+// par le serveur avant d'importer (mêmes règles que l'import) : à importer,
+// déjà en stock (laissés tels quels — jamais de doublon), à corriger (raison
+// en clair, fichier des lignes à corriger). Seules les lignes nouvelles sont créées.
+
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { AlertCircle, AlertTriangle, CheckCircle2, Download, FileSpreadsheet, Loader2, MinusCircle, Upload, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { AppDrawer } from '@/components/ui/app-drawer'
 import { FOOTER_CANCEL_CLASS, FOOTER_PRIMARY_CLASS, FOOTER_ROW_CLASS } from '@/components/ui/premium-dialog'
-import { useTranslations } from 'next-intl'
-import { downloadOrShareCSV } from '@/lib/utils/native-share'
+import { useAuthContext } from '@/lib/contexts/auth-context'
+import { downloadOrShareBlob, isCapacitor } from '@/lib/utils/native-share'
 import { withTimeout } from '@/lib/utils/with-timeout'
+import { cn } from '@/lib/utils/cn'
+import { IMPORT_FIELDS, IMPORT_MAX_ROWS, PRODUCT_UNITS, type ImportField, type RawRow } from '@/lib/import/products-import'
 
 interface Props {
   open: boolean
@@ -16,266 +26,256 @@ interface Props {
   onImported: (count: number) => void
 }
 
-// Maps any language header variant → internal field name
-const HEADER_ALIASES: Record<string, string> = {
-  // internal keys (backward-compat)
-  name: 'name', selling_price: 'selling_price', buying_price: 'buying_price',
-  quantity: 'quantity', unit: 'unit', sku: 'sku',
-  low_stock_threshold: 'low_stock_threshold',
-  // French
-  'nom du produit *': 'name', 'nom du produit': 'name',
-  'prix de vente *': 'selling_price', 'prix de vente': 'selling_price',
-  "prix d'achat": 'buying_price',
-  'quantité': 'quantity', 'quantite': 'quantity',
-  'unité (piece, kg, litre…)': 'unit', 'unité': 'unit', 'unite': 'unit',
-  'sku / code-barres': 'sku', 'code-barres': 'sku',
-  'seuil stock faible': 'low_stock_threshold',
-  // English
-  'product name *': 'name', 'product name': 'name',
-  'selling price *': 'selling_price', 'selling price': 'selling_price',
-  'buying price': 'buying_price',
-  'unit (piece, kg, litre…)': 'unit',
-  'sku / barcode': 'sku', 'barcode': 'sku',
-  'low stock threshold': 'low_stock_threshold',
-  // Hausa
-  'suna *': 'name', 'suna': 'name',
-  'farashin siyarwa *': 'selling_price', 'farashin siyarwa': 'selling_price',
-  'farashin saya': 'buying_price',
-  'yawa': 'quantity',
-  'naúi (piece, kg, litre…)': 'unit', 'naúi': 'unit', 'naui': 'unit',
-  'lambar kaya': 'sku',
-  'ƙananan hannun kaya': 'low_stock_threshold', 'ƙananan hanawa': 'low_stock_threshold',
+type Status = 'new' | 'exists' | 'error' | 'ignored'
+interface ServerRow { line: number; status: Status; issue?: string; params?: Record<string, string | number>; warnings: { code: string; params?: Record<string, string | number> }[] }
+interface Summary { total: number; new: number; exists: number; errors: number; ignored: number; warnings: number }
+type Phase = 'idle' | 'reading' | 'checking' | 'review' | 'importing' | 'done'
+
+const STATUS_STYLE: Record<Status, string> = {
+  new: 'bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-400',
+  exists: 'bg-muted text-muted-foreground',
+  error: 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400',
+  ignored: 'bg-muted text-muted-foreground',
 }
-
-// Proper CSV line parser that handles quoted fields and escaped quotes
-function parseCSVLine(line: string, sep: string): string[] {
-  const fields: string[] = []
-  let current = ''
-  let inQuotes = false
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i]
-    if (ch === '"') {
-      if (inQuotes && line[i + 1] === '"') { current += '"'; i++ }
-      else inQuotes = !inQuotes
-    } else if (line.slice(i, i + sep.length) === sep && !inQuotes) {
-      fields.push(current); current = ''; i += sep.length - 1
-    } else {
-      current += ch
-    }
-  }
-  fields.push(current)
-  return fields
-}
-
-function parseCSV(text: string): Record<string, string>[] {
-  // Strip UTF-8 BOM if present
-  const cleaned = text.replace(/^﻿/, '').trim()
-  const lines = cleaned.split(/\r?\n/).filter(l => l.trim())
-  if (lines.length < 2) return []
-
-  // Auto-detect separator: semicolons are common in French/African Excel locales
-  const firstLine = lines[0]
-  const sep = firstLine.includes(';') && !firstLine.includes(',') ? ';' : ','
-
-  const rawHeaders = parseCSVLine(firstLine, sep)
-  const headers = rawHeaders.map(h => {
-    const normalized = h.trim().toLowerCase()
-    return HEADER_ALIASES[normalized] ?? normalized
-  })
-
-  return lines.slice(1).map(line => {
-    const values = parseCSVLine(line, sep)
-    const obj: Record<string, string> = {}
-    headers.forEach((h, i) => { obj[h] = (values[i] ?? '').trim() })
-    return obj
-  }).filter(row => Object.values(row).some(v => v !== ''))
-}
+const ORDER: Record<Status, number> = { error: 0, new: 1, exists: 2, ignored: 3 }
+const SHOWN_NEW = 50
 
 export function ImportProductsModal({ open, onClose, shopId, onImported }: Props) {
   const t = useTranslations('import')
   const tRoot = useTranslations()
+  const { userShops } = useAuthContext()
+  const shopName = userShops.find(s => s.id === shopId)?.name || 'StockShop'
   const fileRef = useRef<HTMLInputElement>(null)
-  const [rows, setRows] = useState<Record<string, string>[]>([])
-  const [fileName, setFileName] = useState('')
-  const [importing, setImporting] = useState(false)
-  const [result, setResult] = useState<{ inserted: number; errors: { line: number; error: string }[] } | null>(null)
 
+  const [phase, setPhase] = useState<Phase>('idle')
+  const [fileName, setFileName] = useState('')
+  const [readError, setReadError] = useState<string | null>(null)
+  const [rows, setRows] = useState<RawRow[]>([])
+  const [truncated, setTruncated] = useState(false)
+  const [report, setReport] = useState<{ summary: Summary; rows: ServerRow[] } | null>(null)
+  const [inserted, setInserted] = useState(0)
+  const [busyTemplate, setBusyTemplate] = useState(false)
+  const [smallScreen, setSmallScreen] = useState(false)
+  useEffect(() => { setSmallScreen(isCapacitor() || window.matchMedia('(max-width: 639px)').matches) }, [])
+
+  const rawByLine = useMemo(() => new Map(rows.map(r => [r.line, r.values])), [rows])
+  const fieldLabel = (f: ImportField) => t(`xlsx.col.${f}.header` as any)
+  const issueText = (r: { issue?: string; params?: Record<string, string | number> }) => (r.issue ? t(`issue.${r.issue}` as any, r.params as any) : '')
+  const warningText = (w: ServerRow['warnings'][number]) => t(`warning.${w.code}` as any, w.params as any)
+
+  // ── Modèle Excel ──────────────────────────────────────────────────────────
+  const templateTexts = () => {
+    const x = (k: string) => t(`xlsx.${k}` as any)
+    return {
+      sheetProducts: x('sheet_products'), sheetGuide: x('sheet_guide'), sheetLists: x('sheet_lists'),
+      columns: Object.fromEntries(IMPORT_FIELDS.map(f => [f, {
+        header: x(`col.${f}.header`), help: x(`col.${f}.help`), example: x(`col.${f}.example`), required: f === 'name' || f === 'selling_price',
+      }])) as any,
+      unitLabels: Object.fromEntries(PRODUCT_UNITS.map(u => [u, x(`units.${u}`)])) as any,
+      guideTitle: x('guide_title'), guideIntro: x('guide_intro'), guideSteps: t.raw('xlsx.guide_steps') as string[],
+      guideColumnsTitle: x('guide_columns_title'), guideColumn: x('guide_column'), guideRequired: x('guide_required'), guideMeaning: x('guide_meaning'), guideExample: x('guide_example'),
+      yes: x('yes'), no: x('no'),
+      guideExamplesTitle: x('guide_examples_title'), guideExamplesNote: x('guide_examples_note'), examples: t.raw('xlsx.examples') as any[],
+      guideUnitsTitle: x('guide_units_title'), guideTipsTitle: x('guide_tips_title'), guideTips: t.raw('xlsx.guide_tips') as string[],
+      validationTitle: x('validation_title'), validationUnit: x('validation_unit'), validationNumber: x('validation_number'), validationInteger: x('validation_integer'),
+    }
+  }
+  const safe = (s: string) => s.replace(/[/\\:*?"<>|]/g, '-').trim()
   const downloadTemplate = async () => {
-    const headers = [
-      t('col_name'), t('col_selling_price'), t('col_buying_price'),
-      t('col_quantity'), t('col_unit'), t('col_sku'),
-      t('col_threshold'),
-    ]
-    const examples = [
-      [t('ex_name1'), '200', '150', '100', 'piece', '5900259145867', '20'],
-      [t('ex_name2'), '500', '380', '50', 'kg', '', '10'],
-      [t('ex_name3'), '900', '700', '30', 'litre', '', '5'],
-    ]
-    const rows = [headers, ...examples]
-    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
-    await downloadOrShareCSV(csv, t('template_filename'))
+    setBusyTemplate(true)
+    try {
+      const { buildProductsTemplate } = await import('@/lib/import/products-template')
+      const blob = await buildProductsTemplate(templateTexts(), shopName)
+      await downloadOrShareBlob(blob, `StockShop - ${safe(t('template_file_label'))} - ${safe(shopName)}.xlsx`)
+    } finally { setBusyTemplate(false) }
+  }
+  const downloadFix = async () => {
+    if (!report) return
+    const { buildFixFile } = await import('@/lib/import/products-template')
+    const fix = report.rows.filter(r => r.status === 'error').map(r => ({ raw: rawByLine.get(r.line) || {}, problem: `${t('col_line')} ${r.line} : ${issueText(r)}` }))
+    const blob = await buildFixFile(templateTexts(), t('fix_problem_header'), fix)
+    await downloadOrShareBlob(blob, `StockShop - ${safe(t('fix_file_label'))}.xlsx`)
   }
 
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ── Fichier → vérification par le serveur ────────────────────────────────
+  const send = (body: object, timeout: number) => withTimeout(fetch('/api/products/import', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  }), timeout)
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file) return
-    setFileName(file.name)
-    setResult(null)
-    const reader = new FileReader()
-    reader.onload = ev => {
-      const text = ev.target?.result as string
-      setRows(parseCSV(text))
-    }
-    reader.readAsText(file, 'utf-8')
     if (fileRef.current) fileRef.current.value = ''
+    if (!file) return
+    setFileName(file.name); setReadError(null); setReport(null); setRows([]); setPhase('reading')
+    const { readImportFile } = await import('@/lib/import/read-file')
+    const read = await readImportFile(file)
+    if (!read.ok) {
+      setReadError(t(`read.${read.error}` as any, { columns: (read.missing || []).map(fieldLabel).join(', ') }))
+      setPhase('idle'); return
+    }
+    setRows(read.rows); setTruncated(read.truncated); setPhase('checking')
+    try {
+      const res = await send({ shop_id: shopId, rows: read.rows, dry_run: true }, 45_000)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error)
+      setReport({ summary: json.summary, rows: json.rows }); setPhase('review')
+    } catch (err: any) {
+      setReadError(err?.message || t('error_generic')); setPhase('idle')
+    }
   }
 
   const handleImport = async () => {
-    if (!rows.length || !shopId) return
-    setImporting(true)
+    if (!report?.summary.new) return
+    setPhase('importing')
     try {
-      const res = await withTimeout(fetch('/api/products/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rows, shop_id: shopId }),
-      }), 45_000) // import de fichier CSV volumineux — plus long que le défaut
+      const res = await send({ shop_id: shopId, rows }, 90_000)
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
-      setResult(json)
+      setInserted(json.inserted); setReport({ summary: json.summary, rows: json.rows }); setPhase('done')
       if (json.inserted > 0) onImported(json.inserted)
     } catch (err: any) {
-      setResult({ inserted: 0, errors: [{ line: 0, error: err.message }] })
-    } finally {
-      setImporting(false)
+      setReadError(err?.message || t('error_generic')); setPhase('review')
     }
   }
 
-  const reset = () => { setRows([]); setFileName(''); setResult(null) }
+  const reset = () => { setPhase('idle'); setFileName(''); setReadError(null); setRows([]); setReport(null); setTruncated(false); setInserted(0) }
   const closeAll = () => { reset(); onClose() }
 
-  // Panneau latéral large : les trois étapes (modèle, fichier, aperçu) tiennent
-  // sans défilement sur ordinateur ; un fichier chargé mais pas encore importé
-  // déclenche la garde de fermeture.
+  // Lignes à afficher : à corriger d'abord, puis à importer (50 au plus), déjà en stock, ignorées
+  const visible = useMemo(() => {
+    if (!report) return { list: [] as ServerRow[], hiddenNew: 0 }
+    const sorted = [...report.rows].sort((a, b) => ORDER[a.status] - ORDER[b.status] || (b.warnings.length - a.warnings.length) || a.line - b.line)
+    let n = 0, hiddenNew = 0
+    const list = sorted.filter(r => { if (r.status !== 'new') return true; n++; if (n > SHOWN_NEW) { hiddenNew++; return false } return true })
+    return { list, hiddenNew }
+  }, [report])
+
+  const busy = phase === 'reading' || phase === 'checking' || phase === 'importing'
+  const s = report?.summary
+  const priceOf = (line: number) => { const v = rawByLine.get(line)?.selling_price; return v === undefined || v === '' ? '—' : String(v) }
+  const qtyOf = (line: number) => { const v = rawByLine.get(line)?.quantity; return v === undefined || v === '' ? '0' : String(v) }
+  const nameOf = (line: number) => String(rawByLine.get(line)?.name ?? '').trim() || '—'
+
   return (
     <AppDrawer
       open={open}
-      onOpenChange={v => { if (!v) closeAll() }}
+      onOpenChange={v => { if (!v && !busy) closeAll() }}
       title={t('title')}
       icon={<Upload className="h-4 w-4" />}
       width="lg"
-      dirty={rows.length > 0 && !result}
+      dirty={phase === 'review'}
       testId="import-drawer"
       footer={({ requestClose }) => (
         <div className={FOOTER_ROW_CLASS}>
-          {!result ? (
+          {phase !== 'done' ? (
             <>
-              <Button type="button" variant="outline" className={FOOTER_CANCEL_CLASS} onClick={requestClose} disabled={importing}>
+              <Button type="button" variant="outline" className={FOOTER_CANCEL_CLASS} onClick={requestClose} disabled={busy}>
                 {tRoot('actions.cancel')}
               </Button>
-              <Button
-                variant="stockshop"
-                className={FOOTER_PRIMARY_CLASS}
-                disabled={rows.length === 0 || importing}
-                loading={importing}
-                onClick={handleImport}
-              >
-                {importing ? t('importing') : t('import_btn', { count: rows.length })}
+              <Button variant="stockshop" className={FOOTER_PRIMARY_CLASS} disabled={phase !== 'review' || !s?.new} loading={phase === 'importing'} onClick={handleImport} data-testid="import-submit">
+                {phase === 'importing' ? t('importing') : phase === 'review' && !s?.new ? t('nothing_to_import') : t('import_btn', { count: s?.new ?? 0 })}
               </Button>
             </>
           ) : (
-            <Button variant="stockshop" className={FOOTER_PRIMARY_CLASS} onClick={closeAll}>
-              {t('close')}
-            </Button>
+            <Button variant="stockshop" className={FOOTER_PRIMARY_CLASS} onClick={closeAll}>{t('close')}</Button>
           )}
         </div>
       )}
     >
       <div className="space-y-4">
+        {phase !== 'done' && (<>
+          {/* 1 · Modèle */}
+          <section className="space-y-2 rounded-xl border bg-card p-4">
+            <p className="text-sm font-semibold">{t('step1_title')}</p>
+            <p className="text-xs text-muted-foreground">{t('step1_desc')}</p>
+            <Button variant="outline" size="sm" className="gap-2" onClick={downloadTemplate} loading={busyTemplate} data-testid="import-template">
+              <FileSpreadsheet className="h-4 w-4" /> {t('download_template')}
+            </Button>
+            <p className="text-[11px] text-muted-foreground">{t('step1_required')}</p>
+            {smallScreen && <p className="rounded-lg bg-stockshop-blue-muted px-3 py-2 text-xs text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-300" data-testid="import-mobile-hint">{t('mobile_hint')}</p>}
+          </section>
 
-        {/* Step 1 */}
-        <div className="rounded-xl border bg-card p-4 space-y-2">
-          <p className="text-sm font-semibold">{t('step1_title')}</p>
-          <p className="text-xs text-muted-foreground">{t('step1_desc')}</p>
-          <Button variant="outline" size="sm" className="gap-2" onClick={downloadTemplate}>
-            <Download className="h-3.5 w-3.5" /> {t('download_template')}
-          </Button>
-          <p className="text-[11px] text-muted-foreground">{t('step1_required')}</p>
-        </div>
-
-        {/* Step 2 */}
-        <div className="space-y-2">
-          <p className="text-sm font-semibold">{t('step2_title')}</p>
-          {!fileName ? (
-            <button
-              onClick={() => fileRef.current?.click()}
-              className="w-full h-20 border-2 border-dashed border-border rounded-xl bg-card flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:border-primary hover:text-foreground transition-colors"
-            >
-              <Upload className="h-5 w-5" />
-              <span className="text-xs">{t('drop_hint')}</span>
-            </button>
-          ) : (
-            <div className="flex items-center justify-between rounded-xl border bg-card px-4 py-3">
-              <div>
-                <p className="text-sm font-medium">{fileName}</p>
-                <p className="text-xs text-muted-foreground">{t('rows_detected', { count: rows.length })}</p>
-              </div>
-              <button onClick={reset} className="text-muted-foreground hover:text-foreground">
-                <X className="h-4 w-4" />
+          {/* 2 · Fichier */}
+          <section className="space-y-2">
+            <p className="text-sm font-semibold">{t('step2_title')}</p>
+            {!fileName ? (
+              <button type="button" onClick={() => fileRef.current?.click()}
+                className="flex h-20 w-full flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-border bg-card text-muted-foreground transition-colors hover:border-stockshop-blue hover:text-foreground dark:hover:border-blue-400">
+                <Upload className="h-5 w-5" /><span className="text-xs">{t('drop_hint')}</span>
               </button>
-            </div>
-          )}
-          <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleFile} />
-        </div>
-
-        {/* Preview */}
-        {rows.length > 0 && !result && (
-          <div className="rounded-xl border bg-card overflow-hidden">
-            <div className="bg-muted/50 px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              {t('preview_title')} ({Math.min(rows.length, 3)} / {rows.length})
-            </div>
-            <div className="divide-y">
-              {rows.slice(0, 3).map((row, i) => (
-                <div key={i} className="px-3 py-2 text-xs flex justify-between gap-2">
-                  <span className="font-medium truncate">{row.name || <span className="text-red-400">— manquant —</span>}</span>
-                  <span className="text-muted-foreground shrink-0">{row.selling_price || '0'} · qté {row.quantity || '0'}</span>
+            ) : (
+              <div className="flex items-center justify-between gap-3 rounded-xl border bg-card px-4 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{fileName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {phase === 'reading' ? t('reading') : phase === 'checking' ? t('checking') : rows.length ? t('rows_detected', { count: rows.length }) : ''}
+                  </p>
                 </div>
-              ))}
-              {rows.length > 3 && (
-                <div className="px-3 py-2 text-xs text-muted-foreground">
-                  {t('preview_more', { count: rows.length - 3 })}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Result */}
-        {result && (
-          <div className="space-y-2">
-            {result.inserted > 0 && (
-              <div className="flex items-center gap-2 rounded-xl bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800/60 px-4 py-3">
-                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
-                <p className="text-sm font-medium text-green-700 dark:text-green-300">{t('success', { count: result.inserted })}</p>
+                {busy ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : (
+                  <button type="button" onClick={reset} className="text-muted-foreground hover:text-foreground" aria-label={t('change_file')} title={t('change_file')}><X className="h-4 w-4" /></button>
+                )}
               </div>
             )}
-            {result.errors.length > 0 && (
-              <div className="rounded-xl border border-red-200 dark:border-red-800/60 overflow-hidden">
-                <div className="bg-red-50 dark:bg-red-950/40 px-3 py-2 flex items-center gap-2">
-                  <AlertCircle className="h-3.5 w-3.5 text-red-500" />
-                  <span className="text-xs font-semibold text-red-600 dark:text-red-400">{t('errors_title', { count: result.errors.length })}</span>
-                </div>
-                <div className="divide-y max-h-32 overflow-y-auto">
-                  {result.errors.map((e, i) => (
-                    <div key={i} className="px-3 py-1.5 text-xs text-red-600 dark:text-red-400">
-                      {e.line > 0 ? t('line_error', { line: e.line, error: e.error }) : e.error}
+            <input ref={fileRef} type="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" className="hidden" onChange={handleFile} data-testid="import-file" />
+            {readError && (
+              <p role="alert" className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300" data-testid="import-read-error">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />{readError}
+              </p>
+            )}
+            {truncated && <p className="text-xs text-amber-700 dark:text-amber-400">{t('truncated', { max: IMPORT_MAX_ROWS })}</p>}
+          </section>
+        </>)}
+
+        {/* 3 · Vérification / résultat */}
+        {report && s && (
+          <section className="space-y-3" data-testid="import-review">
+            {phase === 'done' ? (
+              <div className="space-y-1.5 rounded-xl border border-green-200 bg-green-50 px-4 py-3 dark:border-green-800/60 dark:bg-green-950/40" data-testid="import-done">
+                <p className="flex items-center gap-2 text-sm font-semibold text-green-700 dark:text-green-300"><CheckCircle2 className="h-4 w-4" />{t('success', { count: inserted })}</p>
+                {s.exists > 0 && <p className="text-xs text-green-800/80 dark:text-green-300/80">{t('success_exists', { count: s.exists })}</p>}
+                {s.errors > 0 && <p className="text-xs text-red-700 dark:text-red-400">{t('success_errors', { count: s.errors })}</p>}
+              </div>
+            ) : (
+              <p className="text-sm font-semibold">{t('step3_title')}</p>
+            )}
+
+            <div className="flex flex-wrap gap-1.5 text-xs font-medium" data-testid="import-summary">
+              <span className={cn('rounded-full px-2.5 py-1', STATUS_STYLE.new)}>{t('sum_new', { count: s.new })}</span>
+              {s.exists > 0 && <span className={cn('rounded-full px-2.5 py-1', STATUS_STYLE.exists)}>{t('sum_exists', { count: s.exists })}</span>}
+              {s.errors > 0 && <span className={cn('rounded-full px-2.5 py-1', STATUS_STYLE.error)}>{t('sum_errors', { count: s.errors })}</span>}
+              {s.warnings > 0 && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">{t('sum_warnings', { count: s.warnings })}</span>}
+              {s.ignored > 0 && <span className={cn('rounded-full px-2.5 py-1', STATUS_STYLE.ignored)}>{t('sum_ignored', { count: s.ignored })}</span>}
+            </div>
+            {s.exists > 0 && phase !== 'done' && <p className="text-xs text-muted-foreground">{t('exists_note')}</p>}
+            {s.errors > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                {phase !== 'done' && <p className="text-xs text-muted-foreground">{t('errors_note')}</p>}
+                <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={downloadFix} data-testid="import-download-fix"><Download className="h-3.5 w-3.5" />{t('download_fix')}</Button>
+              </div>
+            )}
+
+            <ul className="max-h-[45vh] divide-y overflow-y-auto rounded-xl border bg-card" data-testid="import-rows">
+              {visible.list.map(r => (
+                <li key={r.line} className="flex items-start gap-3 px-3 py-2 text-xs" data-status={r.status}>
+                  <span className="w-10 flex-shrink-0 pt-0.5 tabular-nums text-muted-foreground">{t('col_line')} {r.line}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="truncate font-medium">{nameOf(r.line)}</span>
+                      <span className="flex-shrink-0 tabular-nums text-muted-foreground">{priceOf(r.line)} · {t('col_qty')} {qtyOf(r.line)}</span>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+                    {r.issue && <p className={cn('mt-0.5', r.status === 'error' ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground')}>{issueText(r)}</p>}
+                    {r.warnings.map((w, k) => <p key={k} className="mt-0.5 flex items-center gap-1 text-amber-700 dark:text-amber-400"><AlertTriangle className="h-3 w-3 flex-shrink-0" />{warningText(w)}</p>)}
+                  </div>
+                  <span className={cn('flex flex-shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium', STATUS_STYLE[r.status])}>
+                    {r.status === 'new' ? <CheckCircle2 className="h-3 w-3" /> : r.status === 'error' ? <AlertCircle className="h-3 w-3" /> : <MinusCircle className="h-3 w-3" />}
+                    {t(`status_${r.status}` as any)}
+                  </span>
+                </li>
+              ))}
+              {visible.hiddenNew > 0 && <li className="px-3 py-2 text-xs text-muted-foreground">{t('more_rows', { count: visible.hiddenNew })}</li>}
+            </ul>
+          </section>
         )}
-
       </div>
     </AppDrawer>
   )
