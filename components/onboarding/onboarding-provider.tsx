@@ -112,8 +112,9 @@ export function OnboardingProvider({ userId, children }: { userId: string | null
     if (!id || !(id in TOURS)) return
     url.searchParams.delete('tour')
     window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash)
-    const timer = setTimeout(() => startTour(id), 600) // laisse la page s'afficher
-    return () => clearTimeout(timer)
+    // Pas d'annulation au démontage : le paramètre est déjà retiré, un second passage
+    // (mode strict de React) ne le relirait pas et le tour ne démarrerait jamais
+    setTimeout(() => startTour(id), 600) // laisse la page s'afficher
   }, [userId, pathname]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const dismissGuide = useCallback(() => { setState(s => ({ ...s, guideDismissed: true })); record({ action: 'dismiss_guide' }) }, [record])
@@ -152,7 +153,8 @@ function TourOverlay({ tour, step, onStep, onEnd, onChain }: {
   const s = steps[step]
   const isLast = step === steps.length - 1
   const [rect, setRect] = useState<DOMRect | null>(null)
-  const [vp, setVp] = useState({ w: 1280, h: 800 })
+  // vh / vtop : partie visible (visualViewport) — plus petite que h quand le clavier est ouvert
+  const [vp, setVp] = useState({ w: 1280, h: 800, vh: 800, vtop: 0 })
   const missingSince = useRef<number | null>(null)
   const scrolled = useRef(false)
   const bubbleRef = useRef<HTMLDivElement>(null)
@@ -168,14 +170,38 @@ function TourOverlay({ tour, step, onStep, onEnd, onChain }: {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Téléphone : à chaque étape, le curseur quitte le champ (y compris celui placé
+  // automatiquement à l'ouverture d'un formulaire) → le clavier ne s'ouvre que
+  // si la personne touche elle-même un champ. Un champ quitté sans « relatedTarget »
+  // n'est pas repris par les fenêtres Radix.
+  useEffect(() => {
+    const release = () => {
+      if (!window.matchMedia('(pointer: coarse)').matches) return
+      const a = document.activeElement as HTMLElement | null
+      if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || a.isContentEditable)) a.blur()
+    }
+    const timers = [50, 400, 900].map(ms => setTimeout(release, ms))
+    return () => timers.forEach(clearTimeout)
+  }, [step])
+
   // Suivi de l'élément éclairé (il peut changer : menu ouvert, panier, étape de paiement…)
+  // dans la partie VISIBLE de l'écran (le clavier du téléphone la réduit)
+  const lastScroll = useRef(0)
   useEffect(() => {
     const tick = () => {
-      setVp({ w: window.innerWidth, h: window.innerHeight })
+      const vv = window.visualViewport
+      setVp({ w: window.innerWidth, h: window.innerHeight, vh: vv?.height ?? window.innerHeight, vtop: vv?.offsetTop ?? 0 })
       const el = firstVisible(s.targets)
       if (el) {
         missingSince.current = null
-        if (!scrolled.current) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); scrolled.current = true }
+        const r = el.getBoundingClientRect()
+        const visTop = vv?.offsetTop ?? 0, visBottom = visTop + (vv?.height ?? window.innerHeight)
+        // Première apparition, ou élément sorti de la partie visible (clavier, défilement) : on le recentre
+        if (!scrolled.current || ((r.bottom > visBottom - 8 || r.top < visTop) && Date.now() - lastScroll.current > 700)) {
+          el.scrollIntoView({ block: 'center', behavior: scrolled.current ? 'auto' : 'smooth' })
+          scrolled.current = true
+          lastScroll.current = Date.now()
+        }
         setRect(el.getBoundingClientRect())
       } else {
         setRect(null)
@@ -190,7 +216,12 @@ function TourOverlay({ tour, step, onStep, onEnd, onChain }: {
     const i = setInterval(tick, 250)
     window.addEventListener('resize', tick)
     window.addEventListener('scroll', tick, true)
-    return () => { clearInterval(i); window.removeEventListener('resize', tick); window.removeEventListener('scroll', tick, true) }
+    window.visualViewport?.addEventListener('resize', tick)
+    window.visualViewport?.addEventListener('scroll', tick)
+    return () => {
+      clearInterval(i); window.removeEventListener('resize', tick); window.removeEventListener('scroll', tick, true)
+      window.visualViewport?.removeEventListener('resize', tick); window.visualViewport?.removeEventListener('scroll', tick)
+    }
   }, [step, onPage]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Action réelle (produit enregistré, article ajouté, vente validée) : le tour
@@ -218,8 +249,12 @@ function TourOverlay({ tour, step, onStep, onEnd, onChain }: {
   // Placement de la bulle : sous l'élément s'il y a la place, sinon au-dessus ; téléphone : bandeau haut ou bas
   let bubbleStyle: React.CSSProperties
   if (mobile) {
-    const targetLow = hole ? hole.top + hole.height / 2 > vp.h / 2 : false
-    bubbleStyle = targetLow ? { top: 12, left: 12, right: 12 } : { bottom: 84, left: 12, right: 12 }
+    // Bandeau en haut ou en bas de la partie VISIBLE, à l'opposé de l'élément éclairé
+    const keyboardOpen = vp.vh < vp.h - 100
+    const targetLow = hole ? hole.top + hole.height / 2 > vp.vtop + vp.vh / 2 : false
+    bubbleStyle = targetLow
+      ? { top: vp.vtop + 12, left: 12, right: 12 }
+      : { bottom: keyboardOpen ? vp.h - (vp.vtop + vp.vh) + 12 : 84, left: 12, right: 12 }
   } else if (hole) {
     const width = 340
     const left = Math.min(Math.max(12, hole.left + hole.width / 2 - width / 2), vp.w - width - 12)
@@ -246,7 +281,8 @@ function TourOverlay({ tour, step, onStep, onEnd, onChain }: {
 
       <div ref={bubbleRef} role="dialog" aria-modal="false" aria-labelledby="tour-title" aria-live="polite" data-testid="tour-bubble"
         // Radix : un clic dans la bulle n'est pas un « clic à l'extérieur » d'un panneau ouvert
-        onPointerDown={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()} onFocusCapture={e => e.stopPropagation()}
+        // …et toucher la bulle ne déplace pas le curseur (sinon la fenêtre le remet dans un champ → clavier)
+        onPointerDown={e => e.stopPropagation()} onMouseDown={e => { e.stopPropagation(); e.preventDefault() }} onFocusCapture={e => e.stopPropagation()}
         className="fixed z-[100] rounded-2xl border bg-card p-4 text-card-foreground shadow-2xl"
         style={{ ...bubbleStyle, pointerEvents: 'auto' }}>
         <div className="flex items-start justify-between gap-3">
