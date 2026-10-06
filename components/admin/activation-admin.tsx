@@ -1,7 +1,7 @@
 'use client'
 
 // Admin → Activation (onboarding lot C2) : où les nouveaux comptes décrochent.
-// Lecture seule. Les comptes à aider viennent en premier : c'est ce qu'on fait
+// Lecture seule. Les comptes « À accompagner » viennent en premier : c'est ce qu'on fait
 // de cette page (un appel ou un message peut éviter un départ).
 
 import { useCallback, useEffect, useState } from 'react'
@@ -84,16 +84,16 @@ export function ActivationAdmin() {
         </>}
       </div>
 
-      {/* Comptes à aider */}
+      {/* À accompagner */}
       <section className="min-w-0 space-y-2" aria-labelledby="act-help">
         <div>
-          <h2 id="act-help" className="font-semibold">Comptes à aider</h2>
+          <h2 id="act-help" className="font-semibold">À accompagner</h2>
           <p className="text-sm text-muted-foreground">Inscrits depuis moins de 14 jours, sans produit ou sans vente. Un appel ou un message peut éviter un départ.</p>
         </div>
         {/* Téléphone : une carte par compte (un tableau à 6 colonnes y serait illisible) */}
         <ul className="space-y-2 md:hidden" data-testid="activation-help-cards">
           {loading && !data ? <Skeleton className="h-28 rounded-xl" /> : !data?.toHelp.length ? (
-            <li className="rounded-xl border bg-card px-4 py-6 text-center text-sm text-muted-foreground">Aucun compte récent bloqué.</li>
+            <li className="rounded-xl border bg-card px-4 py-6 text-center text-sm text-muted-foreground">Aucun compte à accompagner pour l’instant.</li>
           ) : data.toHelp.map(r => (
             <li key={r.account.ownerId} className="rounded-xl border bg-card p-4">
               <div className="flex items-start justify-between gap-2">
@@ -117,7 +117,7 @@ export function ActivationAdmin() {
           loading={loading && !data}
           rows={data?.toHelp ?? []}
           rowKey={r => r.account.ownerId}
-          emptyMessage="Aucun compte récent bloqué."
+          emptyMessage="Aucun compte à accompagner pour l’instant."
           columns={[
             { key: 'shop', header: 'Boutique' }, { key: 'owner', header: 'Propriétaire' }, { key: 'contact', header: 'Contact' },
             { key: 'age', header: 'Inscrit', align: 'right' }, { key: 'missing', header: 'Bloqué à' }, { key: 'counts', header: 'Produits · ventes', align: 'right' }, { key: 'act', header: '', align: 'right' },
