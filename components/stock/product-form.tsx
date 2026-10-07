@@ -46,11 +46,15 @@ interface ProductFormProps {
   productId?: string
   /** Saisie restaurée (reprise) : considérée modifiée dès l'ouverture */
   startDirty?: boolean
-  /** La page décide quoi faire après (fermer, ou vider pour un autre produit) */
-  onSubmit: (data: ProductFormData) => void
+  /** La page décide quoi faire après (fermer, ou vider pour un autre produit). Peut renvoyer
+   *  une erreur de champ du serveur (ex. code-barres déjà pris) : affichée sous le champ. */
+  onSubmit: (data: ProductFormData) => void | Promise<void | ProductFieldError | boolean>
   /** Remonte l'état au panneau hôte (garde de fermeture, bouton Enregistrer) */
   onStateChange?: (state: ProductFormState) => void
 }
+
+/** Erreur renvoyée par le serveur pour un champ précis du formulaire */
+export type ProductFieldError = { field: 'sku' | 'name'; message: string }
 
 const FieldError = ({ message }: { message?: string }) =>
   message ? <p className="text-xs text-destructive">{message}</p> : null
@@ -211,10 +215,20 @@ export function ProductForm({
 
   const imageUrl = form.watch('image_url')
 
+  // Envoi : une erreur de champ renvoyée par le serveur s'affiche sous le champ concerné
+  // (la photo déjà choisie reste dans le formulaire : on corrige et on réenregistre)
+  const submit = async (data: ProductFormData) => {
+    const r = await onSubmit(data)
+    if (r && typeof r === 'object' && 'field' in r) {
+      form.setError(r.field, { type: 'server', message: r.message })
+      form.setFocus(r.field)
+    }
+  }
+
   const optional = <span className="text-muted-foreground text-xs font-normal">({t('form.optional')})</span>
 
   return (
-    <form id={PRODUCT_FORM_ID} onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
+    <form id={PRODUCT_FORM_ID} onSubmit={form.handleSubmit(submit)} className="space-y-4" noValidate>
 
       {/* Session counter */}
       {!!sessionCount && sessionCount > 0 && (
@@ -304,7 +318,7 @@ export function ProductForm({
                 type="button"
                 onClick={() => setShowScanner(v => !v)}
                 aria-pressed={showScanner}
-                className="inline-flex h-10 flex-shrink-0 items-center gap-1.5 rounded-r-md border border-l-0 border-input bg-muted px-3 text-xs font-medium transition-colors hover:bg-accent"
+                className="inline-flex h-10 flex-shrink-0 items-center gap-1.5 rounded-r-md border border-l-0 border-input bg-muted px-3 text-xs font-medium transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
               >
                 <Camera className="h-3.5 w-3.5" />
                 {t('product_form.scan')}

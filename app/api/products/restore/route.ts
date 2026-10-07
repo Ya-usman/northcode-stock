@@ -35,8 +35,11 @@ export async function POST(request: Request) {
     }
 
     // Réinsérer le produit avec is_active = true, deleted_at = null
+    const snap = log.record_data || {}
     const restored = {
-      ...log.record_data,
+      ...snap,
+      // Code-barres nettoyé (migration 170 : jamais vide ni entouré d'espaces)
+      sku: typeof snap.sku === 'string' ? snap.sku.trim() || null : snap.sku ?? null,
       is_active: true,
       deleted_at: null,
     }

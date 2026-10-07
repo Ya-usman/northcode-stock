@@ -6,6 +6,7 @@ import { startNavigationProgress } from '@/components/layout/navigation-progress
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
+import type { ProductFieldError } from '@/components/stock/product-form'
 import dynamic from 'next/dynamic'
 import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag, CalendarClock, ShoppingCart, X, LayoutGrid, List, SlidersHorizontal, ChevronDown, MoreHorizontal, Zap, Columns3, FileSpreadsheet } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -467,7 +468,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     })
 
 
-  const saveProduct = async (data: ProductFormData) => {
+  const saveProduct = async (data: ProductFormData): Promise<true | false | ProductFieldError> => {
     if (!shop?.id) { toast({ title: t('toast.no_active_shop'), variant: 'destructive' }); return false }
     setSaving(true)
     try {
@@ -490,7 +491,10 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         }),
       }))
       const json = await res.json()
-      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return false }
+      if (!res.ok) {
+        if (json.field === 'sku' && json.error) return { field: 'sku', message: json.error }
+        toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return false
+      }
       fetchProducts()
       return true
     } catch (err: any) {
@@ -503,7 +507,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
   const onAddProduct = async (data: ProductFormData) => {
     const ok = await saveProduct(data)
-    if (!ok) return
+    if (ok !== true) return ok
     emitOnboarding('product_created') // tour guidé « Ajouter un produit »
     toast({ title: t('toast.product_added'), variant: 'success' })
     setShowAddModal(false)
@@ -512,36 +516,45 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
   const onSaveAndAdd = async (data: ProductFormData) => {
     const ok = await saveProduct(data)
-    if (!ok) return
+    if (ok !== true) return ok
     emitOnboarding('product_created')
     setSessionAddCount(c => c + 1)
     setAddFormKey(k => k + 1)
     toast({ title: t('toast.product_added'), variant: 'success' })
   }
 
-  const onEditProduct = async (data: ProductFormData) => {
+  const onEditProduct = async (data: ProductFormData): Promise<void | ProductFieldError> => {
     if (!editingProduct) return
+    // Seulement ce qui a changé : ajouter une photo ne touche que la photo (une ancienne
+    // valeur imparfaite d'un autre champ ne bloque plus l'enregistrement), et un champ
+    // masqué (prix d'achat pour un caissier) n'est jamais renvoyé.
+    const p = editingProduct
+    const next: Record<string, unknown> = {
+      name: data.name, category_id: data.category_id || null, supplier_id: data.supplier_id || null,
+      buying_price: data.buying_price ?? 0, selling_price: data.selling_price, unit: data.unit || 'piece',
+      low_stock_threshold: data.low_stock_threshold || null, sku: data.sku?.trim() || null, image_url: data.image_url || null,
+    }
+    const prev: Record<string, unknown> = {
+      name: p.name, category_id: p.category_id || null, supplier_id: p.supplier_id || null,
+      buying_price: p.buying_price ?? 0, selling_price: p.selling_price, unit: p.unit || 'piece',
+      low_stock_threshold: p.low_stock_threshold || null, sku: p.sku?.trim() || null, image_url: p.image_url || null,
+    }
+    const NUMERIC = ['buying_price', 'selling_price', 'low_stock_threshold']
+    const changes = Object.fromEntries(Object.entries(next).filter(([k, v]) =>
+      NUMERIC.includes(k) ? (v === null ? null : Number(v)) !== (prev[k] === null ? null : Number(prev[k])) : v !== prev[k]))
+    if (Object.keys(changes).length === 0) { setEditingProduct(null); return }
     setSaving(true)
     try {
       const res = await withTimeout(fetch('/api/products', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editingProduct.id,
-          shop_id: editingProduct.shop_id,
-          name: data.name,
-          category_id: data.category_id || null,
-          supplier_id: data.supplier_id || null,
-          buying_price: data.buying_price ?? 0,
-          selling_price: data.selling_price,
-          unit: data.unit || 'piece',
-          low_stock_threshold: data.low_stock_threshold || null,
-          sku: data.sku || null,
-          image_url: data.image_url || null,
-        }),
+        body: JSON.stringify({ id: p.id, shop_id: p.shop_id, ...changes }),
       }))
       const json = await res.json()
-      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      if (!res.ok) {
+        if (json.field === 'sku' && json.error) return { field: 'sku', message: json.error }
+        toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return
+      }
       toast({ title: t('toast.product_updated'), variant: 'success' })
       setEditingProduct(null)
       fetchProducts()

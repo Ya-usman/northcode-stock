@@ -18,7 +18,14 @@ interface InputGroupProps {
 
 export function InputGroup({ children, suffix, action, className }: InputGroupProps) {
   return (
-    <div className={cn('flex w-full items-stretch', '[&>input]:min-w-0 [&>input]:flex-1 [&>input]:rounded-r-none [&>input]:focus-visible:relative [&>input]:focus-visible:z-10', className)}>
+    // Focus : le contour entoure TOUT le bloc (champ + suffixe/bouton). Celui du champ
+    // seul débordait de 4 px et passait par-dessus le bouton accolé (ex. : « Scan »).
+    <div className={cn(
+      'flex w-full items-stretch rounded-md ring-offset-background',
+      'has-[>input:focus-visible]:ring-2 has-[>input:focus-visible]:ring-ring has-[>input:focus-visible]:ring-offset-2',
+      '[&>input]:min-w-0 [&>input]:flex-1 [&>input]:rounded-r-none [&>input:focus-visible]:ring-0 [&>input:focus-visible]:ring-offset-0',
+      className,
+    )}>
       {children}
       {suffix != null && suffix !== '' && (
         <span className={cn('inline-flex flex-shrink-0 items-center border border-l-0 border-input bg-muted px-3 text-sm text-muted-foreground', action ? '' : 'rounded-r-md')}>

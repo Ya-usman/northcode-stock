@@ -3270,6 +3270,7 @@
     "sale_cancelled_message": "Vente #{number} annulée",
     "shop_id_required": "shop_id requis",
     "sku_taken": "Ce SKU est déjà utilisé par un autre produit. Laissez le champ vide ou choisissez un SKU différent.",
+    "sku_taken_by": "Ce code-barres est déjà utilisé par « {name} ». Changez-le ou laissez le champ vide.",
     "id_shop_id_required": "id et shop_id requis",
     "owner_only_archive": "Seul le propriétaire peut archiver ou restaurer un produit",
     "no_valid_fields": "Aucun champ valide à mettre à jour",

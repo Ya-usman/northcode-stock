@@ -3270,6 +3270,7 @@
     "sale_cancelled_message": "An soke siyarwa #{number}",
     "shop_id_required": "Ana buƙatar shop_id",
     "sku_taken": "Wani kaya ne ke amfani da wannan SKU. Ka bar filin fanko ko ka zaɓi wani SKU daban.",
+    "sku_taken_by": "Wannan lambar barcode tana kan « {name} » tun da. Canza ta ko bar filin babu komai.",
     "id_shop_id_required": "Ana buƙatar id da shop_id",
     "owner_only_archive": "Maigida ne kawai zai iya adanawa ko dawo da kaya",
     "no_valid_fields": "Babu filin da ya inganta don sabuntawa",

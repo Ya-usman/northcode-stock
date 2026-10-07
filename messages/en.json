@@ -3270,6 +3270,7 @@
     "sale_cancelled_message": "Sale #{number} cancelled",
     "shop_id_required": "shop_id required",
     "sku_taken": "This SKU is already used by another product. Leave the field empty or choose a different SKU.",
+    "sku_taken_by": "This barcode is already used by “{name}”. Change it or leave the field empty.",
     "id_shop_id_required": "id and shop_id required",
     "owner_only_archive": "Only the owner can archive or restore a product",
     "no_valid_fields": "No valid field to update",

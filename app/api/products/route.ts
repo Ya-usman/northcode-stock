@@ -22,6 +22,18 @@ async function categoryInShop(admin: any, categoryId: unknown, shopId: string): 
   return data?.shop_id === shopId
 }
 
+// Code-barres (sku) déjà utilisé dans la boutique : on nomme le produit qui le porte,
+// et on vise le champ (le formulaire affiche le message sous « Code-barres »).
+async function skuTakenResponse(admin: any, t: (k: any, v?: any) => string, error: any, shopId: string, sku: unknown, exceptId?: string) {
+  const isSku = error?.code === '23505' && /sku/i.test(`${error?.message ?? ''} ${error?.details ?? ''}`)
+  if (!isSku || typeof sku !== 'string' || !sku) return null
+  let q = admin.from('products').select('name').eq('shop_id', shopId).eq('sku', sku).limit(1)
+  if (exceptId) q = q.neq('id', exceptId)
+  const { data } = await q
+  const name = data?.[0]?.name?.trim()
+  return NextResponse.json({ error: name ? t('sku_taken_by', { name }) : t('sku_taken'), field: 'sku' }, { status: 409 })
+}
+
 export async function POST(request: Request) {
   const t = getApiTranslator(request)
   try {
@@ -39,10 +51,9 @@ export async function POST(request: Request) {
     if (!(await categoryInShop(admin, body.category_id, shop_id))) return NextResponse.json({ error: t('category_wrong_shop') }, { status: 400 })
     const { data, error } = await (admin as any).from('products').insert(body).select().single()
     if (error) {
-      const msg = error.message?.includes('product_sku_shop_unique') || error.message?.includes('sku')
-        ? t('sku_taken')
-        : error.message
-      return NextResponse.json({ error: msg }, { status: 400 })
+      const taken = await skuTakenResponse(admin, t, error, shop_id, body.sku)
+      if (taken) return taken
+      return NextResponse.json({ error: error.message }, { status: 400 })
     }
     // Record initial stock movement if product created with quantity > 0
     const initialQty = Number(body.quantity) || 0
@@ -237,7 +248,11 @@ export async function PATCH(request: Request) {
     // shop_id filter prevents modifying a product that belongs to a different shop
     // even though the admin client bypasses RLS
     const { data, error } = await (admin as any).from('products').update(safeUpdates).eq('id', id).eq('shop_id', shop_id).select().single()
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) {
+      const taken = await skuTakenResponse(admin, t, error, shop_id, safeUpdates.sku, id)
+      if (taken) return taken
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
     if (!data) return NextResponse.json({ error: t('product_not_found_in_shop') }, { status: 404 })
 
     if (trackedChange && before) {
