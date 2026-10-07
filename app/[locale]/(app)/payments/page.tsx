@@ -27,8 +27,11 @@ import {
   ChevronDown, ChevronUp, Clock, CheckCircle2,
   History, User, RefreshCw, Banknote, Store,
   Printer, Share2, Search, CalendarDays, Pencil, Ban, FileText, FileDown, Table2, FileSpreadsheet,
+  BookOpenCheck, Undo2, Plus,
 } from 'lucide-react'
 import { DebtGauge } from '@/components/dashboard/recent-sales-feed'
+import { OpeningBalanceDrawer } from '@/components/credits/opening-balance-drawer'
+import { ConfirmModal } from '@/components/ui/confirm-modal'
 import { getCountry, getMethodType } from '@/lib/saas/countries'
 import { normalizeWhatsAppNumber } from '@/lib/utils/whatsapp'
 import { formatInputValue } from '@/lib/utils/currency'
@@ -52,6 +55,8 @@ interface UnpaidSale {
   payment_status: string
   due_date?: string | null
   cashier_name?: string | null
+  sale_status?: string
+  notes?: string | null
   sale_items?: { product_name: string; quantity: number; subtotal: number }[]
 }
 
@@ -153,7 +158,32 @@ interface UnpaidPO {
   amount_paid: number
   payment_status: string
   status: string
+  is_opening_balance?: boolean
+  notes?: string | null
   purchase_order_items?: { product_name: string; quantity_ordered: number; quantity_received: number | null; unit_price: number | null }[]
+}
+
+function OpeningTag({ t }: { t: any }) {
+  return <Badge variant="outline" className="border-stockshop-blue/30 px-1.5 text-[10px] text-stockshop-blue dark:border-blue-400/40 dark:text-blue-400">{t('payments.opening_badge')}</Badge>
+}
+
+// Reprise de dette (migration 168) : badge + note + « Annuler la reprise » tant que rien n'est remboursé
+function OpeningBalanceInfo({ note, canCancel, onCancel, t }: { note?: string | null; canCancel: boolean; onCancel?: () => void; t: any }) {
+  return (
+    <div className="space-y-1 pt-1" data-testid="opening-info">
+      <div className="flex items-center justify-between gap-2">
+        <Badge variant="outline" className="gap-1 border-stockshop-blue/30 text-[10px] text-stockshop-blue dark:border-blue-400/40 dark:text-blue-400">
+          <BookOpenCheck className="h-3 w-3" /> {t('payments.opening_badge')}
+        </Badge>
+        {canCancel && onCancel && (
+          <button type="button" className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-destructive hover:underline" onClick={onCancel} data-testid="opening-cancel">
+            <Undo2 className="h-3 w-3" /> {t('payments.opening_cancel_action')}
+          </button>
+        )}
+      </div>
+      {note && <p className="text-[11px] italic text-muted-foreground">« {note} »</p>}
+    </div>
+  )
 }
 
 interface SupplierDebt {
@@ -200,7 +230,7 @@ function calcFifoPOs(amount: number, pos: UnpaidPO[]): POFifoLine[] {
   return lines
 }
 
-function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedId, canWrite, openRepayDialog, openHistory, onPostpone, onWriteOff, fmt, t, saving }: any) {
+function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedId, canWrite, openRepayDialog, openHistory, onPostpone, onWriteOff, onCancelOpening, fmt, t, saving }: any) {
   const paidTotal = unpaidSales.reduce((s: number, sale: UnpaidSale) => s + sale.amount_paid, 0)
   const grandTotal = unpaidSales.reduce((s: number, sale: UnpaidSale) => s + sale.total, 0)
   const progress = grandTotal > 0 ? Math.min(100, (paidTotal / grandTotal) * 100) : 0
@@ -321,7 +351,10 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
                     )}
                   </div>
                 </div>
-                {sale.cashier_name && <p className="text-[11px] text-muted-foreground">{t('payments.sold_by')} : <strong>{sale.cashier_name}</strong></p>}
+                {sale.sale_status === 'opening' && (
+                  <OpeningBalanceInfo note={sale.notes} canCancel={sale.amount_paid === 0} onCancel={onCancelOpening ? () => onCancelOpening(sale, customer) : undefined} t={t} />
+                )}
+                {sale.cashier_name && sale.sale_status !== 'opening' && <p className="text-[11px] text-muted-foreground">{t('payments.sold_by')} : <strong>{sale.cashier_name}</strong></p>}
                 {sale.sale_items && sale.sale_items.length > 0 && (
                   <div className="pt-1 border-t space-y-0.5">
                     {sale.sale_items.map((item: any, idx: number) => (
@@ -341,7 +374,7 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
   )
 }
 
-function SupplierDebtorCard({ supplier, unpaidPOs, totalOwed, isExpanded, setExpandedId, canWrite, openRepayDialog, openHistory, fmt, t, saving }: any) {
+function SupplierDebtorCard({ supplier, unpaidPOs, totalOwed, isExpanded, setExpandedId, canWrite, openRepayDialog, openHistory, onCancelOpening, fmt, t, saving }: any) {
   const paidTotal = unpaidPOs.reduce((s: number, po: UnpaidPO) => s + po.amount_paid, 0)
   const grandTotal = unpaidPOs.reduce((s: number, po: UnpaidPO) => s + po.total_amount, 0)
   const progress = grandTotal > 0 ? Math.min(100, (paidTotal / grandTotal) * 100) : 0
@@ -421,6 +454,9 @@ function SupplierDebtorCard({ supplier, unpaidPOs, totalOwed, isExpanded, setExp
                   <div className="flex justify-end">
                     <span className="text-xs font-bold text-red-600 dark:text-red-400">{t('payment.due')}: {fmt(po.balance)}</span>
                   </div>
+                )}
+                {po.is_opening_balance && (
+                  <OpeningBalanceInfo note={po.notes} canCancel={po.amount_paid === 0} onCancel={onCancelOpening ? () => onCancelOpening(po, supplier) : undefined} t={t} />
                 )}
                 {po.purchase_order_items && po.purchase_order_items.length > 0 && (
                   <div className="pt-1 border-t space-y-0.5">
@@ -528,6 +564,31 @@ export default function CreditsPage() {
   // ── Comptes fournisseurs (accounts payable) — miroir du bloc client
   // ci-dessus, état séparé pour ne jamais mélanger les deux flux d'argent.
   const [debtSide, setDebtSide] = useState<'receivable' | 'payable'>('receivable')
+
+  // ── Reprise de dette (migration 168) ──────────────────────
+  const [openingDrawer, setOpeningDrawer] = useState(false)
+  const [cancelOpening, setCancelOpening] = useState<{ kind: 'customer' | 'supplier'; id: string; number: string; amount: number; name: string; shopId: string } | null>(null)
+  const [cancellingOpening, setCancellingOpening] = useState(false)
+  const openCancelOpeningSale = (sale: UnpaidSale, customer: Customer) =>
+    setCancelOpening({ kind: 'customer', id: sale.id, number: sale.sale_number, amount: sale.total, name: customer.name, shopId: (customer as any).shop_id })
+  const openCancelOpeningPO = (po: UnpaidPO, supplier: Supplier) =>
+    setCancelOpening({ kind: 'supplier', id: po.id, number: po.reference, amount: po.total_amount, name: supplier.name, shopId: (supplier as any).shop_id })
+  const confirmCancelOpening = async () => {
+    if (!cancelOpening) return
+    setCancellingOpening(true)
+    try {
+      const q = new URLSearchParams({ shop_id: cancelOpening.shopId, kind: cancelOpening.kind, id: cancelOpening.id })
+      const res = await fetch(`/api/opening-balances?${q}`, { method: 'DELETE' })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error || t('payments.opening_error'))
+      toast({ title: t('payments.opening_cancelled', { number: cancelOpening.number }), variant: 'success' })
+      const kind = cancelOpening.kind
+      setCancelOpening(null)
+      if (kind === 'customer') fetchDebtors(true); else fetchSupplierDebtors(true)
+    } catch (e: any) {
+      toast({ title: e.message, variant: 'destructive' })
+    } finally { setCancellingOpening(false) }
+  }
 
   const [supplierDebtors, setSupplierDebtors] = useState<SupplierDebt[]>(() =>
     (getPageCache<any[]>(`supplier_debtors_${effectiveShopIds.join(',')}`) || []) as SupplierDebt[]
@@ -1172,7 +1233,7 @@ export default function CreditsPage() {
     try {
       type LedgerLine = { date: string; label: string; debit: number; credit: number }
       const lines: LedgerLine[] = [
-        ...historySales.map(s => ({ date: s.created_at, label: `${t('payments.statement_sale_label')} #${s.sale_number}`, debit: s.total, credit: 0 })),
+        ...historySales.map(s => ({ date: s.created_at, label: `${(s as any).sale_status === 'opening' ? t('payments.opening_badge') : t('payments.statement_sale_label')} #${s.sale_number}`, debit: s.total, credit: 0 })),
         // Cancelled payments never actually reduced the balance — excluded
         // so the running balance stays correct all the way to today's total_debt.
         ...historyPayments.filter(p => !p.is_cancelled).map(p => ({
@@ -1397,6 +1458,14 @@ export default function CreditsPage() {
         </button>
       </div>
 
+      {canWritePayments && shop?.id && (
+        <button type="button" onClick={() => setOpeningDrawer(true)} data-testid="opening-open"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-stockshop-blue/40 px-3 py-2.5 text-sm font-medium text-stockshop-blue transition-colors hover:bg-stockshop-blue-muted dark:border-blue-400/40 dark:text-blue-400 dark:hover:bg-blue-950/40">
+          <Plus className="h-4 w-4" />
+          {debtSide === 'receivable' ? t('payments.opening_add_customer') : t('payments.opening_add_supplier')}
+        </button>
+      )}
+
       {debtSide === 'receivable' && (
       <>
       {/* Summary */}
@@ -1603,7 +1672,7 @@ export default function CreditsPage() {
                     {shopDebtors.map(({ customer, unpaidSales, totalDebt }) => (
                       <DebtorCard key={customer.id} customer={customer} unpaidSales={unpaidSales} totalDebt={totalDebt}
                         isExpanded={expandedId === customer.id} setExpandedId={setExpandedId}
-                        canWrite={canWritePayments} openRepayDialog={openRepayDialog} openHistory={openHistory} onPostpone={canWritePayments ? openPostponeDialog : undefined} onWriteOff={isManagerial ? openWriteOffDialog : undefined} fmt={fmt} t={t} saving={saving} />
+                        canWrite={canWritePayments} openRepayDialog={openRepayDialog} openHistory={openHistory} onPostpone={canWritePayments ? openPostponeDialog : undefined} onWriteOff={isManagerial ? openWriteOffDialog : undefined} onCancelOpening={canWritePayments ? openCancelOpeningSale : undefined} fmt={fmt} t={t} saving={saving} />
                     ))}
                   </div>
                 )
@@ -1614,7 +1683,7 @@ export default function CreditsPage() {
               {filteredDebtors.map(({ customer, unpaidSales, totalDebt }) => (
                 <DebtorCard key={customer.id} customer={customer} unpaidSales={unpaidSales} totalDebt={totalDebt}
                   isExpanded={expandedId === customer.id} setExpandedId={setExpandedId}
-                  canWrite={canWritePayments} openRepayDialog={openRepayDialog} openHistory={openHistory} onPostpone={canWritePayments ? openPostponeDialog : undefined} onWriteOff={isManagerial ? openWriteOffDialog : undefined} fmt={fmt} t={t} />
+                  canWrite={canWritePayments} openRepayDialog={openRepayDialog} openHistory={openHistory} onPostpone={canWritePayments ? openPostponeDialog : undefined} onWriteOff={isManagerial ? openWriteOffDialog : undefined} onCancelOpening={canWritePayments ? openCancelOpeningSale : undefined} fmt={fmt} t={t} />
               ))}
             </div>
           )}
@@ -1751,7 +1820,7 @@ export default function CreditsPage() {
                           {entry.sales.map(sale => (
                             <div key={sale.id} className="bg-card rounded-lg border p-3 space-y-1">
                               <div className="flex items-center justify-between gap-2">
-                                <span className="font-mono text-stockshop-blue dark:text-blue-400 font-semibold text-sm">#{sale.sale_number}</span>
+                                <span className="flex items-center gap-1.5"><span className="font-mono text-stockshop-blue dark:text-blue-400 font-semibold text-sm">#{sale.sale_number}</span>{(sale as any).sale_status === 'opening' && <OpeningTag t={t} />}</span>
                                 <Badge variant={STATUS_VARIANTS[sale.payment_status] || ('outline' as any)} className="text-[10px]">
                                   {sale.payment_status === 'paid' ? t('payments.status_paid_check') : sale.payment_status === 'partial' ? t('payments.partial_label') : t('payments.unpaid_label')}
                                 </Badge>
@@ -1872,7 +1941,7 @@ export default function CreditsPage() {
                     {shopDebtors.map(({ supplier, unpaidPOs, totalOwed }) => (
                       <SupplierDebtorCard key={supplier.id} supplier={supplier} unpaidPOs={unpaidPOs} totalOwed={totalOwed}
                         isExpanded={expandedSupplierId === supplier.id} setExpandedId={setExpandedSupplierId}
-                        canWrite={canWritePayments} openRepayDialog={openSupplierRepayDialog} openHistory={openSupplierHistory} fmt={fmt} t={t} saving={savingSupplierPayment} />
+                        canWrite={canWritePayments} openRepayDialog={openSupplierRepayDialog} openHistory={openSupplierHistory} onCancelOpening={canWritePayments ? openCancelOpeningPO : undefined} fmt={fmt} t={t} saving={savingSupplierPayment} />
                     ))}
                   </div>
                 )
@@ -1883,7 +1952,7 @@ export default function CreditsPage() {
               {filteredSupplierDebtors.map(({ supplier, unpaidPOs, totalOwed }) => (
                 <SupplierDebtorCard key={supplier.id} supplier={supplier} unpaidPOs={unpaidPOs} totalOwed={totalOwed}
                   isExpanded={expandedSupplierId === supplier.id} setExpandedId={setExpandedSupplierId}
-                  canWrite={canWritePayments} openRepayDialog={openSupplierRepayDialog} openHistory={openSupplierHistory} fmt={fmt} t={t} saving={savingSupplierPayment} />
+                  canWrite={canWritePayments} openRepayDialog={openSupplierRepayDialog} openHistory={openSupplierHistory} onCancelOpening={canWritePayments ? openCancelOpeningPO : undefined} fmt={fmt} t={t} saving={savingSupplierPayment} />
               ))}
             </div>
           )}
@@ -2013,7 +2082,7 @@ export default function CreditsPage() {
                           {entry.purchaseOrders.map(po => (
                             <div key={po.id} className="bg-card rounded-lg border p-3 space-y-1">
                               <div className="flex items-center justify-between gap-2">
-                                <span className="font-mono text-stockshop-blue dark:text-blue-400 font-semibold text-sm">{po.reference}</span>
+                                <span className="flex items-center gap-1.5"><span className="font-mono text-stockshop-blue dark:text-blue-400 font-semibold text-sm">{po.reference}</span>{(po as any).is_opening_balance && <OpeningTag t={t} />}</span>
                                 <Badge variant={po.payment_status === 'paid' ? 'success' : po.payment_status === 'partial' ? 'warning' : 'destructive'} className="text-[10px]">
                                   {po.payment_status === 'paid' ? t('payments.solde_badge') : po.payment_status === 'partial' ? t('payments.partial_label') : t('payments.unpaid_label')}
                                 </Badge>
@@ -2127,7 +2196,7 @@ export default function CreditsPage() {
                     {fifoLines.map(({ sale, applying, fullyCovered }) => (
                       <div key={sale.id} className="flex items-center justify-between gap-2 px-3 py-2">
                         <div className="min-w-0">
-                          <span className="font-mono text-xs font-semibold text-stockshop-blue dark:text-blue-400">#{sale.sale_number}</span>
+                          <span className="font-mono text-xs font-semibold text-stockshop-blue dark:text-blue-400">#{sale.sale_number}</span> {(sale as any).sale_status === 'opening' && <OpeningTag t={t} />}
                           <span className="text-[10px] text-muted-foreground ml-2">
                             {format(new Date(sale.created_at), 'dd/MM/yy')}
                           </span>
@@ -2328,6 +2397,7 @@ export default function CreditsPage() {
                       <div className="space-y-0.5 flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-mono text-sm font-bold text-stockshop-blue dark:text-blue-400">#{sale.sale_number}</span>
+                          {(sale as any).sale_status === 'opening' && <OpeningTag t={t} />}
                           <Badge variant={statusVariant} className="text-[10px]">{statusLabel}</Badge>
                           <Badge variant="outline" className="text-[10px]">{t(`payment.${sale.payment_method}` as any) || sale.payment_method}</Badge>
                         </div>
@@ -2618,7 +2688,7 @@ export default function CreditsPage() {
                 {supplierFifoLines.map(({ po, applying, fullyCovered }) => (
                   <div key={po.id} className="flex items-center justify-between gap-2 px-3 py-2">
                     <div className="min-w-0">
-                      <span className="font-mono text-xs font-semibold text-stockshop-blue dark:text-blue-400">{po.reference}</span>
+                      <span className="font-mono text-xs font-semibold text-stockshop-blue dark:text-blue-400">{po.reference}</span> {(po as any).is_opening_balance && <OpeningTag t={t} />}
                       <span className="text-[10px] text-muted-foreground ml-2">
                         {format(new Date(po.created_at), 'dd/MM/yy')}
                       </span>
@@ -2736,6 +2806,7 @@ export default function CreditsPage() {
                           <div className="space-y-0.5 flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-mono text-sm font-bold text-stockshop-blue dark:text-blue-400">{po.reference}</span>
+                              {(po as any).is_opening_balance && <OpeningTag t={t} />}
                               <Badge variant={statusVariant as any} className="text-[10px]">{statusLabel}</Badge>
                             </div>
                             <p className="text-xs text-muted-foreground">
@@ -2821,6 +2892,25 @@ export default function CreditsPage() {
           />
         </div>
       </PremiumDialog>
+
+      {shop?.id && (
+        <OpeningBalanceDrawer open={openingDrawer} onOpenChange={setOpeningDrawer}
+          kind={debtSide === 'receivable' ? 'customer' : 'supplier'} shopId={shop.id} currencySymbol={symbol}
+          shops={isMultiShop ? userShops.filter(x => effectiveShopIds.includes(x.id)).map(x => ({ id: x.id, name: x.name })) : []}
+          onCreated={() => { if (debtSide === 'receivable') fetchDebtors(true); else fetchSupplierDebtors(true) }} />
+      )}
+      <ConfirmModal
+        open={!!cancelOpening}
+        onOpenChange={o => { if (!o && !cancellingOpening) setCancelOpening(null) }}
+        category={t('payments.opening_category')}
+        title={t('payments.opening_cancel_title')}
+        description={cancelOpening ? t('payments.opening_cancel_desc', { number: cancelOpening.number, amount: fmt(cancelOpening.amount), name: cancelOpening.name }) : undefined}
+        icon={<Undo2 className="h-4 w-4" />}
+        tone="danger"
+        confirmLabel={t('payments.opening_cancel_confirm')}
+        loading={cancellingOpening}
+        onConfirm={confirmCancelOpening}
+      />
     </div>
   )
 }

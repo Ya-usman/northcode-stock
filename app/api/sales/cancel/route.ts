@@ -26,6 +26,8 @@ export async function POST(request: Request) {
 
     if (saleErr || !sale) return NextResponse.json({ error: t('sale_not_found') }, { status: 404 })
     if (sale.sale_status === 'cancelled') return NextResponse.json({ error: t('sale_already_cancelled') }, { status: 400 })
+    // Reprise de dette : s'annule depuis Crédits (/api/opening-balances), pas comme une vente
+    if (sale.sale_status === 'opening') return NextResponse.json({ error: t('opening_not_editable') }, { status: 400 })
 
     // Verify caller has access to the sale's shop
     const { data: memberRow } = await supabase

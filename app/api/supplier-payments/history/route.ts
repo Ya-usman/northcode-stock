@@ -27,7 +27,7 @@ export async function GET(request: Request) {
         .eq('shop_id', shop_id).eq('user_id', user.id).eq('is_active', true).single(),
       admin
         .from('purchase_orders')
-        .select('id, reference, created_at, total_amount, amount_paid, balance, payment_status, status, purchase_order_items(product_name, quantity_ordered, quantity_received, unit_price)')
+        .select('id, reference, created_at, total_amount, amount_paid, balance, payment_status, status, is_opening_balance, notes, purchase_order_items(product_name, quantity_ordered, quantity_received, unit_price)')
         .eq('supplier_id', supplier_id)
         .eq('shop_id', shop_id)
         .in('status', ['received', 'partial'])

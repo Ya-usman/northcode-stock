@@ -45,7 +45,8 @@ export async function POST(request: Request) {
       .single()
 
     if (saleErr || !sale) return NextResponse.json({ error: t('sale_not_found') }, { status: 404 })
-    if (sale.sale_status !== 'active') return NextResponse.json({ error: t('sale_is_cancelled') }, { status: 400 })
+    // Une reprise de dette (migration 168) peut aussi être abandonnée
+    if (sale.sale_status !== 'active' && sale.sale_status !== 'opening') return NextResponse.json({ error: t('sale_is_cancelled') }, { status: 400 })
     if (Number(sale.balance) <= 0) return NextResponse.json({ error: t('invalid_data') }, { status: 400 })
 
     // method is set to a neutral value only to satisfy the NOT NULL

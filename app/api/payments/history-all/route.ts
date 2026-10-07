@@ -36,10 +36,11 @@ export async function GET(request: Request) {
     // Fetch all sales with a customer (credit sales) in date range
     let salesQuery = admin
       .from('sales')
-      .select('id, sale_number, created_at, total, amount_paid, balance, payment_status, customer_id, cashier_id, sale_items(product_name, quantity, subtotal)')
+      .select('id, sale_number, created_at, total, amount_paid, balance, payment_status, customer_id, cashier_id, sale_status, sale_items(product_name, quantity, subtotal)')
       .in('shop_id', allowedIds)
       .not('customer_id', 'is', null)
-      .eq('sale_status', 'active')
+// Dettes : ventes à crédit ET reprises de dette (migration 168)
+      .in('sale_status', ['active', 'opening'])
       .order('created_at', { ascending: false })
       .limit(1000)
 

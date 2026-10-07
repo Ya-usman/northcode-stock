@@ -19,6 +19,7 @@ async function nextReference(admin: any, shopId: string): Promise<string> {
     .from('purchase_orders')
     .select('id', { count: 'exact', head: true })
     .eq('shop_id', shopId)
+    .eq('is_opening_balance', false) // les reprises (REP-F-…) ont leur propre numérotation
     .gte('created_at', yearStart)
   const seq = (count ?? 0) + 1
   return `BC-${year}-${String(seq).padStart(4, '0')}`
@@ -43,6 +44,7 @@ export async function GET(request: Request) {
       .from('purchase_orders')
       .select('*, purchase_order_items(*), suppliers(name, phone, email, city)')
       .eq('shop_id', shopId)
+      .eq('is_opening_balance', false) // reprises de dette : dans Crédits, pas des bons de commande
       .order('created_at', { ascending: false })
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
@@ -140,8 +142,9 @@ export async function PATCH(request: Request) {
     const admin = await createAdminClient()
 
     const { data: existing, error: fetchError } = await (admin as any)
-      .from('purchase_orders').select('status, reference, supplier_id').eq('id', id).eq('shop_id', shop_id).single()
+      .from('purchase_orders').select('status, reference, supplier_id, is_opening_balance').eq('id', id).eq('shop_id', shop_id).single()
     if (fetchError || !existing) return NextResponse.json({ error: t('po_not_found') }, { status: 404 })
+    if (existing.is_opening_balance) return NextResponse.json({ error: t('opening_not_editable') }, { status: 400 })
 
     if (Array.isArray(items)) {
       if (existing.status !== 'draft')

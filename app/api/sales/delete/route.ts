@@ -24,6 +24,8 @@ export async function POST(request: Request) {
       .single()
 
     if (saleErr || !sale) return NextResponse.json({ error: t('sale_not_found') }, { status: 404 })
+    // Reprise de dette : jamais par l'Historique des ventes — elle s'annule depuis Crédits
+    if (sale.sale_status === 'opening') return NextResponse.json({ error: t('opening_not_editable') }, { status: 400 })
 
     // Direction avec « Historique des ventes » en modification, ou membre
     // porteur du droit individuel « peut supprimer des ventes »

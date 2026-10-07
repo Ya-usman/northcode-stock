@@ -67,7 +67,8 @@ export default async function PublicReceiptPage({ params }: { params: { token: s
     .select('*, sale_items(*), customers(name), shops(*)')
     .eq('receipt_token', token)
     .maybeSingle()
-  if (!sale || !sale.shops) return notFound
+  // Une reprise de dette n'est pas une vente : pas de reçu public
+  if (!sale || !sale.shops || sale.sale_status === 'opening') return notFound
 
   const shop = sale.shops
   const [{ data: cashier }, { data: payments }] = await Promise.all([

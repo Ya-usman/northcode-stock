@@ -35,7 +35,7 @@ export async function GET(request: Request) {
 
     let poQuery = admin
       .from('purchase_orders')
-      .select('id, reference, created_at, total_amount, amount_paid, balance, payment_status, supplier_id, purchase_order_items(product_name, quantity_ordered, quantity_received, unit_price)')
+      .select('id, reference, created_at, total_amount, amount_paid, balance, payment_status, supplier_id, is_opening_balance, purchase_order_items(product_name, quantity_ordered, quantity_received, unit_price)')
       .in('shop_id', allowedIds)
       .not('supplier_id', 'is', null)
       .in('status', ['received', 'partial'])

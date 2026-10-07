@@ -88,6 +88,8 @@ export type AuditAction =
   | 'product.import'
   | 'customer.import'
   | 'supplier.import'
+  | 'debt.opening_created'
+  | 'debt.opening_cancelled'
 
 interface AuditParams {
   action: AuditAction

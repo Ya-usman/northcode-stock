@@ -28,6 +28,8 @@ export async function POST(request: Request) {
 
     if (saleErr || !sale) return NextResponse.json({ error: t('sale_not_found') }, { status: 404 })
     if (sale.sale_status === 'cancelled') return NextResponse.json({ error: t('sale_is_cancelled') }, { status: 400 })
+    // Reprise de dette : se rembourse depuis Crédits (/api/payments), pas depuis l'Historique des ventes
+    if (sale.sale_status === 'opening') return NextResponse.json({ error: t('opening_not_editable') }, { status: 400 })
 
     const { data: memberRow } = await supabase
       .from('shop_members')

@@ -27,8 +27,9 @@ export async function POST(request: Request) {
     const admin = await createAdminClient()
 
     const { data: po } = await (admin as any)
-      .from('purchase_orders').select('supplier_id').eq('id', purchase_order_id).eq('shop_id', shop_id).single()
+      .from('purchase_orders').select('supplier_id, is_opening_balance').eq('id', purchase_order_id).eq('shop_id', shop_id).single()
     if (!po) return NextResponse.json({ error: t('po_not_found') }, { status: 404 })
+    if (po.is_opening_balance) return NextResponse.json({ error: t('opening_not_editable') }, { status: 400 })
 
     const { data, error } = await (admin as any).rpc('apply_purchase_order_receipt', {
       p_shop_id: shop_id,

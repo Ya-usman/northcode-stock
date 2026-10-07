@@ -259,7 +259,9 @@ export default function SalesHistoryPage() {
     if (methodFilter === 'mobile_money') query = query.in('payment_method', mobileMoneyIds.length ? mobileMoneyIds : ['__none__'])
     else if (methodFilter !== 'all') query = query.eq('payment_method', methodFilter)
     if (statusFilter !== 'all') query = query.eq('payment_status', statusFilter)
+    // « Toutes » = ventes actives et annulées — jamais les reprises de dette (pas des ventes, migration 168)
     if (saleStatusFilter !== 'all') query = query.eq('sale_status', saleStatusFilter)
+    else query = query.in('sale_status', ['active', 'cancelled'])
     return query
   }
 
@@ -277,6 +279,7 @@ export default function SalesHistoryPage() {
       .gte('created_at', start.toISOString())
       .lte('created_at', end.toISOString())
     if (saleStatusFilter !== 'all') q = q.eq('sale_status', saleStatusFilter)
+    else q = q.in('sale_status', ['active', 'cancelled'])
     if (isCashier) q = q.eq('cashier_id', profile!.id)
     if (methodFilter === 'mobile_money') q = q.in('payment_method', mobileMoneyIds.length ? mobileMoneyIds : ['__none__'])
     else if (methodFilter !== 'all') q = q.eq('payment_method', methodFilter)

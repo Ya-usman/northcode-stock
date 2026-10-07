@@ -29,10 +29,11 @@ export async function GET(request: Request) {
         .eq('shop_id', shop_id).eq('user_id', user.id).eq('is_active', true).single(),
       admin
         .from('sales')
-        .select('id, sale_number, created_at, total, amount_paid, balance, payment_status, payment_method, cashier_id, sale_items(product_name, quantity, unit_price, subtotal)')
+        .select('id, sale_number, created_at, total, amount_paid, balance, payment_status, payment_method, cashier_id, sale_status, notes, sale_items(product_name, quantity, unit_price, subtotal)')
         .eq('customer_id', customer_id)
         .eq('shop_id', shop_id)
-        .eq('sale_status', 'active')
+        // Ventes à crédit ET reprises de dette (migration 168)
+        .in('sale_status', ['active', 'opening'])
         .order('created_at', { ascending: false }),
     ])
 

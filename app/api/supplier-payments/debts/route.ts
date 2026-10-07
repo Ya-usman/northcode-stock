@@ -45,7 +45,7 @@ export async function GET(request: Request) {
     const supplierIds = suppliers.map((s: any) => s.id)
     const { data: shopPOs, error: poErr } = await admin
       .from('purchase_orders')
-      .select('id, reference, created_at, total_amount, balance, amount_paid, payment_status, status, supplier_id, purchase_order_items(product_name, quantity_ordered, quantity_received, unit_price)')
+      .select('id, reference, created_at, total_amount, balance, amount_paid, payment_status, status, supplier_id, is_opening_balance, notes, purchase_order_items(product_name, quantity_ordered, quantity_received, unit_price)')
       .in('shop_id', allowedIds)
       .in('supplier_id', supplierIds)
       .gt('balance', 0)
