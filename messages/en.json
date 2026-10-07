@@ -2826,11 +2826,17 @@
       "invalid_email": "Invalid email “{value}”.",
       "invalid_credit_limit": "Invalid credit limit: a number, 0 or more.",
       "text_too_long": "Text too long.",
-      "exists_phone": "Already registered: “{name}” (same number)."
+      "exists_phone": "Already registered: “{name}” (same number).",
+      "invalid_debt": "Amount owed “{value}” is unreadable or negative.",
+      "invalid_debt_date": "Debt date “{value}” is unreadable (e.g. 15/03/2026).",
+      "debt_date_future": "Debt date is in the future ({value})."
     },
     "warning": {
       "buying_above_selling": "Buying price higher than selling price.",
-      "ambiguous_number": "“{raw}” read as {value}."
+      "ambiguous_number": "“{raw}” read as {value}.",
+      "debt_not_applied": "Record already exists: the debt ({amount}) is not carried over. Add it from Credits if needed.",
+      "debt_no_permission": "Record imported without its debt: you need edit rights on “Credits”.",
+      "debt_failed": "Record created, but the debt ({amount}) could not be saved: add it from Credits."
     },
     "xlsx": {
       "sheet_products": "Products",
@@ -2945,7 +2951,8 @@
         "bottle": "bottle",
         "tin": "tin",
         "box": "box"
-      }
+      },
+      "validation_date": "Enter a real date, for example 15/03/2026."
     },
     "customers": {
       "title": "Import customers",
@@ -2987,6 +2994,16 @@
             "header": "Credit limit",
             "help": "Maximum amount this customer may owe. Empty = no limit.",
             "example": "50000"
+          },
+          "debt": {
+            "header": "Amount owed",
+            "help": "What this customer already owes you (your notebook). Becomes an “opening balance” in Credits: it is not a sale. Empty = nothing. Not to be confused with the credit limit.",
+            "example": "15000"
+          },
+          "debt_date": {
+            "header": "Debt date",
+            "help": "Since when they have owed this amount (DD/MM/YYYY). Empty = the import day.",
+            "example": "15/03/2026"
           }
         },
         "guide_title": "Import your customers into StockShop",
@@ -3001,7 +3018,7 @@
           "A customer already registered (same number or same name) is skipped: you can re-import the file without creating duplicates.",
           "Numbers without a country code take your shop’s country code.",
           "The Phone column is in Text format: the leading zero and the “+” stay intact.",
-          "Outstanding debts are not imported here: they come from credit sales recorded in StockShop.",
+          "Amount owed: carried over only for a NEW customer (never for an existing one, so their debt is never doubled). It appears in Credits as an “opening balance” and does not count in your revenue.",
           "Up to 1000 customers per file. Need help? Write to support@stockshop.tech."
         ],
         "examples": [
@@ -3009,19 +3026,25 @@
             "name": "Awa Ndiaye",
             "phone": "0803 123 4567",
             "city": "Lagos",
-            "credit_limit": 50000
+            "credit_limit": 50000,
+            "debt": 15000,
+            "debt_date": "15/03/2026"
           },
           {
             "name": "John Okafor",
             "phone": "+234 806 555 1234",
             "city": "Abuja",
-            "credit_limit": ""
+            "credit_limit": "",
+            "debt": "",
+            "debt_date": ""
           },
           {
             "name": "Mama Fatou Store",
             "phone": "",
             "city": "Kano",
-            "credit_limit": 100000
+            "credit_limit": 100000,
+            "debt": 42500,
+            "debt_date": ""
           }
         ]
       }
@@ -3066,6 +3089,16 @@
             "header": "City",
             "help": "City or area. Optional.",
             "example": "Lagos"
+          },
+          "debt": {
+            "header": "Amount owed",
+            "help": "What you already owe this supplier (your notebook). Becomes an “opening balance” in Credits (“I owe”): it is not a purchase, no stock is added. Empty = nothing.",
+            "example": "250000"
+          },
+          "debt_date": {
+            "header": "Debt date",
+            "help": "Since when you have owed this amount (DD/MM/YYYY). Empty = the import day.",
+            "example": "01/09/2026"
           }
         },
         "guide_title": "Import your suppliers into StockShop",
@@ -3080,7 +3113,7 @@
           "A supplier already registered (same number or same name) is skipped: you can re-import the file without creating duplicates.",
           "Numbers without a country code take your shop’s country code.",
           "The Phone column is in Text format: the leading zero and the “+” stay intact.",
-          "What you owe your suppliers is not imported here: it comes from purchase orders recorded in StockShop.",
+          "Amount owed: carried over only for a NEW supplier (never for an existing one, so the debt is never doubled). It appears in Credits (“I owe”) as an “opening balance”: it is not a purchase.",
           "Up to 1000 suppliers per file. Need help? Write to support@stockshop.tech."
         ],
         "examples": [
@@ -3088,17 +3121,27 @@
             "name": "Lagos Wholesale Ltd",
             "phone": "+234 803 123 4567",
             "email": "orders@example.ng",
-            "city": "Lagos"
+            "city": "Lagos",
+            "debt": 250000,
+            "debt_date": "01/09/2026"
           },
           {
             "name": "Musa Distributors",
             "phone": "0806 555 1234",
             "email": "",
-            "city": "Kano"
+            "city": "Kano",
+            "debt": "",
+            "debt_date": ""
           }
         ]
       }
-    }
+    },
+    "sum_debts": "{count} debt(s) to carry over · {total}",
+    "debts_note": "Amounts owed become “opening balances” in Credits, for new records only. They are neither sales nor purchases: they do not count in your revenue.",
+    "success_debts": "{count} debt(s) carried over to Credits · {total}",
+    "detail_debt": "Owes {amount}",
+    "shop_label": "Shop",
+    "shop_pick_hint": "The import goes into the selected shop (checks and duplicates are specific to that shop)."
   },
   "shop_hours": {
     "closed_title": "Shop closed",

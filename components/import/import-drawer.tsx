@@ -8,6 +8,8 @@
 // en clair, fichier des lignes à corriger). Seules les lignes nouvelles sont créées.
 // Textes : namespace « import » ; pour clients / fournisseurs, les textes
 // propres sont dans « import.customers » / « import.suppliers » (prioritaires).
+// La boutique qui reçoit l'import est toujours affichée ; en vue « Toutes les
+// boutiques », elle se choisit (changer de boutique remet l'écran à zéro).
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, AlertTriangle, CheckCircle2, Download, FileSpreadsheet, Loader2, MinusCircle, Upload, X } from 'lucide-react'
@@ -16,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { AppDrawer } from '@/components/ui/app-drawer'
 import { FOOTER_CANCEL_CLASS, FOOTER_PRIMARY_CLASS, FOOTER_ROW_CLASS } from '@/components/ui/premium-dialog'
 import { useAuthContext } from '@/lib/contexts/auth-context'
+import { useCurrency } from '@/lib/hooks/use-currency'
 import { downloadOrShareBlob, isCapacitor } from '@/lib/utils/native-share'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { cn } from '@/lib/utils/cn'
@@ -28,13 +31,14 @@ interface Props {
   kind: ImportKind
   open: boolean
   onClose: () => void
+  /** Boutique proposée par défaut (la boutique active) */
   shopId: string
   onImported: (count: number) => void
 }
 
 type Status = 'new' | 'exists' | 'error' | 'ignored'
-interface ServerRow { line: number; status: Status; issue?: string; params?: Record<string, string | number>; warnings: { code: string; params?: Record<string, string | number> }[] }
-interface Summary { total: number; new: number; exists: number; errors: number; ignored: number; warnings: number }
+interface ServerRow { line: number; status: Status; issue?: string; params?: Record<string, string | number>; warnings: { code: string; params?: Record<string, string | number> }[]; debt?: { amount: number; date: string | null } }
+interface Summary { total: number; new: number; exists: number; errors: number; ignored: number; warnings: number; debts?: number; debts_total?: number; debts_created?: number; debts_created_total?: number }
 type Phase = 'idle' | 'reading' | 'checking' | 'review' | 'importing' | 'done'
 type Raw = Record<string, unknown>
 
@@ -47,18 +51,23 @@ const STATUS_STYLE: Record<Status, string> = {
 const ORDER: Record<Status, number> = { error: 0, new: 1, exists: 2, ignored: 3 }
 const SHOWN_NEW = 50
 
-// Colonnes des fiches (clients, fournisseurs) : largeur et contrôle Excel
+// Colonnes des fiches (clients, fournisseurs) : largeur et contrôle Excel.
+// « Montant dû » + « Date de la dette » : reprise de dette des fiches NOUVELLES (lot 2)
 const CONTACT_COLUMNS: Record<'customers' | 'suppliers', { key: string; width: number; required?: boolean; validation?: TemplateColumn['validation'] }[]> = {
-  customers: [{ key: 'name', width: 32, required: true }, { key: 'phone', width: 22, validation: 'text' }, { key: 'city', width: 22 }, { key: 'credit_limit', width: 20, validation: 'decimal' }],
-  suppliers: [{ key: 'name', width: 32, required: true }, { key: 'phone', width: 22, validation: 'text' }, { key: 'email', width: 30 }, { key: 'city', width: 22 }],
+  customers: [{ key: 'name', width: 32, required: true }, { key: 'phone', width: 22, validation: 'text' }, { key: 'city', width: 22 }, { key: 'credit_limit', width: 20, validation: 'decimal' }, { key: 'debt', width: 18, validation: 'decimal' }, { key: 'debt_date', width: 18, validation: 'date' }],
+  suppliers: [{ key: 'name', width: 32, required: true }, { key: 'phone', width: 22, validation: 'text' }, { key: 'email', width: 30 }, { key: 'city', width: 22 }, { key: 'debt', width: 18, validation: 'decimal' }, { key: 'debt_date', width: 18, validation: 'date' }],
 }
 const ENDPOINT: Record<ImportKind, string> = { products: '/api/products/import', customers: '/api/customers/import', suppliers: '/api/suppliers/import' }
 
 export function ImportDrawer({ kind, open, onClose, shopId, onImported }: Props) {
   const tBase = useTranslations('import')
   const tRoot = useTranslations()
-  const { userShops } = useAuthContext()
-  const shopName = userShops.find(s => s.id === shopId)?.name || 'StockShop'
+  const { userShops, effectiveShopIds } = useAuthContext()
+  const [target, setTarget] = useState(shopId)
+  useEffect(() => { if (open) setTarget(shopId) }, [open, shopId])
+  const shopChoices = effectiveShopIds.length > 1 ? userShops.filter(s => effectiveShopIds.includes(s.id)) : []
+  const shopName = userShops.find(s => s.id === target)?.name || 'StockShop'
+  const { fmt } = useCurrency()
   const fileRef = useRef<HTMLInputElement>(null)
 
   // Texte propre au type d'import s'il existe (« import.customers.title »), sinon le texte commun
@@ -90,7 +99,7 @@ export function ImportDrawer({ kind, open, onClose, shopId, onImported }: Props)
       sheetGuide: x('sheet_guide'), sheetLists: x('sheet_lists'),
       guideColumnsTitle: x('guide_columns_title'), guideColumn: x('guide_column'), guideRequired: x('guide_required'), guideMeaning: x('guide_meaning'), guideExample: x('guide_example'),
       yes: x('yes'), no: x('no'), guideExamplesTitle: x('guide_examples_title'), guideExamplesNote: x('guide_examples_note'),
-      guideTipsTitle: x('guide_tips_title'), validationTitle: x('validation_title'), validationNumber: x('validation_number'), validationInteger: x('validation_integer'),
+      guideTipsTitle: x('guide_tips_title'), validationTitle: x('validation_title'), validationNumber: x('validation_number'), validationInteger: x('validation_integer'), validationDate: x('validation_date'),
     }
   }
   const buildSpec = async (): Promise<TemplateSpec> => {
@@ -154,7 +163,7 @@ export function ImportDrawer({ kind, open, onClose, shopId, onImported }: Props)
     }
     setRows(read.rows); setTruncated(read.truncated); setPhase('checking')
     try {
-      const res = await send({ shop_id: shopId, rows: read.rows, dry_run: true }, 45_000)
+      const res = await send({ shop_id: target, rows: read.rows, dry_run: true }, 45_000)
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
       setReport({ summary: json.summary, rows: json.rows }); setPhase('review')
@@ -167,7 +176,7 @@ export function ImportDrawer({ kind, open, onClose, shopId, onImported }: Props)
     if (!report?.summary.new) return
     setPhase('importing')
     try {
-      const res = await send({ shop_id: shopId, rows }, 90_000)
+      const res = await send({ shop_id: target, rows }, 90_000)
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
       setInserted(json.inserted); setReport({ summary: json.summary, rows: json.rows }); setPhase('done')
@@ -194,10 +203,10 @@ export function ImportDrawer({ kind, open, onClose, shopId, onImported }: Props)
   const str = (v: unknown) => (v === undefined || v === null ? '' : String(v).trim())
   const nameOf = (line: number) => str(rawByLine.get(line)?.name) || '—'
   /** Détail de la ligne : prix et quantité (produits), téléphone et ville (fiches) */
-  const detailOf = (line: number) => {
-    const v = rawByLine.get(line) || {}
+  const detailOf = (r: ServerRow) => {
+    const v = rawByLine.get(r.line) || {}
     if (kind === 'products') return `${str(v.selling_price) || '—'} · ${tBase('col_qty')} ${str(v.quantity) || '0'}`
-    return [str(v.phone), str(kind === 'suppliers' ? v.email : v.city)].filter(Boolean).join(' · ')
+    return [str(v.phone), str(kind === 'suppliers' ? v.email : v.city), r.debt ? tBase('detail_debt', { amount: fmt(r.debt.amount) }) : ''].filter(Boolean).join(' · ')
   }
 
   return (
@@ -227,6 +236,24 @@ export function ImportDrawer({ kind, open, onClose, shopId, onImported }: Props)
       )}
     >
       <div className="space-y-4">
+        {/* Boutique qui reçoit l'import */}
+        {shopChoices.length > 1 && phase !== 'done' ? (
+          <section className="space-y-2" data-testid="import-shop">
+            <p className="text-sm font-semibold">{tBase('shop_label')}</p>
+            <div className="flex flex-wrap gap-2">
+              {shopChoices.map(s => (
+                <button key={s.id} type="button" disabled={busy} onClick={() => { if (s.id !== target) { setTarget(s.id); reset() } }}
+                  className={cn('min-h-[40px] rounded-lg border px-3 text-sm font-medium transition-colors disabled:opacity-50', s.id === target ? 'border-stockshop-blue bg-stockshop-blue text-white dark:border-blue-500 dark:bg-blue-500' : 'bg-card hover:bg-muted/50')}>
+                  {s.name}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted-foreground">{tBase('shop_pick_hint')}</p>
+          </section>
+        ) : (
+          <p className="text-xs text-muted-foreground" data-testid="import-shop">{tBase('shop_label')} : <strong className="text-foreground">{shopName}</strong></p>
+        )}
+
         {phase !== 'done' && (<>
           {/* 1 · Modèle */}
           <section className="space-y-2 rounded-xl border bg-card p-4">
@@ -276,6 +303,7 @@ export function ImportDrawer({ kind, open, onClose, shopId, onImported }: Props)
             {phase === 'done' ? (
               <div className="space-y-1.5 rounded-xl border border-green-200 bg-green-50 px-4 py-3 dark:border-green-800/60 dark:bg-green-950/40" data-testid="import-done">
                 <p className="flex items-center gap-2 text-sm font-semibold text-green-700 dark:text-green-300"><CheckCircle2 className="h-4 w-4" />{t('success', { count: inserted })}</p>
+                {!!s.debts_created && <p className="text-xs text-green-800/80 dark:text-green-300/80" data-testid="import-debts-done">{tBase('success_debts', { count: s.debts_created, total: fmt(s.debts_created_total || 0) })}</p>}
                 {s.exists > 0 && <p className="text-xs text-green-800/80 dark:text-green-300/80">{t('success_exists', { count: s.exists })}</p>}
                 {s.errors > 0 && <p className="text-xs text-red-700 dark:text-red-400">{tBase('success_errors', { count: s.errors })}</p>}
               </div>
@@ -285,11 +313,13 @@ export function ImportDrawer({ kind, open, onClose, shopId, onImported }: Props)
 
             <div className="flex flex-wrap gap-1.5 text-xs font-medium" data-testid="import-summary">
               <span className={cn('rounded-full px-2.5 py-1', STATUS_STYLE.new)}>{tBase('sum_new', { count: s.new })}</span>
+              {!!s.debts && phase !== 'done' && <span className="rounded-full bg-stockshop-blue-muted px-2.5 py-1 text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-300" data-testid="import-debts">{tBase('sum_debts', { count: s.debts, total: fmt(s.debts_total || 0) })}</span>}
               {s.exists > 0 && <span className={cn('rounded-full px-2.5 py-1', STATUS_STYLE.exists)}>{t('sum_exists', { count: s.exists })}</span>}
               {s.errors > 0 && <span className={cn('rounded-full px-2.5 py-1', STATUS_STYLE.error)}>{tBase('sum_errors', { count: s.errors })}</span>}
               {s.warnings > 0 && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">{tBase('sum_warnings', { count: s.warnings })}</span>}
               {s.ignored > 0 && <span className={cn('rounded-full px-2.5 py-1', STATUS_STYLE.ignored)}>{tBase('sum_ignored', { count: s.ignored })}</span>}
             </div>
+            {!!s.debts && phase !== 'done' && <p className="text-xs text-muted-foreground">{tBase('debts_note')}</p>}
             {s.exists > 0 && phase !== 'done' && <p className="text-xs text-muted-foreground">{t('exists_note')}</p>}
             {s.errors > 0 && (
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -305,7 +335,7 @@ export function ImportDrawer({ kind, open, onClose, shopId, onImported }: Props)
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="truncate font-medium">{nameOf(r.line)}</span>
-                      <span className="flex-shrink-0 truncate tabular-nums text-muted-foreground">{detailOf(r.line)}</span>
+                      <span className="flex-shrink-0 truncate tabular-nums text-muted-foreground">{detailOf(r)}</span>
                     </div>
                     {r.issue && <p className={cn('mt-0.5', r.status === 'error' ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground')}>{issueText(r)}</p>}
                     {r.warnings.map((w, k) => <p key={k} className="mt-0.5 flex items-center gap-1 text-amber-700 dark:text-amber-400"><AlertTriangle className="h-3 w-3 flex-shrink-0" />{warningText(w)}</p>)}

@@ -323,7 +323,8 @@ export default function SuppliersPage() {
     return normalize(s.name).includes(q) || normalize(s.city ?? '').includes(q)
   })
 
-  // Export : colonnes du modèle d'import (fichier réimportable), puis le solde dû pour information
+  // Export : colonnes du modèle d'import (fichier réimportable, « Montant dû » compris : repris
+  // seulement pour une fiche nouvelle — aucun doublon de dette dans la même boutique)
   const exportSuppliers = (fmtOut: 'xlsx' | 'csv') => {
     const col = (k: string) => t(`import.suppliers.xlsx.col.${k}.header` as any)
     suppliersExport.run({
@@ -331,7 +332,7 @@ export default function SuppliersPage() {
       shopName: userShops.filter(x => effectiveShopIds.includes(x.id)).map(x => x.name).join(', ') || shop?.name || 'StockShop',
       columns: [
         { header: col('name') }, { header: col('phone') }, { header: col('email') }, { header: col('city') },
-        { header: `${t('suppliers.supplier_journal_owed')} (${symbol})`, type: 'money' },
+        { header: `${col('debt')} (${symbol})`, type: 'money' },
       ],
       rows: filtered.map(x => [x.name, x.phone || '', (x as any).email || '', x.city || '', Number(x.total_owed) || 0]),
       totals: [t('exports.total'), null, null, null, totalOwedAll],

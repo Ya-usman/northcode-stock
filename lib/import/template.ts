@@ -23,8 +23,8 @@ export interface TemplateColumn {
   help: string
   example: string
   width: number
-  /** Contrôle Excel : nombre décimal ≥ 0, entier ≥ 0, valeur de la liste, ou cellule au format Texte */
-  validation?: 'decimal' | 'whole' | 'list' | 'text'
+  /** Contrôle Excel : nombre décimal ≥ 0, entier ≥ 0, valeur de la liste, cellule au format Texte, ou vraie date (JJ/MM/AAAA) */
+  validation?: 'decimal' | 'whole' | 'list' | 'text' | 'date'
 }
 
 export interface TemplateSpec {
@@ -39,6 +39,7 @@ export interface TemplateSpec {
   guideExamplesTitle: string; guideExamplesNote: string; examples: Record<string, string | number>[]
   guideTipsTitle: string; guideTips: string[]
   validationTitle: string; validationList: string; validationNumber: string; validationInteger: string
+  validationDate?: string
 }
 
 const col = (i: number) => String.fromCharCode(65 + i)
@@ -81,6 +82,12 @@ export async function buildImportTemplate(s: TemplateSpec): Promise<Blob> {
     if (c.validation === 'whole') {
       validations.add(range, { type: 'whole', operator: 'greaterThanOrEqual', allowBlank: true, formulae: [0], showErrorMessage: true, errorTitle: s.validationTitle, error: s.validationInteger })
     }
+    if (c.validation === 'date') {
+      ws.getColumn(i + 1).numFmt = 'dd/mm/yyyy'
+      // ExcelJS n'accepte que des dates fixes ici (pas de TODAY()) : Excel exige une vraie date ;
+      // « pas dans le futur » est contrôlé à la vérification de l'import
+      validations.add(range, { type: 'date', operator: 'between', allowBlank: true, formulae: [new Date(Date.UTC(1990, 0, 1, 12)), new Date(Date.UTC(2100, 11, 31, 12))], showErrorMessage: true, errorTitle: s.validationTitle, error: s.validationDate || s.validationNumber })
+    }
   })
 
   // ── Mode d'emploi ────────────────────────────────────────────────────────
@@ -89,14 +96,17 @@ export async function buildImportTemplate(s: TemplateSpec): Promise<Blob> {
   const wide = n >= 6
   const grid = wide ? n : 4
   const g = wb.addWorksheet(s.sheetGuide, { properties: { tabColor: { argb: 'FF16A34A' } } })
-  g.columns = wide ? s.columns.map(c => ({ width: c.width })) : [{ width: 32 }, { width: 22 }, { width: 56 }, { width: 26 }]
+  // En grille large, la dernière colonne porte aussi les « Exemple » : au moins 28 de large
+  g.columns = wide ? s.columns.map((c, i) => ({ width: i === n - 1 ? Math.max(c.width, 28) : c.width })) : [{ width: 32 }, { width: 22 }, { width: 56 }, { width: 26 }]
   const LAST = col(grid - 1)
   const meaningEnd = col(grid - 2) // « À quoi elle sert » : de C à l'avant-dernière colonne
   // Hauteur d'une ligne de texte enroulé : d'après la longueur et la largeur disponible (≈ 1 caractère par unité de largeur)
   const widths = (g.columns as any[]).map(c => Number(c.width) || 10)
   const meaningWidth = widths.slice(2, grid - 1).reduce((a, b) => a + b, 0)
   const fullWidth = widths.slice(0, grid).reduce((a, b) => a + b, 0)
-  const heightFor = (text: string, width: number) => Math.max(21, Math.ceil(text.length / Math.max(20, width * 0.95)) * 15 + 6)
+  // Estimation prudente (≈ 0,85 caractère par unité de largeur, 20 points par ligne) : rogner un texte
+  // d'aide est pire qu'une ligne un peu haute
+  const heightFor = (text: string, width: number) => Math.max(21, Math.ceil(text.length / Math.max(20, width * 0.85)) * 20 + 6)
   const textRow = (text: string, opts: { height?: number; font?: Partial<import('exceljs').Font> } = {}) => {
     const r = g.addRow([text]); g.mergeCells(`A${r.number}:${LAST}${r.number}`)
     r.getCell(1).alignment = { wrapText: true, vertical: 'top' }
@@ -193,7 +203,7 @@ export async function buildImportFixFile(
     cell.alignment = { vertical: 'middle', wrapText: true }
   })
   header.height = 28
-  s.columns.forEach((c, i) => { if (c.validation === 'text') ws.getColumn(i + 1).numFmt = '@' })
+  s.columns.forEach((c, i) => { if (c.validation === 'text') ws.getColumn(i + 1).numFmt = '@'; if (c.validation === 'date') ws.getColumn(i + 1).numFmt = 'dd/mm/yyyy' })
   for (const r of rows) {
     const row = ws.addRow([...s.columns.map(c => (r.raw[c.key] ?? '') as any), r.problem])
     row.getCell(n + 1).font = { color: { argb: 'FFB91C1C' } }

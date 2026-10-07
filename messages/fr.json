@@ -2826,11 +2826,17 @@
       "invalid_email": "E-mail « {value} » invalide.",
       "invalid_credit_limit": "Plafond de crédit invalide : un nombre, 0 ou plus.",
       "text_too_long": "Texte trop long.",
-      "exists_phone": "Déjà enregistré : « {name} » (même numéro)."
+      "exists_phone": "Déjà enregistré : « {name} » (même numéro).",
+      "invalid_debt": "Montant dû « {value} » illisible ou négatif.",
+      "invalid_debt_date": "Date de la dette « {value} » illisible (ex. : 15/03/2026).",
+      "debt_date_future": "Date de la dette dans le futur ({value})."
     },
     "warning": {
       "buying_above_selling": "Prix d’achat supérieur au prix de vente.",
-      "ambiguous_number": "« {raw} » lu comme {value}."
+      "ambiguous_number": "« {raw} » lu comme {value}.",
+      "debt_not_applied": "Fiche déjà enregistrée : la dette ({amount}) n’est pas reprise. Ajoutez-la depuis Crédits si besoin.",
+      "debt_no_permission": "Fiche importée sans sa dette : il faut le droit « Crédits » en modification.",
+      "debt_failed": "Fiche créée, mais la dette ({amount}) n’a pas pu être enregistrée : ajoutez-la depuis Crédits."
     },
     "xlsx": {
       "sheet_products": "Produits",
@@ -2945,7 +2951,8 @@
         "bottle": "bouteille",
         "tin": "boîte de conserve",
         "box": "boîte"
-      }
+      },
+      "validation_date": "Saisissez une vraie date, par exemple 15/03/2026."
     },
     "customers": {
       "title": "Importer des clients",
@@ -2987,6 +2994,16 @@
             "header": "Plafond de crédit",
             "help": "Montant maximum que ce client peut devoir. Vide = pas de plafond.",
             "example": "50000"
+          },
+          "debt": {
+            "header": "Montant dû",
+            "help": "Ce que ce client vous doit déjà (votre cahier). Devient une « reprise de dette » dans Crédits : ce n’est pas une vente. Vide = rien. À ne pas confondre avec le plafond de crédit.",
+            "example": "15000"
+          },
+          "debt_date": {
+            "header": "Date de la dette",
+            "help": "Depuis quand il vous doit ce montant (JJ/MM/AAAA). Vide = le jour de l’import.",
+            "example": "15/03/2026"
           }
         },
         "guide_title": "Importer vos clients dans StockShop",
@@ -3001,7 +3018,7 @@
           "Un client déjà enregistré (même numéro ou même nom) est ignoré : vous pouvez réimporter le fichier sans créer de doublons.",
           "Les numéros sans indicatif prennent celui du pays de votre boutique.",
           "La colonne Téléphone est au format Texte : le zéro et le « + » restent intacts.",
-          "Les dettes en cours ne s’importent pas ici : elles viennent des ventes à crédit enregistrées dans StockShop.",
+          "Montant dû : repris uniquement pour un client NOUVEAU (jamais pour un client déjà enregistré, pour ne pas doubler sa dette). Il apparaît dans Crédits comme « reprise de dette » et ne compte pas dans votre chiffre d’affaires.",
           "Jusqu’à 1000 clients par fichier. Besoin d’aide ? Écrivez à support@stockshop.tech."
         ],
         "examples": [
@@ -3009,19 +3026,25 @@
             "name": "Awa Ndiaye",
             "phone": "699 00 11 22",
             "city": "Douala",
-            "credit_limit": 50000
+            "credit_limit": 50000,
+            "debt": 15000,
+            "debt_date": "15/03/2026"
           },
           {
             "name": "Jean Kamga",
             "phone": "+237 677 12 34 56",
             "city": "Yaoundé",
-            "credit_limit": ""
+            "credit_limit": "",
+            "debt": "",
+            "debt_date": ""
           },
           {
             "name": "Boutique Chez Fatou",
             "phone": "",
             "city": "Bafoussam",
-            "credit_limit": 100000
+            "credit_limit": 100000,
+            "debt": 42500,
+            "debt_date": ""
           }
         ]
       }
@@ -3066,6 +3089,16 @@
             "header": "Ville",
             "help": "Ville ou quartier. Facultatif.",
             "example": "Douala"
+          },
+          "debt": {
+            "header": "Montant dû",
+            "help": "Ce que vous devez déjà à ce fournisseur (votre cahier). Devient une « reprise de dette » dans Crédits (« Je dois ») : ce n’est pas un achat, aucun stock n’est ajouté. Vide = rien.",
+            "example": "250000"
+          },
+          "debt_date": {
+            "header": "Date de la dette",
+            "help": "Depuis quand vous devez ce montant (JJ/MM/AAAA). Vide = le jour de l’import.",
+            "example": "01/09/2026"
           }
         },
         "guide_title": "Importer vos fournisseurs dans StockShop",
@@ -3080,7 +3113,7 @@
           "Un fournisseur déjà enregistré (même numéro ou même nom) est ignoré : vous pouvez réimporter le fichier sans créer de doublons.",
           "Les numéros sans indicatif prennent celui du pays de votre boutique.",
           "La colonne Téléphone est au format Texte : le zéro et le « + » restent intacts.",
-          "Ce que vous devez à vos fournisseurs ne s’importe pas ici : cela vient des bons de commande enregistrés dans StockShop.",
+          "Montant dû : repris uniquement pour un fournisseur NOUVEAU (jamais pour un fournisseur déjà enregistré, pour ne pas doubler la dette). Il apparaît dans Crédits (« Je dois ») comme « reprise de dette » : ce n’est pas un achat.",
           "Jusqu’à 1000 fournisseurs par fichier. Besoin d’aide ? Écrivez à support@stockshop.tech."
         ],
         "examples": [
@@ -3088,17 +3121,27 @@
             "name": "Brasseries du Cameroun",
             "phone": "+237 233 42 10 10",
             "email": "commandes@exemple.cm",
-            "city": "Douala"
+            "city": "Douala",
+            "debt": 250000,
+            "debt_date": "01/09/2026"
           },
           {
             "name": "Grossiste Moussa",
             "phone": "677 55 44 33",
             "email": "",
-            "city": "Garoua"
+            "city": "Garoua",
+            "debt": "",
+            "debt_date": ""
           }
         ]
       }
-    }
+    },
+    "sum_debts": "{count} dette(s) à reprendre · {total}",
+    "debts_note": "Les montants dus deviennent des « reprises de dette » dans Crédits, pour les fiches nouvelles seulement. Ce ne sont ni des ventes ni des achats : ils ne comptent pas dans votre chiffre d’affaires.",
+    "success_debts": "{count} dette(s) reprise(s) dans Crédits · {total}",
+    "detail_debt": "Dû {amount}",
+    "shop_label": "Boutique",
+    "shop_pick_hint": "L’import va dans la boutique choisie (vérification et doublons propres à cette boutique)."
   },
   "shop_hours": {
     "closed_title": "Boutique fermée",

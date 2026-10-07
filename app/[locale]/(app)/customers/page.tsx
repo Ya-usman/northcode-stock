@@ -294,7 +294,8 @@ export default function CustomersPage() {
     }
   }
 
-  // Export : colonnes du modèle d'import (fichier réimportable), puis le solde dû pour information
+  // Export : colonnes du modèle d'import (fichier réimportable, « Montant dû » compris : repris
+  // seulement pour une fiche nouvelle — aucun doublon de dette dans la même boutique)
   const exportCustomers = (fmtOut: 'xlsx' | 'csv') => {
     const col = (k: string) => t(`import.customers.xlsx.col.${k}.header` as any)
     customersExport.run({
@@ -302,7 +303,7 @@ export default function CustomersPage() {
       shopName: userShops.filter(x => effectiveShopIds.includes(x.id)).map(x => x.name).join(', ') || shop?.name || 'StockShop',
       columns: [
         { header: col('name') }, { header: col('phone') }, { header: col('city') },
-        { header: `${col('credit_limit')} (${currencySymbol})`, type: 'money' }, { header: `${t('customers.total_debt')} (${currencySymbol})`, type: 'money' },
+        { header: `${col('credit_limit')} (${currencySymbol})`, type: 'money' }, { header: `${col('debt')} (${currencySymbol})`, type: 'money' },
       ],
       rows: filtered.map(c => [c.name, c.phone || '', c.city || '', c.credit_limit ?? '', Number(c.total_debt) || 0]),
       totals: [t('exports.total'), null, null, null, filtered.reduce((n, c) => n + (Number(c.total_debt) || 0), 0)],
