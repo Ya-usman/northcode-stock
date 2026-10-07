@@ -5,6 +5,8 @@
 // fichier et avec le stock existant, lignes d'exemple des anciens modèles.
 // Fonctions PURES : aucun accès à la base.
 
+import { classifyBarcode } from '@/lib/products/barcode'
+
 export const PRODUCT_UNITS = ['piece', 'kg', 'g', 'litre', 'ml', 'pack', 'carton', 'dozen', 'bag', 'bottle', 'tin', 'box'] as const
 export type ProductUnit = typeof PRODUCT_UNITS[number]
 export const IMPORT_MAX_ROWS = 1000
@@ -122,9 +124,9 @@ const EXAMPLES = new Set([
 
 export type RowIssue =
   | 'missing_name' | 'name_too_long' | 'missing_price' | 'invalid_price' | 'invalid_buying_price'
-  | 'invalid_quantity' | 'invalid_threshold' | 'unknown_unit' | 'sku_damaged' | 'sku_too_long'
+  | 'invalid_quantity' | 'invalid_threshold' | 'unknown_unit' | 'sku_damaged' | 'sku_too_long' | 'sku_invalid_barcode'
   | 'duplicate_in_file' | 'exists_name' | 'exists_sku' | 'example_row' | 'insert_failed'
-export type RowWarning = 'buying_above_selling' | 'ambiguous_number'
+export type RowWarning = 'buying_above_selling' | 'ambiguous_number' | 'sku_nonstandard'
 
 export interface ImportProduct {
   name: string; selling_price: number; buying_price: number; quantity: number
@@ -171,6 +173,10 @@ export function checkRows(rows: RawRow[], existing: { name: string; sku: string 
     const sku = parseSku(values.sku)
     if (sku.damaged) return fail('sku_damaged')
     if (sku.value && sku.value.length > 64) return fail('sku_too_long')
+    // Chiffres seuls = vrai code-barres attendu (lib/products/barcode)
+    const bc = classifyBarcode(sku.value)
+    if (bc === 'gtin_invalid') return fail('sku_invalid_barcode', { value: sku.value! })
+    if (bc === 'numeric_nonstandard') r.warnings.push({ code: 'sku_nonstandard', params: { value: sku.value! } })
 
     for (const [p, raw] of [[sp, values.selling_price], [bp, values.buying_price], [qt, values.quantity], [th, values.low_stock_threshold]] as const) {
       if (p.ambiguous) r.warnings.push({ code: 'ambiguous_number', params: { raw: String(raw), value: p.value! } })

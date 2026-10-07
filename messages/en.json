@@ -2829,14 +2829,16 @@
       "exists_phone": "Already registered: “{name}” (same number).",
       "invalid_debt": "Amount owed “{value}” is unreadable or negative.",
       "invalid_debt_date": "Debt date “{value}” is unreadable (e.g. 15/03/2026).",
-      "debt_date_future": "Debt date is in the future ({value})."
+      "debt_date_future": "Debt date is in the future ({value}).",
+      "sku_invalid_barcode": "Barcode “{value}” is not valid (wrong check digit)."
     },
     "warning": {
       "buying_above_selling": "Buying price higher than selling price.",
       "ambiguous_number": "“{raw}” read as {value}.",
       "debt_not_applied": "Record already exists: the debt ({amount}) is not carried over. Add it from Credits if needed.",
       "debt_no_permission": "Record imported without its debt: you need edit rights on “Credits”.",
-      "debt_failed": "Record created, but the debt ({amount}) could not be saved: add it from Credits."
+      "debt_failed": "Record created, but the debt ({amount}) could not be saved: add it from Credits.",
+      "sku_nonstandard": "“{value}” is not a standard barcode (8, 12, 13 or 14 digits): imported as an in-house reference."
     },
     "xlsx": {
       "sheet_products": "Products",
@@ -3271,6 +3273,7 @@
     "shop_id_required": "shop_id required",
     "sku_taken": "This SKU is already used by another product. Leave the field empty or choose a different SKU.",
     "sku_taken_by": "This barcode is already used by “{name}”. Change it or leave the field empty.",
+    "barcode_invalid": "This barcode is not valid (wrong check digit): check it or scan it again.",
     "id_shop_id_required": "id and shop_id required",
     "owner_only_archive": "Only the owner can archive or restore a product",
     "no_valid_fields": "No valid field to update",
@@ -3361,7 +3364,12 @@
     "photo_saved": "Photo saved ✓",
     "bucket_hint": "Check that the \"product-images\" bucket exists in Supabase Storage.",
     "take_photo": "Take a photo",
-    "choose_photo": "Choose a photo"
+    "choose_photo": "Choose a photo",
+    "barcode_invalid": "This barcode is not valid (wrong check digit): check it or scan it again.",
+    "barcode_nonstandard_title": "“{code}” is not a standard barcode",
+    "barcode_nonstandard_desc": "A barcode has 8, 12, 13 or 14 digits. Is this an in-house reference? If not, correct it or leave the field empty.",
+    "barcode_nonstandard_confirm": "Yes, save",
+    "barcode_nonstandard_fix": "Correct it"
   },
   "photo": {
     "permission_denied": "Allow camera access in your phone settings to take a photo.",

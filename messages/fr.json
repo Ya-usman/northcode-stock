@@ -2829,14 +2829,16 @@
       "exists_phone": "Déjà enregistré : « {name} » (même numéro).",
       "invalid_debt": "Montant dû « {value} » illisible ou négatif.",
       "invalid_debt_date": "Date de la dette « {value} » illisible (ex. : 15/03/2026).",
-      "debt_date_future": "Date de la dette dans le futur ({value})."
+      "debt_date_future": "Date de la dette dans le futur ({value}).",
+      "sku_invalid_barcode": "Code-barres « {value} » non valide (chiffre de contrôle incorrect)."
     },
     "warning": {
       "buying_above_selling": "Prix d’achat supérieur au prix de vente.",
       "ambiguous_number": "« {raw} » lu comme {value}.",
       "debt_not_applied": "Fiche déjà enregistrée : la dette ({amount}) n’est pas reprise. Ajoutez-la depuis Crédits si besoin.",
       "debt_no_permission": "Fiche importée sans sa dette : il faut le droit « Crédits » en modification.",
-      "debt_failed": "Fiche créée, mais la dette ({amount}) n’a pas pu être enregistrée : ajoutez-la depuis Crédits."
+      "debt_failed": "Fiche créée, mais la dette ({amount}) n’a pas pu être enregistrée : ajoutez-la depuis Crédits.",
+      "sku_nonstandard": "« {value} » n’est pas un code-barres standard (8, 12, 13 ou 14 chiffres) : importé comme référence maison."
     },
     "xlsx": {
       "sheet_products": "Produits",
@@ -3271,6 +3273,7 @@
     "shop_id_required": "shop_id requis",
     "sku_taken": "Ce SKU est déjà utilisé par un autre produit. Laissez le champ vide ou choisissez un SKU différent.",
     "sku_taken_by": "Ce code-barres est déjà utilisé par « {name} ». Changez-le ou laissez le champ vide.",
+    "barcode_invalid": "Ce code-barres n’est pas valide (chiffre de contrôle incorrect) : vérifiez-le ou scannez-le à nouveau.",
     "id_shop_id_required": "id et shop_id requis",
     "owner_only_archive": "Seul le propriétaire peut archiver ou restaurer un produit",
     "no_valid_fields": "Aucun champ valide à mettre à jour",
@@ -3361,7 +3364,12 @@
     "photo_saved": "Photo enregistrée ✓",
     "bucket_hint": "Vérifiez que le bucket \"product-images\" existe dans Supabase Storage.",
     "take_photo": "Prendre une photo",
-    "choose_photo": "Choisir une photo"
+    "choose_photo": "Choisir une photo",
+    "barcode_invalid": "Ce code-barres n’est pas valide (chiffre de contrôle incorrect) : vérifiez-le ou scannez-le à nouveau.",
+    "barcode_nonstandard_title": "« {code} » n’est pas un code-barres standard",
+    "barcode_nonstandard_desc": "Un code-barres a 8, 12, 13 ou 14 chiffres. Est-ce une référence maison ? Sinon, corrigez-le ou laissez le champ vide.",
+    "barcode_nonstandard_confirm": "Oui, enregistrer",
+    "barcode_nonstandard_fix": "Corriger"
   },
   "photo": {
     "permission_denied": "Autorisez l’accès à l’appareil photo dans les réglages du téléphone pour prendre une photo.",

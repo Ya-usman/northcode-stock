@@ -21,6 +21,8 @@ const BarcodeScanner = dynamic(
   { ssr: false, loading: () => <div className="mt-2 h-16 rounded-xl bg-muted animate-pulse" /> }
 )
 import { useToast } from '@/components/ui/use-toast'
+import { ConfirmModal } from '@/components/ui/confirm-modal'
+import { classifyBarcode } from '@/lib/products/barcode'
 import { compressImage } from '@/lib/utils/compress-image'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { hasNativePhotoPicker, pickPhotoNative, PhotoPermissionError, type PhotoSource } from '@/lib/photo/pick-photo'
@@ -215,9 +217,26 @@ export function ProductForm({
 
   const imageUrl = form.watch('image_url')
 
+  // Code-barres saisi ou modifié : chiffres seuls = vrai code-barres attendu (chiffre de
+  // contrôle faux → refusé ; longueur non standard, ex. « 50 » → confirmation « référence maison ? »).
+  // Un code déjà enregistré et non modifié n'est jamais recontrôlé.
+  const initialSku = (defaultValues?.sku || '').trim()
+  const [confirmSku, setConfirmSku] = useState<ProductFormData | null>(null)
+
   // Envoi : une erreur de champ renvoyée par le serveur s'affiche sous le champ concerné
   // (la photo déjà choisie reste dans le formulaire : on corrige et on réenregistre)
-  const submit = async (data: ProductFormData) => {
+  const submit = (data: ProductFormData) => runSubmit(data, false)
+  const runSubmit = async (data: ProductFormData, skuConfirmed: boolean) => {
+    const sku = (data.sku || '').trim()
+    if (sku && sku !== initialSku) {
+      const kind = classifyBarcode(sku)
+      if (kind === 'gtin_invalid') {
+        form.setError('sku', { type: 'barcode', message: t('product_form.barcode_invalid') })
+        form.setFocus('sku')
+        return
+      }
+      if (kind === 'numeric_nonstandard' && !skuConfirmed) { setConfirmSku(data); return }
+    }
     const r = await onSubmit(data)
     if (r && typeof r === 'object' && 'field' in r) {
       form.setError(r.field, { type: 'server', message: r.message })
@@ -228,6 +247,7 @@ export function ProductForm({
   const optional = <span className="text-muted-foreground text-xs font-normal">({t('form.optional')})</span>
 
   return (
+    <>
     <form id={PRODUCT_FORM_ID} onSubmit={form.handleSubmit(submit)} className="space-y-4" noValidate>
 
       {/* Session counter */}
@@ -447,5 +467,20 @@ export function ProductForm({
         </div>
       </DrawerSection>
     </form>
+
+    {/* « 50 » n'est pas un code-barres standard : référence maison, ou erreur ? */}
+    <ConfirmModal
+      open={!!confirmSku}
+      onOpenChange={o => { if (!o) { setConfirmSku(null); form.setFocus('sku') } }}
+      category={t('products.sku')}
+      title={t('product_form.barcode_nonstandard_title', { code: (confirmSku?.sku || '').trim() })}
+      description={t('product_form.barcode_nonstandard_desc')}
+      icon={<ScanLine className="h-4 w-4" />}
+      tone="warning"
+      confirmLabel={t('product_form.barcode_nonstandard_confirm')}
+      cancelLabel={t('product_form.barcode_nonstandard_fix')}
+      onConfirm={() => { const d = confirmSku; setConfirmSku(null); if (d) void runSubmit(d, true) }}
+    />
+    </>
   )
 }

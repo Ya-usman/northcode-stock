@@ -4,6 +4,7 @@ import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { canWriteFeature } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { classifyBarcode } from '@/lib/products/barcode'
 
 // Écriture de la fiche produit = niveau « modification » de Produits / Stock
 // (règle unique, lot 1 du 5 oct. 2026). Plus de passe-droit pour le caissier :
@@ -47,6 +48,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     // Always null-ify empty SKU to avoid unique constraint on empty strings
     body.sku = body.sku?.trim() || null
+    if (classifyBarcode(body.sku) === 'gtin_invalid') return NextResponse.json({ error: t('barcode_invalid'), field: 'sku' }, { status: 400 })
     const admin = await createAdminClient()
     if (!(await categoryInShop(admin, body.category_id, shop_id))) return NextResponse.json({ error: t('category_wrong_shop') }, { status: 400 })
     const { data, error } = await (admin as any).from('products').insert(body).select().single()
@@ -231,6 +233,8 @@ export async function PATCH(request: Request) {
     if (Object.keys(safeUpdates).length === 0)
       return NextResponse.json({ error: t('no_valid_fields') }, { status: 400 })
     if ('sku' in safeUpdates) safeUpdates.sku = (safeUpdates.sku as string)?.trim() || null
+    if ('sku' in safeUpdates && classifyBarcode(safeUpdates.sku as string | null) === 'gtin_invalid')
+      return NextResponse.json({ error: t('barcode_invalid'), field: 'sku' }, { status: 400 })
     const admin = await createAdminClient()
     if ('category_id' in safeUpdates && !(await categoryInShop(admin, safeUpdates.category_id, shop_id)))
       return NextResponse.json({ error: t('category_wrong_shop') }, { status: 400 })
