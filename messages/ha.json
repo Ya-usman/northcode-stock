@@ -2068,7 +2068,10 @@
       "customize_receipt": "Keɓance rasidi",
       "quick_tour": "Zagaye cikin sauri",
       "add_product": "Ƙara kaya",
-      "first_sale": "Yi sayarwa"
+      "first_sale": "Yi sayarwa",
+      "opening_balance": "Ƙara tsohon bashi",
+      "import_customers": "Shigo da abokan ciniki (Excel)",
+      "import_products": "Shigo da kayayyaki (Excel)"
     },
     "tour_desc": {
       "add_category": "Tsara kayayyakinka ta rukuni.",
@@ -2076,7 +2079,10 @@
       "customize_receipt": "Tambarinka da bayananka a rasidi.",
       "quick_tour": "Muhimman wurare na manhajar cikin minti ɗaya.",
       "add_product": "Ƙirƙiri kaya tare da farashinsa da adadinsa.",
-      "first_sale": "Yi sayarwa daga farko har ƙarshe."
+      "first_sale": "Yi sayarwa daga farko har ƙarshe.",
+      "opening_balance": "Abin da abokin ciniki ke bin ka tun da, ba tare da ɓata sayarwarka ba.",
+      "import_customers": "Duk jerinka a lokaci ɗaya, har da bashi.",
+      "import_products": "Duk kayanka a lokaci ɗaya, daga samfurin Excel."
     },
     "step_of": "{current}/{total}",
     "skip": "Dakatar da zagayen",
@@ -2237,6 +2243,80 @@
         "done": {
           "title": "An yi rajistar sayarwa ta farko",
           "body": "Kaya sun sabunta kuma rasidi ya shirya don aika wa abokin ciniki."
+        }
+      },
+      "opening_balance": {
+        "nav": {
+          "title": "Buɗe Biya",
+          "body": "Taɓa « Biya » a cikin menu. A waya, yana iya kasancewa a cikin « Ƙari »."
+        },
+        "open": {
+          "title": "Bashin kafin StockShop",
+          "body": "Taɓa « Ƙara bashin da ke akwai ». Ɓangaren « Ana bin ni »: abokin ciniki; « Ina bin »: mai kawo kaya."
+        },
+        "party": {
+          "title": "Wa ke bin ka?",
+          "body": "Nemi abokin ciniki, ko rubuta sabon suna: za a ƙirƙiri shafinsa."
+        },
+        "amount": {
+          "title": "Kuɗin da ranarsa",
+          "body": "Abin da yake bin ka, da tun yaushe. Ba sayarwa ba ce: kuɗin shigarka ba ya canzawa."
+        },
+        "save": {
+          "title": "Ajiye",
+          "body": "Bashin yana bayyana a cikin Biya da alamar « Tsohon bashi ». Abokin ciniki zai biya kamar kowane bashi."
+        },
+        "done": {
+          "title": "An ƙara bashi",
+          "body": "Kana da littafi gaba ɗaya? Shigo da abokan cinikinka tare da « Kuɗin da ake bi » daga Excel (Abokan Ciniki → Shigo / Fitar)."
+        }
+      },
+      "import_customers": {
+        "nav": {
+          "title": "Buɗe Abokan Ciniki",
+          "body": "Taɓa « Abokan Ciniki » a cikin menu. A waya, yana iya kasancewa a cikin « Ƙari »."
+        },
+        "open": {
+          "title": "Shigo da",
+          "body": "Buɗe menu « Shigo / Fitar » (alamar fayil), sannan taɓa « Shigo da abokan ciniki »."
+        },
+        "template": {
+          "title": "Samfurin Excel",
+          "body": "Taɓa « Saukar da samfurin Excel » ka cike shi: abokin ciniki ɗaya a kowane layi. Shafin « Kuɗin da ake bi »: abin da yake bin ka tun da (ba dole ba)."
+        },
+        "file": {
+          "title": "Fayil ɗinka",
+          "body": "Zaɓi fayil ɗin da ka cike. StockShop yana duba komai ya nuna maka sakamako: ba a ƙirƙiri komai ba sai ka taɓa « Shigo da »."
+        },
+        "done": {
+          "title": "Shi ke nan",
+          "body": "Abokan cinikin da ke nan tun da ana barin su yadda suke: za ka iya sake shigowa ba tare da kwafi ba."
+        }
+      },
+      "import_products": {
+        "nav": {
+          "title": "Buɗe Kaya",
+          "body": "Taɓa « Kaya » a cikin menu."
+        },
+        "tab": {
+          "title": "Kayayyaki",
+          "body": "Buɗe shafin « Kayayyaki »."
+        },
+        "open": {
+          "title": "Shigo da",
+          "body": "Taɓa « Ƙara », sannan « Shigo da kaya da yawa (Excel) »."
+        },
+        "template": {
+          "title": "Samfurin Excel",
+          "body": "Taɓa « Saukar da samfurin Excel » ka cike shi: kaya ɗaya a kowane layi, tare da farashi da adadi. Shafin « Yadda ake yi » yana bayyana kowane shafi."
+        },
+        "file": {
+          "title": "Fayil ɗinka",
+          "body": "Zaɓi fayil ɗin da ka cike. StockShop yana duba komai (farashi, kwafi, barcode): ba a ƙirƙiri komai ba sai ka taɓa « Shigo da »."
+        },
+        "done": {
+          "title": "Shi ke nan",
+          "body": "Layukan da za a gyara ana sauke su a cikin fayil a shirye don sake shigowa."
         }
       }
     }
@@ -3143,7 +3223,8 @@
     "success_debts": "An kawo bashi {count} zuwa Bashi · {total}",
     "detail_debt": "Bashi {amount}",
     "shop_label": "Shago",
-    "shop_pick_hint": "Shigowar tana zuwa shagon da aka zaɓa (bincike da kwafi na wannan shagon ne kawai)."
+    "shop_pick_hint": "Shigowar tana zuwa shagon da aka zaɓa (bincike da kwafi na wannan shagon ne kawai).",
+    "import_idle": "Shigo da"
   },
   "shop_hours": {
     "closed_title": "An rufe shago",

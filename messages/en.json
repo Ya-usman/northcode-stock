@@ -2033,7 +2033,10 @@
       "customize_receipt": "Customise the receipt",
       "quick_tour": "Quick tour",
       "add_product": "Add a product",
-      "first_sale": "Make a sale"
+      "first_sale": "Make a sale",
+      "opening_balance": "Add an existing debt",
+      "import_customers": "Import your customers (Excel)",
+      "import_products": "Import your products (Excel)"
     },
     "tour_desc": {
       "add_category": "Group your products by family.",
@@ -2041,7 +2044,10 @@
       "customize_receipt": "Your logo and details on receipts.",
       "quick_tour": "The app’s landmarks in one minute.",
       "add_product": "Create a product with its price and stock.",
-      "first_sale": "Ring up a sale from start to finish."
+      "first_sale": "Ring up a sale from start to finish.",
+      "opening_balance": "What a customer already owes you, without distorting your sales.",
+      "import_customers": "Your whole list at once, debts included.",
+      "import_products": "Your whole stock at once, from an Excel template."
     },
     "step_of": "{current}/{total}",
     "skip": "Stop the tour",
@@ -2202,6 +2208,80 @@
         "done": {
           "title": "First sale recorded",
           "body": "Stock is up to date and the receipt is ready to send to the customer."
+        }
+      },
+      "opening_balance": {
+        "nav": {
+          "title": "Open Credits",
+          "body": "Tap “Credits” in the menu. On a phone, it may be under “More”."
+        },
+        "open": {
+          "title": "A debt from before StockShop",
+          "body": "Tap “Add an existing debt”. “Owed to me” side: a customer; “I owe” side: a supplier."
+        },
+        "party": {
+          "title": "Who owes you?",
+          "body": "Search for the customer, or type a new name: their record will be created."
+        },
+        "amount": {
+          "title": "The amount and its date",
+          "body": "What they owe you, and since when. It is not a sale: your revenue does not change."
+        },
+        "save": {
+          "title": "Save",
+          "body": "The debt appears in Credits with the “Opening balance” badge. The customer repays it like any credit."
+        },
+        "done": {
+          "title": "Debt added",
+          "body": "A whole notebook? Import your customers with their “Amount owed” from Excel (Customers → Import / Export)."
+        }
+      },
+      "import_customers": {
+        "nav": {
+          "title": "Open Customers",
+          "body": "Tap “Customers” in the menu. On a phone, it may be under “More”."
+        },
+        "open": {
+          "title": "Import",
+          "body": "Open the “Import / Export” menu (file icon), then tap “Import customers”."
+        },
+        "template": {
+          "title": "The Excel template",
+          "body": "Tap “Download the Excel template” and fill it in: one customer per row. “Amount owed” column: what they already owe you (optional)."
+        },
+        "file": {
+          "title": "Your file",
+          "body": "Choose the filled file. StockShop checks everything and shows you the result: nothing is created until you tap “Import”."
+        },
+        "done": {
+          "title": "That’s it",
+          "body": "Customers already registered are left as they are: you can re-import without creating duplicates."
+        }
+      },
+      "import_products": {
+        "nav": {
+          "title": "Open Stock",
+          "body": "Tap “Stock” in the menu."
+        },
+        "tab": {
+          "title": "Products",
+          "body": "Open the “Products” tab."
+        },
+        "open": {
+          "title": "Import",
+          "body": "Tap “Add”, then “Import several products (Excel)”."
+        },
+        "template": {
+          "title": "The Excel template",
+          "body": "Tap “Download the Excel template” and fill it in: one product per row, with its price and quantity. The “How to” tab explains each column."
+        },
+        "file": {
+          "title": "Your file",
+          "body": "Choose the filled file. StockShop checks everything (prices, duplicates, barcodes): nothing is created until you tap “Import”."
+        },
+        "done": {
+          "title": "That’s it",
+          "body": "Rows to fix can be downloaded in a file ready to re-import."
         }
       }
     }
@@ -3143,7 +3223,8 @@
     "success_debts": "{count} debt(s) carried over to Credits · {total}",
     "detail_debt": "Owes {amount}",
     "shop_label": "Shop",
-    "shop_pick_hint": "The import goes into the selected shop (checks and duplicates are specific to that shop)."
+    "shop_pick_hint": "The import goes into the selected shop (checks and duplicates are specific to that shop).",
+    "import_idle": "Import"
   },
   "shop_hours": {
     "closed_title": "Shop closed",

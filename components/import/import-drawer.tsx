@@ -226,7 +226,8 @@ export function ImportDrawer({ kind, open, onClose, shopId, onImported }: Props)
                 {tRoot('actions.cancel')}
               </Button>
               <Button variant="stockshop" className={FOOTER_PRIMARY_CLASS} disabled={phase !== 'review' || !s?.new} loading={phase === 'importing'} onClick={handleImport} data-testid="import-submit">
-                {phase === 'importing' ? tBase('importing') : phase === 'review' && !s?.new ? t('nothing_to_import') : t('import_btn', { count: s?.new ?? 0 })}
+                {/* Avant vérification : « Importer » tout court (pas « Importer 0 client(s) ») */}
+                {phase === 'importing' ? tBase('importing') : !s ? tBase('import_idle') : phase === 'review' && !s.new ? t('nothing_to_import') : t('import_btn', { count: s.new })}
               </Button>
             </>
           ) : (
@@ -267,7 +268,7 @@ export function ImportDrawer({ kind, open, onClose, shopId, onImported }: Props)
           </section>
 
           {/* 2 · Fichier */}
-          <section className="space-y-2">
+          <section className="space-y-2" data-tour="import-file">
             <p className="text-sm font-semibold">{tBase('step2_title')}</p>
             {!fileName ? (
               <button type="button" onClick={() => fileRef.current?.click()}

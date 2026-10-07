@@ -2033,7 +2033,10 @@
       "customize_receipt": "Personnaliser le reçu",
       "quick_tour": "Visite express",
       "add_product": "Ajouter un produit",
-      "first_sale": "Faire une vente"
+      "first_sale": "Faire une vente",
+      "opening_balance": "Reprendre une dette existante",
+      "import_customers": "Importer vos clients (Excel)",
+      "import_products": "Importer vos produits (Excel)"
     },
     "tour_desc": {
       "add_category": "Ranger vos produits par famille.",
@@ -2041,7 +2044,10 @@
       "customize_receipt": "Votre logo et vos mentions sur les reçus.",
       "quick_tour": "Les repères de l’application en une minute.",
       "add_product": "Créer un produit avec son prix et son stock.",
-      "first_sale": "Encaisser une vente de bout en bout."
+      "first_sale": "Encaisser une vente de bout en bout.",
+      "opening_balance": "Ce qu’un client vous doit déjà, sans fausser vos ventes.",
+      "import_customers": "Toute votre liste en une fois, dettes comprises.",
+      "import_products": "Tout votre stock en une fois, depuis un modèle Excel."
     },
     "step_of": "{current}/{total}",
     "skip": "Arrêter le tour",
@@ -2202,6 +2208,80 @@
         "done": {
           "title": "Première vente enregistrée",
           "body": "Le stock est à jour et le reçu est prêt à envoyer au client."
+        }
+      },
+      "opening_balance": {
+        "nav": {
+          "title": "Ouvrez Crédits",
+          "body": "Touchez « Crédits » dans le menu. Sur téléphone, il peut être rangé dans « Plus »."
+        },
+        "open": {
+          "title": "Une dette d’avant StockShop",
+          "body": "Touchez « Ajouter une dette existante ». Côté « On me doit » : un client ; côté « Je dois » : un fournisseur."
+        },
+        "party": {
+          "title": "Qui vous doit ?",
+          "body": "Cherchez le client, ou tapez un nouveau nom : sa fiche sera créée."
+        },
+        "amount": {
+          "title": "Le montant et sa date",
+          "body": "Ce qu’il vous doit, et depuis quand. Ce n’est pas une vente : votre chiffre d’affaires ne bouge pas."
+        },
+        "save": {
+          "title": "Enregistrez",
+          "body": "La dette apparaît dans Crédits avec le badge « Reprise de dette ». Le client la rembourse comme un crédit normal."
+        },
+        "done": {
+          "title": "Dette reprise",
+          "body": "Vous avez tout un cahier ? Importez vos clients avec leur « Montant dû » depuis Excel (Clients → Importer / Exporter)."
+        }
+      },
+      "import_customers": {
+        "nav": {
+          "title": "Ouvrez Clients",
+          "body": "Touchez « Clients » dans le menu. Sur téléphone, il peut être rangé dans « Plus »."
+        },
+        "open": {
+          "title": "Importer",
+          "body": "Ouvrez le menu « Importer / Exporter » (icône de fichier), puis touchez « Importer des clients »."
+        },
+        "template": {
+          "title": "Le modèle Excel",
+          "body": "Touchez « Télécharger le modèle Excel » et remplissez-le : un client par ligne. Colonne « Montant dû » : ce qu’il vous doit déjà (facultatif)."
+        },
+        "file": {
+          "title": "Votre fichier",
+          "body": "Choisissez le fichier rempli. StockShop vérifie tout et vous montre le résultat : rien n’est créé avant que vous touchiez « Importer »."
+        },
+        "done": {
+          "title": "C’est tout",
+          "body": "Les clients déjà enregistrés sont laissés tels quels : vous pouvez réimporter sans créer de doublons."
+        }
+      },
+      "import_products": {
+        "nav": {
+          "title": "Ouvrez Stock",
+          "body": "Touchez « Stock » dans le menu."
+        },
+        "tab": {
+          "title": "Les produits",
+          "body": "Ouvrez l’onglet « Produits »."
+        },
+        "open": {
+          "title": "Importer",
+          "body": "Touchez « Ajouter », puis « Importer plusieurs produits (Excel) »."
+        },
+        "template": {
+          "title": "Le modèle Excel",
+          "body": "Touchez « Télécharger le modèle Excel » et remplissez-le : un produit par ligne, avec son prix et sa quantité. L’onglet « Mode d’emploi » explique chaque colonne."
+        },
+        "file": {
+          "title": "Votre fichier",
+          "body": "Choisissez le fichier rempli. StockShop vérifie tout (prix, doublons, codes-barres) : rien n’est créé avant que vous touchiez « Importer »."
+        },
+        "done": {
+          "title": "C’est tout",
+          "body": "Les lignes à corriger se téléchargent dans un fichier prêt à réimporter."
         }
       }
     }
@@ -3143,7 +3223,8 @@
     "success_debts": "{count} dette(s) reprise(s) dans Crédits · {total}",
     "detail_debt": "Dû {amount}",
     "shop_label": "Boutique",
-    "shop_pick_hint": "L’import va dans la boutique choisie (vérification et doublons propres à cette boutique)."
+    "shop_pick_hint": "L’import va dans la boutique choisie (vérification et doublons propres à cette boutique).",
+    "import_idle": "Importer"
   },
   "shop_hours": {
     "closed_title": "Boutique fermée",

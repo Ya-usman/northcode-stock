@@ -3,6 +3,7 @@
 // guidé en attente de cette action passe à l'étape suivante.
 
 export type OnboardingEvent = 'product_created' | 'cart_item_added' | 'sale_completed' | 'category_created' | 'member_invited' | 'settings_saved'
+  | 'opening_created'
 
 const NAME = 'stockshop:onboarding'
 

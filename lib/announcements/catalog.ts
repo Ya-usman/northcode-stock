@@ -50,6 +50,9 @@ export const ANNOUNCEMENT_TOURS: { tour: TourId; label: string }[] = [
   { tour: 'add_category', label: 'Créer une catégorie' },
   { tour: 'invite_member', label: 'Inviter un membre (gestion d’équipe)' },
   { tour: 'customize_receipt', label: 'Personnaliser le reçu (propriétaire)' },
+  { tour: 'opening_balance', label: 'Reprendre une dette existante (Crédits)' },
+  { tour: 'import_customers', label: 'Importer ses clients depuis Excel' },
+  { tour: 'import_products', label: 'Importer ses produits depuis Excel' },
 ]
 
 export const ANNOUNCEMENT_KINDS = [

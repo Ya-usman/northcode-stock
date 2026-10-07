@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/components/ui/use-toast'
 import { createClient } from '@/lib/supabase/client'
 import { normalize } from '@/lib/utils/normalize'
+import { emitOnboarding } from '@/lib/onboarding/events'
 import { cn } from '@/lib/utils/cn'
 
 const supabase = createClient() as any
@@ -89,6 +90,7 @@ export function OpeningBalanceDrawer({ open, onOpenChange, kind, shopId: default
       const json = await res.json()
       if (!res.ok) throw new Error(json.field === 'phone' ? t('opening_phone_invalid') : json.error || t('opening_error'))
       toast({ title: t('opening_created', { number: json.number, name: json.party_name }), variant: 'success' })
+      emitOnboarding('opening_created') // tour guidé « Reprendre une dette existante »
       onCreated(); onOpenChange(false)
     } catch (e: any) { setError(e.message) } finally { setSaving(false) }
   }
@@ -127,7 +129,7 @@ export function OpeningBalanceDrawer({ open, onOpenChange, kind, shopId: default
           {kind === 'customer' ? t('opening_explain_customer') : t('opening_explain_supplier')}
         </p>
 
-        <div className="space-y-1.5">
+        <div className="space-y-1.5" data-tour="opening-party">
           <Label htmlFor="ob-party">{kind === 'customer' ? t('opening_party_customer') : t('opening_party_supplier')}</Label>
           {picked ? (
             <div className="flex items-center justify-between rounded-lg border bg-card px-3 py-2 text-sm" data-testid="opening-picked">
@@ -157,7 +159,7 @@ export function OpeningBalanceDrawer({ open, onOpenChange, kind, shopId: default
           )}
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-1.5" data-tour="opening-amount">
           <Label htmlFor="ob-amount">{t('opening_amount', { currency: currencySymbol })}</Label>
           <Input id="ob-amount" value={amount} onChange={e => setAmount(e.target.value)} inputMode="decimal" placeholder="25000" className="text-lg font-semibold tabular-nums" data-testid="opening-amount" />
         </div>

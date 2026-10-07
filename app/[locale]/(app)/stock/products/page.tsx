@@ -1411,7 +1411,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                   <Plus className="mr-2 h-4 w-4" /> {t('actions.add_product')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowBulkModal(true)}><Zap className="mr-2 h-4 w-4" /> {t('products.add_quick')}</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setShowImportModal(true)}><Upload className="mr-2 h-4 w-4" /> {t('products.add_import')}</DropdownMenuItem>
+                <DropdownMenuItem data-tour="add-product-import" onClick={() => setShowImportModal(true)}><Upload className="mr-2 h-4 w-4" /> {t('products.add_import')}</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           )}

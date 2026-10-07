@@ -20,7 +20,8 @@
 import type { OnboardingEvent } from './events'
 
 export type TourId = 'quick_tour' | 'add_product' | 'first_sale' | 'add_category' | 'invite_member' | 'customize_receipt'
-export const TOUR_IDS: TourId[] = ['quick_tour', 'add_product', 'first_sale', 'add_category', 'invite_member', 'customize_receipt']
+  | 'opening_balance' | 'import_customers' | 'import_products'
+export const TOUR_IDS: TourId[] = ['quick_tour', 'add_product', 'first_sale', 'add_category', 'invite_member', 'customize_receipt', 'opening_balance', 'import_customers', 'import_products']
 
 export interface TourStep {
   id: string
@@ -90,6 +91,38 @@ export const TOURS: Record<TourId, TourStep[]> = {
     { id: 'logo', page: 'settings', leaveTo: 0, targets: ['[data-tour="settings-logo"]'] },
     { id: 'texts', page: 'settings', leaveTo: 0, targets: ['[data-tour="settings-receipt"]'] },
     { id: 'save', page: 'settings', leaveTo: 0, targets: ['[data-tour="settings-save"]'], waitFor: { event: 'settings_saved' } },
+    { id: 'done' },
+  ],
+  // Nouveautés d'octobre 2026 (« Me montrer » depuis l'annonce, ou Aide › Tours guidés)
+  opening_balance: [
+    { id: 'nav', targets: [nav('payments'), MORE], waitFor: { path: 'payments' } },
+    { id: 'open', page: 'payments', leaveTo: 0, targets: ['[data-testid="opening-open"]'], waitFor: { selector: '[data-testid="opening-drawer"]' } },
+    { id: 'party', page: 'payments', leaveTo: 0, targets: ['[data-tour="opening-party"]'], backTo: 1 },
+    { id: 'amount', page: 'payments', leaveTo: 0, targets: ['[data-tour="opening-amount"]'], backTo: 1 },
+    { id: 'save', page: 'payments', leaveTo: 0, targets: ['[data-testid="opening-drawer"] [data-testid="drawer-submit"]'], waitFor: { event: 'opening_created' }, backTo: 1 },
+    { id: 'done' },
+  ],
+  import_customers: [
+    { id: 'nav', targets: [nav('customers'), MORE], waitFor: { path: 'customers' } },
+    {
+      id: 'open', page: 'customers', leaveTo: 0,
+      targets: ['[data-testid="customers-import"]', '[data-testid="customers-files"]'],
+      waitFor: { selector: '[data-testid="import-drawer"]' },
+    },
+    { id: 'template', page: 'customers', leaveTo: 0, targets: ['[data-testid="import-template"]'], backTo: 1 },
+    { id: 'file', page: 'customers', leaveTo: 0, targets: ['[data-tour="import-file"]'], backTo: 1 },
+    { id: 'done' },
+  ],
+  import_products: [
+    { id: 'nav', targets: [nav('stock')], waitFor: { path: 'stock' } },
+    { id: 'tab', targets: ['[data-tour="stock-tab-products"]'], waitFor: { path: 'stock/products' }, page: 'stock', leaveTo: 0 },
+    {
+      id: 'open', page: 'stock/products', leaveTo: 0,
+      targets: ['[data-tour="add-product-import"]', '[data-tour="add-product-menu"]'],
+      waitFor: { selector: '[data-testid="import-drawer"]' },
+    },
+    { id: 'template', page: 'stock/products', leaveTo: 0, targets: ['[data-testid="import-template"]'], backTo: 2 },
+    { id: 'file', page: 'stock/products', leaveTo: 0, targets: ['[data-tour="import-file"]'], backTo: 2 },
     { id: 'done' },
   ],
 }

@@ -20,6 +20,9 @@ export function useAvailableTours(): TourId[] {
     add_category: canWrite('categories'),
     invite_member: isTeamManager(role),
     customize_receipt: isAccountOwner(role),
+    opening_balance: canWrite('payments'),
+    import_customers: canWrite('customers'),
+    import_products: canWrite('stock'),
   }
   return TOUR_IDS.filter(id => allowed[id])
 }
