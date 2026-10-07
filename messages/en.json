@@ -2788,7 +2788,12 @@
       "exists_name": "Already in stock: “{name}”.",
       "exists_sku": "Barcode already used by “{name}”.",
       "example_row": "Example row from the old template.",
-      "insert_failed": "Could not create “{name}”."
+      "insert_failed": "Could not create “{name}”.",
+      "invalid_phone": "Unreadable phone “{value}”: check the number (with or without country code).",
+      "invalid_email": "Invalid email “{value}”.",
+      "invalid_credit_limit": "Invalid credit limit: a number, 0 or more.",
+      "text_too_long": "Text too long.",
+      "exists_phone": "Already registered: “{name}” (same number)."
     },
     "warning": {
       "buying_above_selling": "Buying price higher than selling price.",
@@ -2907,6 +2912,158 @@
         "bottle": "bottle",
         "tin": "tin",
         "box": "box"
+      }
+    },
+    "customers": {
+      "title": "Import customers",
+      "template_file_label": "Customers template",
+      "step1_desc": "A ready-to-fill file with a “How to” tab. Fill in the “Customers” tab, then save it as is (.xlsx).",
+      "step1_required": "* = required column (customer name)",
+      "exists_note": "Customers already registered (same number or same name) are left as they are: re-importing the file never creates duplicates.",
+      "sum_exists": "{count} already registered",
+      "status_exists": "Already registered",
+      "success_exists": "{count} already registered, left as they were",
+      "import_btn": "Import {count} customer(s)",
+      "nothing_to_import": "No new customer to import",
+      "success": "{count} customer(s) imported",
+      "more_rows": "+ {count} more customer(s) to import",
+      "mobile_hint": "Tip: fill in the template on a computer. On a phone, add your customers one by one, or send your list to support (support@stockshop.tech): we will help you import it.",
+      "issue": {
+        "exists_name": "Already registered: “{name}”.",
+        "duplicate_in_file": "Same customer as row {line}."
+      },
+      "xlsx": {
+        "sheet_main": "Customers",
+        "col": {
+          "name": {
+            "header": "Customer name",
+            "help": "The name as you know them. Required.",
+            "example": "Awa Ndiaye"
+          },
+          "phone": {
+            "header": "Phone",
+            "help": "With or without country code: 0803 123 4567 or +234 803 123 4567. Used for receipts and credit reminders.",
+            "example": "0803 123 4567"
+          },
+          "city": {
+            "header": "City",
+            "help": "City or area. Optional.",
+            "example": "Lagos"
+          },
+          "credit_limit": {
+            "header": "Credit limit",
+            "help": "Maximum amount this customer may owe. Empty = no limit.",
+            "example": "50000"
+          }
+        },
+        "guide_title": "Import your customers into StockShop",
+        "guide_intro": "Fill in the “Customers” tab: one row per customer. Do not change the first row (the headers).",
+        "guide_steps": [
+          "Open the “Customers” tab and enter your customers from row 2.",
+          "Only the name is required; the phone is strongly recommended (receipts, credit reminders).",
+          "Save the file as is (.xlsx format), without converting it.",
+          "In StockShop: Customers → Import. Choose this file, check the preview, then import."
+        ],
+        "guide_tips": [
+          "A customer already registered (same number or same name) is skipped: you can re-import the file without creating duplicates.",
+          "Numbers without a country code take your shop’s country code.",
+          "The Phone column is in Text format: the leading zero and the “+” stay intact.",
+          "Outstanding debts are not imported here: they come from credit sales recorded in StockShop.",
+          "Up to 1000 customers per file. Need help? Write to support@stockshop.tech."
+        ],
+        "examples": [
+          {
+            "name": "Awa Ndiaye",
+            "phone": "0803 123 4567",
+            "city": "Lagos",
+            "credit_limit": 50000
+          },
+          {
+            "name": "John Okafor",
+            "phone": "+234 806 555 1234",
+            "city": "Abuja",
+            "credit_limit": ""
+          },
+          {
+            "name": "Mama Fatou Store",
+            "phone": "",
+            "city": "Kano",
+            "credit_limit": 100000
+          }
+        ]
+      }
+    },
+    "suppliers": {
+      "title": "Import suppliers",
+      "template_file_label": "Suppliers template",
+      "step1_desc": "A ready-to-fill file with a “How to” tab. Fill in the “Suppliers” tab, then save it as is (.xlsx).",
+      "step1_required": "* = required column (supplier name)",
+      "exists_note": "Suppliers already registered (same number or same name) are left as they are: re-importing the file never creates duplicates.",
+      "sum_exists": "{count} already registered",
+      "status_exists": "Already registered",
+      "success_exists": "{count} already registered, left as they were",
+      "import_btn": "Import {count} supplier(s)",
+      "nothing_to_import": "No new supplier to import",
+      "success": "{count} supplier(s) imported",
+      "more_rows": "+ {count} more supplier(s) to import",
+      "mobile_hint": "Tip: fill in the template on a computer. On a phone, add your suppliers one by one, or send your list to support (support@stockshop.tech): we will help you import it.",
+      "issue": {
+        "exists_name": "Already registered: “{name}”.",
+        "duplicate_in_file": "Same supplier as row {line}."
+      },
+      "xlsx": {
+        "sheet_main": "Suppliers",
+        "col": {
+          "name": {
+            "header": "Supplier name",
+            "help": "Company or person name. Required.",
+            "example": "Lagos Wholesale Ltd"
+          },
+          "phone": {
+            "header": "Phone",
+            "help": "With or without country code. Used to send purchase orders by WhatsApp.",
+            "example": "+234 803 123 4567"
+          },
+          "email": {
+            "header": "Email",
+            "help": "To send purchase orders by email. Optional.",
+            "example": "orders@example.ng"
+          },
+          "city": {
+            "header": "City",
+            "help": "City or area. Optional.",
+            "example": "Lagos"
+          }
+        },
+        "guide_title": "Import your suppliers into StockShop",
+        "guide_intro": "Fill in the “Suppliers” tab: one row per supplier. Do not change the first row (the headers).",
+        "guide_steps": [
+          "Open the “Suppliers” tab and enter your suppliers from row 2.",
+          "Only the name is required; phone or email let you send purchase orders.",
+          "Save the file as is (.xlsx format), without converting it.",
+          "In StockShop: Suppliers → Import. Choose this file, check the preview, then import."
+        ],
+        "guide_tips": [
+          "A supplier already registered (same number or same name) is skipped: you can re-import the file without creating duplicates.",
+          "Numbers without a country code take your shop’s country code.",
+          "The Phone column is in Text format: the leading zero and the “+” stay intact.",
+          "What you owe your suppliers is not imported here: it comes from purchase orders recorded in StockShop.",
+          "Up to 1000 suppliers per file. Need help? Write to support@stockshop.tech."
+        ],
+        "examples": [
+          {
+            "name": "Lagos Wholesale Ltd",
+            "phone": "+234 803 123 4567",
+            "email": "orders@example.ng",
+            "city": "Lagos"
+          },
+          {
+            "name": "Musa Distributors",
+            "phone": "0806 555 1234",
+            "email": "",
+            "city": "Kano"
+          }
+        ]
       }
     }
   },

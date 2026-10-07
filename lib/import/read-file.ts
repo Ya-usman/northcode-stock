@@ -3,36 +3,46 @@
 // d'« Enregistrer sous CSV » dans un Excel français). Repère la ligne d'en-têtes
 // dans les premières lignes et renvoie des lignes brutes champ → valeur ; les
 // nombres d'Excel restent des nombres (pas de question de virgule).
+// GÉNÉRIQUE : les colonnes reconnues et obligatoires dépendent de ce qu'on
+// importe (produits par défaut, clients, fournisseurs).
 // ExcelJS n'est chargé qu'ici, à l'ouverture d'un fichier .xlsx.
 
-import { headerField, IMPORT_MAX_ROWS, type ImportField, type RawRow } from './products-import'
+import { headerField as productHeaderField, IMPORT_MAX_ROWS, type ImportField } from './products-import'
 
 /** ExcelJS chargé à la demande (paquet CommonJS : export par défaut selon l'outil) */
 async function loadExcel(): Promise<typeof import('exceljs')> { const m: any = await import('exceljs'); return m.default ?? m }
 
-export type ReadResult =
-  | { ok: true; rows: RawRow[]; columns: ImportField[]; truncated: boolean }
-  | { ok: false; error: 'unsupported_format' | 'old_excel' | 'empty' | 'no_headers' | 'missing_columns' | 'unreadable'; missing?: ImportField[] }
+export interface ReadOptions<F extends string> {
+  /** Champ d'un en-tête de colonne, ou null s'il n'est pas reconnu */
+  headerField: (header: unknown) => F | null
+  /** Colonnes sans lesquelles le fichier est refusé */
+  required: F[]
+}
+const PRODUCTS: ReadOptions<ImportField> = { headerField: productHeaderField, required: ['name', 'selling_price'] }
+
+export type ReadResult<F extends string = ImportField> =
+  | { ok: true; rows: { line: number; values: Partial<Record<F, unknown>> }[]; columns: F[]; truncated: boolean }
+  | { ok: false; error: 'unsupported_format' | 'old_excel' | 'empty' | 'no_headers' | 'missing_columns' | 'unreadable'; missing?: F[] }
 
 /** Repère la ligne d'en-têtes (≥ 2 colonnes reconnues) parmi les 10 premières */
-function toRows(table: unknown[][]): ReadResult {
+function toRows<F extends string>(table: unknown[][], opts: ReadOptions<F>): ReadResult<F> {
   const nonEmpty = table.filter(r => r.some(c => String(c ?? '').trim() !== ''))
   if (!nonEmpty.length) return { ok: false, error: 'empty' }
-  let headerIdx = -1, map: (ImportField | null)[] = []
+  let headerIdx = -1, map: (F | null)[] = []
   for (let i = 0; i < Math.min(table.length, 10); i++) {
-    const m = (table[i] || []).map(headerField)
+    const m = (table[i] || []).map(opts.headerField)
     if (m.filter(Boolean).length >= 2) { headerIdx = i; map = m; break }
   }
   if (headerIdx < 0) return { ok: false, error: 'no_headers' }
-  const columns = Array.from(new Set(map.filter(Boolean))) as ImportField[]
-  const missing = (['name', 'selling_price'] as ImportField[]).filter(f => !columns.includes(f))
+  const columns = Array.from(new Set(map.filter(Boolean))) as F[]
+  const missing = opts.required.filter(f => !columns.includes(f))
   if (missing.length) return { ok: false, error: 'missing_columns', missing }
 
-  const rows: RawRow[] = []
+  const rows: { line: number; values: Partial<Record<F, unknown>> }[] = []
   for (let i = headerIdx + 1; i < table.length; i++) {
     const cells = table[i] || []
     if (!cells.some(c => String(c ?? '').trim() !== '')) continue // lignes vides ignorées
-    const values: RawRow['values'] = {}
+    const values: Partial<Record<F, unknown>> = {}
     map.forEach((f, j) => { if (f && values[f] === undefined) values[f] = cells[j] })
     rows.push({ line: i + 1, values }) // numéro de ligne tel qu'affiché dans Excel
   }
@@ -81,11 +91,11 @@ function cellValue(v: any): unknown {
   return String(v)
 }
 
-async function readXlsx(buf: ArrayBuffer): Promise<ReadResult> {
+async function readXlsx<F extends string>(buf: ArrayBuffer, opts: ReadOptions<F>): Promise<ReadResult<F>> {
   const ExcelJS = await loadExcel()
   const wb = new ExcelJS.Workbook()
   await wb.xlsx.load(buf)
-  // Feuille des produits : la première feuille visible qui a des en-têtes reconnus
+  // Feuille des données : la première feuille visible qui a des en-têtes reconnus
   for (const ws of wb.worksheets) {
     if (ws.state && ws.state !== 'visible') continue
     const table: unknown[][] = []
@@ -94,20 +104,22 @@ async function readXlsx(buf: ArrayBuffer): Promise<ReadResult> {
       table[n - 1] = vals
     })
     for (let i = 0; i < table.length; i++) table[i] ??= []
-    const r = toRows(table)
+    const r = toRows(table, opts)
     // Feuille avec en-têtes (même vide) : c'est elle — jamais les exemples du « Mode d'emploi »
     if (r.ok || r.error !== 'no_headers') return r
   }
   return { ok: false, error: 'no_headers' }
 }
 
-export async function readImportFile(file: File): Promise<ReadResult> {
+export async function readImportFile(file: File): Promise<ReadResult<ImportField>>
+export async function readImportFile<F extends string>(file: File, opts: ReadOptions<F>): Promise<ReadResult<F>>
+export async function readImportFile(file: File, opts: ReadOptions<any> = PRODUCTS): Promise<ReadResult<any>> {
   const name = file.name.toLowerCase()
   try {
     if (name.endsWith('.xls')) return { ok: false, error: 'old_excel' }
     const buf = await file.arrayBuffer()
-    if (name.endsWith('.xlsx')) return await readXlsx(buf)
-    if (name.endsWith('.csv') || name.endsWith('.txt') || file.type === 'text/csv') return toRows(parseCsv(decode(buf)))
+    if (name.endsWith('.xlsx')) return await readXlsx(buf, opts)
+    if (name.endsWith('.csv') || name.endsWith('.txt') || file.type === 'text/csv') return toRows(parseCsv(decode(buf)), opts)
     return { ok: false, error: 'unsupported_format' }
   } catch {
     return { ok: false, error: 'unreadable' }

@@ -2788,7 +2788,12 @@
       "exists_name": "Déjà en stock : « {name} ».",
       "exists_sku": "Code-barres déjà utilisé par « {name} ».",
       "example_row": "Ligne d’exemple de l’ancien modèle.",
-      "insert_failed": "Création impossible pour « {name} »."
+      "insert_failed": "Création impossible pour « {name} ».",
+      "invalid_phone": "Téléphone « {value} » illisible : vérifiez le numéro (avec ou sans indicatif).",
+      "invalid_email": "E-mail « {value} » invalide.",
+      "invalid_credit_limit": "Plafond de crédit invalide : un nombre, 0 ou plus.",
+      "text_too_long": "Texte trop long.",
+      "exists_phone": "Déjà enregistré : « {name} » (même numéro)."
     },
     "warning": {
       "buying_above_selling": "Prix d’achat supérieur au prix de vente.",
@@ -2907,6 +2912,158 @@
         "bottle": "bouteille",
         "tin": "boîte de conserve",
         "box": "boîte"
+      }
+    },
+    "customers": {
+      "title": "Importer des clients",
+      "template_file_label": "Modèle clients",
+      "step1_desc": "Un fichier prêt à remplir, avec un onglet « Mode d’emploi ». Remplissez l’onglet « Clients », puis enregistrez-le tel quel (.xlsx).",
+      "step1_required": "* = colonne obligatoire (nom du client)",
+      "exists_note": "Les clients déjà enregistrés (même numéro ou même nom) sont laissés tels quels : réimporter le fichier ne crée pas de doublon.",
+      "sum_exists": "{count} déjà enregistré(s)",
+      "status_exists": "Déjà enregistré",
+      "success_exists": "{count} déjà enregistré(s), laissé(s) tel(s) quel(s)",
+      "import_btn": "Importer {count} client(s)",
+      "nothing_to_import": "Aucun nouveau client à importer",
+      "success": "{count} client(s) importé(s)",
+      "more_rows": "+ {count} autre(s) client(s) à importer",
+      "mobile_hint": "Conseil : remplissez le modèle sur un ordinateur. Sur téléphone, ajoutez vos clients un par un, ou envoyez votre liste au support (support@stockshop.tech) : nous vous aidons à l’importer.",
+      "issue": {
+        "exists_name": "Déjà enregistré : « {name} ».",
+        "duplicate_in_file": "Même client qu’à la ligne {line}."
+      },
+      "xlsx": {
+        "sheet_main": "Clients",
+        "col": {
+          "name": {
+            "header": "Nom du client",
+            "help": "Le nom tel que vous le connaissez. Obligatoire.",
+            "example": "Awa Ndiaye"
+          },
+          "phone": {
+            "header": "Téléphone",
+            "help": "Avec ou sans indicatif : 699 00 11 22 ou +237 699 00 11 22. Sert aux reçus et aux rappels de crédit.",
+            "example": "699 00 11 22"
+          },
+          "city": {
+            "header": "Ville",
+            "help": "Ville ou quartier. Facultatif.",
+            "example": "Douala"
+          },
+          "credit_limit": {
+            "header": "Plafond de crédit",
+            "help": "Montant maximum que ce client peut devoir. Vide = pas de plafond.",
+            "example": "50000"
+          }
+        },
+        "guide_title": "Importer vos clients dans StockShop",
+        "guide_intro": "Remplissez l’onglet « Clients » : une ligne par client. Ne modifiez pas la première ligne (les en-têtes).",
+        "guide_steps": [
+          "Ouvrez l’onglet « Clients » et saisissez vos clients à partir de la ligne 2.",
+          "Seul le nom est obligatoire ; le téléphone est vivement conseillé (reçus, rappels de crédit).",
+          "Enregistrez le fichier tel quel (format .xlsx), sans le convertir.",
+          "Dans StockShop : Clients → Importer. Choisissez ce fichier, vérifiez l’aperçu, puis importez."
+        ],
+        "guide_tips": [
+          "Un client déjà enregistré (même numéro ou même nom) est ignoré : vous pouvez réimporter le fichier sans créer de doublons.",
+          "Les numéros sans indicatif prennent celui du pays de votre boutique.",
+          "La colonne Téléphone est au format Texte : le zéro et le « + » restent intacts.",
+          "Les dettes en cours ne s’importent pas ici : elles viennent des ventes à crédit enregistrées dans StockShop.",
+          "Jusqu’à 1000 clients par fichier. Besoin d’aide ? Écrivez à support@stockshop.tech."
+        ],
+        "examples": [
+          {
+            "name": "Awa Ndiaye",
+            "phone": "699 00 11 22",
+            "city": "Douala",
+            "credit_limit": 50000
+          },
+          {
+            "name": "Jean Kamga",
+            "phone": "+237 677 12 34 56",
+            "city": "Yaoundé",
+            "credit_limit": ""
+          },
+          {
+            "name": "Boutique Chez Fatou",
+            "phone": "",
+            "city": "Bafoussam",
+            "credit_limit": 100000
+          }
+        ]
+      }
+    },
+    "suppliers": {
+      "title": "Importer des fournisseurs",
+      "template_file_label": "Modèle fournisseurs",
+      "step1_desc": "Un fichier prêt à remplir, avec un onglet « Mode d’emploi ». Remplissez l’onglet « Fournisseurs », puis enregistrez-le tel quel (.xlsx).",
+      "step1_required": "* = colonne obligatoire (nom du fournisseur)",
+      "exists_note": "Les fournisseurs déjà enregistrés (même numéro ou même nom) sont laissés tels quels : réimporter le fichier ne crée pas de doublon.",
+      "sum_exists": "{count} déjà enregistré(s)",
+      "status_exists": "Déjà enregistré",
+      "success_exists": "{count} déjà enregistré(s), laissé(s) tel(s) quel(s)",
+      "import_btn": "Importer {count} fournisseur(s)",
+      "nothing_to_import": "Aucun nouveau fournisseur à importer",
+      "success": "{count} fournisseur(s) importé(s)",
+      "more_rows": "+ {count} autre(s) fournisseur(s) à importer",
+      "mobile_hint": "Conseil : remplissez le modèle sur un ordinateur. Sur téléphone, ajoutez vos fournisseurs un par un, ou envoyez votre liste au support (support@stockshop.tech) : nous vous aidons à l’importer.",
+      "issue": {
+        "exists_name": "Déjà enregistré : « {name} ».",
+        "duplicate_in_file": "Même fournisseur qu’à la ligne {line}."
+      },
+      "xlsx": {
+        "sheet_main": "Fournisseurs",
+        "col": {
+          "name": {
+            "header": "Nom du fournisseur",
+            "help": "Le nom de l’entreprise ou de la personne. Obligatoire.",
+            "example": "Brasseries du Cameroun"
+          },
+          "phone": {
+            "header": "Téléphone",
+            "help": "Avec ou sans indicatif : 233 42 10 10 ou +237 233 42 10 10. Sert à envoyer les bons de commande par WhatsApp.",
+            "example": "+237 233 42 10 10"
+          },
+          "email": {
+            "header": "E-mail",
+            "help": "Pour envoyer les bons de commande par e-mail. Facultatif.",
+            "example": "commandes@exemple.cm"
+          },
+          "city": {
+            "header": "Ville",
+            "help": "Ville ou quartier. Facultatif.",
+            "example": "Douala"
+          }
+        },
+        "guide_title": "Importer vos fournisseurs dans StockShop",
+        "guide_intro": "Remplissez l’onglet « Fournisseurs » : une ligne par fournisseur. Ne modifiez pas la première ligne (les en-têtes).",
+        "guide_steps": [
+          "Ouvrez l’onglet « Fournisseurs » et saisissez vos fournisseurs à partir de la ligne 2.",
+          "Seul le nom est obligatoire ; le téléphone ou l’e-mail permettent d’envoyer les bons de commande.",
+          "Enregistrez le fichier tel quel (format .xlsx), sans le convertir.",
+          "Dans StockShop : Fournisseurs → Importer. Choisissez ce fichier, vérifiez l’aperçu, puis importez."
+        ],
+        "guide_tips": [
+          "Un fournisseur déjà enregistré (même numéro ou même nom) est ignoré : vous pouvez réimporter le fichier sans créer de doublons.",
+          "Les numéros sans indicatif prennent celui du pays de votre boutique.",
+          "La colonne Téléphone est au format Texte : le zéro et le « + » restent intacts.",
+          "Ce que vous devez à vos fournisseurs ne s’importe pas ici : cela vient des bons de commande enregistrés dans StockShop.",
+          "Jusqu’à 1000 fournisseurs par fichier. Besoin d’aide ? Écrivez à support@stockshop.tech."
+        ],
+        "examples": [
+          {
+            "name": "Brasseries du Cameroun",
+            "phone": "+237 233 42 10 10",
+            "email": "commandes@exemple.cm",
+            "city": "Douala"
+          },
+          {
+            "name": "Grossiste Moussa",
+            "phone": "677 55 44 33",
+            "email": "",
+            "city": "Garoua"
+          }
+        ]
       }
     }
   },

@@ -6,7 +6,9 @@ import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations, useLocale } from 'next-intl'
 import dynamic from 'next/dynamic'
-import { Search, Plus, Edit2, Trash2, Phone, MapPin, Package, Store, ChevronDown, ChevronRight, X, ArrowRightLeft, FileText, Download, Send, CheckCircle2, Ban, Mail, Copy, Share2, History, RotateCcw, ShoppingCart, MessageCircle, Save, Clock, AlertTriangle, Banknote, TrendingDown } from 'lucide-react'
+import { Search, Plus, Edit2, Trash2, Phone, MapPin, Package, Store, ChevronDown, ChevronRight, X, ArrowRightLeft, FileText, Download, Send, CheckCircle2, Ban, Mail, Copy, Share2, History, RotateCcw, ShoppingCart, MessageCircle, Save, Clock, AlertTriangle, Banknote, TrendingDown, FileDown, FileSpreadsheet, Table2, Upload } from 'lucide-react'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { useTableExport } from '@/lib/export/use-table-export'
 import { isCapacitor } from '@/lib/utils/native-share'
 import { shareViaWhatsApp, normalizeWhatsAppNumber } from '@/lib/utils/whatsapp'
 import { getCountry } from '@/lib/saas/countries'
@@ -34,6 +36,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { createSupplierSchema, type SupplierFormData } from '@/lib/validations/customer'
 
 // Champ téléphone international (indicatif dans une liste) : chargé à l'usage
+// Import Excel / CSV : chargé à l'ouverture (ExcelJS n'alourdit pas la page)
+const ImportDrawer = dynamic(() => import('@/components/import/import-drawer').then(m => ({ default: m.ImportDrawer })), { ssr: false })
 const PhoneInput = dynamic(() => import('@/components/ui/phone-input').then(m => ({ default: m.PhoneInput })), {
   ssr: false,
   loading: () => <div className="h-10 w-full animate-pulse rounded-md border border-input bg-muted/40" />,
@@ -130,6 +134,8 @@ export default function SuppliersPage() {
   const { profile, shop, roleInActiveShop, effectiveShopIds, userShops } = useAuth()
   const { isOnline } = useOffline()
   const { fmt, symbol } = useCurrency()
+  const suppliersExport = useTableExport()
+  const [showImport, setShowImport] = useState(false)
   const isMultiShop = effectiveShopIds.length > 1
   const supabase = createClient() as any
   const { toast } = useToast()
@@ -316,6 +322,21 @@ export default function SuppliersPage() {
     const q = normalize(search)
     return normalize(s.name).includes(q) || normalize(s.city ?? '').includes(q)
   })
+
+  // Export : colonnes du modèle d'import (fichier réimportable), puis le solde dû pour information
+  const exportSuppliers = (fmtOut: 'xlsx' | 'csv') => {
+    const col = (k: string) => t(`import.suppliers.xlsx.col.${k}.header` as any)
+    suppliersExport.run({
+      kind: t('nav.suppliers'),
+      shopName: userShops.filter(x => effectiveShopIds.includes(x.id)).map(x => x.name).join(', ') || shop?.name || 'StockShop',
+      columns: [
+        { header: col('name') }, { header: col('phone') }, { header: col('email') }, { header: col('city') },
+        { header: `${t('suppliers.supplier_journal_owed')} (${symbol})`, type: 'money' },
+      ],
+      rows: filtered.map(x => [x.name, x.phone || '', (x as any).email || '', x.city || '', Number(x.total_owed) || 0]),
+      totals: [t('exports.total'), null, null, null, totalOwedAll],
+    }, fmtOut)
+  }
 
   const supplierName = (id: string) => suppliers.find(s => s.id === id)?.name ?? '—'
   // Solde dû cumulé des fournisseurs affichés (boutiques visibles)
@@ -998,6 +1019,27 @@ export default function SuppliersPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={e => setFilter({ search: e.target.value })} placeholder={t('suppliers.search_placeholder')} className="pl-9 h-9" />
         </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0" loading={suppliersExport.exporting} aria-label={t('products.import_export')} title={t('products.import_export')} data-testid="suppliers-files">
+              <FileDown className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64">
+            {canManage && shop?.id && (<>
+              <DropdownMenuItem onClick={() => setShowImport(true)} className="gap-2.5" data-testid="suppliers-import">
+                <Upload className="h-4 w-4 flex-shrink-0" />{t('import.suppliers.title')}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>)}
+            <DropdownMenuItem onClick={() => exportSuppliers('xlsx')} className="gap-2.5" data-testid="export-xlsx">
+              <FileSpreadsheet className="h-4 w-4 flex-shrink-0 text-green-600 dark:text-green-400" />{t('exports.excel')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => exportSuppliers('csv')} className="gap-2.5" data-testid="export-csv">
+              <Table2 className="h-4 w-4 flex-shrink-0 text-muted-foreground" />{t('exports.csv')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         {canManage && (
           <Button
             variant="stockshop"
@@ -1010,6 +1052,8 @@ export default function SuppliersPage() {
           </Button>
         )}
       </div>
+
+      {shop?.id && <ImportDrawer kind="suppliers" open={showImport} onClose={() => setShowImport(false)} shopId={shop.id} onImported={() => { fetchSuppliers() }} />}
 
       {totalOwedAll > 0 && (
         <div className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm dark:border-amber-800 dark:bg-amber-950/30" data-testid="suppliers-total-owed">

@@ -2788,7 +2788,12 @@
       "exists_name": "Yana nan a kaya: “{name}”.",
       "exists_sku": "“{name}” ya riga ya yi amfani da wannan lambar barcode.",
       "example_row": "Layin misali na tsohon samfuri.",
-      "insert_failed": "Ba a iya ƙirƙirar “{name}” ba."
+      "insert_failed": "Ba a iya ƙirƙirar “{name}” ba.",
+      "invalid_phone": "Ba a iya karanta lambar waya “{value}” ba: duba lambar (da ko ba tare da lambar ƙasa ba).",
+      "invalid_email": "Imel “{value}” bai dace ba.",
+      "invalid_credit_limit": "Iyakar bashi ba ta dace ba: lamba, 0 ko sama.",
+      "text_too_long": "Rubutu ya yi tsawo.",
+      "exists_phone": "An riga an yi rajista: “{name}” (lamba ɗaya)."
     },
     "warning": {
       "buying_above_selling": "Farashin saye ya fi farashin sayarwa.",
@@ -2907,6 +2912,158 @@
         "bottle": "kwalba",
         "tin": "gwangwani",
         "box": "akwati"
+      }
+    },
+    "customers": {
+      "title": "Shigo da abokan ciniki",
+      "template_file_label": "Samfurin abokan ciniki",
+      "step1_desc": "Fayil a shirye don cikawa, tare da shafin “Yadda ake yi”. Cika shafin “Abokan ciniki”, sannan ka adana shi kamar yadda yake (.xlsx).",
+      "step1_required": "* = shafi na tilas (sunan abokin ciniki)",
+      "exists_note": "Abokan cinikin da aka riga aka yi wa rajista (lamba ɗaya ko suna ɗaya) ba a taɓa su: sake shigo da fayil ba zai ƙirƙiri kwafi ba.",
+      "sum_exists": "{count} an riga an yi rajista",
+      "status_exists": "An riga an yi rajista",
+      "success_exists": "{count} an riga an yi rajista, ba a taɓa su ba",
+      "import_btn": "Shigo da abokan ciniki {count}",
+      "nothing_to_import": "Babu sabon abokin ciniki don shigowa",
+      "success": "An shigo da abokan ciniki {count}",
+      "more_rows": "+ ƙarin abokan ciniki {count} don shigowa",
+      "mobile_hint": "Shawara: cika samfurin a kwamfuta. A waya, ƙara abokan cinikinka ɗaya bayan ɗaya, ko aika jerinka ga tallafi (support@stockshop.tech): za mu taimaka maka.",
+      "issue": {
+        "exists_name": "An riga an yi rajista: “{name}”.",
+        "duplicate_in_file": "Abokin ciniki ɗaya ne da na layi {line}."
+      },
+      "xlsx": {
+        "sheet_main": "Abokan ciniki",
+        "col": {
+          "name": {
+            "header": "Sunan abokin ciniki",
+            "help": "Sunan kamar yadda ka san shi. Tilas.",
+            "example": "Awa Ndiaye"
+          },
+          "phone": {
+            "header": "Lambar waya",
+            "help": "Da ko ba tare da lambar ƙasa ba. Ana amfani da ita don rasidi da tunatarwar bashi.",
+            "example": "0803 123 4567"
+          },
+          "city": {
+            "header": "Gari",
+            "help": "Gari ko unguwa. Ba tilas ba.",
+            "example": "Kano"
+          },
+          "credit_limit": {
+            "header": "Iyakar bashi",
+            "help": "Mafi yawan kuɗin da wannan abokin ciniki zai iya bin ka. Babu = babu iyaka.",
+            "example": "50000"
+          }
+        },
+        "guide_title": "Shigo da abokan cinikinka cikin StockShop",
+        "guide_intro": "Cika shafin “Abokan ciniki”: layi ɗaya ga kowane abokin ciniki. Kada ka canza layi na farko (kanun shafuka).",
+        "guide_steps": [
+          "Buɗe shafin “Abokan ciniki” ka rubuta abokan cinikinka daga layi na 2.",
+          "Suna ne kawai na tilas; ana ba da shawarar lambar waya sosai (rasidi, tunatarwar bashi).",
+          "Ajiye fayil ɗin kamar yadda yake (tsarin .xlsx), ba tare da canza shi ba.",
+          "A StockShop: Abokan ciniki → Shigo da. Zaɓi wannan fayil, duba samfoti, sannan ka shigo da shi."
+        ],
+        "guide_tips": [
+          "Abokin cinikin da aka riga aka yi wa rajista (lamba ɗaya ko suna ɗaya) ana tsallake shi: za ka iya sake shigo da fayil ba tare da kwafi ba.",
+          "Lambobin da ba su da lambar ƙasa suna ɗaukar ta ƙasar kantinka.",
+          "Shafin lambar waya yana cikin tsarin Rubutu: sifili da “+” suna nan daram.",
+          "Bashin da ake bi ba a shigo da shi a nan: yana zuwa ne daga sayarwar bashi da aka yi rajista a StockShop.",
+          "Har zuwa abokan ciniki 1000 a kowane fayil. Kana buƙatar taimako? Rubuta zuwa support@stockshop.tech."
+        ],
+        "examples": [
+          {
+            "name": "Awa Ndiaye",
+            "phone": "0803 123 4567",
+            "city": "Kano",
+            "credit_limit": 50000
+          },
+          {
+            "name": "Musa Bello",
+            "phone": "+234 806 555 1234",
+            "city": "Kaduna",
+            "credit_limit": ""
+          },
+          {
+            "name": "Shagon Fatima",
+            "phone": "",
+            "city": "Zaria",
+            "credit_limit": 100000
+          }
+        ]
+      }
+    },
+    "suppliers": {
+      "title": "Shigo da masu samar da kaya",
+      "template_file_label": "Samfurin masu samar da kaya",
+      "step1_desc": "Fayil a shirye don cikawa, tare da shafin “Yadda ake yi”. Cika shafin “Masu samar da kaya”, sannan ka adana shi kamar yadda yake (.xlsx).",
+      "step1_required": "* = shafi na tilas (sunan mai samar da kaya)",
+      "exists_note": "Masu samar da kaya da aka riga aka yi wa rajista (lamba ɗaya ko suna ɗaya) ba a taɓa su: sake shigo da fayil ba zai ƙirƙiri kwafi ba.",
+      "sum_exists": "{count} an riga an yi rajista",
+      "status_exists": "An riga an yi rajista",
+      "success_exists": "{count} an riga an yi rajista, ba a taɓa su ba",
+      "import_btn": "Shigo da masu samar da kaya {count}",
+      "nothing_to_import": "Babu sabon mai samar da kaya don shigowa",
+      "success": "An shigo da masu samar da kaya {count}",
+      "more_rows": "+ ƙarin masu samar da kaya {count} don shigowa",
+      "mobile_hint": "Shawara: cika samfurin a kwamfuta. A waya, ƙara masu samar da kaya ɗaya bayan ɗaya, ko aika jerinka ga tallafi (support@stockshop.tech): za mu taimaka maka.",
+      "issue": {
+        "exists_name": "An riga an yi rajista: “{name}”.",
+        "duplicate_in_file": "Mai samar da kaya ɗaya ne da na layi {line}."
+      },
+      "xlsx": {
+        "sheet_main": "Masu samar da kaya",
+        "col": {
+          "name": {
+            "header": "Sunan mai samar da kaya",
+            "help": "Sunan kamfani ko mutum. Tilas.",
+            "example": "Kano Wholesale"
+          },
+          "phone": {
+            "header": "Lambar waya",
+            "help": "Da ko ba tare da lambar ƙasa ba. Ana amfani da ita don aika odar sayayya ta WhatsApp.",
+            "example": "+234 803 123 4567"
+          },
+          "email": {
+            "header": "Imel",
+            "help": "Don aika odar sayayya ta imel. Ba tilas ba.",
+            "example": "oda@misali.ng"
+          },
+          "city": {
+            "header": "Gari",
+            "help": "Gari ko unguwa. Ba tilas ba.",
+            "example": "Kano"
+          }
+        },
+        "guide_title": "Shigo da masu samar da kayanka cikin StockShop",
+        "guide_intro": "Cika shafin “Masu samar da kaya”: layi ɗaya ga kowane mai samar da kaya. Kada ka canza layi na farko (kanun shafuka).",
+        "guide_steps": [
+          "Buɗe shafin “Masu samar da kaya” ka rubuta su daga layi na 2.",
+          "Suna ne kawai na tilas; lambar waya ko imel suna ba ka damar aika odar sayayya.",
+          "Ajiye fayil ɗin kamar yadda yake (tsarin .xlsx), ba tare da canza shi ba.",
+          "A StockShop: Masu samar da kaya → Shigo da. Zaɓi wannan fayil, duba samfoti, sannan ka shigo da shi."
+        ],
+        "guide_tips": [
+          "Mai samar da kaya da aka riga aka yi wa rajista (lamba ɗaya ko suna ɗaya) ana tsallake shi: za ka iya sake shigo da fayil ba tare da kwafi ba.",
+          "Lambobin da ba su da lambar ƙasa suna ɗaukar ta ƙasar kantinka.",
+          "Shafin lambar waya yana cikin tsarin Rubutu: sifili da “+” suna nan daram.",
+          "Abin da kake bin masu samar da kaya ba a shigo da shi a nan: yana zuwa ne daga odar sayayya da aka yi rajista a StockShop.",
+          "Har zuwa masu samar da kaya 1000 a kowane fayil. Kana buƙatar taimako? Rubuta zuwa support@stockshop.tech."
+        ],
+        "examples": [
+          {
+            "name": "Kano Wholesale",
+            "phone": "+234 803 123 4567",
+            "email": "oda@misali.ng",
+            "city": "Kano"
+          },
+          {
+            "name": "Musa Distributors",
+            "phone": "0806 555 1234",
+            "email": "",
+            "city": "Kaduna"
+          }
+        ]
       }
     }
   },

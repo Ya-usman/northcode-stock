@@ -4,7 +4,9 @@ import { useState, useEffect, useMemo } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
-import { Search, Plus, Edit2, Trash2, Phone, MapPin, Store, User, Merge, AlertTriangle, Save } from 'lucide-react'
+import { Search, Plus, Edit2, Trash2, Phone, MapPin, Store, User, Merge, AlertTriangle, Save, FileDown, FileSpreadsheet, Table2, Upload } from 'lucide-react'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { useTableExport } from '@/lib/export/use-table-export'
 import { cn } from '@/lib/utils/cn'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -34,6 +36,8 @@ import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { phoneDigits, phoneMatches } from '@/lib/phone/compare'
 import dynamic from 'next/dynamic'
+// Import Excel / CSV : chargé à l'ouverture (ExcelJS n'alourdit pas la page)
+const ImportDrawer = dynamic(() => import('@/components/import/import-drawer').then(m => ({ default: m.ImportDrawer })), { ssr: false })
 
 // Champ téléphone international : métadonnées de numérotation chargées à l'usage
 const PhoneInput = dynamic(() => import('@/components/ui/phone-input').then(m => ({ default: m.PhoneInput })), {
@@ -98,6 +102,8 @@ export default function CustomersPage() {
   const canWriteCustomers = canWrite('customers')
   const effectiveRole = roleInActiveShop ?? profile?.role
   const { fmt: formatNaira, symbol: currencySymbol } = useCurrency()
+  const customersExport = useTableExport()
+  const [showImport, setShowImport] = useState(false)
   const { isOnline } = useOffline()
   const supabase = createClient() as any
   const { toast } = useToast()
@@ -288,6 +294,21 @@ export default function CustomersPage() {
     }
   }
 
+  // Export : colonnes du modèle d'import (fichier réimportable), puis le solde dû pour information
+  const exportCustomers = (fmtOut: 'xlsx' | 'csv') => {
+    const col = (k: string) => t(`import.customers.xlsx.col.${k}.header` as any)
+    customersExport.run({
+      kind: t('nav.customers'),
+      shopName: userShops.filter(x => effectiveShopIds.includes(x.id)).map(x => x.name).join(', ') || shop?.name || 'StockShop',
+      columns: [
+        { header: col('name') }, { header: col('phone') }, { header: col('city') },
+        { header: `${col('credit_limit')} (${currencySymbol})`, type: 'money' }, { header: `${t('customers.total_debt')} (${currencySymbol})`, type: 'money' },
+      ],
+      rows: filtered.map(c => [c.name, c.phone || '', c.city || '', c.credit_limit ?? '', Number(c.total_debt) || 0]),
+      totals: [t('exports.total'), null, null, null, filtered.reduce((n, c) => n + (Number(c.total_debt) || 0), 0)],
+    }, fmtOut)
+  }
+
   const closeCustomerForm = () => {
     setShowModal(false)
     setEditingCustomer(null)
@@ -301,6 +322,27 @@ export default function CustomersPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={e => setFilter({ search: e.target.value })} placeholder={t('actions.search')} className="pl-9 h-9" />
         </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0" loading={customersExport.exporting} aria-label={t('products.import_export')} title={t('products.import_export')} data-testid="customers-files">
+              <FileDown className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-60">
+            {canWriteCustomers && shop?.id && (<>
+              <DropdownMenuItem onClick={() => setShowImport(true)} className="gap-2.5" data-testid="customers-import">
+                <Upload className="h-4 w-4 flex-shrink-0" />{t('import.customers.title')}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>)}
+            <DropdownMenuItem onClick={() => exportCustomers('xlsx')} className="gap-2.5" data-testid="export-xlsx">
+              <FileSpreadsheet className="h-4 w-4 flex-shrink-0 text-green-600 dark:text-green-400" />{t('exports.excel')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => exportCustomers('csv')} className="gap-2.5" data-testid="export-csv">
+              <Table2 className="h-4 w-4 flex-shrink-0 text-muted-foreground" />{t('exports.csv')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         {canWriteCustomers && (
           <Button
             variant="stockshop"
@@ -314,6 +356,8 @@ export default function CustomersPage() {
           </Button>
         )}
       </div>
+
+      {shop?.id && <ImportDrawer kind="customers" open={showImport} onClose={() => setShowImport(false)} shopId={shop.id} onImported={() => { fetchCustomers() }} />}
 
       {canMerge && !loading && duplicateGroups.length > 0 && (
         <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm dark:border-amber-800/60 dark:bg-amber-950/40">
