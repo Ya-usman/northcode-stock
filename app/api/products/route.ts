@@ -220,16 +220,9 @@ export async function PATCH(request: Request) {
       Object.entries(updates).filter(([k]) => PATCHABLE.has(k))
     )
     if ('is_favorite' in safeUpdates) safeUpdates.is_favorite = Boolean(safeUpdates.is_favorite)
-    // is_active (archive/restore) is handled separately from PATCHABLE: it must
-    // stay restricted to owner/super_admin even though cashier/stock_manager
-    // are otherwise allowed to PATCH other product fields.
-    const ARCHIVE_ROLES = ['owner', 'super_admin']
-    const togglingActive = 'is_active' in updates
-    if (togglingActive) {
-      if (!ARCHIVE_ROLES.includes(role))
-        return NextResponse.json({ error: t('owner_only_archive') }, { status: 403 })
-      safeUpdates.is_active = Boolean(updates.is_active)
-    }
+    // Archiver / restaurer : couvert par « Stock : modification », déjà vérifié
+    // ci-dessus (règle du 9 oct. 2026 : plus de réserve « propriétaire seulement »)
+    if ('is_active' in updates) safeUpdates.is_active = Boolean(updates.is_active)
     if (Object.keys(safeUpdates).length === 0)
       return NextResponse.json({ error: t('no_valid_fields') }, { status: 400 })
     if ('sku' in safeUpdates) safeUpdates.sku = (safeUpdates.sku as string)?.trim() || null
@@ -311,7 +304,7 @@ export async function PATCH(request: Request) {
       }
     }
 
-    if (togglingActive) {
+    if ('is_active' in updates) {
       const { data: actorProfile } = await (admin as any).from('profiles').select('full_name').eq('id', user.id).single()
       await writeAuditLog({
         action: safeUpdates.is_active ? 'restore_product' : 'archive_product',

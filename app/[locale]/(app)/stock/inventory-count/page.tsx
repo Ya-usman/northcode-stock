@@ -53,9 +53,8 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
   const { fmt } = useCurrency()
 
   const role = roleInActiveShop ?? profile?.role
-  const isAuthorized =
-    ['owner', 'super_admin', 'manager', 'shop_manager', 'stock_manager'].includes(role || '') &&
-    canAccess('inventory_count')
+  // L'interrupteur « Inventaire » seul décide (règle du 9 oct. 2026)
+  const isAuthorized = canAccess('inventory_count')
 
   const [products, setProducts] = useState<Product[]>(() => {
     const c = getPageCache<{ prods: Product[]; cats: Category[] }>(`inventory_count_${shop?.id}`)

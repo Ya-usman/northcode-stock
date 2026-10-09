@@ -225,9 +225,11 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   // ── Journal d'activité (panneau latéral) et produits archivés ────────────
   // Anciens sous-onglets « Journal » et « Archivés » : le journal s'ouvre
   // depuis la barre d'actions, les archivés sont une valeur du filtre Statut.
-  const isOwnerRole = effectiveRole === 'owner' || effectiveRole === 'super_admin'
+  // « Stock : modification » = tous les droits sur les produits : prix d'achat, coût et
+  // valeur du stock, archivage, journal d'activité (règle du 9 oct. 2026)
+  const fullStock = canWriteStock
   const [journalOpen, setJournalOpen] = useState(false)
-  const showArchived = isOwnerRole && statusFilter === 'archived'
+  const showArchived = fullStock && statusFilter === 'archived'
   // Filtres secondaires actifs (badge sur « Plus de filtres ») et lien « Réinitialiser »
   const extraFilterCount = (supplierFilter !== 'all' ? 1 : 0) + (noSku ? 1 : 0) + (noImage ? 1 : 0)
   const anyFilterActive = !!search || categoryFilter !== 'all' || statusFilter !== 'all' || shopFilter !== 'all' || extraFilterCount > 0
@@ -1094,7 +1096,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           ) : (
             <span className="font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(product.selling_price)}</span>
           )}
-          {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
+          {fullStock && (
             <span className="text-xs text-muted-foreground">{t('products.cost_label')}: {formatNaira(product.buying_price)}</span>
           )}
         </div>
@@ -1152,7 +1154,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               >
                 <History className="h-3 w-3" />
               </Button>
-              {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
+              {fullStock && (
                 <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-amber-600 dark:hover:text-amber-400" disabled={saving} title={t('products.archive_label')} onClick={() => setArchiveConfirmProduct(product)}>
                   <Archive className="h-3 w-3" />
                 </Button>
@@ -1248,7 +1250,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     promoStale,
     promoSuggestion: (p: Product) => (isPromoActive(p) ? null : suggestPromo(p)?.reason ?? null),
     formatPrice: formatNaira,
-    isOwner: effectiveRole === 'owner' || effectiveRole === 'super_admin',
+    fullRights: fullStock,
     canWriteStock,
     canOrderStock,
     busy: saving,
@@ -1258,7 +1260,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     sort: tableSort,
     onSortChange: setTableSort,
     // Colonnes financières (coût, valeur) réservées au propriétaire, quel que soit l'appareil
-    columns: tableColumns.filter(k => isOwnerRole || !OPTIONAL_COLUMNS.find(c => c.key === k)?.ownerOnly),
+    columns: tableColumns.filter(k => fullStock || !OPTIONAL_COLUMNS.find(c => c.key === k)?.fullRightsOnly),
     onOrder: (p: Product) => { const href = `/${locale}/suppliers?order_product=${p.id}`; startNavigationProgress(href); router.push(href) },
     onRestock: (p: Product) => { setEditingProduct(null); setShowAddModal(false); setRestockProduct(p); restockForm.reset({ product_id: p.id, quantity: 1 }); setShowRestockModal(true) },
     onEdit: (p: Product) => { setShowAddModal(false); setShowRestockModal(false); setEditingProduct(p) },
@@ -1271,7 +1273,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     categories: categories.filter((c: any) => !shop?.id || c.shop_id === shop.id),
     suppliers: suppliers.filter((s: any) => !shop?.id || s.shop_id === shop.id),
     currency: currencySymbol,
-    isOwner: effectiveRole === 'owner' || effectiveRole === 'super_admin',
+    fullRights: fullStock,
     shopId: shop?.id,
   }
   const resetAddForm = () => { setShowAddModal(false); setSessionAddCount(0); setAddFormState({ dirty: false, busy: false }) }
@@ -1321,7 +1323,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               <SelectItem value="expiry">{t('products.card_expiry')}</SelectItem>
               <SelectItem value="dormant">{t('products.card_dormant')}</SelectItem>
               <SelectItem value="promo">{t('products.promo_badge')}</SelectItem>
-              {isOwnerRole && (
+              {fullStock && (
                 <SelectItem value="archived">
                   <span className="flex items-center gap-1.5"><Archive className="h-3 w-3" /> {t('products.tab_archived')}{archivedProducts.length > 0 ? ` (${archivedProducts.length})` : ''}</span>
                 </SelectItem>
@@ -1452,7 +1454,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               </PopoverTrigger>
               <PopoverContent align="end" className="w-72 space-y-1">
                 <p className="mb-2 text-xs font-medium text-muted-foreground">{t('products.columns_title')}</p>
-                {OPTIONAL_COLUMNS.filter(c => isOwnerRole || !c.ownerOnly).map(c => (
+                {OPTIONAL_COLUMNS.filter(c => fullStock || !c.fullRightsOnly).map(c => (
                   <label key={c.key} className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-muted/60">
                     <input type="checkbox" className="h-4 w-4 rounded accent-stockshop-blue" checked={tableColumns.includes(c.key)} onChange={() => toggleColumn(c.key)} />
                     {t(c.labelKey as any)}
@@ -1480,7 +1482,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             </Button>
           )}
           {/* Actions secondaires : sélection (cartes), journal d'activité (propriétaire) */}
-          {(isOwnerRole || (viewMode === 'cards' && canSelectProducts && !selectionMode)) && (
+          {(fullStock || (viewMode === 'cards' && canSelectProducts && !selectionMode)) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-9 w-9 p-0" title={t('products.more_actions')}>
@@ -1492,7 +1494,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 {viewMode === 'cards' && canSelectProducts && !selectionMode && (
                   <DropdownMenuItem onClick={() => setSelectionMode(true)}><CheckSquare className="mr-2 h-4 w-4" /> {t('products.select_action')}</DropdownMenuItem>
                 )}
-                {isOwnerRole && (
+                {fullStock && (
                   <DropdownMenuItem onClick={() => setJournalOpen(true)}><History className="mr-2 h-4 w-4" /> {t('products.activity_journal')}</DropdownMenuItem>
                 )}
               </DropdownMenuContent>
@@ -1657,7 +1659,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         </div>
       )}
 
-      {/* Journal d'activité (panneau latéral, propriétaire seulement) */}
+      {/* Journal d'activité (panneau latéral, « Stock : modification ») */}
       <ProductActivityJournal
         open={journalOpen}
         onOpenChange={setJournalOpen}
@@ -1678,7 +1680,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           onClose={() => setShowBulkModal(false)}
           shopId={shop.id}
           currency={currencySymbol}
-          isOwner={effectiveRole === 'owner' || effectiveRole === 'super_admin'}
+          fullRights={fullStock}
           onSaved={(count) => { fetchProducts() }}
         />
       )}
@@ -1843,7 +1845,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 <SelectContent>{suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            {(effectiveRole === 'owner' || effectiveRole === 'super_admin') && (
+            {fullStock && (
               <div className="space-y-1.5">
                 <Label>{t('products.restock_buying_price')}</Label>
                 <Input type="number" {...restockForm.register('buying_price')} placeholder={String(restockProduct?.buying_price)} />

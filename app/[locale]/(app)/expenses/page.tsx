@@ -260,24 +260,20 @@ export default function ExpensesPage() {
     }
   }, [shop?.id, isReallyOnline])
 
-  const isOwnerOrAdmin = profile?.role === 'owner' || profile?.role === 'super_admin'
+  // Budgets et journal des suppressions : « Dépenses : modification » (règle du 9 oct. 2026)
 
   const fetchDeleteLogs = useCallback(async () => {
-    if (!shop?.id || !isOwnerOrAdmin || !isReallyOnline) return
+    if (!shop?.id || !canWriteExpenses || !isReallyOnline) return
     try {
-      const { data, error } = await withTimeout<any>(supabase
-        .from('audit_logs')
-        .select('id, created_at, actor_email, metadata')
-        .eq('shop_id', shop.id)
-        .eq('action', 'expense.delete')
-        .order('created_at', { ascending: false })
-        .limit(50), 20_000)
-      if (error) throw error
-      setDeleteLogs((data || []) as DeleteLog[])
+      // Lu par le serveur : ouvert à qui a « Dépenses : modification » (pas seulement au propriétaire)
+      const res = await withTimeout(fetch(`/api/audit/journal?${new URLSearchParams({ shop_id: shop.id, feature: 'expenses', actions: 'expense.delete', limit: '50' })}`), 20_000)
+      const { logs, error } = await res.json()
+      if (error) throw new Error(error)
+      setDeleteLogs((logs || []) as DeleteLog[])
     } catch {
       // journal just stays empty/stale — non-critical secondary tab
     }
-  }, [shop?.id, isOwnerOrAdmin, isReallyOnline])
+  }, [shop?.id, canWriteExpenses, isReallyOnline])
 
   // Dépenses récurrentes générées PAR LE SERVEUR (lot 2) : une seule règle,
   // aucun doublon possible entre appareils (index unique, migration 156), et
@@ -829,7 +825,7 @@ export default function ExpensesPage() {
       </div>
 
       {/* View toggle */}
-      {isOwnerOrAdmin && (
+      {canWriteExpenses && (
         <div className="flex gap-1 rounded-lg border bg-muted/30 p-1 w-fit">
           <button
             onClick={() => setView('expenses')}
@@ -1190,7 +1186,7 @@ export default function ExpensesPage() {
       )}
 
       {/* ── Journal des suppressions (owner uniquement) ── */}
-      {view === 'journal' && isOwnerOrAdmin && (
+      {view === 'journal' && canWriteExpenses && (
         <Card className="border-0 shadow-sm overflow-hidden">
           {deleteLogs.length === 0 ? (
             <p className="text-center text-sm text-muted-foreground py-6">{t('delete_journal_empty')}</p>

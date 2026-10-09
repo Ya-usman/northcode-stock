@@ -151,7 +151,8 @@ export default function CategoriesPage() {
   const { canWrite } = useRolePermissions()
   const canEdit = canWrite('categories')
   // Valeur du stock (coût d'achat) : propriétaire seulement, comme dans le Stock
-  const showValue = effectiveRole === 'owner' || effectiveRole === 'super_admin'
+  // Part en valeur : « Catégories : modification » (règle du 9 oct. 2026)
+  const showValue = canEdit
 
   // Catégorie effective d'un produit : seulement si elle appartient à SA boutique
   // (un produit rattaché à la catégorie d'une autre boutique compte comme « sans catégorie »)

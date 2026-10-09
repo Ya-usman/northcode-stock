@@ -23,7 +23,7 @@ interface Props {
   onClose: () => void
   shopId: string
   currency: string
-  isOwner: boolean
+  fullRights: boolean
   onSaved: (count: number) => void
 }
 
@@ -32,7 +32,7 @@ const UNITS = ['piece', 'kg', 'g', 'litre', 'ml', 'pack', 'carton', 'dozen', 'ba
 let nextId = 1
 const newRow = (): Row => ({ id: nextId++, name: '', selling_price: '', buying_price: '', quantity: '0', unit: 'piece' })
 
-export function BulkAddModal({ open, onClose, shopId, currency, isOwner, onSaved }: Props) {
+export function BulkAddModal({ open, onClose, shopId, currency, fullRights, onSaved }: Props) {
   const t = useTranslations('bulk_add')
   const tCommon = useTranslations()
   const [rows, setRows] = useState<Row[]>([newRow()])
@@ -116,10 +116,10 @@ export function BulkAddModal({ open, onClose, shopId, currency, isOwner, onSaved
             )}
 
             {/* Column headers */}
-            <div className={`grid gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide px-1 ${isOwner ? 'grid-cols-[1fr_80px_80px_60px_90px_28px]' : 'grid-cols-[1fr_80px_60px_90px_28px]'}`}>
+            <div className={`grid gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide px-1 ${fullRights ? 'grid-cols-[1fr_80px_80px_60px_90px_28px]' : 'grid-cols-[1fr_80px_60px_90px_28px]'}`}>
               <span>{t('col_name')}</span>
               <span>{t('col_selling_price')}</span>
-              {isOwner && <span>{t('col_buying_price')}</span>}
+              {fullRights && <span>{t('col_buying_price')}</span>}
               <span>{t('col_qty')}</span>
               <span>{t('col_unit')}</span>
               <span />
@@ -128,7 +128,7 @@ export function BulkAddModal({ open, onClose, shopId, currency, isOwner, onSaved
             {/* Rows */}
             <div className="space-y-2 pr-1">
               {rows.map((row, idx) => (
-                <div key={row.id} className={`grid gap-2 items-start ${isOwner ? 'grid-cols-[1fr_80px_80px_60px_90px_28px]' : 'grid-cols-[1fr_80px_60px_90px_28px]'}`}>
+                <div key={row.id} className={`grid gap-2 items-start ${fullRights ? 'grid-cols-[1fr_80px_80px_60px_90px_28px]' : 'grid-cols-[1fr_80px_60px_90px_28px]'}`}>
                   <div>
                     <Input
                       ref={idx === rows.length - 1 ? lastInputRef : undefined}
@@ -145,7 +145,7 @@ export function BulkAddModal({ open, onClose, shopId, currency, isOwner, onSaved
                     onChange={e => update(row.id, 'selling_price', e.target.value)}
                     placeholder="0" className="h-9 text-sm"
                   />
-                  {isOwner && (
+                  {fullRights && (
                     <Input
                       type="number" min="0" value={row.buying_price}
                       onChange={e => update(row.id, 'buying_price', e.target.value)}

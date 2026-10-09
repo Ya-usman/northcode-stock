@@ -70,7 +70,8 @@ export default function CaissePage() {
   const role = roleInActiveShop ?? profile?.role
   const { canAccess } = useRolePermissions()
   const { isOnline } = useOffline()
-  const isAuthorized = (role === 'owner' || role === 'super_admin' || role === 'manager' || role === 'shop_manager') && canAccess('caisse')
+  // L'interrupteur « Contrôle de caisse » seul décide (règle du 9 oct. 2026)
+  const isAuthorized = canAccess('caisse')
 
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date())
   // Lazy initializers: read the page cache synchronously on mount (same

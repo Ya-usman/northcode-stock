@@ -37,7 +37,8 @@ interface ProductFormProps {
   categories: Category[]
   suppliers: Supplier[]
   currency: string
-  isOwner: boolean
+  /** « Stock : modification » : prix d'achat visible et modifiable */
+  fullRights: boolean
   shopId?: string
   isEdit?: boolean
   defaultValues?: Partial<ProductFormData>
@@ -64,7 +65,7 @@ const FieldError = ({ message }: { message?: string }) =>
 const UNITS = ['piece', 'kg', 'g', 'litre', 'ml', 'pack', 'carton', 'dozen', 'bag', 'bottle', 'tin', 'box']
 
 export function ProductForm({
-  categories, suppliers, currency, isOwner, shopId, isEdit,
+  categories, suppliers, currency, fullRights, shopId, isEdit,
   defaultValues, sessionCount, initialPhoto, productId, startDirty = false, onSubmit, onStateChange,
 }: ProductFormProps) {
   const t = useTranslations()
@@ -289,7 +290,7 @@ export function ProductForm({
             )} />
             <FieldError message={errors.selling_price?.message} />
           </div>
-          {isOwner && (
+          {fullRights && (
             <div className="space-y-1.5">
               <Label>{t('products.buying_price')}</Label>
               <Controller control={form.control} name="buying_price" render={({ field }) => (

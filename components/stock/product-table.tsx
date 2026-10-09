@@ -30,11 +30,11 @@ export type ProductStatus = 'out' | 'low' | 'dormant' | 'ok'
 
 /** Colonnes optionnelles, dans l'ordre d'affichage (après les colonnes fixes) */
 export type ProductColumnKey = 'category' | 'supplier' | 'cost' | 'stockValue' | 'physical' | 'coverage'
-export const OPTIONAL_COLUMNS: { key: ProductColumnKey; labelKey: string; ownerOnly?: boolean }[] = [
+export const OPTIONAL_COLUMNS: { key: ProductColumnKey; labelKey: string; fullRightsOnly?: boolean }[] = [
   { key: 'category', labelKey: 'products.col_category' },
   { key: 'supplier', labelKey: 'products.col_supplier' },
-  { key: 'cost', labelKey: 'products.col_cost', ownerOnly: true },
-  { key: 'stockValue', labelKey: 'products.col_stock_value', ownerOnly: true },
+  { key: 'cost', labelKey: 'products.col_cost', fullRightsOnly: true },
+  { key: 'stockValue', labelKey: 'products.col_stock_value', fullRightsOnly: true },
   { key: 'physical', labelKey: 'products.col_physical' },
   { key: 'coverage', labelKey: 'products.col_coverage' },
 ]
@@ -57,7 +57,7 @@ export interface ProductTableProps {
   /** Raison d'une promo suggérée (péremption proche, vente lente), sinon null */
   promoSuggestion: (p: Product) => string | null
   formatPrice: (n: number) => string
-  isOwner: boolean
+  fullRights: boolean
   canWriteStock: boolean
   canOrderStock: boolean
   busy: boolean
@@ -125,7 +125,7 @@ export function ProductTableSkeleton({ rows = 6 }: { rows?: number }) {
 
 export function ProductTable({
   products, thresholdFor, statusFor, soldQty, expiryFor, isPromoActive, promoStale, promoSuggestion,
-  formatPrice, isOwner, canWriteStock, canOrderStock, busy, selectedIds, onToggleSelect, onToggleSelectMany,
+  formatPrice, fullRights, canWriteStock, canOrderStock, busy, selectedIds, onToggleSelect, onToggleSelectMany,
   sort, onSortChange, columns, onOrder, onRestock, onEdit, onPromo, onBatches, onArchive,
 }: ProductTableProps) {
   const t = useTranslations()
@@ -391,7 +391,7 @@ export function ProductTable({
                         <DropdownMenuItem onClick={() => onBatches(product)}>
                           <History className="mr-2 h-3.5 w-3.5" /> {t('products.view_batches')}
                         </DropdownMenuItem>
-                        {isOwner && (
+                        {fullRights && (
                           <DropdownMenuItem onClick={() => onArchive(product)} className="text-amber-700 focus:text-amber-700 dark:text-amber-400 dark:focus:text-amber-400">
                             <Archive className="mr-2 h-3.5 w-3.5" /> {t('products.archive_label')}
                           </DropdownMenuItem>

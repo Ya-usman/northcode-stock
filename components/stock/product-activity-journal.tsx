@@ -120,20 +120,16 @@ export function ProductActivityJournal({ open, onOpenChange, shopId, onOpenProdu
   const fetchLogs = async () => {
     if (!shopId) return
     setLoading(true)
-    let query = supabase
-      .from('audit_logs')
-      .select('*', { count: 'exact' })
-      .eq('shop_id', shopId)
-      .in('action', group === 'all' ? ALL_ACTIONS : GROUPS[group])
-      .order('created_at', { ascending: false })
-      .range(0, limit - 1)
-    if (range.from) query = query.gte('created_at', range.from)
-    if (range.to) query = query.lte('created_at', range.to)
-    if (debounced) query = query.ilike('metadata->>product_name', `%${debounced.replace(/[%_\\]/g, m => `\\${m}`)}%`)
+    // Lu par le serveur : ouvert à qui a « Stock : modification » (pas seulement au propriétaire)
+    const q = new URLSearchParams({ shop_id: shopId, feature: 'stock', actions: (group === 'all' ? ALL_ACTIONS : GROUPS[group]).join(','), limit: String(limit) })
+    if (range.from) q.set('from', range.from)
+    if (range.to) q.set('to', range.to)
+    if (debounced) q.set('q', debounced)
     try {
       // Borné : une session périmée après un passage en arrière-plan ne doit
       // jamais laisser le journal tourner indéfiniment.
-      const { data, count } = await withTimeout<any>(query, 20_000, 'Chargement du journal trop lent — réessayez.')
+      const res = await withTimeout(fetch(`/api/audit/journal?${q}`), 20_000, 'Chargement du journal trop lent — réessayez.')
+      const { logs: data, count } = await res.json()
       setLogs(data || [])
       setTotal(typeof count === 'number' ? count : null)
     } catch {
