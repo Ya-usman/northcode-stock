@@ -208,7 +208,7 @@ export function ProductTable({
   const dash = <span className="text-muted-foreground/50">—</span>
 
   return (
-    <div className="overflow-x-auto rounded-xl border bg-card">
+    <div className="relative overflow-x-auto rounded-xl border bg-card">
       <table className="w-full min-w-[760px] text-sm">
         <thead className="bg-muted text-xs text-muted-foreground">
           <tr>

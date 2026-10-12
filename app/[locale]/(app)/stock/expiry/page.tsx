@@ -335,7 +335,7 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
         </div>
       ) : (
         <>
-          <div className="rounded-xl border overflow-x-auto">
+          <div className="relative rounded-xl border overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/30 text-xs text-muted-foreground">

@@ -1288,7 +1288,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           droite (une seule action principale « Ajouter »). Les filtres
           secondaires (fournisseur, hygiène du catalogue) vivent sous
           « Plus de filtres » pour garder la ligne légère. */}
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+      <div className="flex flex-col gap-2 xl:flex-row xl:items-start xl:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -1381,8 +1381,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           )}
         </div>
 
-        {/* Actions sur une seule ligne dès le grand écran ; les filtres, eux, peuvent passer sur deux lignes */}
-        <div className="flex flex-wrap items-center gap-2 lg:shrink-0 lg:flex-nowrap">
+        {/* Actions sur une seule ligne, à côté des filtres, à partir de 1280 px seulement : en dessous
+            (tablette en paysage comprise) elles passent sous les filtres au lieu de sortir de l'écran */}
+        <div className="flex flex-wrap items-center gap-2 xl:shrink-0 xl:flex-nowrap">
           {canWriteStock && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

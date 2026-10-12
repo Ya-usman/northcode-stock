@@ -596,7 +596,7 @@ export default function ReportsPage() {
               {topProducts.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">{t('reports.no_data')}</p>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="relative overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -632,7 +632,7 @@ export default function ReportsPage() {
               {allInventory.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">{t('reports.no_data')}</p>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="relative overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -698,7 +698,7 @@ export default function ReportsPage() {
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
+                <div className="relative overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -744,7 +744,7 @@ export default function ReportsPage() {
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
+                <div className="relative overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>

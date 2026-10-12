@@ -57,7 +57,7 @@ export function StockTabs({ locale }: { locale: string }) {
     <div
       ref={listRef}
       role="tablist"
-      className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg border bg-muted/30 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="relative flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg border bg-muted/30 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       {tabs.map(tab => {
         const Icon = tab.icon

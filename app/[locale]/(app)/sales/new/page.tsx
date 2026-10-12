@@ -422,7 +422,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   useEffect(() => {
     const el = loadMoreRef.current
     if (!el || !hasMoreProducts || mobileCartOpen) return
-    const desktop = window.matchMedia('(min-width: 768px)').matches
+    const desktop = window.matchMedia('(min-width: 1024px)').matches
     const io = new IntersectionObserver(
       entries => { if (entries.some(e => e.isIntersecting)) loadMoreProducts() },
       { root: desktop ? gridScrollRef.current : null, rootMargin: '600px 0px' },
@@ -705,8 +705,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       toast({ title: t('toast.sale_resumed'), variant: 'success' })
     }
     // Téléphone : on ouvre directement le panier repris (le panneau n'existe
-    // que sous md — sur desktop le panier est déjà une colonne visible).
-    if (freshCart.length > 0 && window.matchMedia('(max-width: 767px)').matches) {
+    // que sous lg — sur grand écran le panier est déjà une colonne visible).
+    if (freshCart.length > 0 && window.matchMedia('(max-width: 1023px)').matches) {
       setMobileStep('cart')
       setMobileCartOpen(true)
     }
@@ -1635,10 +1635,10 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
   // ── RENDER ──────────────────────────────────────────────
   return (
-    <div className="flex flex-col gap-4 max-w-2xl mx-auto w-full md:max-w-none md:flex-row md:gap-0 md:h-[calc(100dvh-6.5rem)] md:overflow-hidden">
+    <div className="flex flex-col gap-4 max-w-2xl mx-auto w-full lg:max-w-none lg:flex-row lg:gap-0 lg:h-[calc(100dvh-6.5rem)] lg:overflow-hidden">
 
       {/* ── LEFT column: search + products ── */}
-      <div className={cn('flex flex-col md:flex-1 md:overflow-hidden md:border-r md:border-border md:min-h-0', (cart.length > 0 || shopDrafts.length > 0) && 'pb-16 md:pb-0')}>
+      <div className={cn('flex flex-col lg:flex-1 lg:overflow-hidden lg:border-r lg:border-border lg:min-h-0', (cart.length > 0 || shopDrafts.length > 0) && 'pb-16 lg:pb-0')}>
 
       {/* Shop selector — same shared control as everywhere else in the app, restricted to a single concrete shop (a sale can't target "all shops") */}
       {isOwner && (
@@ -1655,7 +1655,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       {shopDrafts.length > 0 && (
         <button
           onClick={() => setShowDrafts(true)}
-          className="hidden md:flex items-center justify-between gap-2 rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-sm font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
+          className="hidden lg:flex items-center justify-between gap-2 rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-sm font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
         >
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4" />
@@ -1666,7 +1666,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       )}
 
       {/* Sticky top area: search + categories */}
-      <div className="flex flex-col gap-3 px-0 pt-2 md:pt-5 md:px-5 md:pb-2 md:sticky md:top-0 md:bg-background md:z-10 md:border-b md:border-border/50">
+      <div className="flex flex-col gap-3 px-0 pt-2 lg:pt-5 lg:px-5 lg:pb-2 lg:sticky lg:top-0 lg:bg-background lg:z-10 lg:border-b lg:border-border/50">
       {/* Active draft indicator */}
       {activeDraftId && (
         <div className="flex items-center gap-2 rounded-lg bg-stockshop-blue-muted border border-stockshop-blue/20 px-3 py-2 text-xs text-stockshop-blue dark:bg-blue-950/40 dark:border-blue-800 dark:text-blue-300">
@@ -1725,7 +1725,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
       {/* Aide lecteur USB/Bluetooth — utile surtout sur ordinateur ; masquée
           sur téléphone pour rendre la place à la grille produits. */}
-      <p className="hidden md:block text-xs text-muted-foreground -mt-2 px-1">
+      <p className="hidden lg:block text-xs text-muted-foreground -mt-2 px-1">
         {t('sales.scan_hint')}
       </p>
 
@@ -1762,13 +1762,13 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       </div>{/* end sticky header */}
 
       {/* Product grid scroll wrapper */}
-      <div ref={gridScrollRef} className="flex-1 md:overflow-y-auto md:px-5 md:pb-8 md:min-h-0">
+      <div ref={gridScrollRef} className="flex-1 lg:overflow-y-auto lg:px-5 lg:pb-8 lg:min-h-0">
 
       {/* Favoris — curation manuelle (migration 148), accès 1 tap sans
           chercher/scroller pour les articles à forte rotation. Masqué
           pendant une recherche active. */}
       {showFavoritesRow && (
-        <div className="pt-2 pb-1 md:pt-5">
+        <div className="pt-2 pb-1 lg:pt-5">
           <div className="flex items-center gap-1.5 px-1 mb-2 text-xs font-semibold text-muted-foreground">
             <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
             {t('sales.favorites_title')}
@@ -1799,8 +1799,10 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
             {/* Téléphone : 3 colonnes compactes (~110 px) pour voir ~9 produits
                 par écran au lieu de 4–5 — 2 colonnes seulement sous 340 px.
-                À partir de md (desktop/tablette), tailles d'origine. */}
-            <div className="grid grid-cols-2 min-[340px]:grid-cols-3 gap-1.5 md:grid-cols-3 md:gap-2" data-tour="pos-grid">
+                À partir de lg (ordinateur / tablette en paysage), deux colonnes
+                produits + panier ; en dessous (tablette en portrait comprise),
+                vue téléphone avec la barre du panier. */}
+            <div className="grid grid-cols-2 min-[340px]:grid-cols-3 gap-1.5 lg:grid-cols-2 min-[1150px]:grid-cols-3 lg:gap-2" data-tour="pos-grid">
               {filteredProducts.slice(0, visibleCount).map(product => (
                 <ProductCard
                   key={product.id}
@@ -1842,14 +1844,14 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       <div
         ref={cartSectionRef}
         className={cn(
-          'flex-col gap-3 md:static md:z-auto md:flex md:w-[400px] md:overflow-y-auto md:bg-transparent md:p-5 md:pb-5 md:shrink-0 md:min-h-0 md:overscroll-auto',
+          'flex-col gap-3 lg:static lg:z-auto lg:flex lg:w-[360px] xl:w-[400px] lg:overflow-y-auto lg:bg-transparent lg:p-5 lg:pb-5 lg:shrink-0 lg:min-h-0 lg:overscroll-auto',
           mobileCartOpen
             ? 'fixed inset-0 z-50 flex overflow-y-auto overscroll-contain bg-background px-4'
             : 'hidden',
         )}
       >
       {/* En-tête du panneau (téléphone uniquement) — suit l'étape */}
-      <div className="md:hidden sticky top-0 z-20 -mx-4 flex items-center justify-between gap-3 border-b bg-background/95 px-2 backdrop-blur safe-top">
+      <div className="lg:hidden sticky top-0 z-20 -mx-4 flex items-center justify-between gap-3 border-b bg-background/95 px-2 backdrop-blur safe-top">
         <button
           type="button"
           onClick={mobileBack}
@@ -1881,7 +1883,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
       {/* Cart */}
       {cart.length === 0 ? (
-        <div className="flex flex-col items-center text-center py-10 text-muted-foreground md:flex-1 md:justify-center md:py-20">
+        <div className="flex flex-col items-center text-center py-10 text-muted-foreground lg:flex-1 lg:justify-center lg:py-20">
           <div className="text-4xl mb-3">🛒</div>
           <p className="font-medium">{t('sales.cart_empty')}</p>
           <p className="text-sm mt-1">{t('sales.search_or_scan_hint')}</p>
@@ -1890,13 +1892,13 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
         // Téléphone : occupe toute la hauteur du panneau, pour que la barre
         // d'action de l'étape soit TOUJOURS en bas d'écran, même avec un
         // panier court (un simple sticky ne colle que si le contenu déborde).
-        <div className="space-y-2 max-md:flex max-md:flex-1 max-md:flex-col">
+        <div className="space-y-2 max-lg:flex max-lg:flex-1 max-lg:flex-col">
           {/* ══ Étape 1 (téléphone) : PANIER — articles, total, client, dette ══
               Sur desktop, les deux étapes restent visibles l'une sous l'autre. */}
-          <div className={cn('space-y-2', mobileStep === 'payment' && 'hidden md:block')}>
+          <div className={cn('space-y-2', mobileStep === 'payment' && 'hidden lg:block')}>
           {/* Ordinateur : en-tête du panier avec « Vider » (sur téléphone, la
               corbeille est dans l'en-tête du panneau). Confirmation avant de vider. */}
-          <div className="hidden md:flex items-center justify-between px-1">
+          <div className="hidden lg:flex items-center justify-between px-1">
             <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
               <ShoppingCart className="h-4 w-4" />{t(cart.length === 1 ? 'sales.cart_items_one' : 'sales.cart_items_other', { count: cart.length })}
             </span>
@@ -2003,12 +2005,12 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               {/* Téléphone : remise repliée tant qu'elle est à 0 ; masquée sans le droit */}
               {canDiscount && !(showDiscount || discount > 0) && (
                 <button type="button" onClick={() => setShowDiscount(true)}
-                  className="md:hidden flex items-center gap-2 text-sm font-medium text-stockshop-blue dark:text-blue-400 tap-target">
+                  className="lg:hidden flex items-center gap-2 text-sm font-medium text-stockshop-blue dark:text-blue-400 tap-target">
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-stockshop-blue-muted dark:bg-blue-950/40"><Plus className="h-3.5 w-3.5" /></span>
                   {t('sales.add_discount')}
                 </button>
               )}
-              <div className={cn('flex items-center gap-3', !canDiscount && 'hidden', canDiscount && !(showDiscount || discount > 0) && 'hidden md:flex')} data-testid="sale-discount-row">
+              <div className={cn('flex items-center gap-3', !canDiscount && 'hidden', canDiscount && !(showDiscount || discount > 0) && 'hidden lg:flex')} data-testid="sale-discount-row">
                 <Label className="text-sm w-24 flex-shrink-0">{t('sales.discount')}</Label>
                 <div className="flex flex-1 rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-0">
                   <span className="flex items-center px-2.5 bg-muted border-r text-sm text-muted-foreground font-medium whitespace-nowrap select-none">{symbol}</span>
@@ -2021,7 +2023,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                     className="flex-1 h-9 px-3 text-sm bg-card outline-none" placeholder="0" />
                 </div>
               </div>
-              <Separator className={cn(!canDiscount && 'hidden', canDiscount && !(showDiscount || discount > 0) && 'hidden md:block')} />
+              <Separator className={cn(!canDiscount && 'hidden', canDiscount && !(showDiscount || discount > 0) && 'hidden lg:block')} />
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between text-muted-foreground">
                   <span>{t('sales.subtotal')}</span><span>{formatNaira(subtotal)}</span>
@@ -2049,12 +2051,12 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               « + Ajouter un client » tant que rien n'est saisi. */}
           {!customerOpen && (
             <button type="button" onClick={() => setShowCustomer(true)}
-              className="md:hidden flex w-full items-center gap-2 rounded-lg border border-dashed px-4 py-3 text-sm font-medium text-stockshop-blue dark:text-blue-400 tap-target">
+              className="lg:hidden flex w-full items-center gap-2 rounded-lg border border-dashed px-4 py-3 text-sm font-medium text-stockshop-blue dark:text-blue-400 tap-target">
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-stockshop-blue-muted dark:bg-blue-950/40"><Plus className="h-3.5 w-3.5" /></span>
               {t('sales.add_customer')}
             </button>
           )}
-          <Card className={cn('border-0 shadow-sm', !customerOpen && 'hidden md:block')}>
+          <Card className={cn('border-0 shadow-sm', !customerOpen && 'hidden lg:block')}>
             <CardContent className="p-4 space-y-3">
               <p className="text-sm font-medium flex items-center gap-1.5">
                 <User className="h-4 w-4" /> Client <span className="text-muted-foreground font-normal text-xs">(optionnel)</span>
@@ -2223,7 +2225,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           {/* Barre fixe de l'étape panier (téléphone) : mise en attente +
               « Encaisser », qui passe à l'étape paiement. */}
           <div className={cn(
-            'md:hidden sticky bottom-0 z-10 -mx-4 flex gap-2 border-t bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur !mt-auto',
+            'lg:hidden sticky bottom-0 z-10 -mx-4 flex gap-2 border-t bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur !mt-auto',
             mobileStep !== 'cart' && 'hidden',
           )}>
             <Button
@@ -2245,13 +2247,13 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           </div>
 
           {/* ══ Étape 2 (téléphone) : PAIEMENT — moyen, montant → « Valider » ══ */}
-          <div className={cn('space-y-2', mobileStep === 'cart' ? 'hidden md:block' : 'max-md:flex max-md:flex-1 max-md:flex-col')}>
+          <div className={cn('space-y-2', mobileStep === 'cart' ? 'hidden lg:block' : 'max-lg:flex max-lg:flex-1 max-lg:flex-col')}>
 
           {/* Rappel du montant (téléphone) — le détail vente/dette reste
               visible sans revenir au panier. */}
           {/* Le gros montant = ce qui est RÉELLEMENT encaissé maintenant
               (en vente à crédit avec remboursement : la dette seule). */}
-          <div className="md:hidden rounded-xl bg-stockshop-blue-muted/60 p-4 dark:bg-blue-950/30">
+          <div className="lg:hidden rounded-xl bg-stockshop-blue-muted/60 p-4 dark:bg-blue-950/30">
             <div className="flex items-center gap-3">
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-950/60 dark:text-blue-300" aria-hidden="true">
                 <ShoppingBag className="h-6 w-6" />
@@ -2398,7 +2400,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   {/* Téléphone : le client se saisit à l'étape panier */}
                   <button type="button"
                     onClick={() => { setShowCustomer(true); setMobileStep('cart') }}
-                    className="md:hidden mt-2 flex items-center gap-1.5 text-sm font-semibold text-amber-800 dark:text-amber-300 underline underline-offset-2 tap-target">
+                    className="lg:hidden mt-2 flex items-center gap-1.5 text-sm font-semibold text-amber-800 dark:text-amber-300 underline underline-offset-2 tap-target">
                     <User className="h-4 w-4" />{t('sales.choose_customer_for_credit')}
                   </button>
                 </>
@@ -2527,33 +2529,33 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           {/* Notes — téléphone : repliées tant qu'elles sont vides */}
           {!(showNotes || notes) && (
             <button type="button" onClick={() => setShowNotes(true)}
-              className="md:hidden flex items-center gap-1.5 text-sm font-medium text-stockshop-blue dark:text-blue-400 tap-target">
+              className="lg:hidden flex items-center gap-1.5 text-sm font-medium text-stockshop-blue dark:text-blue-400 tap-target">
               <Plus className="h-3.5 w-3.5" />{t('sales.add_note')}
             </button>
           )}
-          <div className={cn('space-y-1.5', !(showNotes || notes) && 'hidden md:block')}>
+          <div className={cn('space-y-1.5', !(showNotes || notes) && 'hidden lg:block')}>
             <Label>{t('sales.notes_optional_label')}</Label>
             <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder={t('sales.notes_placeholder')} />
           </div>
 
           {/* Action buttons — téléphone : barre fixe en bas de l'étape paiement */}
-          <div className="flex gap-2 sticky bottom-0 z-10 -mx-4 border-t bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur max-md:!mt-auto md:static md:z-auto md:mx-0 md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
+          <div className="flex gap-2 sticky bottom-0 z-10 -mx-4 border-t bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur max-lg:!mt-auto lg:static lg:z-auto lg:mx-0 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
             <Button
               variant="outline"
-              className="h-12 w-12 shrink-0 gap-2 p-0 border-amber-300 dark:border-amber-700/60 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 min-[380px]:w-auto min-[380px]:px-3 md:flex-1 md:px-4"
+              className="h-12 w-12 shrink-0 gap-2 p-0 border-amber-300 dark:border-amber-700/60 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 min-[380px]:w-auto min-[380px]:px-3 lg:flex-1 lg:px-4"
               onClick={openHoldDialog}
               disabled={cart.length === 0 || completing}
               aria-label={t('sales.hold_confirm')}
               title={t('sales.hold_confirm')}
             >
-              <PauseCircle className="h-5 w-5 md:h-4 md:w-4" />
+              <PauseCircle className="h-5 w-5 lg:h-4 lg:w-4" />
               {/* Libellé court dès 380 px (une icône pause seule n'est pas évidente), complet sur ordinateur */}
-              <span className="hidden min-[380px]:inline md:hidden">{t('sales.hold_short')}</span>
-              <span className="hidden md:inline">{t('sales.hold_confirm')}</span>
+              <span className="hidden min-[380px]:inline lg:hidden">{t('sales.hold_short')}</span>
+              <span className="hidden lg:inline">{t('sales.hold_confirm')}</span>
             </Button>
             <Button
               variant="stockshop"
-              className="flex-1 md:flex-[2] h-12 text-base"
+              className="flex-1 lg:flex-[2] h-12 text-base"
               data-tour="pos-checkout"
               onClick={completeSale}
               loading={completing}
@@ -2925,7 +2927,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       {/* + accès permanent aux ventes en attente (téléphone) : à gauche du
           bandeau panier, ou seul (barre ambre) quand le panier est vide. */}
       {!mobileCartOpen && (cart.length > 0 || shopDrafts.length > 0) && (
-        <div className="fixed bottom-16 sm:bottom-0 left-0 right-0 z-30 flex shadow-lg md:hidden">
+        <div className="fixed bottom-16 sm:bottom-0 left-0 sm:left-64 right-0 z-30 flex shadow-lg lg:hidden">
           {shopDrafts.length > 0 && (
             <button
               type="button"

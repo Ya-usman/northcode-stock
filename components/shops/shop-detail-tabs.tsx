@@ -423,7 +423,7 @@ export function ShopHistoryTab({ shopId, fmt }: { shopId: string; fmt: (n: numbe
                       <dd className="first-letter:uppercase">{new Date(e.created_at).toLocaleString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</dd>
                     </dl>
                     {r.length > 0 && (
-                      <div className="overflow-x-auto rounded-lg border bg-background">
+                      <div className="relative overflow-x-auto rounded-lg border bg-background">
                         <table className="w-full">
                           <thead className="bg-muted/50 text-muted-foreground">
                             <tr>
