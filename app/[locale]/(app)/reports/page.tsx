@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
+import { getPaymentMethodLabel } from '@/lib/saas/countries'
 import { Download, Receipt, TrendingDown, Banknote, X, Loader2 } from 'lucide-react'
 import {
   PieChart, Pie, Cell,
@@ -135,8 +136,12 @@ export default function ReportsPage() {
     // Revenue by payment method (from sales in period)
     const byMethod: Record<string, number> = {}
     sales.forEach(s => { byMethod[s.payment_method] = (byMethod[s.payment_method] || 0) + Number(s.total) })
+    // Libellé lisible : traduit (Espèces, Carte, Crédit…) ou nom de marque (Orange Money, MTN MoMo…)
+    const methodName = (id: string) => id === 'mixed'
+      ? t('receipt.method_mixed')
+      : t.has(`payment.${id}` as any) ? t(`payment.${id}` as any) : (getPaymentMethodLabel(id) ?? id)
     const revenueByMethod = Object.entries(byMethod).map(([name, value]) => ({
-      name: name.charAt(0).toUpperCase() + name.slice(1),
+      name: methodName(name),
       value,
     }))
 

@@ -1231,7 +1231,7 @@ export default function SalesHistoryPage() {
           </span>
           {searchStats.total !== searchStats.paid && (
             <span className="text-muted-foreground text-xs self-center">
-              CA : {formatNaira(searchStats.total)}
+              {t('sales.revenue_inline')} {formatNaira(searchStats.total)}
             </span>
           )}
           {searchStats.balance > 0 && (
@@ -1246,11 +1246,11 @@ export default function SalesHistoryPage() {
           <span className="text-muted-foreground">
             {periodStats.count} {t('sales.sales_count_label')} ·{' '}
             <span className="font-semibold text-foreground">{formatNaira(periodStats.collected)}</span>
-            <span className="text-muted-foreground font-normal"> encaissé</span>
+            <span className="text-muted-foreground font-normal"> {t('sales.collected_inline')}</span>
           </span>
           {periodStats.ca !== periodStats.collected && (
             <span className="text-muted-foreground text-xs self-center">
-              CA : {formatNaira(periodStats.ca)}
+              {t('sales.revenue_inline')} {formatNaira(periodStats.ca)}
             </span>
           )}
           {periodStats.balance > 0 && (
