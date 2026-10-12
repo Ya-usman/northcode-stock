@@ -25,7 +25,7 @@ import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { sharePDFNative, isCapacitor } from '@/lib/utils/native-share'
-import { getCountry } from '@/lib/saas/countries'
+import { getCountry, getPaymentMethodLabel } from '@/lib/saas/countries'
 import { useLocale } from 'next-intl'
 import { readTicketSettings } from '@/lib/receipt/print-settings'
 import { printSaleTicket, ticketErrorKey } from '@/lib/receipt/print-ticket'
@@ -67,8 +67,12 @@ export default function SalesHistoryPage() {
     const labels = Object.fromEntries(
       getCountry(shop?.country).paymentMethods.map(m => [m.id, m.label])
     )
-    return (method: string) => labels[method] ?? method
-  }, [shop?.country])
+    // Traduit d'abord (Espèces / Cash, Carte, Virement, Crédit) ; sinon nom de marque du pays
+    // (Orange Money, MTN MoMo…) — les libellés de la liste des pays sont en français
+    return (method: string) => !method ? ''
+      : t.has(`payment.${method}` as any) ? t(`payment.${method}` as any)
+      : (labels[method] ?? getPaymentMethodLabel(method) ?? method)
+  }, [shop?.country, t])
 
   // Collect all mobile-money method IDs across every shop the user has access to
   const mobileMoneyIds = useMemo(() => {
