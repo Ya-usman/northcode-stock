@@ -18,7 +18,7 @@ export default async function AdminStockPage({
   const [{ data: allShops }, { data: products }] = await Promise.all([
     supabase.from('shops').select('id, name, city, country, currency').is('deleted_at', null).order('name'),
     supabase.from('products')
-      .select('id, name, sku, quantity, unit, selling_price, buying_price, low_stock_threshold, is_active, shop_id')
+      .select('id, name, sku, quantity, unit, selling_price, low_stock_threshold, is_active, shop_id')
       .eq('is_active', true)
       .order('name'),
   ])

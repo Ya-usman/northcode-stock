@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/security/check-direct-reads.js && next build",
     "start": "next start",
     "lint": "next lint",
+    "check:data-access": "node scripts/security/check-direct-reads.js",
+    "probe:data-access": "node scripts/security/probe-column-access.js",
     "cap:sync": "npx cap sync android",
     "cap:open": "npx cap open android",
     "cap:run": "npx cap run android"

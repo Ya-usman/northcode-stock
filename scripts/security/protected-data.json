@@ -1,0 +1,33 @@
+{
+  "_": "Données que le NAVIGATEUR ne doit jamais lire directement dans la base. Source unique des contrôles scripts/security/*. Coûts : étapes C1 / C2.",
+  "protectedColumns": {
+    "products": [
+      "buying_price"
+    ],
+    "product_batches": [
+      "buying_price"
+    ],
+    "sale_items": [
+      "buying_price"
+    ]
+  },
+  "serverOnlyTables": [
+    "purchase_order_items",
+    "product_supplier_prices",
+    "stock_transfer_items"
+  ],
+  "sourceRoots": [
+    "app",
+    "components",
+    "lib"
+  ],
+  "serverPathPrefixes": [
+    "app/api/",
+    "lib/api/",
+    "lib/supabase/server"
+  ],
+  "serverFiles": {
+    "lib/stock/pipeline-load.ts": "lecture serveur partagée : le client (rôle de service) est fourni par la route appelante",
+    "lib/reports/evening-report.ts": "résumé du soir : appelé par la tâche planifiée, avec le client de service fourni par la route"
+  }
+}
