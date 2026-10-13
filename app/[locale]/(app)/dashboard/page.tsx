@@ -30,6 +30,7 @@ import { getPendingSales, type PendingSale } from '@/lib/offline/db'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { getPageCache, setPageCache } from '@/lib/offline/page-cache'
 import { PRODUCT_PUBLIC_COLUMNS } from '@/lib/products/columns'
+import { SUPPLIER_PUBLIC_COLUMNS } from '@/lib/suppliers/columns'
 import { runIdlePrefetch, type PrefetchTask } from '@/lib/utils/idle-prefetch'
 import { onSalesDataChanged } from '@/lib/data-refresh'
 import { GettingStarted } from '@/components/onboarding/getting-started'
@@ -508,7 +509,7 @@ export default function DashboardPage() {
         cacheKey: `suppliers_${ids.join(',')}`,
         run: async () => {
           const [suppliersRes, productsRes] = await Promise.all([
-            supabase.from('suppliers').select('*').in('shop_id', ids).order('name'),
+            supabase.from('suppliers').select(SUPPLIER_PUBLIC_COLUMNS).in('shop_id', ids).order('name'),
             supabase.from('products').select('id, name, selling_price, quantity, unit, supplier_id, shop_id').in('shop_id', ids).eq('is_active', true),
           ])
           if (suppliersRes.error || productsRes.error) return
@@ -524,7 +525,7 @@ export default function DashboardPage() {
           const [prodsRes, catsRes, supsRes] = await Promise.all([
             supabase.from('products').select(`${PRODUCT_PUBLIC_COLUMNS}, categories(name, color), suppliers(name)`).in('shop_id', ids).eq('is_active', true).order('name'),
             supabase.from('categories').select('*').in('shop_id', ids).order('name'),
-            supabase.from('suppliers').select('*').in('shop_id', ids).order('name'),
+            supabase.from('suppliers').select(SUPPLIER_PUBLIC_COLUMNS).in('shop_id', ids).order('name'),
           ])
           if (prodsRes.error || catsRes.error || supsRes.error) return
           setPageCache(`stock_${ids.join(',')}`, { prods: prodsRes.data || [], cats: catsRes.data || [], sups: supsRes.data || [] })

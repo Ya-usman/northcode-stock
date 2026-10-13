@@ -32,6 +32,7 @@ import { ConfirmModal } from '@/components/ui/confirm-modal'
 import { InputGroup, RequiredMark } from '@/components/ui/input-group'
 import { SupplierSheet, PO_STATUS_STYLES, poTotalOf } from '@/components/suppliers/supplier-sheet'
 import { fetchCosts, withCosts } from '@/lib/costs/client'
+import { SUPPLIER_PUBLIC_COLUMNS } from '@/lib/suppliers/columns'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useForm } from 'react-hook-form'
@@ -157,10 +158,17 @@ export default function SuppliersPage() {
   const showDebt = canAccess('payments')
   const canPay = canWrite('payments')
 
-  const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
+  const [rawSuppliers, setSuppliers] = useState<Supplier[]>(() => {
     const c = getPageCache<{ suppliers: Supplier[]; products: Product[] }>(`suppliers_${effectiveShopIds.join(',')}`)
     return c?.suppliers || []
   })
+  // Les fournisseurs sont lus SANS leur solde dû ; il arrive à part (/api/suppliers/balances) pour qui a le droit
+  // de voir les dettes fournisseurs, et n'est pas rangé dans le cache de la page
+  const [balances, setBalances] = useState<Record<string, number> | null>(null)
+  const suppliers = useMemo(
+    () => (showDebt && balances ? rawSuppliers.map(s => ({ ...s, total_owed: balances[s.id] ?? 0 })) : rawSuppliers.map(s => ({ ...s, total_owed: 0 }))),
+    [rawSuppliers, balances, showDebt],
+  )
   const [rawProducts, setProducts] = useState<Product[]>(() => {
     const c = getPageCache<{ suppliers: Supplier[]; products: Product[] }>(`suppliers_${effectiveShopIds.join(',')}`)
     return c?.products || []
@@ -270,7 +278,7 @@ export default function SuppliersPage() {
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave `loading` stuck true forever.
       const [suppliersRes, productsRes] = await withTimeout(Promise.all([
-        supabase.from('suppliers').select(showDebt ? '*' : 'id, shop_id, name, phone, city, email, created_at, deleted_at').in('shop_id', effectiveShopIds).order('name'),
+        supabase.from('suppliers').select(SUPPLIER_PUBLIC_COLUMNS).in('shop_id', effectiveShopIds).order('name'),
         supabase.from('products').select('id, name, selling_price, quantity, unit, supplier_id, shop_id').in('shop_id', effectiveShopIds).eq('is_active', true),
       ]), 20_000, 'Chargement des fournisseurs trop lent — réessayez.')
       // A transient auth/RLS hiccup can resolve with data: null instead of
@@ -285,6 +293,10 @@ export default function SuppliersPage() {
       setPageCache(cacheKey, { suppliers: fetchedSuppliers, products: fetchedProducts })
       if (showCost) fetchCosts(effectiveShopIds).then(c => setCosts(c ? c.products : null)).catch(() => {})
       else setCosts(null)
+      if (showDebt) {
+        fetch(`/api/suppliers/balances?shop_ids=${effectiveShopIds.join(',')}`)
+          .then(r => (r.ok ? r.json() : null)).then(j => setBalances(j ? j.balances || {} : null)).catch(() => {})
+      } else setBalances(null)
     } catch {
       // cache already applied if available
     } finally {

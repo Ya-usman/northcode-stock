@@ -26,6 +26,7 @@ import { computeStockKpis, fetchExpiryByProduct, fetchExpiredQtyByProduct, fetch
 import { fetchStockPipeline, type StockPipeline } from '@/lib/stock/pipeline'
 import { fetchReservedQtyByProduct } from '@/lib/stock/reservations'
 import { PRODUCT_PUBLIC_COLUMNS } from '@/lib/products/columns'
+import { SUPPLIER_PUBLIC_COLUMNS } from '@/lib/suppliers/columns'
 import { fetchCosts, withCosts } from '@/lib/costs/client'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 
@@ -122,7 +123,7 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
           .eq('is_active', true)
           .order('name'),
         supabase.from('categories').select('*').in('shop_id', effectiveShopIds).order('name'),
-        supabase.from('suppliers').select('*').in('shop_id', effectiveShopIds).order('name'),
+        supabase.from('suppliers').select(SUPPLIER_PUBLIC_COLUMNS).in('shop_id', effectiveShopIds).order('name'),
       ]), 20_000, t('errors.generic'))
       const err = prodsRes.error || catsRes.error || supsRes.error
       if (err) throw err

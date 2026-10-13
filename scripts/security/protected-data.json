@@ -1,5 +1,5 @@
 {
-  "_": "Données que le NAVIGATEUR ne doit jamais lire directement dans la base. Source unique des contrôles scripts/security/*. Coûts : étapes C1 / C2.",
+  "_": "Données que le NAVIGATEUR ne doit jamais lire directement dans la base. Source unique des contrôles scripts/security/*. Coûts : étapes C1 / C2 ; dettes fournisseurs : étape C3.",
   "protectedColumns": {
     "products": [
       "buying_price"
@@ -9,12 +9,17 @@
     ],
     "sale_items": [
       "buying_price"
+    ],
+    "suppliers": [
+      "total_owed"
     ]
   },
   "serverOnlyTables": [
     "purchase_order_items",
     "product_supplier_prices",
-    "stock_transfer_items"
+    "stock_transfer_items",
+    "purchase_orders",
+    "supplier_payments"
   ],
   "sourceRoots": [
     "app",

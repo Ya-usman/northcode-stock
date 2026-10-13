@@ -1,0 +1,7 @@
+// Colonnes d'un fournisseur qu'un écran peut lire dans le navigateur : toutes,
+// SAUF le solde dû (`total_owed`). Ce que l'entreprise doit à un fournisseur
+// est une donnée financière : l'écran qui en a besoin la demande au serveur
+// (/api/suppliers/balances), qui applique la règle « Crédits en lecture ET
+// Fournisseurs en lecture » (lib/api/supplier-access → canViewSupplierDebt).
+// À tenir à jour quand une colonne est ajoutée à `suppliers`.
+export const SUPPLIER_PUBLIC_COLUMNS = 'id, shop_id, name, phone, city, email, created_at, deleted_at'
