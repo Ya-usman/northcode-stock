@@ -117,8 +117,10 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     !getPageCache(`stock_${effectiveShopIds.join(',')}`)
   )
   const { isOnline } = useOffline()
-  const [{ search, categoryFilter, statusFilter, supplierFilter, shopFilter, noSku, noImage }, setFilter, resetFilters] = usePersistedFilters(
-    'stock', shop?.id, { search: '', categoryFilter: 'all', statusFilter: 'all', supplierFilter: 'all', shopFilter: 'all', noSku: false, noImage: false }
+  // Pas de filtre « Boutique » ici : la boutique affichée est celle du sélecteur de l'en-tête (effectiveShopIds),
+  // seule source de vérité — toutes les boutiques (produits regroupés par boutique) ou une boutique précise.
+  const [{ search, categoryFilter, statusFilter, supplierFilter, noSku, noImage }, setFilter, resetFilters] = usePersistedFilters(
+    'stock', shop?.id, { search: '', categoryFilter: 'all', statusFilter: 'all', supplierFilter: 'all', noSku: false, noImage: false }
   )
   // Signaux (péremption, ventes 30 j) : repris du cache local partagé avec la
   // Vue d'ensemble (lib/stock/signals), rafraîchis ensuite en arrière-plan.
@@ -251,7 +253,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const showArchived = fullStock && statusFilter === 'archived'
   // Filtres secondaires actifs (badge sur « Plus de filtres ») et lien « Réinitialiser »
   const extraFilterCount = (supplierFilter !== 'all' ? 1 : 0) + (noSku ? 1 : 0) + (noImage ? 1 : 0)
-  const anyFilterActive = !!search || categoryFilter !== 'all' || statusFilter !== 'all' || shopFilter !== 'all' || extraFilterCount > 0
+  const anyFilterActive = !!search || categoryFilter !== 'all' || statusFilter !== 'all' || extraFilterCount > 0
   // Mode sélection (cartes) : mêmes rôles qu'avant pour les actions groupées
   const canSelectProducts = canWriteStock || canWrite('categories') || canDeleteProducts
   const [archiveDateFrom, setArchiveDateFrom] = useState('')
@@ -529,7 +531,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         const hit = normalize(p.name).includes(q) || (!!p.sku && normalize(p.sku).includes(q))
         if (!hit) return false
       }
-      if (shopFilter !== 'all' && p.shop_id !== shopFilter) return false
       if (supplierFilter !== 'all' && p.supplier_id !== supplierFilter) return false
       if (noSku && p.sku) return false
       if (noImage && p.image_url) return false
@@ -1447,17 +1448,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               )}
             </SelectContent>
           </Select>
-          {isMultiShop && (
-            <Select value={shopFilter} onValueChange={v => setFilter({ shopFilter: v })}>
-              <SelectTrigger className="h-9 w-auto min-w-[160px] gap-1" aria-label={t('products.filter_shop')}><SelectValue placeholder={t('dashboard.all_shops')} /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('dashboard.all_shops')}</SelectItem>
-                {userShops.filter(s => effectiveShopIds.includes(s.id)).map(s => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm" className="h-9 gap-1.5">
