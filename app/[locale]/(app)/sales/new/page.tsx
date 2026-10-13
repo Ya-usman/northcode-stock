@@ -46,7 +46,7 @@ import dynamic from 'next/dynamic'
 import { cacheProducts, getCachedProducts, cacheCustomers, getCachedCustomers, savePendingSale, savePendingCustomerPayment, type PendingSalePayment } from '@/lib/offline/db'
 import { allocateCheckout, outstandingDebt } from '@/lib/utils/checkout-allocation'
 import { revalidateHeldCart, heldAgeDays, HELD_STALE_DAYS, type HeldCartChange } from '@/lib/utils/held-sales'
-import { fetchReservationRows, reservedByProduct, markReservationPending, flushReservations, type ReservationRow } from '@/lib/stock/reservations'
+import { fetchReservationRows, reservedByProduct, releasedHeldRefs, readSyncedAt, markReservationPending, flushReservations, type ReservationRow } from '@/lib/stock/reservations'
 import { clearPageCache, clearPageCacheByPrefix } from '@/lib/offline/page-cache'
 import { cashSuggestions } from '@/lib/utils/cash-suggestions'
 import { registerBackgroundSync, syncSoon, syncSaleNow } from '@/lib/offline/sync'
@@ -269,18 +269,28 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   // un simple avertissement à l'ajout, jamais de blocage. Les factures de CET appareil sont comptées
   // d'après l'appareil (connues même hors connexion) ; la facture reprise dans le panier ne compte pas.
   const [reservationRows, setReservationRows] = useState<ReservationRow[]>([])
+  // Heure de départ de la dernière lecture réussie (null : pas encore lue, l'appareil fait foi)
+  const [reservationsLoadedAt, setReservationsLoadedAt] = useState<number | null>(null)
   // Factures supprimées ou validées ici : leur réservation est libérée, même si le serveur ne l'a pas encore su
   const releasedRefsRef = useRef<Set<string>>(new Set())
   const loadReservations = useCallback(() => {
     if (!shop?.id) return
+    const started = Date.now()
     fetchReservationRows(supabase, [shop.id])
-      .then(rows => setReservationRows(rows.filter(r => !releasedRefsRef.current.has(r.source_ref))))
+      .then(rows => { setReservationRows(rows.filter(r => !releasedRefsRef.current.has(r.source_ref))); setReservationsLoadedAt(started) })
       .catch(() => { /* dernier état connu conservé */ })
   }, [shop?.id]) // eslint-disable-line react-hooks/exhaustive-deps
-  const reservedQtyByProduct = useMemo(
-    () => reservedByProduct(reservationRows, { localDrafts: drafts.filter(d => d.shopId === shop?.id), excludeRef: activeDraftId }),
-    [reservationRows, drafts, shop?.id, activeDraftId],
+  // Une facture de cet appareil déjà envoyée puis relue sur le serveur suit le serveur : libérée par un
+  // responsable (fiche produit), elle ne compte plus ici, et la liste des factures en attente le signale.
+  const reservedOptions = useMemo(
+    () => ({ localDrafts: drafts.filter(d => d.shopId === shop?.id), syncedAt: readSyncedAt(), rowsLoadedAt: reservationsLoadedAt }),
+    [reservationRows, drafts, shop?.id, reservationsLoadedAt], // eslint-disable-line react-hooks/exhaustive-deps
   )
+  const reservedQtyByProduct = useMemo(
+    () => reservedByProduct(reservationRows, { ...reservedOptions, excludeRef: activeDraftId }),
+    [reservationRows, reservedOptions, activeDraftId],
+  )
+  const releasedDrafts = useMemo(() => releasedHeldRefs(reservationRows, reservedOptions), [reservationRows, reservedOptions])
   const reservedRef = useRef<Record<string, number>>({})
   reservedRef.current = reservedQtyByProduct
   const reservedWarnedRef = useRef<Set<string>>(new Set())
@@ -2765,6 +2775,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                     <p className="text-sm font-semibold truncate">{draft.label || draft.customerName || 'Client anonyme'}</p>
                     {draft.label && draft.customerName && <p className="text-xs text-muted-foreground truncate">{draft.customerName}</p>}
                     {draft.customerPhone && <p className="text-xs text-muted-foreground">{draft.customerPhone}</p>}
+                    {releasedDrafts.has(draft.id) && <p className="mt-0.5 text-xs font-medium text-amber-700 dark:text-amber-300" data-testid="held-released">{t('sales.held_reservation_released')}</p>}
                     <p className={cn('text-xs mt-0.5', age >= HELD_STALE_DAYS ? 'text-amber-700 dark:text-amber-300 font-medium' : 'text-muted-foreground')}>
                       {itemCount} article{itemCount > 1 ? 's' : ''} · {when}
                     </p>

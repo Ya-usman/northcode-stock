@@ -40,7 +40,8 @@ import { useRestoredPhoto } from '@/lib/photo/use-restored-photo'
 import { ProductTable, ProductTableSkeleton, OPTIONAL_COLUMNS, type ProductColumnKey, type ProductSort, type ProductStatus } from '@/components/stock/product-table'
 import { useStockViewMode } from '@/lib/hooks/use-stock-view-mode'
 import { ProductActivityJournal } from '@/components/stock/product-activity-journal'
-import { fetchExpiryByProduct, fetchExpiredQtyByProduct, availableQty, stockLevelOf, fetchSoldQty30d, readSignalsCache, writeSignalsCache } from '@/lib/stock/signals'
+import { ProductDetailDrawer, type ProductDetailSection } from '@/components/stock/product-detail-drawer'
+import { fetchExpiryByProduct, fetchExpiredQtyByProduct, availableQty, stockLevelOf, stockQuantities, fetchSoldQty30dForShops, readSignalsCache, writeSignalsCache } from '@/lib/stock/signals'
 import { fetchStockPipeline, type StockPipeline } from '@/lib/stock/pipeline'
 import { fetchReservedQtyByProduct } from '@/lib/stock/reservations'
 import { ProductThumbnail } from '@/components/stock/product-thumbnail'
@@ -141,7 +142,10 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [expiryBatch, setExpiryBatch] = useState<any | null>(null)
   const [expiryDate, setExpiryDate] = useState('')
   const [savingExpiry, setSavingExpiry] = useState(false)
+  // Fiche produit : `batchesProduct` est le produit affiché ; la fiche s'ouvre en haut, ou sur ses lots (icône « Lots »)
   const [batchesProduct, setBatchesProduct] = useState<Product | null>(null)
+  const [detailSection, setDetailSection] = useState<ProductDetailSection>('top')
+  const [detailRefreshKey, setDetailRefreshKey] = useState(0)
   const [productBatches, setProductBatches] = useState<any[]>([])
   const [loadingBatches, setLoadingBatches] = useState(false)
   const [adjustBatch, setAdjustBatch] = useState<any | null>(null)
@@ -333,7 +337,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       writeSignalsCache(effectiveShopIds, { expiryByProduct: expiry })
     } catch { /* dernier état connu conservé */ }
     try {
-      const sold = await fetchSoldQty30d(supabase, effectiveShopIds)
+      const sold = await fetchSoldQty30dForShops(effectiveShopIds)
       setSoldQtyByProduct(sold)
       setSoldQtyLoaded(true)
       writeSignalsCache(effectiveShopIds, { soldQtyByProduct: sold })
@@ -361,10 +365,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     onOrder: !pipeline || pipeline.visible?.onOrder === false ? null : pipeline.byProduct[p.id]?.onOrder ?? 0,
   })
 
-  const openProductBatches = async (product: Product) => {
-    setBatchesProduct(product)
-    setProductBatches([])
-    setLoadingBatches(true)
+  const loadProductBatches = async (product: Product, quiet = false) => {
+    // quiet : relecture après une action, sans vider la liste affichée
+    if (!quiet) { setProductBatches([]); setLoadingBatches(true) }
     try {
       const { data } = await supabase
         .from('product_batches')
@@ -380,8 +383,23 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       setLoadingBatches(false)
     }
   }
+  const openProductDetail = (product: Product, section: ProductDetailSection = 'top') => {
+    setDetailSection(section)
+    setBatchesProduct(product)
+    loadProductBatches(product)
+  }
+  // Icône « Lots » : la fiche, ouverte directement sur ses lots
+  const openProductBatches = (product: Product) => openProductDetail(product, 'batches')
+  // Après une action (réassort, lot corrigé, promo…) : la fiche ouverte relit ses lots et ses chiffres
+  const refreshProductDetail = () => {
+    if (!batchesProduct) return
+    loadProductBatches(batchesProduct, true)
+    setDetailRefreshKey(k => k + 1)
+  }
 
   useEffect(() => { fetchProducts() }, [effectiveShopIds.join(',')])
+  // La liste vient d'être relue (réassort, modification, retour sur l'onglet) : la fiche ouverte suit
+  useEffect(() => { refreshProductDetail() }, [products]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Lien profond (Vue d'ensemble, tableau de bord…) : /stock/products?status=low
   // applique le filtre Statut puis nettoie l'URL, pour qu'un rechargement ne
@@ -707,7 +725,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       setPromoSuggestionReason(null)
       setPromoSuggestionKey(null)
       fetchProducts()
-      if (batchesProduct) openProductBatches(batchesProduct)
+      refreshProductDetail()
     } catch (err: any) {
       toast({ title: err.message || t('toast.error'), variant: 'destructive' })
     } finally {
@@ -737,7 +755,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       setPromoSuggestionReason(null)
       setPromoSuggestionKey(null)
       fetchProducts()
-      if (batchesProduct) openProductBatches(batchesProduct)
+      refreshProductDetail()
     } catch (err: any) {
       toast({ title: err.message || t('toast.error'), variant: 'destructive' })
     } finally {
@@ -759,7 +777,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       toast({ title: t('products.expiry_saved'), variant: 'success' })
       setExpiryBatch(null)
       fetchStockSignals()
-      if (batchesProduct) openProductBatches(batchesProduct)
+      refreshProductDetail()
     } catch (err: any) {
       toast({ title: err.message || t('toast.error'), variant: 'destructive' })
     } finally {
@@ -781,7 +799,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       toast({ title: t('products.expiry_saved'), variant: 'success' })
       setExpiryBatch(null)
       fetchStockSignals()
-      if (batchesProduct) openProductBatches(batchesProduct)
+      refreshProductDetail()
     } catch (err: any) {
       toast({ title: err.message || t('toast.error'), variant: 'destructive' })
     } finally {
@@ -804,7 +822,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       setAdjustBatch(null)
       fetchProducts()
       fetchStockSignals()
-      if (batchesProduct) openProductBatches(batchesProduct)
+      refreshProductDetail()
     } catch (err: any) {
       toast({ title: err.message || t('toast.error'), variant: 'destructive' })
     } finally {
@@ -827,7 +845,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       setDeleteBatchConfirm(null)
       fetchProducts()
       fetchStockSignals()
-      if (batchesProduct) openProductBatches(batchesProduct)
+      refreshProductDetail()
     } catch (err: any) {
       toast({ title: err.message || t('toast.error'), variant: 'destructive' })
     } finally {
@@ -1093,9 +1111,19 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 }
               </div>
             )}
-            <ProductThumbnail src={product.image_url} alt={product.name} className="h-10 w-10" />
+            {selectionMode ? (
+              <ProductThumbnail src={product.image_url} alt={product.name} className="h-10 w-10" />
+            ) : (
+              <button type="button" onClick={() => openProductDetail(product)} className="shrink-0 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={t('product_detail.open', { name: product.name })}>
+                <ProductThumbnail src={product.image_url} alt="" className="h-10 w-10" />
+              </button>
+            )}
             <div className="min-w-0 flex-1">
-              <p className="font-medium text-sm truncate">{product.name}</p>
+              {selectionMode ? (
+                <p className="font-medium text-sm truncate">{product.name}</p>
+              ) : (
+                <button type="button" onClick={() => openProductDetail(product)} data-product-name className="block max-w-full truncate rounded text-left text-sm font-medium hover:text-stockshop-blue hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-blue-400">{product.name}</button>
+              )}
               {product.sku && (
                 <p className="text-[10px] font-mono text-muted-foreground truncate">{product.sku}</p>
               )}
@@ -1170,14 +1198,16 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                   {t('actions.order')}
                 </Button>
               )}
-              <Button
-                variant="outline" size="sm" className="h-7 px-2 text-xs"
-                disabled={saving}
-                onClick={() => { setEditingProduct(null); setShowAddModal(false); setRestockProduct(product); restockForm.reset({ product_id: product.id, quantity: 1 }); setShowRestockModal(true) }}
-              >
-                <ArrowDown className="h-3 w-3 mr-1" />
-                {t('actions.restock')}
-              </Button>
+              {canWriteStock && (
+                <Button
+                  variant="outline" size="sm" className="h-7 px-2 text-xs"
+                  disabled={saving}
+                  onClick={() => { setEditingProduct(null); setShowAddModal(false); setRestockProduct(product); restockForm.reset({ product_id: product.id, quantity: 1 }); setShowRestockModal(true) }}
+                >
+                  <ArrowDown className="h-3 w-3 mr-1" />
+                  {t('actions.restock')}
+                </Button>
+              )}
               {canWriteStock && (
                 <Button variant="outline" size="sm" className="h-7 px-2" disabled={saving} onClick={() => { setShowAddModal(false); setShowRestockModal(false); setEditingProduct(product) }}>
                   <Edit2 className="h-3 w-3" />
@@ -1289,6 +1319,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     if (viewMode === 'table' && selectionMode && selectedIds.size === 0) setSelectionMode(false)
   }, [viewMode, selectionMode, selectedIds])
   const thresholdFor = (p: Product) => p.low_stock_threshold || shop?.low_stock_threshold || 10
+  // Produit de la fiche, dans sa version la plus récente de la liste (nom, prix, quantité après une modification)
+  const detailProduct = batchesProduct ? products.find(p => p.id === batchesProduct.id) ?? batchesProduct : null
+  const detailStatusLabel: Record<ProductStatus, string> = { out: t('status.out_of_stock'), low: t('status.low_stock'), dormant: t('products.card_dormant'), ok: t('status.in_stock') }
   const tableProps = {
     thresholdFor,
     statusFor: (p: Product): ProductStatus =>
@@ -1323,6 +1356,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     onEdit: (p: Product) => { setShowAddModal(false); setShowRestockModal(false); setEditingProduct(p) },
     onPromo: openPromoDialog,
     onBatches: openProductBatches,
+    onOpen: (p: Product) => openProductDetail(p),
     onArchive: (p: Product) => setArchiveConfirmProduct(p),
   }
 
@@ -1720,7 +1754,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         onOpenProduct={id => {
           const p = products.find(x => x.id === id)
           if (!p) return false
-          setShowAddModal(false); setShowRestockModal(false); setEditingProduct(p)
+          openProductDetail(p)
           return true
         }}
       />
@@ -2043,115 +2077,52 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         )}
       </PremiumDialog>
 
-      {/* Lots du produit : panneau de consultation, actions par lot dans de petites modales */}
-      <DetailDrawer
-        open={!!batchesProduct}
-        onOpenChange={open => { if (!open) setBatchesProduct(null) }}
-        category={t('products.batches_title')}
-        title={batchesProduct?.name || ''}
-        description={t('products.batches_hint')}
-        icon={<History className="h-4 w-4" />}
-        width="md"
-        testId="batches-drawer"
-      >
-        {batchesProduct && (
-          <>
-            <div>
-              {loadingBatches ? (
-                <div className="space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
-              ) : productBatches.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">{t('products.no_batches')}</p>
-              ) : (
-                <div className="space-y-2">
-                  {productBatches.map((b: any) => {
-                    const today = new Date().toISOString().slice(0, 10)
-                    const isExpired = b.expiry_date && b.expiry_date < today
-                    const sourceLabel = t(`products.batch_source_${b.source}` as any) || b.source
-                    const batchPromoActive = isPromoActive(b)
-                    return (
-                      <div key={b.id} className="rounded-lg border bg-card px-3 py-2.5 space-y-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-semibold flex items-center gap-1">
-                            {b.quantity} {unitLabelFor(batchesProduct.unit, b.quantity)}
-                            {canWriteStock && (
-                              <button
-                                className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-stockshop-blue dark:hover:text-blue-400"
-                                title={t('products.adjust_quantity_action')}
-                                onClick={() => { setAdjustBatch(b); setAdjustQuantity(String(b.quantity)); setAdjustReason('correction') }}
-                              >
-                                <Edit2 className="h-3 w-3" />
-                              </button>
-                            )}
-                          </span>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] font-medium rounded-full px-2 py-0.5 bg-muted text-muted-foreground">
-                              {sourceLabel}
-                            </span>
-                            {canWriteStock && (
-                              <button
-                                className={`h-6 w-6 flex items-center justify-center rounded ${batchPromoActive ? 'text-stockshop-blue dark:text-blue-400' : 'text-muted-foreground hover:text-amber-600 dark:hover:text-amber-400'}`}
-                                title={t('products.promo_action')}
-                                onClick={() => {
-                                  setPromoProduct(batchesProduct)
-                                  setPromoBatch(b)
-                                  setPromoInputMode('price')
-                                  setPromoPrice(b.promo_price ? String(b.promo_price) : '')
-                                  setPromoUntil(b.promo_until ? b.promo_until.slice(0, 10) : '')
-                                  setPromoStart(b.promo_start ? b.promo_start.slice(0, 10) : '')
-                                  setPromoSuggestionReason(null)
-                                  setPromoSuggestionKey(null)
-                                }}
-                              >
-                                <Tag className="h-3.5 w-3.5" />
-                              </button>
-                            )}
-                            {canWriteStock && (
-                              <button
-                                className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
-                                title={t('products.delete_batch_action')}
-                                onClick={() => { setDeleteBatchConfirm(b); setDeleteBatchReason('correction') }}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>{t('products.cost_label')}: {formatNaira(b.buying_price)}</span>
-                          <span>{t('products.received_on')}: {new Date(b.received_at).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          {b.expiry_date ? (
-                            <span className={`text-[10px] font-semibold rounded-full px-1.5 py-0.5 ${isExpired ? 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400' : 'bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400'}`}>
-                              {isExpired ? t('products.expired_badge') : t('products.expiring_badge', { date: new Date(b.expiry_date).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'short' }) })}
-                            </span>
-                          ) : (
-                            <span className="text-[10px] text-muted-foreground">{t('products.no_expiry_date')}</span>
-                          )}
-                          {canWriteStock && (
-                            <button
-                              className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-stockshop-blue dark:hover:text-blue-400"
-                              title={t('products.edit_expiry_action')}
-                              onClick={() => { setExpiryBatch(b); setExpiryDate(b.expiry_date ? b.expiry_date.slice(0, 10) : '') }}
-                            >
-                              <CalendarClock className="h-3 w-3" />
-                            </button>
-                          )}
-                          {batchPromoActive && (
-                            <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400">
-                              {t('products.promo_badge')}: {formatNaira(b.promo_price)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          </>
-        )}
-      </DetailDrawer>
+      {/* Fiche produit : quantités, réservations, lots, ventes, mouvements, achat. Les lots n'ont qu'UNE
+          implémentation (section de la fiche) ; leurs actions ouvrent les petites fenêtres ci-dessous. */}
+      <ProductDetailDrawer
+        product={detailProduct}
+        onClose={() => setBatchesProduct(null)}
+        section={detailSection}
+        refreshKey={detailRefreshKey}
+        fallbackQuantities={detailProduct ? stockQuantities({
+          physical: detailProduct.quantity,
+          expired: expiredQtyByProduct[detailProduct.id],
+          reserved: reservedQtyByProduct[detailProduct.id],
+          inTransit: pipelineFor(detailProduct).inTransit,
+          onOrder: pipelineFor(detailProduct).onOrder,
+        }) : null}
+        status={detailProduct ? tableProps.statusFor(detailProduct) : 'ok'}
+        statusLabels={detailStatusLabel}
+        promoActive={!!detailProduct && isPromoActive(detailProduct)}
+        formatPrice={formatNaira}
+        batches={{
+          batches: productBatches,
+          loading: loadingBatches,
+          canWrite: canWriteStock,
+          onAdjust: b => { setAdjustBatch(b); setAdjustQuantity(String(b.quantity)); setAdjustReason('correction') },
+          onPromo: b => {
+            setPromoProduct(batchesProduct)
+            setPromoBatch(b)
+            setPromoInputMode('price')
+            setPromoPrice(b.promo_price ? String(b.promo_price) : '')
+            setPromoUntil(b.promo_until ? b.promo_until.slice(0, 10) : '')
+            setPromoStart(b.promo_start ? b.promo_start.slice(0, 10) : '')
+            setPromoSuggestionReason(null)
+            setPromoSuggestionKey(null)
+          },
+          onDelete: b => { setDeleteBatchConfirm(b); setDeleteBatchReason('correction') },
+          onEditExpiry: b => { setExpiryBatch(b); setExpiryDate(b.expiry_date ? b.expiry_date.slice(0, 10) : '') },
+        }}
+        actions={{
+          // Mêmes fenêtres et mêmes routes que la liste ; chaque action n'est proposée qu'à qui peut la faire
+          onRestock: canWriteStock ? tableProps.onRestock : undefined,
+          onEdit: canWriteStock ? tableProps.onEdit : undefined,
+          onPromo: canWriteStock ? openPromoDialog : undefined,
+          onOrder: canOrderStock && detailProduct && levelOf(detailProduct) !== 'ok' ? tableProps.onOrder : undefined,
+          onArchive: fullStock ? (p: Product) => { setBatchesProduct(null); setArchiveConfirmProduct(p) } : undefined,
+        }}
+        onChanged={fetchStockSignals}
+      />
 
       {/* Correction de la date de péremption d'un lot */}
       <PremiumDialog

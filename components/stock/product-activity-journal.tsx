@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { Archive, ChevronDown, Edit2, ExternalLink, History, Plus, RotateCcw, Search, Tag, Trash2, X } from 'lucide-react'
+import { Archive, ChevronDown, Edit2, ExternalLink, History, Unlock, Plus, RotateCcw, Search, Tag, Trash2, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { withTimeout } from '@/lib/utils/with-timeout'
@@ -25,7 +25,7 @@ import { cn } from '@/lib/utils/cn'
 
 const PAGE = 50
 
-type ActionGroup = 'all' | 'created' | 'updated' | 'promo' | 'archived' | 'deleted'
+type ActionGroup = 'all' | 'created' | 'updated' | 'promo' | 'archived' | 'deleted' | 'reservation'
 type Period = 'all' | 'today' | '7d' | '30d' | 'custom'
 
 const GROUPS: Record<Exclude<ActionGroup, 'all'>, string[]> = {
@@ -34,6 +34,7 @@ const GROUPS: Record<Exclude<ActionGroup, 'all'>, string[]> = {
   promo: ['update_batch_promo', 'bulk_update_promo'],
   archived: ['archive_product', 'restore_product'],
   deleted: ['delete_product', 'bulk_delete_products', 'delete_all_products'],
+  reservation: ['stock.reservation_released'],
 }
 const ALL_ACTIONS = Object.values(GROUPS).flat()
 
@@ -48,6 +49,7 @@ const KIND: Record<string, { icon: typeof Plus; tone: string }> = {
   delete_product: { icon: Trash2, tone: 'bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400' },
   bulk_delete_products: { icon: Trash2, tone: 'bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400' },
   delete_all_products: { icon: Trash2, tone: 'bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400' },
+  'stock.reservation_released': { icon: Unlock, tone: 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400' },
 }
 
 const PRICE_FIELDS = new Set(['selling_price', 'buying_price', 'promo_price'])
@@ -194,6 +196,8 @@ export function ProductActivityJournal({ open, onOpenChange, shopId, onOpenProdu
         return { title: t('products.journal_bulk_promo_updated'), summary: t('products.journal_bulk_promo_detail', { count: meta.count, percent: meta.percent ?? 0 }) }
       case 'bulk_delete_products':
         return { title: t('products.journal_bulk_delete'), summary: tj('summary_count', { count: meta.count ?? 0 }) }
+      case 'stock.reservation_released':
+        return { title: meta.product_name || '—', summary: tj('summary_reservation_released', { count: meta.quantity ?? 0, invoice: meta.label || tj('reservation_unnamed') }) }
       default:
         return { title: t('products.all_deleted_toast'), summary: tj('summary_count', { count: meta.count ?? 0 }) }
     }
@@ -253,6 +257,9 @@ export function ProductActivityJournal({ open, onOpenChange, shopId, onOpenProdu
       if (meta.sku) rows.push({ label: fieldLabel('sku'), to: String(meta.sku) })
       if (meta.selling_price != null) rows.push({ label: fieldLabel('selling_price'), to: fmtValue('selling_price', meta.selling_price) })
       if (meta.quantity != null) rows.push({ label: tj('stock_at_deletion'), to: String(meta.quantity) })
+    } else if (log.action === 'stock.reservation_released') {
+      rows.push({ label: tj('reservation_invoice'), to: String(meta.label || tj('reservation_unnamed')) })
+      rows.push({ label: fieldLabel('quantity'), to: String(meta.quantity ?? 0) })
     } else if (log.action === 'bulk_update_promo') {
       rows.push({ label: tj('discount'), to: `${meta.percent ?? 0} %` })
       rows.push({ label: tj('products_affected'), to: String(meta.count ?? 0) })
@@ -383,6 +390,7 @@ export function ProductActivityJournal({ open, onOpenChange, shopId, onOpenProdu
                   <SelectItem value="promo">{tj('action_promo')}</SelectItem>
                   <SelectItem value="archived">{tj('action_archived')}</SelectItem>
                   <SelectItem value="deleted">{tj('action_deleted')}</SelectItem>
+                  <SelectItem value="reservation">{tj('action_reservation')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>

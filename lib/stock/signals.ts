@@ -93,8 +93,78 @@ export function availableQty(physical: number, expired: number | null | undefine
   return Math.max(0, p - e - Math.max(0, Number(reserved) || 0))
 }
 
-/** Quantité vendue par produit sur les 30 derniers jours (ventes actives). */
-export async function fetchSoldQty30d(supabase: Db, shopIds: string[]): Promise<Record<string, number>> {
+/**
+ * Les quantités d'un produit, calculées à UN seul endroit (tableau, cartes,
+ * fiche produit, serveur) :
+ *   physique   = quantité en rayon ;
+ *   périmé     = lots dont la date est dépassée (jamais plus que le physique) ;
+ *   réservé    = factures en attente encore vivantes ;
+ *   disponible = physique − périmé − réservé, jamais négatif.
+ * En transit / en commande : null quand l'information n'est pas connue ou pas
+ * visible pour ce rôle — jamais un zéro inventé.
+ */
+export interface StockQuantities {
+  physical: number
+  expired: number
+  reserved: number
+  available: number
+  inTransit: number | null
+  onOrder: number | null
+}
+
+export function stockQuantities(input: {
+  physical: number
+  expired?: number | null
+  reserved?: number | null
+  inTransit?: number | null
+  onOrder?: number | null
+}): StockQuantities {
+  const physical = Math.max(0, Number(input.physical) || 0)
+  const expired = Math.min(physical, Math.max(0, Number(input.expired) || 0))
+  const reserved = Math.max(0, Number(input.reserved) || 0)
+  const incoming = (v: number | null | undefined) => (v === null || v === undefined || !Number.isFinite(Number(v)) ? null : Math.max(0, Number(v)))
+  return {
+    physical, expired, reserved,
+    available: availableQty(physical, expired, reserved),
+    inTransit: incoming(input.inTransit),
+    onOrder: incoming(input.onOrder),
+  }
+}
+
+/**
+ * Couverture : combien de jours le stock VENDABLE (physique − périmé ; le
+ * réservé sera vendu lui aussi) tient au rythme des ventes des 30 derniers
+ * jours. Jamais de nombre absurde :
+ *   unknown   ventes pas encore connues ;
+ *   out       plus rien à vendre ;
+ *   no_sales  aucune vente sur 30 jours → pas de prévision ;
+ *   over_year plus de 365 jours → « plus d'un an », sans chiffre ;
+ *   days      nombre de jours (0 = moins d'un jour) ; `lowVolume` quand moins
+ *             de 3 unités vendues en 30 jours : estimation fragile.
+ */
+export type CoverageInfo =
+  | { kind: 'unknown' }
+  | { kind: 'out' }
+  | { kind: 'no_sales' }
+  | { kind: 'over_year' }
+  | { kind: 'days'; days: number; lowVolume: boolean }
+
+export const COVERAGE_LOW_VOLUME = 3
+export const COVERAGE_MAX_DAYS = 365
+
+export function coverageInfo(sellable: number, sold30d: number | null | undefined): CoverageInfo {
+  if (sold30d === null || sold30d === undefined || !Number.isFinite(Number(sold30d))) return { kind: 'unknown' }
+  const stock = Number(sellable)
+  if (!Number.isFinite(stock) || stock <= 0) return { kind: 'out' }
+  const sold = Number(sold30d)
+  if (sold <= 0) return { kind: 'no_sales' }
+  const days = Math.round(stock / (sold / 30))
+  if (!Number.isFinite(days) || days > COVERAGE_MAX_DAYS) return { kind: 'over_year' }
+  return { kind: 'days', days: Math.max(0, days), lowVolume: sold < COVERAGE_LOW_VOLUME }
+}
+
+/** Quantité vendue par produit sur les 30 derniers jours (ventes actives) ; `productId` limite la lecture à un produit. */
+export async function fetchSoldQty30d(supabase: Db, shopIds: string[], productId?: string): Promise<Record<string, number>> {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86_400_000).toISOString()
   // Une seule lecture jointe, page par page. L'ancienne version lisait d'abord
   // les ventes puis passait TOUS leurs identifiants dans l'adresse de la
@@ -104,12 +174,14 @@ export async function fetchSoldQty30d(supabase: Db, shopIds: string[]): Promise<
   const PAGE = 1000
   const map: Record<string, number> = {}
   for (let from = 0; from < 100 * PAGE; from += PAGE) {
-    const { data: items, error } = await withTimeout<any>(supabase
+    let query = supabase
       .from('sale_items')
       .select('id, product_id, quantity, sales!inner(shop_id, sale_status, created_at)')
       .in('sales.shop_id', shopIds)
       .eq('sales.sale_status', 'active')
       .gte('sales.created_at', thirtyDaysAgo)
+    if (productId) query = query.eq('product_id', productId)
+    const { data: items, error } = await withTimeout<any>(query
       .order('id', { ascending: true })
       .range(from, from + PAGE - 1), 20_000)
     if (error) throw error
@@ -120,6 +192,17 @@ export async function fetchSoldQty30d(supabase: Db, shopIds: string[]): Promise<
     if (!items || items.length < PAGE) break
   }
   return map
+}
+
+/**
+ * Ventes 30 j pour la liste du Stock, lues par le serveur (/api/stock/sold-30d).
+ * Dans le navigateur, la base ne montre à un caissier que SES ventes : la
+ * colonne valait 0 partout et tous les produits passaient en « Ventes lentes ».
+ */
+export async function fetchSoldQty30dForShops(shopIds: string[]): Promise<Record<string, number>> {
+  const res = await withTimeout(fetch(`/api/stock/sold-30d?shop_ids=${shopIds.join(',')}`), 20_000)
+  if (!res.ok) throw new Error(`sold-30d ${res.status}`)
+  return (await res.json()).byProduct || {}
 }
 
 // ── Règles de statut ───────────────────────────────────────────────────────

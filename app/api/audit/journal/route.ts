@@ -13,7 +13,7 @@ import { getApiTranslator } from '@/lib/api/i18n'
 const FEATURES: Record<string, { feature: 'stock' | 'expenses'; actions: string[]; search: string | null }> = {
   stock: {
     feature: 'stock',
-    actions: ['create_product', 'update_product', 'update_batch_promo', 'bulk_update_promo', 'archive_product', 'restore_product', 'delete_product', 'bulk_delete_products', 'delete_all_products'],
+    actions: ['create_product', 'update_product', 'update_batch_promo', 'bulk_update_promo', 'archive_product', 'restore_product', 'delete_product', 'bulk_delete_products', 'delete_all_products', 'stock.reservation_released'],
     search: 'metadata->>product_name',
   },
   expenses: { feature: 'expenses', actions: ['expense.delete'], search: null },

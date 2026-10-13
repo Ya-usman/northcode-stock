@@ -90,6 +90,7 @@ export type AuditAction =
   | 'supplier.import'
   | 'debt.opening_created'
   | 'debt.opening_cancelled'
+  | 'stock.reservation_released'
 
 interface AuditParams {
   action: AuditAction

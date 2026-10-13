@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils/cn'
 import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StockTabs } from '@/components/stock/stock-tabs'
-import { computeStockKpis, fetchExpiryByProduct, fetchExpiredQtyByProduct, fetchSoldQty30d, readSignalsCache, writeSignalsCache, type StockProductLike } from '@/lib/stock/signals'
+import { computeStockKpis, fetchExpiryByProduct, fetchExpiredQtyByProduct, fetchSoldQty30dForShops, readSignalsCache, writeSignalsCache, type StockProductLike } from '@/lib/stock/signals'
 import { fetchStockPipeline, type StockPipeline } from '@/lib/stock/pipeline'
 import { fetchReservedQtyByProduct } from '@/lib/stock/reservations'
 
@@ -132,7 +132,7 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
       writeSignalsCache(effectiveShopIds, { expiryByProduct: expiry })
     } catch { /* idem */ }
     try {
-      const sold = await fetchSoldQty30d(supabase, effectiveShopIds)
+      const sold = await fetchSoldQty30dForShops(effectiveShopIds)
       setSoldQtyByProduct(sold)
       setSoldQtyLoaded(true)
       writeSignalsCache(effectiveShopIds, { soldQtyByProduct: sold })

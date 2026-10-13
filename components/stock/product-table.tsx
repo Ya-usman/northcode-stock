@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { dateLocaleTag } from '@/lib/i18n/date-format'
-import { availableQty } from '@/lib/stock/signals'
+import { availableQty, coverageInfo, COVERAGE_MAX_DAYS } from '@/lib/stock/signals'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { Archive, ArrowDown, ArrowUp, ArrowUpDown, Edit2, History, MoreHorizontal, ShoppingCart, Tag } from 'lucide-react'
 import type { Product } from '@/lib/types/database'
@@ -74,6 +74,8 @@ export interface ProductTableProps {
   onSortChange: (sort: ProductSort) => void
   /** Colonnes optionnelles visibles (déjà filtrées selon le rôle) */
   columns: ProductColumnKey[]
+  /** Ouvre la fiche du produit (clic sur le nom ou la photo) */
+  onOpen: (p: Product) => void
   onOrder: (p: Product) => void
   onRestock: (p: Product) => void
   onEdit: (p: Product) => void
@@ -90,7 +92,7 @@ const STATUS_RANK: Record<ProductStatus, number> = { out: 0, low: 1, dormant: 2,
 // sinon la colonne Actions ferait déborder la page sur un portable.
 const ICON_BTN = 'h-8 w-8 !min-h-0 !min-w-0 p-0'
 
-const STATUS_CHIP: Record<ProductStatus, string> = {
+export const STATUS_CHIP: Record<ProductStatus, string> = {
   out: 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400',
   low: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
   dormant: 'bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-400',
@@ -99,17 +101,6 @@ const STATUS_CHIP: Record<ProductStatus, string> = {
 
 const CELL = 'px-2.5 py-2 align-middle'
 const CELL_NUM = cn(CELL, 'whitespace-nowrap text-right tabular-nums')
-
-/**
- * Couverture en jours au rythme des ventes des 30 derniers jours.
- * null : ventes pas encore chargées ; undefined : aucune vente (pas de
- * prévision trompeuse) ; sinon un nombre de jours arrondi.
- */
-export function coverageDays(quantity: number, sold30d: number | null): number | null | undefined {
-  if (sold30d === null) return null
-  if (sold30d <= 0) return undefined
-  return Math.round(quantity / (sold30d / 30))
-}
 
 export function ProductTableSkeleton({ rows = 6 }: { rows?: number }) {
   return (
@@ -132,7 +123,7 @@ export function ProductTableSkeleton({ rows = 6 }: { rows?: number }) {
 export function ProductTable({
   products, thresholdFor, statusFor, soldQty, expiryFor, expiredQty, reservedQty, pipelineFor, isPromoActive, promoStale, promoSuggestion,
   formatPrice, fullRights, canWriteStock, canOrderStock, busy, selectedIds, onToggleSelect, onToggleSelectMany,
-  sort, onSortChange, columns, onOrder, onRestock, onEdit, onPromo, onBatches, onArchive,
+  sort, onSortChange, columns, onOpen, onOrder, onRestock, onEdit, onPromo, onBatches, onArchive,
 }: ProductTableProps) {
   const t = useTranslations()
   const locale = useLocale()
@@ -154,7 +145,10 @@ export function ProductTable({
         case 'supplier': return p.suppliers?.name || ''
         case 'cost': return Number(p.buying_price || 0)
         case 'stockValue': return Number(p.quantity) * Number(p.buying_price || 0)
-        case 'coverage': { const c = coverageDays(p.quantity, soldQty(p)); return c == null ? Number.MAX_SAFE_INTEGER : c }
+        case 'coverage': {
+          const c = coverageInfo(availableQty(p.quantity, expiredQty(p)), soldQty(p))
+          return c.kind === 'days' ? c.days : c.kind === 'out' ? 0 : c.kind === 'over_year' ? COVERAGE_MAX_DAYS + 1 : Number.MAX_SAFE_INTEGER
+        }
       }
     }
     return [...products].sort((a, b) => {
@@ -259,12 +253,13 @@ export function ProductTable({
             const expiry = expiryFor(product)
             const sold = soldQty(product)
             const incoming = pipelineFor(product)
-            const coverage = coverageDays(product.quantity, sold)
             const stickyBg = selected ? 'bg-stockshop-blue-muted dark:bg-blue-950/60' : 'bg-card'
             // Disponible = physique − périmé − réservé (lib/stock/signals)
             const expired = Math.min(product.quantity, expiredQty(product))
             const reserved = reservedQty(product)
             const available = availableQty(product.quantity, expired, reserved)
+            // Couverture : stock vendable (physique − périmé) au rythme des ventes — règle commune, jamais de nombre absurde
+            const coverage = coverageInfo(product.quantity - expired, sold)
             const qtyTone = available === 0 ? 'text-red-500' : available <= threshold ? 'text-amber-500' : ''
             return (
               <tr
@@ -282,13 +277,15 @@ export function ProductTable({
                 </td>
                 <td className={cn('sticky left-9 z-10 max-w-[200px] max-sm:border-r', CELL, stickyBg)}>
                   <div className="flex items-center gap-2.5">
-                    <ProductThumbnail src={product.image_url} alt={product.name} className="h-9 w-9 shrink-0" />
+                    <button type="button" onClick={() => onOpen(product)} className="shrink-0 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={t('product_detail.open', { name: product.name })}>
+                      <ProductThumbnail src={product.image_url} alt="" className="h-9 w-9" />
+                    </button>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         {product.categories?.color && (
                           <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: product.categories.color }} aria-hidden="true" />
                         )}
-                        <p className="truncate font-medium">{product.name}</p>
+                        <button type="button" onClick={() => onOpen(product)} data-product-name className="min-w-0 truncate rounded text-left font-medium hover:text-stockshop-blue hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-blue-400" title={t('product_detail.open', { name: product.name })}>{product.name}</button>
                       </div>
                       {product.sku && <p className="truncate font-mono text-[10px] text-muted-foreground sm:hidden">{product.sku}</p>}
                       {(promoActive || expiry?.expired || expiry?.soon) && (
@@ -381,8 +378,11 @@ export function ProductTable({
                   {sold === null ? dash : <span className={cn(sold === 0 && product.quantity > 0 && 'text-muted-foreground')}>{sold}</span>}
                 </td>
                 {show('coverage') && (
-                  <td className={CELL_NUM} title={coverage === undefined ? t('products.coverage_none') : t('products.coverage_hint')}>
-                    {coverage == null ? dash : <span className={cn(coverage <= 7 && 'font-semibold text-amber-600 dark:text-amber-400')}>{coverage} j</span>}
+                  <td className={CELL_NUM} title={coverage.kind === 'no_sales' ? t('products.coverage_none') : t('products.coverage_hint')}>
+                    {coverage.kind === 'days' ? <span className={cn(coverage.days <= 7 && 'font-semibold text-amber-600 dark:text-amber-400')}>{coverage.days} j</span>
+                      : coverage.kind === 'out' ? <span className="font-semibold text-amber-600 dark:text-amber-400">0 j</span>
+                      : coverage.kind === 'over_year' ? <span className="text-muted-foreground">&gt; {COVERAGE_MAX_DAYS} j</span>
+                      : dash}
                   </td>
                 )}
                 <td className={cn('whitespace-nowrap', CELL)}>
@@ -392,10 +392,12 @@ export function ProductTable({
                 </td>
                 <td className={cn('whitespace-nowrap text-right', CELL)}>
                   <div className="inline-flex items-center gap-0.5">
-                    <Button variant="outline" size="sm" className={ICON_BTN} disabled={busy} title={t('actions.restock')} onClick={() => onRestock(product)}>
-                      <ArrowDown className="h-3 w-3" />
-                      <span className="sr-only">{t('actions.restock')}</span>
-                    </Button>
+                    {canWriteStock && (
+                      <Button variant="outline" size="sm" className={ICON_BTN} disabled={busy} title={t('actions.restock')} onClick={() => onRestock(product)}>
+                        <ArrowDown className="h-3 w-3" />
+                        <span className="sr-only">{t('actions.restock')}</span>
+                      </Button>
+                    )}
                     {canWriteStock && (
                       <Button variant="outline" size="sm" className={ICON_BTN} disabled={busy} title={t('products.edit_title')} onClick={() => onEdit(product)}>
                         <Edit2 className="h-3 w-3" />

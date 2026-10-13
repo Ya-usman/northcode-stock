@@ -76,27 +76,67 @@ export function reservationExpiry(nowMs: number, ageMs: unknown): Date | null {
  *   priment sur leur copie serveur (connues même hors connexion) et suivent la
  *   même limite de 24 h ;
  * - `excludeRef` (caisse) : la facture reprise, en cours dans le panier — ses
- *   articles ne sont pas « pris par quelqu'un d'autre ».
+ *   articles ne sont pas « pris par quelqu'un d'autre » ;
+ * - `syncedAt` + `rowsLoadedAt` (caisse) : une facture de cet appareil dont la
+ *   réservation a bien été envoyée, puis relue sur le serveur APRÈS cet envoi,
+ *   suit le serveur — si un responsable l'a libérée depuis la fiche produit,
+ *   elle ne compte plus ici non plus.
  */
 export function reservedByProduct(
   rows: ReservationRow[],
-  opts: { localDrafts?: HeldDraftLike[]; excludeRef?: string | null; now?: number } = {},
+  opts: ReservedOptions = {},
 ): Record<string, number> {
   const local = opts.localDrafts || []
   const localRefs = new Set(local.map(d => d.id))
   const now = opts.now ?? Date.now()
+  const trustServer = serverTruth(opts)
   const map: Record<string, number> = {}
   const add = (id: string, qty: number) => { if (id && qty > 0) map[id] = (map[id] || 0) + qty }
   for (const r of rows) {
-    if (r.source_ref === opts.excludeRef || localRefs.has(r.source_ref)) continue
+    if (r.source_ref === opts.excludeRef) continue
+    if (localRefs.has(r.source_ref) && !trustServer(r.source_ref)) continue
     add(r.product_id, Number(r.quantity) || 0)
   }
   for (const d of local) {
-    if (d.id === opts.excludeRef) continue
+    if (d.id === opts.excludeRef || trustServer(d.id)) continue
     if (now - new Date(d.createdAt).getTime() >= RESERVATION_TTL_MS) continue
     for (const i of d.cart || []) add(i.product?.id, Math.floor(Number(i.quantity) || 0))
   }
   return map
+}
+
+export interface ReservedOptions {
+  localDrafts?: HeldDraftLike[]
+  excludeRef?: string | null
+  now?: number
+  /** Factures de cet appareil dont la réservation a été envoyée : identifiant → heure de l'envoi */
+  syncedAt?: Record<string, number>
+  /** Heure de DÉPART de la dernière lecture réussie des réservations (absente = jamais lue) */
+  rowsLoadedAt?: number | null
+}
+
+/** Le serveur fait foi pour une facture locale quand il a été relu après l'envoi de sa réservation. */
+function serverTruth(opts: ReservedOptions): (ref: string) => boolean {
+  const { syncedAt, rowsLoadedAt } = opts
+  return ref => rowsLoadedAt != null && syncedAt?.[ref] != null && rowsLoadedAt >= syncedAt[ref]
+}
+
+/**
+ * Factures en attente de cet appareil dont la réservation n'existe plus sur
+ * le serveur alors qu'elle y avait été envoyée et qu'elle a moins de 24 h :
+ * un responsable l'a libérée. La caisse le signale sur la facture.
+ */
+export function releasedHeldRefs(rows: ReservationRow[], opts: ReservedOptions = {}): Set<string> {
+  const trustServer = serverTruth(opts)
+  const now = opts.now ?? Date.now()
+  const live = new Set(rows.map(r => r.source_ref))
+  const out = new Set<string>()
+  for (const d of opts.localDrafts || []) {
+    if (!trustServer(d.id) || live.has(d.id)) continue
+    if (now - new Date(d.createdAt).getTime() >= RESERVATION_TTL_MS) continue
+    if ((d.cart || []).length) out.add(d.id)
+  }
+  return out
 }
 
 // ── Lecture (navigateur, membres de la boutique) ───────────────────────────
@@ -134,6 +174,19 @@ export async function fetchReservedQtyByProduct(supabase: Db, shopIds: string[])
 // l'appareil » — facture encore là → réserver ; facture disparue → libérer.
 
 const PENDING_KEY = 'nc_reservation_sync'
+const SYNCED_KEY = 'nc_reservation_synced'
+
+/** Factures de cet appareil dont la réservation est partie : identifiant → heure de l'envoi. */
+export function readSyncedAt(): Record<string, number> {
+  try { return JSON.parse(localStorage.getItem(SYNCED_KEY) || '{}') || {} } catch { return {} }
+}
+function setSynced(ref: string, at: number | null): void {
+  try {
+    const map = readSyncedAt()
+    if (at === null) delete map[ref]; else map[ref] = at
+    localStorage.setItem(SYNCED_KEY, JSON.stringify(map))
+  } catch { /* stockage refusé : la facture reste comptée d'après l'appareil */ }
+}
 type PendingMap = Record<string, { shopId: string; n: number }>
 
 function readPending(): PendingMap | null {
@@ -155,6 +208,8 @@ export function markReservationPending(sourceRef: string, shopId: string): void 
   const map = readPending() || {}
   map[sourceRef] = { shopId, n: Date.now() * 100 + (counter++ % 100) }
   writePending(map)
+  // Tant que le nouvel état n'est pas parti, l'appareil fait foi pour cette facture
+  setSynced(sourceRef, null)
 }
 
 let chain: Promise<unknown> = Promise.resolve()
@@ -195,7 +250,7 @@ export function flushReservations(readDrafts: () => HeldDraftLike[]): Promise<bo
         // Refus définitif (droit retiré, donnée invalide) : inutile de réessayer.
         // Erreur du serveur ou trop de demandes : on réessaiera.
         settled = res.ok || (res.status >= 400 && res.status < 500 && res.status !== 429)
-        if (res.ok) changed = true
+        if (res.ok) { changed = true; setSynced(ref, draft ? Date.now() : null) }
       } catch { /* hors connexion : reste noté */ }
       if (settled) {
         // La facture a pu rechanger pendant l'envoi : sa note est alors plus récente, on la garde

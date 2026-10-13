@@ -2,7 +2,8 @@
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
 
-// GET /api/stock/movements?shop_ids=id1,id2&type=in&from=2026-01-01&to=2026-12-31
+// GET /api/stock/movements?shop_ids=id1,id2&type=in&from=2026-01-01&to=2026-12-31[&product_id=…&limit=10]
+// product_id : historique d'un seul produit (fiche produit, onglet Mouvements filtré) ; limit : 1 à 500.
 export async function GET(request: Request) {
   const t = getApiTranslator(request)
   try {
@@ -29,10 +30,16 @@ export async function GET(request: Request) {
       .select('id, type, quantity, previous_qty, new_qty, reason, notes, created_at, product_id, performed_by, shop_id')
       .in('shop_id', allowedIds)
       .order('created_at', { ascending: false })
-      .limit(500)
+      .limit(Math.min(500, Math.max(1, Number(searchParams.get('limit')) || 500)))
 
     const typeFilter = searchParams.get('type')
     if (typeFilter) query = query.eq('type', typeFilter)
+
+    const productId = searchParams.get('product_id')
+    if (productId) {
+      if (!/^[0-9a-f-]{36}$/i.test(productId)) return NextResponse.json({ error: t('invalid_data') }, { status: 400 })
+      query = query.eq('product_id', productId)
+    }
 
     const from = searchParams.get('from')
     const to   = searchParams.get('to')

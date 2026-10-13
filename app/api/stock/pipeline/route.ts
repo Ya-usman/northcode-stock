@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { canViewFeature } from '@/lib/api/role-permissions'
-import { fetchAllRows } from '@/lib/dashboard/fetch-rows'
-import { computeStockPipeline, type PipelineOrder, type PipelineProduct, type PipelineTransfer } from '@/lib/stock/pipeline'
+import { loadStockPipeline } from '@/lib/stock/pipeline-load'
 
 // GET /api/stock/pipeline?shop_ids=a,b
 // Stock « à venir » des boutiques demandées : en transit (transferts envoyés
@@ -43,39 +42,7 @@ export async function GET(request: Request) {
 
     const admin = await createAdminClient() as any
 
-    const [products, transfers, orders] = await Promise.all([
-      fetchAllRows<PipelineProduct>(() => admin
-        .from('products').select('id, shop_id, name, sku')
-        .in('shop_id', stockShops).eq('is_active', true)
-        .order('id', { ascending: true })),
-      transferShops.length
-        ? fetchAllRows<any>(() => admin
-            .from('stock_transfers')
-            .select('id, destination_shop_id, stock_transfer_items(source_product_id, destination_product_id, product_name, quantity_sent)')
-            .in('destination_shop_id', transferShops).eq('status', 'sent')
-            .order('id', { ascending: true }))
-        : Promise.resolve([]),
-      orderShops.length
-        ? fetchAllRows<any>(() => admin
-            .from('purchase_orders')
-            .select('id, shop_id, purchase_order_items(product_id, quantity_ordered)')
-            .in('shop_id', orderShops).eq('status', 'sent')
-            .order('id', { ascending: true }))
-        : Promise.resolve([]),
-    ])
-
-    const pipelineTransfers: PipelineTransfer[] = transfers.map((tr: any) => ({ id: tr.id, destination_shop_id: tr.destination_shop_id, items: tr.stock_transfer_items || [] }))
-    const pipelineOrders: PipelineOrder[] = orders.map((po: any) => ({ id: po.id, shop_id: po.shop_id, items: po.purchase_order_items || [] }))
-
-    // Code-barres des produits d'origine des transferts (rattachement côté destination)
-    const sourceIds = Array.from(new Set(pipelineTransfers.flatMap(tr => tr.items.map(i => i.source_product_id).filter(Boolean)))) as string[]
-    const sourceSku: Record<string, string | null> = {}
-    if (sourceIds.length) {
-      const { data: src } = await admin.from('products').select('id, sku').in('id', sourceIds)
-      for (const p of src || []) sourceSku[p.id] = p.sku
-    }
-
-    const pipeline = computeStockPipeline(products, pipelineTransfers, pipelineOrders, sourceSku)
+    const pipeline = await loadStockPipeline(admin, { stockShops, transferShops, orderShops })
     return NextResponse.json({
       ...pipeline,
       visible: {

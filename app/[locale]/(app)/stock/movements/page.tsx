@@ -3,7 +3,11 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
-import { Search, Calendar, Package, ArrowRight, History, ClipboardCheck } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Search, Calendar, Package, ArrowRight, History, ClipboardCheck, X } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { MovementList } from '@/components/stock/movement-list'
+import { movementReasonText } from '@/lib/stock/movement-reason'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
@@ -64,6 +68,14 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
     'movements', shop?.id, { search: '', dateFrom: '', dateTo: '' }
   )
 
+  // Filtre « un seul produit », posé par l'adresse (?product=…) : lien « Tout voir » de la fiche produit.
+  // Il n'est pas mémorisé avec les autres filtres : on le retire d'un toucher, et l'onglet redevient normal.
+  const router = useRouter()
+  const productParam = useSearchParams().get('product')
+  const productFilter = productParam && /^[0-9a-f-]{36}$/i.test(productParam) ? productParam : null
+  const [productMovements, setProductMovements] = useState<Movement[] | null>(null)
+  const [productName, setProductName] = useState<string | null>(null)
+
   const [movements, setMovements] = useState<Movement[]>([])
   const [loading, setLoading] = useState(true)
   const [openProduct, setOpenProduct] = useState<ProductSummary | null>(null)
@@ -75,7 +87,7 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
   const openTotalQty = openProduct ? openProduct.restocks.reduce((s, m) => s + m.quantity, 0) : 0
 
   const fetchMovements = useCallback(() => {
-    if (!effectiveShopIds.length) return
+    if (!effectiveShopIds.length || productFilter) return
     const params = new URLSearchParams({ shop_ids: effectiveShopIds.join(',') })
     if (dateFrom) params.set('from', dateFrom)
     if (dateTo)   params.set('to', dateTo)
@@ -99,9 +111,32 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
         // cache already shown if available
         setLoading(false)
       })
-  }, [effectiveShopIds.join(','), dateFrom, dateTo])
+  }, [effectiveShopIds.join(','), dateFrom, dateTo, productFilter])
 
   useEffect(() => { fetchMovements() }, [fetchMovements])
+
+  // Tous les mouvements du produit filtré (entrées, ventes, sorties, ajustements), lus par le serveur
+  const fetchProductMovements = useCallback(() => {
+    if (!productFilter || !effectiveShopIds.length) return
+    const params = new URLSearchParams({ shop_ids: effectiveShopIds.join(','), product_id: productFilter })
+    if (dateFrom) params.set('from', dateFrom)
+    if (dateTo)   params.set('to', dateTo)
+    withTimeout(fetch(`/api/stock/movements?${params}`), 20_000, 'Chargement des mouvements trop lent — réessayez.')
+      .then(r => r.json())
+      .then(data => setProductMovements(data.movements || []))
+      .catch(() => setProductMovements(prev => prev ?? []))
+  }, [productFilter, effectiveShopIds.join(','), dateFrom, dateTo])
+  useEffect(() => { setProductMovements(null); fetchProductMovements() }, [fetchProductMovements])
+  useRefetchOnVisible(fetchProductMovements)
+  // Nom du produit pour l'étiquette du filtre (même sans aucun mouvement sur la période)
+  useEffect(() => {
+    setProductName(null)
+    if (!productFilter) return
+    let alive = true
+    ;(createClient() as any).from('products').select('name').eq('id', productFilter).maybeSingle()
+      .then(({ data }: any) => { if (alive && data?.name) setProductName(data.name) })
+    return () => { alive = false }
+  }, [productFilter])
 
   // Refresh when the user comes back to this tab — catches restocks/
   // adjustments made by other team members in the meantime.
@@ -176,6 +211,50 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
   const totalRestocks = movements
     .filter(m => m.type === 'in' && m.reason !== 'Stock initial')
     .reduce((s, m) => s + m.quantity, 0)
+
+  if (productFilter) {
+    const list = productMovements
+    const name = productName || list?.find(m => m.product_name)?.product_name || t('product')
+    return (
+      <div className="space-y-4">
+        <StockTabs locale={locale} />
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Filtre produit : toujours visible, retiré d'un toucher */}
+          <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-stockshop-blue/30 bg-stockshop-blue-muted py-1 pl-3 pr-1 text-sm text-stockshop-blue dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300" data-testid="movements-product-filter">
+            <Package className="h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0 truncate">{t('product')} : <strong className="font-semibold">{name}</strong></span>
+            <button
+              type="button"
+              onClick={() => router.replace(`/${locale}/stock/movements`)}
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full hover:bg-stockshop-blue/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-blue-900/50"
+              aria-label={t('filter_product_remove')}
+              title={t('filter_product_remove')}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </span>
+          <div className="flex items-center gap-1">
+            <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <Input type="date" value={dateFrom} onChange={e => setFilter({ dateFrom: e.target.value })} className="h-9 w-[130px] text-xs" />
+            <span className="text-muted-foreground text-xs">→</span>
+            <Input type="date" value={dateTo} onChange={e => setFilter({ dateTo: e.target.value })} className="h-9 w-[130px] text-xs" />
+          </div>
+        </div>
+        {list === null ? (
+          <div className="space-y-1">{[...Array(6)].map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
+        ) : (
+          <>
+            <p className="text-xs text-muted-foreground">{t('product_movements_count', { count: list.length })}</p>
+            {list.length === 0 ? (
+              <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">{t('no_movements')}</div>
+            ) : (
+              <div className="rounded-xl border bg-card px-4 py-3 shadow-sm"><MovementList movements={list} /></div>
+            )}
+          </>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">
@@ -389,7 +468,7 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
                       <div className="flex-1 min-w-0">
                         {/* Reason */}
                         <p className="text-sm font-semibold text-foreground truncate">
-                          {m.reason || (isAdjustment ? t('type_adjustment') : t('restock_history'))}
+                          {movementReasonText(m.reason, t as any) || (isAdjustment ? t('type_adjustment') : t('restock_history'))}
                         </p>
                         {/* Date + performer */}
                         <p className="text-xs text-muted-foreground mt-0.5">
