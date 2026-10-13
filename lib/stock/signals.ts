@@ -12,6 +12,8 @@ import { getPageCache, setPageCache } from '@/lib/offline/page-cache'
 export interface CachedSignals {
   expiryByProduct?: Record<string, string>
   soldQtyByProduct?: Record<string, number>
+  /** Stock à venir (en transit, en commande) — lib/stock/pipeline */
+  pipeline?: import('./pipeline').StockPipeline
 }
 
 const SIGNALS_MAX_AGE_MS = 24 * 60 * 60 * 1000

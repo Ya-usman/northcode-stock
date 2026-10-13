@@ -6,7 +6,7 @@ import { startNavigationProgress } from '@/components/layout/navigation-progress
 import { useTranslations } from 'next-intl'
 import {
   ArrowRight, CalendarClock, CheckCircle2, Lightbulb, Package, PackageMinus, PackageX,
-  ShoppingCart, Tag, TrendingDown, Wallet, AlertTriangle,
+  ShoppingCart, Tag, TrendingDown, Wallet, AlertTriangle, Truck, ClipboardList,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -23,6 +23,7 @@ import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StockTabs } from '@/components/stock/stock-tabs'
 import { computeStockKpis, fetchExpiryByProduct, fetchSoldQty30d, readSignalsCache, writeSignalsCache, type StockProductLike } from '@/lib/stock/signals'
+import { fetchStockPipeline, type StockPipeline } from '@/lib/stock/pipeline'
 
 // Vue d'ensemble du module Stock : six chiffres clés cliquables (chacun ouvre
 // les produits concernés, filtre appliqué par ?status=) et une zone
@@ -74,7 +75,7 @@ function KpiCard({ label, value, hint, icon: Icon, tone = 'neutral', onClick, cl
 export default function StockOverviewPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations()
   const router = useRouter()
-  const { shop, effectiveShopIds, profile, roleInActiveShop } = useAuth()
+  const { shop, effectiveShopIds, profile, roleInActiveShop, userShops } = useAuth()
   const effectiveRole = roleInActiveShop ?? profile?.role
   const { fmt } = useCurrency()
   const { isOnline } = useOffline()
@@ -88,6 +89,8 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
   const [expiryByProduct, setExpiryByProduct] = useState<Record<string, string>>(() => readSignalsCache(effectiveShopIds)?.expiryByProduct ?? {})
   const [soldQtyByProduct, setSoldQtyByProduct] = useState<Record<string, number>>(() => readSignalsCache(effectiveShopIds)?.soldQtyByProduct ?? {})
   const [soldQtyLoaded, setSoldQtyLoaded] = useState(() => !!readSignalsCache(effectiveShopIds)?.soldQtyByProduct)
+  // Stock à venir (en transit, en commande) : null tant qu'il n'est ni en cache ni chargé
+  const [pipeline, setPipeline] = useState<StockPipeline | null>(() => readSignalsCache(effectiveShopIds)?.pipeline ?? null)
 
   const fetchAll = async () => {
     if (!effectiveShopIds.length) return
@@ -129,6 +132,11 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
       setSoldQtyLoaded(true)
       writeSignalsCache(effectiveShopIds, { soldQtyByProduct: sold })
     } catch { /* idem */ }
+    try {
+      const incoming = await fetchStockPipeline(effectiveShopIds)
+      setPipeline(incoming)
+      writeSignalsCache(effectiveShopIds, { pipeline: incoming })
+    } catch { /* idem */ }
   }
 
   useEffect(() => { fetchAll() }, [effectiveShopIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -169,6 +177,10 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
     router.push(href)
   }
   const reorderCount = kpis.out + kpis.low
+  // Stock à venir : une carte par notion que la personne a le droit de voir ; l'en-transit n'a de sens qu'avec plusieurs boutiques
+  const showTransit = !!pipeline && pipeline.visible?.inTransit !== false && userShops.length > 1
+  const showOnOrder = !!pipeline && pipeline.visible?.onOrder !== false
+  const goTo = (href: string) => { startNavigationProgress(href); router.push(href) }
 
   // Opportunités : seulement celles qui ont quelque chose à montrer
   const opportunities = [
@@ -241,6 +253,31 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
               onClick={() => goToProducts('dormant')}
             />
           </section>
+
+          {/* Stock à venir : ce qui n'est pas encore en rayon mais arrive (transferts envoyés, commandes envoyées) */}
+          {(showTransit || showOnOrder) && pipeline && (
+            <section aria-label={t('stock_overview.incoming_label')} className="space-y-2">
+              <h2 className="text-sm font-semibold">{t('stock_overview.incoming_label')}</h2>
+              <div className="grid grid-cols-2 gap-3">
+                {showTransit && (
+                  <KpiCard
+                    className={showOnOrder ? undefined : 'col-span-2'} icon={Truck}
+                    label={t('stock_overview.kpi_in_transit')} value={pipeline.totals.inTransitUnits}
+                    hint={pipeline.totals.inTransitTransfers > 0 ? t('stock_overview.hint_transfers', { count: pipeline.totals.inTransitTransfers }) : t('stock_overview.hint_none_transit')}
+                    onClick={() => goTo(`/${locale}/stock/transfers`)}
+                  />
+                )}
+                {showOnOrder && (
+                  <KpiCard
+                    className={showTransit ? undefined : 'col-span-2'} icon={ClipboardList}
+                    label={t('stock_overview.kpi_on_order')} value={pipeline.totals.onOrderUnits}
+                    hint={pipeline.totals.onOrderOrders > 0 ? t('stock_overview.hint_orders', { count: pipeline.totals.onOrderOrders }) : t('stock_overview.hint_none_order')}
+                    onClick={() => goTo(`/${locale}/suppliers?view=purchase_orders`)}
+                  />
+                )}
+              </div>
+            </section>
+          )}
 
           {/* Opportunités : l'état du stock traduit en actions */}
           <section aria-label={t('stock_overview.opportunities_title')} className="rounded-xl border bg-card shadow-sm">

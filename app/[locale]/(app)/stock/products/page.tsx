@@ -41,6 +41,7 @@ import { ProductTable, ProductTableSkeleton, OPTIONAL_COLUMNS, PENDING_COLUMNS, 
 import { useStockViewMode } from '@/lib/hooks/use-stock-view-mode'
 import { ProductActivityJournal } from '@/components/stock/product-activity-journal'
 import { fetchExpiryByProduct, fetchSoldQty30d, readSignalsCache, writeSignalsCache } from '@/lib/stock/signals'
+import { fetchStockPipeline, type StockPipeline } from '@/lib/stock/pipeline'
 import { ProductThumbnail } from '@/components/stock/product-thumbnail'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
@@ -121,6 +122,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   // doit pas prendre « pas encore chargé » pour « zéro vente confirmée »,
   // sinon tout produit en stock passerait brièvement pour dormant.
   const [soldQtyLoaded, setSoldQtyLoaded] = useState(() => !!readSignalsCache(effectiveShopIds)?.soldQtyByProduct)
+  // Stock à venir (en transit, en commande) : null tant qu'il n'est ni en cache ni chargé
+  const [pipeline, setPipeline] = useState<StockPipeline | null>(() => readSignalsCache(effectiveShopIds)?.pipeline ?? null)
   const [promoProduct, setPromoProduct] = useState<Product | null>(null)
   const [promoPrice, setPromoPrice] = useState('')
   const [promoUntil, setPromoUntil] = useState('')
@@ -330,7 +333,18 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       setSoldQtyLoaded(true)
       writeSignalsCache(effectiveShopIds, { soldQtyByProduct: sold })
     } catch { /* idem */ }
+    try {
+      const incoming = await fetchStockPipeline(effectiveShopIds)
+      setPipeline(incoming)
+      writeSignalsCache(effectiveShopIds, { pipeline: incoming })
+    } catch { /* idem */ }
   }
+
+  // Stock à venir d'un produit : null = pas encore connu ou non visible pour ce rôle (jamais confondu avec zéro)
+  const pipelineFor = (p: Product) => ({
+    inTransit: !pipeline || pipeline.visible?.inTransit === false ? null : pipeline.byProduct[p.id]?.inTransit ?? 0,
+    onOrder: !pipeline || pipeline.visible?.onOrder === false ? null : pipeline.byProduct[p.id]?.onOrder ?? 0,
+  })
 
   const openProductBatches = async (product: Product) => {
     setBatchesProduct(product)
@@ -1103,6 +1117,16 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             <span className="text-xs text-muted-foreground">{t('products.cost_label')}: {formatNaira(product.buying_price)}</span>
           )}
         </div>
+        {(() => {
+          const inc = pipelineFor(product)
+          if (!inc.inTransit && !inc.onOrder) return null
+          return (
+            <p className="flex flex-wrap gap-x-2 text-xs font-medium text-stockshop-blue dark:text-blue-400">
+              {!!inc.inTransit && <span title={t('products.in_transit_hint')}>{t('products.incoming_transit', { count: inc.inTransit })}</span>}
+              {!!inc.onOrder && <span title={t('products.on_order_hint')}>{t('products.incoming_order', { count: inc.onOrder })}</span>}
+            </p>
+          )
+        })()}
         {!selectionMode && (
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
             <span className="whitespace-nowrap text-sm">
@@ -1243,6 +1267,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     statusFor: (p: Product): ProductStatus =>
       p.quantity === 0 ? 'out' : p.quantity <= thresholdFor(p) ? 'low' : isDormant(p) ? 'dormant' : 'ok',
     soldQty: (p: Product) => (soldQtyLoaded ? soldQtyByProduct[p.id] || 0 : null),
+    pipelineFor,
     expiryFor: (p: Product) => {
       const exp = expiryByProduct[p.id]
       if (!exp) return null
@@ -1464,13 +1489,14 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                     {t(c.labelKey as any)}
                   </label>
                 ))}
-                {/* Annoncées, sans donnée tant que le suivi réservé / en transit / en commande n'existe pas */}
+                {/* Annoncée, sans donnée tant que les réservations n'existent pas */}
                 {PENDING_COLUMNS.map(c => (
                   <label key={c.key} className="flex cursor-not-allowed items-center gap-2 rounded-md px-1 py-1 text-sm text-muted-foreground" title={t('products.columns_soon')}>
                     <input type="checkbox" className="h-4 w-4 rounded" disabled />
                     {t(c.labelKey as any)}
                   </label>
                 ))}
+                <p className="mt-2 border-t pt-2 text-xs leading-snug text-muted-foreground">{t('products.available_explain')}</p>
                 {tableColumns.length > 0 && (
                   <button type="button" onClick={() => setTableColumns([])} className="mt-2 text-xs text-muted-foreground underline hover:text-foreground">
                     {t('products.columns_default')}

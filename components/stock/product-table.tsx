@@ -31,20 +31,20 @@ export interface ProductSort { key: ProductSortKey; dir: 'asc' | 'desc' }
 export type ProductStatus = 'out' | 'low' | 'dormant' | 'ok'
 
 /** Colonnes optionnelles, dans l'ordre d'affichage (après les colonnes fixes) */
-export type ProductColumnKey = 'category' | 'supplier' | 'cost' | 'stockValue' | 'physical' | 'coverage'
+export type ProductColumnKey = 'category' | 'supplier' | 'cost' | 'stockValue' | 'physical' | 'inTransit' | 'onOrder' | 'coverage'
 export const OPTIONAL_COLUMNS: { key: ProductColumnKey; labelKey: string; fullRightsOnly?: boolean }[] = [
   { key: 'category', labelKey: 'products.col_category' },
   { key: 'supplier', labelKey: 'products.col_supplier' },
   { key: 'cost', labelKey: 'products.col_cost', fullRightsOnly: true },
   { key: 'stockValue', labelKey: 'products.col_stock_value', fullRightsOnly: true },
   { key: 'physical', labelKey: 'products.col_physical' },
-  { key: 'coverage', labelKey: 'products.col_coverage' },
-]
-/** Colonnes annoncées mais sans donnée tant que le suivi réservé / en transit / en commande n'existe pas (étape suivante) */
-export const PENDING_COLUMNS: { key: string; labelKey: string }[] = [
-  { key: 'reserved', labelKey: 'products.col_reserved' },
   { key: 'inTransit', labelKey: 'products.col_in_transit' },
   { key: 'onOrder', labelKey: 'products.col_on_order' },
+  { key: 'coverage', labelKey: 'products.col_coverage' },
+]
+/** Colonne annoncée mais sans donnée tant que les réservations n'existent pas (étape suivante) */
+export const PENDING_COLUMNS: { key: string; labelKey: string }[] = [
+  { key: 'reserved', labelKey: 'products.col_reserved' },
 ]
 
 export interface ProductTableProps {
@@ -54,6 +54,8 @@ export interface ProductTableProps {
   /** Quantité vendue sur 30 jours ; null tant que le chiffre n'est pas chargé */
   soldQty: (p: Product) => number | null
   expiryFor: (p: Product) => { date: string; expired: boolean; soon: boolean } | null
+  /** Stock à venir du produit ; null = pas encore chargé ou non visible pour ce rôle (jamais confondu avec zéro) */
+  pipelineFor: (p: Product) => { inTransit: number | null; onOrder: number | null }
   isPromoActive: (p: Product) => boolean
   promoStale: (p: Product) => boolean
   /** Raison d'une promo suggérée (péremption proche, vente lente), sinon null */
@@ -126,7 +128,7 @@ export function ProductTableSkeleton({ rows = 6 }: { rows?: number }) {
 }
 
 export function ProductTable({
-  products, thresholdFor, statusFor, soldQty, expiryFor, isPromoActive, promoStale, promoSuggestion,
+  products, thresholdFor, statusFor, soldQty, expiryFor, pipelineFor, isPromoActive, promoStale, promoSuggestion,
   formatPrice, fullRights, canWriteStock, canOrderStock, busy, selectedIds, onToggleSelect, onToggleSelectMany,
   sort, onSortChange, columns, onOrder, onRestock, onEdit, onPromo, onBatches, onArchive,
 }: ProductTableProps) {
@@ -233,7 +235,9 @@ export function ProductTable({
             {renderHeader({ sortKey: 'price', label: t('products.col_price'), align: 'right' })}
             {show('cost') && renderHeader({ sortKey: 'cost', label: t('products.col_cost'), align: 'right' })}
             {renderHeader({ sortKey: 'quantity', label: t('products.col_available'), align: 'right' })}
-            {show('physical') && renderHeader({ label: t('products.col_physical'), align: 'right' })}
+            {show('physical') && renderHeader({ label: t('products.col_physical'), align: 'right', title: t('products.available_explain') })}
+            {show('inTransit') && renderHeader({ label: t('products.col_in_transit'), align: 'right', title: t('products.in_transit_hint') })}
+            {show('onOrder') && renderHeader({ label: t('products.col_on_order'), align: 'right', title: t('products.on_order_hint') })}
             {show('stockValue') && renderHeader({ sortKey: 'stockValue', label: t('products.col_stock_value'), align: 'right' })}
             {renderHeader({ sortKey: 'sold', label: t('products.col_sales_30d'), align: 'right' })}
             {show('coverage') && renderHeader({ sortKey: 'coverage', label: t('products.col_coverage'), align: 'right', title: t('products.coverage_hint') })}
@@ -251,6 +255,7 @@ export function ProductTable({
             const suggestion = !promoActive ? promoSuggestion(product) : null
             const expiry = expiryFor(product)
             const sold = soldQty(product)
+            const incoming = pipelineFor(product)
             const coverage = coverageDays(product.quantity, sold)
             const stickyBg = selected ? 'bg-stockshop-blue-muted dark:bg-blue-950/60' : 'bg-card'
             const qtyTone = product.quantity === 0 ? 'text-red-500' : product.quantity <= threshold ? 'text-amber-500' : ''
@@ -337,6 +342,16 @@ export function ProductTable({
                 {show('physical') && (
                   // Pas encore de stock réservé : physique = disponible (étape suivante)
                   <td className={cn(CELL_NUM, 'text-muted-foreground')}>{product.quantity}</td>
+                )}
+                {show('inTransit') && (
+                  <td className={CELL_NUM} title={t('products.in_transit_hint')}>
+                    {incoming.inTransit === null ? dash : incoming.inTransit > 0 ? <span className="font-medium text-stockshop-blue dark:text-blue-400">+{incoming.inTransit}</span> : <span className="text-muted-foreground">0</span>}
+                  </td>
+                )}
+                {show('onOrder') && (
+                  <td className={CELL_NUM} title={t('products.on_order_hint')}>
+                    {incoming.onOrder === null ? dash : incoming.onOrder > 0 ? <span className="font-medium text-stockshop-blue dark:text-blue-400">+{incoming.onOrder}</span> : <span className="text-muted-foreground">0</span>}
+                  </td>
                 )}
                 {show('stockValue') && (
                   <td className={CELL_NUM}>{formatPrice(Number(product.quantity) * Number(product.buying_price || 0))}</td>
