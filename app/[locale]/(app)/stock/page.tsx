@@ -25,6 +25,9 @@ import { StockTabs } from '@/components/stock/stock-tabs'
 import { computeStockKpis, fetchExpiryByProduct, fetchExpiredQtyByProduct, fetchSoldQty30dForShops, readSignalsCache, writeSignalsCache, type StockProductLike } from '@/lib/stock/signals'
 import { fetchStockPipeline, type StockPipeline } from '@/lib/stock/pipeline'
 import { fetchReservedQtyByProduct } from '@/lib/stock/reservations'
+import { PRODUCT_PUBLIC_COLUMNS } from '@/lib/products/columns'
+import { fetchCosts, withCosts } from '@/lib/costs/client'
+import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 
 // Vue d'ensemble du module Stock : six chiffres clés cliquables (chacun ouvre
 // les produits concernés, filtre appliqué par ?status=) et une zone
@@ -97,9 +100,16 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
   // Stock à venir (en transit, en commande) : null tant qu'il n'est ni en cache ni chargé
   const [pipeline, setPipeline] = useState<StockPipeline | null>(() => readSignalsCache(effectiveShopIds)?.pipeline ?? null)
 
+  const { canViewCost } = useRolePermissions()
+  const [costs, setCosts] = useState<Record<string, number> | null>(null)
+  // Coûts demandés au serveur, réponse pas encore arrivée : la carte « Valeur du stock » garde sa place
+  // (sinon elle surgit après les autres et décale toute la grille)
+  const [costsPending, setCostsPending] = useState(canViewCost)
+  useEffect(() => { if (!canViewCost) { setCosts(null); setCostsPending(false) } }, [canViewCost])
+
   const fetchAll = async () => {
     if (!effectiveShopIds.length) return
-    if (!isOnline) { setLoading(false); return }
+    if (!isOnline) { setLoading(false); setCostsPending(false); return }
     try {
       // Même requête que la page Produits (lignes complètes, catégories,
       // fournisseurs) et même cache local : un clic sur une carte ouvre une
@@ -107,7 +117,7 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
       const [prodsRes, catsRes, supsRes] = await withTimeout(Promise.all([
         supabase
           .from('products')
-          .select('*, categories(name, color), suppliers(name)')
+          .select(`${PRODUCT_PUBLIC_COLUMNS}, categories(name, color), suppliers(name)`)
           .in('shop_id', effectiveShopIds)
           .eq('is_active', true)
           .order('name'),
@@ -116,11 +126,15 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
       ]), 20_000, t('errors.generic'))
       const err = prodsRes.error || catsRes.error || supsRes.error
       if (err) throw err
-      setProducts((prodsRes.data || []) as StockProductLike[])
+      setProducts((prodsRes.data || []) as unknown as StockProductLike[])
+      // Valeur du stock : les coûts ne sont demandés au serveur qu'avec le droit de les voir (jamais mis en cache)
+      if (canViewCost) fetchCosts(effectiveShopIds).then(c => setCosts(c ? c.products : null)).catch(() => setCosts(null)).finally(() => setCostsPending(false))
+      else setCosts(null)
       setCategories((catsRes.data || []) as CategoryAlert[])
       setPageCache(cacheKey, { prods: prodsRes.data || [], cats: catsRes.data || [], sups: supsRes.data || [] })
     } catch {
       // on garde l'état connu (cache ou chargement précédent)
+      setCostsPending(false)
     } finally {
       setLoading(false)
     }
@@ -165,7 +179,7 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
   useRefetchOnReconnect(() => fetchAll(), isOnline)
   const shopLoadTimedOut = useShopLoadTimeout(effectiveShopIds.length)
 
-  const kpis = useMemo(() => computeStockKpis(products, {
+  const kpis = useMemo(() => computeStockKpis(withCosts(products as any[], costs) as StockProductLike[], {
     shopLowStockThreshold: shop?.low_stock_threshold,
     shopExpiryAlertDays: shop?.expiry_alert_days,
     categoryAlertDays: Object.fromEntries(categories.map(c => [c.id, c.expiry_alert_days])),
@@ -174,10 +188,13 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
     soldQtyLoaded,
     expiredQtyByProduct,
     reservedQtyByProduct,
-  }), [products, categories, shop?.low_stock_threshold, shop?.expiry_alert_days, expiryByProduct, soldQtyByProduct, soldQtyLoaded, expiredQtyByProduct, reservedQtyByProduct])
+  }), [products, categories, shop?.low_stock_threshold, shop?.expiry_alert_days, expiryByProduct, soldQtyByProduct, soldQtyLoaded, expiredQtyByProduct, reservedQtyByProduct, costs])
 
   // Les coûts sont des données financières : pas pour la caisse ni la lecture seule
-  const canSeeValue = !['cashier', 'viewer'].includes(effectiveRole || '')
+  // Valeur du stock : règle unique canViewCost (lib/permissions), et seulement une fois les coûts reçus du serveur
+  const canSeeValue = canViewCost && costs !== null
+  // La carte est à sa place dès le premier affichage pour qui a le droit ; son montant arrive avec la réponse
+  const showValueCard = canSeeValue || (canViewCost && costsPending)
   // Le filtre est posé dans le stockage mémorisé de la page cible, lue à son
   // premier rendu : pas de paramètre d'URL, donc la route préchargée s'ouvre
   // immédiatement. Repli ?status= si la boutique n'est pas connue.
@@ -257,10 +274,10 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
           {/* Deux rangées : Valeur et Produits (larges, montant long lisible), puis les
               quatre alertes. Sur téléphone : une carte large par ligne, alertes par deux. */}
           <section aria-label={t('stock_overview.kpis_label')} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {canSeeValue && (
-              <KpiCard className="col-span-2" tone="blue" icon={Wallet} label={t('stock_overview.stock_value')} value={fmt(kpis.stockValue)} hint={t('stock_overview.stock_value_hint')} />
+            {showValueCard && (
+              <KpiCard className="col-span-2" tone="blue" icon={Wallet} label={t('stock_overview.stock_value')} value={canSeeValue ? fmt(kpis.stockValue) : '…'} hint={t('stock_overview.stock_value_hint')} />
             )}
-            <KpiCard className={canSeeValue ? 'col-span-2' : 'col-span-2 sm:col-span-4'} icon={Package} label={t('stock_overview.products_count')} value={kpis.total} hint={t('stock_overview.open_products')} onClick={() => goToProducts()} />
+            <KpiCard className={showValueCard ? 'col-span-2' : 'col-span-2 sm:col-span-4'} icon={Package} label={t('stock_overview.products_count')} value={kpis.total} hint={t('stock_overview.open_products')} onClick={() => goToProducts()} />
             <KpiCard tone="red" icon={PackageX} label={t('stock_overview.kpi_out')} value={kpis.out} hint={t('stock_overview.open_products')} onClick={() => goToProducts('out')} />
             <KpiCard tone="amber" icon={PackageMinus} label={t('stock_overview.kpi_low')} value={kpis.low} hint={t('stock_overview.open_products')} onClick={() => goToProducts('low')} />
             <KpiCard tone="orange" icon={CalendarClock} label={t('stock_overview.kpi_expiring')} value={kpis.expiring} hint={t('stock_overview.open_products')} onClick={() => goToProducts('expiry')} />

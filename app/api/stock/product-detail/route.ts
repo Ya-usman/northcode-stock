@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
-import { canViewFeature, canWriteFeature } from '@/lib/api/role-permissions'
+import { canViewFeature, canWriteFeature, canViewCost } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { coverageInfo, fetchSoldQty30d, stockLevelOf, stockQuantities } from '@/lib/stock/signals'
 import { loadStockPipeline } from '@/lib/stock/pipeline-load'
@@ -15,9 +15,9 @@ import { loadStockPipeline } from '@/lib/stock/pipeline-load'
 //   • voir la fiche              : fonction Stock (consultation) ;
 //   • en transit / en commande   : fonctions Transferts / Fournisseurs, sinon
 //                                  null (« — » à l'écran, jamais un faux zéro) ;
-//   • achat (coût, valeur, fournisseur, prix comparés) : fonction Stock en
-//     MODIFICATION — même règle que le coût dans la liste des produits. Sans ce
-//     droit, AUCUN prix d'achat n'est dans la réponse ;
+//   • achat (coût, valeur, fournisseur, prix comparés) : règle unique
+//     canViewCost (lib/permissions). Sans ce droit, AUCUN prix d'achat n'est
+//     dans la réponse ;
 //   • libérer une réservation    : droit de vendre (« Nouvelle vente »), la
 //     règle de /api/stock/reservations — rien n'est élargi ici.
 
@@ -46,7 +46,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
     const [canCost, canRelease, seeTransfers, seeOrders] = await Promise.all([
-      canWriteFeature(supabase, role, shopId, 'stock'),
+      canViewCost(supabase, role, shopId),
       canWriteFeature(supabase, role, shopId, 'new_sale'),
       canViewFeature(supabase, role, shopId, 'transfers'),
       canViewFeature(supabase, role, shopId, 'suppliers'),
@@ -99,9 +99,10 @@ export async function GET(request: Request) {
 
     let purchase: null | Record<string, unknown> = null
     if (canCost) {
-      const [{ data: supplier }, { data: prices }] = await Promise.all([
+      const [{ data: supplier }, { data: prices }, { data: lots }] = await Promise.all([
         product.supplier_id ? admin.from('suppliers').select('id, name').eq('id', product.supplier_id).maybeSingle() : Promise.resolve({ data: null }),
         admin.from('product_supplier_prices').select('supplier_id, price, updated_at, suppliers(name)').eq('shop_id', shopId).eq('product_id', productId).order('price', { ascending: true }),
+        admin.from('product_batches').select('id, buying_price').eq('shop_id', shopId).eq('product_id', productId).gt('quantity', 0),
       ])
       const cost = Number(product.buying_price || 0)
       purchase = {
@@ -109,6 +110,8 @@ export async function GET(request: Request) {
         // Valeur du stock : quantité PHYSIQUE × coût, la formule de la Vue d'ensemble et des Rapports
         stock_value: quantities.physical * cost,
         supplier: supplier ? { id: supplier.id, name: supplier.name } : null,
+        // Coût de chaque lot en stock (le navigateur lit les lots sans cette colonne)
+        batch_costs: Object.fromEntries((lots || []).map((l: any) => [l.id, Number(l.buying_price) || 0])),
         supplier_prices: (prices || []).map((sp: any) => ({ supplier_id: sp.supplier_id, supplier_name: sp.suppliers?.name || null, price: Number(sp.price), updated_at: sp.updated_at })),
       }
     }

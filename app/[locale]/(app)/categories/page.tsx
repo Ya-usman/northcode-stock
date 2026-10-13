@@ -26,6 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils/cn'
 import type { Category, Product } from '@/lib/types/database'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
+import { fetchCosts } from '@/lib/costs/client'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
@@ -120,7 +121,7 @@ export default function CategoriesPage() {
       // a while can never leave `loading` stuck true forever.
       const [catData, prodData] = await withTimeout(Promise.all([
         supabase.from('categories').select('*').in('shop_id', effectiveShopIds).order('name'),
-        supabase.from('products').select('id, name, selling_price, buying_price, quantity, unit, category_id, shop_id, low_stock_threshold').in('shop_id', effectiveShopIds).eq('is_active', true).order('name'),
+        supabase.from('products').select('id, name, selling_price, quantity, unit, category_id, shop_id, low_stock_threshold').in('shop_id', effectiveShopIds).eq('is_active', true).order('name'),
       ]), 20_000, 'Chargement des catégories trop lent — réessayez.')
       // A transient auth/RLS hiccup can resolve with data: null instead of
       // throwing — check explicitly so the catch below preserves the cache
@@ -150,11 +151,19 @@ export default function CategoriesPage() {
 
   const effectiveRole = roleInActiveShop ?? profile?.role
   // Règle unique : niveau « modification » de Catégories (même règle que /api/categories)
-  const { canWrite } = useRolePermissions()
+  const { canWrite, canViewCost } = useRolePermissions()
   const canEdit = canWrite('categories')
-  // Valeur du stock (coût d'achat) : propriétaire seulement, comme dans le Stock
-  // Part en valeur : « Catégories : modification » (règle du 9 oct. 2026)
-  const showValue = canEdit
+  // Valeur du stock (coût d'achat) : règle unique canViewCost (13 oct. 2026) — les coûts sont demandés au
+  // serveur, jamais lus par le navigateur ; sans eux la part est donnée en nombre de produits.
+  const [costs, setCosts] = useState<Record<string, number> | null>(null)
+  const costKey = effectiveShopIds.join(',')
+  useEffect(() => {
+    if (!canViewCost || !costKey) { setCosts(null); return }
+    let alive = true
+    fetchCosts(costKey.split(',')).then(c => { if (alive) setCosts(c ? c.products : null) }).catch(() => { if (alive) setCosts(null) })
+    return () => { alive = false }
+  }, [canViewCost, costKey, products.length])
+  const showValue = canViewCost && costs !== null
 
   // Catégorie effective d'un produit : seulement si elle appartient à SA boutique
   // (un produit rattaché à la catégorie d'une autre boutique compte comme « sans catégorie »)
@@ -171,7 +180,7 @@ export default function CategoriesPage() {
       s.count++
       if (qty <= 0) s.out++
       else if (qty <= lowStockThresholdOf(p, shop?.low_stock_threshold)) s.low++
-      s.value += qty * (Number(p.buying_price) || 0)
+      s.value += qty * (Number((costs || {})[p.id]) || 0)
       s.sold += soldQty?.[p.id] || 0
     }
     return map

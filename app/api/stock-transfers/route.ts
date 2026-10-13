@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { canViewCost } from '@/lib/api/role-permissions'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { canWriteFeature } from '@/lib/api/role-permissions'
@@ -43,8 +44,12 @@ export async function GET(request: Request) {
     const shopMap: Record<string, string> = {}
     for (const s of (shops || [])) shopMap[s.id] = s.name
 
+    // Prix d'achat des lignes : seulement avec le droit de voir les coûts (règle unique canViewCost) ; sinon la
+    // colonne est retirée de la réponse — l'écran des transferts n'en a pas besoin.
+    const seeCost = await canViewCost(supabase, role, shopId)
     const enriched = (data || []).map((t: any) => ({
       ...t,
+      stock_transfer_items: seeCost ? t.stock_transfer_items : (t.stock_transfer_items || []).map(({ buying_price: _cost, ...line }: any) => line),
       source_shop_name: shopMap[t.source_shop_id] || null,
       destination_shop_name: shopMap[t.destination_shop_id] || null,
     }))

@@ -23,6 +23,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
+import { PRODUCT_PUBLIC_COLUMNS } from '@/lib/products/columns'
+import { fetchCosts } from '@/lib/costs/client'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
@@ -49,7 +51,9 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
   const unitLabel = useUnitLabel()
   const router = useRouter()
   const { shop, profile, roleInActiveShop } = useAuth()
-  const { canAccess } = useRolePermissions()
+  const { canAccess, canViewCost } = useRolePermissions()
+  // Coûts : demandés au serveur seulement avec le droit de les voir ; sans eux, pas d'« impact en valeur »
+  const [costs, setCosts] = useState<Record<string, number> | null>(null)
   const { isOnline } = useOffline()
   const { toast } = useToast()
   const { fmt } = useCurrency()
@@ -85,7 +89,7 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave `loading` stuck true forever.
       const [prodsRes, catsRes] = await withTimeout(Promise.all([
-        supabase.from('products').select('*').eq('shop_id', shop.id).eq('is_active', true).order('name'),
+        supabase.from('products').select(PRODUCT_PUBLIC_COLUMNS).eq('shop_id', shop.id).eq('is_active', true).order('name'),
         supabase.from('categories').select('*').eq('shop_id', shop.id).order('name'),
       ]), 20_000, 'Chargement des produits trop lent — réessayez.')
       // A transient auth/RLS hiccup can resolve with data: null instead of
@@ -93,7 +97,9 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
       // already on screen instead of zeroing it out.
       if (prodsRes.error || catsRes.error) throw prodsRes.error || catsRes.error
       const { data: prods } = prodsRes, { data: cats } = catsRes
-      const fetchedProducts = (prods || []) as Product[]
+      const fetchedProducts = (prods || []) as unknown as Product[]
+      if (canViewCost) fetchCosts([shop.id]).then(c => setCosts(c ? c.products : null)).catch(() => setCosts(null))
+      else setCosts(null)
       const fetchedCategories = (cats || []) as Category[]
       setProducts(fetchedProducts)
       setCategories(fetchedCategories)
@@ -156,13 +162,14 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
         theoretical: p.quantity,
         counted,
         variance: counted - p.quantity,
-        valueDelta: (counted - p.quantity) * Number(p.buying_price || 0),
+        valueDelta: (counted - p.quantity) * Number((costs || {})[p.id] || 0),
       })
       return acc
     }, [])
-  }, [products, counts])
+  }, [products, counts, costs])
 
   const totalValueDelta = diffs.reduce((s, d) => s + d.valueDelta, 0)
+  const showValueImpact = canViewCost && costs !== null
 
   const submit = async () => {
     if (!shop?.id || diffs.length === 0) return
@@ -324,12 +331,14 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
               </div>
             ))}
           </div>
-          <div className="flex items-center justify-between mt-3 pt-3 border-t">
-            <span className="text-sm font-semibold">{t('value_impact')}</span>
-            <span className={`text-sm font-bold ${totalValueDelta >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-              {totalValueDelta >= 0 ? '+' : ''}{fmt(totalValueDelta)}
-            </span>
-          </div>
+          {showValueImpact && (
+            <div className="flex items-center justify-between mt-3 pt-3 border-t" data-testid="inventory-value-impact">
+              <span className="text-sm font-semibold">{t('value_impact')}</span>
+              <span className={`text-sm font-bold ${totalValueDelta >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                {totalValueDelta >= 0 ? '+' : ''}{fmt(totalValueDelta)}
+              </span>
+            </div>
+          )}
         </PremiumDialogBody>
         <PremiumDialogFooter onCancel={() => setConfirmOpen(false)} cancelLabel={t('cancel')}>
           <Button variant="stockshop" onClick={submit} loading={submitting} className="flex-1 h-11 rounded-lg font-semibold">

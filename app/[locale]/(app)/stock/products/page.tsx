@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { startNavigationProgress } from '@/components/layout/navigation-progress'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
@@ -42,6 +42,8 @@ import { useStockViewMode } from '@/lib/hooks/use-stock-view-mode'
 import { ProductActivityJournal } from '@/components/stock/product-activity-journal'
 import { ProductDetailDrawer, type ProductDetailSection } from '@/components/stock/product-detail-drawer'
 import { isNeutralClick } from '@/lib/utils/open-on-click'
+import { PRODUCT_PUBLIC_COLUMNS } from '@/lib/products/columns'
+import { fetchCosts, withCosts } from '@/lib/costs/client'
 import { fetchExpiryByProduct, fetchExpiredQtyByProduct, availableQty, stockLevelOf, stockQuantities, fetchSoldQty30dForShops, readSignalsCache, writeSignalsCache } from '@/lib/stock/signals'
 import { fetchStockPipeline, type StockPipeline } from '@/lib/stock/pipeline'
 import { fetchReservedQtyByProduct } from '@/lib/stock/reservations'
@@ -90,7 +92,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const searchParams = useSearchParams()
   const { profile, shop, roleInActiveShop, effectiveShopIds, userShops } = useAuth()
   const effectiveRole = roleInActiveShop ?? profile?.role
-  const { canAccess, canWrite } = useRolePermissions()
+  const { canAccess, canWrite, canViewCost } = useRolePermissions()
   const isMultiShop = effectiveShopIds.length > 1
   const { fmt: formatNaira, symbol: currencySymbol } = useCurrency()
   const supabase = createClient()
@@ -290,12 +292,12 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       // a while can never leave `loading` stuck true forever.
       const [prodsRes, archivedRes, catsRes, supsRes] = await withTimeout(Promise.all([
         supabase.from('products')
-          .select('*, categories(name, color), suppliers(name)')
+          .select(`${PRODUCT_PUBLIC_COLUMNS}, categories(name, color), suppliers(name)`)
           .in('shop_id', effectiveShopIds)
           .eq('is_active', true)
           .order('name'),
         supabase.from('products')
-          .select('*, categories(name, color), suppliers(name)')
+          .select(`${PRODUCT_PUBLIC_COLUMNS}, categories(name, color), suppliers(name)`)
           .in('shop_id', effectiveShopIds)
           .eq('is_active', false)
           .order('name'),
@@ -311,17 +313,37 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       const err = prodsRes.error || archivedRes.error || catsRes.error || supsRes.error
       if (err) throw err
       const { data: prods } = prodsRes, { data: archived } = archivedRes, { data: cats } = catsRes, { data: sups } = supsRes
-      setProducts((prods || []) as unknown as Product[])
-      setArchivedProducts((archived || []) as unknown as Product[])
+      // Lus SANS prix d'achat ; le coût déjà obtenu du serveur (si la personne y a droit) est reposé dessus
+      setProducts(withCosts((prods || []) as unknown as Product[], costsRef.current))
+      setArchivedProducts(withCosts((archived || []) as unknown as Product[], costsRef.current))
       setCategories((cats || []) as Category[])
       setSuppliers((sups || []) as Supplier[])
       setPageCache(cacheKey, { prods: prods || [], cats: cats || [], sups: sups || [] })
+      loadCosts()
     } catch {
       // cache already applied if available
     } finally {
       setLoading(false)
     }
   }
+
+  // Prix d'achat : demandés au serveur (/api/costs) UNIQUEMENT si la personne a le droit de les voir, puis posés
+  // sur les lignes. Ils ne sont ni lus par le navigateur dans la base, ni rangés dans le cache local.
+  const costsRef = useRef<Record<string, number> | null>(null)
+  const loadCosts = async () => {
+    if (!canViewCost || !effectiveShopIds.length || !isOnline) return
+    try {
+      const costs = await fetchCosts(effectiveShopIds)
+      costsRef.current = costs?.products ?? null
+      setProducts(prev => withCosts(prev, costsRef.current))
+      setArchivedProducts(prev => withCosts(prev, costsRef.current))
+    } catch { /* colonnes de coût en « — » jusqu'au prochain chargement */ }
+  }
+  // Droit connu après le premier chargement (réglages de la boutique arrivés entre-temps), ou retiré
+  useEffect(() => {
+    if (canViewCost) loadCosts()
+    else { costsRef.current = null }
+  }, [canViewCost]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Date de péremption la plus proche par produit (lots encore en stock) et
   // quantité vendue sur 30 jours glissants (détection stock dormant) — deux
@@ -372,7 +394,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     try {
       const { data } = await supabase
         .from('product_batches')
-        .select('*')
+        .select('id, shop_id, product_id, supplier_id, quantity, initial_quantity, expiry_date, source, received_at, created_at, updated_at, promo_price, promo_until, promo_start')
         .eq('product_id', product.id)
         .gt('quantity', 0)
         .order('expiry_date', { ascending: true, nullsFirst: false })
@@ -1090,7 +1112,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         // Apparition en CSS (tailwindcss-animate) : framer-motion n'est plus
         // chargé pour cette page, 113 Ko de JavaScript en moins à l'ouverture
         // Toute la carte ouvre la fiche (grande zone tactile) ; ses boutons ne font que leur action
-        data-product-card
+        data-product-card={product.id}
         className={`animate-in fade-in slide-in-from-bottom-1 fill-mode-backwards rounded-lg border bg-card shadow-sm p-4 space-y-2 transition-colors cursor-pointer ${
           selectionMode ? 'select-none' : 'active:bg-muted/50 sm:hover:border-stockshop-blue/40 sm:hover:shadow-md focus-within:border-stockshop-blue/40'
         } ${isSelected ? 'border-stockshop-blue/60 dark:border-blue-500 bg-stockshop-blue-muted/60 dark:bg-blue-950/25' : ''}`}
@@ -1166,7 +1188,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           ) : (
             <span className="font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(product.selling_price)}</span>
           )}
-          {fullStock && (
+          {canViewCost && product.buying_price != null && (
             <span className="text-xs text-muted-foreground">{t('products.cost_label')}: {formatNaira(product.buying_price)}</span>
           )}
         </div>
@@ -1352,8 +1374,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     onToggleSelectMany: toggleSelectMany,
     sort: tableSort,
     onSortChange: setTableSort,
-    // Colonnes financières (coût, valeur) réservées au propriétaire, quel que soit l'appareil
-    columns: tableColumns.filter(k => fullStock || !OPTIONAL_COLUMNS.find(c => c.key === k)?.fullRightsOnly),
+    // Colonnes financières (coût, valeur) : seulement avec le droit de voir les prix d'achat (canViewCost)
+    columns: tableColumns.filter(k => canViewCost || !OPTIONAL_COLUMNS.find(c => c.key === k)?.fullRightsOnly),
     onOrder: (p: Product) => { const href = `/${locale}/suppliers?order_product=${p.id}`; startNavigationProgress(href); router.push(href) },
     onRestock: (p: Product) => { setEditingProduct(null); setShowAddModal(false); setRestockProduct(p); restockForm.reset({ product_id: p.id, quantity: 1 }); setShowRestockModal(true) },
     onEdit: (p: Product) => { setShowAddModal(false); setShowRestockModal(false); setEditingProduct(p) },
@@ -1549,7 +1571,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               </PopoverTrigger>
               <PopoverContent align="end" className="w-72 space-y-1">
                 <p className="mb-2 text-xs font-medium text-muted-foreground">{t('products.columns_title')}</p>
-                {OPTIONAL_COLUMNS.filter(c => fullStock || !c.fullRightsOnly).map(c => (
+                {OPTIONAL_COLUMNS.filter(c => canViewCost || !c.fullRightsOnly).map(c => (
                   <label key={c.key} className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-muted/60">
                     <input type="checkbox" className="h-4 w-4 rounded accent-stockshop-blue" checked={tableColumns.includes(c.key)} onChange={() => toggleColumn(c.key)} />
                     {t(c.labelKey as any)}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { withoutProductCost } from '@/lib/products/columns'
 import { createClient } from '@/lib/supabase/client'
 import type { Sale, Product } from '@/lib/types/database'
 
@@ -61,7 +62,7 @@ export function useDashboardRealtime(shopId: string | null, handlers: RealtimeHa
           filter: `shop_id=eq.${shopId}`,
         },
         (payload) => {
-          handlersRef.current.onProductUpdate?.(payload.new as Product)
+          handlersRef.current.onProductUpdate?.(withoutProductCost(payload.new as Product))
         }
       )
       .on(
@@ -105,7 +106,8 @@ export function useStockRealtime(shopId: string | null, onUpdate: (product: Prod
           filter: `shop_id=eq.${shopId}`,
         },
         (payload) => {
-          onUpdateRef.current(payload.new as Product)
+          // Le prix d'achat n'entre jamais par ce canal : les écrans qui y ont droit le demandent à /api/costs
+          onUpdateRef.current(withoutProductCost(payload.new as Product))
         }
       )
       .subscribe()

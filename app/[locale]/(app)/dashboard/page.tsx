@@ -29,6 +29,7 @@ import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { getPendingSales, type PendingSale } from '@/lib/offline/db'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { getPageCache, setPageCache } from '@/lib/offline/page-cache'
+import { PRODUCT_PUBLIC_COLUMNS } from '@/lib/products/columns'
 import { runIdlePrefetch, type PrefetchTask } from '@/lib/utils/idle-prefetch'
 import { onSalesDataChanged } from '@/lib/data-refresh'
 import { GettingStarted } from '@/components/onboarding/getting-started'
@@ -225,7 +226,7 @@ export default function DashboardPage() {
         // Stock alerts
         supabase
           .from('products')
-          .select('id, name, name_hausa, quantity, low_stock_threshold, unit, selling_price, buying_price, shop_id')
+          .select('id, name, name_hausa, quantity, low_stock_threshold, unit, selling_price, shop_id')
           .in('shop_id', shopIds)
           .eq('is_active', true)
           .lte('quantity', shop?.low_stock_threshold || 10)
@@ -508,7 +509,7 @@ export default function DashboardPage() {
         run: async () => {
           const [suppliersRes, productsRes] = await Promise.all([
             supabase.from('suppliers').select('*').in('shop_id', ids).order('name'),
-            supabase.from('products').select('id, name, selling_price, buying_price, quantity, unit, supplier_id, shop_id').in('shop_id', ids).eq('is_active', true),
+            supabase.from('products').select('id, name, selling_price, quantity, unit, supplier_id, shop_id').in('shop_id', ids).eq('is_active', true),
           ])
           if (suppliersRes.error || productsRes.error) return
           setPageCache(`suppliers_${ids.join(',')}`, { suppliers: suppliersRes.data || [], products: productsRes.data || [] })
@@ -521,7 +522,7 @@ export default function DashboardPage() {
         cacheKey: `stock_${ids.join(',')}`,
         run: async () => {
           const [prodsRes, catsRes, supsRes] = await Promise.all([
-            supabase.from('products').select('*, categories(name), suppliers(name)').in('shop_id', ids).eq('is_active', true).order('name'),
+            supabase.from('products').select(`${PRODUCT_PUBLIC_COLUMNS}, categories(name, color), suppliers(name)`).in('shop_id', ids).eq('is_active', true).order('name'),
             supabase.from('categories').select('*').in('shop_id', ids).order('name'),
             supabase.from('suppliers').select('*').in('shop_id', ids).order('name'),
           ])

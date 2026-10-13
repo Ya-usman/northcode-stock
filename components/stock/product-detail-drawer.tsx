@@ -51,6 +51,7 @@ interface ProductDetail {
     buying_price: number
     stock_value: number
     supplier: { id: string; name: string } | null
+    batch_costs: Record<string, number>
     supplier_prices: { supplier_id: string; supplier_name: string | null; price: number; updated_at: string | null }[]
   }
   permissions: { cost: boolean; release: boolean }
@@ -70,7 +71,7 @@ export interface ProductDetailDrawerProps {
   statusLabels: Record<ProductStatus, string>
   promoActive: boolean
   formatPrice: (n: number) => string
-  batches: Omit<ProductBatchesListProps, 'product' | 'showCost' | 'formatPrice'>
+  batches: Omit<ProductBatchesListProps, 'product' | 'costs' | 'formatPrice'>
   /** Actions du pied, déjà filtrées selon les droits (absente = non proposée) */
   actions: {
     onRestock?: (p: Product) => void
@@ -314,7 +315,7 @@ export function ProductDetailDrawer({
             {/* ── Lots ──────────────────────────────────────────────────── */}
             <div ref={batchesRef} className="scroll-mt-2" data-testid="product-detail-batches">
               <DrawerSection title={t('products.batches_title')} description={t('products.batches_hint')}>
-                <ProductBatchesList product={product} showCost={!!detail?.permissions.cost} formatPrice={formatPrice} {...batches} />
+                <ProductBatchesList product={product} costs={detail?.permissions.cost ? detail.purchase?.batch_costs ?? null : null} formatPrice={formatPrice} {...batches} />
               </DrawerSection>
             </div>
 

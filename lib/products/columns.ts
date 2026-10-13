@@ -1,7 +1,7 @@
 // Colonnes d'un produit qu'un écran peut lire dans le navigateur : toutes, SAUF
 // le prix d'achat. Un écran qui n'a pas besoin du coût (la caisse) ne lit que
 // celles-ci ; un écran qui en a besoin le demande au serveur, qui décide
-// (lib/permissions → canSeeCost). À tenir à jour quand une colonne est ajoutée
+// (lib/permissions → canViewCost). À tenir à jour quand une colonne est ajoutée
 // à `products`.
 export const PRODUCT_PUBLIC_COLUMNS = [
   'id', 'shop_id', 'name', 'name_hausa', 'sku', 'category_id', 'supplier_id',

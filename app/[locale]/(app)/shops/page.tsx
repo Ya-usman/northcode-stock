@@ -42,7 +42,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
   const multi = shops.length > 1
   const contextShopId = ids.includes(activeShop?.id ?? '') ? activeShop!.id : ids[0] ?? null
 
-  const { stats, loaded, refresh: refreshStats } = useShopStats(shops)
+  const { stats, loaded, refresh: refreshStats } = useShopStats(shops, isOwner)
   const { people, refresh: refreshPeople } = useTeamPeople(ids, null)
   const quota = useTeamQuota(isOwner ? contextShopId : null)
   const { planLabel, subscriptionOf, statusOf, toneClass } = useShopStatus()

@@ -228,7 +228,9 @@ export interface Product {
   sku: string | null
   category_id: string | null
   supplier_id: string | null
-  buying_price: number
+  /** Prix d'achat : ABSENT quand la personne n'a pas le droit de le voir (lib/permissions → canViewCost).
+   *  Le navigateur lit les produits sans cette colonne ; le serveur la fournit à part (/api/costs). */
+  buying_price?: number
   selling_price: number
   quantity: number
   unit: string

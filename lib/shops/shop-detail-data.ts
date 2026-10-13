@@ -13,6 +13,7 @@
 // « indisponible », jamais un faux zéro.
 
 import { useCallback, useEffect, useState } from 'react'
+import { fetchCosts } from '@/lib/costs/client'
 import { createClient } from '@/lib/supabase/client'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import {
@@ -52,14 +53,16 @@ export interface ShopStockDetail {
   purchaseOrders: Block<PendingPo[]>
 }
 
-export function useShopStockDetail(shop: Shop | null, show: { expiry: boolean; transfers: boolean; purchaseOrders: boolean }) {
+/** `show.cost` : la page affichera la valeur du stock (propriétaire) — les coûts sont alors demandés au serveur ; sinon ils ne sont pas lus du tout. */
+export function useShopStockDetail(shop: Shop | null, show: { expiry: boolean; transfers: boolean; purchaseOrders: boolean; cost?: boolean }) {
   const [detail, setDetail] = useState<ShopStockDetail | null>(null)
   const shopId = shop?.id
 
   const refresh = useCallback(async () => {
     if (!shop) return
+    const costs: Record<string, number> = show.cost ? await fetchCosts([shop.id]).then(c => c?.products ?? {}).catch(() => ({})) : {}
     const [prodRes, catRes, expiryRes, transfersRes, poRes] = await Promise.all([
-      settle(withTimeout<any>(supabase.from('products').select('id, name, unit, quantity, low_stock_threshold, buying_price, category_id').eq('shop_id', shop.id).eq('is_active', true), 20_000)
+      settle(withTimeout<any>(supabase.from('products').select('id, name, unit, quantity, low_stock_threshold, category_id').eq('shop_id', shop.id).eq('is_active', true), 20_000)
         .then((r: any) => { if (r.error) throw r.error; return r.data as any[] })),
       settle(withTimeout<any>(supabase.from('categories').select('id, expiry_alert_days').eq('shop_id', shop.id), 20_000)
         .then((r: any) => { if (r.error) throw r.error; return r.data as any[] })),
@@ -75,7 +78,7 @@ export function useShopStockDetail(shop: Shop | null, show: { expiry: boolean; t
       for (const p of products) {
         const qty = Number(p.quantity) || 0
         const threshold = lowStockThresholdOf(p, shop.low_stock_threshold)
-        stockValue += Math.max(qty, 0) * (Number(p.buying_price) || 0)
+        stockValue += Math.max(qty, 0) * (Number(costs[p.id]) || 0)
         if (qty <= 0) out++
         else if (qty <= threshold) low++
         else continue

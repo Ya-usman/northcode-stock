@@ -12,14 +12,16 @@ import { isPromoActive, localToday } from '@/lib/stock/signals'
 // du lot) et leurs actions. UNE seule implémentation : c'est la section
 // « Lots » de la fiche produit, et l'icône « Lots » d'une ligne ouvre la fiche
 // à cet endroit. Les actions ouvrent les petites fenêtres de la page.
-// Le coût du lot n'est affiché qu'à qui a le droit de voir les prix d'achat.
+// Le coût du lot n'est affiché qu'à qui a le droit de voir les prix d'achat : il n'est pas dans le lot lu par
+// le navigateur, il arrive à part (`costs`, fourni par le serveur avec la fiche) — absent, rien n'est affiché.
 
 export interface ProductBatchesListProps {
   product: Product
   batches: any[]
   loading: boolean
   canWrite: boolean
-  showCost: boolean
+  /** Coût par lot, fourni par le serveur à qui a le droit de le voir ; null sinon */
+  costs: Record<string, number> | null
   formatPrice: (n: number) => string
   onAdjust: (batch: any) => void
   onPromo: (batch: any) => void
@@ -27,7 +29,9 @@ export interface ProductBatchesListProps {
   onEditExpiry: (batch: any) => void
 }
 
-export function ProductBatchesList({ product, batches, loading, canWrite, showCost, formatPrice, onAdjust, onPromo, onDelete, onEditExpiry }: ProductBatchesListProps) {
+export function ProductBatchesList({ product, batches: rawBatches, loading, canWrite, costs, formatPrice, onAdjust, onPromo, onDelete, onEditExpiry }: ProductBatchesListProps) {
+  // Le coût connu est reposé sur le lot : les fenêtres d'action (promo « sous le coût ») en ont besoin
+  const batches = costs ? rawBatches.map((b: any) => (b.id in costs ? { ...b, buying_price: costs[b.id] } : b)) : rawBatches
   const t = useTranslations()
   const locale = useLocale()
   const unitLabel = useUnitLabel()
@@ -81,7 +85,7 @@ export function ProductBatchesList({ product, batches, loading, canWrite, showCo
               </div>
             </div>
             <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-              {showCost ? <span>{t('products.cost_label')}: {formatPrice(b.buying_price)}</span> : <span />}
+              {costs && b.buying_price != null ? <span>{t('products.cost_label')}: {formatPrice(b.buying_price)}</span> : <span />}
               <span>{t('products.received_on')}: {new Date(b.received_at).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'short', year: 'numeric' })}</span>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">

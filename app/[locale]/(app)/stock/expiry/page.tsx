@@ -10,6 +10,7 @@ import { useTableExport } from '@/lib/export/use-table-export'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
+import { fetchCosts } from '@/lib/costs/client'
 import { useToast } from '@/components/ui/use-toast'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
@@ -38,7 +39,6 @@ type ExpiryBatch = {
   id: string
   product_id: string
   quantity: number
-  buying_price: number | null
   /** null : lot sans date de péremption (produit non périssable) */
   expiry_date: string | null
   received_at: string
@@ -57,7 +57,14 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
   const unitLabel = useUnitLabel()
   const { shop, effectiveShopIds, profile, roleInActiveShop, userShops } = useAuth()
   const effectiveRole = roleInActiveShop ?? profile?.role
-  const { canAccess, canWrite } = useRolePermissions()
+  const { canAccess, canWrite, canViewCost } = useRolePermissions()
+  // Coût de chaque lot : demandé au serveur seulement avec le droit de voir les prix d'achat (jamais lu par le
+  // navigateur). Sans lui : ni colonne « Valeur », ni total à risque, ni valeur dans les exports.
+  const [batchCosts, setBatchCosts] = useState<Record<string, number> | null>(null)
+  const showValue = canViewCost && batchCosts !== null
+  const valueOf = (b: { id: string; quantity: number }) => b.quantity * ((batchCosts || {})[b.id] || 0)
+  /** Retire la colonne « Valeur » (la 4e) d'une ligne d'export quand elle n'est pas due */
+  const exportCols = <T,>(row: T[]): T[] => (showValue ? row : row.filter((_, i) => i !== 3))
   // Règle unique : niveau « modification » de Produits / Stock
   const canWriteStock = canWrite('stock')
   const { fmt: formatNaira, symbol } = useCurrency()
@@ -87,7 +94,7 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
       const [batchesRes, categoriesRes] = await withTimeout(Promise.all([
         supabase
           .from('product_batches')
-          .select('id, product_id, quantity, buying_price, expiry_date, received_at, products(name, unit, category_id, categories(name, color, expiry_alert_days))')
+          .select('id, product_id, quantity, expiry_date, received_at, products(name, unit, category_id, categories(name, color, expiry_alert_days))')
           .in('shop_id', effectiveShopIds)
           .gt('quantity', 0)
           // Tous les lots en stock, datés ou non : les périssables d'abord
@@ -99,6 +106,8 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
       if (batchesRes.error) throw batchesRes.error
       setBatches((batchesRes.data || []) as unknown as ExpiryBatch[])
       setCategories((categoriesRes.data || []) as Category[])
+      if (canViewCost) fetchCosts(effectiveShopIds, { batches: true }).then(c => setBatchCosts(c ? c.batches : null)).catch(() => setBatchCosts(null))
+      else setBatchCosts(null)
     } catch (err: any) {
       toast({ title: err.message || t('errors.generic'), variant: 'destructive' })
     } finally {
@@ -106,7 +115,7 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
     }
   }
 
-  useEffect(() => { fetchData() }, [effectiveShopIds.join(',')])
+  useEffect(() => { fetchData() }, [effectiveShopIds.join(','), canViewCost])
 
   // Lien profond (Vue d'ensemble) : /stock/expiry?status=expiring applique le
   // filtre Statut puis nettoie l'URL (replaceState natif, synchronisé avec le
@@ -188,7 +197,7 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
   // (les lots à jour ou sans date n'ont rien à risquer)
   const totalAtRisk = filtered.reduce((sum, b) => {
     const s = statusOf(b)
-    return s === 'expired' || s === 'expiring' ? sum + b.quantity * (b.buying_price || 0) : sum
+    return s === 'expired' || s === 'expiring' ? sum + valueOf(b) : sum
   }, 0)
 
   const statusLabelOf = (status: BatchStatus) =>
@@ -204,15 +213,15 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
     return <Badge variant="success">{statusLabelOf(status)}</Badge>
   }
 
-  const exportRows = () => filtered.map(b => [
+  const exportRows = () => filtered.map(b => exportCols([
     b.products?.name || '—',
     b.products?.categories?.name || '—',
     String(b.quantity),
-    formatNaira(b.quantity * (b.buying_price || 0)),
+    formatNaira(valueOf(b)),
     format(new Date(b.received_at), 'dd/MM/yyyy'),
     b.expiry_date ? format(new Date(b.expiry_date), 'dd/MM/yyyy') : '—',
     statusLabelOf(statusOf(b)),
-  ])
+  ]))
 
   const exportPDF = async () => {
     if (!shop) return
@@ -223,10 +232,10 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
         dateRange: format(new Date(), 'dd/MM/yyyy'),
         sections: [{
           title: t('expiry.title'),
-          headers: [
+          headers: exportCols([
             t('expiry.col_product'), t('expiry.col_category'), t('expiry.col_quantity'),
             t('expiry.col_value'), t('expiry.col_received'), t('expiry.col_expiry'), t('expiry.col_status'),
-          ],
+          ]),
           rows: exportRows(),
         }],
       })
@@ -243,16 +252,16 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
     expiryExport.run({
       kind: expiryExport.kind('expiry'),
       shopName: (userShops || []).filter(x => effectiveShopIds.includes(x.id)).map(x => x.name).join(', ') || shop?.name || 'StockShop',
-      columns: [
+      columns: exportCols<any>([
         { header: t('expiry.col_product') }, { header: t('expiry.col_category') }, { header: t('expiry.col_quantity'), type: 'int' },
         { header: `${t('expiry.col_value')} (${symbol})`, type: 'money' }, { header: t('expiry.col_received'), type: 'date' },
         { header: t('expiry.col_expiry'), type: 'date' }, { header: t('expiry.col_status') },
-      ],
-      rows: filtered.map(b => [
-        b.products?.name || '—', b.products?.categories?.name || '', b.quantity, b.quantity * (b.buying_price || 0),
-        b.received_at ? new Date(b.received_at) : null, b.expiry_date ? new Date(b.expiry_date) : null, statusLabelOf(statusOf(b)),
       ]),
-      totals: [t('exports.total'), null, filtered.reduce((n, b) => n + b.quantity, 0), filtered.reduce((n, b) => n + b.quantity * (b.buying_price || 0), 0), null, null, null],
+      rows: filtered.map(b => exportCols<any>([
+        b.products?.name || '—', b.products?.categories?.name || '', b.quantity, valueOf(b),
+        b.received_at ? new Date(b.received_at) : null, b.expiry_date ? new Date(b.expiry_date) : null, statusLabelOf(statusOf(b)),
+      ])),
+      totals: exportCols<any>([t('exports.total'), null, filtered.reduce((n, b) => n + b.quantity, 0), filtered.reduce((n, b) => n + valueOf(b), 0), null, null, null]),
     }, fmtOut)
   }
 
@@ -344,7 +353,7 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
                   <th className="text-left font-medium px-3 py-2">{t('expiry.col_product')}</th>
                   <th className="text-left font-medium px-3 py-2">{t('expiry.col_category')}</th>
                   <th className="text-right font-medium px-3 py-2">{t('expiry.col_quantity')}</th>
-                  <th className="text-right font-medium px-3 py-2">{t('expiry.col_value')}</th>
+                  {showValue && <th className="text-right font-medium px-3 py-2">{t('expiry.col_value')}</th>}
                   <th className="text-left font-medium px-3 py-2">{t('expiry.col_received')}</th>
                   <th className="text-left font-medium px-3 py-2">{t('expiry.col_expiry')}</th>
                   <th className="text-left font-medium px-3 py-2">{t('expiry.col_status')}</th>
@@ -366,7 +375,7 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
                         ) : '—'}
                       </td>
                       <td className="px-3 py-2 text-right">{b.quantity} {unitLabel(b.products?.unit, b.quantity)}</td>
-                      <td className="px-3 py-2 text-right">{formatNaira(b.quantity * (b.buying_price || 0))}</td>
+                      {showValue && <td className="px-3 py-2 text-right">{formatNaira(valueOf(b))}</td>}
                       <td className="px-3 py-2 text-muted-foreground">{format(new Date(b.received_at), 'dd MMM yyyy')}</td>
                       <td className="px-3 py-2">{b.expiry_date ? format(new Date(b.expiry_date), 'dd MMM yyyy') : <span className="text-muted-foreground">—</span>}</td>
                       <td className="px-3 py-2">{statusBadge(status)}</td>
@@ -396,10 +405,12 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
               </tbody>
             </table>
           </div>
-          <div className="flex items-center justify-between rounded-xl border bg-muted/30 px-4 py-3">
-            <span className="text-sm font-medium">{t('expiry.total_at_risk')}</span>
-            <span className="text-sm font-bold text-orange-600 dark:text-orange-400">{formatNaira(totalAtRisk)}</span>
-          </div>
+          {showValue && (
+            <div className="flex items-center justify-between rounded-xl border bg-muted/30 px-4 py-3" data-testid="expiry-total-at-risk">
+              <span className="text-sm font-medium">{t('expiry.total_at_risk')}</span>
+              <span className="text-sm font-bold text-orange-600 dark:text-orange-400">{formatNaira(totalAtRisk)}</span>
+            </div>
+          )}
         </>
       )}
 

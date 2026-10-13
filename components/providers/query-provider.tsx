@@ -14,7 +14,7 @@ import { queryClient } from '@/lib/query-client'
 export function QueryProvider({ children }: { children: React.ReactNode }) {
   const [persister] = useState(() =>
     typeof window !== 'undefined'
-      ? createSyncStoragePersister({ storage: window.localStorage, key: 'rq_cache_v1' })
+      ? createSyncStoragePersister({ storage: window.localStorage, key: 'rq_cache_v2' }) // v2 : l'ancien cache contenait marge et prix d'achat (oct. 2026)
       : null
   )
 

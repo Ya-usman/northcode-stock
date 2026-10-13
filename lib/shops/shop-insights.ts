@@ -10,6 +10,7 @@
 //    valeur du stock au coût d'achat (affichée au propriétaire seulement).
 
 import { useCallback, useEffect, useState } from 'react'
+import { fetchCosts } from '@/lib/costs/client'
 import { useTranslations, useLocale } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { withTimeout } from '@/lib/utils/with-timeout'
@@ -33,7 +34,8 @@ export interface ShopStats {
 
 const empty = (): ShopStats => ({ cashToday: 0, salesTodayCount: 0, salesToday: 0, sales30: 0, products: 0, out: 0, low: 0, stockValue: 0 })
 
-export function useShopStats(shops: Shop[]) {
+/** `withCost` : la page affichera la valeur du stock (propriétaire) — les coûts sont alors demandés au serveur ; sinon ils ne sont pas lus du tout. */
+export function useShopStats(shops: Shop[], withCost = false) {
   const key = shops.map(s => s.id).join(',')
   const [stats, setStats] = useState<Record<string, ShopStats>>({})
   const [loaded, setLoaded] = useState(false)
@@ -44,12 +46,13 @@ export function useShopStats(shops: Shop[]) {
     const startToday = new Date(); startToday.setHours(0, 0, 0, 0)
     const since30 = new Date(Date.now() - 30 * DAY).toISOString()
     try {
-      const [salesRes, payRes, prodRes] = await withTimeout(Promise.all([
+      const [salesRes, payRes, prodRes, costs] = await withTimeout(Promise.all([
         supabase.from('sales').select('shop_id, total, created_at').in('shop_id', ids).eq('sale_status', 'active').gte('created_at', since30),
         supabase.from('payments').select('amount, sales!inner(shop_id, sale_status)')
           .in('sales.shop_id', ids).eq('is_cancelled', false).eq('is_write_off', false)
           .gte('paid_at', startToday.toISOString()),
-        supabase.from('products').select('shop_id, quantity, buying_price, low_stock_threshold').in('shop_id', ids).eq('is_active', true),
+        supabase.from('products').select('id, shop_id, quantity, low_stock_threshold').in('shop_id', ids).eq('is_active', true),
+        withCost ? fetchCosts(ids).then(c => c?.products ?? {}).catch(() => ({} as Record<string, number>)) : Promise.resolve({} as Record<string, number>),
       ]), 20_000)
       if (salesRes.error || payRes.error || prodRes.error) throw salesRes.error || payRes.error || prodRes.error
       const next: Record<string, ShopStats> = Object.fromEntries(ids.map(id => [id, empty()]))
@@ -70,7 +73,7 @@ export function useShopStats(shops: Shop[]) {
         st.products++
         if (qty <= 0) st.out++
         else if (qty <= lowStockThresholdOf(p, threshold[p.shop_id])) st.low++
-        st.stockValue += Math.max(qty, 0) * (Number(p.buying_price) || 0)
+        st.stockValue += Math.max(qty, 0) * (Number(costs[p.id]) || 0)
       }
       setStats(next)
     } catch {

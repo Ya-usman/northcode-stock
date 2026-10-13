@@ -107,7 +107,7 @@ export function StockTransfersTab() {
     if (!shop?.id) return
     try {
       const { data } = await withTimeout<any>(
-        supabase.from('products').select('id, name, unit, quantity, buying_price, selling_price')
+        supabase.from('products').select('id, name, unit, quantity, selling_price')
           .eq('shop_id', shop.id).eq('is_active', true).order('name'),
         20_000
       )

@@ -267,7 +267,7 @@ export function ProductTable({
                 key={product.id}
                 // Toute la ligne ouvre la fiche ; un bouton, une case ou un menu ne fait que son action (lib/utils/open-on-click)
                 onClick={e => { if (isNeutralClick(e)) onOpen(product) }}
-                data-product-row
+                data-product-row={product.id}
                 className={cn('group cursor-pointer border-t transition-colors focus-within:bg-muted/40', selected ? 'bg-stockshop-blue-muted/60 dark:bg-blue-950/25' : 'hover:bg-muted/40')}
               >
                 {/* Case à cocher : toute sa cellule sert à cocher, jamais à ouvrir la fiche */}
@@ -342,7 +342,7 @@ export function ProductTable({
                   )}
                 </td>
                 {show('cost') && (
-                  <td className={cn(CELL_NUM, 'text-muted-foreground')}>{formatPrice(product.buying_price)}</td>
+                  <td className={cn(CELL_NUM, 'text-muted-foreground')}>{product.buying_price == null ? dash : formatPrice(product.buying_price)}</td>
                 )}
                 <td className={CELL_NUM}>
                   <span className={cn('font-semibold', qtyTone)}>{available}</span>
@@ -377,7 +377,7 @@ export function ProductTable({
                   </td>
                 )}
                 {show('stockValue') && (
-                  <td className={CELL_NUM}>{formatPrice(Number(product.quantity) * Number(product.buying_price || 0))}</td>
+                  <td className={CELL_NUM}>{product.buying_price == null ? dash : formatPrice(Number(product.quantity) * Number(product.buying_price))}</td>
                 )}
                 <td className={CELL_NUM}>
                   {sold === null ? dash : <span className={cn(sold === 0 && product.quantity > 0 && 'text-muted-foreground')}>{sold}</span>}

@@ -75,7 +75,7 @@ export function ShopStockTab({ shop, can, isOwner, fmt, openPage }: {
 }) {
   const t = useTranslations('shop_detail')
   const locale = useLocale()
-  const { detail, refresh } = useShopStockDetail(shop, can)
+  const { detail, refresh } = useShopStockDetail(shop, { ...can, cost: isOwner })
   const levels = detail?.levels, expiry = detail?.expiry, transfers = detail?.transfers, pos = detail?.purchaseOrders
   const unitLabel = useUnitLabel()
   const unitOf = (u: string | null, n: number) => (u && u !== 'piece' ? ` ${unitLabel(u, n)}` : '')

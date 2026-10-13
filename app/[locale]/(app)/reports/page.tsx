@@ -36,11 +36,13 @@ const PIE_COLORS = ['#60a5fa', '#D4AF37', '#16A34A', '#DC2626', '#a78bfa']
 interface ReportsData {
   revenueByMethod: { name: string; value: number }[]
   topProducts: { name: string; qty: number; revenue: number }[]
-  stockValuation: { buyingValue: number; sellingValue: number; potentialProfit: number }
+  stockValuation: { sellingValue: number }
   cashierPerf: { id: string; name: string; shopName?: string; sales: number; revenue: number; shopId: string }[]
-  totals: { revenue: number; profit: number; sales: number }
+  totals: { revenue: number; sales: number }
+  /** Ventes de la période : envoyées au serveur pour le calcul de la marge (jamais de coût ici) */
+  saleIds: string[]
   outstandingDebt: number
-  allInventory: { name: string; quantity: number; buying_price: number; selling_price: number; soldQty: number; soldRevenue: number }[]
+  allInventory: { id: string; name: string; quantity: number; selling_price: number; soldQty: number; soldRevenue: number }[]
   expenses: { id: string; amount: number; description: string; date: string }[]
   totalExpenses: number
 }
@@ -48,9 +50,10 @@ interface ReportsData {
 const EMPTY_REPORTS: ReportsData = {
   revenueByMethod: [],
   topProducts: [],
-  stockValuation: { buyingValue: 0, sellingValue: 0, potentialProfit: 0 },
+  stockValuation: { sellingValue: 0 },
   cashierPerf: [],
-  totals: { revenue: 0, profit: 0, sales: 0 },
+  totals: { revenue: 0, sales: 0 },
+  saleIds: [],
   outstandingDebt: 0,
   allInventory: [],
   expenses: [],
@@ -65,7 +68,9 @@ export default function ReportsPage() {
   const isCashier = effectiveRole === 'cashier'
   const isMultiShop = effectiveShopIds.length > 1
   const { fmt: formatNaira, symbol: currencySymbol } = useCurrency()
-  const { canAccess } = useRolePermissions()
+  const { canAccess, canViewCost } = useRolePermissions()
+  // Garde d'entrée : la page elle-même exige l'accès aux Rapports (plus seulement le menu)
+  const canSeeReports = canAccess('reports')
   const { isOnline } = useOffline()
   const { toast } = useToast()
   const supabase = createClient() as any
@@ -151,23 +156,17 @@ export default function ReportsPage() {
     const totalRevenue = sales.reduce((s, sale) => s + Number(sale.total), 0)
 
     // Sale items for profit calculation (only if there are sales)
-    let totalBuyingCost = 0
     let prodTotals: Record<string, { name: string; qty: number; revenue: number }> = {}
 
     if (sales.length > 0) {
       const { data: items, error: itemsErr } = await supabase
         .from('sale_items')
-        .select('product_name, quantity, unit_price, subtotal, buying_price, product_id, sale_id')
+        .select('product_name, quantity, unit_price, subtotal, product_id, sale_id')
         .in('sale_id', sales.map(s => s.id))
       if (itemsErr) throw itemsErr
 
-      const safeItems = (items || []) as Array<{ product_name: string; quantity: number; unit_price: number; subtotal: number; buying_price: number; product_id: string | null; sale_id: string }>
-
-      // Buying cost stored directly on sale_items at time of sale
-      // — remains accurate even if products are deleted or prices change
-      totalBuyingCost = safeItems.reduce((s, item) => {
-        return s + Number(item.buying_price || 0) * Number(item.quantity)
-      }, 0)
+      const safeItems = (items || []) as Array<{ product_name: string; quantity: number; unit_price: number; subtotal: number; product_id: string | null; sale_id: string }>
+      // Le coût des ventes (marge brute) n'est plus lu ici : il est calculé par le serveur — /api/reports/margin
 
       // Top 10 products — grouped by product_id (falling back to product_name
       // for free-text items with no product_id), same as the dashboard chart:
@@ -181,10 +180,7 @@ export default function ReportsPage() {
       })
     }
 
-    // Marge brute = revenue - buying cost (always ≤ revenue)
-    const totalProfit = totalRevenue - totalBuyingCost
-
-    const totals = { revenue: totalRevenue, profit: totalProfit, sales: sales.length }
+    const totals = { revenue: totalRevenue, sales: sales.length }
     const topProducts = Object.values(prodTotals)
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 10)
@@ -192,7 +188,7 @@ export default function ReportsPage() {
     // Stock valuation + full inventory
     const [productsRes, debtRes, expensesRes, cashierPaymentsRes] = await Promise.all([
       supabase
-        .from('products').select('id, name, quantity, buying_price, selling_price')
+        .from('products').select('id, name, quantity, selling_price')
         .in('shop_id', effectiveShopIds).eq('is_active', true).order('name'),
       supabase
         .from('customers').select('total_debt')
@@ -227,9 +223,8 @@ export default function ReportsPage() {
     const { data: cashierPaymentsRaw } = cashierPaymentsRes
     const expensesList = (expensesRaw || []) as { id: string; amount: number; description: string; date: string }[]
     const expTotal = expensesList.reduce((s, e) => s + Number(e.amount), 0)
-    const buyingValue = (allProducts || []).reduce((s: number, p: any) => s + Number(p.quantity) * Number(p.buying_price), 0)
     const sellingValue = (allProducts || []).reduce((s: number, p: any) => s + Number(p.quantity) * Number(p.selling_price), 0)
-    const stockValuation = { buyingValue, sellingValue, potentialProfit: sellingValue - buyingValue }
+    const stockValuation = { sellingValue }
 
     const totalOutstandingDebt = (debtCustomers || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0)
 
@@ -240,9 +235,9 @@ export default function ReportsPage() {
     // vast majority of entries are actually keyed; a p.name-only lookup missed
     // almost every product and left "Vendus" at 0 for them.
     const inventoryList = (allProducts || []).map((p: any) => ({
+      id: p.id,
       name: p.name,
       quantity: Number(p.quantity),
-      buying_price: Number(p.buying_price),
       selling_price: Number(p.selling_price),
       soldQty: (prodTotals[p.id] ?? prodTotals[p.name])?.qty || 0,
       soldRevenue: (prodTotals[p.id] ?? prodTotals[p.name])?.revenue || 0,
@@ -296,6 +291,7 @@ export default function ReportsPage() {
       topProducts,
       stockValuation,
       totals,
+      saleIds: sales.map(s => s.id),
       outstandingDebt: totalOutstandingDebt,
       allInventory: inventoryList,
       expenses: expensesList,
@@ -316,12 +312,34 @@ export default function ReportsPage() {
       // so it always falls back to whatever was last cached instead.
       return withTimeout(loadFreshReportData(start, end), 20_000, 'Chargement des rapports trop lent — réessayez.')
     },
-    enabled: effectiveShopIds.length > 0 && filtersReady,
+    enabled: effectiveShopIds.length > 0 && filtersReady && canSeeReports,
   })
   const {
     revenueByMethod, topProducts, stockValuation, cashierPerf,
     totals, outstandingDebt, allInventory, expenses, totalExpenses,
   } = data ?? EMPTY_REPORTS
+
+  // Marge, bénéfice, valeur d'achat du stock, prix d'achat : calculés par le SERVEUR, pour qui a l'accès aux
+  // Rapports ET le droit de voir les coûts (lib/permissions → canViewCost). Sans ce droit l'écran ne demande
+  // rien et n'affiche ni marge ni bénéfice. Cette réponse n'est jamais rangée dans le cache local (clé à part).
+  const saleIds = data?.saleIds ?? []
+  const { data: margin } = useQuery({
+    queryKey: ['reports-margin', shopKey, `${dateFilter}_${customStart}_${customEnd}`, saleIds.length, totals.revenue],
+    queryFn: async (): Promise<{ cogs: number; stock_buying_value: number; product_costs: Record<string, number> } | null> => {
+      const res = await withTimeout(fetch('/api/reports/margin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop_ids: effectiveShopIds, sale_ids: saleIds }),
+      }), 20_000)
+      if (!res.ok) return null
+      return res.json()
+    },
+    enabled: canSeeReports && canViewCost && !!data && effectiveShopIds.length > 0,
+  })
+  const showMargin = canViewCost && !!margin
+  const profit = margin ? totals.revenue - margin.cogs : 0
+  const buyingValue = margin?.stock_buying_value ?? 0
+  const costOf = (id: string) => margin?.product_costs[id] ?? 0
 
   // Refresh when the user comes back to this tab or regains connectivity —
   // financial reports deserve the same freshness as the dashboard.
@@ -346,9 +364,9 @@ export default function ReportsPage() {
           headers: [t('reports.col_metric'), t('reports.col_value')],
           rows: [
             [t('reports.encaisse'), formatNaira(totals.revenue)],
-            [t('reports.gross_margin_sales_pdf'), formatNaira(totals.profit)],
+            ...(showMargin ? [[t('reports.gross_margin_sales_pdf'), formatNaira(profit)]] : []),
             [t('expenses.title'), formatNaira(totalExpenses)],
-            [t('expenses.net_profit'), formatNaira(totals.profit - totalExpenses)],
+            ...(showMargin ? [[t('expenses.net_profit'), formatNaira(profit - totalExpenses)]] : []),
             [t('reports.outstanding_debt'), formatNaira(outstandingDebt)],
             [t('reports.transactions'), String(totals.sales)],
           ],
@@ -364,21 +382,21 @@ export default function ReportsPage() {
         },
         {
           title: t('reports.full_inventory'),
-          headers: isCashier
+          headers: !showMargin
             ? [t('reports.col_product'), t('reports.col_stock'), t('reports.col_sold_qty'), t('reports.col_selling_price')]
             : [t('reports.col_product'), t('reports.col_stock'), t('reports.col_sold_qty'), t('reports.col_buying_price'), t('reports.col_selling_price')],
-          rows: allInventory.map(p => isCashier
+          rows: allInventory.map(p => !showMargin
             ? [p.name, p.quantity, p.soldQty || '—', formatNaira(p.selling_price)]
-            : [p.name, p.quantity, p.soldQty || '—', formatNaira(p.buying_price), formatNaira(p.selling_price)]
+            : [p.name, p.quantity, p.soldQty || '—', formatNaira(costOf(p.id)), formatNaira(p.selling_price)]
           ),
         },
-        ...(!isCashier ? [{
+        ...(showMargin ? [{
           title: t('reports.stock_valuation'),
           headers: [t('reports.col_metric'), t('reports.col_value')],
           rows: [
-            [t('reports.buying_value'), formatNaira(stockValuation.buyingValue)],
+            [t('reports.buying_value'), formatNaira(buyingValue)],
             [t('reports.selling_value'), formatNaira(stockValuation.sellingValue)],
-            [t('reports.potential_profit'), formatNaira(stockValuation.potentialProfit)],
+            [t('reports.potential_profit'), formatNaira(stockValuation.sellingValue - buyingValue)],
           ],
         }] : []),
         ...(expenses.length > 0 ? [{
@@ -427,6 +445,15 @@ export default function ReportsPage() {
     } finally {
       setExporting(false)
     }
+  }
+
+  // Accès direct par l'adresse sans le droit « Rapports » : rien n'est chargé ni affiché
+  if (!canSeeReports) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center" data-testid="reports-no-access">
+        <p className="text-sm text-muted-foreground">{t('nav.no_access')}</p>
+      </div>
+    )
   }
 
   return (
@@ -511,23 +538,23 @@ export default function ReportsPage() {
 
       {/* KPI — ligne 2 : Marge brute · Bénéfice net · Crédits */}
       <div className="grid grid-cols-3 gap-2">
-        {canAccess('widget_rep_marge_brute') && (
+        {canAccess('widget_rep_marge_brute') && showMargin && (
           <Card className="border-0 shadow-sm">
             <CardContent className="p-2 sm:p-3 text-center">
               <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">{t('reports.gross_margin')}</p>
-              <p className={`text-sm sm:text-base font-bold mt-0.5 truncate ${totals.profit >= 0 ? 'text-blue-400' : 'text-red-500'}`}>
-                {loading ? '…' : formatNaira(totals.profit)}
+              <p className={`text-sm sm:text-base font-bold mt-0.5 truncate ${profit >= 0 ? 'text-blue-400' : 'text-red-500'}`} data-testid="reports-gross-margin">
+                {loading ? '…' : formatNaira(profit)}
               </p>
               <p className="text-[9px] text-muted-foreground mt-0.5 hidden sm:block">{t('reports.gross_margin_hint')}</p>
             </CardContent>
           </Card>
         )}
-        {canAccess('widget_rep_benefice_net') && (
+        {canAccess('widget_rep_benefice_net') && showMargin && (
           <Card className="border-0 shadow-sm ring-1 ring-green-500/40">
             <CardContent className="p-2 sm:p-3 text-center">
               <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight font-semibold">{t('expenses.net_profit')}</p>
-              <p className={`text-sm sm:text-base font-bold mt-0.5 truncate ${totals.profit - totalExpenses >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                {loading ? '…' : formatNaira(totals.profit - totalExpenses)}
+              <p className={`text-sm sm:text-base font-bold mt-0.5 truncate ${profit - totalExpenses >= 0 ? 'text-green-500' : 'text-red-500'}`} data-testid="reports-net-profit">
+                {loading ? '…' : formatNaira(profit - totalExpenses)}
               </p>
               <p className="text-[9px] text-muted-foreground mt-0.5 hidden sm:block">{t('reports.net_profit_hint')}</p>
             </CardContent>
@@ -641,7 +668,7 @@ export default function ReportsPage() {
                         <TableHead className="px-2 sm:px-4">{t('reports.col_product')}</TableHead>
                         <TableHead className="text-right px-2 sm:px-4">{t('reports.col_stock')}</TableHead>
                         <TableHead className="text-right px-2 sm:px-4 hidden sm:table-cell">{t('reports.col_sold_qty')}</TableHead>
-                        {!isCashier && <TableHead className="text-right px-2 sm:px-4 hidden sm:table-cell">{t('reports.col_buying_price')}</TableHead>}
+                        {showMargin && <TableHead className="text-right px-2 sm:px-4 hidden sm:table-cell">{t('reports.col_buying_price')}</TableHead>}
                         <TableHead className="text-right px-2 sm:px-4">{t('reports.col_selling_price')}</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -653,7 +680,7 @@ export default function ReportsPage() {
                             {p.quantity}
                           </TableCell>
                           <TableCell className="text-right text-xs text-muted-foreground px-2 sm:px-4 hidden sm:table-cell">{p.soldQty > 0 ? p.soldQty : '—'}</TableCell>
-                          {!isCashier && <TableCell className="text-right text-xs text-muted-foreground px-2 sm:px-4 hidden sm:table-cell">{formatNaira(p.buying_price)}</TableCell>}
+                          {showMargin && <TableCell className="text-right text-xs text-muted-foreground px-2 sm:px-4 hidden sm:table-cell">{formatNaira(costOf(p.id))}</TableCell>}
                           <TableCell className="text-right text-xs sm:text-sm text-stockshop-blue dark:text-blue-400 px-2 sm:px-4 whitespace-nowrap">{formatNaira(p.selling_price)}</TableCell>
                         </TableRow>
                       ))}
@@ -664,8 +691,8 @@ export default function ReportsPage() {
             </CardContent>
           </Card>
 
-          {/* Stock valuation — hidden for cashiers (exposes buying costs) */}
-          {!isCashier && (
+          {/* Valorisation du stock : valeur d'achat et marge potentielle — seulement avec le droit de voir les coûts */}
+          {showMargin && (
             <Card className="border-0 shadow-sm">
               <CardHeader className="pb-2 px-3 sm:px-6">
                 <CardTitle className="text-sm">{t('reports.stock_valuation')}</CardTitle>
@@ -673,9 +700,9 @@ export default function ReportsPage() {
               <CardContent className="px-3 sm:px-6">
                 <div className="grid grid-cols-3 gap-2 text-center">
                   {[
-                    { label: t('reports.buying_value'), value: formatNaira(stockValuation.buyingValue), color: 'text-muted-foreground' },
+                    { label: t('reports.buying_value'), value: formatNaira(buyingValue), color: 'text-muted-foreground' },
                     { label: t('reports.selling_value'), value: formatNaira(stockValuation.sellingValue), color: 'text-stockshop-blue dark:text-blue-400' },
-                    { label: t('reports.potential_profit'), value: formatNaira(stockValuation.potentialProfit), color: 'text-green-600 dark:text-green-400' },
+                    { label: t('reports.potential_profit'), value: formatNaira(stockValuation.sellingValue - buyingValue), color: 'text-green-600 dark:text-green-400' },
                   ].map(item => (
                     <div key={item.label} className="rounded-lg bg-muted/30 p-2 sm:p-3">
                       <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">{item.label}</p>

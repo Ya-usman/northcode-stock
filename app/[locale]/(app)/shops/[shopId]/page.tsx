@@ -85,7 +85,7 @@ export default function ShopDetailPage({ params: { shopId } }: { params: { shopI
   }
 
   const shopList = useMemo(() => (shop ? [shop] : []), [shop])
-  const { stats, loaded, refresh: refreshStats } = useShopStats(shopList)
+  const { stats, loaded, refresh: refreshStats } = useShopStats(shopList, isOwner)
   // Équipe : toutes les boutiques gérées (pour proposer l'affectation d'une personne d'une autre boutique)
   const { people, loading: peopleLoading, refresh: refreshPeople } = useTeamPeople(managedIds, shop ? shopId : null)
   const { planLabel, subscriptionOf, hoursOf, statusOf, toneClass } = useShopStatus()

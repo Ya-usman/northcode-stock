@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef, useCallback } from 'react'
+import { purgeCostCaches } from '@/lib/offline/page-cache'
 import { usePathname, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
@@ -86,6 +87,9 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   const [crispUnread, setCrispUnread] = useState(0)
   const recoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { toast } = useToast()
+
+  // Données mises en cache sur l'appareil avant la protection du prix d'achat (oct. 2026) : retirées une fois
+  useEffect(() => { purgeCostCaches() }, [])
 
   // ── Auth recovery: quand user devient null après loading, attendre 2s avant
   // de rediriger — la race condition de token refresh peut causer un SIGNED_OUT

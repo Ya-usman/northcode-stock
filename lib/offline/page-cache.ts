@@ -70,3 +70,25 @@ export function clearPageCacheByPrefix(prefix: string): void {
     keys.forEach(k => localStorage.removeItem(k))
   } catch {}
 }
+
+/**
+ * Retire de l'appareil les données mises en cache AVANT la protection du prix
+ * d'achat (oct. 2026) : toute entrée de page, et le cache des Rapports, qui
+ * contient encore un « buying_price ». Les écrans ne rangent plus de coût dans
+ * ce cache — appelée à chaque ouverture de l'application, elle ne trouve donc
+ * plus rien après le premier passage.
+ */
+export function purgeCostCaches(): number {
+  let removed = 0
+  try {
+    const keys: string[] = []
+    // Ancien cache des Rapports (marge, prix d'achat) : retiré sans condition
+    if (localStorage.getItem('rq_cache_v1') !== null) { localStorage.removeItem('rq_cache_v1'); removed++ }
+    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && (k.startsWith('pc_') || k === 'rq_cache_v2')) keys.push(k) }
+    for (const k of keys) {
+      const v = localStorage.getItem(k)
+      if (v && v.includes('"buying_price"')) { localStorage.removeItem(k); removed++ }
+    }
+  } catch {}
+  return removed
+}
