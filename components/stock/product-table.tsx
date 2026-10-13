@@ -413,7 +413,7 @@ export function ProductTable({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="min-w-[180px]">
-                        {canOrderStock && product.quantity <= threshold && (
+                        {canOrderStock && available <= threshold && (
                           <DropdownMenuItem onClick={() => onOrder(product)}>
                             <ShoppingCart className="mr-2 h-3.5 w-3.5" /> {t('actions.order')}
                           </DropdownMenuItem>

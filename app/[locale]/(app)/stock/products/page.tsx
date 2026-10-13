@@ -40,7 +40,7 @@ import { useRestoredPhoto } from '@/lib/photo/use-restored-photo'
 import { ProductTable, ProductTableSkeleton, OPTIONAL_COLUMNS, PENDING_COLUMNS, type ProductColumnKey, type ProductSort, type ProductStatus } from '@/components/stock/product-table'
 import { useStockViewMode } from '@/lib/hooks/use-stock-view-mode'
 import { ProductActivityJournal } from '@/components/stock/product-activity-journal'
-import { fetchExpiryByProduct, fetchExpiredQtyByProduct, availableQty, fetchSoldQty30d, readSignalsCache, writeSignalsCache } from '@/lib/stock/signals'
+import { fetchExpiryByProduct, fetchExpiredQtyByProduct, availableQty, stockLevelOf, fetchSoldQty30d, readSignalsCache, writeSignalsCache } from '@/lib/stock/signals'
 import { fetchStockPipeline, type StockPipeline } from '@/lib/stock/pipeline'
 import { ProductThumbnail } from '@/components/stock/product-thumbnail'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
@@ -431,6 +431,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const isExpired = (p: Product) => { const exp = expiryByProduct[p.id]; return !!exp && exp < todayStr }
   const isExpiringSoon = (p: Product) => { const exp = expiryByProduct[p.id]; return !!exp && exp >= todayStr && exp <= getExpiryCutoffFor(p) }
   const isDormant = (p: Product) => soldQtyLoaded && p.quantity > 0 && !(soldQtyByProduct[p.id] > 0)
+  // Niveau de stock jugé sur le disponible (physique − périmé) — règle commune lib/stock/signals
+  const levelOf = (p: Product) => stockLevelOf(p, { shopLowStockThreshold: shop?.low_stock_threshold, expiredQtyByProduct })
   // Partagé produit/lot (les deux ont promo_price/promo_until) — un seul
   // endroit à faire évoluer quand promo_start (Étape 4) sera ajouté.
   const isPromoActive = (o: { promo_price?: number | null; promo_until?: string | null; promo_start?: string | null }) =>
@@ -483,10 +485,10 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       if (noImage && p.image_url) return false
       if (categoryFilter === 'uncategorized' && p.category_id) return false
       if (categoryFilter !== 'all' && categoryFilter !== 'uncategorized' && p.category_id !== categoryFilter) return false
-      const threshold = p.low_stock_threshold || shop?.low_stock_threshold || 10
-      if (statusFilter === 'out' && p.quantity !== 0) return false
-      if (statusFilter === 'low' && (p.quantity === 0 || p.quantity > threshold)) return false
-      if (statusFilter === 'ok' && p.quantity <= threshold) return false
+      const level = levelOf(p)
+      if (statusFilter === 'out' && level !== 'out') return false
+      if (statusFilter === 'low' && level !== 'low') return false
+      if (statusFilter === 'ok' && level !== 'ok') return false
       if (statusFilter === 'expiry' && !isExpired(p) && !isExpiringSoon(p)) return false
       if (statusFilter === 'dormant' && !isDormant(p)) return false
       if (statusFilter === 'promo' && !isPromoActive(p)) return false
@@ -898,7 +900,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       ],
       rows: filtered.map(p => {
         const threshold = p.low_stock_threshold || shop?.low_stock_threshold || 10
-        const status = p.quantity === 0 ? t('status.out_of_stock') : p.quantity <= threshold ? t('status.low_stock') : t('status.in_stock')
+        const level = levelOf(p)
+        const status = level === 'out' ? t('status.out_of_stock') : level === 'low' ? t('status.low_stock') : t('status.in_stock')
         return [p.name, p.selling_price, p.buying_price, p.quantity, unitLabel(p.unit || 'piece'), p.sku || '', p.low_stock_threshold ?? '', (p as any).categories?.name || '', status]
       }),
     }, format)
@@ -1112,7 +1115,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               </div>
             </div>
           </div>
-          <StockBadge quantity={product.quantity} threshold={threshold} />
+          <StockBadge quantity={cardAvailable} threshold={threshold} />
         </div>
         <div className="flex items-center justify-between text-sm">
           {promoActive ? (
@@ -1147,7 +1150,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               {cardExpired > 0 && <span className="ml-1.5 text-xs font-medium text-red-600 dark:text-red-400" title={t('products.expired_qty_hint')}>{t('products.expired_qty', { count: cardExpired })}</span>}
             </span>
             <div className="ml-auto flex gap-1">
-              {canOrderStock && product.quantity <= threshold && (
+              {canOrderStock && cardAvailable <= threshold && (
                 <Button
                   variant="outline" size="sm" className="h-7 px-2 text-xs"
                   onClick={() => { const href = `/${locale}/suppliers?order_product=${product.id}`; startNavigationProgress(href); router.push(href) }}
@@ -1277,7 +1280,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const tableProps = {
     thresholdFor,
     statusFor: (p: Product): ProductStatus =>
-      p.quantity === 0 ? 'out' : p.quantity <= thresholdFor(p) ? 'low' : isDormant(p) ? 'dormant' : 'ok',
+      levelOf(p) !== 'ok' ? (levelOf(p) as ProductStatus) : isDormant(p) ? 'dormant' : 'ok',
     soldQty: (p: Product) => (soldQtyLoaded ? soldQtyByProduct[p.id] || 0 : null),
     pipelineFor,
     expiredQty: (p: Product) => expiredQtyByProduct[p.id] || 0,

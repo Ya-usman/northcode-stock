@@ -147,6 +147,8 @@ export interface StockRulesContext {
   soldQtyByProduct: Record<string, number>
   /** Tant que les ventes 30 j ne sont pas chargées, aucun produit n'est « dormant » */
   soldQtyLoaded: boolean
+  /** Quantité des lots périmés par produit (absent = aucun) : elle sort du disponible */
+  expiredQtyByProduct?: Record<string, number>
   /** AAAA-MM-JJ, par défaut aujourd'hui */
   today?: string
 }
@@ -209,13 +211,29 @@ export interface StockKpis {
   retailValue: number
 }
 
+export type StockLevel = 'out' | 'low' | 'ok'
+
+/**
+ * Niveau de stock d'un produit, jugé sur le DISPONIBLE (physique − périmé) :
+ * un produit dont tout le stock est périmé est en rupture, même s'il reste en
+ * rayon. Règle unique du module Stock (statut, filtres, chiffres clés, export).
+ */
+export function stockLevelOf(
+  p: { id: string; quantity: number; low_stock_threshold: number | null },
+  ctx: { shopLowStockThreshold?: number | null; expiredQtyByProduct?: Record<string, number> },
+): StockLevel {
+  const available = availableQty(p.quantity, ctx.expiredQtyByProduct?.[p.id])
+  if (available === 0) return 'out'
+  return available <= lowStockThresholdOf(p, ctx.shopLowStockThreshold) ? 'low' : 'ok'
+}
+
 export function computeStockKpis(products: StockProductLike[], ctx: StockRulesContext): StockKpis {
   const kpis: StockKpis = { total: products.length, out: 0, low: 0, expiring: 0, dormant: 0, dormantValue: 0, promo: 0, promoStale: 0, stockValue: 0, retailValue: 0 }
   for (const p of products) {
-    const threshold = lowStockThresholdOf(p, ctx.shopLowStockThreshold)
     const cost = Number(p.quantity) * Number(p.buying_price || 0)
-    if (p.quantity === 0) kpis.out++
-    else if (p.quantity <= threshold) kpis.low++
+    const level = stockLevelOf(p, ctx)
+    if (level === 'out') kpis.out++
+    else if (level === 'low') kpis.low++
     if (isExpired(p, ctx) || isExpiringSoon(p, ctx)) kpis.expiring++
     if (isDormant(p, ctx)) { kpis.dormant++; kpis.dormantValue += cost }
     if (isPromoActive(p)) kpis.promo++

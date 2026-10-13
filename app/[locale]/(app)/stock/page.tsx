@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils/cn'
 import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StockTabs } from '@/components/stock/stock-tabs'
-import { computeStockKpis, fetchExpiryByProduct, fetchSoldQty30d, readSignalsCache, writeSignalsCache, type StockProductLike } from '@/lib/stock/signals'
+import { computeStockKpis, fetchExpiryByProduct, fetchExpiredQtyByProduct, fetchSoldQty30d, readSignalsCache, writeSignalsCache, type StockProductLike } from '@/lib/stock/signals'
 import { fetchStockPipeline, type StockPipeline } from '@/lib/stock/pipeline'
 
 // Vue d'ensemble du module Stock : six chiffres clés cliquables (chacun ouvre
@@ -89,6 +89,8 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
   const [expiryByProduct, setExpiryByProduct] = useState<Record<string, string>>(() => readSignalsCache(effectiveShopIds)?.expiryByProduct ?? {})
   const [soldQtyByProduct, setSoldQtyByProduct] = useState<Record<string, number>>(() => readSignalsCache(effectiveShopIds)?.soldQtyByProduct ?? {})
   const [soldQtyLoaded, setSoldQtyLoaded] = useState(() => !!readSignalsCache(effectiveShopIds)?.soldQtyByProduct)
+  // Quantité des lots périmés par produit : elle sort du disponible (ruptures et stock bas en tiennent compte)
+  const [expiredQtyByProduct, setExpiredQtyByProduct] = useState<Record<string, number>>(() => readSignalsCache(effectiveShopIds)?.expiredQtyByProduct ?? {})
   // Stock à venir (en transit, en commande) : null tant qu'il n'est ni en cache ni chargé
   const [pipeline, setPipeline] = useState<StockPipeline | null>(() => readSignalsCache(effectiveShopIds)?.pipeline ?? null)
 
@@ -133,6 +135,11 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
       writeSignalsCache(effectiveShopIds, { soldQtyByProduct: sold })
     } catch { /* idem */ }
     try {
+      const expiredQty = await fetchExpiredQtyByProduct(supabase, effectiveShopIds)
+      setExpiredQtyByProduct(expiredQty)
+      writeSignalsCache(effectiveShopIds, { expiredQtyByProduct: expiredQty })
+    } catch { /* idem */ }
+    try {
       const incoming = await fetchStockPipeline(effectiveShopIds)
       setPipeline(incoming)
       writeSignalsCache(effectiveShopIds, { pipeline: incoming })
@@ -157,7 +164,8 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
     expiryByProduct,
     soldQtyByProduct,
     soldQtyLoaded,
-  }), [products, categories, shop?.low_stock_threshold, shop?.expiry_alert_days, expiryByProduct, soldQtyByProduct, soldQtyLoaded])
+    expiredQtyByProduct,
+  }), [products, categories, shop?.low_stock_threshold, shop?.expiry_alert_days, expiryByProduct, soldQtyByProduct, soldQtyLoaded, expiredQtyByProduct])
 
   // Les coûts sont des données financières : pas pour la caisse ni la lecture seule
   const canSeeValue = !['cashier', 'viewer'].includes(effectiveRole || '')
