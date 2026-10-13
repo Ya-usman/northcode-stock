@@ -6,7 +6,7 @@ import { PO_LINES, debtOrder, supplierDebtShops } from '@/lib/api/supplier-acces
 // GET /api/supplier-payments/debts?shop_ids=id1,id2
 // Suppliers with total_owed + their unpaid purchase orders. Mirrors
 // GET /api/payments/debts (customer side).
-// Droit : « Crédits » dans la boutique (il suffit pour consulter une dette fournisseur). Les lignes détaillées
+// Droit : « Crédits » ET « Fournisseurs » en lecture dans la boutique. Les lignes détaillées
 // d'un bon (produit × quantité × prix unitaire) donnent le prix d'achat : elles ne sont envoyées qu'avec le droit
 // de voir les coûts (lib/api/supplier-access).
 export async function GET(request: Request) {

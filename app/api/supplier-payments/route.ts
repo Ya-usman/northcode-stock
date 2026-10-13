@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { canWriteFeature } from '@/lib/api/role-permissions'
+import { canPaySupplierDebt } from '@/lib/api/supplier-access'
 import { getApiTranslator } from '@/lib/api/i18n'
 
 // POST /api/supplier-payments — record FIFO payment across a supplier's
@@ -36,7 +36,8 @@ export async function POST(request: Request) {
       .single()
 
     const callerRole = memberRow?.role
-    if (!callerRole || !(await canWriteFeature(supabase, callerRole, shop_id, 'payments'))) {
+    // Payer un fournisseur : Crédits en modification ET Fournisseurs en lecture
+    if (!callerRole || !(await canPaySupplierDebt(supabase, callerRole, shop_id))) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 

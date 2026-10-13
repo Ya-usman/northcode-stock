@@ -147,11 +147,14 @@ export default function SuppliersPage() {
   const effectiveRole = roleInActiveShop ?? profile?.role
   // Règle unique : niveau « modification » de Fournisseurs (fiches, prix,
   // bons de commande) — même règle que les routes /api/suppliers et /api/purchase-orders
-  const { canWrite, canViewCost } = useRolePermissions()
+  const { canWrite, canAccess, canViewCost } = useRolePermissions()
   const canManage = canWrite('suppliers')
   // Prix d'achat (prix des produits, comparateur, montants des bons) : règle unique canViewCost. Sans ce droit,
   // l'écran ne les demande pas — et le serveur ne les enverrait pas. Payer une dette suit le droit « Crédits ».
   const showCost = canViewCost
+  // Dettes fournisseurs (solde dû) : Crédits ET Fournisseurs en lecture ; payer : Crédits en modification
+  // (cet écran demande déjà Fournisseurs en lecture)
+  const showDebt = canAccess('payments')
   const canPay = canWrite('payments')
 
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
@@ -267,7 +270,7 @@ export default function SuppliersPage() {
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave `loading` stuck true forever.
       const [suppliersRes, productsRes] = await withTimeout(Promise.all([
-        supabase.from('suppliers').select('*').in('shop_id', effectiveShopIds).order('name'),
+        supabase.from('suppliers').select(showDebt ? '*' : 'id, shop_id, name, phone, city, email, created_at, deleted_at').in('shop_id', effectiveShopIds).order('name'),
         supabase.from('products').select('id, name, selling_price, quantity, unit, supplier_id, shop_id').in('shop_id', effectiveShopIds).eq('is_active', true),
       ]), 20_000, 'Chargement des fournisseurs trop lent — réessayez.')
       // A transient auth/RLS hiccup can resolve with data: null instead of
@@ -346,10 +349,10 @@ export default function SuppliersPage() {
       shopName: userShops.filter(x => effectiveShopIds.includes(x.id)).map(x => x.name).join(', ') || shop?.name || 'StockShop',
       columns: [
         { header: col('name') }, { header: col('phone') }, { header: col('email') }, { header: col('city') },
-        { header: `${col('debt')} (${symbol})`, type: 'money' },
+        ...(showDebt ? [{ header: `${col('debt')} (${symbol})`, type: 'money' as const }] : []),
       ],
-      rows: filtered.map(x => [x.name, x.phone || '', (x as any).email || '', x.city || '', Number(x.total_owed) || 0]),
-      totals: [t('exports.total'), null, null, null, totalOwedAll],
+      rows: filtered.map(x => [x.name, x.phone || '', (x as any).email || '', x.city || '', ...(showDebt ? [Number(x.total_owed) || 0] : [])]),
+      totals: showDebt ? [t('exports.total'), null, null, null, totalOwedAll] : undefined,
     }, fmtOut)
   }
 
@@ -1464,6 +1467,7 @@ export default function SuppliersPage() {
         orders={purchaseOrders.filter((po: any) => po.supplier_id === sheetSupplier?.id)}
         canManage={canManage}
         showCost={showCost}
+        showDebt={showDebt}
         canPay={canPay}
         shopCountry={shop?.country}
         fmt={fmt}

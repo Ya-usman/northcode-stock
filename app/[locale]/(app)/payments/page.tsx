@@ -487,8 +487,13 @@ export default function CreditsPage() {
   // Règle unique : « Paiements / Crédits » en modification pour encaisser,
   // reporter, modifier ; direction seule pour passer en perte ou annuler
   // (mêmes règles que /api/payments/*)
-  const { canWrite } = useRolePermissions()
+  const { canWrite, canAccess } = useRolePermissions()
   const canWritePayments = canWrite('payments')
+  // Ce que l'entreprise DOIT à ses fournisseurs : Crédits ET Fournisseurs en lecture pour voir ; Crédits en
+  // modification (et Fournisseurs en lecture) pour payer — le droit Crédits seul ne montre que les crédits des
+  // clients (mêmes règles que /api/supplier-payments/*)
+  const canSeeSupplierDebts = canAccess('suppliers')
+  const canPaySuppliers = canWritePayments && canSeeSupplierDebts
   const effectiveRole = roleInActiveShop ?? profile?.role
   const isManagerial = isManagerialRole(effectiveRole) && canWritePayments
   const { fmt, symbol } = useCurrency()
@@ -654,14 +659,16 @@ export default function CreditsPage() {
     }
   }
 
-  useEffect(() => { if (debtSide === 'payable') fetchSupplierDebtors() }, [debtSide, effectiveShopIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Sans le droit, le côté « Je dois » n'existe pas : ni bascule, ni lien direct, ni demande au serveur
+  useEffect(() => { if (!canSeeSupplierDebts && debtSide === 'payable') setDebtSide('receivable') }, [canSeeSupplierDebts, debtSide])
+  useEffect(() => { if (debtSide === 'payable' && canSeeSupplierDebts) fetchSupplierDebtors() }, [debtSide, canSeeSupplierDebts, effectiveShopIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Lien profond depuis la fiche fournisseur : ?pay_supplier=<id> bascule sur
   // « À payer » et ouvre directement le remboursement de ce fournisseur.
   const searchParams = useSearchParams()
   const paySupplierId = searchParams.get('pay_supplier')
   useEffect(() => {
-    if (!paySupplierId) return
+    if (!paySupplierId || !canSeeSupplierDebts) return
     if (debtSide !== 'payable') { setDebtSide('payable'); return }
     const debtor = supplierDebtors.find(d => d.supplier.id === paySupplierId)
     if (!debtor) return
@@ -1443,8 +1450,9 @@ export default function CreditsPage() {
   return (
     <div className="space-y-4">
 
-      {/* Bascule créances / dettes */}
-      <div className="flex gap-1 p-1 bg-muted rounded-xl">
+      {/* Bascule créances / dettes — seulement pour qui voit aussi les dettes fournisseurs */}
+      {canSeeSupplierDebts && (
+      <div className="flex gap-1 p-1 bg-muted rounded-xl" data-testid="debt-side-toggle">
         <button
           onClick={() => setDebtSide('receivable')}
           className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition-all duration-200 ${
@@ -1462,8 +1470,9 @@ export default function CreditsPage() {
           {t('payments.side_payable')}
         </button>
       </div>
+      )}
 
-      {canWritePayments && shop?.id && (
+      {(debtSide === 'receivable' ? canWritePayments : canPaySuppliers) && shop?.id && (
         <button type="button" onClick={() => setOpeningDrawer(true)} data-testid="opening-open"
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-stockshop-blue/40 px-3 py-2.5 text-sm font-medium text-stockshop-blue transition-colors hover:bg-stockshop-blue-muted dark:border-blue-400/40 dark:text-blue-400 dark:hover:bg-blue-950/40">
           <Plus className="h-4 w-4" />
@@ -1858,7 +1867,7 @@ export default function CreditsPage() {
       </>
       )}
 
-      {debtSide === 'payable' && (
+      {debtSide === 'payable' && canSeeSupplierDebts && (
       <>
       {/* Summary */}
       <Card className="border-0 shadow-sm bg-amber-600 text-white">
@@ -1946,7 +1955,7 @@ export default function CreditsPage() {
                     {shopDebtors.map(({ supplier, unpaidPOs, totalOwed }) => (
                       <SupplierDebtorCard key={supplier.id} supplier={supplier} unpaidPOs={unpaidPOs} totalOwed={totalOwed}
                         isExpanded={expandedSupplierId === supplier.id} setExpandedId={setExpandedSupplierId}
-                        canWrite={canWritePayments} openRepayDialog={openSupplierRepayDialog} openHistory={openSupplierHistory} onCancelOpening={canWritePayments ? openCancelOpeningPO : undefined} fmt={fmt} t={t} saving={savingSupplierPayment} />
+                        canWrite={canPaySuppliers} openRepayDialog={openSupplierRepayDialog} openHistory={openSupplierHistory} onCancelOpening={canPaySuppliers ? openCancelOpeningPO : undefined} fmt={fmt} t={t} saving={savingSupplierPayment} />
                     ))}
                   </div>
                 )
@@ -1957,7 +1966,7 @@ export default function CreditsPage() {
               {filteredSupplierDebtors.map(({ supplier, unpaidPOs, totalOwed }) => (
                 <SupplierDebtorCard key={supplier.id} supplier={supplier} unpaidPOs={unpaidPOs} totalOwed={totalOwed}
                   isExpanded={expandedSupplierId === supplier.id} setExpandedId={setExpandedSupplierId}
-                  canWrite={canWritePayments} openRepayDialog={openSupplierRepayDialog} openHistory={openSupplierHistory} onCancelOpening={canWritePayments ? openCancelOpeningPO : undefined} fmt={fmt} t={t} saving={savingSupplierPayment} />
+                  canWrite={canPaySuppliers} openRepayDialog={openSupplierRepayDialog} openHistory={openSupplierHistory} onCancelOpening={canPaySuppliers ? openCancelOpeningPO : undefined} fmt={fmt} t={t} saving={savingSupplierPayment} />
               ))}
             </div>
           )}

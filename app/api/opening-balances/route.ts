@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { canWriteFeature } from '@/lib/api/role-permissions'
+import { canPaySupplierDebt } from '@/lib/api/supplier-access'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { parsePhone } from '@/lib/import/contacts-import'
@@ -17,7 +18,7 @@ import { samePhone } from '@/lib/phone/compare'
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/
 
-async function authorize(request: Request, shopId: string | null) {
+async function authorize(request: Request, shopId: string | null, kind?: string | null) {
   const t = getApiTranslator(request)
   const { user, supabase } = await getAuthedUser()
   if (!user) return { error: NextResponse.json({ error: t('not_authenticated') }, { status: 401 }) }
@@ -26,13 +27,17 @@ async function authorize(request: Request, shopId: string | null) {
   if (!role || !(await canWriteFeature(supabase, role, shopId, 'payments'))) {
     return { error: NextResponse.json({ error: t('permission_denied') }, { status: 403 }) }
   }
+  // Dette envers un FOURNISSEUR : il faut aussi Fournisseurs en lecture (même règle que le paiement)
+  if (kind === 'supplier' && !(await canPaySupplierDebt(supabase, role, shopId))) {
+    return { error: NextResponse.json({ error: t('permission_denied') }, { status: 403 }) }
+  }
   return { user, t }
 }
 
 export async function POST(request: Request) {
   try {
     const b = await request.json()
-    const auth = await authorize(request, b?.shop_id)
+    const auth = await authorize(request, b?.shop_id, b?.kind)
     if ('error' in auth) return auth.error
     const { user, t } = auth
     const kind = b.kind === 'supplier' ? 'supplier' : b.kind === 'customer' ? 'customer' : null
@@ -102,7 +107,7 @@ export async function DELETE(request: Request) {
     const shopId = url.searchParams.get('shop_id')
     const kind = url.searchParams.get('kind')
     const id = url.searchParams.get('id')
-    const auth = await authorize(request, shopId)
+    const auth = await authorize(request, shopId, kind)
     if ('error' in auth) return auth.error
     const { user, t } = auth
     if (!id || (kind !== 'customer' && kind !== 'supplier')) return NextResponse.json({ error: t('invalid_data') }, { status: 400 })

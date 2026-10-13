@@ -1,4 +1,4 @@
-import { canViewCost, canViewFeature } from '@/lib/api/role-permissions'
+import { canViewCost, canViewFeature, canWriteFeature } from '@/lib/api/role-permissions'
 
 // Fournisseurs : deux notions à ne pas confondre.
 //
@@ -6,8 +6,15 @@ import { canViewCost, canViewFeature } from '@/lib/api/role-permissions'
 //    commande, comparateur de prix entre fournisseurs, coût, marge : règle
 //    unique `canViewCost` (lib/permissions).
 //  - La DETTE envers un fournisseur — montant dû, payé, solde, statut,
-//    paiements : droit « Crédits ». Il suffit pour consulter une dette et
-//    enregistrer un paiement ; il ne donne pas les prix d'achat.
+//    paiements : droit « Crédits » ET droit « Fournisseurs » en lecture.
+//    Crédits en lecture pour la consulter, Crédits en MODIFICATION pour
+//    enregistrer un paiement (l'action financière) ; Fournisseurs en lecture
+//    suffit dans les deux cas : payer une dette n'est pas modifier la fiche
+//    ou les achats du fournisseur. Le droit Crédits seul ouvre les crédits
+//    des CLIENTS, pas ce que l'entreprise doit à ses fournisseurs : par
+//    défaut, un caissier ne le voit pas. Aucune permission nouvelle — c'est
+//    l'intersection de deux droits existants. Voir ou payer une dette ne
+//    donne pas les prix d'achat.
 //
 // Conséquence : dans Crédits, une dette est montrée bon par bon (référence,
 // date, total, payé, solde) ; les lignes détaillées du bon (produit ×
@@ -20,8 +27,8 @@ export const PO_LINES = 'purchase_order_items(product_name, quantity_ordered, qu
 
 /**
  * Parmi `shopIds`, les boutiques où la personne voit les dettes fournisseurs
- * (membre active + droit Crédits) et, parmi elles, celles où elle voit aussi
- * les lignes détaillées (canViewCost).
+ * (membre active + Crédits en lecture + Fournisseurs en lecture) et, parmi
+ * elles, celles où elle voit aussi les lignes détaillées (canViewCost).
  */
 export async function supplierDebtShops(supabase: any, userId: string, shopIds: string[]): Promise<{ debts: string[]; lines: string[] }> {
   const { data: members } = await supabase
@@ -29,11 +36,21 @@ export async function supplierDebtShops(supabase: any, userId: string, shopIds: 
     .in('shop_id', shopIds).eq('user_id', userId).eq('is_active', true)
   const debts: string[] = [], lines: string[] = []
   for (const m of members || []) {
-    if (!(await canViewFeature(supabase, m.role, m.shop_id, 'payments'))) continue
+    if (!(await canViewSupplierDebt(supabase, m.role, m.shop_id))) continue
     debts.push(m.shop_id)
     if (await canViewCost(supabase, m.role, m.shop_id)) lines.push(m.shop_id)
   }
   return { debts, lines }
+}
+
+/** Voir les dettes fournisseurs d'une boutique : Crédits en lecture ET Fournisseurs en lecture. */
+export async function canViewSupplierDebt(supabase: any, role: string | null | undefined, shopId: string): Promise<boolean> {
+  return (await canViewFeature(supabase, role, shopId, 'payments')) && (await canViewFeature(supabase, role, shopId, 'suppliers'))
+}
+
+/** Enregistrer (ou annuler) un paiement ou une dette fournisseur : Crédits en modification ET Fournisseurs en lecture. */
+export async function canPaySupplierDebt(supabase: any, role: string | null | undefined, shopId: string): Promise<boolean> {
+  return (await canWriteFeature(supabase, role, shopId, 'payments')) && (await canViewFeature(supabase, role, shopId, 'suppliers'))
 }
 
 /** Dette : le bon tel quel avec le droit de voir les coûts, sinon sans ses lignes détaillées. */

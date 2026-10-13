@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
-    // Droit « Crédits » ; les lignes détaillées des bons (prix d'achat) seulement avec le droit de voir les coûts
+    // Droits « Crédits » et « Fournisseurs » ; les lignes détaillées des bons (prix d'achat) seulement avec le droit de voir les coûts
     const access = await supplierDebtShops(supabase, user.id, shopIds)
     const allowedIds = shopIds.filter(id => access.debts.includes(id))
     if (!allowedIds.length) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })

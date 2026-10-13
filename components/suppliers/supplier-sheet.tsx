@@ -20,8 +20,9 @@ import type { Supplier } from '@/lib/types/database'
 // prix. Actions dans le pied : Modifier, Nouveau bon.
 // Sans le droit de voir les coûts (`showCost`), la fiche ne montre ni montant
 // acheté, ni prix d'achat des produits, ni montant des bons, ni tendance des
-// prix — le serveur ne les lui envoie pas. Le solde dû reste affiché ; le
-// bouton de paiement suit le droit « Crédits » (`canPay`).
+// prix — le serveur ne les lui envoie pas. Le solde dû n'apparaît qu'avec le
+// droit « Crédits » (`showDebt`) ; le bouton de paiement demande Crédits en
+// modification (`canPay`) — Fournisseurs en lecture suffit, l'écran l'exige déjà.
 
 export const PO_STATUS_STYLES: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
@@ -45,7 +46,9 @@ interface Props {
   canManage: boolean
   /** Droit de voir les prix d'achat (canViewCost) */
   showCost: boolean
-  /** Droit d'enregistrer un paiement fournisseur (Crédits en modification) */
+  /** Droit de voir la dette envers le fournisseur (Crédits en lecture ; l'écran demande déjà Fournisseurs) */
+  showDebt: boolean
+  /** Droit d'enregistrer un paiement fournisseur (Crédits en modification ; Fournisseurs en lecture suffit) */
   canPay: boolean
   shopCountry?: string | null
   fmt: (n: number) => string
@@ -55,7 +58,7 @@ interface Props {
   onRecordPayment: (s: Supplier) => void
 }
 
-export function SupplierSheet({ supplier, open, onOpenChange, products, orders, canManage, showCost, canPay, shopCountry, fmt, onEdit, onNewPo, onOpenPo, onRecordPayment }: Props) {
+export function SupplierSheet({ supplier, open, onOpenChange, products, orders, canManage, showCost, showDebt, canPay, shopCountry, fmt, onEdit, onNewPo, onOpenPo, onRecordPayment }: Props) {
   const t = useTranslations()
   const unitLabel = useUnitLabel()
   const locale = useLocale()
@@ -160,7 +163,7 @@ export function SupplierSheet({ supplier, open, onOpenChange, products, orders, 
         </DrawerSection>
 
         {/* Solde dû */}
-        {owed > 0 && (
+        {showDebt && owed > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30" data-testid="supplier-owed">
             <div>
               <p className="text-xs font-medium text-amber-700 dark:text-amber-400">{t('suppliers.supplier_journal_owed')}</p>
