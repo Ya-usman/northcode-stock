@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { canWriteFeature } from '@/lib/api/role-permissions'
 import { validateSale } from '@/lib/api/sale-validation'
+import { withServerCost, withoutCost } from '@/lib/api/sale-cost'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
 
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
       .in('client_request_id', onlineKey ? [localId, onlineKey] : [localId]).limit(1).maybeSingle()
     if (existing) {
       const { data: sale } = await admin.from('sales').select('*, sale_items(*), customers(*)').eq('id', existing.id).single()
-      return NextResponse.json({ success: true, already_existed: true, sale })
+      return NextResponse.json({ success: true, already_existed: true, sale: withoutCost(sale) })
     }
 
     // Vendeur : celui qui a fait la vente s'il est membre de la boutique, sinon celui qui synchronise
@@ -61,18 +62,15 @@ export async function POST(request: Request) {
     const at = new Date(s.created_at)
     const createdAt = Number.isNaN(at.getTime()) || at.getTime() > Date.now() + MAX_FUTURE_MS ? new Date() : at
 
-    // Lignes : prix d'achat repris de la fiche produit (absent des ventes hors ligne)
-    const ids = Array.from(new Set(s.items.map((i: any) => i.product_id).filter(Boolean))) as string[]
-    const { data: products } = ids.length ? await admin.from('products').select('id, buying_price').eq('shop_id', shopId).in('id', ids) : { data: [] }
-    const cost = new Map<string, number>((products || []).map((p: any) => [p.id, Number(p.buying_price) || 0]))
-    const items = s.items.map((i: any) => ({
+    // Lignes : prix d'achat lu en base — même règle que l'encaissement en ligne (lib/api/sale-cost)
+    const lines: { product_id: string | null; product_name: string; quantity: number; unit_price: number; original_price: number | null }[] = s.items.map((i: any) => ({
       product_id: i.product_id || null,
       product_name: String(i.product_name ?? '').slice(0, 300),
       quantity: Number(i.quantity),
       unit_price: Number(i.unit_price),
       original_price: i.original_price ?? null,
-      buying_price: i.product_id ? cost.get(i.product_id) ?? 0 : 0,
     }))
+    const items: any[] = await withServerCost(admin, shopId, lines)
 
     // Paiements (forme actuelle ; anciennes ventes en file : payment_amount)
     const payments = Array.isArray(s.payments)
@@ -134,7 +132,7 @@ export async function POST(request: Request) {
         ip: getClientIp(request),
       })
     }
-    return NextResponse.json({ success: true, already_existed: !!data?.already_existed, sale })
+    return NextResponse.json({ success: true, already_existed: !!data?.already_existed, sale: withoutCost(sale) })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

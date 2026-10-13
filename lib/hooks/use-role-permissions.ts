@@ -2,7 +2,7 @@
 // `canAccess` = voir la page ; `canWrite` = créer / modifier / supprimer.
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import {
-  resolvePermission, mergeRolePerms, CONFIGURABLE_ROLES,
+  resolvePermission, mergeRolePerms, canSeeCost as canSeeCostRule, CONFIGURABLE_ROLES,
   DEFAULT_PERMISSIONS, DEFAULT_GENERAL,
   type AllPerms, type ConfigurableRole, type PermFeature, type RolePerms, type StoredPermissions,
 } from '@/lib/permissions'
@@ -24,5 +24,9 @@ export function useRolePermissions() {
     CONFIGURABLE_ROLES.map(r => [r, mergeRolePerms(r, stored)])
   ) as AllPerms
 
-  return { canAccess, canWrite, permissions }
+  // Prix d'achat, marges, valeur du stock : règle unique (lib/permissions → canSeeCost). L'écran s'en sert pour
+  // ne pas DEMANDER ces données ; c'est le serveur qui décide de les envoyer ou non.
+  const canSeeCost = canSeeCostRule(stored, role)
+
+  return { canAccess, canWrite, canSeeCost, permissions }
 }

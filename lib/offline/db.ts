@@ -9,7 +9,8 @@ export interface CachedProduct {
   name: string
   sku: string | null
   selling_price: number
-  buying_price: number
+  // Plus de prix d'achat dans le cache de la caisse : vendre hors connexion n'en a pas besoin, le serveur le
+  // lit lui-même à la synchronisation. (Un ancien cache peut encore en contenir ; il est réécrit à la prochaine mise à jour.)
   quantity: number
   category_id: string | null
   is_active: boolean

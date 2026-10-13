@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { canWriteFeature } from '@/lib/api/role-permissions'
 import { validateSale } from '@/lib/api/sale-validation'
+import { withServerCost, withoutCost } from '@/lib/api/sale-cost'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getApiTranslator } from '@/lib/api/i18n'
 
@@ -67,14 +68,16 @@ export async function POST(request: Request) {
       p_notes: notes || null,
       p_paystack_reference: paystack_reference || null,
       p_client_request_id: client_request_id,
-      p_items: items,
+      // Coût d'achat de chaque ligne : lu en base, ce que la caisse envoie est ignoré (lib/api/sale-cost)
+      p_items: await withServerCost(admin, shop_id, items),
       p_payments: payments || [],
       p_due_date: due_date || null,
     })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
-    return NextResponse.json({ success: true, ...data })
+    // La vente est renvoyée pour le reçu, sans le coût d'achat de ses lignes
+    return NextResponse.json({ success: true, ...data, ...(data?.sale ? { sale: withoutCost(data.sale) } : {}) })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

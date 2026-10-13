@@ -162,6 +162,30 @@ export const canView = (stored: StoredPermissions | null | undefined, role: stri
 export const canWrite = (stored: StoredPermissions | null | undefined, role: string | null | undefined, feature: PermFeature) =>
   resolvePermission(stored, role, feature).write
 
+/**
+ * Qui voit les prix d'achat et tout ce qui en découle (valeur du stock, marge,
+ * bénéfice, prix comparés des fournisseurs) : LA règle, à un seul endroit.
+ *
+ * Aujourd'hui (décision du 13 oct. 2026, sans permission dédiée) : le
+ * propriétaire, et les rôles qui ont la fonction Stock en MODIFICATION.
+ * Pour la faire évoluer plus tard, ne changer que cette fonction : le serveur
+ * (lib/api/role-permissions) et les écrans (useRolePermissions) la relaient.
+ * Sans rôle connu : non — jamais de coût affiché « par défaut ».
+ *
+ * ATTENTION — ce droit n'OUVRE aucun écran. C'est une condition de plus, à
+ * l'intérieur d'un écran auquel la personne a déjà accès :
+ *   marge / bénéfice dans Rapports = accès aux Rapports ET canSeeCost ;
+ *   coût dans le Stock            = accès au Stock      ET canSeeCost ; etc.
+ * Stock + coût sans accès aux Rapports → pas de Rapports. Rapports sans coût
+ * → chiffre d'affaires, ventes, panier moyen, mais ni marge ni bénéfice.
+ * Ne jamais s'en servir comme garde d'entrée d'une page ou d'une route.
+ */
+export function canSeeCost(stored: StoredPermissions | null | undefined, role: string | null | undefined): boolean {
+  if (!role) return false
+  if (role === 'owner' || role === 'super_admin') return true
+  return resolvePermission(stored, role, 'stock').write
+}
+
 // ── Aide pour l'écran des réglages ──────────────────────────────────────────
 /** Réglages complets d'un rôle : défauts + valeurs enregistrées */
 export function mergeRolePerms(role: ConfigurableRole, stored: StoredPermissions | null | undefined): RolePerms {

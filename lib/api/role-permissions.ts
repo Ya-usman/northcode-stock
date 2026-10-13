@@ -5,7 +5,7 @@
 // Routes qui modifient des données → canWriteFeature ; routes de lecture →
 // canViewFeature. Un Observateur n'obtient jamais « write ».
 
-import { resolvePermission, isManagerial, type PermFeature, type StoredPermissions } from '@/lib/permissions'
+import { resolvePermission, isManagerial, canSeeCost as canSeeCostRule, type PermFeature, type StoredPermissions } from '@/lib/permissions'
 
 export type { PermFeature }
 export { isManagerial }
@@ -25,6 +25,17 @@ export async function canWriteFeature(supabase: any, role: string | null | undef
   if (!role) return false
   if (role === 'owner' || role === 'super_admin') return true
   return resolvePermission(await loadStored(supabase, shop_id), role, feature).write
+}
+
+/**
+ * Ce rôle voit-il les prix d'achat, marges et valeurs de stock de cette boutique ?
+ * Règle unique : lib/permissions → canSeeCost. À utiliser par TOUTE route qui renvoie un coût,
+ * EN PLUS du contrôle d'accès à la fonction (canViewFeature) — jamais à sa place : ce droit n'ouvre aucun écran.
+ */
+export async function canSeeCost(supabase: any, role: string | null | undefined, shop_id: string): Promise<boolean> {
+  if (!role) return false
+  if (role === 'owner' || role === 'super_admin') return true
+  return canSeeCostRule(await loadStored(supabase, shop_id), role)
 }
 
 /** @deprecated = canViewFeature ; conservé pour les routes de lecture existantes */

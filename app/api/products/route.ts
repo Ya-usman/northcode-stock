@@ -321,7 +321,8 @@ export async function PATCH(request: Request) {
       })
     }
 
-    return NextResponse.json({ data })
+    // Favori seul (ouvert à qui peut vendre) : on ne renvoie pas la fiche entière, qui contient le prix d'achat
+    return NextResponse.json({ data: favoriteOnly ? { id: data.id, is_favorite: data.is_favorite } : data })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

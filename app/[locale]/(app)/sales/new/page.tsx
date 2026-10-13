@@ -46,6 +46,7 @@ import dynamic from 'next/dynamic'
 import { cacheProducts, getCachedProducts, cacheCustomers, getCachedCustomers, savePendingSale, savePendingCustomerPayment, type PendingSalePayment } from '@/lib/offline/db'
 import { allocateCheckout, outstandingDebt } from '@/lib/utils/checkout-allocation'
 import { revalidateHeldCart, heldAgeDays, HELD_STALE_DAYS, type HeldCartChange } from '@/lib/utils/held-sales'
+import { PRODUCT_PUBLIC_COLUMNS, withoutProductCost } from '@/lib/products/columns'
 import { fetchReservationRows, reservedByProduct, releasedHeldRefs, readSyncedAt, markReservationPending, flushReservations, type ReservationRow } from '@/lib/stock/reservations'
 import { clearPageCache, clearPageCacheByPrefix } from '@/lib/offline/page-cache'
 import { cashSuggestions } from '@/lib/utils/cash-suggestions'
@@ -133,7 +134,14 @@ function filterProducts(
 
 function loadDraftsFromStorage(): Draft[] {
   try {
-    return JSON.parse(localStorage.getItem(DRAFTS_KEY) || '[]')
+    const raw = localStorage.getItem(DRAFTS_KEY) || '[]'
+    const drafts: Draft[] = JSON.parse(raw)
+    // Les factures mises en attente avant le 13 oct. 2026 gardaient le produit entier, prix d'achat compris :
+    // il est retiré à la lecture, et la version nettoyée remplace l'ancienne sur l'appareil.
+    const clean = drafts.map(d => ({ ...d, cart: (d.cart || []).map(i => ({ ...i, product: withoutProductCost(i.product) })) }))
+    const cleaned = JSON.stringify(clean)
+    if (cleaned !== raw) localStorage.setItem(DRAFTS_KEY, cleaned)
+    return clean
   } catch { return [] }
 }
 
@@ -341,7 +349,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       // left this function stuck, with nothing retrying until the next
       // visibilitychange/reconnect trigger hit the exact same hang again.
       const [prodsRes, custsRes, catsRes, batchesRes] = await withTimeout(Promise.all([
-        supabase.from('products').select('*, categories(name, color), suppliers(name)')
+        // Colonnes nommées : la caisse ne lit pas le prix d'achat (lib/products/columns)
+        supabase.from('products').select(`${PRODUCT_PUBLIC_COLUMNS}, categories(name, color), suppliers(name)`)
           .eq('shop_id', shop.id).eq('is_active', true).gt('quantity', 0).order('name'),
         supabase.from('customers').select('*').eq('shop_id', shop.id).order('name'),
         supabase.from('categories').select('*').eq('shop_id', shop.id).order('name'),
@@ -384,7 +393,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       await Promise.all([
         cacheProducts(shop.id, safeProds.map((p: any) => ({
           id: p.id, shop_id: shop.id, name: p.name, sku: p.sku ?? null,
-          selling_price: Number(p.selling_price), buying_price: Number(p.buying_price),
+          selling_price: Number(p.selling_price),
           quantity: Number(p.quantity), category_id: p.category_id ?? null, is_active: p.is_active,
           image_url: p.image_url ?? null,
           category_name: p.categories?.name ?? null,
@@ -423,7 +432,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   // merging preserves them on an existing product; a newly-sellable product
   // is added without them until the next full refresh (same trade-off
   // already accepted in stock/page.tsx's own realtime handler).
-  useStockRealtime(shop?.id || null, (product) => {
+  useStockRealtime(shop?.id || null, (row) => {
+    // La mise à jour en direct apporte la ligne entière : le prix d'achat est écarté dès l'arrivée
+    const product = withoutProductCost(row)
     const isSellable = (product as any).is_active !== false && Number((product as any).quantity) > 0
     setProducts(prev => {
       const idx = prev.findIndex(p => p.id === product.id)
@@ -1408,7 +1419,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
               product_name: item.product.name,
               quantity: Math.round(item.quantity),
               unit_price: item.unit_price,
-              buying_price: Number(item.product.buying_price) || 0,
+              // Pas de prix d'achat : le serveur le lit lui-même (lib/api/sale-cost)
               original_price: item.product.selling_price,
             })),
             payments: paymentsPayload,
