@@ -36,7 +36,7 @@ import { getCountry, getMethodType } from '@/lib/saas/countries'
 import { normalizeWhatsAppNumber } from '@/lib/utils/whatsapp'
 import { formatInputValue } from '@/lib/utils/currency'
 import { format } from 'date-fns'
-import { dateFnsLocale, dateTimePattern } from '@/lib/i18n/date-format'
+import { dateFnsLocale, dateTimePattern, dateLocaleTag } from '@/lib/i18n/date-format'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { savePendingCustomerPayment, savePendingSupplierPayment } from '@/lib/offline/db'
@@ -1086,6 +1086,7 @@ export default function CreditsPage() {
         const shopCountry = getCountry(shop?.country)
         const selectedMethod = shopCountry.paymentMethods.find(m => m.id === repayMethod)
         const result = await generateDebtReceiptPDFBlob({
+          locale,
           customerName: repayDebtor.customer.name,
           amount,
           method: repayMethod,
@@ -1207,6 +1208,7 @@ export default function CreditsPage() {
       const shopCountry = getCountry(shop.country)
       const selectedMethod = shopCountry.paymentMethods.find(m => m.id === payment.method)
       const result = await generateDebtReceiptPDFBlob({
+        locale,
         customerName: historyDebtor?.customer.name || '',
         amount: payment.amount,
         method: payment.method,
@@ -1543,7 +1545,7 @@ export default function CreditsPage() {
             journalLogs.map((log: any) => {
               const meta = log.metadata || {}
               const actor = log.actor_email || '—'
-              const when = new Date(log.created_at).toLocaleString(locale, {
+              const when = new Date(log.created_at).toLocaleString(dateLocaleTag(locale), {
                 day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
               })
               let label = ''

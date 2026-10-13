@@ -7,6 +7,7 @@ import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
+import { dateLocaleTag } from '@/lib/i18n/date-format'
 import type { ProductFieldError } from '@/components/stock/product-form'
 import dynamic from 'next/dynamic'
 import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag, CalendarClock, ShoppingCart, X, LayoutGrid, List, SlidersHorizontal, ChevronDown, MoreHorizontal, Zap, Columns3, FileSpreadsheet } from 'lucide-react'
@@ -1081,7 +1082,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                     onClick={e => { e.stopPropagation(); openProductBatches(product) }}
                     className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 hover:opacity-80"
                   >
-                    {t('products.expiring_badge', { date: new Date(expiry!).toLocaleDateString(locale, { day: 'numeric', month: 'short' }) })}
+                    {t('products.expiring_badge', { date: new Date(expiry!).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'short' }) })}
                   </button>
                 )}
               </div>
@@ -1636,7 +1637,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                   <p className="text-sm font-medium text-muted-foreground truncate">{product.name}</p>
                   {(product as any).updated_at && (
                     <p className="text-[11px] text-muted-foreground/70">
-                      {t('products.archived_on', { date: new Date((product as any).updated_at).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }) })}
+                      {t('products.archived_on', { date: new Date((product as any).updated_at).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'short', year: 'numeric' }) })}
                     </p>
                   )}
                 </div>
@@ -1885,7 +1886,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                   {t('products.promo_batch_hint', {
                     quantity: promoBatch.quantity,
                     date: promoBatch.expiry_date
-                      ? new Date(promoBatch.expiry_date).toLocaleDateString(locale, { day: 'numeric', month: 'short' })
+                      ? new Date(promoBatch.expiry_date).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'short' })
                       : t('products.no_expiry_date'),
                   })}
                 </div>
@@ -2069,12 +2070,12 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                         </div>
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <span>{t('products.cost_label')}: {formatNaira(b.buying_price)}</span>
-                          <span>{t('products.received_on')}: {new Date(b.received_at).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                          <span>{t('products.received_on')}: {new Date(b.received_at).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                         </div>
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {b.expiry_date ? (
                             <span className={`text-[10px] font-semibold rounded-full px-1.5 py-0.5 ${isExpired ? 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400' : 'bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400'}`}>
-                              {isExpired ? t('products.expired_badge') : t('products.expiring_badge', { date: new Date(b.expiry_date).toLocaleDateString(locale, { day: 'numeric', month: 'short' }) })}
+                              {isExpired ? t('products.expired_badge') : t('products.expiring_badge', { date: new Date(b.expiry_date).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'short' }) })}
                             </span>
                           ) : (
                             <span className="text-[10px] text-muted-foreground">{t('products.no_expiry_date')}</span>

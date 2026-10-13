@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import webpush from 'web-push'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { configureWebPush } from '@/lib/api/push-server'
+import { formatCurrency } from '@/lib/utils/currency'
+import { getLocaleTranslator } from '@/lib/api/i18n'
 
 // POST /api/push/sale
 // Notify shop owner(s) when a cashier completes a sale
@@ -21,7 +23,7 @@ export async function POST(req: Request) {
 
     const { data: shop } = await admin
       .from('shops')
-      .select('id, name, notify_push_new_sale')
+      .select('id, name, currency, notify_push_new_sale')
       .eq('id', shop_id)
       .single()
 
@@ -36,15 +38,22 @@ export async function POST(req: Request) {
 
     if (!subs?.length) return NextResponse.json({ ok: true, sent: 0 })
 
-    const amount = `${currency_symbol}${Number(total).toLocaleString('fr-FR')}`
+    // Montant écrit comme partout dans l'application (devise de la boutique) ; ancien format en repli
+    const amount = shop.currency
+      ? formatCurrency(Number(total), shop.currency)
+      : `${currency_symbol}${Number(total).toLocaleString('fr-FR')}`
     const body = cashier_name
       ? `${cashier_name} — ${amount} via ${payment_label}`
       : `${amount} via ${payment_label}`
 
-    const payload = JSON.stringify({
-      title: `💰 Vente — ${shop.name}`,
+    // Titre dans la langue de chaque destinataire (profil), jamais figé en français
+    const { data: profs } = await admin.from('profiles').select('id, locale').in('id', subs.map((s: any) => s.user_id))
+    const localeOf = new Map<string, string | null>((profs || []).map((p: any) => [p.id, p.locale]))
+    const tag = `sale-${shop_id}-${Date.now()}`
+    const payloadFor = (userId: string) => JSON.stringify({
+      title: `💰 ${getLocaleTranslator(localeOf.get(userId), 'sales')('sale_label')} — ${shop.name}`,
       body,
-      tag: `sale-${shop_id}-${Date.now()}`,
+      tag,
       url: '/sales/history',
     })
 
@@ -52,7 +61,7 @@ export async function POST(req: Request) {
       subs.map((sub: any) =>
         webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-          payload
+          payloadFor(sub.user_id)
         )
       )
     )

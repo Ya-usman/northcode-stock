@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations, useLocale } from 'next-intl'
+import { dateLocaleTag } from '@/lib/i18n/date-format'
 import { normalize } from '@/lib/utils/normalize'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -23,7 +24,7 @@ import { Plus, Pencil, Trash2, Receipt, RefreshCw, ChevronDown, ChevronUp, Chevr
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { NumericInput } from '@/components/ui/numeric-input'
-import { format, startOfMonth, endOfMonth, addMonths, addWeeks } from 'date-fns'
+import { format, startOfMonth, endOfMonth, addMonths, addWeeks, parseISO } from 'date-fns'
 import type { Expense, ExpenseBudget } from '@/lib/types/database'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
@@ -184,11 +185,12 @@ export default function ExpensesPage() {
       if (!cached) { setExpenses([]); setLoading(false) }
       return
     }
-    const start = startOfMonth(new Date(monthFilter + '-01')).toISOString().slice(0, 10)
-    const end   = endOfMonth(new Date(monthFilter + '-01')).toISOString().slice(0, 10)
-    const prevMonth = addMonths(new Date(monthFilter + '-01'), -1)
-    const prevStart = startOfMonth(prevMonth).toISOString().slice(0, 10)
-    const prevEnd   = endOfMonth(prevMonth).toISOString().slice(0, 10)
+    // Bornes en date locale : jamais via l'heure universelle, qui décale le 1er au dernier jour du mois précédent
+    const start = format(startOfMonth(parseISO(monthFilter + '-01')), 'yyyy-MM-dd')
+    const end   = format(endOfMonth(parseISO(monthFilter + '-01')), 'yyyy-MM-dd')
+    const prevMonth = addMonths(parseISO(monthFilter + '-01'), -1)
+    const prevStart = format(startOfMonth(prevMonth), 'yyyy-MM-dd')
+    const prevEnd   = format(endOfMonth(prevMonth), 'yyyy-MM-dd')
     try {
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave `loading` stuck true forever.
@@ -638,7 +640,7 @@ export default function ExpensesPage() {
   )
   const total      = filtered.reduce((s, e) => s + Number(e.amount), 0)
                    + filteredPending.reduce((s, p) => s + p.amount, 0)
-  const monthLabel = new Date(monthFilter + '-01').toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+  const monthLabel = new Date(monthFilter + '-01').toLocaleDateString(dateLocaleTag(locale), { month: 'long', year: 'numeric' })
 
   // Comparaison avec le mois précédent (toutes catégories, sans filtre) ; null si rien à comparer
   const monthTotalAll = expenses.reduce((s, e) => s + Number(e.amount), 0)
@@ -767,7 +769,7 @@ export default function ExpensesPage() {
           >
             <SelectTrigger className="h-9 w-[160px]">
               <SelectValue>
-                {new Date(monthFilter + '-01').toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                {new Date(monthFilter + '-01').toLocaleDateString(dateLocaleTag(locale), { month: 'long', year: 'numeric' })}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -776,7 +778,7 @@ export default function ExpensesPage() {
                 const val = format(d, 'yyyy-MM')
                 return (
                   <SelectItem key={val} value={val}>
-                    {d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                    {d.toLocaleDateString(dateLocaleTag(locale), { month: 'long', year: 'numeric' })}
                   </SelectItem>
                 )
               })}
@@ -862,7 +864,7 @@ export default function ExpensesPage() {
               {templates.map(tpl => {
                 const cat = catFor(tpl.category ?? 'other')
                 const nextDate = tpl.next_due_at
-                  ? new Date(tpl.next_due_at + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+                  ? new Date(tpl.next_due_at + 'T12:00:00').toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'short' })
                   : null
                 return (
                   <div key={tpl.id} className="flex items-center gap-3 px-4 py-3">
@@ -1095,7 +1097,7 @@ export default function ExpensesPage() {
                     </div>
                     <div className="flex items-center gap-2 mt-0.5">
                       <p className="text-xs text-muted-foreground">
-                        {new Date(pexp.date + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}
+                        {new Date(pexp.date + 'T12:00:00').toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'long' })}
                       </p>
                     </div>
                   </div>
@@ -1194,7 +1196,7 @@ export default function ExpensesPage() {
             <div className="divide-y">
               {deleteLogs.map(log => {
                 const cat = catFor(log.metadata?.category ?? 'other')
-                const dateStr = new Date(log.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                const dateStr = new Date(log.created_at).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
                 return (
                   <div key={log.id} className="flex items-start gap-3 px-4 py-3">
                     <span className={cn('flex-shrink-0 h-8 w-8 rounded-lg flex items-center justify-center text-base', cat.color)}>

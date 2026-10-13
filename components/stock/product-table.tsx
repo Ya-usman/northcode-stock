@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
+import { dateLocaleTag } from '@/lib/i18n/date-format'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { Archive, ArrowDown, ArrowUp, ArrowUpDown, Edit2, History, MoreHorizontal, ShoppingCart, Tag } from 'lucide-react'
 import type { Product } from '@/lib/types/database'
@@ -292,7 +293,7 @@ export function ProductTable({
                           )}
                           {expiry?.soon && (
                             <button type="button" onClick={() => onBatches(product)} className="rounded-full bg-orange-50 px-1.5 py-0.5 text-[10px] font-semibold text-orange-600 hover:opacity-80 dark:bg-orange-950/40 dark:text-orange-400">
-                              {t('products.expiring_badge', { date: new Date(expiry.date).toLocaleDateString(locale, { day: 'numeric', month: 'short' }) })}
+                              {t('products.expiring_badge', { date: new Date(expiry.date).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'short' }) })}
                             </button>
                           )}
                         </div>

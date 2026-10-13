@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { getTotalPendingCount } from '@/lib/offline/db'
 import { cn } from '@/lib/utils/cn'
+import { dateLocaleTag } from '@/lib/i18n/date-format'
 import { BRAND_TEXT_CLASS } from '@/components/brand/brand-logo'
 
 function getLocale(): string {
@@ -34,12 +35,17 @@ function formatSyncTime(date: Date): string {
   const diff = now - date.getTime()
   const minutes = Math.floor(diff / 60_000)
   const hours = Math.floor(diff / 3_600_000)
-  if (minutes < 1) return 'à l\'instant'
-  if (minutes < 60) return `il y a ${minutes} min`
-  if (hours < 24) {
-    return `aujourd'hui à ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+  // Dans la langue de l'appareil (« il y a 5 minutes », « 5 minutes ago ») — plus de texte figé en français
+  const locale = getLocale()
+  try {
+    const rel = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
+    if (minutes < 1) return rel.format(0, 'second')
+    if (minutes < 60) return rel.format(-minutes, 'minute')
+    if (hours < 24) return `${rel.format(0, 'day')} ${date.toLocaleTimeString(dateLocaleTag(locale), { hour: '2-digit', minute: '2-digit' })}`
+    return date.toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  } catch {
+    return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
   }
-  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
 async function checkRealConnectivity(): Promise<boolean> {

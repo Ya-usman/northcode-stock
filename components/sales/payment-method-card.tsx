@@ -20,6 +20,8 @@ interface PaymentMethodCardProps {
   selected: boolean
   /** Sous-titre explicatif (« Paiement en espèces », « Compte client »…). */
   subtitle: string
+  /** Nom traduit d'un moyen générique (Espèces, Virement, Crédit) ; les marques gardent leur nom */
+  label?: string
   onSelect: (id: string) => void
 }
 
@@ -27,7 +29,7 @@ interface PaymentMethodCardProps {
 // principale et 2e moyen du paiement mixte). Logo réel quand il existe (MTN,
 // Orange Money, Wave…), sinon un pictogramme dans un carré bleu clair — plus
 // d'émojis, dont le rendu change d'un téléphone à l'autre.
-function PaymentMethodCardImpl({ method, selected, subtitle, onSelect }: PaymentMethodCardProps) {
+function PaymentMethodCardImpl({ method, selected, subtitle, label, onSelect }: PaymentMethodCardProps) {
   const Icon = ICONS[method.type] ?? Banknote
   return (
     <button
@@ -61,7 +63,7 @@ function PaymentMethodCardImpl({ method, selected, subtitle, onSelect }: Payment
       </span>
       <span className="min-w-0">
         <span className={cn('block text-xs font-semibold leading-tight', selected ? 'text-stockshop-blue dark:text-blue-400' : 'text-foreground')}>
-          {method.label}
+          {label ?? method.label}
         </span>
         <span className="block text-[10px] leading-tight text-muted-foreground">{subtitle}</span>
       </span>

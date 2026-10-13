@@ -2301,6 +2301,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   method={method}
                   selected={paymentMethod === method.id}
                   subtitle={t(`sales.method_sub_${method.type}`)}
+                  label={t.has(`sales.method_name_${method.id}` as any) ? t(`sales.method_name_${method.id}` as any) : undefined}
                   onSelect={id => {
                     setPaymentMethod(id)
                     if (splitMethod2 === id) setSplitMethod2('')
@@ -2484,6 +2485,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                         method={method}
                         selected={splitMethod2 === method.id}
                         subtitle={t(`sales.method_sub_${method.type}`)}
+                  label={t.has(`sales.method_name_${method.id}` as any) ? t(`sales.method_name_${method.id}` as any) : undefined}
                         onSelect={setSplitMethod2}
                       />
                     ))
@@ -2566,7 +2568,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 ? (collectedNow > 0
                     ? t('sales.validate_collect', { amount: formatNaira(collectedNow) })
                     : t('sales.validate_credit_sale'))
-                : `Valider · ${formatNaira(collectedNow)}`}
+                : t('sales.validate_amount', { amount: formatNaira(collectedNow) })}
             </Button>
           </div>
           </div>{/* fin étape 2 (paiement) */}

@@ -2,6 +2,7 @@
 
 import type { Sale, SaleItem, Shop } from '@/lib/types/database'
 import { getCountry, getPaymentMethodLabel } from '@/lib/saas/countries'
+import { dateLocaleTag } from '@/lib/i18n/date-format'
 import { receiptUrl, receiptUrlShort } from '@/lib/receipt/receipt-link'
 
 import { getPreparedLogo, type PreparedLogo } from '@/lib/utils/logo-image'
@@ -147,7 +148,7 @@ async function buildReceiptDoc(data: ReceiptData) {
     : (countryConfig.paymentMethods.find(m => m.id === sale.payment_method)?.label
       ?? getPaymentMethodLabel(sale.payment_method)
       ?? sale.payment_method)
-  const dateText = new Date(sale.created_at).toLocaleString(locale || 'fr-FR', {
+  const dateText = new Date(sale.created_at).toLocaleString(dateLocaleTag(locale), {
     day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
   })
   // Passe à la page suivante si le bloc à venir empiéterait sur le pied de page
@@ -517,6 +518,8 @@ interface DebtReceiptLabels {
 
 interface DebtReceiptData {
   customerName: string
+  /** Langue du reçu (date) — celle de l'écran qui l'imprime ; français par défaut */
+  locale?: string
   amount: number
   method: string
   methodLabel?: string
@@ -546,7 +549,7 @@ async function buildDebtReceiptDoc(data: DebtReceiptData) {
   const { jsPDF } = await import('jspdf')
   const autoTable = (await import('jspdf-autotable')).default
 
-  const { customerName, amount, method, methodLabel, reference, notes, receivedBy, shop, appliedSales, remainingBalance, labels, paidAt, cancelled, cancelledLabel, writeOff, writeOffLabel, totalPaidLabelOverride } = data
+  const { customerName, amount, method, methodLabel, reference, notes, receivedBy, shop, appliedSales, remainingBalance, labels, paidAt, locale, cancelled, cancelledLabel, writeOff, writeOffLabel, totalPaidLabelOverride } = data
   const DL: DebtReceiptLabels = {
     title: labels?.title ?? 'DEBT REPAYMENT RECEIPT',
     client: labels?.client ?? 'Client',
@@ -646,7 +649,7 @@ async function buildDebtReceiptDoc(data: DebtReceiptData) {
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(80, 80, 80)
   doc.text(
-    (paidAt ? new Date(paidAt) : new Date()).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    (paidAt ? new Date(paidAt) : new Date()).toLocaleString(dateLocaleTag(locale), { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
     pageWidth / 2, y, { align: 'center' }
   )
   y += 8

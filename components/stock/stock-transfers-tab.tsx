@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
+import { dateLocaleTag } from '@/lib/i18n/date-format'
 import { Search, Plus, X, ArrowRight, Package, Download, Share2, Mail, Copy, Ban, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react'
 import { isCapacitor } from '@/lib/utils/native-share'
 import { createClient } from '@/lib/supabase/client'
@@ -270,7 +271,7 @@ export function StockTransfersTab() {
       sourceShopName: tr.source_shop_name || shopName(tr.source_shop_id),
       destinationShopName: tr.destination_shop_name || shopName(tr.destination_shop_id),
       reference: tr.reference,
-      dateStr: new Date(tr.created_at).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' }),
+      dateStr: new Date(tr.created_at).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'long', year: 'numeric' }),
       notes: tr.notes,
       items: (tr.stock_transfer_items || []).map((it: any) => ({ name: it.product_name, quantity: it.quantity_sent, unit: unitLabel(it.unit, it.quantity_sent) })),
     })
@@ -362,7 +363,7 @@ export function StockTransfersTab() {
                       <span>· {t('transfers.items_count', { count: itemCount })}</span>
                     </p>
                     <p className="text-[11px] text-muted-foreground/70 mt-0.5">
-                      {new Date(tr.created_at).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {new Date(tr.created_at).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'short', year: 'numeric' })}
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>

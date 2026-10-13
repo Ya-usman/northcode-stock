@@ -246,8 +246,8 @@ export default function DashboardPage() {
           .select('amount')
           .in('shop_id', shopIds)
           .eq('is_recurring', false)
-          .gte('date', startOfMonth(today).toISOString().slice(0, 10))
-          .lte('date', endOfMonth(today).toISOString().slice(0, 10)) : Promise.resolve({ data: [] }),
+          .gte('date', format(startOfMonth(today), 'yyyy-MM-dd'))
+          .lte('date', format(endOfMonth(today), 'yyyy-MM-dd')) : Promise.resolve({ data: [] }),
 
         // Month collections — cash actually received this month, sourced from
         // the payments ledger (paid_at). Filtering sales by created_at instead

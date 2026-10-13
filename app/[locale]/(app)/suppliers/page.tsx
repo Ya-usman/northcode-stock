@@ -6,6 +6,7 @@ import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations, useLocale } from 'next-intl'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
+import { dateLocaleTag } from '@/lib/i18n/date-format'
 import dynamic from 'next/dynamic'
 import { Search, Plus, Edit2, Trash2, Phone, MapPin, Package, Store, ChevronDown, ChevronRight, X, ArrowRightLeft, FileText, Download, Send, CheckCircle2, Ban, Mail, Copy, Share2, History, RotateCcw, ShoppingCart, MessageCircle, Save, Clock, AlertTriangle, Banknote, TrendingDown, FileDown, FileSpreadsheet, Table2, Upload } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -848,7 +849,7 @@ export default function SuppliersPage() {
     await generatePurchaseOrderPDF({
       shopName: shop?.name || 'StockShop',
       reference: po.reference,
-      dateStr: new Date(po.created_at).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' }),
+      dateStr: new Date(po.created_at).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'long', year: 'numeric' }),
       supplierName: po.suppliers?.name || supplierName(po.supplier_id),
       supplierPhone: po.suppliers?.phone,
       supplierCity: po.suppliers?.city,
@@ -866,7 +867,7 @@ export default function SuppliersPage() {
   const buildPoEmailContent = (po: any) => {
     const items = po.purchase_order_items || []
     const supplier = po.suppliers?.name || supplierName(po.supplier_id)
-    const dateStr = new Date(po.created_at).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' })
+    const dateStr = new Date(po.created_at).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'long', year: 'numeric' })
     // Bon créé via "Commander le reste" (voir submitReorder) — garde le
     // lien vers le bon d'origine dans notes pour adapter l'objet/le corps.
     const reorderOriginalRef = po.notes?.match(/^\[reorder:(.+?)\]/)?.[1] as string | undefined
@@ -958,7 +959,7 @@ export default function SuppliersPage() {
                       {row.updatedAt && (
                         <span>
                           {marginAmount != null ? ' · ' : ''}
-                          {t('suppliers.price_updated_on', { date: new Date(row.updatedAt).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }) })}
+                          {t('suppliers.price_updated_on', { date: new Date(row.updatedAt).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'short', year: 'numeric' }) })}
                         </span>
                       )}
                     </p>
@@ -1249,12 +1250,12 @@ export default function SuppliersPage() {
                           {po.suppliers?.name || supplierName(po.supplier_id)} · {t('suppliers.po_items_count', { count: itemCount })} · {fmt(total)}
                         </p>
                         <p className="text-[11px] text-muted-foreground/70 mt-0.5">
-                          {new Date(po.created_at).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })}
+                          {new Date(po.created_at).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'short', year: 'numeric' })}
                           {po.expected_delivery_date && (
                             <span className={isOverdue ? 'text-red-600 dark:text-red-400 font-medium' : ''}>
                               {' · '}
                               {t('suppliers.po_expected_delivery', {
-                                date: new Date(po.expected_delivery_date).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }),
+                                date: new Date(po.expected_delivery_date).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'short', year: 'numeric' }),
                               })}
                             </span>
                           )}
@@ -1948,7 +1949,7 @@ export default function SuppliersPage() {
                       <div className={`flex-1 min-w-0 ${idx < events.length - 1 ? 'pb-4' : ''}`}>
                         <p className="text-sm font-semibold">{ev.label}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {new Date(ev.date).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          {new Date(ev.date).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                           {ev.actorName && <> · {t('suppliers.po_journal_by', { name: ev.actorName })}</>}
                         </p>
                       </div>

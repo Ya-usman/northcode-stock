@@ -10,6 +10,13 @@ export function dateFnsLocale(locale: string): Locale {
   return locale === 'fr' ? fr : enUS
 }
 
+// Étiquette de langue pour `toLocaleDateString` / `toLocaleString` : anglais
+// britannique (jour avant le mois, 24 h), comme les e-mails et les exports.
+const DATE_TAG: Record<string, string> = { fr: 'fr-FR', en: 'en-GB', ha: 'ha-NG' }
+export function dateLocaleTag(locale?: string | null): string {
+  return DATE_TAG[locale || 'fr'] ?? 'fr-FR'
+}
+
 // Motif « date et heure » : « 12 oct. 2026 à 17:38 » en français,
 // « 12 Oct 2026, 17:38 » dans les autres langues.
 export function dateTimePattern(locale: string): string {
