@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
-import { canWriteFeature } from '@/lib/api/role-permissions'
+import { canViewCost, canWriteFeature } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
 
 // GET /api/product-supplier-prices?shop_id= — raw price comparison entries;
 // joined against product/supplier names client-side (already in memory there).
+// Ce sont des prix d'achat : réservé au droit de voir les coûts (lib/permissions → canViewCost).
 export async function GET(request: Request) {
   const t = getApiTranslator(request)
   try {
@@ -17,7 +18,7 @@ export async function GET(request: Request) {
     if (!shopId) return NextResponse.json({ error: t('shop_id_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shopId)
-    if (!role) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+    if (!role || !(await canViewCost(supabase, role, shopId))) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()
     const { data, error } = await (admin as any)

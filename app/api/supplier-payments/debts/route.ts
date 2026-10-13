@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { PO_LINES, debtOrder, supplierDebtShops } from '@/lib/api/supplier-access'
 
 // GET /api/supplier-payments/debts?shop_ids=id1,id2
 // Suppliers with total_owed + their unpaid purchase orders. Mirrors
 // GET /api/payments/debts (customer side).
+// Droit : « Crédits » dans la boutique (il suffit pour consulter une dette fournisseur). Les lignes détaillées
+// d'un bon (produit × quantité × prix unitaire) donnent le prix d'achat : elles ne sont envoyées qu'avec le droit
+// de voir les coûts (lib/api/supplier-access).
 export async function GET(request: Request) {
   const t = getApiTranslator(request)
   try {
@@ -18,15 +22,8 @@ export async function GET(request: Request) {
     const { data: { user }, error: authErr } = await supabase.auth.getUser()
     if (authErr || !user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
-    const { data: memberRows } = await supabase
-      .from('shop_members')
-      .select('shop_id, role')
-      .in('shop_id', shopIds)
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-
-    const accessibleShopIds = (memberRows || []).map((m: any) => m.shop_id)
-    const allowedIds = shopIds.filter(id => accessibleShopIds.includes(id))
+    const access = await supplierDebtShops(supabase, user.id, shopIds)
+    const allowedIds = shopIds.filter(id => access.debts.includes(id))
     if (!allowedIds.length) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient() as any
@@ -45,7 +42,7 @@ export async function GET(request: Request) {
     const supplierIds = suppliers.map((s: any) => s.id)
     const { data: shopPOs, error: poErr } = await admin
       .from('purchase_orders')
-      .select('id, reference, created_at, total_amount, balance, amount_paid, payment_status, status, supplier_id, is_opening_balance, notes, purchase_order_items(product_name, quantity_ordered, quantity_received, unit_price)')
+      .select(`id, shop_id, reference, created_at, total_amount, balance, amount_paid, payment_status, status, supplier_id, is_opening_balance, notes, ${PO_LINES}`)
       .in('shop_id', allowedIds)
       .in('supplier_id', supplierIds)
       .gt('balance', 0)
@@ -53,7 +50,7 @@ export async function GET(request: Request) {
       .order('created_at', { ascending: true })
 
     if (poErr) throw poErr
-    const allPOs = shopPOs || []
+    const allPOs = (shopPOs || []).map((po: any) => debtOrder(po, access.lines.includes(po.shop_id)))
 
     const posBySupplier: Record<string, any[]> = {}
     for (const po of allPOs) {

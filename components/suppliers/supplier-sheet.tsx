@@ -18,6 +18,10 @@ import type { Supplier } from '@/lib/types/database'
 // complètes), solde dû avec accès au paiement, produits fournis avec leur
 // prix d'achat, bons de commande (clic → historique du bon), tendance des
 // prix. Actions dans le pied : Modifier, Nouveau bon.
+// Sans le droit de voir les coûts (`showCost`), la fiche ne montre ni montant
+// acheté, ni prix d'achat des produits, ni montant des bons, ni tendance des
+// prix — le serveur ne les lui envoie pas. Le solde dû reste affiché ; le
+// bouton de paiement suit le droit « Crédits » (`canPay`).
 
 export const PO_STATUS_STYLES: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
@@ -39,6 +43,10 @@ interface Props {
   /** Bons de commande de ce fournisseur */
   orders: any[]
   canManage: boolean
+  /** Droit de voir les prix d'achat (canViewCost) */
+  showCost: boolean
+  /** Droit d'enregistrer un paiement fournisseur (Crédits en modification) */
+  canPay: boolean
   shopCountry?: string | null
   fmt: (n: number) => string
   onEdit: (s: Supplier) => void
@@ -47,7 +55,7 @@ interface Props {
   onRecordPayment: (s: Supplier) => void
 }
 
-export function SupplierSheet({ supplier, open, onOpenChange, products, orders, canManage, shopCountry, fmt, onEdit, onNewPo, onOpenPo, onRecordPayment }: Props) {
+export function SupplierSheet({ supplier, open, onOpenChange, products, orders, canManage, showCost, canPay, shopCountry, fmt, onEdit, onNewPo, onOpenPo, onRecordPayment }: Props) {
   const t = useTranslations()
   const unitLabel = useUnitLabel()
   const locale = useLocale()
@@ -102,9 +110,9 @@ export function SupplierSheet({ supplier, open, onOpenChange, products, orders, 
       width="lg"
       testId="supplier-sheet"
       meta={(
-        <div className="grid grid-cols-4 gap-2" data-testid="supplier-kpis">
+        <div className={cn('grid gap-2', showCost ? 'grid-cols-4' : 'grid-cols-3')} data-testid="supplier-kpis">
           {tile(String(stats.ordersCount), t('suppliers.supplier_journal_orders_count'))}
-          {tile(fmt(stats.totalSpent), t('suppliers.supplier_journal_total_spent'))}
+          {showCost && tile(fmt(stats.totalSpent), t('suppliers.supplier_journal_total_spent'))}
           {tile(stats.avgDelay != null ? t('suppliers.supplier_journal_avg_delay_days', { count: stats.avgDelay }) : '—', t('suppliers.supplier_journal_avg_delay'))}
           {tile(stats.completeRate != null ? `${stats.completeRate}%` : '—', t('suppliers.supplier_journal_complete_rate'),
             stats.completeRate == null ? undefined : stats.completeRate >= 80 ? 'text-green-600 dark:text-green-400' : stats.completeRate >= 50 ? 'text-amber-500' : 'text-red-600 dark:text-red-400')}
@@ -158,8 +166,8 @@ export function SupplierSheet({ supplier, open, onOpenChange, products, orders, 
               <p className="text-xs font-medium text-amber-700 dark:text-amber-400">{t('suppliers.supplier_journal_owed')}</p>
               <p className="text-lg font-bold tabular-nums text-amber-700 dark:text-amber-400">{fmt(owed)}</p>
             </div>
-            {canManage && (
-              <Button type="button" size="sm" className="h-9 gap-1.5 bg-amber-600 text-white hover:bg-amber-700" onClick={() => onRecordPayment(supplier)}>
+            {canPay && (
+              <Button type="button" size="sm" className="h-9 gap-1.5 bg-amber-600 text-white hover:bg-amber-700" onClick={() => onRecordPayment(supplier)} data-testid="supplier-pay">
                 <Banknote className="h-4 w-4" />{t('suppliers.record_payment')}
               </Button>
             )}
@@ -180,7 +188,7 @@ export function SupplierSheet({ supplier, open, onOpenChange, products, orders, 
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
                     <span className="text-xs text-muted-foreground">{p.quantity} {unitLabel(p.unit, p.quantity)}</span>
-                    <span className="text-sm font-semibold tabular-nums">{fmt(Number(p.buying_price || 0))}</span>
+                    {showCost && p.buying_price != null && <span className="text-sm font-semibold tabular-nums" data-product-cost>{fmt(Number(p.buying_price))}</span>}
                   </div>
                 </div>
               ))}
@@ -209,7 +217,7 @@ export function SupplierSheet({ supplier, open, onOpenChange, products, orders, 
                       </span>
                     </div>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      {t('suppliers.po_items_count', { count: (po.purchase_order_items || []).length })} · {fmt(poTotalOf(po))} · {dateShort(po.created_at)}
+                      {t('suppliers.po_items_count', { count: (po.purchase_order_items || []).length })}{showCost && <> · {fmt(poTotalOf(po))}</>} · {dateShort(po.created_at)}
                     </p>
                   </div>
                   <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -220,7 +228,7 @@ export function SupplierSheet({ supplier, open, onOpenChange, products, orders, 
         </DrawerSection>
 
         {/* Tendance des prix */}
-        {stats.trends.length > 0 && (
+        {showCost && stats.trends.length > 0 && (
           <DrawerSection title={t('suppliers.supplier_journal_price_trend_title')}>
             <div className="space-y-1.5">
               {stats.trends.map(tr => (

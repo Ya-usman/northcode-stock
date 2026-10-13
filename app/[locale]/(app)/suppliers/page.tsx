@@ -31,6 +31,7 @@ import { DetailDrawer } from '@/components/ui/detail-drawer'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
 import { InputGroup, RequiredMark } from '@/components/ui/input-group'
 import { SupplierSheet, PO_STATUS_STYLES, poTotalOf } from '@/components/suppliers/supplier-sheet'
+import { fetchCosts, withCosts } from '@/lib/costs/client'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useForm } from 'react-hook-form'
@@ -146,17 +147,25 @@ export default function SuppliersPage() {
   const effectiveRole = roleInActiveShop ?? profile?.role
   // Règle unique : niveau « modification » de Fournisseurs (fiches, prix,
   // bons de commande) — même règle que les routes /api/suppliers et /api/purchase-orders
-  const { canWrite } = useRolePermissions()
+  const { canWrite, canViewCost } = useRolePermissions()
   const canManage = canWrite('suppliers')
+  // Prix d'achat (prix des produits, comparateur, montants des bons) : règle unique canViewCost. Sans ce droit,
+  // l'écran ne les demande pas — et le serveur ne les enverrait pas. Payer une dette suit le droit « Crédits ».
+  const showCost = canViewCost
+  const canPay = canWrite('payments')
 
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
     const c = getPageCache<{ suppliers: Supplier[]; products: Product[] }>(`suppliers_${effectiveShopIds.join(',')}`)
     return c?.suppliers || []
   })
-  const [products, setProducts] = useState<Product[]>(() => {
+  const [rawProducts, setProducts] = useState<Product[]>(() => {
     const c = getPageCache<{ suppliers: Supplier[]; products: Product[] }>(`suppliers_${effectiveShopIds.join(',')}`)
     return c?.products || []
   })
+  // Les produits sont lus SANS leur prix d'achat ; il arrive à part (/api/costs) pour qui a le droit, et n'est
+  // jamais rangé dans le cache de la page
+  const [costs, setCosts] = useState<Record<string, number> | null>(null)
+  const products = useMemo(() => (showCost ? withCosts(rawProducts, costs) : rawProducts), [rawProducts, costs, showCost])
   const [loading, setLoading] = useState(() => !getPageCache(`suppliers_${effectiveShopIds.join(',')}`))
   const [{ search }, setFilter] = usePersistedFilters('suppliers', shop?.id, { search: '' })
   const [showModal, setShowModal] = useState(false)
@@ -259,7 +268,7 @@ export default function SuppliersPage() {
       // a while can never leave `loading` stuck true forever.
       const [suppliersRes, productsRes] = await withTimeout(Promise.all([
         supabase.from('suppliers').select('*').in('shop_id', effectiveShopIds).order('name'),
-        supabase.from('products').select('id, name, selling_price, buying_price, quantity, unit, supplier_id, shop_id').in('shop_id', effectiveShopIds).eq('is_active', true),
+        supabase.from('products').select('id, name, selling_price, quantity, unit, supplier_id, shop_id').in('shop_id', effectiveShopIds).eq('is_active', true),
       ]), 20_000, 'Chargement des fournisseurs trop lent — réessayez.')
       // A transient auth/RLS hiccup can resolve with data: null instead of
       // throwing — check explicitly so the catch below preserves the cache
@@ -271,6 +280,8 @@ export default function SuppliersPage() {
       setSuppliers(fetchedSuppliers)
       setProducts(fetchedProducts)
       setPageCache(cacheKey, { suppliers: fetchedSuppliers, products: fetchedProducts })
+      if (showCost) fetchCosts(effectiveShopIds).then(c => setCosts(c ? c.products : null)).catch(() => {})
+      else setCosts(null)
     } catch {
       // cache already applied if available
     } finally {
@@ -279,7 +290,7 @@ export default function SuppliersPage() {
   }
 
   const fetchProductPrices = async () => {
-    if (!shop?.id) return
+    if (!shop?.id || !showCost) return
     try {
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave a hung request retried forever.
@@ -1002,12 +1013,15 @@ export default function SuppliersPage() {
         >
           {t('suppliers.tab_suppliers')}
         </button>
+        {showCost && (
         <button
           onClick={() => setView('by_product')}
+          data-testid="suppliers-tab-prices"
           className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${view === 'by_product' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
         >
           <ArrowRightLeft className="h-3.5 w-3.5" /> {t('suppliers.tab_by_product')}
         </button>
+        )}
         <button
           onClick={() => setView('purchase_orders')}
           className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${view === 'purchase_orders' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
@@ -1105,7 +1119,7 @@ export default function SuppliersPage() {
       </>
       )}
 
-      {view === 'by_product' && (
+      {view === 'by_product' && showCost && (
         <div className="space-y-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1148,7 +1162,7 @@ export default function SuppliersPage() {
           {purchaseOrders.length > 0 && (
             <>
               {/* Repères : cliquer « En cours » ou « En retard » filtre la liste */}
-              <div className="grid grid-cols-3 gap-2" data-testid="po-kpis">
+              <div className={`grid gap-2 ${showCost ? 'grid-cols-3' : 'grid-cols-2'}`} data-testid="po-kpis">
                 <button
                   type="button"
                   onClick={() => { setPoOverdueOnly(false); setPoFilter({ status: poStatusFilter === 'sent' && !poOverdueOnly ? '' : 'sent' }) }}
@@ -1167,10 +1181,12 @@ export default function SuppliersPage() {
                   <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><AlertTriangle className="h-3.5 w-3.5" />{t('suppliers.kpi_overdue')}</p>
                   <p className={`mt-0.5 text-lg font-bold tabular-nums ${poKpis.overdue > 0 ? 'text-red-600 dark:text-red-400' : ''}`}>{poKpis.overdue}</p>
                 </button>
-                <div className="rounded-xl border bg-card px-3 py-2.5">
+                {showCost && (
+                <div className="rounded-xl border bg-card px-3 py-2.5" data-testid="po-kpi-expected">
                   <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><Banknote className="h-3.5 w-3.5" />{t('suppliers.kpi_expected_amount')}</p>
                   <p className="mt-0.5 truncate text-lg font-bold tabular-nums">{fmt(poKpis.expected)}</p>
                 </div>
+                )}
               </div>
 
               <div className="flex flex-wrap items-end gap-2">
@@ -1247,7 +1263,7 @@ export default function SuppliersPage() {
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {po.suppliers?.name || supplierName(po.supplier_id)} · {t('suppliers.po_items_count', { count: itemCount })} · {fmt(total)}
+                          {po.suppliers?.name || supplierName(po.supplier_id)} · {t('suppliers.po_items_count', { count: itemCount })}{showCost && <> · <span data-po-total>{fmt(total)}</span></>}
                         </p>
                         <p className="text-[11px] text-muted-foreground/70 mt-0.5">
                           {new Date(po.created_at).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -1299,9 +1315,11 @@ export default function SuppliersPage() {
                               <div key={it.id} className="text-sm">
                                 <div className="flex items-center justify-between gap-2">
                                   <span className="truncate">{it.product_name} × {it.quantity_ordered} {unitLabel(it.unit, it.quantity_ordered)}</span>
-                                  <span className="tabular-nums text-muted-foreground shrink-0">
+                                  {showCost && (
+                                  <span className="tabular-nums text-muted-foreground shrink-0" data-po-line-amount>
                                     {it.unit_price != null ? fmt(it.unit_price * it.quantity_ordered) : '—'}
                                   </span>
+                                  )}
                                 </div>
                                 {shortfall && (
                                   <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
@@ -1445,6 +1463,8 @@ export default function SuppliersPage() {
         products={products.filter((p: any) => p.supplier_id === sheetSupplier?.id)}
         orders={purchaseOrders.filter((po: any) => po.supplier_id === sheetSupplier?.id)}
         canManage={canManage}
+        showCost={showCost}
+        canPay={canPay}
         shopCountry={shop?.country}
         fmt={fmt}
         onEdit={s => { setSheetSupplier(null); openSupplierForm(s) }}
@@ -1914,7 +1934,7 @@ export default function SuppliersPage() {
         onOpenChange={open => { if (!open) setJournalPo(null) }}
         category={t('suppliers.po_journal_title')}
         title={journalPo?.reference || ''}
-        description={journalPo ? `${journalPo.suppliers?.name || supplierName(journalPo.supplier_id)} · ${fmt(poTotalOf(journalPo))}` : undefined}
+        description={journalPo ? `${journalPo.suppliers?.name || supplierName(journalPo.supplier_id)}${showCost ? ` · ${fmt(poTotalOf(journalPo))}` : ''}` : undefined}
         icon={<History className="h-4 w-4" />}
         width="md"
         testId="po-journal-drawer"

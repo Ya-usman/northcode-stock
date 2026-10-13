@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { PO_LINES, debtOrder, supplierDebtShops } from '@/lib/api/supplier-access'
 
 // GET /api/supplier-payments/history?shop_id=xxx&supplier_id=yyy
 // Mirrors GET /api/payments/history (customer side).
@@ -15,34 +16,24 @@ export async function GET(request: Request) {
     }
 
     const supabase = await createClient() as any
-    const { data: { session } } = await supabase.auth.getSession()
-    const user = session?.user
+    const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
+    // Droit « Crédits » ; les lignes détaillées des bons (prix d'achat) seulement avec le droit de voir les coûts
+    const access = await supplierDebtShops(supabase, user.id, [shop_id])
+    if (!access.debts.includes(shop_id)) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+    const showLines = access.lines.includes(shop_id)
+
     const admin = await createAdminClient() as any
+    const posRes = await admin
+      .from('purchase_orders')
+      .select(`id, reference, created_at, total_amount, amount_paid, balance, payment_status, status, is_opening_balance, notes${showLines ? ', ' + PO_LINES : ''}`)
+      .eq('supplier_id', supplier_id)
+      .eq('shop_id', shop_id)
+      .in('status', ['received', 'partial'])
+      .order('created_at', { ascending: false })
 
-    const [memberRes, posRes] = await Promise.all([
-      supabase
-        .from('shop_members').select('role')
-        .eq('shop_id', shop_id).eq('user_id', user.id).eq('is_active', true).single(),
-      admin
-        .from('purchase_orders')
-        .select('id, reference, created_at, total_amount, amount_paid, balance, payment_status, status, is_opening_balance, notes, purchase_order_items(product_name, quantity_ordered, quantity_received, unit_price)')
-        .eq('supplier_id', supplier_id)
-        .eq('shop_id', shop_id)
-        .in('status', ['received', 'partial'])
-        .order('created_at', { ascending: false }),
-    ])
-
-    let callerRole = memberRes.data?.role
-    if (!callerRole) {
-      const { data: profile } = await supabase
-        .from('profiles').select('role, shop_id').eq('id', user.id).single()
-      if ((profile as any)?.shop_id === shop_id) callerRole = (profile as any)?.role
-    }
-    if (!callerRole) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
-
-    const purchaseOrders: any[] = posRes.data || []
+    const purchaseOrders: any[] = (posRes.data || []).map((po: any) => debtOrder(po, showLines))
     if (!purchaseOrders.length) return NextResponse.json({ purchaseOrders: [], payments: [] })
 
     const poIds = purchaseOrders.map((po: any) => po.id)

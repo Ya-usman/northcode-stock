@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
-import { canWriteFeature } from '@/lib/api/role-permissions'
+import { canViewCost, canViewFeature, canWriteFeature } from '@/lib/api/role-permissions'
+import { orderWithoutCost } from '@/lib/api/supplier-access'
 import { getApiTranslator } from '@/lib/api/i18n'
 
 // Purchase orders live inside the Suppliers page/tab client-side (gated by
@@ -26,6 +27,8 @@ async function nextReference(admin: any, shopId: string): Promise<string> {
 }
 
 // GET /api/purchase-orders?shop_id= — list purchase orders with their items
+// Droit : voir « Fournisseurs » dans la boutique. Sans le droit de voir les coûts, un bon garde ses lignes (ce qui
+// est commandé et reçu) mais ni prix unitaires ni montants — ils ne sont pas envoyés (lib/api/supplier-access).
 export async function GET(request: Request) {
   const t = getApiTranslator(request)
   try {
@@ -37,7 +40,8 @@ export async function GET(request: Request) {
     if (!shopId) return NextResponse.json({ error: t('shop_id_required') }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shopId)
-    if (!role) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+    if (!role || !(await canViewFeature(supabase, role, shopId, 'suppliers'))) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+    const cost = await canViewCost(supabase, role, shopId)
 
     const admin = await createAdminClient()
     const { data, error } = await (admin as any)
@@ -67,7 +71,7 @@ export async function GET(request: Request) {
       received_by_name: po.received_by ? (actorMap[po.received_by] || null) : null,
     }))
 
-    return NextResponse.json({ data: enriched })
+    return NextResponse.json({ data: cost ? enriched : enriched.map(orderWithoutCost), cost })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

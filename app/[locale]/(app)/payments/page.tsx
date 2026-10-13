@@ -461,7 +461,7 @@ function SupplierDebtorCard({ supplier, unpaidPOs, totalOwed, isExpanded, setExp
                   <OpeningBalanceInfo note={po.notes} canCancel={po.amount_paid === 0} onCancel={onCancelOpening ? () => onCancelOpening(po, supplier) : undefined} t={t} />
                 )}
                 {po.purchase_order_items && po.purchase_order_items.length > 0 && (
-                  <div className="pt-1 border-t space-y-0.5">
+                  <div data-po-lines className="pt-1 border-t space-y-0.5">
                     {po.purchase_order_items.map((item: any, idx: number) => (
                       <div key={idx} className="flex justify-between text-[11px] text-muted-foreground">
                         <span>{item.product_name} × {item.quantity_received ?? item.quantity_ordered}</span>
@@ -2831,7 +2831,7 @@ export default function CreditsPage() {
                         {isOpen && (
                           <div className="divide-y">
                             {po.purchase_order_items && po.purchase_order_items.length > 0 && (
-                              <div className="px-3 py-2 bg-card space-y-0.5">
+                              <div data-po-lines className="px-3 py-2 bg-card space-y-0.5">
                                 <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">{t('sales.items')}</p>
                                 {po.purchase_order_items.map((item, i) => (
                                   <div key={i} className="flex justify-between text-[11px] text-muted-foreground">

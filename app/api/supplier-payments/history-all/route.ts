@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { PO_LINES, debtOrder, supplierDebtShops } from '@/lib/api/supplier-access'
 
 // GET /api/supplier-payments/history-all?shop_ids=...&date_from=...&date_to=...
 // Mirrors GET /api/payments/history-all (customer side).
@@ -17,25 +18,19 @@ export async function GET(request: Request) {
     const dateTo = searchParams.get('date_to')
 
     const supabase = await createClient() as any
-    const { data: { session } } = await supabase.auth.getSession()
-    const user = session?.user
+    const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
-    const { data: memberRows } = await supabase
-      .from('shop_members')
-      .select('shop_id')
-      .in('shop_id', shopIds)
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-
-    const allowedIds = shopIds.filter(id => (memberRows || []).some((m: any) => m.shop_id === id))
+    // Droit « Crédits » ; les lignes détaillées des bons (prix d'achat) seulement avec le droit de voir les coûts
+    const access = await supplierDebtShops(supabase, user.id, shopIds)
+    const allowedIds = shopIds.filter(id => access.debts.includes(id))
     if (!allowedIds.length) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient() as any
 
     let poQuery = admin
       .from('purchase_orders')
-      .select('id, reference, created_at, total_amount, amount_paid, balance, payment_status, supplier_id, is_opening_balance, purchase_order_items(product_name, quantity_ordered, quantity_received, unit_price)')
+      .select(`id, shop_id, reference, created_at, total_amount, amount_paid, balance, payment_status, supplier_id, is_opening_balance, ${PO_LINES}`)
       .in('shop_id', allowedIds)
       .not('supplier_id', 'is', null)
       .in('status', ['received', 'partial'])
@@ -51,7 +46,7 @@ export async function GET(request: Request) {
 
     const { data: poData, error: poErr } = await poQuery
     if (poErr) throw poErr
-    const purchaseOrders: any[] = poData || []
+    const purchaseOrders: any[] = (poData || []).map((po: any) => debtOrder(po, access.lines.includes(po.shop_id)))
     if (!purchaseOrders.length) return NextResponse.json({ suppliers: [] })
 
     const supplierIds = Array.from(new Set(purchaseOrders.map((po: any) => po.supplier_id)))
