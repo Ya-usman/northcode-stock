@@ -40,7 +40,7 @@ import { useRestoredPhoto } from '@/lib/photo/use-restored-photo'
 import { ProductTable, ProductTableSkeleton, OPTIONAL_COLUMNS, PENDING_COLUMNS, type ProductColumnKey, type ProductSort, type ProductStatus } from '@/components/stock/product-table'
 import { useStockViewMode } from '@/lib/hooks/use-stock-view-mode'
 import { ProductActivityJournal } from '@/components/stock/product-activity-journal'
-import { fetchExpiryByProduct, fetchSoldQty30d, readSignalsCache, writeSignalsCache } from '@/lib/stock/signals'
+import { fetchExpiryByProduct, fetchExpiredQtyByProduct, availableQty, fetchSoldQty30d, readSignalsCache, writeSignalsCache } from '@/lib/stock/signals'
 import { fetchStockPipeline, type StockPipeline } from '@/lib/stock/pipeline'
 import { ProductThumbnail } from '@/components/stock/product-thumbnail'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
@@ -122,6 +122,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   // doit pas prendre « pas encore chargé » pour « zéro vente confirmée »,
   // sinon tout produit en stock passerait brièvement pour dormant.
   const [soldQtyLoaded, setSoldQtyLoaded] = useState(() => !!readSignalsCache(effectiveShopIds)?.soldQtyByProduct)
+  // Quantité des lots périmés par produit (sortie du « Disponible »)
+  const [expiredQtyByProduct, setExpiredQtyByProduct] = useState<Record<string, number>>(() => readSignalsCache(effectiveShopIds)?.expiredQtyByProduct ?? {})
   // Stock à venir (en transit, en commande) : null tant qu'il n'est ni en cache ni chargé
   const [pipeline, setPipeline] = useState<StockPipeline | null>(() => readSignalsCache(effectiveShopIds)?.pipeline ?? null)
   const [promoProduct, setPromoProduct] = useState<Product | null>(null)
@@ -332,6 +334,11 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       setSoldQtyByProduct(sold)
       setSoldQtyLoaded(true)
       writeSignalsCache(effectiveShopIds, { soldQtyByProduct: sold })
+    } catch { /* idem */ }
+    try {
+      const expiredQty = await fetchExpiredQtyByProduct(supabase, effectiveShopIds)
+      setExpiredQtyByProduct(expiredQty)
+      writeSignalsCache(effectiveShopIds, { expiredQtyByProduct: expiredQty })
     } catch { /* idem */ }
     try {
       const incoming = await fetchStockPipeline(effectiveShopIds)
@@ -1038,6 +1045,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
   const renderProductCard = (product: Product, idx: number) => {
     const threshold = product.low_stock_threshold || shop?.low_stock_threshold || 10
+    // Disponible = physique − périmé (lib/stock/signals)
+    const cardExpired = Math.min(product.quantity, expiredQtyByProduct[product.id] || 0)
+    const cardAvailable = availableQty(product.quantity, cardExpired)
     const isSelected = selectedIds.has(product.id)
     const promoActive = isPromoActive(product)
     const expiry = expiryByProduct[product.id]
@@ -1130,10 +1140,11 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         {!selectionMode && (
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
             <span className="whitespace-nowrap text-sm">
-              <span className={`font-bold ${product.quantity === 0 ? 'text-red-500' : product.quantity <= threshold ? 'text-amber-500' : 'text-green-600 dark:text-green-400'}`}>
-                {product.quantity}
+              <span className={`font-bold ${cardAvailable === 0 ? 'text-red-500' : cardAvailable <= threshold ? 'text-amber-500' : 'text-green-600 dark:text-green-400'}`}>
+                {cardAvailable}
               </span>{' '}
-              <span className="text-muted-foreground text-xs">{unitLabelFor(product.unit, product.quantity)}</span>
+              <span className="text-muted-foreground text-xs">{unitLabelFor(product.unit, cardAvailable)}</span>
+              {cardExpired > 0 && <span className="ml-1.5 text-xs font-medium text-red-600 dark:text-red-400" title={t('products.expired_qty_hint')}>{t('products.expired_qty', { count: cardExpired })}</span>}
             </span>
             <div className="ml-auto flex gap-1">
               {canOrderStock && product.quantity <= threshold && (
@@ -1192,10 +1203,11 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         {selectionMode && (
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
             <span className="whitespace-nowrap text-sm">
-              <span className={`font-bold ${product.quantity === 0 ? 'text-red-500' : product.quantity <= threshold ? 'text-amber-500' : 'text-green-600 dark:text-green-400'}`}>
-                {product.quantity}
+              <span className={`font-bold ${cardAvailable === 0 ? 'text-red-500' : cardAvailable <= threshold ? 'text-amber-500' : 'text-green-600 dark:text-green-400'}`}>
+                {cardAvailable}
               </span>{' '}
-              <span className="text-muted-foreground text-xs">{unitLabelFor(product.unit, product.quantity)}</span>
+              <span className="text-muted-foreground text-xs">{unitLabelFor(product.unit, cardAvailable)}</span>
+              {cardExpired > 0 && <span className="ml-1.5 text-xs font-medium text-red-600 dark:text-red-400" title={t('products.expired_qty_hint')}>{t('products.expired_qty', { count: cardExpired })}</span>}
             </span>
           </div>
         )}
@@ -1268,6 +1280,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       p.quantity === 0 ? 'out' : p.quantity <= thresholdFor(p) ? 'low' : isDormant(p) ? 'dormant' : 'ok',
     soldQty: (p: Product) => (soldQtyLoaded ? soldQtyByProduct[p.id] || 0 : null),
     pipelineFor,
+    expiredQty: (p: Product) => expiredQtyByProduct[p.id] || 0,
     expiryFor: (p: Product) => {
       const exp = expiryByProduct[p.id]
       if (!exp) return null

@@ -177,6 +177,13 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   // vente de ce produit y puisera forcément en premier. Purement informatif
   // (voir plafond de crédit) : jamais bloquant, la vente reste possible.
   const [frontBatchExpired, setFrontBatchExpired] = useState<Record<string, boolean>>({})
+  // Lot périmé : confirmation avant l'ajout au panier (jamais de blocage). Une fois confirmé, le produit
+  // n'est plus redemandé tant que le panier n'est pas vidé. Références : l'ajout vient aussi du scan,
+  // dont la fonction garde l'état du rendu où elle a été créée.
+  const frontBatchExpiredRef = useRef<Record<string, boolean>>({})
+  frontBatchExpiredRef.current = frontBatchExpired
+  const expiredConfirmedRef = useRef<Set<string>>(new Set())
+  const [expiredPrompt, setExpiredPrompt] = useState<Product | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   // Tour guidé « Faire une vente » : un article vient d'entrer dans le panier
@@ -484,7 +491,18 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     }
   }, [products, toast])
 
+  // Panier vidé (vente terminée, changement de boutique) : les confirmations « lot périmé » repartent de zéro
+  useEffect(() => { if (cart.length === 0) expiredConfirmedRef.current.clear() }, [cart.length])
+
   const addToCartById = (product: Product) => {
+    if (frontBatchExpiredRef.current[product.id] && !expiredConfirmedRef.current.has(product.id)) {
+      setExpiredPrompt(product)
+      return
+    }
+    addToCartNow(product)
+  }
+
+  const addToCartNow = (product: Product) => {
     setCart(prev => {
       const existing = prev.find(i => i.product.id === product.id)
       if (existing) {
@@ -2902,6 +2920,20 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           )}
         </PremiumDialogBody>
       </PremiumDialog>
+
+      {/* Lot périmé : on demande, on ne bloque pas */}
+      <ConfirmModal
+        open={!!expiredPrompt}
+        onOpenChange={open => { if (!open) setExpiredPrompt(null) }}
+        title={t('sales.expired_confirm_title')}
+        description={expiredPrompt ? t('sales.expired_confirm_desc', { name: expiredPrompt.name }) : ''}
+        tone="warning"
+        confirmLabel={t('sales.expired_confirm_action')}
+        onConfirm={() => {
+          if (expiredPrompt) { expiredConfirmedRef.current.add(expiredPrompt.id); addToCartNow(expiredPrompt) }
+          setExpiredPrompt(null)
+        }}
+      />
 
       {/* Vente encore en file et serveur injoignable : jamais de lien inactif */}
       <ConfirmModal

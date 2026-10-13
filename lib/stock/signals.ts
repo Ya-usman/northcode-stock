@@ -12,6 +12,8 @@ import { getPageCache, setPageCache } from '@/lib/offline/page-cache'
 export interface CachedSignals {
   expiryByProduct?: Record<string, string>
   soldQtyByProduct?: Record<string, number>
+  /** Quantité des lots PÉRIMÉS encore en stock, par produit */
+  expiredQtyByProduct?: Record<string, number>
   /** Stock à venir (en transit, en commande) — lib/stock/pipeline */
   pipeline?: import('./pipeline').StockPipeline
 }
@@ -58,27 +60,62 @@ export async function fetchExpiryByProduct(supabase: Db, shopIds: string[]): Pro
   return map
 }
 
+/** Jour courant de l'appareil, « AAAA-MM-JJ » (jamais via l'heure universelle : la date basculerait la veille au soir ou le lendemain matin). */
+export function localToday(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** Quantité encore en stock dans des lots PÉRIMÉS (date strictement avant aujourd'hui), par produit. */
+export async function fetchExpiredQtyByProduct(supabase: Db, shopIds: string[], today: string = localToday()): Promise<Record<string, number>> {
+  const { data, error } = await withTimeout<any>(supabase
+    .from('product_batches')
+    .select('product_id, quantity')
+    .in('shop_id', shopIds)
+    .gt('quantity', 0)
+    .lt('expiry_date', today), 20_000)
+  if (error) throw error
+  const map: Record<string, number> = {}
+  for (const b of (data || []) as { product_id: string; quantity: number }[]) map[b.product_id] = (map[b.product_id] || 0) + Number(b.quantity)
+  return map
+}
+
+/**
+ * Stock DISPONIBLE à la vente = physique − périmé (− réservé, quand les
+ * réservations existeront). Jamais négatif ; le périmé ne peut pas dépasser le
+ * physique (un lot peut être en avance sur une correction de quantité).
+ */
+export function availableQty(physical: number, expired: number | null | undefined, reserved: number | null | undefined = 0): number {
+  const p = Math.max(0, Number(physical) || 0)
+  const e = Math.min(p, Math.max(0, Number(expired) || 0))
+  return Math.max(0, p - e - Math.max(0, Number(reserved) || 0))
+}
+
 /** Quantité vendue par produit sur les 30 derniers jours (ventes actives). */
 export async function fetchSoldQty30d(supabase: Db, shopIds: string[]): Promise<Record<string, number>> {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86_400_000).toISOString()
-  const { data: recentSales, error: salesErr } = await withTimeout<any>(supabase
-    .from('sales')
-    .select('id')
-    .in('shop_id', shopIds)
-    .eq('sale_status', 'active')
-    .gte('created_at', thirtyDaysAgo), 20_000)
-  if (salesErr) throw salesErr
-  const saleIds = ((recentSales || []) as { id: string }[]).map(s => s.id)
+  // Une seule lecture jointe, page par page. L'ancienne version lisait d'abord
+  // les ventes puis passait TOUS leurs identifiants dans l'adresse de la
+  // requête : au-delà de ~200 ventes sur 30 jours l'adresse devenait trop
+  // longue (erreur 400) et la colonne restait vide ; la base plafonne aussi
+  // chaque réponse à 1000 lignes.
+  const PAGE = 1000
   const map: Record<string, number> = {}
-  if (!saleIds.length) return map
-  const { data: items, error: itemsErr } = await withTimeout<any>(supabase
-    .from('sale_items')
-    .select('product_id, quantity')
-    .in('sale_id', saleIds), 20_000)
-  if (itemsErr) throw itemsErr
-  for (const it of (items || []) as { product_id: string | null; quantity: number }[]) {
-    if (!it.product_id) continue
-    map[it.product_id] = (map[it.product_id] || 0) + it.quantity
+  for (let from = 0; from < 100 * PAGE; from += PAGE) {
+    const { data: items, error } = await withTimeout<any>(supabase
+      .from('sale_items')
+      .select('id, product_id, quantity, sales!inner(shop_id, sale_status, created_at)')
+      .in('sales.shop_id', shopIds)
+      .eq('sales.sale_status', 'active')
+      .gte('sales.created_at', thirtyDaysAgo)
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1), 20_000)
+    if (error) throw error
+    for (const it of (items || []) as { product_id: string | null; quantity: number }[]) {
+      if (!it.product_id) continue
+      map[it.product_id] = (map[it.product_id] || 0) + Number(it.quantity)
+    }
+    if (!items || items.length < PAGE) break
   }
   return map
 }

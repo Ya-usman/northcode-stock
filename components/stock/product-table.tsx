@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { dateLocaleTag } from '@/lib/i18n/date-format'
+import { availableQty } from '@/lib/stock/signals'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { Archive, ArrowDown, ArrowUp, ArrowUpDown, Edit2, History, MoreHorizontal, ShoppingCart, Tag } from 'lucide-react'
 import type { Product } from '@/lib/types/database'
@@ -54,6 +55,8 @@ export interface ProductTableProps {
   /** Quantité vendue sur 30 jours ; null tant que le chiffre n'est pas chargé */
   soldQty: (p: Product) => number | null
   expiryFor: (p: Product) => { date: string; expired: boolean; soon: boolean } | null
+  /** Quantité du produit dans des lots périmés (0 si aucune) */
+  expiredQty: (p: Product) => number
   /** Stock à venir du produit ; null = pas encore chargé ou non visible pour ce rôle (jamais confondu avec zéro) */
   pipelineFor: (p: Product) => { inTransit: number | null; onOrder: number | null }
   isPromoActive: (p: Product) => boolean
@@ -128,7 +131,7 @@ export function ProductTableSkeleton({ rows = 6 }: { rows?: number }) {
 }
 
 export function ProductTable({
-  products, thresholdFor, statusFor, soldQty, expiryFor, pipelineFor, isPromoActive, promoStale, promoSuggestion,
+  products, thresholdFor, statusFor, soldQty, expiryFor, expiredQty, pipelineFor, isPromoActive, promoStale, promoSuggestion,
   formatPrice, fullRights, canWriteStock, canOrderStock, busy, selectedIds, onToggleSelect, onToggleSelectMany,
   sort, onSortChange, columns, onOrder, onRestock, onEdit, onPromo, onBatches, onArchive,
 }: ProductTableProps) {
@@ -145,7 +148,7 @@ export function ProductTable({
         case 'name': return p.name
         case 'sku': return p.sku || ''
         case 'price': return effectivePrice(p)
-        case 'quantity': return p.quantity
+        case 'quantity': return availableQty(p.quantity, expiredQty(p))
         case 'sold': return soldQty(p) ?? -1
         case 'status': return STATUS_RANK[statusFor(p)]
         case 'category': return p.categories?.name || ''
@@ -258,7 +261,10 @@ export function ProductTable({
             const incoming = pipelineFor(product)
             const coverage = coverageDays(product.quantity, sold)
             const stickyBg = selected ? 'bg-stockshop-blue-muted dark:bg-blue-950/60' : 'bg-card'
-            const qtyTone = product.quantity === 0 ? 'text-red-500' : product.quantity <= threshold ? 'text-amber-500' : ''
+            // Disponible = physique − périmé (lib/stock/signals)
+            const expired = Math.min(product.quantity, expiredQty(product))
+            const available = availableQty(product.quantity, expired)
+            const qtyTone = available === 0 ? 'text-red-500' : available <= threshold ? 'text-amber-500' : ''
             return (
               <tr
                 key={product.id}
@@ -273,7 +279,7 @@ export function ProductTable({
                     aria-label={product.name}
                   />
                 </td>
-                <td className={cn('sticky left-9 z-10 max-w-[220px] max-sm:border-r', CELL, stickyBg)}>
+                <td className={cn('sticky left-9 z-10 max-w-[200px] max-sm:border-r', CELL, stickyBg)}>
                   <div className="flex items-center gap-2.5">
                     <ProductThumbnail src={product.image_url} alt={product.name} className="h-9 w-9 shrink-0" />
                     <div className="min-w-0">
@@ -336,8 +342,13 @@ export function ProductTable({
                   <td className={cn(CELL_NUM, 'text-muted-foreground')}>{formatPrice(product.buying_price)}</td>
                 )}
                 <td className={CELL_NUM}>
-                  <span className={cn('font-semibold', qtyTone)}>{product.quantity}</span>
-                  <span className="ml-1 text-xs text-muted-foreground">{unitLabel(product.unit, product.quantity)}</span>
+                  <span className={cn('font-semibold', qtyTone)}>{available}</span>
+                  <span className="ml-1 text-xs text-muted-foreground">{unitLabel(product.unit, available)}</span>
+                  {expired > 0 && (
+                    <button type="button" onClick={() => onBatches(product)} title={t('products.expired_qty_hint')} className="block w-0 min-w-full text-right text-[11px] font-medium leading-tight text-red-600 hover:underline dark:text-red-400">{/* w-0 + min-w-full : la mention suit la largeur de la colonne sans jamais l'élargir */}
+                      {t('products.expired_qty', { count: expired })}
+                    </button>
+                  )}
                 </td>
                 {show('physical') && (
                   // Pas encore de stock réservé : physique = disponible (étape suivante)

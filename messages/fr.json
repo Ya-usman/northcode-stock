@@ -332,7 +332,9 @@
     "columns_soon": "Après la mise en place des réservations (étape suivante)",
     "in_transit_hint": "Envoyé par une autre boutique, pas encore reçu",
     "on_order_hint": "Commandé à un fournisseur, pas encore reçu",
-    "available_explain": "Disponible = Physique − Réservé. Rien n’est réservé pour l’instant : les deux sont égaux.",
+    "available_explain": "Disponible = Physique − Périmé − Réservé. Rien n’est réservé pour l’instant.",
+    "expired_qty": "{count, plural, one {# périmé} other {# périmés}}",
+    "expired_qty_hint": "Lots dont la date est dépassée : comptés dans le stock physique, pas dans le disponible",
     "incoming_transit": "+{count} en transit",
     "incoming_order": "+{count} en commande",
     "coverage_hint": "Jours de stock au rythme des ventes des 30 derniers jours",
@@ -553,6 +555,9 @@
     "cart_empty": "Votre panier est vide",
     "add_items": "Recherchez et ajoutez des produits ci-dessus",
     "expired_batch_warning": "Lot périmé",
+    "expired_confirm_title": "Lot périmé",
+    "expired_confirm_desc": "Le lot en cours de « {name} » a dépassé sa date de péremption. Voulez-vous le vendre quand même ?",
+    "expired_confirm_action": "Vendre quand même",
     "cart_items_count": "{count} article(s)",
     "receipt": "Reçu",
     "receipt_ready": "Vente terminée ! Reçu prêt.",
@@ -3955,7 +3960,7 @@
     "dozen": "{count, plural, one {douzaine} other {douzaines}}",
     "bag": "{count, plural, one {sac} other {sacs}}",
     "bottle": "{count, plural, one {bouteille} other {bouteilles}}",
-    "tin": "{count, plural, one {boîte de conserve} other {boîtes de conserve}}",
+    "tin": "{count, plural, one {conserve} other {conserves}}",
     "box": "{count, plural, one {boîte} other {boîtes}}"
   }
 }
