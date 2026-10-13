@@ -37,11 +37,12 @@ import type { Product, Category, Supplier } from '@/lib/types/database'
 // ProductForm, ImportProductsModal et BulkAddModal : chargés à la demande
 // (déclarations dynamic plus bas), hors du code de première ouverture
 import { useRestoredPhoto } from '@/lib/photo/use-restored-photo'
-import { ProductTable, ProductTableSkeleton, OPTIONAL_COLUMNS, PENDING_COLUMNS, type ProductColumnKey, type ProductSort, type ProductStatus } from '@/components/stock/product-table'
+import { ProductTable, ProductTableSkeleton, OPTIONAL_COLUMNS, type ProductColumnKey, type ProductSort, type ProductStatus } from '@/components/stock/product-table'
 import { useStockViewMode } from '@/lib/hooks/use-stock-view-mode'
 import { ProductActivityJournal } from '@/components/stock/product-activity-journal'
 import { fetchExpiryByProduct, fetchExpiredQtyByProduct, availableQty, stockLevelOf, fetchSoldQty30d, readSignalsCache, writeSignalsCache } from '@/lib/stock/signals'
 import { fetchStockPipeline, type StockPipeline } from '@/lib/stock/pipeline'
+import { fetchReservedQtyByProduct } from '@/lib/stock/reservations'
 import { ProductThumbnail } from '@/components/stock/product-thumbnail'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
@@ -124,6 +125,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [soldQtyLoaded, setSoldQtyLoaded] = useState(() => !!readSignalsCache(effectiveShopIds)?.soldQtyByProduct)
   // Quantité des lots périmés par produit (sortie du « Disponible »)
   const [expiredQtyByProduct, setExpiredQtyByProduct] = useState<Record<string, number>>(() => readSignalsCache(effectiveShopIds)?.expiredQtyByProduct ?? {})
+  // Quantité gardée pour des factures en attente à la caisse : elle sort aussi du disponible
+  const [reservedQtyByProduct, setReservedQtyByProduct] = useState<Record<string, number>>(() => readSignalsCache(effectiveShopIds)?.reservedQtyByProduct ?? {})
   // Stock à venir (en transit, en commande) : null tant qu'il n'est ni en cache ni chargé
   const [pipeline, setPipeline] = useState<StockPipeline | null>(() => readSignalsCache(effectiveShopIds)?.pipeline ?? null)
   const [promoProduct, setPromoProduct] = useState<Product | null>(null)
@@ -341,6 +344,11 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       writeSignalsCache(effectiveShopIds, { expiredQtyByProduct: expiredQty })
     } catch { /* idem */ }
     try {
+      const reservedQty = await fetchReservedQtyByProduct(supabase, effectiveShopIds)
+      setReservedQtyByProduct(reservedQty)
+      writeSignalsCache(effectiveShopIds, { reservedQtyByProduct: reservedQty })
+    } catch { /* idem */ }
+    try {
       const incoming = await fetchStockPipeline(effectiveShopIds)
       setPipeline(incoming)
       writeSignalsCache(effectiveShopIds, { pipeline: incoming })
@@ -431,8 +439,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const isExpired = (p: Product) => { const exp = expiryByProduct[p.id]; return !!exp && exp < todayStr }
   const isExpiringSoon = (p: Product) => { const exp = expiryByProduct[p.id]; return !!exp && exp >= todayStr && exp <= getExpiryCutoffFor(p) }
   const isDormant = (p: Product) => soldQtyLoaded && p.quantity > 0 && !(soldQtyByProduct[p.id] > 0)
-  // Niveau de stock jugé sur le disponible (physique − périmé) — règle commune lib/stock/signals
-  const levelOf = (p: Product) => stockLevelOf(p, { shopLowStockThreshold: shop?.low_stock_threshold, expiredQtyByProduct })
+  // Niveau de stock jugé sur le disponible (physique − périmé − réservé) — règle commune lib/stock/signals
+  const levelOf = (p: Product) => stockLevelOf(p, { shopLowStockThreshold: shop?.low_stock_threshold, expiredQtyByProduct, reservedQtyByProduct })
   // Partagé produit/lot (les deux ont promo_price/promo_until) — un seul
   // endroit à faire évoluer quand promo_start (Étape 4) sera ajouté.
   const isPromoActive = (o: { promo_price?: number | null; promo_until?: string | null; promo_start?: string | null }) =>
@@ -1048,9 +1056,10 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
   const renderProductCard = (product: Product, idx: number) => {
     const threshold = product.low_stock_threshold || shop?.low_stock_threshold || 10
-    // Disponible = physique − périmé (lib/stock/signals)
+    // Disponible = physique − périmé − réservé (lib/stock/signals)
     const cardExpired = Math.min(product.quantity, expiredQtyByProduct[product.id] || 0)
-    const cardAvailable = availableQty(product.quantity, cardExpired)
+    const cardReserved = reservedQtyByProduct[product.id] || 0
+    const cardAvailable = availableQty(product.quantity, cardExpired, cardReserved)
     const isSelected = selectedIds.has(product.id)
     const promoActive = isPromoActive(product)
     const expiry = expiryByProduct[product.id]
@@ -1148,8 +1157,10 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               </span>{' '}
               <span className="text-muted-foreground text-xs">{unitLabelFor(product.unit, cardAvailable)}</span>
               {cardExpired > 0 && <span className="ml-1.5 text-xs font-medium text-red-600 dark:text-red-400" title={t('products.expired_qty_hint')}>{t('products.expired_qty', { count: cardExpired })}</span>}
+              {cardReserved > 0 && <span className="ml-1.5 text-xs font-medium text-stockshop-blue dark:text-blue-400" title={t('products.reserved_hint')}>{t('products.reserved_qty', { count: cardReserved })}</span>}
             </span>
-            <div className="ml-auto flex gap-1">
+            {/* Avec « Commander » (stock bas ou rupture) la rangée dépassait la carte sur téléphone : elle passe alors sur deux lignes */}
+            <div className={`ml-auto flex gap-1 ${canOrderStock && cardAvailable <= threshold ? 'flex-wrap justify-end' : ''}`}>
               {canOrderStock && cardAvailable <= threshold && (
                 <Button
                   variant="outline" size="sm" className="h-7 px-2 text-xs"
@@ -1211,6 +1222,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               </span>{' '}
               <span className="text-muted-foreground text-xs">{unitLabelFor(product.unit, cardAvailable)}</span>
               {cardExpired > 0 && <span className="ml-1.5 text-xs font-medium text-red-600 dark:text-red-400" title={t('products.expired_qty_hint')}>{t('products.expired_qty', { count: cardExpired })}</span>}
+              {cardReserved > 0 && <span className="ml-1.5 text-xs font-medium text-stockshop-blue dark:text-blue-400" title={t('products.reserved_hint')}>{t('products.reserved_qty', { count: cardReserved })}</span>}
             </span>
           </div>
         )}
@@ -1284,6 +1296,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     soldQty: (p: Product) => (soldQtyLoaded ? soldQtyByProduct[p.id] || 0 : null),
     pipelineFor,
     expiredQty: (p: Product) => expiredQtyByProduct[p.id] || 0,
+    reservedQty: (p: Product) => reservedQtyByProduct[p.id] || 0,
     expiryFor: (p: Product) => {
       const exp = expiryByProduct[p.id]
       if (!exp) return null
@@ -1502,13 +1515,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 {OPTIONAL_COLUMNS.filter(c => fullStock || !c.fullRightsOnly).map(c => (
                   <label key={c.key} className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-muted/60">
                     <input type="checkbox" className="h-4 w-4 rounded accent-stockshop-blue" checked={tableColumns.includes(c.key)} onChange={() => toggleColumn(c.key)} />
-                    {t(c.labelKey as any)}
-                  </label>
-                ))}
-                {/* Annoncée, sans donnée tant que les réservations n'existent pas */}
-                {PENDING_COLUMNS.map(c => (
-                  <label key={c.key} className="flex cursor-not-allowed items-center gap-2 rounded-md px-1 py-1 text-sm text-muted-foreground" title={t('products.columns_soon')}>
-                    <input type="checkbox" className="h-4 w-4 rounded" disabled />
                     {t(c.labelKey as any)}
                   </label>
                 ))}

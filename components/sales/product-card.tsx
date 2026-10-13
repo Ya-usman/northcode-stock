@@ -20,6 +20,8 @@ interface ProductCardProps {
   currencyCode: string
   favoriteLabel: string
   expiredLabel: string
+  /** « 2 réservés » : articles gardés pour une autre facture en attente (absent = aucun) */
+  reservedLabel?: string
   onAdd: (product: Product) => void
   onToggleFavorite: (product: Product, e: MouseEvent) => void
   /** Rangée Favoris : tuile compacte à largeur fixe, étoile toujours pleine. */
@@ -32,7 +34,7 @@ interface ProductCardProps {
 // Sur un téléphone d'entrée de gamme, redessiner 50 cartes à chaque lettre
 // figeait l'écran ~360 ms (mesuré, CPU ralenti ×6).
 function ProductCardImpl({
-  product, price, stockVariant, isExpired, currencyCode, favoriteLabel, expiredLabel,
+  product, price, stockVariant, isExpired, currencyCode, favoriteLabel, expiredLabel, reservedLabel,
   onAdd, onToggleFavorite, compact = false,
 }: ProductCardProps) {
   const unitLabel = useUnitLabel()
@@ -96,6 +98,11 @@ function ProductCardImpl({
         {isExpired && (
           <span className="mt-0.5 inline-flex w-fit items-center text-[9px] md:text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400">
             {expiredLabel}
+          </span>
+        )}
+        {reservedLabel && (
+          <span className="mt-0.5 inline-flex w-fit items-center text-[9px] md:text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400">
+            {reservedLabel}
           </span>
         )}
         <div className="flex items-center justify-between w-full mt-1">

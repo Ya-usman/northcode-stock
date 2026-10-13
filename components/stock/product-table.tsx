@@ -32,20 +32,17 @@ export interface ProductSort { key: ProductSortKey; dir: 'asc' | 'desc' }
 export type ProductStatus = 'out' | 'low' | 'dormant' | 'ok'
 
 /** Colonnes optionnelles, dans l'ordre d'affichage (après les colonnes fixes) */
-export type ProductColumnKey = 'category' | 'supplier' | 'cost' | 'stockValue' | 'physical' | 'inTransit' | 'onOrder' | 'coverage'
+export type ProductColumnKey = 'category' | 'supplier' | 'cost' | 'stockValue' | 'physical' | 'reserved' | 'inTransit' | 'onOrder' | 'coverage'
 export const OPTIONAL_COLUMNS: { key: ProductColumnKey; labelKey: string; fullRightsOnly?: boolean }[] = [
   { key: 'category', labelKey: 'products.col_category' },
   { key: 'supplier', labelKey: 'products.col_supplier' },
   { key: 'cost', labelKey: 'products.col_cost', fullRightsOnly: true },
   { key: 'stockValue', labelKey: 'products.col_stock_value', fullRightsOnly: true },
   { key: 'physical', labelKey: 'products.col_physical' },
+  { key: 'reserved', labelKey: 'products.col_reserved' },
   { key: 'inTransit', labelKey: 'products.col_in_transit' },
   { key: 'onOrder', labelKey: 'products.col_on_order' },
   { key: 'coverage', labelKey: 'products.col_coverage' },
-]
-/** Colonne annoncée mais sans donnée tant que les réservations n'existent pas (étape suivante) */
-export const PENDING_COLUMNS: { key: string; labelKey: string }[] = [
-  { key: 'reserved', labelKey: 'products.col_reserved' },
 ]
 
 export interface ProductTableProps {
@@ -57,6 +54,8 @@ export interface ProductTableProps {
   expiryFor: (p: Product) => { date: string; expired: boolean; soon: boolean } | null
   /** Quantité du produit dans des lots périmés (0 si aucune) */
   expiredQty: (p: Product) => number
+  /** Quantité du produit gardée pour des factures en attente (0 si aucune) */
+  reservedQty: (p: Product) => number
   /** Stock à venir du produit ; null = pas encore chargé ou non visible pour ce rôle (jamais confondu avec zéro) */
   pipelineFor: (p: Product) => { inTransit: number | null; onOrder: number | null }
   isPromoActive: (p: Product) => boolean
@@ -131,7 +130,7 @@ export function ProductTableSkeleton({ rows = 6 }: { rows?: number }) {
 }
 
 export function ProductTable({
-  products, thresholdFor, statusFor, soldQty, expiryFor, expiredQty, pipelineFor, isPromoActive, promoStale, promoSuggestion,
+  products, thresholdFor, statusFor, soldQty, expiryFor, expiredQty, reservedQty, pipelineFor, isPromoActive, promoStale, promoSuggestion,
   formatPrice, fullRights, canWriteStock, canOrderStock, busy, selectedIds, onToggleSelect, onToggleSelectMany,
   sort, onSortChange, columns, onOrder, onRestock, onEdit, onPromo, onBatches, onArchive,
 }: ProductTableProps) {
@@ -148,7 +147,7 @@ export function ProductTable({
         case 'name': return p.name
         case 'sku': return p.sku || ''
         case 'price': return effectivePrice(p)
-        case 'quantity': return availableQty(p.quantity, expiredQty(p))
+        case 'quantity': return availableQty(p.quantity, expiredQty(p), reservedQty(p))
         case 'sold': return soldQty(p) ?? -1
         case 'status': return STATUS_RANK[statusFor(p)]
         case 'category': return p.categories?.name || ''
@@ -239,6 +238,7 @@ export function ProductTable({
             {show('cost') && renderHeader({ sortKey: 'cost', label: t('products.col_cost'), align: 'right' })}
             {renderHeader({ sortKey: 'quantity', label: t('products.col_available'), align: 'right' })}
             {show('physical') && renderHeader({ label: t('products.col_physical'), align: 'right', title: t('products.available_explain') })}
+            {show('reserved') && renderHeader({ label: t('products.col_reserved'), align: 'right', title: t('products.reserved_hint') })}
             {show('inTransit') && renderHeader({ label: t('products.col_in_transit'), align: 'right', title: t('products.in_transit_hint') })}
             {show('onOrder') && renderHeader({ label: t('products.col_on_order'), align: 'right', title: t('products.on_order_hint') })}
             {show('stockValue') && renderHeader({ sortKey: 'stockValue', label: t('products.col_stock_value'), align: 'right' })}
@@ -261,9 +261,10 @@ export function ProductTable({
             const incoming = pipelineFor(product)
             const coverage = coverageDays(product.quantity, sold)
             const stickyBg = selected ? 'bg-stockshop-blue-muted dark:bg-blue-950/60' : 'bg-card'
-            // Disponible = physique − périmé (lib/stock/signals)
+            // Disponible = physique − périmé − réservé (lib/stock/signals)
             const expired = Math.min(product.quantity, expiredQty(product))
-            const available = availableQty(product.quantity, expired)
+            const reserved = reservedQty(product)
+            const available = availableQty(product.quantity, expired, reserved)
             const qtyTone = available === 0 ? 'text-red-500' : available <= threshold ? 'text-amber-500' : ''
             return (
               <tr
@@ -349,10 +350,19 @@ export function ProductTable({
                       {t('products.expired_qty', { count: expired })}
                     </button>
                   )}
+                  {reserved > 0 && (
+                    <span title={t('products.reserved_hint')} className="block w-0 min-w-full text-right text-[11px] font-medium leading-tight text-stockshop-blue dark:text-blue-400">
+                      {t('products.reserved_qty', { count: reserved })}
+                    </span>
+                  )}
                 </td>
                 {show('physical') && (
-                  // Pas encore de stock réservé : physique = disponible (étape suivante)
                   <td className={cn(CELL_NUM, 'text-muted-foreground')}>{product.quantity}</td>
+                )}
+                {show('reserved') && (
+                  <td className={CELL_NUM} title={t('products.reserved_hint')}>
+                    {reserved > 0 ? <span className="font-medium text-stockshop-blue dark:text-blue-400">{reserved}</span> : <span className="text-muted-foreground">0</span>}
+                  </td>
                 )}
                 {show('inTransit') && (
                   <td className={CELL_NUM} title={t('products.in_transit_hint')}>

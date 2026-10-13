@@ -46,6 +46,7 @@ import dynamic from 'next/dynamic'
 import { cacheProducts, getCachedProducts, cacheCustomers, getCachedCustomers, savePendingSale, savePendingCustomerPayment, type PendingSalePayment } from '@/lib/offline/db'
 import { allocateCheckout, outstandingDebt } from '@/lib/utils/checkout-allocation'
 import { revalidateHeldCart, heldAgeDays, HELD_STALE_DAYS, type HeldCartChange } from '@/lib/utils/held-sales'
+import { fetchReservationRows, reservedByProduct, markReservationPending, flushReservations, type ReservationRow } from '@/lib/stock/reservations'
 import { clearPageCache, clearPageCacheByPrefix } from '@/lib/offline/page-cache'
 import { cashSuggestions } from '@/lib/utils/cash-suggestions'
 import { registerBackgroundSync, syncSoon, syncSaleNow } from '@/lib/offline/sync'
@@ -209,6 +210,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   const [notes, setNotes] = useState('')
   const [dueDate, setDueDate] = useState('')
   const { isOnline, refreshPendingCount } = useOffline()
+  const cartRef = useRef<CartItem[]>([])
+  cartRef.current = cart
   const [completing, setCompleting] = useState(false)
   const [completedSale, setCompletedSale] = useState<Sale & { sale_items: SaleItem[] } | null>(null)
   const [showReceipt, setShowReceipt] = useState(false)
@@ -262,6 +265,31 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     setDrafts(loadDraftsFromStorage())
   }, [])
 
+  // Stock RÉSERVÉ (migration 172) : une facture en attente garde ses articles 24 h au plus. Indicatif —
+  // un simple avertissement à l'ajout, jamais de blocage. Les factures de CET appareil sont comptées
+  // d'après l'appareil (connues même hors connexion) ; la facture reprise dans le panier ne compte pas.
+  const [reservationRows, setReservationRows] = useState<ReservationRow[]>([])
+  // Factures supprimées ou validées ici : leur réservation est libérée, même si le serveur ne l'a pas encore su
+  const releasedRefsRef = useRef<Set<string>>(new Set())
+  const loadReservations = useCallback(() => {
+    if (!shop?.id) return
+    fetchReservationRows(supabase, [shop.id])
+      .then(rows => setReservationRows(rows.filter(r => !releasedRefsRef.current.has(r.source_ref))))
+      .catch(() => { /* dernier état connu conservé */ })
+  }, [shop?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const reservedQtyByProduct = useMemo(
+    () => reservedByProduct(reservationRows, { localDrafts: drafts.filter(d => d.shopId === shop?.id), excludeRef: activeDraftId }),
+    [reservationRows, drafts, shop?.id, activeDraftId],
+  )
+  const reservedRef = useRef<Record<string, number>>({})
+  reservedRef.current = reservedQtyByProduct
+  const reservedWarnedRef = useRef<Set<string>>(new Set())
+  // Envoi en arrière-plan, jamais attendu ; ce qui ne part pas (hors connexion) repart au retour du réseau
+  const pushReservations = useCallback(() => {
+    flushReservations(loadDraftsFromStorage).then(changed => { if (changed) loadReservations() }).catch(() => {})
+  }, [loadReservations])
+  const syncReservation = (ref: string, shopId: string) => { markReservationPending(ref, shopId); pushReservations() }
+
   // Barcode scanner
   const barcodeBuffer = useRef('')
   const barcodeTimer = useRef<NodeJS.Timeout | null>(null)
@@ -292,6 +320,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     if (cachedCusts.length > 0) setCustomers(cachedCusts as unknown as Customer[])
 
     if (!isOnline) return
+
+    loadReservations()
 
     // Fetch fresh data in background
     try {
@@ -359,9 +389,11 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     } catch {
       // Cache already applied above — nothing to do
     }
-  }, [shop?.id, isOnline])
+  }, [shop?.id, isOnline, loadReservations])
 
   useEffect(() => { loadShopData() }, [loadShopData])
+  // Réservations en attente d'envoi (mise en attente ou suppression faite hors connexion)
+  useEffect(() => { if (isOnline) pushReservations() }, [isOnline, pushReservations])
 
   // Refresh when the user comes back to this tab — the cart is built from
   // this product/customer list, so stale stock levels here risk overselling
@@ -493,6 +525,18 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
   // Panier vidé (vente terminée, changement de boutique) : les confirmations « lot périmé » repartent de zéro
   useEffect(() => { if (cart.length === 0) expiredConfirmedRef.current.clear() }, [cart.length])
+  useEffect(() => { if (cart.length === 0) reservedWarnedRef.current.clear() }, [cart.length])
+
+  // Stock déjà gardé pour une autre facture en attente : avertissement, une fois par produit et par
+  // panier, dès que la quantité voulue dépasse ce qui reste libre. La vente reste possible.
+  const warnIfReserved = (product: Product, wantedQty: number) => {
+    const reserved = reservedRef.current[product.id] || 0
+    if (!reserved || reservedWarnedRef.current.has(product.id)) return
+    const free = Math.max(0, Number(product.quantity) - reserved)
+    if (wantedQty <= free || wantedQty > Number(product.quantity)) return
+    reservedWarnedRef.current.add(product.id)
+    toast({ title: t('sales.reserved_warning_title'), description: t('sales.reserved_warning_desc', { name: product.name, reserved, free }) })
+  }
 
   const addToCartById = (product: Product) => {
     if (frontBatchExpiredRef.current[product.id] && !expiredConfirmedRef.current.has(product.id)) {
@@ -503,6 +547,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   }
 
   const addToCartNow = (product: Product) => {
+    warnIfReserved(product, (cartRef.current.find(i => i.product.id === product.id)?.quantity || 0) + 1)
     setCart(prev => {
       const existing = prev.find(i => i.product.id === product.id)
       if (existing) {
@@ -529,6 +574,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
   }
 
   const updateQty = (productId: string, delta: number) => {
+    const line = cartRef.current.find(i => i.product.id === productId)
+    if (line && delta > 0) warnIfReserved(line.product, line.quantity + delta)
     setCart(prev => prev
       .map(item => {
         if (item.product.id !== productId) return item
@@ -546,6 +593,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
   const setQtyDirect = (productId: string, qty: number) => {
     if (isNaN(qty) || qty < 1) return
+    const line = cartRef.current.find(i => i.product.id === productId)
+    if (line) warnIfReserved(line.product, Math.min(qty, Number(line.product.quantity)))
     setCart(prev => prev.map(item => {
       if (item.product.id !== productId) return item
       const capped = Math.min(qty, item.product.quantity)
@@ -649,7 +698,8 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
 
   const doHold = (label: string): Draft[] => {
     const draft: Draft = {
-      id: activeDraftId || `draft_${Date.now()}`,
+      // Suffixe aléatoire : deux appareils d'une même boutique ne créent jamais le même identifiant
+      id: activeDraftId || `draft_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       createdAt: new Date().toISOString(),
       shopId: shop?.id || '',
       cart,
@@ -668,6 +718,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     updated.unshift(draft)
     setDrafts(updated)
     saveDraftsToStorage(updated)
+    syncReservation(draft.id, draft.shopId)
     resetForm()
     setShowHoldDialog(false)
     toast({ title: t('toast.sale_held'), variant: 'success' })
@@ -740,16 +791,26 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
     applyDraft(draft)
   }
 
+  // La facture quitte la liste : sa réservation est libérée (tout de suite ici, puis sur le serveur)
+  const releaseReservation = (ref: string, shopId: string) => {
+    releasedRefsRef.current.add(ref)
+    setReservationRows(prev => prev.filter(r => r.source_ref !== ref))
+    syncReservation(ref, shopId)
+  }
+
   const deleteStaleDrafts = () => {
     const updated = drafts.filter(d => d.shopId !== shop?.id || heldAgeDays(d.createdAt) < HELD_STALE_DAYS)
     setDrafts(updated)
     saveDraftsToStorage(updated)
+    for (const d of drafts) if (!updated.includes(d)) releaseReservation(d.id, d.shopId)
   }
 
   const deleteDraft = (id: string) => {
+    const gone = drafts.find(d => d.id === id)
     const updated = drafts.filter(d => d.id !== id)
     setDrafts(updated)
     saveDraftsToStorage(updated)
+    releaseReservation(id, gone?.shopId || shop?.id || '')
     if (activeDraftId === id) { setActiveDraftId(null) }
   }
 
@@ -1831,6 +1892,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                   currencyCode={currencyCode}
                   favoriteLabel={favoriteLabel}
                   expiredLabel={expiredLabel}
+                  reservedLabel={reservedQtyByProduct[product.id] ? t('products.reserved_qty', { count: reservedQtyByProduct[product.id] }) : undefined}
                   onAdd={handleAddProduct}
                   onToggleFavorite={handleToggleFavorite}
                 />

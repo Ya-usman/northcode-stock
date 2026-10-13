@@ -14,6 +14,8 @@ export interface CachedSignals {
   soldQtyByProduct?: Record<string, number>
   /** Quantité des lots PÉRIMÉS encore en stock, par produit */
   expiredQtyByProduct?: Record<string, number>
+  /** Quantité RÉSERVÉE par les factures en attente, par produit — lib/stock/reservations */
+  reservedQtyByProduct?: Record<string, number>
   /** Stock à venir (en transit, en commande) — lib/stock/pipeline */
   pipeline?: import('./pipeline').StockPipeline
 }
@@ -81,9 +83,9 @@ export async function fetchExpiredQtyByProduct(supabase: Db, shopIds: string[], 
 }
 
 /**
- * Stock DISPONIBLE à la vente = physique − périmé (− réservé, quand les
- * réservations existeront). Jamais négatif ; le périmé ne peut pas dépasser le
- * physique (un lot peut être en avance sur une correction de quantité).
+ * Stock DISPONIBLE à la vente = physique − périmé − réservé (factures en
+ * attente, lib/stock/reservations). Jamais négatif ; le périmé ne peut pas
+ * dépasser le physique (un lot peut être en avance sur une correction de quantité).
  */
 export function availableQty(physical: number, expired: number | null | undefined, reserved: number | null | undefined = 0): number {
   const p = Math.max(0, Number(physical) || 0)
@@ -149,6 +151,8 @@ export interface StockRulesContext {
   soldQtyLoaded: boolean
   /** Quantité des lots périmés par produit (absent = aucun) : elle sort du disponible */
   expiredQtyByProduct?: Record<string, number>
+  /** Quantité réservée par produit (absent = aucune) : elle sort aussi du disponible */
+  reservedQtyByProduct?: Record<string, number>
   /** AAAA-MM-JJ, par défaut aujourd'hui */
   today?: string
 }
@@ -214,15 +218,16 @@ export interface StockKpis {
 export type StockLevel = 'out' | 'low' | 'ok'
 
 /**
- * Niveau de stock d'un produit, jugé sur le DISPONIBLE (physique − périmé) :
- * un produit dont tout le stock est périmé est en rupture, même s'il reste en
- * rayon. Règle unique du module Stock (statut, filtres, chiffres clés, export).
+ * Niveau de stock d'un produit, jugé sur le DISPONIBLE (physique − périmé −
+ * réservé) : un produit dont tout le stock est périmé ou réservé est en
+ * rupture, même s'il reste en rayon. Règle unique du module Stock (statut,
+ * filtres, chiffres clés, export).
  */
 export function stockLevelOf(
   p: { id: string; quantity: number; low_stock_threshold: number | null },
-  ctx: { shopLowStockThreshold?: number | null; expiredQtyByProduct?: Record<string, number> },
+  ctx: { shopLowStockThreshold?: number | null; expiredQtyByProduct?: Record<string, number>; reservedQtyByProduct?: Record<string, number> },
 ): StockLevel {
-  const available = availableQty(p.quantity, ctx.expiredQtyByProduct?.[p.id])
+  const available = availableQty(p.quantity, ctx.expiredQtyByProduct?.[p.id], ctx.reservedQtyByProduct?.[p.id])
   if (available === 0) return 'out'
   return available <= lowStockThresholdOf(p, ctx.shopLowStockThreshold) ? 'low' : 'ok'
 }
