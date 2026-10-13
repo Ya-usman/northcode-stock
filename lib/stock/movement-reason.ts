@@ -41,6 +41,14 @@ export function describeMovementReason(reason: string | null | undefined): Movem
   return { key: null, raw }
 }
 
+/**
+ * Débuts de motif suivis d'une référence ou d'un nom (numéro de vente, bon de
+ * commande, transfert et boutique, fournisseur). La recherche de l'onglet
+ * Mouvements cherche APRÈS ce début : taper « sal » ne ramène pas toutes les
+ * ventes parce que leur motif commence par « Sale ».
+ */
+export const REASON_REFERENCE_PREFIXES = ['Sale ', 'Annulation vente ', 'Modification vente ', 'Réception ', 'Transfert ', 'Restock from ']
+
 /** Texte à afficher ; `t` = traducteur du bloc « movements ». */
 export function movementReasonText(reason: string | null | undefined, t: (key: string, params?: Record<string, string>) => string): string | null {
   const d = describeMovementReason(reason)

@@ -22,3 +22,36 @@ export function dateLocaleTag(locale?: string | null): string {
 export function dateTimePattern(locale: string): string {
   return locale === 'fr' ? "dd MMM yyyy 'à' HH:mm" : 'dd MMM yyyy, HH:mm'
 }
+
+// ── Dates sans mot d'une autre langue ───────────────────────────────────────
+// Beaucoup de navigateurs n'ont pas les noms de jours et de mois haoussa : la
+// date s'écrirait alors dans la langue du système (du français ou de l'anglais
+// au milieu d'un écran haoussa). Quand la langue de l'écran n'est pas
+// disponible, on n'emprunte les mots d'aucune autre langue : la date s'écrit
+// en chiffres (13/10/2026), l'heure aussi (16:48). Le français et l'anglais,
+// toujours disponibles, gardent leur rendu habituel.
+const available: Record<string, boolean> = {}
+function hasDateWords(tag: string): boolean {
+  if (!(tag in available)) {
+    try { available[tag] = Intl.DateTimeFormat.supportedLocalesOf([tag]).length > 0 } catch { available[tag] = false }
+  }
+  return available[tag]
+}
+const two = (n: number) => String(n).padStart(2, '0')
+
+/** Date dans la langue de l'écran (`options` de `toLocaleDateString`) ; en chiffres si cette langue manque au navigateur. */
+export function formatLocaleDate(value: Date | string | number, locale: string | null | undefined, options: Intl.DateTimeFormatOptions): string {
+  const date = value instanceof Date ? value : new Date(value)
+  const tag = dateLocaleTag(locale)
+  if (hasDateWords(tag)) return date.toLocaleDateString(tag, options)
+  const dayMonth = `${two(date.getDate())}/${two(date.getMonth() + 1)}`
+  return options.year ? `${dayMonth}/${date.getFullYear()}` : dayMonth
+}
+
+/** Heure et minutes sur 24 h, dans la langue de l'écran ; en chiffres si cette langue manque au navigateur. */
+export function formatLocaleTime(value: Date | string | number, locale: string | null | undefined): string {
+  const date = value instanceof Date ? value : new Date(value)
+  const tag = dateLocaleTag(locale)
+  if (hasDateWords(tag)) return date.toLocaleTimeString(tag, { hour: '2-digit', minute: '2-digit' })
+  return `${two(date.getHours())}:${two(date.getMinutes())}`
+}
