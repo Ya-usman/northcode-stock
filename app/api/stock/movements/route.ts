@@ -4,6 +4,13 @@ import { getApiTranslator } from '@/lib/api/i18n'
 
 // GET /api/stock/movements?shop_ids=id1,id2&type=in&from=2026-01-01&to=2026-12-31[&product_id=…&limit=10]
 // product_id : historique d'un seul produit (fiche produit, onglet Mouvements filtré) ; limit : 1 à 500.
+// kind : filtre simple de l'onglet Mouvements. Sans `kind` : TOUS les mouvements, quel que soit leur type.
+//        Les quatre catégories se partagent tous les mouvements, sans trou ni doublon :
+//          transfer   = motif « Transfert … » (envoyé ou reçu), quel que soit le type ;
+//          sale       = ventes ;
+//          in         = entrées (réassort, réception fournisseur, stock initial, retour d'une vente annulée…) ;
+//          adjustment = TOUT LE RESTE (inventaire, perte, dommage, expiration, correction, sortie manuelle, et
+//                       tout type ajouté plus tard) — un mouvement rare n'est jamais visible seulement dans « Tous ».
 export async function GET(request: Request) {
   const t = getApiTranslator(request)
   try {
@@ -34,6 +41,13 @@ export async function GET(request: Request) {
 
     const typeFilter = searchParams.get('type')
     if (typeFilter) query = query.eq('type', typeFilter)
+
+    const kind = searchParams.get('kind')
+    const NOT_TRANSFER = 'reason.is.null,reason.not.ilike.Transfert %'
+    if (kind === 'transfer') query = query.ilike('reason', 'Transfert %')
+    else if (kind === 'sale' || kind === 'in') query = query.eq('type', kind).or(NOT_TRANSFER)
+    else if (kind === 'adjustment') query = query.not('type', 'in', '(in,sale)').or(NOT_TRANSFER)
+    else if (kind) return NextResponse.json({ error: t('invalid_data') }, { status: 400 })
 
     const productId = searchParams.get('product_id')
     if (productId) {

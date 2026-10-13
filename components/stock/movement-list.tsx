@@ -7,9 +7,10 @@ import { dateFnsLocale, dateTimePattern } from '@/lib/i18n/date-format'
 import { movementReasonText } from '@/lib/stock/movement-reason'
 import { cn } from '@/lib/utils/cn'
 
-// Liste chronologique des mouvements de stock d'UN produit (entrées, ventes,
-// sorties, ajustements), telle que la base les a enregistrés. Utilisée par la
-// fiche produit (10 derniers) et par l'onglet Mouvements filtré sur un produit.
+// Liste chronologique de mouvements de stock (entrées, ventes, sorties,
+// ajustements), tels que la base les a enregistrés. Utilisée par la fiche
+// produit (10 derniers) et par l'onglet Mouvements. Avec `onProduct`, chaque
+// ligne porte le nom de son produit ; le toucher filtre l'onglet sur ce produit.
 
 export interface MovementLike {
   id: string
@@ -20,6 +21,8 @@ export interface MovementLike {
   reason: string | null
   created_at: string
   performed_by_name: string | null
+  product_id?: string | null
+  product_name?: string | null
 }
 
 const KIND: Record<string, { icon: typeof ArrowDown; tone: string; labelKey: string; sign: 1 | -1 | 0 }> = {
@@ -36,7 +39,12 @@ export function movementDelta(m: Pick<MovementLike, 'type' | 'quantity' | 'previ
   return sign === 0 ? null : sign * Math.abs(Number(m.quantity) || 0)
 }
 
-export function MovementList({ movements, className }: { movements: MovementLike[]; className?: string }) {
+export function MovementList({ movements, className, onProduct }: {
+  movements: MovementLike[]
+  className?: string
+  /** Présent : le nom du produit est affiché sur chaque ligne et filtre la liste quand on le touche */
+  onProduct?: (productId: string) => void
+}) {
   const t = useTranslations('movements')
   const locale = useLocale()
   return (
@@ -52,8 +60,24 @@ export function MovementList({ movements, className }: { movements: MovementLike
               <Icon className="h-4 w-4" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-foreground">{kind ? t(kind.labelKey as any) : m.type}</p>
-              {reason && <p className="truncate text-xs text-muted-foreground" title={reason} data-reason>{reason}</p>}
+              {onProduct ? (
+                <>
+                  {m.product_id ? (
+                    <button type="button" onClick={() => onProduct(m.product_id!)} data-movement-product className="block max-w-full truncate rounded text-left text-sm font-semibold text-foreground hover:text-stockshop-blue hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-blue-400">{m.product_name || '—'}</button>
+                  ) : (
+                    <p className="truncate text-sm font-semibold text-foreground">{m.product_name || '—'}</p>
+                  )}
+                  <p className="truncate text-xs text-muted-foreground" title={reason || undefined}>
+                    <span className="font-medium text-foreground/80" data-movement-type>{kind ? t(kind.labelKey as any) : m.type}</span>
+                    {reason && <> · <span data-reason>{reason}</span></>}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold text-foreground" data-movement-type>{kind ? t(kind.labelKey as any) : m.type}</p>
+                  {reason && <p className="truncate text-xs text-muted-foreground" title={reason} data-reason>{reason}</p>}
+                </>
+              )}
               <p className="mt-0.5 text-xs text-muted-foreground">
                 {format(new Date(m.created_at), dateTimePattern(locale), { locale: dateFnsLocale(locale) })}
                 {m.performed_by_name && <> · <span className="font-medium text-foreground/70">{m.performed_by_name}</span></>}

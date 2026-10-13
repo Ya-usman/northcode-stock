@@ -348,7 +348,7 @@ export function ProductDetailDrawer({
                   <MovementList movements={movements} />
                   <OfflineLink
                     isOnline={isOnline}
-                    href={`/${locale}/stock/movements?product=${product.id}`}
+                    href={`/${locale}/stock/movements?product=${product.id}&all=1`}
                     className="inline-flex items-center gap-1 text-sm font-semibold text-stockshop-blue hover:underline dark:text-blue-400"
                     data-testid="product-detail-all-movements"
                   >

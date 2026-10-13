@@ -41,6 +41,7 @@ import { ProductTable, ProductTableSkeleton, OPTIONAL_COLUMNS, type ProductColum
 import { useStockViewMode } from '@/lib/hooks/use-stock-view-mode'
 import { ProductActivityJournal } from '@/components/stock/product-activity-journal'
 import { ProductDetailDrawer, type ProductDetailSection } from '@/components/stock/product-detail-drawer'
+import { isNeutralClick } from '@/lib/utils/open-on-click'
 import { fetchExpiryByProduct, fetchExpiredQtyByProduct, availableQty, stockLevelOf, stockQuantities, fetchSoldQty30dForShops, readSignalsCache, writeSignalsCache } from '@/lib/stock/signals'
 import { fetchStockPipeline, type StockPipeline } from '@/lib/stock/pipeline'
 import { fetchReservedQtyByProduct } from '@/lib/stock/reservations'
@@ -1088,8 +1089,10 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         key={product.id}
         // Apparition en CSS (tailwindcss-animate) : framer-motion n'est plus
         // chargé pour cette page, 113 Ko de JavaScript en moins à l'ouverture
-        className={`animate-in fade-in slide-in-from-bottom-1 fill-mode-backwards rounded-lg border bg-card shadow-sm p-4 space-y-2 transition-colors ${
-          selectionMode ? 'cursor-pointer select-none' : ''
+        // Toute la carte ouvre la fiche (grande zone tactile) ; ses boutons ne font que leur action
+        data-product-card
+        className={`animate-in fade-in slide-in-from-bottom-1 fill-mode-backwards rounded-lg border bg-card shadow-sm p-4 space-y-2 transition-colors cursor-pointer ${
+          selectionMode ? 'select-none' : 'active:bg-muted/50 sm:hover:border-stockshop-blue/40 sm:hover:shadow-md focus-within:border-stockshop-blue/40'
         } ${isSelected ? 'border-stockshop-blue/60 dark:border-blue-500 bg-stockshop-blue-muted/60 dark:bg-blue-950/25' : ''}`}
         style={{
           animationDelay: `${Math.min(idx, 20) * 20}ms`,
@@ -1099,7 +1102,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           const next = new Set(prev)
           next.has(product.id) ? next.delete(product.id) : next.add(product.id)
           return next
-        }) : undefined}
+        }) : e => { if (isNeutralClick(e)) openProductDetail(product) }}
       >
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-2.5 min-w-0 flex-1">

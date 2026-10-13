@@ -12,6 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Skeleton } from '@/components/ui/skeleton'
 import { ProductThumbnail } from '@/components/stock/product-thumbnail'
 import { cn } from '@/lib/utils/cn'
+import { isNeutralClick } from '@/lib/utils/open-on-click'
 
 // Vue en tableau de la liste des produits (page Stock). Mêmes données et
 // mêmes actions que les cartes, aux mêmes conditions de rôle ; tri par
@@ -264,9 +265,13 @@ export function ProductTable({
             return (
               <tr
                 key={product.id}
-                className={cn('group border-t transition-colors', selected ? 'bg-stockshop-blue-muted/60 dark:bg-blue-950/25' : 'hover:bg-muted/40')}
+                // Toute la ligne ouvre la fiche ; un bouton, une case ou un menu ne fait que son action (lib/utils/open-on-click)
+                onClick={e => { if (isNeutralClick(e)) onOpen(product) }}
+                data-product-row
+                className={cn('group cursor-pointer border-t transition-colors focus-within:bg-muted/40', selected ? 'bg-stockshop-blue-muted/60 dark:bg-blue-950/25' : 'hover:bg-muted/40')}
               >
-                <td className={cn('sticky left-0 z-10 w-9', CELL, stickyBg)}>
+                {/* Case à cocher : toute sa cellule sert à cocher, jamais à ouvrir la fiche */}
+                <td className={cn('sticky left-0 z-10 w-9', CELL, stickyBg)} data-no-open>
                   <input
                     type="checkbox"
                     className="h-4 w-4 cursor-pointer rounded border-border accent-stockshop-blue"
