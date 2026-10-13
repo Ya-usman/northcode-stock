@@ -16,6 +16,14 @@ import { DownloadReceiptButton } from './download-button'
 // page n'est pas indexée, il n'existe aucune liste. Hors des routes
 // localisées : la langue vient du navigateur du client (fr / en / ha).
 export const dynamic = 'force-dynamic'
+
+// Le PDF est généré dans le navigateur du CLIENT : tout ce qui est passé au bouton de téléchargement est
+// lisible dans la page. On n'y met donc que ce qui est imprimé sur le reçu — jamais la ligne complète de la
+// vente (prix d'achat des articles, notes internes) ni celle de la boutique (droits, abonnement, réglages).
+const RECEIPT_SALE_FIELDS = ['sale_number', 'created_at', 'subtotal', 'discount', 'tax', 'total', 'amount_paid', 'balance', 'payment_method', 'payment_status', 'sale_status', 'receipt_token', 'due_date']
+const RECEIPT_ITEM_FIELDS = ['product_name', 'quantity', 'unit_price', 'original_price', 'subtotal']
+const RECEIPT_SHOP_FIELDS = ['name', 'address', 'city', 'state', 'country', 'currency', 'phone', 'whatsapp', 'email', 'logo_url', 'tagline', 'receipt_tagline', 'receipt_footer', 'receipt_legal_ids']
+const pick = (row: Record<string, unknown>, keys: string[]) => Object.fromEntries(keys.filter(k => k in row).map(k => [k, row[k]]))
 export const metadata: Metadata = {
   title: 'Reçu · StockShop',
   robots: { index: false, follow: false, nocache: true },
@@ -98,7 +106,8 @@ export default async function PublicReceiptPage({ params }: { params: { token: s
   const payRows: { amount: number; method: string }[] = Array.isArray(payments) && payments.length > 1 ? payments : []
 
   const pdfData = {
-    sale, shop,
+    sale: { ...pick(sale, RECEIPT_SALE_FIELDS), sale_items: items.map(it => pick(it, RECEIPT_ITEM_FIELDS)) },
+    shop: pick(shop, RECEIPT_SHOP_FIELDS),
     cashierName: cashier?.full_name || '',
     customerName: sale.customers?.name || undefined,
     locale,
