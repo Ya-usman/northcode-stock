@@ -12,7 +12,17 @@ export type MovementReason =
   | { key: 'reason_restock_from'; params: { name: string } }
   | { key: 'reason_transfer_out' | 'reason_transfer_in'; params: { ref: string; shop: string } }
   | { key: 'reason_inventory_other'; params: { detail: string } }
+  | { key: 'reason_transfer_cancelled'; params: { ref: string } }
+  // Lot corrigé ou supprimé à la main (fiche produit) ; cause connue, ou null avec le texte enregistré
+  | { key: 'reason_batch_corrected' | 'reason_batch_deleted'; params: { detail: string }; cause: 'correction' | 'loss' | 'damage' | 'expiry' | null }
   | { key: null; raw: string }
+
+const BATCH_CAUSE: Record<string, 'correction' | 'loss' | 'damage' | 'expiry'> = {
+  'correction de stock': 'correction',
+  'perte': 'loss',
+  'dommage': 'damage',
+  'expiration': 'expiry',
+}
 
 const INVENTORY: Record<string, 'reason_inventory_correction' | 'reason_inventory_loss' | 'reason_inventory_damage' | 'reason_inventory_expiry'> = {
   'correction de stock': 'reason_inventory_correction',
@@ -34,6 +44,11 @@ export function describeMovementReason(reason: string | null | undefined): Movem
   if ((m = raw.match(/^Réception\s+(\S+)$/))) return { key: 'reason_po_received', params: { ref: m[1] } }
   if ((m = raw.match(/^Transfert\s+(\S+)\s+vers\s+(\S.*)$/))) return { key: 'reason_transfer_out', params: { ref: m[1], shop: m[2] } }
   if ((m = raw.match(/^Transfert\s+(\S+)\s+depuis\s+(\S.*)$/))) return { key: 'reason_transfer_in', params: { ref: m[1], shop: m[2] } }
+  if ((m = raw.match(/^Annulation transfert\s+(\S+)$/))) return { key: 'reason_transfer_cancelled', params: { ref: m[1] } }
+  if ((m = raw.match(/^(Correction|Suppression) de lot\s+[—–-]\s+(\S.*)$/))) {
+    const detail = m[2].trim()
+    return { key: m[1] === 'Correction' ? 'reason_batch_corrected' : 'reason_batch_deleted', params: { detail }, cause: BATCH_CAUSE[detail.toLowerCase()] ?? null }
+  }
   if ((m = raw.match(/^Inventaire physique\s+[—–-]\s+(\S.*)$/))) {
     const known = INVENTORY[m[1].trim().toLowerCase()]
     return known ? { key: known } : { key: 'reason_inventory_other', params: { detail: m[1].trim() } }
@@ -47,7 +62,14 @@ export function describeMovementReason(reason: string | null | undefined): Movem
  * Mouvements cherche APRÈS ce début : taper « sal » ne ramène pas toutes les
  * ventes parce que leur motif commence par « Sale ».
  */
-export const REASON_REFERENCE_PREFIXES = ['Sale ', 'Annulation vente ', 'Modification vente ', 'Réception ', 'Transfert ', 'Restock from ']
+export const REASON_REFERENCE_PREFIXES = ['Sale ', 'Annulation vente ', 'Modification vente ', 'Réception ', 'Transfert ', 'Annulation transfert ', 'Restock from ']
+
+/**
+ * Débuts de motif des mouvements de TRANSFERT (envoyé, reçu, annulé) : c'est
+ * ce qui range un mouvement dans la catégorie « Transferts » de l'onglet
+ * Mouvements, quel que soit son type (entrée ou sortie).
+ */
+export const TRANSFER_REASON_PREFIXES = ['Transfert ', 'Annulation transfert ']
 
 /** Texte à afficher ; `t` = traducteur du bloc « movements ». */
 export function movementReasonText(reason: string | null | undefined, t: (key: string, params?: Record<string, string>) => string): string | null {

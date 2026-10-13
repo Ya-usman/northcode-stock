@@ -1680,7 +1680,14 @@
     "view_transfer": "Duba canja-wurin",
     "view_product": "Duba bayanin kaya",
     "detail_partial": "Babu intanet: wasu bayanai ba su bayyana ba.",
-    "detail_retry": "Sake gwadawa"
+    "detail_retry": "Sake gwadawa",
+    "label_transfer_cancelled": "An soke canja-wuri",
+    "origin_transfer_cancelled": "An soke",
+    "ref_batch_corrected": "An gyara rukuni",
+    "ref_batch_deleted": "An share rukuni",
+    "reason_transfer_cancelled": "An soke canja-wuri {ref}",
+    "reason_batch_corrected": "An gyara rukuni — {detail}",
+    "reason_batch_deleted": "An share rukuni — {detail}"
   },
   "expiry": {
     "title": "Rukuni & ƙarewa",

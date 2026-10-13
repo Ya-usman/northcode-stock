@@ -1680,7 +1680,14 @@
     "view_transfer": "View transfer",
     "view_product": "View product details",
     "detail_partial": "Offline: some details are not loaded.",
-    "detail_retry": "Try again"
+    "detail_retry": "Try again",
+    "label_transfer_cancelled": "Transfer cancelled",
+    "origin_transfer_cancelled": "Cancelled",
+    "ref_batch_corrected": "Batch corrected",
+    "ref_batch_deleted": "Batch deleted",
+    "reason_transfer_cancelled": "Transfer {ref} cancelled",
+    "reason_batch_corrected": "Batch corrected — {detail}",
+    "reason_batch_deleted": "Batch deleted — {detail}"
   },
   "expiry": {
     "title": "Lots & expiry",

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { canViewFeature } from '@/lib/api/role-permissions'
-import { REASON_REFERENCE_PREFIXES } from '@/lib/stock/movement-reason'
+import { REASON_REFERENCE_PREFIXES, TRANSFER_REASON_PREFIXES } from '@/lib/stock/movement-reason'
 import { MOVEMENT_SEARCH_MIN, sanitizeMovementSearch } from '@/lib/stock/movement-label'
 import { normalize } from '@/lib/utils/normalize'
 
@@ -11,7 +11,7 @@ import { normalize } from '@/lib/utils/normalize'
 // product_id : historique d'un seul produit (fiche produit, onglet Mouvements filtré) ; limit : 1 à 500.
 // kind : filtre simple de l'onglet Mouvements. Sans `kind` : TOUS les mouvements, quel que soit leur type.
 //        Les quatre catégories se partagent tous les mouvements, sans trou ni doublon :
-//          transfer   = motif « Transfert … » (envoyé ou reçu), quel que soit le type ;
+//          transfer   = motif « Transfert … » (envoyé ou reçu) ou « Annulation transfert … », quel que soit le type ;
 //          sale       = ventes ;
 //          in         = entrées (réassort, réception fournisseur, stock initial, retour d'une vente annulée…) ;
 //          adjustment = TOUT LE RESTE (inventaire, perte, dommage, expiration, correction, sortie manuelle, et
@@ -56,7 +56,8 @@ export async function GET(request: Request) {
     const to   = searchParams.get('to')
 
     // Tous les filtres hors recherche ; `search` = conditions « l'une OU l'autre » de la recherche
-    const NOT_TRANSFER = 'reason.is.null,reason.not.ilike.Transfert %'
+    const IS_TRANSFER = TRANSFER_REASON_PREFIXES.map(p => `reason.ilike.${p}%`).join(',')
+    const NOT_TRANSFER = `reason.is.null,and(${TRANSFER_REASON_PREFIXES.map(p => `reason.not.ilike.${p}%`).join(',')})`
     const build = (search?: string) => {
       let query = admin
         .from('stock_movements')
@@ -65,7 +66,7 @@ export async function GET(request: Request) {
         .order('created_at', { ascending: false })
         .limit(limit)
       if (typeFilter) query = query.eq('type', typeFilter)
-      if (kind === 'transfer') query = query.ilike('reason', 'Transfert %')
+      if (kind === 'transfer') query = query.or(IS_TRANSFER)
       else if (kind === 'sale' || kind === 'in') query = query.eq('type', kind).or(NOT_TRANSFER)
       else if (kind === 'adjustment') query = query.not('type', 'in', '(in,sale)').or(NOT_TRANSFER)
       if (productId) query = query.eq('product_id', productId)

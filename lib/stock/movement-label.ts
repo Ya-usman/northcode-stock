@@ -11,7 +11,8 @@ import { describeMovementReason } from './movement-reason'
 export type MovementOrigin =
   | { kind: 'sale'; ref: string; cancelled: boolean; edited: boolean }
   | { kind: 'purchase_order'; ref: string }
-  | { kind: 'transfer'; ref: string; direction: 'out' | 'in'; otherShop: string }
+  | { kind: 'transfer'; ref: string; direction: 'out' | 'in'; otherShop: string; cancelled?: boolean }
+  | { kind: 'batch'; action: 'corrected' | 'deleted' }
   | { kind: 'supplier'; name: string }
   | { kind: 'inventory' }
   | null
@@ -73,6 +74,17 @@ export function describeMovement(m: MovementInput): MovementView {
       return view('label_transfer_sent', { key: 'ref_transfer_to', params: d.params }, { kind: 'transfer', ref: d.params.ref, direction: 'out', otherShop: d.params.shop })
     case 'reason_transfer_in':
       return view('label_transfer_received', { key: 'ref_transfer_from', params: d.params }, { kind: 'transfer', ref: d.params.ref, direction: 'in', otherShop: d.params.shop })
+    case 'reason_transfer_cancelled':
+      // Le stock revient dans la boutique qui avait envoyé le transfert
+      return view('label_transfer_cancelled', { raw: d.params.ref }, { kind: 'transfer', ref: d.params.ref, direction: 'out', otherShop: '', cancelled: true })
+    case 'reason_batch_corrected':
+    case 'reason_batch_deleted': {
+      const action = d.key === 'reason_batch_deleted' ? 'deleted' : 'corrected'
+      const labels = { correction: 'label_stock_correction', loss: 'label_loss', damage: 'label_damage', expiry: 'label_expiry' } as const
+      const origin: MovementOrigin = { kind: 'batch', action }
+      if (d.cause) return view(labels[d.cause], { key: action === 'deleted' ? 'ref_batch_deleted' : 'ref_batch_corrected' }, origin)
+      return { labelKey: 'label_stock_correction', detail: { raw: d.params.detail }, origin, freeReason: d.params.detail }
+    }
     case 'reason_inventory_correction':
       return view(counted ? 'label_inventory_adjustment' : 'label_stock_correction', inventory[0], inventory[1])
     case 'reason_inventory_loss':

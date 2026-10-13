@@ -222,13 +222,19 @@ export function MovementDetailDrawer({ movement, onClose, showShop, onViewProduc
                 )}
                 {transfer && (
                   <>
-                    <Row label={t('origin_transfer')}><span className="font-mono">{transfer.ref}</span></Row>
+                    <Row label={t('origin_transfer')}>
+                      <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
+                        <span className="font-mono">{transfer.ref}</span>
+                        {origin.kind === 'transfer' && origin.cancelled && <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-600 dark:bg-red-950/40 dark:text-red-400" data-transfer-status="cancelled">{t('origin_transfer_cancelled')}</span>}
+                      </span>
+                    </Row>
                     {transfer.from && <Row label={t('origin_from_shop')}>{transfer.from}</Row>}
                     {transfer.to && <Row label={t('origin_to_shop')}>{transfer.to}</Row>}
                   </>
                 )}
                 {origin.kind === 'supplier' && <Row label={t('origin_supplier')}>{origin.name}</Row>}
                 {origin.kind === 'inventory' && <Row label={t('origin_source')}>{t('ref_inventory')}</Row>}
+                {origin.kind === 'batch' && <Row label={t('origin_source')}>{t(origin.action === 'deleted' ? 'ref_batch_deleted' : 'ref_batch_corrected')}</Row>}
               </dl>
             </DrawerSection>
           )}

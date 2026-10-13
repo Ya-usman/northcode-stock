@@ -1680,7 +1680,14 @@
     "view_transfer": "Voir le transfert",
     "view_product": "Voir la fiche produit",
     "detail_partial": "Hors connexion : certains détails ne sont pas chargés.",
-    "detail_retry": "Réessayer"
+    "detail_retry": "Réessayer",
+    "label_transfer_cancelled": "Transfert annulé",
+    "origin_transfer_cancelled": "Annulé",
+    "ref_batch_corrected": "Lot corrigé",
+    "ref_batch_deleted": "Lot supprimé",
+    "reason_transfer_cancelled": "Transfert {ref} annulé",
+    "reason_batch_corrected": "Lot corrigé — {detail}",
+    "reason_batch_deleted": "Lot supprimé — {detail}"
   },
   "expiry": {
     "title": "Lots & péremptions",

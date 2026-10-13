@@ -42,7 +42,7 @@ export function movementVisual(view: MovementView): { icon: LucideIcon; tone: st
     case 'label_return': return { icon: RotateCcw, tone: GREEN }
     case 'label_restock': case 'label_supplier_receipt': case 'label_initial': case 'label_entry': return { icon: ArrowDown, tone: GREEN }
     case 'label_transfer_sent': return { icon: ArrowLeftRight, tone: AMBER }
-    case 'label_transfer_received': return { icon: ArrowLeftRight, tone: GREEN }
+    case 'label_transfer_received': case 'label_transfer_cancelled': return { icon: ArrowLeftRight, tone: GREEN }
     case 'label_loss': case 'label_damage': case 'label_expiry': case 'label_exit': return { icon: ArrowUp, tone: AMBER }
     case 'label_stock_correction': case 'label_inventory_adjustment': case 'label_adjustment': return { icon: ClipboardCheck, tone: PURPLE }
     default: return { icon: ArrowRight, tone: 'bg-muted text-muted-foreground' }
