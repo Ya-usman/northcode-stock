@@ -27,6 +27,8 @@ import { useCurrency } from '@/lib/hooks/use-currency'
 import { sharePDFNative, isCapacitor } from '@/lib/utils/native-share'
 import { getCountry, getPaymentMethodLabel } from '@/lib/saas/countries'
 import { useLocale } from 'next-intl'
+import { describeSaleLog } from '@/lib/sales/journal'
+import { dateFnsLocale, dateLocaleTag } from '@/lib/i18n/date-format'
 import { readTicketSettings } from '@/lib/receipt/print-settings'
 import { printSaleTicket, ticketErrorKey } from '@/lib/receipt/print-ticket'
 import { ticketLabelsFromT } from '@/lib/receipt/ticket'
@@ -819,7 +821,7 @@ export default function SalesHistoryPage() {
             {cashierMap[(sale as any).cashier_id] || '—'}
           </TableCell>
           <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
-            {format(new Date(sale.created_at), 'dd MMM · HH:mm')}
+            {format(new Date(sale.created_at), 'dd MMM · HH:mm', { locale: dateFnsLocale(locale) })}
           </TableCell>
           <TableCell className="text-right font-medium">{formatNaira(sale.total)}</TableCell>
           <TableCell className="hidden md:table-cell text-right text-green-600 dark:text-green-400">{formatNaira(sale.amount_paid)}</TableCell>
@@ -1128,7 +1130,7 @@ export default function SalesHistoryPage() {
       {/* Date range label */}
       {dateFilter !== 'custom' && (() => {
         const { start, end } = getDateBounds()
-        const fmt = (d: Date) => format(d, 'd MMM yyyy')
+        const fmt = (d: Date) => format(d, 'd MMM yyyy', { locale: dateFnsLocale(locale) })
         const startStr = fmt(start)
         const endStr   = fmt(end)
         const label = startStr === endStr ? startStr : `${startStr} – ${endStr}`
@@ -1158,7 +1160,7 @@ export default function SalesHistoryPage() {
               #{p.sales?.sale_number}
             </TableCell>
             <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
-              {format(new Date(p.paid_at), 'dd MMM · HH:mm')}
+              {format(new Date(p.paid_at), 'dd MMM · HH:mm', { locale: dateFnsLocale(locale) })}
             </TableCell>
             <TableCell>
               <Badge variant="outline" className="text-[10px] px-1.5 border-emerald-300 dark:border-emerald-700/60 text-emerald-600 dark:text-emerald-400">
@@ -1280,7 +1282,7 @@ export default function SalesHistoryPage() {
                 <div className="min-w-0">
                   <p className="font-medium truncate">{sale.customer_name || t('sales.walk_in_short')}</p>
                   <p className="text-xs text-muted-foreground">
-                    {format(new Date(sale.created_at), 'dd MMM · HH:mm')}
+                    {format(new Date(sale.created_at), 'dd MMM · HH:mm', { locale: dateFnsLocale(locale) })}
                     {/* Pourquoi elle est restée sur l'appareil (enregistré depuis le 5 oct. 2026) */}
                     {sale.offline_reason && <> · {t(`sales.offline_reason_${sale.offline_reason.startsWith('server_') ? 'server' : sale.offline_reason}` as any)}</>}
                   </p>
@@ -1373,38 +1375,53 @@ export default function SalesHistoryPage() {
         ) : (
           <div className="rounded-lg border bg-card shadow-sm divide-y overflow-hidden">
             {logs.map(log => {
-              const isCancel   = log.action === 'sale.cancel'
-              const isValidate = log.action === 'sale.validate_payment'
-              const isEdit     = log.action === 'sale.edit'
-              const saleNum = log.metadata?.sale_number || log.target_id
-              const iconCls = isCancel
+              // Une règle par action (lib/sales/journal) : jamais une action inconnue
+              // présentée comme un paiement, jamais un identifiant technique en numéro.
+              const entry = describeSaleLog(log)
+              const isCancel   = entry.kind === 'cancel'
+              const isValidate = entry.kind === 'validate'
+              const isEdit     = entry.kind === 'edit'
+              const saleNum = entry.number
+              const iconCls = entry.tone === 'red'
                 ? 'bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400'
-                : isEdit
+                : entry.tone === 'blue'
                   ? 'bg-stockshop-blue-muted dark:bg-blue-950/50 text-stockshop-blue dark:text-blue-400'
-                  : 'bg-green-100 dark:bg-green-950/50 text-green-600 dark:text-green-400'
-              const actionLabel = isCancel
-                ? t('sales.log_action_cancel')
-                : isEdit
-                  ? t('sales.log_action_edit')
-                  : t('sales.log_action_validate')
+                  : entry.tone === 'green'
+                    ? 'bg-green-100 dark:bg-green-950/50 text-green-600 dark:text-green-400'
+                    : 'bg-muted text-muted-foreground'
+              const actionLabel = t(entry.labelKey as any)
+              const dueDay = (d?: string | null) => d ? new Date(d + 'T12:00:00').toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
               return (
                 <div key={log.id} className="flex items-start gap-3 p-3">
                   <div className={`mt-0.5 flex-shrink-0 rounded-full p-1.5 ${iconCls}`}>
-                    {isCancel ? <XCircle className="h-3.5 w-3.5" /> : isEdit ? <Edit2 className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                    {entry.tone === 'red' ? <XCircle className="h-3.5 w-3.5" /> : entry.kind === 'postpone' ? <Clock className="h-3.5 w-3.5" /> : entry.tone === 'green' ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Edit2 className="h-3.5 w-3.5" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm leading-snug">
                         <span className="font-medium">{log.actor_name}</span>{' '}
                         <span className="text-muted-foreground">{actionLabel}</span>{' '}
-                        <span className="font-mono text-xs font-semibold text-stockshop-blue dark:text-blue-400">
-                          #{saleNum}
-                        </span>
+                        {saleNum && (
+                          <span className="font-mono text-xs font-semibold text-stockshop-blue dark:text-blue-400">
+                            #{saleNum}
+                          </span>
+                        )}
                       </p>
                       <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0 mt-0.5">
-                        {format(new Date(log.created_at), 'dd MMM · HH:mm')}
+                        {format(new Date(log.created_at), 'dd MMM · HH:mm', { locale: dateFnsLocale(locale) })}
                       </span>
                     </div>
+                    {entry.kind === 'postpone' && log.metadata?.new_due_date && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {t('sales.log_due_date_change', { from: dueDay(log.metadata.old_due_date), to: dueDay(log.metadata.new_due_date) })}
+                        {log.metadata.reason ? ` · ${log.metadata.reason}` : ''}
+                      </p>
+                    )}
+                    {entry.kind === 'opening_created' && log.metadata?.amount != null && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {formatNaira(log.metadata.amount)}{log.metadata.party_name ? ` · ${log.metadata.party_name}` : ''}
+                      </p>
+                    )}
                     {isCancel && log.metadata?.reason && (
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {t('sales.log_reason_label')} {log.metadata.reason}

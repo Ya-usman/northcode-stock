@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
+import { dateFnsLocale } from '@/lib/i18n/date-format'
 import { getPaymentMethodLabel } from '@/lib/saas/countries'
 import { Download, Receipt, TrendingDown, Banknote, X, Loader2 } from 'lucide-react'
 import {
@@ -58,6 +59,7 @@ const EMPTY_REPORTS: ReportsData = {
 
 export default function ReportsPage() {
   const t = useTranslations()
+  const locale = useLocale()
   const { shop, effectiveShopIds, userShops, profile, roleInActiveShop } = useAuth()
   const effectiveRole = roleInActiveShop ?? profile?.role
   const isCashier = effectiveRole === 'cashier'
@@ -105,14 +107,14 @@ export default function ReportsPage() {
 
   const getDateLabel = () => {
     if (dateFilter === 'custom') {
-      return `${format(new Date(customStart), 'dd MMM yyyy')} – ${format(new Date(customEnd), 'dd MMM yyyy')}`
+      return `${format(new Date(customStart), 'dd MMM yyyy', { locale: dateFnsLocale(locale) })} – ${format(new Date(customEnd), 'dd MMM yyyy', { locale: dateFnsLocale(locale) })}`
     }
     const { start, end } = getDateRange()
     const s = new Date(start)
     const e = new Date(end)
-    if (s.toDateString() === e.toDateString()) return format(s, 'dd MMM yyyy')
-    if (s.getFullYear() === e.getFullYear()) return `${format(s, 'dd MMM')} – ${format(e, 'dd MMM yyyy')}`
-    return `${format(s, 'dd MMM yyyy')} – ${format(e, 'dd MMM yyyy')}`
+    if (s.toDateString() === e.toDateString()) return format(s, 'dd MMM yyyy', { locale: dateFnsLocale(locale) })
+    if (s.getFullYear() === e.getFullYear()) return `${format(s, 'dd MMM', { locale: dateFnsLocale(locale) })} – ${format(e, 'dd MMM yyyy', { locale: dateFnsLocale(locale) })}`
+    return `${format(s, 'dd MMM yyyy', { locale: dateFnsLocale(locale) })} – ${format(e, 'dd MMM yyyy', { locale: dateFnsLocale(locale) })}`
   }
 
   const loadFreshReportData = async (start: string, end: string): Promise<ReportsData> => {
@@ -328,7 +330,7 @@ export default function ReportsPage() {
 
   const buildPdfParams = () => {
     const { start, end } = getDateRange()
-    const dateRange = `${format(new Date(start), 'dd MMM yyyy')} – ${format(new Date(end), 'dd MMM yyyy')}`
+    const dateRange = `${format(new Date(start), 'dd MMM yyyy', { locale: dateFnsLocale(locale) })} – ${format(new Date(end), 'dd MMM yyyy', { locale: dateFnsLocale(locale) })}`
     return {
       shopName: shop!.name,
       dateRange,
@@ -383,7 +385,7 @@ export default function ReportsPage() {
           title: t('expenses.title'),
           headers: ['Date', 'Description', 'Montant'],
           rows: [
-            ...expenses.map(e => [format(new Date(e.date), 'dd MMM yyyy'), e.description, formatNaira(e.amount)]),
+            ...expenses.map(e => [format(new Date(e.date), 'dd MMM yyyy', { locale: dateFnsLocale(locale) }), e.description, formatNaira(e.amount)]),
             ['', 'Total', formatNaira(totalExpenses)],
           ],
         }] : []),
@@ -711,7 +713,7 @@ export default function ReportsPage() {
                       {expenses.map(e => (
                         <TableRow key={e.id}>
                           <TableCell className="text-xs text-muted-foreground whitespace-nowrap px-2 sm:px-4">
-                            {format(new Date(e.date), 'dd MMM yy')}
+                            {format(new Date(e.date), 'dd MMM yy', { locale: dateFnsLocale(locale) })}
                           </TableCell>
                           <TableCell className="text-xs sm:text-sm px-2 sm:px-4 max-w-[150px] truncate">{e.description}</TableCell>
                           <TableCell className="text-right text-xs sm:text-sm font-medium text-red-500 px-2 sm:px-4 whitespace-nowrap">
