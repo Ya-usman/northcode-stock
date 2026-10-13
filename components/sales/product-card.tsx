@@ -2,6 +2,7 @@
 
 import { memo, type KeyboardEvent, type MouseEvent } from 'react'
 import { Star } from 'lucide-react'
+import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { Badge } from '@/components/ui/badge'
 import { ProductThumbnail } from '@/components/stock/product-thumbnail'
 import { cn } from '@/lib/utils/cn'
@@ -34,6 +35,7 @@ function ProductCardImpl({
   product, price, stockVariant, isExpired, currencyCode, favoriteLabel, expiredLabel,
   onAdd, onToggleFavorite, compact = false,
 }: ProductCardProps) {
+  const unitLabel = useUnitLabel()
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAdd(product) }
   }
@@ -46,7 +48,7 @@ function ProductCardImpl({
       aria-label={favoriteLabel}
     >
       <span className="block rounded-full bg-black/45 p-1 group-hover:bg-black/60 transition-colors">
-        <Star className={cn(compact ? 'h-3 w-3' : 'h-3.5 w-3.5', product.is_favorite || compact ? 'fill-amber-400 text-amber-400' : 'text-white/80')} />
+        <Star className={cn(compact ? 'h-3 w-3' : 'h-3.5 w-3.5', product.is_favorite || compact ? 'fill-stockshop-yellow text-stockshop-yellow' : 'text-white/80')} />
       </span>
     </button>
   )
@@ -106,7 +108,7 @@ function ProductCardImpl({
             <span className="text-[13px] md:text-sm font-bold text-stockshop-blue dark:text-blue-400">{formatCurrency(product.selling_price, currencyCode)}</span>
           )}
           <Badge variant={stockVariant} className="hidden md:inline-flex text-[10px] px-1.5">
-            {product.quantity} {product.unit}
+            {product.quantity} {unitLabel(product.unit, product.quantity)}
           </Badge>
         </div>
       </div>

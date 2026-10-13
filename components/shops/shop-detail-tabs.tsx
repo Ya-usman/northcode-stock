@@ -7,6 +7,7 @@
 
 import { useMemo, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
+import { useUnitLabel } from '@/lib/products/use-unit-label'
 import {
   AlertTriangle, ArrowDownLeft, ArrowUpRight, Ban, CalendarClock, ChevronDown, ClipboardList, Coins, CreditCard, Edit2, FileText,
   History, Package, PackageX, Plus, RefreshCw, ShieldCheck, ShoppingCart, Store, Trash2, Truck, UserCog, Users, Wallet,
@@ -76,7 +77,8 @@ export function ShopStockTab({ shop, can, isOwner, fmt, openPage }: {
   const locale = useLocale()
   const { detail, refresh } = useShopStockDetail(shop, can)
   const levels = detail?.levels, expiry = detail?.expiry, transfers = detail?.transfers, pos = detail?.purchaseOrders
-  const unitOf = (u: string | null) => (u && u !== 'piece' ? ` ${u}` : '')
+  const unitLabel = useUnitLabel()
+  const unitOf = (u: string | null, n: number) => (u && u !== 'piece' ? ` ${unitLabel(u, n)}` : '')
 
   return (
     <div className="space-y-4" data-testid="shop-stock">
@@ -99,7 +101,7 @@ export function ShopStockTab({ shop, can, isOwner, fmt, openPage }: {
                   <span className="min-w-0 flex-1 truncate">{p.name}</span>
                   {p.quantity <= 0
                     ? <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-600 dark:bg-red-950/40 dark:text-red-400">{t('out_badge')}</span>
-                    : <span className="text-xs tabular-nums text-amber-600 dark:text-amber-400">{t('qty_of_threshold', { qty: `${p.quantity}${unitOf(p.unit)}`, threshold: p.threshold })}</span>}
+                    : <span className="text-xs tabular-nums text-amber-600 dark:text-amber-400">{t('qty_of_threshold', { qty: `${p.quantity}${unitOf(p.unit, p.quantity)}`, threshold: p.threshold })}</span>}
                 </li>
               ))}
             </ul>
@@ -114,7 +116,7 @@ export function ShopStockTab({ shop, can, isOwner, fmt, openPage }: {
               <ul className="divide-y">
                 {expiry!.data!.list.map(p => (
                   <li key={p.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                    <span className="min-w-0 flex-1 truncate">{p.name} <span className="text-xs text-muted-foreground">· {p.quantity}{unitOf(p.unit)}</span></span>
+                    <span className="min-w-0 flex-1 truncate">{p.name} <span className="text-xs text-muted-foreground">· {p.quantity}{unitOf(p.unit, p.quantity)}</span></span>
                     <span className={cn('text-xs tabular-nums', p.expired ? 'font-medium text-red-600 dark:text-red-400' : 'text-orange-600 dark:text-orange-400')}>
                       {p.expired ? t('expired_on', { date: dateFmt(p.date, locale) }) : t('expires_on', { date: dateFmt(p.date, locale) })}
                     </span>

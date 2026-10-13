@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useRef } from 'react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
+import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { Archive, ArrowDown, ArrowUp, ArrowUpDown, Edit2, History, MoreHorizontal, ShoppingCart, Tag } from 'lucide-react'
 import type { Product } from '@/lib/types/database'
 import { Button } from '@/components/ui/button'
@@ -129,6 +130,8 @@ export function ProductTable({
   sort, onSortChange, columns, onOrder, onRestock, onEdit, onPromo, onBatches, onArchive,
 }: ProductTableProps) {
   const t = useTranslations()
+  const locale = useLocale()
+  const unitLabel = useUnitLabel()
   const show = (key: ProductColumnKey) => columns.includes(key)
 
   const rows = useMemo(() => {
@@ -289,7 +292,7 @@ export function ProductTable({
                           )}
                           {expiry?.soon && (
                             <button type="button" onClick={() => onBatches(product)} className="rounded-full bg-orange-50 px-1.5 py-0.5 text-[10px] font-semibold text-orange-600 hover:opacity-80 dark:bg-orange-950/40 dark:text-orange-400">
-                              {t('products.expiring_badge', { date: new Date(expiry.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) })}
+                              {t('products.expiring_badge', { date: new Date(expiry.date).toLocaleDateString(locale, { day: 'numeric', month: 'short' }) })}
                             </button>
                           )}
                         </div>
@@ -328,7 +331,7 @@ export function ProductTable({
                 )}
                 <td className={CELL_NUM}>
                   <span className={cn('font-semibold', qtyTone)}>{product.quantity}</span>
-                  <span className="ml-1 text-xs text-muted-foreground">{product.unit}</span>
+                  <span className="ml-1 text-xs text-muted-foreground">{unitLabel(product.unit, product.quantity)}</span>
                 </td>
                 {show('physical') && (
                   // Pas encore de stock réservé : physique = disponible (étape suivante)

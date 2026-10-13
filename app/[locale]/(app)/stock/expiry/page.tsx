@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { format } from 'date-fns'
 import { Search, FileDown, FileText, Table2, AlertTriangle, Edit2, Trash2, FileSpreadsheet } from 'lucide-react'
 import { useTableExport } from '@/lib/export/use-table-export'
@@ -53,6 +54,7 @@ const REASON_CODES = ['correction', 'damage', 'loss', 'theft', 'expiry', 'other'
 
 export default function ExpiryPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations()
+  const unitLabel = useUnitLabel()
   const { shop, effectiveShopIds, profile, roleInActiveShop, userShops } = useAuth()
   const effectiveRole = roleInActiveShop ?? profile?.role
   const { canAccess, canWrite } = useRolePermissions()
@@ -363,7 +365,7 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
                           </span>
                         ) : '—'}
                       </td>
-                      <td className="px-3 py-2 text-right">{b.quantity} {b.products?.unit}</td>
+                      <td className="px-3 py-2 text-right">{b.quantity} {unitLabel(b.products?.unit, b.quantity)}</td>
                       <td className="px-3 py-2 text-right">{formatNaira(b.quantity * (b.buying_price || 0))}</td>
                       <td className="px-3 py-2 text-muted-foreground">{format(new Date(b.received_at), 'dd MMM yyyy')}</td>
                       <td className="px-3 py-2">{b.expiry_date ? format(new Date(b.expiry_date), 'dd MMM yyyy') : <span className="text-muted-foreground">—</span>}</td>

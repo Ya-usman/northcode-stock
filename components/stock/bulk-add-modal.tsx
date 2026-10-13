@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { useTranslations } from 'next-intl'
+import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { Plus, Trash2, Loader2, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -35,6 +36,7 @@ const newRow = (): Row => ({ id: nextId++, name: '', selling_price: '', buying_p
 export function BulkAddModal({ open, onClose, shopId, currency, fullRights, onSaved }: Props) {
   const t = useTranslations('bulk_add')
   const tCommon = useTranslations()
+  const unitLabel = useUnitLabel()
   const [rows, setRows] = useState<Row[]>([newRow()])
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<Record<number, string>>({})
@@ -160,7 +162,7 @@ export function BulkAddModal({ open, onClose, shopId, currency, fullRights, onSa
                   <Select value={row.unit} onValueChange={v => update(row.id, 'unit', v)}>
                     <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {UNITS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                      {UNITS.map(u => <SelectItem key={u} value={u}>{unitLabel(u, 1)}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   <button

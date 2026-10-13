@@ -5,6 +5,7 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations, useLocale } from 'next-intl'
+import { useUnitLabel } from '@/lib/products/use-unit-label'
 import dynamic from 'next/dynamic'
 import { Search, Plus, Edit2, Trash2, Phone, MapPin, Package, Store, ChevronDown, ChevronRight, X, ArrowRightLeft, FileText, Download, Send, CheckCircle2, Ban, Mail, Copy, Share2, History, RotateCcw, ShoppingCart, MessageCircle, Save, Clock, AlertTriangle, Banknote, TrendingDown, FileDown, FileSpreadsheet, Table2, Upload } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -127,6 +128,7 @@ function SupplierCard({ supplier, productCount, canManage, onOpen, onEdit, onDel
 
 export default function SuppliersPage() {
   const t = useTranslations()
+  const unitLabel = useUnitLabel()
   const locale = useLocale()
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -846,7 +848,7 @@ export default function SuppliersPage() {
     await generatePurchaseOrderPDF({
       shopName: shop?.name || 'StockShop',
       reference: po.reference,
-      dateStr: new Date(po.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
+      dateStr: new Date(po.created_at).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' }),
       supplierName: po.suppliers?.name || supplierName(po.supplier_id),
       supplierPhone: po.suppliers?.phone,
       supplierCity: po.suppliers?.city,
@@ -864,14 +866,14 @@ export default function SuppliersPage() {
   const buildPoEmailContent = (po: any) => {
     const items = po.purchase_order_items || []
     const supplier = po.suppliers?.name || supplierName(po.supplier_id)
-    const dateStr = new Date(po.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+    const dateStr = new Date(po.created_at).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' })
     // Bon créé via "Commander le reste" (voir submitReorder) — garde le
     // lien vers le bon d'origine dans notes pour adapter l'objet/le corps.
     const reorderOriginalRef = po.notes?.match(/^\[reorder:(.+?)\]/)?.[1] as string | undefined
     const subject = reorderOriginalRef
       ? `Complément au bon ${reorderOriginalRef} — solde manquant (${po.reference}) — ${shop?.name || 'StockShop'}`
       : `Bon de commande ${po.reference} — ${shop?.name || 'StockShop'}`
-    const lines = items.map((it: any) => `- ${it.product_name} : ${it.quantity_ordered} ${it.unit || ''}`.trim())
+    const lines = items.map((it: any) => `- ${it.product_name} : ${it.quantity_ordered} ${unitLabel(it.unit, it.quantity_ordered)}`.trim())
     const intro = reorderOriginalRef
       ? `Suite à la livraison partielle de notre bon de commande ${reorderOriginalRef}, veuillez trouver ci-joint le bon ${po.reference} du ${dateStr} pour le solde manquant.`
       : `Veuillez trouver ci-joint notre bon de commande ${po.reference} du ${dateStr}.`
@@ -956,7 +958,7 @@ export default function SuppliersPage() {
                       {row.updatedAt && (
                         <span>
                           {marginAmount != null ? ' · ' : ''}
-                          {t('suppliers.price_updated_on', { date: new Date(row.updatedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) })}
+                          {t('suppliers.price_updated_on', { date: new Date(row.updatedAt).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }) })}
                         </span>
                       )}
                     </p>
@@ -1247,12 +1249,12 @@ export default function SuppliersPage() {
                           {po.suppliers?.name || supplierName(po.supplier_id)} · {t('suppliers.po_items_count', { count: itemCount })} · {fmt(total)}
                         </p>
                         <p className="text-[11px] text-muted-foreground/70 mt-0.5">
-                          {new Date(po.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          {new Date(po.created_at).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })}
                           {po.expected_delivery_date && (
                             <span className={isOverdue ? 'text-red-600 dark:text-red-400 font-medium' : ''}>
                               {' · '}
                               {t('suppliers.po_expected_delivery', {
-                                date: new Date(po.expected_delivery_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+                                date: new Date(po.expected_delivery_date).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }),
                               })}
                             </span>
                           )}
@@ -1295,7 +1297,7 @@ export default function SuppliersPage() {
                             return (
                               <div key={it.id} className="text-sm">
                                 <div className="flex items-center justify-between gap-2">
-                                  <span className="truncate">{it.product_name} × {it.quantity_ordered} {it.unit || ''}</span>
+                                  <span className="truncate">{it.product_name} × {it.quantity_ordered} {unitLabel(it.unit, it.quantity_ordered)}</span>
                                   <span className="tabular-nums text-muted-foreground shrink-0">
                                     {it.unit_price != null ? fmt(it.unit_price * it.quantity_ordered) : '—'}
                                   </span>
@@ -1542,7 +1544,7 @@ export default function SuppliersPage() {
                       <div className="min-w-0 flex-1">
                         <p className="text-sm truncate">{p.name}</p>
                         <p className="text-[11px] text-muted-foreground">
-                          {t('suppliers.po_stock_label')}: {p.quantity} {p.unit}
+                          {t('suppliers.po_stock_label')}: {p.quantity} {unitLabel(p.unit, p.quantity)}
                         </p>
                       </div>
                       <div className="flex items-end gap-1.5 shrink-0">
@@ -1625,7 +1627,7 @@ export default function SuppliersPage() {
                       onChange={e => setEditItems(prev => prev.map((row, i) => i === idx ? { ...row, quantity_ordered: e.target.value } : row))}
                       className="w-16 h-8 text-center text-xs"
                     />
-                    <span className="text-[11px] text-muted-foreground">{it.unit}</span>
+                    <span className="text-[11px] text-muted-foreground">{unitLabel(it.unit, it.quantity_ordered)}</span>
                     <Input
                       type="number" min={0} inputMode="numeric"
                       value={it.unit_price}
@@ -1681,7 +1683,7 @@ export default function SuppliersPage() {
                       onChange={e => setReorderItems(prev => prev.map((row, i) => i === idx ? { ...row, quantity_ordered: e.target.value } : row))}
                       className="w-16 h-8 text-center text-xs"
                     />
-                    <span className="text-[11px] text-muted-foreground">{it.unit}</span>
+                    <span className="text-[11px] text-muted-foreground">{unitLabel(it.unit, it.quantity_ordered)}</span>
                     <Input
                       type="number" min={0} inputMode="numeric"
                       value={it.unit_price}
@@ -1823,7 +1825,7 @@ export default function SuppliersPage() {
                       <div className="flex items-center gap-2">
                         <div className="min-w-0 flex-1">
                           <p className="text-sm truncate">{it.product_name}</p>
-                          <p className="text-[11px] text-muted-foreground">{t('suppliers.po_ordered_label')}: {it.quantity_ordered} {it.unit || ''}</p>
+                          <p className="text-[11px] text-muted-foreground">{t('suppliers.po_ordered_label')}: {it.quantity_ordered} {unitLabel(it.unit, it.quantity_ordered)}</p>
                         </div>
                         <Input
                           type="number" min={0} inputMode="numeric"
@@ -1963,7 +1965,7 @@ export default function SuppliersPage() {
                         <div key={it.id} className="flex items-center justify-between text-sm gap-2">
                           <span className="truncate">{it.product_name}</span>
                           <span className="tabular-nums text-muted-foreground shrink-0">
-                            {received ? `${it.quantity_received ?? it.quantity_ordered}/${it.quantity_ordered}` : it.quantity_ordered} {it.unit || ''}
+                            {received ? `${it.quantity_received ?? it.quantity_ordered}/${it.quantity_ordered}` : it.quantity_ordered} {unitLabel(it.unit, it.quantity_ordered)}
                             {it.unit_price != null && <> · {fmt(it.unit_price * it.quantity_ordered)}</>}
                           </span>
                         </div>

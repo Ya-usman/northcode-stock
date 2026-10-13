@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss'
+import { STOCKSHOP_YELLOW } from './lib/brand/colors'
 
 const config: Config = {
   darkMode: ['class'],
@@ -59,6 +60,8 @@ const config: Config = {
           blue: '#073e8a',
           'blue-light': '#0d52b8',
           'blue-muted': '#e8eef8',
+          // Jaune officiel StockShop — le seul jaune d'accent (favoris, mises en avant)
+          yellow: STOCKSHOP_YELLOW,
           gold: '#D4AF37',
           'gold-light': '#F5E580',
           green: '#16A34A',

@@ -681,6 +681,9 @@
     "due_date_label": "Ranar biyan da ake tsammani",
     "due_date_hint": "Ranar da ake tsammanin ragowar bashin — ana iya canzawa, ba wajibi ba ne.",
     "notes_optional_label": "Bayanai (na zaɓi)",
+    "debt_repayment_line": "Biyan bashi",
+    "list_price_label": "Farashin asali",
+    "min_price_badge": "mafi ƙaranci",
     "notes_placeholder": "Bayanai kan wannan siyarwar…",
     "new_selling_price": "Sabon farashin sayarwa",
     "pending_invoices_title": "Lissafin da ake jira"
@@ -3917,5 +3920,19 @@
       "unsub_invalid_body": "Wannan mahaɗin cire rajista bai cika ba ko an canza shi. Yi amfani da mahaɗin da ke cikin imel ɗin da ka karɓa.",
       "unsub_open_app": "Buɗe StockShop"
     }
+  },
+  "unit_labels": {
+    "piece": "guda",
+    "kg": "kg",
+    "g": "g",
+    "litre": "lita",
+    "ml": "ml",
+    "pack": "fakiti",
+    "carton": "kwali",
+    "dozen": "dozin",
+    "bag": "buhu",
+    "bottle": "kwalba",
+    "tin": "gwangwani",
+    "box": "akwati"
   }
 }

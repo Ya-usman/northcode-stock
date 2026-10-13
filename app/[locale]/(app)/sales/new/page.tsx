@@ -1770,7 +1770,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       {showFavoritesRow && (
         <div className="pt-2 pb-1 lg:pt-5">
           <div className="flex items-center gap-1.5 px-1 mb-2 text-xs font-semibold text-muted-foreground">
-            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+            <Star className="h-3.5 w-3.5 fill-stockshop-yellow text-stockshop-yellow" />
             {t('sales.favorites_title')}
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
@@ -1945,7 +1945,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                           {item.unit_price === effectivePrice(item.product, frontBatchPromo) && item.unit_price !== item.product.selling_price ? (
                             <span className="rounded bg-stockshop-blue-muted px-1 text-[10px] font-medium text-stockshop-blue dark:bg-blue-900/40 dark:text-blue-400">{t('products.promo_badge')}</span>
                           ) : item.unit_price !== item.product.selling_price && (
-                            <span className="rounded bg-amber-100 px-1 text-[10px] font-medium text-amber-600 dark:bg-amber-900/40 dark:text-amber-400">modifié</span>
+                            <span className="rounded bg-amber-100 px-1 text-[10px] font-medium text-amber-600 dark:bg-amber-900/40 dark:text-amber-400">{t('payments.edited_badge')}</span>
                           )}
                         </button>
                         {frontBatchExpired[item.product.id] && (
@@ -2059,7 +2059,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
           <Card className={cn('border-0 shadow-sm', !customerOpen && 'hidden lg:block')}>
             <CardContent className="p-4 space-y-3">
               <p className="text-sm font-medium flex items-center gap-1.5">
-                <User className="h-4 w-4" /> Client <span className="text-muted-foreground font-normal text-xs">(optionnel)</span>
+                <User className="h-4 w-4" /> {t('sales.customer')} <span className="text-muted-foreground font-normal text-xs">({t('form.optional')})</span>
               </p>
 
               {selectedCustomer ? (
@@ -2587,9 +2587,9 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 <p className="text-xs font-medium text-blue-200 uppercase tracking-wider mb-1">{t('products.selling_price')}</p>
                 <p className="text-white font-semibold text-base leading-tight truncate">{priceModalItem.product.name}</p>
                 <div className="flex items-center gap-2 mt-2">
-                  <span className="text-xs text-blue-200">{minPrice !== priceModalItem.product.selling_price ? t('products.promo_badge') : 'Catalogue'} :</span>
+                  <span className="text-xs text-blue-200">{minPrice !== priceModalItem.product.selling_price ? t('products.promo_badge') : t('sales.list_price_label')} :</span>
                   <span className="text-sm font-bold text-white">{formatNaira(minPrice)}</span>
-                  <span className="text-[10px] bg-white/20 text-blue-100 px-1.5 py-0.5 rounded-full">minimum</span>
+                  <span className="text-[10px] bg-white/20 text-blue-100 px-1.5 py-0.5 rounded-full">{t('sales.min_price_badge')}</span>
                 </div>
               </div>
               {/* Body */}
@@ -2840,7 +2840,7 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
                 ))}
                 <Separator />
                 <div className="flex justify-between font-bold text-base">
-                  <span>TOTAL</span>
+                  <span>{t('receipt.total')}</span>
                   <span className="text-stockshop-blue dark:text-blue-400">{formatNaira(completedSale.total)}</span>
                 </div>
                 {Number(completedSale.balance) > 0 && (

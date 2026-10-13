@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { subMonths, startOfMonth, endOfMonth } from 'date-fns'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { computeTopProducts } from '@/lib/dashboard/top-products'
+import { fetchAllRows } from '@/lib/dashboard/fetch-rows'
 
 // GET /api/dashboard/top-products?period=month|year&shop_ids=x,y&cashier_id=
 // Top 5 best-selling products by revenue for the "Mois"/"Année" views of the
@@ -48,30 +50,22 @@ export async function GET(request: Request) {
     const start = period === 'month' ? startOfMonth(today) : startOfMonth(subMonths(today, 11))
     const end = endOfMonth(today)
 
-    let q = admin
-      .from('sales')
-      .select('sale_items(product_id, product_name, quantity, subtotal)')
-      .in('shop_id', shopIds)
-      .eq('sale_status', 'active')
-      .gte('created_at', start.toISOString())
-      .lte('created_at', end.toISOString())
-    if (cashierId) q = q.eq('cashier_id', cashierId)
-
-    const { data: sales, error } = await q
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-    // Grouped by product_id (falling back to product_name for free-text items
-    // with no product_id) — same rule as the client-side "week" computation.
-    const totals: Record<string, { name: string; quantity: number; revenue: number }> = {}
-    ;(sales || []).forEach((sale: any) => {
-      ;(sale.sale_items || []).forEach((item: any) => {
-        const key = item.product_id ?? item.product_name
-        if (!totals[key]) totals[key] = { name: item.product_name, quantity: 0, revenue: 0 }
-        totals[key].quantity += Number(item.quantity)
-        totals[key].revenue += Number(item.subtotal)
-      })
+    // Toutes les ventes de la période (page par page au-delà de 1000) — voir lib/dashboard/fetch-rows
+    const sales = await fetchAllRows(() => {
+      let q = admin
+        .from('sales')
+        .select('id, shop_id, sale_items(product_id, product_name, quantity, subtotal)')
+        .in('shop_id', shopIds)
+        .eq('sale_status', 'active')
+        .gte('created_at', start.toISOString())
+        .lte('created_at', end.toISOString())
+      if (cashierId) q = q.eq('cashier_id', cashierId)
+      return q.order('created_at', { ascending: true }).order('id', { ascending: true })
     })
-    const data = Object.values(totals).sort((a, b) => b.revenue - a.revenue).slice(0, 5)
+
+    // Même règle que la vue « Semaine » : une ligne par produit, y compris
+    // quand plusieurs boutiques vendent le même (lib/dashboard/top-products).
+    const data = computeTopProducts(sales)
 
     return NextResponse.json({ data })
   } catch (e: any) {

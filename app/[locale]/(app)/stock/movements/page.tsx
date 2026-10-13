@@ -20,7 +20,8 @@ import { DetailDrawer } from '@/components/ui/detail-drawer'
 import { cn } from '@/lib/utils/cn'
 import { normalize } from '@/lib/utils/normalize'
 import { format } from 'date-fns'
-import { fr } from 'date-fns/locale'
+import { dateFnsLocale, dateTimePattern } from '@/lib/i18n/date-format'
+import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { StockTabs } from '@/components/stock/stock-tabs'
 
 interface Movement {
@@ -50,12 +51,13 @@ interface ProductSummary {
   latest_at: string
 }
 
-function fmtDate(d: string) {
-  return format(new Date(d), "dd MMM yyyy 'à' HH:mm", { locale: fr })
+function fmtDate(d: string, locale: string) {
+  return format(new Date(d), dateTimePattern(locale), { locale: dateFnsLocale(locale) })
 }
 
 export default function StockMovementsPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('movements')
+  const unitLabel = useUnitLabel()
   const { effectiveShopIds, shop } = useAuth()
   const { isOnline } = useOffline()
   const [{ search, dateFrom, dateTo }, setFilter] = usePersistedFilters(
@@ -270,7 +272,7 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
                       <span className="text-sm font-medium truncate">{p.product_name}</span>
                       {p.product_unit && (
                         <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full flex-shrink-0">
-                          {p.product_unit}
+                          {unitLabel(p.product_unit, 1)}
                         </span>
                       )}
                     </div>
@@ -299,7 +301,7 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
                     <div className="px-2 py-2.5 min-w-0">
                       <p className="text-xs font-medium truncate">{p.product_name}</p>
                       {p.product_unit && (
-                        <span className="text-[10px] text-muted-foreground">{p.product_unit}</span>
+                        <span className="text-[10px] text-muted-foreground">{unitLabel(p.product_unit, 1)}</span>
                       )}
                     </div>
                     <div className="px-2 py-2.5 text-center border-l">
@@ -335,7 +337,7 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
         onOpenChange={v => { if (!v) setOpenProduct(null) }}
         category={t('restock_history')}
         title={openProduct?.product_name || ''}
-        description={openProduct?.product_unit || undefined}
+        description={unitLabel(openProduct?.product_unit, 1) || undefined}
         icon={<History className="h-4 w-4" />}
         width="md"
         testId="restock-history-drawer"
@@ -391,7 +393,7 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
                         </p>
                         {/* Date + performer */}
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {fmtDate(m.created_at)}
+                          {fmtDate(m.created_at, locale)}
                           {m.performed_by_name && (
                             <> · <span className="font-medium text-foreground/70">{m.performed_by_name}</span></>
                           )}

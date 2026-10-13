@@ -12,6 +12,7 @@ import { useCurrency } from '@/lib/hooks/use-currency'
 import { chartTickFormatter } from '@/lib/utils/currency'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import type { TopProduct } from '@/lib/types/database'
+import { STOCKSHOP_YELLOW } from '@/lib/brand/colors'
 
 type Period = 'week' | 'month' | 'year'
 
@@ -21,7 +22,8 @@ interface TopProductsChartProps {
   cashierId?: string
 }
 
-const COLORS = ['#60a5fa', '#34d399', '#f59e0b', '#f87171', '#a78bfa']
+// 3e barre : jaune de marque (jamais un orange voisin)
+const COLORS = ['#60a5fa', '#34d399', STOCKSHOP_YELLOW, '#f87171', '#a78bfa']
 
 export function TopProductsChart({ data, shopIds, cashierId }: TopProductsChartProps) {
   const t = useTranslations('dashboard')

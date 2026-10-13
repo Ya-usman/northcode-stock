@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations, useLocale } from 'next-intl'
+import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { Plus, Trash2, Tag, Search, RotateCcw, ChevronDown, ChevronRight, Package, Store, Edit2, Check, ExternalLink, Save, ArrowUpDown } from 'lucide-react'
 import { CATEGORY_COLORS } from '@/lib/constants/category-colors'
 import { createClient } from '@/lib/supabase/client'
@@ -67,6 +68,7 @@ function ColorPicker({ value, onChange }: { value: string | null; onChange: (col
 
 export default function CategoriesPage() {
   const t = useTranslations()
+  const unitLabel = useUnitLabel()
   const locale = useLocale()
   const router = useRouter()
   const { shop, profile, roleInActiveShop, effectiveShopIds, userShops } = useAuthContext()
@@ -339,7 +341,7 @@ export default function CategoriesPage() {
               <span className="text-sm truncate">{p.name}</span>
             </div>
             <div className="flex items-center gap-3 shrink-0 ml-2">
-              <span className={cn('text-xs', Number(p.quantity) <= 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground')}>{p.quantity} {p.unit}</span>
+              <span className={cn('text-xs', Number(p.quantity) <= 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground')}>{p.quantity} {unitLabel(p.unit, p.quantity)}</span>
               <span className="text-sm font-semibold text-stockshop-blue dark:text-blue-400">{fmt(p.selling_price)}</span>
             </div>
           </div>

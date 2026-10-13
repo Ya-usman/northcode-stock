@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 import { isManagerial as isManagerialRole } from '@/lib/permissions'
@@ -36,7 +36,7 @@ import { getCountry, getMethodType } from '@/lib/saas/countries'
 import { normalizeWhatsAppNumber } from '@/lib/utils/whatsapp'
 import { formatInputValue } from '@/lib/utils/currency'
 import { format } from 'date-fns'
-import { fr } from 'date-fns/locale'
+import { dateFnsLocale, dateTimePattern } from '@/lib/i18n/date-format'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { savePendingCustomerPayment, savePendingSupplierPayment } from '@/lib/offline/db'
@@ -234,6 +234,7 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
   const paidTotal = unpaidSales.reduce((s: number, sale: UnpaidSale) => s + sale.amount_paid, 0)
   const grandTotal = unpaidSales.reduce((s: number, sale: UnpaidSale) => s + sale.total, 0)
   const progress = grandTotal > 0 ? Math.min(100, (paidTotal / grandTotal) * 100) : 0
+  const locale = useLocale()
 
   return (
     <Card className="border-0 shadow-sm overflow-hidden">
@@ -303,7 +304,7 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{format(new Date(sale.created_at), 'dd MMM yyyy', { locale: fr })}</span>
+                  <span>{format(new Date(sale.created_at), 'dd MMM yyyy', { locale: dateFnsLocale(locale) })}</span>
                   <span>{t('payments.summary_total', { amount: fmt(sale.total) })}</span>
                 </div>
                 {sale.amount_paid > 0 && (
@@ -321,7 +322,7 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
                   <div className="flex items-center gap-1.5">
                     {sale.due_date ? (
                       <span className={`text-[11px] ${isSaleOverdue(sale) ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-muted-foreground'}`}>
-                        {t('payments.due_date_label')} : {format(new Date(sale.due_date), 'dd MMM yyyy', { locale: fr })}
+                        {t('payments.due_date_label')} : {format(new Date(sale.due_date), 'dd MMM yyyy', { locale: dateFnsLocale(locale) })}
                       </span>
                     ) : (
                       <span className="text-[11px] text-muted-foreground">{t('payments.no_due_date')}</span>
@@ -378,6 +379,7 @@ function SupplierDebtorCard({ supplier, unpaidPOs, totalOwed, isExpanded, setExp
   const paidTotal = unpaidPOs.reduce((s: number, po: UnpaidPO) => s + po.amount_paid, 0)
   const grandTotal = unpaidPOs.reduce((s: number, po: UnpaidPO) => s + po.total_amount, 0)
   const progress = grandTotal > 0 ? Math.min(100, (paidTotal / grandTotal) * 100) : 0
+  const locale = useLocale()
 
   return (
     <Card className="border-0 shadow-sm overflow-hidden">
@@ -441,7 +443,7 @@ function SupplierDebtorCard({ supplier, unpaidPOs, totalOwed, isExpanded, setExp
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{format(new Date(po.created_at), 'dd MMM yyyy', { locale: fr })}</span>
+                  <span>{format(new Date(po.created_at), 'dd MMM yyyy', { locale: dateFnsLocale(locale) })}</span>
                   <span>{t('payments.summary_total', { amount: fmt(po.total_amount) })}</span>
                 </div>
                 {po.amount_paid > 0 && (
@@ -479,6 +481,7 @@ function SupplierDebtorCard({ supplier, unpaidPOs, totalOwed, isExpanded, setExp
 
 export default function CreditsPage() {
   const t = useTranslations()
+  const locale = useLocale()
   const { shop, profile, effectiveShopIds, userShops, roleInActiveShop } = useAuth()
   const isMultiShop = effectiveShopIds.length > 1
   // Règle unique : « Paiements / Crédits » en modification pour encaisser,
@@ -1540,7 +1543,7 @@ export default function CreditsPage() {
             journalLogs.map((log: any) => {
               const meta = log.metadata || {}
               const actor = log.actor_email || '—'
-              const when = new Date(log.created_at).toLocaleString('fr-FR', {
+              const when = new Date(log.created_at).toLocaleString(locale, {
                 day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
               })
               let label = ''
@@ -1826,7 +1829,7 @@ export default function CreditsPage() {
                                 </Badge>
                               </div>
                               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                <span>{format(new Date(sale.created_at), 'dd MMM yyyy', { locale: fr })}</span>
+                                <span>{format(new Date(sale.created_at), 'dd MMM yyyy', { locale: dateFnsLocale(locale) })}</span>
                                 <span>{t('payments.summary_total', { amount: fmt(sale.total) })}</span>
                               </div>
                               {sale.amount_paid > 0 && (
@@ -2088,7 +2091,7 @@ export default function CreditsPage() {
                                 </Badge>
                               </div>
                               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                <span>{format(new Date(po.created_at), 'dd MMM yyyy', { locale: fr })}</span>
+                                <span>{format(new Date(po.created_at), 'dd MMM yyyy', { locale: dateFnsLocale(locale) })}</span>
                                 <span>{t('payments.total_label')} : {fmt(po.total_amount)}</span>
                               </div>
                               {po.amount_paid > 0 && (
@@ -2402,7 +2405,7 @@ export default function CreditsPage() {
                           <Badge variant="outline" className="text-[10px]">{t(`payment.${sale.payment_method}` as any) || sale.payment_method}</Badge>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {format(new Date(sale.created_at), "dd MMM yyyy 'à' HH:mm", { locale: fr })}
+                          {format(new Date(sale.created_at), dateTimePattern(locale), { locale: dateFnsLocale(locale) })}
                           {sale.cashier_name && <> · {t('payments.by_connector')} <strong>{sale.cashier_name}</strong></>}
                         </p>
                         <DebtGauge pct={paidPct} remaining={sale.balance > 0 ? sale.balance : undefined} fmt={fmt} t={t} />
@@ -2476,7 +2479,7 @@ export default function CreditsPage() {
                                       )}
                                     </div>
                                     <p className={cn('text-[11px]', p.is_cancelled ? 'line-through text-muted-foreground' : 'text-muted-foreground')}>
-                                      {format(new Date(p.paid_at), "dd MMM yyyy 'à' HH:mm", { locale: fr })}
+                                      {format(new Date(p.paid_at), dateTimePattern(locale), { locale: dateFnsLocale(locale) })}
                                     </p>
                                     {p.reference && <p className="text-[11px] text-muted-foreground">{t('payments.ref_label')}: {p.reference}</p>}
                                     {p.notes && <p className="text-[11px] text-muted-foreground italic">{p.notes}</p>}
@@ -2565,7 +2568,7 @@ export default function CreditsPage() {
                 <Banknote className="h-4 w-4 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">{fmt(editingPayment.amount)}</p>
                 <span className="text-xs text-muted-foreground">
-                  {format(new Date(editingPayment.paid_at), "dd MMM yyyy 'à' HH:mm", { locale: fr })}
+                  {format(new Date(editingPayment.paid_at), dateTimePattern(locale), { locale: dateFnsLocale(locale) })}
                 </span>
               </div>
 
@@ -2810,7 +2813,7 @@ export default function CreditsPage() {
                               <Badge variant={statusVariant as any} className="text-[10px]">{statusLabel}</Badge>
                             </div>
                             <p className="text-xs text-muted-foreground">
-                              {format(new Date(po.created_at), "dd MMM yyyy", { locale: fr })}
+                              {format(new Date(po.created_at), "dd MMM yyyy", { locale: dateFnsLocale(locale) })}
                             </p>
                             <DebtGauge pct={paidPct} remaining={po.balance > 0 ? po.balance : undefined} fmt={fmt} t={t} />
                           </div>
@@ -2856,7 +2859,7 @@ export default function CreditsPage() {
                                           )}
                                         </div>
                                         <p className="text-[11px] text-muted-foreground">
-                                          {format(new Date(p.paid_at), "dd MMM yyyy 'à' HH:mm", { locale: fr })}
+                                          {format(new Date(p.paid_at), dateTimePattern(locale), { locale: dateFnsLocale(locale) })}
                                         </p>
                                         {p.reference && <p className="text-[11px] text-muted-foreground">{t('payments.ref_label')}: {p.reference}</p>}
                                         {p.notes && <p className="text-[11px] text-muted-foreground italic">{p.notes}</p>}

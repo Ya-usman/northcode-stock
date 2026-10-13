@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
+import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { Banknote, ChevronRight, Edit2, FileText, Mail, MapPin, MessageCircle, Package, Phone, TrendingDown, TrendingUp } from 'lucide-react'
 import { DetailDrawer } from '@/components/ui/detail-drawer'
 import { DrawerSection } from '@/components/ui/app-drawer'
@@ -48,6 +49,7 @@ interface Props {
 
 export function SupplierSheet({ supplier, open, onOpenChange, products, orders, canManage, shopCountry, fmt, onEdit, onNewPo, onOpenPo, onRecordPayment }: Props) {
   const t = useTranslations()
+  const unitLabel = useUnitLabel()
   const locale = useLocale()
 
   const stats = useMemo(() => {
@@ -177,7 +179,7 @@ export function SupplierSheet({ supplier, open, onOpenChange, products, orders, 
                     <span className="truncate text-sm">{p.name}</span>
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
-                    <span className="text-xs text-muted-foreground">{p.quantity} {p.unit}</span>
+                    <span className="text-xs text-muted-foreground">{p.quantity} {unitLabel(p.unit, p.quantity)}</span>
                     <span className="text-sm font-semibold tabular-nums">{fmt(Number(p.buying_price || 0))}</span>
                   </div>
                 </div>

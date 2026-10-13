@@ -17,6 +17,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { RefreshCw } from 'lucide-react'
 import { format, subDays, startOfDay, endOfDay, startOfMonth, endOfMonth, parseISO } from 'date-fns'
 import type { Sale, Product, RevenueDataPoint, TopProduct } from '@/lib/types/database'
+import { computeTopProducts } from '@/lib/dashboard/top-products'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { cn } from '@/lib/utils/cn'
 import { PlanStatusBanner } from '@/components/dashboard/plan-status-banner'
@@ -69,6 +70,8 @@ export default function DashboardPage() {
 
   const [firstLoad, setFirstLoad] = useState(!mountCache && shopIds.length > 0)
   const [refreshing, setRefreshing] = useState(false)
+  // Graphique de la semaine en attente de la route serveur (les chiffres, eux, sont déjà là)
+  const [weekChartPending, setWeekChartPending] = useState(false)
   // navigator.onLine / the browser 'online' event are unreliable (notably in
   // the Capacitor Android WebView) — useOffline() actively verifies instead.
   const { isOnline, pendingCount } = useOffline()
@@ -169,6 +172,12 @@ export default function DashboardPage() {
 
       const weekStartISO = startOfDay(sevenDaysAgo).toISOString()
 
+      // Argent réellement reçu, jour par jour (route serveur, pour le graphique
+      // de la semaine) — pour un vendeur, limité à ses propres ventes. Lancé en
+      // même temps que les lectures ci-dessous mais attendu À PART : les chiffres
+      // ne doivent pas rester gris parce que cette route tarde.
+      const paymentsPromise: Promise<Response | null> = fetch(`/api/dashboard/payments-today?shop_ids=${shopIds.join(',')}&start=${encodeURIComponent(todayStart)}&end=${encodeURIComponent(todayEnd)}&week_start=${encodeURIComponent(weekStartISO)}${isCashier && cashierId ? `&cashier_id=${cashierId}` : ''}`).catch(() => null)
+
       // ── All parallel queries ────────────────────────────────────
       const [
         todaySalesRes,
@@ -176,7 +185,6 @@ export default function DashboardPage() {
         weekSalesRes,
         stockRes,
         todayPaymentsRes,
-        paymentsRes,
         expensesRes,
         monthSalesRes,
         monthGlobalRes,
@@ -205,7 +213,7 @@ export default function DashboardPage() {
         (() => {
           let q = supabase
             .from('sales')
-            .select('id, total, amount_paid, created_at, sale_items(product_id, product_name, quantity, subtotal)')
+            .select('id, shop_id, total, amount_paid, created_at, sale_items(product_id, product_name, quantity, subtotal)')
             .in('shop_id', shopIds)
             .eq('sale_status', 'active')
             .gte('created_at', weekStartISO)
@@ -231,12 +239,6 @@ export default function DashboardPage() {
           .gte('paid_at', todayStart)
           .lte('paid_at', todayEnd)
           .order('paid_at', { ascending: false }),
-
-        // Actual cash received via admin route (for weekly chart) — scoped to
-        // the cashier's own sales when applicable, so their chart attributes
-        // revenue to the day it was actually paid (same accurate method used
-        // for owners/managers), not just the day the sale was created.
-        fetch(`/api/dashboard/payments-today?shop_ids=${shopIds.join(',')}&start=${encodeURIComponent(todayStart)}&end=${encodeURIComponent(todayEnd)}&week_start=${encodeURIComponent(weekStartISO)}${isCashier && cashierId ? `&cashier_id=${cashierId}` : ''}`),
 
         // Month expenses (owner only) — 1st to last day of current month
         !isCashier ? supabase
@@ -296,11 +298,6 @@ export default function DashboardPage() {
       const { data: monthSalesRaw } = monthSalesRes
       const { data: monthGlobalRaw } = monthGlobalRes
 
-      const paymentsApiOk = paymentsRes.ok
-      const paymentsData = paymentsApiOk
-        ? await paymentsRes.json()
-        : { todayTotal: 0, weekPayments: [] as { date: string; amount: number }[] }
-
       // ── Process results ─────────────────────────────────────────
       const outOf = (stockData || []).filter((p: any) => p.quantity === 0) as unknown as Product[]
       const lowSt = (stockData || []).filter((p: any) => p.quantity > 0) as unknown as Product[]
@@ -336,6 +333,37 @@ export default function DashboardPage() {
           remainingBalance: p.sales?.balance !== undefined ? Number(p.sales.balance) : undefined,
         }))
 
+      // Règle commune (lib/dashboard/top-products) : par fiche produit dans une
+      // boutique, et une seule ligne par produit en vue « Toutes les boutiques ».
+      const tops: TopProduct[] = computeTopProducts(weekSales as any)
+
+      // Revenue = sum of amount_paid on today's active sales (consistent with Reports page).
+      // Using salesArr (not payments table) avoids realtime/API race conditions and
+      // matches what the user expects: sales revenue, not total cash flow.
+      const revenue = salesArr.reduce((s: number, sale: any) => s + Number(sale.amount_paid), 0)
+
+      // ── 1. Les chiffres : affichés dès que la base a répondu ──────────────
+      setTodaySalesCount(salesCount)
+      setTodayRevenue(revenue)
+      setRecentSales(salesArr)
+      setRepaymentFeed(repaymentItems)
+      setOutstandingDebt(debt)
+      setTopProducts(tops)
+      setLowStockProducts(lowSt)
+      setOutOfStockProducts(outOf)
+      setMonthExpenses(expensesTotal)
+      setMonthRevenue(monthRevenueTotal)
+      setMonthGlobalRevenue(monthGlobalRevenueTotal)
+      setFirstLoad(false)
+
+      // ── 2. Le graphique de la semaine : dès que la route serveur a répondu ──
+      setWeekChartPending(true)
+      const paymentsRes = await withTimeout(paymentsPromise, 20_000, 'Chargement du graphique trop lent — réessayez.')
+      const paymentsApiOk = !!paymentsRes && paymentsRes.ok
+      const paymentsData = paymentsApiOk
+        ? await paymentsRes!.json()
+        : { todayTotal: 0, weekPayments: [] as { date: string; amount: number }[] }
+
       const last7 = Array.from({ length: 7 }, (_, i) => subDays(today, 6 - i))
       const dayMap: Record<string, { revenue: number; sales: number; repayments: number }> = {}
       last7.forEach(d => { dayMap[format(d, 'yyyy-MM-dd')] = { revenue: 0, sales: 0, repayments: 0 } })
@@ -367,33 +395,14 @@ export default function DashboardPage() {
         })
       }
       const revData: RevenueDataPoint[] = last7.map(d => ({
-        date: format(d, 'EEE'),
+        // Jour abrégé dans la langue de l'écran (« lun. », « Mon ») — jamais un format figé en anglais
+        date: d.toLocaleDateString(locale, { weekday: 'short' }),
         revenue: dayMap[format(d, 'yyyy-MM-dd')].revenue,
         sales: dayMap[format(d, 'yyyy-MM-dd')].sales,
         repayments: dayMap[format(d, 'yyyy-MM-dd')].repayments,
       }))
 
-      // Grouped by product_id (falling back to product_name for free-text items
-      // with no product_id) — grouping by name alone would split a renamed
-      // product's sales across two entries, or merge two different products
-      // that happen to share the same name.
-      const totals: Record<string, TopProduct> = {}
-      ;(weekSales || []).forEach((sale: any) => {
-        ;(sale.sale_items || []).forEach((item: any) => {
-          const key = item.product_id ?? item.product_name
-          if (!totals[key]) totals[key] = { name: item.product_name, quantity: 0, revenue: 0 }
-          totals[key].quantity += Number(item.quantity)
-          totals[key].revenue += Number(item.subtotal)
-        })
-      })
-      const tops = Object.values(totals).sort((a, b) => b.revenue - a.revenue).slice(0, 5)
-
-      // Revenue = sum of amount_paid on today's active sales (consistent with Reports page).
-      // Using salesArr (not payments table) avoids realtime/API race conditions and
-      // matches what the user expects: sales revenue, not total cash flow.
-      const revenue = salesArr.reduce((s: number, sale: any) => s + Number(sale.amount_paid), 0)
-
-      applyDashData(salesCount, revenue, debt, salesArr, repaymentItems, revData, tops, lowSt, outOf, expensesTotal, monthRevenueTotal, monthGlobalRevenueTotal)
+      setRevenueData(revData)
 
       setPageCache<DashCache>(cacheKey, { todaySalesCount: salesCount, todayRevenue: revenue,
         outstandingDebt: debt, recentSales: salesArr, repaymentItems,
@@ -412,6 +421,7 @@ export default function DashboardPage() {
       loadingRef.current = false
       setFirstLoad(false)
       setRefreshing(false)
+      setWeekChartPending(false)
     }
   }, [shopIds.join(','), shop?.low_stock_threshold, applyDashData, roleInActiveShop, profile?.role, profile?.id, isOnline])
 
@@ -700,6 +710,7 @@ export default function DashboardPage() {
           {canAccess('widget_dashboard_revenue_chart') && (
             <RevenueChart
               data={revenueData}
+              loading={weekChartPending}
               shopIds={effectiveShopIds}
               cashierId={isCashierView ? (profile?.id ?? undefined) : undefined}
             />

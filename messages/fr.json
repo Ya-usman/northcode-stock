@@ -681,6 +681,9 @@
     "due_date_label": "Échéance de paiement",
     "due_date_hint": "Date à laquelle le solde restant est attendu — modifiable, jamais obligatoire.",
     "notes_optional_label": "Notes (optionnel)",
+    "debt_repayment_line": "Remboursement de crédit",
+    "list_price_label": "Catalogue",
+    "min_price_badge": "minimum",
     "notes_placeholder": "Remarques sur cette vente…",
     "new_selling_price": "Nouveau prix de vente",
     "pending_invoices_title": "Factures en attente"
@@ -3917,5 +3920,19 @@
       "unsub_invalid_body": "Ce lien de désinscription est incomplet ou a été modifié. Utilisez le lien présent dans l’e-mail reçu.",
       "unsub_open_app": "Ouvrir StockShop"
     }
+  },
+  "unit_labels": {
+    "piece": "{count, plural, one {pièce} other {pièces}}",
+    "kg": "kg",
+    "g": "g",
+    "litre": "{count, plural, one {litre} other {litres}}",
+    "ml": "ml",
+    "pack": "{count, plural, one {paquet} other {paquets}}",
+    "carton": "{count, plural, one {carton} other {cartons}}",
+    "dozen": "{count, plural, one {douzaine} other {douzaines}}",
+    "bag": "{count, plural, one {sac} other {sacs}}",
+    "bottle": "{count, plural, one {bouteille} other {bouteilles}}",
+    "tin": "{count, plural, one {boîte de conserve} other {boîtes de conserve}}",
+    "box": "{count, plural, one {boîte} other {boîtes}}"
   }
 }

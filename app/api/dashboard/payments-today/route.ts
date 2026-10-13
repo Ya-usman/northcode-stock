@@ -1,6 +1,7 @@
 ﻿import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { fetchShopPayments } from '@/lib/dashboard/fetch-rows'
 
 // GET /api/dashboard/payments-today?shop_ids=x,y&start=...&end=...&week_start=...
 // Returns actual cash received today (new sales + debt repayments) for the given shops.
@@ -25,41 +26,30 @@ export async function GET(request: Request) {
 
     const shopIds = shopIdsParam.split(',').filter(Boolean)
 
-    // Verify user has access to ALL requested shops
-    const { data: memberRows } = await supabase
-      .from('shop_members')
-      .select('shop_id')
-      .in('shop_id', shopIds)
-      .eq('user_id', user.id)
-      .eq('is_active', true)
+    const admin = await createAdminClient() as any
+
+    // Contrôle d'accès et lecture lancés ensemble (un aller-retour de moins
+    // vers la base) ; rien n'est renvoyé tant que l'accès n'est pas confirmé.
+    // Paiements de la fenêtre (semaine ou jour) des SEULES boutiques
+    // demandées, hors ventes annulées. cashier_id (facultatif) : ventes d'un
+    // seul vendeur, pour que son graphique suive lui aussi le jour du paiement.
+    const queryStart = weekStart || start
+    const [{ data: memberRows }, payments] = await Promise.all([
+      // Verify user has access to ALL requested shops
+      supabase
+        .from('shop_members')
+        .select('shop_id')
+        .in('shop_id', shopIds)
+        .eq('user_id', user.id)
+        .eq('is_active', true),
+      fetchShopPayments(admin, shopIds, queryStart, end, cashierId),
+    ])
 
     const accessibleShopIds = (memberRows || []).map((r: any) => r.shop_id)
     const unauthorizedShops = shopIds.filter(id => !accessibleShopIds.includes(id))
     if (unauthorizedShops.length > 0) {
       return NextResponse.json({ error: t('shop_access_denied') }, { status: 403 })
     }
-
-    const admin = await createAdminClient() as any
-
-    // Fetch all payments in the full window (week or today)
-    // Exclure les paiements liés à des ventes annulées (sale_status = 'cancelled')
-    // cashier_id (optional): scope to one cashier's own sales, so the weekly
-    // chart attributes revenue to the day it was actually paid, consistently
-    // for cashiers too (not just owners/managers).
-    const queryStart = weekStart || start
-    const { data: paymentsRaw } = await admin
-      .from('payments')
-      .select('amount, paid_at, is_repayment, is_cancelled, is_write_off, sales!inner(shop_id, sale_status, cashier_id)')
-      .gte('paid_at', queryStart)
-      .lte('paid_at', end)
-
-    const payments = (paymentsRaw || []).filter((p: any) =>
-      shopIds.includes(p.sales?.shop_id) &&
-      p.sales?.sale_status !== 'cancelled' &&
-      !p.is_cancelled &&
-      !p.is_write_off &&
-      (!cashierId || p.sales?.cashier_id === cashierId)
-    )
 
     // Today total
     const todayTotal = payments

@@ -20,9 +20,11 @@ interface RevenueChartProps {
   data: RevenueDataPoint[]
   shopIds: string[]
   cashierId?: string
+  /** Semaine pas encore reçue du serveur */
+  loading?: boolean
 }
 
-export function RevenueChart({ data, shopIds, cashierId }: RevenueChartProps) {
+export function RevenueChart({ data, shopIds, cashierId, loading = false }: RevenueChartProps) {
   const t = useTranslations('dashboard')
   const locale = useLocale()
   const { fmt, symbol } = useCurrency()
@@ -48,7 +50,10 @@ export function RevenueChart({ data, shopIds, cashierId }: RevenueChartProps) {
       const res = await withTimeout(fetch(`/api/dashboard/${endpoint}?${params}`))
       if (!res.ok) throw new Error('fetch failed')
       const json = await res.json()
-      setCache(json.data)
+      // Vue « Année » : mois abrégé dans la langue de l'écran (le serveur ne connaît que l'anglais)
+      setCache(next === 'year'
+        ? (json.data || []).map((p: any) => p.month ? { ...p, date: new Date(`${p.month}-15T12:00:00`).toLocaleDateString(locale, { month: 'short' }) } : p)
+        : json.data)
     } catch {
       setPeriodError(true)
     } finally {
@@ -114,7 +119,7 @@ export function RevenueChart({ data, shopIds, cashierId }: RevenueChartProps) {
         </div>
       </CardHeader>
       <CardContent className="pb-2">
-        {period !== 'week' && periodLoading ? (
+        {(period !== 'week' && periodLoading) || (period === 'week' && loading && data.length === 0) ? (
           <div className="flex items-center justify-center" style={{ height: 180 }}>
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
@@ -124,7 +129,8 @@ export function RevenueChart({ data, shopIds, cashierId }: RevenueChartProps) {
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={180}>
-            <AreaChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+            {/* Marge droite : assez de place pour le dernier libellé de l'axe (« lun. », « Mon ») */}
+            <AreaChart data={chartData} margin={{ top: 5, right: 16, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.3} />

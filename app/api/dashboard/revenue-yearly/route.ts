@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { subMonths, startOfMonth, endOfMonth, format } from 'date-fns'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { fetchAllRows, fetchShopPayments } from '@/lib/dashboard/fetch-rows'
 
 // GET /api/dashboard/revenue-yearly?shop_ids=x,y&cashier_id=
 // Monthly revenue for the last 12 months (current month included), for the
@@ -50,30 +51,24 @@ export async function GET(request: Request) {
     const yearStart = startOfMonth(months[0]).toISOString()
     const yearEnd = endOfMonth(today).toISOString()
 
-    let salesQuery = admin
-      .from('sales')
-      .select('id, created_at')
-      .in('shop_id', shopIds)
-      .eq('sale_status', 'active')
-      .gte('created_at', yearStart)
-      .lte('created_at', yearEnd)
-    if (cashierId) salesQuery = salesQuery.eq('cashier_id', cashierId)
+    // Ventes et paiements des seules boutiques demandées, lus en entier
+    // (page par page au-delà de 1000 lignes) — voir lib/dashboard/fetch-rows.
+    const salesQuery = () => {
+      let q = admin
+        .from('sales')
+        .select('id, created_at')
+        .in('shop_id', shopIds)
+        .eq('sale_status', 'active')
+        .gte('created_at', yearStart)
+        .lte('created_at', yearEnd)
+      if (cashierId) q = q.eq('cashier_id', cashierId)
+      return q.order('created_at', { ascending: true }).order('id', { ascending: true })
+    }
 
-    let paymentsQuery = admin
-      .from('payments')
-      .select('amount, paid_at, is_repayment, is_cancelled, is_write_off, sales!inner(shop_id, sale_status, cashier_id)')
-      .gte('paid_at', yearStart)
-      .lte('paid_at', yearEnd)
-
-    const [{ data: salesRaw }, { data: paymentsRaw }] = await Promise.all([salesQuery, paymentsQuery])
-
-    const payments = (paymentsRaw || []).filter((p: any) =>
-      shopIds.includes(p.sales?.shop_id) &&
-      p.sales?.sale_status !== 'cancelled' &&
-      !p.is_cancelled &&
-      !p.is_write_off &&
-      (!cashierId || p.sales?.cashier_id === cashierId)
-    )
+    const [salesRaw, payments] = await Promise.all([
+      fetchAllRows(salesQuery),
+      fetchShopPayments(admin, shopIds, yearStart, yearEnd, cashierId),
+    ])
 
     const monthMap: Record<string, { revenue: number; sales: number; repayments: number }> = {}
     months.forEach(m => { monthMap[format(m, 'yyyy-MM')] = { revenue: 0, sales: 0, repayments: 0 } })
@@ -95,6 +90,8 @@ export async function GET(request: Request) {
       const key = format(m, 'yyyy-MM')
       return {
         date: format(m, 'MMM'),
+        // Clé du mois : le navigateur affiche le libellé dans la langue de l'écran
+        month: key,
         revenue: monthMap[key].revenue,
         sales: monthMap[key].sales,
         repayments: monthMap[key].repayments,

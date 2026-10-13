@@ -3,6 +3,7 @@
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslations } from 'next-intl'
+import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { useState, useRef, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { NumericInput } from '@/components/ui/numeric-input'
@@ -69,6 +70,7 @@ export function ProductForm({
   defaultValues, sessionCount, initialPhoto, productId, startDirty = false, onSubmit, onStateChange,
 }: ProductFormProps) {
   const t = useTranslations()
+  const unitLabel = useUnitLabel()
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
@@ -310,7 +312,7 @@ export function ProductForm({
             <Select value={unit} onValueChange={v => form.setValue('unit', v, { shouldDirty: true })}>
               <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {UNITS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                {UNITS.map(u => <SelectItem key={u} value={u}>{unitLabel(u, 1)}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -318,7 +320,7 @@ export function ProductForm({
             <div className="space-y-1.5">
               <Label>{t('product_form.initial_stock')}<RequiredMark /></Label>
               <Controller control={form.control} name="quantity" render={({ field }) => (
-                <InputGroup suffix={unit}>
+                <InputGroup suffix={unitLabel(unit, Number(field.value) || 2)}>
                   <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" currency={currency} className="h-10" aria-invalid={!!errors.quantity} />
                 </InputGroup>
               )} />

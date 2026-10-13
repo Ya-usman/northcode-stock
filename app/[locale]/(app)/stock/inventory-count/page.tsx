@@ -4,8 +4,9 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { startNavigationProgress } from '@/components/layout/navigation-progress'
 import { useTranslations } from 'next-intl'
+import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { format } from 'date-fns'
-import { fr } from 'date-fns/locale'
+import { dateFnsLocale } from '@/lib/i18n/date-format'
 import { Search, ClipboardCheck, AlertTriangle } from 'lucide-react'
 import { StockTabs } from '@/components/stock/stock-tabs'
 import { createClient } from '@/lib/supabase/client'
@@ -45,6 +46,7 @@ interface DiffRow {
 export default function InventoryCountPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('inventoryCount')
   const tProducts = useTranslations('products')
+  const unitLabel = useUnitLabel()
   const router = useRouter()
   const { shop, profile, roleInActiveShop } = useAuth()
   const { canAccess } = useRolePermissions()
@@ -139,7 +141,7 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
     ? format(
         new Date(previousSession.countedAt),
         new Date(previousSession.countedAt).getFullYear() === new Date().getFullYear() ? 'd MMM' : 'd MMM yyyy',
-        { locale: fr }
+        { locale: dateFnsLocale(locale) }
       )
     : ''
 
@@ -243,10 +245,10 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
               <div key={p.id} className={`flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5 ${hasDiff ? 'border-amber-300 dark:border-amber-700' : ''}`}>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium truncate">{p.name}</p>
-                  <p className="text-xs text-muted-foreground">{t('theoretical_label')}: {p.quantity} {p.unit}</p>
+                  <p className="text-xs text-muted-foreground">{t('theoretical_label')}: {p.quantity} {unitLabel(p.unit, p.quantity)}</p>
                   {prev && (
                     <p className="text-xs text-muted-foreground/70">
-                      {t('previous_count_label')}: {prev.countedQty} {p.unit}
+                      {t('previous_count_label')}: {prev.countedQty} {unitLabel(p.unit, prev.countedQty)}
                       {prevVariance !== 0 && (
                         <span className={prevVariance > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
                           {' '}({prevVariance > 0 ? '+' : ''}{prevVariance}{prev.reasonLabel ? `, ${prev.reasonLabel}` : ''})

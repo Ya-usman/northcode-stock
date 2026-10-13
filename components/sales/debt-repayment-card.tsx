@@ -109,10 +109,10 @@ function DebtRepaymentCardImpl({
             {debtAmt > 0 && (
               <div className="rounded-lg bg-card border border-orange-200 p-3 space-y-1 text-sm dark:border-orange-900/60">
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Vente</span><span>{fmt(saleTotal)}</span>
+                  <span>{t('sales.sale_label')}</span><span>{fmt(saleTotal)}</span>
                 </div>
                 <div className="flex justify-between text-orange-700 dark:text-orange-300">
-                  <span>Remboursement crédit</span><span>+{fmt(debtAmt)}</span>
+                  <span>{t('sales.debt_repayment_line')}</span><span>+{fmt(debtAmt)}</span>
                 </div>
                 <div className="flex justify-between font-bold border-t pt-1">
                   <span>{t('sales.total_to_collect')}</span>

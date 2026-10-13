@@ -6,6 +6,7 @@ import { startNavigationProgress } from '@/components/layout/navigation-progress
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
+import { useUnitLabel } from '@/lib/products/use-unit-label'
 import type { ProductFieldError } from '@/components/stock/product-form'
 import dynamic from 'next/dynamic'
 import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag, CalendarClock, ShoppingCart, X, LayoutGrid, List, SlidersHorizontal, ChevronDown, MoreHorizontal, Zap, Columns3, FileSpreadsheet } from 'lucide-react'
@@ -78,6 +79,7 @@ function StockBadge({ quantity, threshold }: { quantity: number; threshold: numb
 
 export default function StockPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations()
+  const unitLabelFor = useUnitLabel()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -1079,7 +1081,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                     onClick={e => { e.stopPropagation(); openProductBatches(product) }}
                     className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 hover:opacity-80"
                   >
-                    {t('products.expiring_badge', { date: new Date(expiry!).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) })}
+                    {t('products.expiring_badge', { date: new Date(expiry!).toLocaleDateString(locale, { day: 'numeric', month: 'short' }) })}
                   </button>
                 )}
               </div>
@@ -1101,14 +1103,14 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           )}
         </div>
         {!selectionMode && (
-          <div className="flex items-center justify-between">
-            <span className="text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
+            <span className="whitespace-nowrap text-sm">
               <span className={`font-bold ${product.quantity === 0 ? 'text-red-500' : product.quantity <= threshold ? 'text-amber-500' : 'text-green-600 dark:text-green-400'}`}>
                 {product.quantity}
               </span>{' '}
-              <span className="text-muted-foreground text-xs">{product.unit}s</span>
+              <span className="text-muted-foreground text-xs">{unitLabelFor(product.unit, product.quantity)}</span>
             </span>
-            <div className="flex gap-1">
+            <div className="ml-auto flex gap-1">
               {canOrderStock && product.quantity <= threshold && (
                 <Button
                   variant="outline" size="sm" className="h-7 px-2 text-xs"
@@ -1163,12 +1165,12 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           </div>
         )}
         {selectionMode && (
-          <div className="flex items-center justify-between">
-            <span className="text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
+            <span className="whitespace-nowrap text-sm">
               <span className={`font-bold ${product.quantity === 0 ? 'text-red-500' : product.quantity <= threshold ? 'text-amber-500' : 'text-green-600 dark:text-green-400'}`}>
                 {product.quantity}
               </span>{' '}
-              <span className="text-muted-foreground text-xs">{product.unit}s</span>
+              <span className="text-muted-foreground text-xs">{unitLabelFor(product.unit, product.quantity)}</span>
             </span>
           </div>
         )}
@@ -1634,7 +1636,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                   <p className="text-sm font-medium text-muted-foreground truncate">{product.name}</p>
                   {(product as any).updated_at && (
                     <p className="text-[11px] text-muted-foreground/70">
-                      {t('products.archived_on', { date: new Date((product as any).updated_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) })}
+                      {t('products.archived_on', { date: new Date((product as any).updated_at).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }) })}
                     </p>
                   )}
                 </div>
@@ -1883,7 +1885,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                   {t('products.promo_batch_hint', {
                     quantity: promoBatch.quantity,
                     date: promoBatch.expiry_date
-                      ? new Date(promoBatch.expiry_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+                      ? new Date(promoBatch.expiry_date).toLocaleDateString(locale, { day: 'numeric', month: 'short' })
                       : t('products.no_expiry_date'),
                   })}
                 </div>
@@ -2021,7 +2023,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                       <div key={b.id} className="rounded-lg border bg-card px-3 py-2.5 space-y-1">
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-sm font-semibold flex items-center gap-1">
-                            {b.quantity} {batchesProduct.unit}
+                            {b.quantity} {unitLabelFor(batchesProduct.unit, b.quantity)}
                             {canWriteStock && (
                               <button
                                 className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-stockshop-blue dark:hover:text-blue-400"
@@ -2067,12 +2069,12 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                         </div>
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <span>{t('products.cost_label')}: {formatNaira(b.buying_price)}</span>
-                          <span>{t('products.received_on')}: {new Date(b.received_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                          <span>{t('products.received_on')}: {new Date(b.received_at).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                         </div>
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {b.expiry_date ? (
                             <span className={`text-[10px] font-semibold rounded-full px-1.5 py-0.5 ${isExpired ? 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400' : 'bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400'}`}>
-                              {isExpired ? t('products.expired_badge') : t('products.expiring_badge', { date: new Date(b.expiry_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) })}
+                              {isExpired ? t('products.expired_badge') : t('products.expiring_badge', { date: new Date(b.expiry_date).toLocaleDateString(locale, { day: 'numeric', month: 'short' }) })}
                             </span>
                           ) : (
                             <span className="text-[10px] text-muted-foreground">{t('products.no_expiry_date')}</span>

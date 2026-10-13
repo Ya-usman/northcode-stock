@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { startOfMonth, endOfMonth, eachDayOfInterval, format } from 'date-fns'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { fetchAllRows, fetchShopPayments } from '@/lib/dashboard/fetch-rows'
 
 // GET /api/dashboard/revenue-monthly?shop_ids=x,y&cashier_id=
 // Daily revenue for the current calendar month, for the "Mois" view of the
@@ -48,30 +49,24 @@ export async function GET(request: Request) {
     const monthEnd = endOfMonth(today)
     const days = eachDayOfInterval({ start: monthStart, end: monthEnd })
 
-    let salesQuery = admin
-      .from('sales')
-      .select('id, created_at')
-      .in('shop_id', shopIds)
-      .eq('sale_status', 'active')
-      .gte('created_at', monthStart.toISOString())
-      .lte('created_at', monthEnd.toISOString())
-    if (cashierId) salesQuery = salesQuery.eq('cashier_id', cashierId)
+    // Ventes et paiements des seules boutiques demandées, lus en entier
+    // (page par page au-delà de 1000 lignes) — voir lib/dashboard/fetch-rows.
+    const salesQuery = () => {
+      let q = admin
+        .from('sales')
+        .select('id, created_at')
+        .in('shop_id', shopIds)
+        .eq('sale_status', 'active')
+        .gte('created_at', monthStart.toISOString())
+        .lte('created_at', monthEnd.toISOString())
+      if (cashierId) q = q.eq('cashier_id', cashierId)
+      return q.order('created_at', { ascending: true }).order('id', { ascending: true })
+    }
 
-    let paymentsQuery = admin
-      .from('payments')
-      .select('amount, paid_at, is_repayment, is_cancelled, is_write_off, sales!inner(shop_id, sale_status, cashier_id)')
-      .gte('paid_at', monthStart.toISOString())
-      .lte('paid_at', monthEnd.toISOString())
-
-    const [{ data: salesRaw }, { data: paymentsRaw }] = await Promise.all([salesQuery, paymentsQuery])
-
-    const payments = (paymentsRaw || []).filter((p: any) =>
-      shopIds.includes(p.sales?.shop_id) &&
-      p.sales?.sale_status !== 'cancelled' &&
-      !p.is_cancelled &&
-      !p.is_write_off &&
-      (!cashierId || p.sales?.cashier_id === cashierId)
-    )
+    const [salesRaw, payments] = await Promise.all([
+      fetchAllRows(salesQuery),
+      fetchShopPayments(admin, shopIds, monthStart.toISOString(), monthEnd.toISOString(), cashierId),
+    ])
 
     const dayMap: Record<string, { revenue: number; sales: number; repayments: number }> = {}
     days.forEach(d => { dayMap[format(d, 'yyyy-MM-dd')] = { revenue: 0, sales: 0, repayments: 0 } })

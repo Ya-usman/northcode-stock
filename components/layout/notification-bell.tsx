@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Bell } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import { fr } from 'date-fns/locale'
+import { useLocale } from 'next-intl'
+import { dateFnsLocale } from '@/lib/i18n/date-format'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuTrigger,
@@ -33,6 +34,7 @@ const TYPE_DOT: Record<AdminNotification['type'], string> = {
 // lire admin_notifications, voir migration 039) : un message concerne la
 // boutique/le compte, pas une tâche d'un membre de l'équipe.
 export function NotificationBell() {
+  const locale = useLocale()
   const { activeShop, roleInActiveShop } = useAuthContext()
   const { toast } = useToast()
   const [items, setItems] = useState<AdminNotification[]>([])
@@ -117,7 +119,7 @@ export function NotificationBell() {
                   <p className="text-sm font-medium text-foreground">{n.title}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">{n.message}</p>
                   <p className="text-[10px] text-muted-foreground/70 mt-1">
-                    {formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: fr })}
+                    {formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: dateFnsLocale(locale) })}
                   </p>
                 </div>
               </div>

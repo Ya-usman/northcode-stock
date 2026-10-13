@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
+import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { Search, Plus, X, ArrowRight, Package, Download, Share2, Mail, Copy, Ban, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react'
 import { isCapacitor } from '@/lib/utils/native-share'
 import { createClient } from '@/lib/supabase/client'
@@ -42,6 +43,8 @@ const supabase = createClient() as any
 // plus large, pas une destination de navigation autonome).
 export function StockTransfersTab() {
   const t = useTranslations()
+  const locale = useLocale()
+  const unitLabel = useUnitLabel()
   const { shop, userShops, roleInActiveShop, profile } = useAuth()
   const { isOnline } = useOffline()
   const { toast } = useToast()
@@ -267,16 +270,16 @@ export function StockTransfersTab() {
       sourceShopName: tr.source_shop_name || shopName(tr.source_shop_id),
       destinationShopName: tr.destination_shop_name || shopName(tr.destination_shop_id),
       reference: tr.reference,
-      dateStr: new Date(tr.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
+      dateStr: new Date(tr.created_at).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' }),
       notes: tr.notes,
-      items: (tr.stock_transfer_items || []).map((it: any) => ({ name: it.product_name, quantity: it.quantity_sent, unit: it.unit || '' })),
+      items: (tr.stock_transfer_items || []).map((it: any) => ({ name: it.product_name, quantity: it.quantity_sent, unit: unitLabel(it.unit, it.quantity_sent) })),
     })
   }
 
   const buildTransferEmailContent = (tr: any) => {
     const items = tr.stock_transfer_items || []
     const subject = t('stock_transfers.email_subject', { reference: tr.reference, source: tr.source_shop_name, destination: tr.destination_shop_name })
-    const lines = items.map((it: any) => `- ${it.product_name} : ${it.quantity_sent} ${it.unit || ''}`.trim())
+    const lines = items.map((it: any) => `- ${it.product_name} : ${it.quantity_sent} ${unitLabel(it.unit, it.quantity_sent)}`.trim())
     const body = [
       t('stock_transfers.email_greeting'),
       '',
@@ -359,7 +362,7 @@ export function StockTransfersTab() {
                       <span>· {t('transfers.items_count', { count: itemCount })}</span>
                     </p>
                     <p className="text-[11px] text-muted-foreground/70 mt-0.5">
-                      {new Date(tr.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {new Date(tr.created_at).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })}
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
@@ -389,7 +392,7 @@ export function StockTransfersTab() {
                             <div className="flex items-center justify-between gap-2">
                               <span className="truncate">{it.product_name}</span>
                               <span className={`tabular-nums shrink-0 ${hasDiscrepancy ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-muted-foreground'}`}>
-                                {it.quantity_received != null ? `${it.quantity_received} / ${it.quantity_sent}` : `${it.quantity_sent}`} {it.unit || ''}
+                                {it.quantity_received != null ? `${it.quantity_received} / ${it.quantity_sent}` : `${it.quantity_sent}`} {unitLabel(it.unit, it.quantity_sent)}
                               </span>
                             </div>
                             {hasDiscrepancy && (
@@ -513,7 +516,7 @@ export function StockTransfersTab() {
                     <div key={it.product_id} className="flex items-center gap-2 rounded-lg border bg-card px-2.5 py-2">
                       <div className="min-w-0 flex-1">
                         <p className="text-sm truncate">{it.name}</p>
-                        <p className="text-[11px] text-muted-foreground">{t('transfers.available_short')}: {it.available} {it.unit}</p>
+                        <p className="text-[11px] text-muted-foreground">{t('transfers.available_short')}: {it.available} {unitLabel(it.unit, it.available)}</p>
                       </div>
                       <Input
                         type="number" min={1} max={it.available} inputMode="numeric"
@@ -577,7 +580,7 @@ export function StockTransfersTab() {
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <p className="text-sm truncate">{item.product_name}</p>
-                          <p className="text-[11px] text-muted-foreground">{t('transfers.sent_label')}: {item.quantity_sent} {item.unit || ''}</p>
+                          <p className="text-[11px] text-muted-foreground">{t('transfers.sent_label')}: {item.quantity_sent} {unitLabel(item.unit, item.quantity_sent)}</p>
                         </div>
                         <Input
                           type="number" min={0} inputMode="numeric"
