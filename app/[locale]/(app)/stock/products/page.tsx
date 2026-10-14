@@ -205,6 +205,14 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   // Vue cartes / tableau (choix mémorisé) et tri du tableau (idem)
   const [viewMode, setViewMode] = useStockViewMode()
+  const [narrow, setNarrow] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)')
+    const update = () => setNarrow(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
   const [tableSort, setTableSort] = useState<ProductSort>(() => {
     try {
       const raw = typeof window !== 'undefined' ? localStorage.getItem('stock_table_sort') : null
@@ -1181,108 +1189,98 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           </div>
           <StockBadge quantity={cardAvailable} threshold={threshold} />
         </div>
-        <div className="flex items-center justify-between text-sm">
+        {/* Prix à gauche, disponible à droite : l'état du produit se lit sur une ligne */}
+        <div className="flex items-baseline justify-between gap-3 text-sm">
           {promoActive ? (
-            <span className="flex items-center gap-1.5">
+            <span className="flex min-w-0 items-baseline gap-1.5">
               <span className="font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(product.promo_price!)}</span>
               <span className="text-xs text-muted-foreground line-through">{formatNaira(product.selling_price)}</span>
             </span>
           ) : (
             <span className="font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(product.selling_price)}</span>
           )}
-          {canViewCost && product.buying_price != null && (
-            <span className="text-xs text-muted-foreground">{t('products.cost_label')}: {formatNaira(product.buying_price)}</span>
-          )}
+          <span className="whitespace-nowrap" data-card-qty>
+            <span className={`font-bold ${cardAvailable === 0 ? 'text-red-500' : cardAvailable <= threshold ? 'text-amber-500' : 'text-green-600 dark:text-green-400'}`}>
+              {cardAvailable}
+            </span>{' '}
+            <span className="text-muted-foreground text-xs">{unitLabelFor(product.unit, cardAvailable)}</span>
+          </span>
         </div>
+        {/* Précisions de stock : seulement quand il y en a (périmés, réservés, à venir) */}
         {(() => {
           const inc = pipelineFor(product)
-          if (!inc.inTransit && !inc.onOrder) return null
+          if (!cardExpired && !cardReserved && !inc.inTransit && !inc.onOrder) return null
           return (
-            <p className="flex flex-wrap gap-x-2 text-xs font-medium text-stockshop-blue dark:text-blue-400">
-              {!!inc.inTransit && <span title={t('products.in_transit_hint')}>{t('products.incoming_transit', { count: inc.inTransit })}</span>}
-              {!!inc.onOrder && <span title={t('products.on_order_hint')}>{t('products.incoming_order', { count: inc.onOrder })}</span>}
+            <p className="flex flex-wrap justify-end gap-x-2 text-xs font-medium" data-card-notes>
+              {cardExpired > 0 && <span className="text-red-600 dark:text-red-400" title={t('products.expired_qty_hint')}>{t('products.expired_qty', { count: cardExpired })}</span>}
+              {cardReserved > 0 && <span className="text-stockshop-blue dark:text-blue-400" title={t('products.reserved_hint')}>{t('products.reserved_qty', { count: cardReserved })}</span>}
+              {!!inc.inTransit && <span className="text-stockshop-blue dark:text-blue-400" title={t('products.in_transit_hint')}>{t('products.incoming_transit', { count: inc.inTransit })}</span>}
+              {!!inc.onOrder && <span className="text-stockshop-blue dark:text-blue-400" title={t('products.on_order_hint')}>{t('products.incoming_order', { count: inc.onOrder })}</span>}
             </p>
           )
         })()}
-        {!selectionMode && (
-          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
-            <span className="whitespace-nowrap text-sm">
-              <span className={`font-bold ${cardAvailable === 0 ? 'text-red-500' : cardAvailable <= threshold ? 'text-amber-500' : 'text-green-600 dark:text-green-400'}`}>
-                {cardAvailable}
-              </span>{' '}
-              <span className="text-muted-foreground text-xs">{unitLabelFor(product.unit, cardAvailable)}</span>
-              {cardExpired > 0 && <span className="ml-1.5 text-xs font-medium text-red-600 dark:text-red-400" title={t('products.expired_qty_hint')}>{t('products.expired_qty', { count: cardExpired })}</span>}
-              {cardReserved > 0 && <span className="ml-1.5 text-xs font-medium text-stockshop-blue dark:text-blue-400" title={t('products.reserved_hint')}>{t('products.reserved_qty', { count: cardReserved })}</span>}
-            </span>
-            {/* Avec « Commander » (stock bas ou rupture) la rangée dépassait la carte sur téléphone : elle passe alors sur deux lignes */}
-            <div className={`ml-auto flex gap-1 ${canOrderStock && cardAvailable <= threshold ? 'flex-wrap justify-end' : ''}`}>
-              {canOrderStock && cardAvailable <= threshold && (
-                <Button
-                  variant="outline" size="sm" className="h-7 px-2 text-xs"
-                  onClick={() => { const href = `/${locale}/suppliers?order_product=${product.id}`; startNavigationProgress(href); router.push(href) }}
-                >
-                  <ShoppingCart className="h-3 w-3 mr-1" />
-                  {t('actions.order')}
-                </Button>
-              )}
-              {canWriteStock && (
-                <Button
-                  variant="outline" size="sm" className="h-7 px-2 text-xs"
-                  disabled={saving}
-                  onClick={() => { setEditingProduct(null); setShowAddModal(false); setRestockProduct(product); restockForm.reset({ product_id: product.id, quantity: 1 }); setShowRestockModal(true) }}
-                >
-                  <ArrowDown className="h-3 w-3 mr-1" />
-                  {t('actions.restock')}
-                </Button>
-              )}
-              {canWriteStock && (
-                <Button variant="outline" size="sm" className="h-7 px-2" disabled={saving} onClick={() => { setShowAddModal(false); setShowRestockModal(false); setEditingProduct(product) }}>
-                  <Edit2 className="h-3 w-3" />
-                </Button>
-              )}
-              {canWriteStock && (() => {
-                const suggestion = !promoActive ? suggestPromo(product) : null
-                const stale = promoActive && promoStale(product)
-                return (
-                  <Button
-                    variant="outline" size="sm"
-                    className={`h-7 px-2 ${stale ? 'text-red-600 dark:text-red-400 border-red-300 dark:border-red-700' : promoActive ? 'text-stockshop-blue dark:text-blue-400 border-stockshop-blue/20 dark:border-blue-800' : suggestion ? 'text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-700' : ''}`}
-                    disabled={saving}
-                    title={stale ? t('products.promo_stale_hint') : suggestion ? suggestion.reason : t('products.promo_action')}
-                    onClick={() => openPromoDialog(product)}
-                  >
-                    <Tag className="h-3 w-3" />
-                  </Button>
-                )
-              })()}
-              <Button
-                variant="outline" size="sm" className="h-7 px-2"
-                disabled={saving}
-                title={t('products.view_batches')}
-                onClick={() => openProductBatches(product)}
-              >
-                <History className="h-3 w-3" />
-              </Button>
-              {fullStock && (
-                <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-amber-600 dark:hover:text-amber-400" disabled={saving} title={t('products.archive_label')} onClick={() => setArchiveConfirmProduct(product)}>
-                  <Archive className="h-3 w-3" />
-                </Button>
+        {/* Dernière ligne, seulement si elle a un contenu : le coût (droit de voir les coûts) et les actions.
+            UNE action visible — Réapprovisionner ; les autres sont dans « … » et dans la fiche du produit. */}
+        {(() => {
+          const showCost = canViewCost && product.buying_price != null
+          const low = cardAvailable <= threshold
+          const hasActions = !selectionMode && (canWriteStock || fullStock || (canOrderStock && low))
+          if (!showCost && !hasActions) return null
+          return (
+            <div className="flex items-center justify-between gap-2" data-card-footer>
+              {showCost ? <span className="min-w-0 truncate text-xs text-muted-foreground" data-card-cost>{t('products.cost_label')}: {formatNaira(product.buying_price!)}</span> : <span />}
+              {hasActions && (
+                <div className="flex shrink-0 items-center gap-1">
+                  {canWriteStock && (
+                    <Button
+                      variant="outline" size="sm" className="h-8 px-2.5 text-xs"
+                      disabled={saving}
+                      data-card-restock
+                      onClick={() => { setEditingProduct(null); setShowAddModal(false); setRestockProduct(product); restockForm.reset({ product_id: product.id, quantity: 1 }); setShowRestockModal(true) }}
+                    >
+                      <ArrowDown className="h-3.5 w-3.5 mr-1" />
+                      {t('actions.restock')}
+                    </Button>
+                  )}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground" disabled={saving} title={t('products.more_actions')} data-card-menu>
+                        <MoreHorizontal className="h-4 w-4" />
+                        <span className="sr-only">{t('products.more_actions')}</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="min-w-[200px]">
+                      {canOrderStock && low && (
+                        <DropdownMenuItem onClick={() => { const href = `/${locale}/suppliers?order_product=${product.id}`; startNavigationProgress(href); router.push(href) }}>
+                          <ShoppingCart className="mr-2 h-4 w-4" /> {t('actions.order')}
+                        </DropdownMenuItem>
+                      )}
+                      {canWriteStock && (
+                        <DropdownMenuItem onClick={() => { setShowAddModal(false); setShowRestockModal(false); setEditingProduct(product) }}>
+                          <Edit2 className="mr-2 h-4 w-4" /> {t('actions.edit')}
+                        </DropdownMenuItem>
+                      )}
+                      {canWriteStock && (
+                        <DropdownMenuItem onClick={() => openPromoDialog(product)} data-card-promo>
+                          <Tag className="mr-2 h-4 w-4" /> {t('products.promo_action')}
+                          {!promoActive && suggestPromo(product) && <span className="ml-auto pl-3 text-[11px] font-medium text-amber-600 dark:text-amber-400" data-promo-suggested>{t('products.promo_suggested_tag')}</span>}
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={() => openProductBatches(product)}>
+                        <History className="mr-2 h-4 w-4" /> {t('products.view_batches')}
+                      </DropdownMenuItem>
+                      {fullStock && (
+                        <DropdownMenuItem onClick={() => setArchiveConfirmProduct(product)} className="text-amber-700 focus:text-amber-700 dark:text-amber-400 dark:focus:text-amber-400">
+                          <Archive className="mr-2 h-4 w-4" /> {t('products.archive_label')}
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               )}
             </div>
-          </div>
-        )}
-        {selectionMode && (
-          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
-            <span className="whitespace-nowrap text-sm">
-              <span className={`font-bold ${cardAvailable === 0 ? 'text-red-500' : cardAvailable <= threshold ? 'text-amber-500' : 'text-green-600 dark:text-green-400'}`}>
-                {cardAvailable}
-              </span>{' '}
-              <span className="text-muted-foreground text-xs">{unitLabelFor(product.unit, cardAvailable)}</span>
-              {cardExpired > 0 && <span className="ml-1.5 text-xs font-medium text-red-600 dark:text-red-400" title={t('products.expired_qty_hint')}>{t('products.expired_qty', { count: cardExpired })}</span>}
-              {cardReserved > 0 && <span className="ml-1.5 text-xs font-medium text-stockshop-blue dark:text-blue-400" title={t('products.reserved_hint')}>{t('products.reserved_qty', { count: cardReserved })}</span>}
-            </span>
-          </div>
-        )}
+          )
+        })()}
       </div>
     )
   }
@@ -1402,115 +1400,23 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       <StockTabs locale={locale} />
 
       <>
-      {/* Barre : recherche et filtres à gauche, actions regroupées en menus à
-          droite (une seule action principale « Ajouter »). Les filtres
-          secondaires (fournisseur, hygiène du catalogue) vivent sous
-          « Plus de filtres » pour garder la ligne légère. */}
-      <div className="flex flex-col gap-2 xl:flex-row xl:items-start xl:justify-between">
+      {/* Zone du haut, du plus important au moins important :
+            1. la recherche et « Ajouter » (seule action pleine) ;
+            2. les filtres courants (catégorie, statut), « Plus de filtres », et le menu « … » des actions
+               occasionnelles (export, sélection, journal) ;
+            3. le compteur, avec la bascule cartes / liste et les colonnes du tableau.
+          Trois rangées sur téléphone, une ligne et demie sur ordinateur. La boutique n'est pas un filtre de cette
+          page : c'est le sélecteur de l'en-tête. */}
+      <div className="space-y-2" data-testid="products-toolbar">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative w-full sm:w-72">
+          <div className="relative order-1 min-w-0 flex-1 basis-40 xl:w-72 xl:flex-none xl:basis-auto">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={search} onChange={e => setFilter({ search: e.target.value })} placeholder={t('products.search_placeholder')} className="h-9 pl-9" aria-label={t('products.search_placeholder')} />
+            <Input value={search} onChange={e => setFilter({ search: e.target.value })} placeholder={narrow ? t('products.search_placeholder_short') : t('products.search_placeholder')} className="h-9 pl-9" aria-label={t('products.search_placeholder')} />
           </div>
-          <Select value={categoryFilter} onValueChange={v => setFilter({ categoryFilter: v })}>
-            <SelectTrigger className="h-9 w-auto min-w-[150px] gap-1" aria-label={t('products.category')}><SelectValue placeholder={t('products.all_categories')} /></SelectTrigger>
-            <SelectContent className="max-h-80">
-              <SelectItem value="all">{t('products.all_categories')}</SelectItem>
-              {products.some(p => !p.category_id) && (
-                <SelectItem value="uncategorized">
-                  {t('categories.uncategorized')} ({products.filter(p => !p.category_id).length})
-                </SelectItem>
-              )}
-              {categories.map(c => (
-                <SelectItem key={c.id} value={c.id}>
-                  <span className="flex items-center gap-1.5">
-                    {c.color && <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.color }} />}
-                    {c.name}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={statusFilter} onValueChange={v => setFilter({ statusFilter: v })}>
-            <SelectTrigger className="h-9 w-auto min-w-[140px] gap-1" aria-label={t('products.status_label')}><SelectValue placeholder={t('products.all_statuses')} /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('products.all_statuses')}</SelectItem>
-              <SelectItem value="ok">{t('status.in_stock')}</SelectItem>
-              <SelectItem value="low">{t('status.low_stock')}</SelectItem>
-              <SelectItem value="out">{t('status.out_of_stock')}</SelectItem>
-              <SelectItem value="expiry">{t('products.card_expiry')}</SelectItem>
-              <SelectItem value="dormant">{t('products.card_dormant')}</SelectItem>
-              <SelectItem value="promo">{t('products.promo_badge')}</SelectItem>
-              {fullStock && (
-                <SelectItem value="archived">
-                  <span className="flex items-center gap-1.5"><Archive className="h-3 w-3" /> {t('products.tab_archived')}{archivedProducts.length > 0 ? ` (${archivedProducts.length})` : ''}</span>
-                </SelectItem>
-              )}
-            </SelectContent>
-          </Select>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 gap-1.5">
-                <SlidersHorizontal className="h-3.5 w-3.5" />
-                {t('products.more_filters')}
-                {extraFilterCount > 0 && (
-                  <span className="rounded-full bg-stockshop-blue px-1.5 text-[11px] font-semibold leading-5 text-white">{extraFilterCount}</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-72 space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">{t('products.filter_supplier')}</Label>
-                <Select value={supplierFilter} onValueChange={v => setFilter({ supplierFilter: v })}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder={t('products.all_suppliers')} /></SelectTrigger>
-                  <SelectContent className="max-h-72">
-                    <SelectItem value="all">{t('products.all_suppliers')}</SelectItem>
-                    {suppliers.filter((s: any) => effectiveShopIds.includes(s.shop_id)).map(s => (
-                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
-                <input type="checkbox" className="h-4 w-4 rounded accent-stockshop-blue" checked={noSku} onChange={e => setFilter({ noSku: e.target.checked })} />
-                {t('products.filter_no_sku')}
-              </label>
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
-                <input type="checkbox" className="h-4 w-4 rounded accent-stockshop-blue" checked={noImage} onChange={e => setFilter({ noImage: e.target.checked })} />
-                {t('products.filter_no_image')}
-              </label>
-            </PopoverContent>
-          </Popover>
-          {anyFilterActive && (
-            <button type="button" onClick={resetFilters} className="text-xs text-muted-foreground underline hover:text-foreground">
-              {t('products.reset_filters')}
-            </button>
-          )}
-        </div>
-
-        {/* Actions sur une seule ligne, à côté des filtres, à partir de 1280 px seulement : en dessous
-            (tablette en paysage comprise) elles passent sous les filtres au lieu de sortir de l'écran */}
-        <div className="flex flex-wrap items-center gap-2 xl:shrink-0 xl:flex-nowrap">
           {canWriteStock && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9 gap-1.5">
-                  <FileDown className="h-3.5 w-3.5" />
-                  {t('products.import_export')}
-                  <ChevronDown className="h-3.5 w-3.5 opacity-60" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-[210px]">
-                <DropdownMenuItem onClick={() => setShowImportModal(true)}><Upload className="mr-2 h-4 w-4" /> {t('products.import_csv')}</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportProducts('xlsx')} data-testid="export-xlsx"><FileSpreadsheet className="mr-2 h-4 w-4" /> {t('exports.excel')}</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportProducts('csv')} data-testid="export-csv"><FileDown className="mr-2 h-4 w-4" /> {t('exports.csv')}</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          {canWriteStock && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="stockshop" size="sm" className="h-9 gap-1.5" disabled={saving} data-tour="add-product-menu">
+                <Button variant="stockshop" size="sm" className="order-2 h-9 shrink-0 gap-1.5 xl:order-last" disabled={saving} data-tour="add-product-menu">
                   <Plus className="h-4 w-4" />
                   {t('products.add_menu')}
                   <ChevronDown className="h-3.5 w-3.5 opacity-70" />
@@ -1525,92 +1431,181 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          {/* Cartes / tableau */}
-          <div className="flex h-9 rounded-lg border bg-muted/30 p-0.5" role="group" aria-label={t('products.view_label')}>
-            <button
-              type="button"
-              onClick={() => setViewMode('cards')}
-              aria-pressed={viewMode === 'cards'}
-              title={t('products.view_cards')}
-              className={`flex h-full w-8 items-center justify-center rounded-md transition-colors ${viewMode === 'cards' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              <LayoutGrid className="h-4 w-4" />
-              <span className="sr-only">{t('products.view_cards')}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('table')}
-              aria-pressed={viewMode === 'table'}
-              title={t('products.view_table')}
-              className={`flex h-full w-8 items-center justify-center rounded-md transition-colors ${viewMode === 'table' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              <List className="h-4 w-4" />
-              <span className="sr-only">{t('products.view_table')}</span>
-            </button>
-          </div>
-          {/* Colonnes optionnelles du tableau : coût, valeur, catégorie, fournisseur, couverture… */}
-          {viewMode === 'table' && (
+          <div className="order-3 flex w-full basis-full items-center gap-1.5 sm:gap-2 xl:w-auto xl:flex-1 xl:basis-auto">
+            <Select value={categoryFilter} onValueChange={v => setFilter({ categoryFilter: v })}>
+              <SelectTrigger className="h-9 min-w-0 flex-1 gap-1 px-2.5 sm:w-auto sm:flex-none sm:px-3 [&>span]:truncate sm:min-w-[150px]" aria-label={t('products.category')}>
+                {/* Téléphone : « Catégorie » suffit tant qu'aucune n'est choisie (le libellé long y serait coupé) */}
+                <SelectValue placeholder={t('products.all_categories')}>{categoryFilter === 'all' ? <><span className="sm:hidden">{t('products.category')}</span><span className="hidden sm:inline">{t('products.all_categories')}</span></> : undefined}</SelectValue>
+              </SelectTrigger>
+              <SelectContent className="max-h-80">
+                <SelectItem value="all">{t('products.all_categories')}</SelectItem>
+                {products.some(p => !p.category_id) && (
+                  <SelectItem value="uncategorized">
+                    {t('categories.uncategorized')} ({products.filter(p => !p.category_id).length})
+                  </SelectItem>
+                )}
+                {categories.map(c => (
+                  <SelectItem key={c.id} value={c.id}>
+                    <span className="flex items-center gap-1.5">
+                      {c.color && <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.color }} />}
+                      {c.name}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={v => setFilter({ statusFilter: v })}>
+              <SelectTrigger className="h-9 min-w-0 flex-1 gap-1 px-2.5 sm:w-auto sm:flex-none sm:px-3 [&>span]:truncate sm:min-w-[140px]" aria-label={t('products.status_label')}>
+                <SelectValue placeholder={t('products.all_statuses')}>{statusFilter === 'all' ? <><span className="sm:hidden">{t('products.status_label')}</span><span className="hidden sm:inline">{t('products.all_statuses')}</span></> : undefined}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('products.all_statuses')}</SelectItem>
+                <SelectItem value="ok">{t('status.in_stock')}</SelectItem>
+                <SelectItem value="low">{t('status.low_stock')}</SelectItem>
+                <SelectItem value="out">{t('status.out_of_stock')}</SelectItem>
+                <SelectItem value="expiry">{t('products.card_expiry')}</SelectItem>
+                <SelectItem value="dormant">{t('products.card_dormant')}</SelectItem>
+                <SelectItem value="promo">{t('products.promo_badge')}</SelectItem>
+                {fullStock && (
+                  <SelectItem value="archived">
+                    <span className="flex items-center gap-1.5"><Archive className="h-3 w-3" /> {t('products.tab_archived')}{archivedProducts.length > 0 ? ` (${archivedProducts.length})` : ''}</span>
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9 gap-1.5">
-                  <Columns3 className="h-3.5 w-3.5" />
-                  {t('products.columns_button')}
-                  {tableColumns.length > 0 && (
-                    <span className="rounded-full bg-stockshop-blue px-1.5 text-[11px] font-semibold leading-5 text-white">{tableColumns.length}</span>
+                <Button variant="outline" size="sm" className="h-9 shrink-0 gap-1.5 px-2.5 sm:px-3" aria-label={t('products.more_filters')} title={t('products.more_filters')} data-testid="products-more-filters">
+                  <SlidersHorizontal className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                  <span className="hidden sm:inline">{t('products.more_filters')}</span>
+                  {extraFilterCount > 0 && (
+                    <span className="rounded-full bg-stockshop-blue px-1.5 text-[11px] font-semibold leading-5 text-white">{extraFilterCount}</span>
                   )}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-72 space-y-1">
-                <p className="mb-2 text-xs font-medium text-muted-foreground">{t('products.columns_title')}</p>
-                {OPTIONAL_COLUMNS.filter(c => canViewCost || !c.fullRightsOnly).map(c => (
-                  <label key={c.key} className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-muted/60">
-                    <input type="checkbox" className="h-4 w-4 rounded accent-stockshop-blue" checked={tableColumns.includes(c.key)} onChange={() => toggleColumn(c.key)} />
-                    {t(c.labelKey as any)}
-                  </label>
-                ))}
-                <p className="mt-2 border-t pt-2 text-xs leading-snug text-muted-foreground">{t('products.available_explain')}</p>
-                {tableColumns.length > 0 && (
-                  <button type="button" onClick={() => setTableColumns([])} className="mt-2 text-xs text-muted-foreground underline hover:text-foreground">
-                    {t('products.columns_default')}
-                  </button>
-                )}
+              <PopoverContent align="start" className="w-72 space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">{t('products.filter_supplier')}</Label>
+                  <Select value={supplierFilter} onValueChange={v => setFilter({ supplierFilter: v })}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder={t('products.all_suppliers')} /></SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      <SelectItem value="all">{t('products.all_suppliers')}</SelectItem>
+                      {suppliers.filter((s: any) => effectiveShopIds.includes(s.shop_id)).map(s => (
+                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input type="checkbox" className="h-4 w-4 rounded accent-stockshop-blue" checked={noSku} onChange={e => setFilter({ noSku: e.target.checked })} />
+                  {t('products.filter_no_sku')}
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input type="checkbox" className="h-4 w-4 rounded accent-stockshop-blue" checked={noImage} onChange={e => setFilter({ noImage: e.target.checked })} />
+                  {t('products.filter_no_image')}
+                </label>
               </PopoverContent>
             </Popover>
-          )}
-          {/* Sélection en cours (cartes) : annulation visible en un geste */}
-          {viewMode === 'cards' && selectionMode && (
-            <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => { setSelectionMode(false); setSelectedIds(new Set()) }}>
-              <Square className="h-3.5 w-3.5" /> {t('actions.cancel')}
-            </Button>
-          )}
-          {/* Actions secondaires : sélection (cartes), journal d'activité (propriétaire) */}
-          {(fullStock || (viewMode === 'cards' && canSelectProducts && !selectionMode)) && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9 w-9 p-0" title={t('products.more_actions')}>
-                  <MoreHorizontal className="h-4 w-4" />
-                  <span className="sr-only">{t('products.more_actions')}</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-[210px]">
-                {viewMode === 'cards' && canSelectProducts && !selectionMode && (
-                  <DropdownMenuItem onClick={() => setSelectionMode(true)}><CheckSquare className="mr-2 h-4 w-4" /> {t('products.select_action')}</DropdownMenuItem>
-                )}
-                {fullStock && (
-                  <DropdownMenuItem onClick={() => setJournalOpen(true)}><History className="mr-2 h-4 w-4" /> {t('products.activity_journal')}</DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+            {/* Actions occasionnelles : exports, sélection (cartes), journal d'activité (propriétaire) */}
+            {(canWriteStock || fullStock || (viewMode === 'cards' && canSelectProducts && !selectionMode)) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-9 w-9 shrink-0 p-0 xl:ml-auto" title={t('products.more_actions')} data-testid="products-more-actions">
+                    <MoreHorizontal className="h-4 w-4" />
+                    <span className="sr-only">{t('products.more_actions')}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-[220px]">
+                  {canWriteStock && (
+                    <>
+                      <DropdownMenuItem onClick={() => exportProducts('xlsx')} data-testid="export-xlsx"><FileSpreadsheet className="mr-2 h-4 w-4" /> {t('exports.excel')}</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => exportProducts('csv')} data-testid="export-csv"><FileDown className="mr-2 h-4 w-4" /> {t('exports.csv')}</DropdownMenuItem>
+                    </>
+                  )}
+                  {viewMode === 'cards' && canSelectProducts && !selectionMode && (
+                    <DropdownMenuItem onClick={() => setSelectionMode(true)}><CheckSquare className="mr-2 h-4 w-4" /> {t('products.select_action')}</DropdownMenuItem>
+                  )}
+                  {fullStock && (
+                    <DropdownMenuItem onClick={() => setJournalOpen(true)}><History className="mr-2 h-4 w-4" /> {t('products.activity_journal')}</DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Les cartes d'alerte vivent désormais dans la Vue d'ensemble (/stock) */}
-
-      {/* Stats */}
-      <div className="flex gap-4 text-sm text-muted-foreground">
-        {/* Pas de « 0 produit(s) » trompeur tant que la liste se charge sans cache */}
-        <span>{loading && products.length === 0 ? '…' : t('products.stats_count', { count: showArchived ? archivedProducts.length : filtered.length })}</span>
+        {/* Compteur à gauche ; à droite, ce qui règle l'affichage (jamais au premier plan) */}
+        <div className="flex min-h-9 items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+            {/* Pas de « 0 produit » trompeur tant que la liste se charge sans cache */}
+            <span data-testid="products-count">{loading && products.length === 0 ? '…' : t('products.stats_count', { count: showArchived ? archivedProducts.length : filtered.length })}</span>
+            {anyFilterActive && (
+              <button type="button" onClick={resetFilters} className="text-xs underline hover:text-foreground">
+                {t('products.reset_filters')}
+              </button>
+            )}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {/* Sélection en cours (cartes) : annulation visible en un geste */}
+            {viewMode === 'cards' && selectionMode && (
+              <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => { setSelectionMode(false); setSelectedIds(new Set()) }}>
+                <Square className="h-3.5 w-3.5" /> {t('actions.cancel')}
+              </Button>
+            )}
+            {/* Colonnes optionnelles du tableau : coût, valeur, catégorie, fournisseur, couverture… */}
+            {viewMode === 'table' && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-9 gap-1.5">
+                    <Columns3 className="h-3.5 w-3.5" />
+                    {t('products.columns_button')}
+                    {tableColumns.length > 0 && (
+                      <span className="rounded-full bg-stockshop-blue px-1.5 text-[11px] font-semibold leading-5 text-white">{tableColumns.length}</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-72 space-y-1">
+                  <p className="mb-2 text-xs font-medium text-muted-foreground">{t('products.columns_title')}</p>
+                  {OPTIONAL_COLUMNS.filter(c => canViewCost || !c.fullRightsOnly).map(c => (
+                    <label key={c.key} className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-muted/60">
+                      <input type="checkbox" className="h-4 w-4 rounded accent-stockshop-blue" checked={tableColumns.includes(c.key)} onChange={() => toggleColumn(c.key)} />
+                      {t(c.labelKey as any)}
+                    </label>
+                  ))}
+                  <p className="mt-2 border-t pt-2 text-xs leading-snug text-muted-foreground">{t('products.available_explain')}</p>
+                  {tableColumns.length > 0 && (
+                    <button type="button" onClick={() => setTableColumns([])} className="mt-2 text-xs text-muted-foreground underline hover:text-foreground">
+                      {t('products.columns_default')}
+                    </button>
+                  )}
+                </PopoverContent>
+              </Popover>
+            )}
+            {/* Cartes / tableau */}
+            <div className="flex h-[50px] rounded-lg border bg-muted/30 p-0.5 sm:h-9" role="group" aria-label={t('products.view_label')}>
+              <button
+                type="button"
+                onClick={() => setViewMode('cards')}
+                aria-pressed={viewMode === 'cards'}
+                title={t('products.view_cards')}
+                className={`flex h-full w-11 items-center justify-center rounded-md transition-colors sm:w-8 ${viewMode === 'cards' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <LayoutGrid className="h-4 w-4" />
+                <span className="sr-only">{t('products.view_cards')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                aria-pressed={viewMode === 'table'}
+                title={t('products.view_table')}
+                className={`flex h-full w-11 items-center justify-center rounded-md transition-colors sm:w-8 ${viewMode === 'table' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <List className="h-4 w-4" />
+                <span className="sr-only">{t('products.view_table')}</span>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Barre de sélection */}
@@ -2110,6 +2105,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         status={detailProduct ? tableProps.statusFor(detailProduct) : 'ok'}
         statusLabels={detailStatusLabel}
         promoActive={!!detailProduct && isPromoActive(detailProduct)}
+        promoSuggestion={detailProduct && canWriteStock && !isPromoActive(detailProduct) ? suggestPromo(detailProduct)?.reason ?? null : null}
         formatPrice={formatNaira}
         batches={{
           batches: productBatches,

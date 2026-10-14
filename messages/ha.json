@@ -305,7 +305,7 @@
     "batch_deleted_toast": "An share lot",
     "notes_label": "Bayani",
     "notes_placeholder": "Bayani (zaɓi)…",
-    "stats_count": "kaya {count}",
+    "stats_count": "{count, plural, =0 {Babu kaya} other {Kaya #}}",
     "stats_low": "{count} suna ƙarewa",
     "stats_out": "{count} sun ƙare",
     "cost_label": "Farashi",
@@ -348,7 +348,7 @@
     "filter_no_image": "Babu hoto",
     "add_menu": "Ƙara",
     "add_quick": "Ƙari da sauri",
-    "add_import": "Shigo da kaya da yawa (Excel)",
+    "add_import": "Shigo da kaya",
     "import_export": "Shigo / Fitar",
     "import_csv": "Shigo da fayil ɗin Excel ko CSV",
     "activity_journal": "Tarihin ayyuka",
@@ -443,7 +443,9 @@
     "type_to_confirm_prefix": "Rubuta",
     "type_to_confirm_suffix": "don tabbatarwa",
     "delete_confirm_word": "SHARE",
-    "selected_count": "An zaɓi {count}"
+    "selected_count": "An zaɓi {count}",
+    "search_placeholder_short": "Nemi kaya…",
+    "promo_suggested_tag": "shawara"
   },
   "sales": {
     "title": "Sayarwa",
@@ -4094,6 +4096,7 @@
     "archive": "Ajiye a taska",
     "load_failed": "An kasa ɗauko bayanin. Duba haɗin intanet.",
     "offline_values": "Babu intanet: adadin kamar yadda jerin ya san su na ƙarshe. Sauran za su bayyana idan intanet ya dawo.",
-    "retry": "Sake gwadawa"
+    "retry": "Sake gwadawa",
+    "promo_suggested": "Rangwamen da aka ba da shawara"
   }
 }

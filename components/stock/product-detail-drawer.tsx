@@ -70,6 +70,8 @@ export interface ProductDetailDrawerProps {
   status: ProductStatus
   statusLabels: Record<ProductStatus, string>
   promoActive: boolean
+  /** Promotion recommandée pour ce produit (péremption proche, ventes lentes) : sa raison, déjà traduite ; absente = rien n'est affiché */
+  promoSuggestion?: string | null
   formatPrice: (n: number) => string
   batches: Omit<ProductBatchesListProps, 'product' | 'costs' | 'formatPrice'>
   /** Actions du pied, déjà filtrées selon les droits (absente = non proposée) */
@@ -87,7 +89,7 @@ export interface ProductDetailDrawerProps {
 const TILE = 'rounded-xl border border-border bg-card px-3 py-2.5'
 
 export function ProductDetailDrawer({
-  product, onClose, section, refreshKey, fallbackQuantities, status: listStatus, statusLabels, promoActive, formatPrice, batches, actions, onChanged,
+  product, onClose, section, refreshKey, fallbackQuantities, status: listStatus, statusLabels, promoActive, promoSuggestion, formatPrice, batches, actions, onChanged,
 }: ProductDetailDrawerProps) {
   const t = useTranslations()
   const td = useTranslations('product_detail')
@@ -240,6 +242,18 @@ export function ProductDetailDrawer({
                   <p>{offlineValues ? td('offline_values') : td('load_failed')}</p>
                   <Button variant="outline" size="sm" className="mt-2 h-8" onClick={load}>{td('retry')}</Button>
                 </div>
+              </div>
+            )}
+
+            {/* Recommandation : la liste des produits reste simple, la suggestion de promotion vit ici */}
+            {promoSuggestion && !promoActive && (
+              <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200" data-testid="product-detail-promo-suggestion">
+                <Tag className="mt-0.5 h-4 w-4 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold">{td('promo_suggested')}</p>
+                  <p className="text-xs">{promoSuggestion}</p>
+                </div>
+                {actions.onPromo && <Button variant="outline" size="sm" className="h-8 shrink-0 border-amber-300 bg-transparent dark:border-amber-700" onClick={() => actions.onPromo!(product)}>{t('products.promo_action')}</Button>}
               </div>
             )}
 
