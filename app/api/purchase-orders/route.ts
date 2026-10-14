@@ -5,6 +5,7 @@ import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { canViewCost, canViewFeature, canWriteFeature } from '@/lib/api/role-permissions'
 import { orderWithoutCost } from '@/lib/api/supplier-access'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { supplierOfShop, productsOutsideShop } from '@/lib/api/shop-objects'
 
 // Purchase orders live inside the Suppliers page/tab client-side (gated by
 // canAccess('suppliers') — there's no dedicated toggle wired up for them),
@@ -95,6 +96,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()
+    // Le fournisseur et les produits doivent appartenir à la boutique du bon (jamais une autre boutique / entreprise)
+    if (!(await supplierOfShop(admin, supplier_id, shop_id))) return NextResponse.json({ error: t('po_supplier_wrong_shop'), field: 'supplier_id' }, { status: 400 })
+    if ((await productsOutsideShop(admin, items.map((it: any) => it?.product_id), shop_id)).length)
+      return NextResponse.json({ error: t('po_product_wrong_shop') }, { status: 400 })
     const reference = await nextReference(admin, shop_id)
 
     const { data: po, error: poError } = await (admin as any)
@@ -153,6 +158,9 @@ export async function PATCH(request: Request) {
     if (Array.isArray(items)) {
       if (existing.status !== 'draft')
         return NextResponse.json({ error: t('draft_only_editable') }, { status: 400 })
+      // Lignes : uniquement des produits de la boutique du bon (vérifié AVANT de remplacer les lignes)
+      if ((await productsOutsideShop(admin, items.map((it: any) => it?.product_id), shop_id)).length)
+        return NextResponse.json({ error: t('po_product_wrong_shop') }, { status: 400 })
       await (admin as any).from('purchase_order_items').delete().eq('purchase_order_id', id)
       const itemRows = items.map((it: any) => ({
         purchase_order_id: id,

@@ -4,6 +4,7 @@ import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { canWriteFeature } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { productsOutsideShop } from '@/lib/api/shop-objects'
 
 // POST /api/purchase-orders/receive — verify received quantities and restock
 // in one atomic transaction (apply_purchase_order_receipt), instead of a
@@ -75,9 +76,11 @@ export async function POST(request: Request) {
     }
 
     // Feed the supplier price comparator — same as a manual restock.
+    // Seulement les produits de la boutique du bon (la réception elle-même ignore déjà les autres en base)
     if (po.supplier_id) {
+      const outside = new Set(await productsOutsideShop(admin, items.map((it: any) => it?.product_id), shop_id))
       for (const it of items) {
-        if (!it.product_id || !it.unit_price || Number(it.unit_price) <= 0) continue
+        if (!it.product_id || outside.has(it.product_id) || !it.unit_price || Number(it.unit_price) <= 0) continue
         await (admin as any)
           .from('product_supplier_prices')
           .upsert(

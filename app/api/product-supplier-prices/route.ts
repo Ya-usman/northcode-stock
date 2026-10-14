@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { canViewCost, canWriteFeature } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { supplierOfShop, productsOutsideShop } from '@/lib/api/shop-objects'
 
 // GET /api/product-supplier-prices?shop_id= — raw price comparison entries;
 // joined against product/supplier names client-side (already in memory there).
@@ -52,6 +53,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()
+    // Produit et fournisseur de CETTE boutique (sinon l'entrée — clé produit + fournisseur — pourrait viser une autre boutique)
+    if ((await productsOutsideShop(admin, [product_id], shop_id)).length) return NextResponse.json({ error: t('price_product_wrong_shop') }, { status: 400 })
+    if (!(await supplierOfShop(admin, supplier_id, shop_id))) return NextResponse.json({ error: t('supplier_wrong_shop') }, { status: 400 })
     const { data, error } = await (admin as any)
       .from('product_supplier_prices')
       .upsert(
