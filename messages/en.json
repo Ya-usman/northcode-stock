@@ -3530,6 +3530,7 @@
     "product_not_found_in_shop": "Product not found in this shop",
     "insufficient_permission_delete_products": "Insufficient permission to delete products",
     "product_not_found": "Product not found",
+    "category_not_found": "Category not found",
     "invalid_quantity": "Invalid quantity",
     "product_shop_id_required": "product_id and shop_id required",
     "sync_conflict": "Sync conflict — try again.",

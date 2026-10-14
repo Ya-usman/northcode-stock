@@ -186,18 +186,23 @@ export async function DELETE(request: Request) {
     if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
-    const shop_id = searchParams.get('shop_id')
-    if (!id || !shop_id) return NextResponse.json({ error: t('id_shop_id_required') }, { status: 400 })
-    const role = await checkShopRole(supabase, user.id, shop_id)
-    if (!role || !(await canWriteFeature(supabase, role, shop_id, 'categories')))
-      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+    if (!id) return NextResponse.json({ error: t('id_shop_id_required') }, { status: 400 })
     const admin = await createAdminClient()
+
+    // Sécurité : la boutique est celle de la catégorie chargée en base, jamais le shop_id envoyé par le
+    // navigateur. Non membre de cette boutique (autre boutique, autre entreprise) : « introuvable ».
+    const { data: category } = await (admin as any).from('categories').select('id, shop_id').eq('id', id).maybeSingle()
+    const role = category ? await checkShopRole(supabase, user.id, category.shop_id) : null
+    if (!category || !role) return NextResponse.json({ error: t('category_not_found') }, { status: 404 })
+    if (!(await canWriteFeature(supabase, role, category.shop_id, 'categories')))
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     // Guard: refuse deletion if active products are still in this category
     const { count } = await (admin as any)
       .from('products')
       .select('id', { count: 'exact', head: true })
-      .eq('category_id', id)
+      .eq('category_id', category.id)
+      .eq('shop_id', category.shop_id)
       .eq('is_active', true)
     if (count && count > 0) {
       return NextResponse.json(
@@ -206,7 +211,7 @@ export async function DELETE(request: Request) {
       )
     }
 
-    const { error } = await (admin as any).from('categories').delete().eq('id', id)
+    const { error } = await (admin as any).from('categories').delete().eq('id', category.id).eq('shop_id', category.shop_id)
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
     return NextResponse.json({ ok: true })
   } catch (e: any) {

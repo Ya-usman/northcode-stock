@@ -380,42 +380,58 @@ export async function DELETE(request: Request) {
 
     const { searchParams } = new URL(request.url)
     const singleId = searchParams.get('id')
-    const singleShopId = searchParams.get('shop_id')
+    const admin = await createAdminClient()
+
+    // Sécurité : la boutique est TOUJOURS celle de l'objet chargé en base, jamais le shop_id envoyé par le
+    // navigateur. Droit de supprimer = être membre de CETTE boutique (donc de son entreprise) et y avoir
+    // « suppression de produits ». Non membre (autre boutique, autre entreprise) : « introuvable ».
+    const roleCache = new Map<string, Promise<{ member: boolean; canDelete: boolean }>>()
+    const rightsIn = (shopId: string) => {
+      if (!roleCache.has(shopId)) roleCache.set(shopId, (async () => {
+        const role = await checkShopRole(supabase, user.id, shopId)
+        return { member: !!role, canDelete: !!role && (await canWriteFeature(supabase, role, shopId, 'delete_products')) }
+      })())
+      return roleCache.get(shopId)!
+    }
+    let actorName: string | null | undefined
+    const actor = async () => {
+      if (actorName === undefined) {
+        const { data } = await (admin as any).from('profiles').select('full_name').eq('id', user.id).single()
+        actorName = data?.full_name || user.email
+      }
+      return actorName
+    }
+    // Avant suppression : le prix d'achat est figé dans les lignes de vente (précision des rapports)
+    const freezeCosts = (rows: any[]) => Promise.all(rows.filter(p => p.buying_price > 0).map(p =>
+      (admin as any).from('sale_items').update({ buying_price: Number(p.buying_price) }).eq('product_id', p.id).eq('buying_price', 0)))
 
     // ── Suppression unitaire ─────────────────────────────────────────────
-    if (singleId && singleShopId) {
-      const role = await checkShopRole(supabase, user.id, singleShopId)
-      if (!role) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
-      if (!(await canWriteFeature(supabase, role, singleShopId, 'delete_products')))
-        return NextResponse.json({ error: t('insufficient_permission_delete_products') }, { status: 403 })
-      const admin = await createAdminClient()
+    if (singleId) {
       const { data: product } = await (admin as any)
-        .from('products').select('id, name, sku, quantity, buying_price, selling_price').eq('id', singleId).single()
-      if (product?.buying_price) {
-        await (admin as any).from('sale_items')
-          .update({ buying_price: Number(product.buying_price) })
-          .eq('product_id', singleId).eq('buying_price', 0)
-      }
-      await (admin as any).from('products').update({ is_active: false }).eq('id', singleId)
-      const { error } = await (admin as any).from('products').delete().eq('id', singleId)
+        .from('products').select('id, shop_id, name, sku, quantity, buying_price, selling_price').eq('id', singleId).maybeSingle()
+      const rights = product ? await rightsIn(product.shop_id) : null
+      if (!product || !rights?.member) return NextResponse.json({ error: t('product_not_found') }, { status: 404 })
+      if (!rights.canDelete) return NextResponse.json({ error: t('insufficient_permission_delete_products') }, { status: 403 })
+      await freezeCosts([product])
+      await (admin as any).from('products').update({ is_active: false }).eq('id', product.id).eq('shop_id', product.shop_id)
+      const { error } = await (admin as any).from('products').delete().eq('id', product.id).eq('shop_id', product.shop_id)
       if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
       // Audit log — non bloquant. Une requête Supabase n'a pas de .catch : l'ancien appel levait une
       // erreur APRÈS la suppression (réponse 500 alors que le produit était bien supprimé).
-      const { data: actorProfile } = await (admin as any).from('profiles').select('full_name').eq('id', user.id).single()
       await Promise.resolve((admin as any).from('audit_logs').insert({
-        shop_id: singleShopId,
+        shop_id: product.shop_id,
         actor_id: user.id,
         actor_email: user.email,
         action: 'delete_product',
-        target_id: singleId,
+        target_id: product.id,
         target_type: 'product',
         metadata: {
-          actor_name: actorProfile?.full_name || user.email,
-          product_name: product?.name,
-          sku: product?.sku,
-          quantity: product?.quantity,
-          selling_price: product?.selling_price,
+          actor_name: await actor(),
+          product_name: product.name,
+          sku: product.sku,
+          quantity: product.quantity,
+          selling_price: product.selling_price,
         },
       })).catch(() => {}) // non-blocking
 
@@ -425,66 +441,65 @@ export async function DELETE(request: Request) {
     // ── Suppression en masse (ids[] ou all:true) ───────────────────────────
     let body: { shop_id?: string; ids?: string[]; all?: boolean } = {}
     try { body = await request.json() } catch {}
-    if (!body.shop_id) return NextResponse.json({ error: t('shop_id_required') }, { status: 400 })
 
-    // Vérification des permissions
-    const role = await checkShopRole(supabase, user.id, body.shop_id)
-    if (!role) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
-    if (!(await canWriteFeature(supabase, role, body.shop_id, 'delete_products')))
-      return NextResponse.json({ error: t('insufficient_permission_delete_products') }, { status: 403 })
-
-    const admin = await createAdminClient()
-
-    // Résoudre les IDs à supprimer
-    let ids: string[] = body.ids ?? []
+    let rows: any[] = []
     if (body.all) {
-      const { data: allProds } = await (admin as any)
-        .from('products').select('id').eq('shop_id', body.shop_id).eq('is_active', true)
-      ids = (allProds ?? []).map((p: any) => p.id)
-    }
-    if (!ids.length) return NextResponse.json({ ok: true, deleted: 0 })
-
-    // Geler les buying_price dans sale_items avant suppression (précision des rapports)
-    const { data: prodsWithDetails } = await (admin as any)
-      .from('products').select('id, name, sku, quantity, buying_price, selling_price').in('id', ids)
-    if (prodsWithDetails?.length) {
-      await Promise.all(
-        prodsWithDetails
-          .filter((p: any) => p.buying_price > 0)
-          .map((p: any) =>
-            (admin as any).from('sale_items')
-              .update({ buying_price: Number(p.buying_price) })
-              .eq('product_id', p.id).eq('buying_price', 0)
-          )
-      )
+      // « Tout supprimer » : une boutique nommée, droits vérifiés sur elle, ses seuls produits
+      if (!body.shop_id) return NextResponse.json({ error: t('shop_id_required') }, { status: 400 })
+      const rights = await rightsIn(body.shop_id)
+      if (!rights.member) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+      if (!rights.canDelete) return NextResponse.json({ error: t('insufficient_permission_delete_products') }, { status: 403 })
+      const { data } = await (admin as any)
+        .from('products').select('id, shop_id, name, sku, quantity, buying_price, selling_price').eq('shop_id', body.shop_id).eq('is_active', true)
+      rows = data ?? []
+    } else {
+      const ids = Array.isArray(body.ids) ? body.ids.filter(x => typeof x === 'string') : []
+      if (!ids.length) return NextResponse.json({ ok: true, deleted: 0 })
+      const { data } = await (admin as any)
+        .from('products').select('id, shop_id, name, sku, quantity, buying_price, selling_price').in('id', ids)
+      rows = data ?? []
     }
 
-    // Archive + suppression définitive
-    await (admin as any).from('products').update({ is_active: false }).in('id', ids)
-    const { error } = await (admin as any).from('products').delete().in('id', ids)
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    // Regroupement par boutique RÉELLE des produits. Boutique dont la personne n'est pas membre (autre
+    // boutique, autre entreprise) : ses produits sont invisibles, comme inexistants. Boutique où elle est
+    // membre sans droit de suppression : refus. Les autres produits ne sont jamais supprimés.
+    const byShop = new Map<string, any[]>()
+    for (const r of rows) byShop.set(r.shop_id, [...(byShop.get(r.shop_id) ?? []), r])
+    const allowed: [string, any[]][] = []
+    let visible = 0
+    for (const [shopId, list] of Array.from(byShop.entries())) {
+      const rights = await rightsIn(shopId)
+      if (!rights.member) continue
+      visible += list.length
+      if (rights.canDelete) allowed.push([shopId, list])
+    }
+    if (!visible) return NextResponse.json({ ok: true, deleted: 0 })
+    if (!allowed.length) return NextResponse.json({ error: t('insufficient_permission_delete_products') }, { status: 403 })
 
-    // Audit log
-    const { data: actorProfile } = await (admin as any).from('profiles').select('full_name').eq('id', user.id).single()
-    const action = body.all ? 'delete_all_products' : 'bulk_delete_products'
-    const snapshot = (prodsWithDetails ?? []).slice(0, 10).map((p: any) => ({
-      id: p.id, name: p.name, quantity: p.quantity,
-    }))
-    await Promise.resolve((admin as any).from('audit_logs').insert({
-      shop_id: body.shop_id,
-      actor_id: user.id,
-      actor_email: user.email,
-      action,
-      target_id: null,
-      target_type: 'product',
-      metadata: {
-        actor_name: actorProfile?.full_name || user.email,
-        count: ids.length,
-        products_snapshot: snapshot,
-      },
-    })).catch(() => {}) // non-blocking (même correction que la suppression unitaire)
+    let deleted = 0
+    for (const [shopId, list] of allowed) {
+      const ids = list.map(p => p.id)
+      await freezeCosts(list)
+      await (admin as any).from('products').update({ is_active: false }).in('id', ids).eq('shop_id', shopId)
+      const { error } = await (admin as any).from('products').delete().in('id', ids).eq('shop_id', shopId)
+      if (error) return NextResponse.json({ error: error.message, deleted }, { status: 400 })
+      deleted += ids.length
+      await Promise.resolve((admin as any).from('audit_logs').insert({
+        shop_id: shopId,
+        actor_id: user.id,
+        actor_email: user.email,
+        action: body.all ? 'delete_all_products' : 'bulk_delete_products',
+        target_id: null,
+        target_type: 'product',
+        metadata: {
+          actor_name: await actor(),
+          count: ids.length,
+          products_snapshot: list.slice(0, 10).map(p => ({ id: p.id, name: p.name, quantity: p.quantity })),
+        },
+      })).catch(() => {}) // non-blocking (même correction que la suppression unitaire)
+    }
 
-    return NextResponse.json({ ok: true, deleted: ids.length })
+    return NextResponse.json({ ok: true, deleted, skipped: rows.length - deleted })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

@@ -3530,6 +3530,7 @@
     "product_not_found_in_shop": "Ba a sami kaya a wannan kanti ba",
     "insufficient_permission_delete_products": "Izini bai isa ba don share kayayyaki",
     "product_not_found": "Ba a sami kaya ba",
+    "category_not_found": "Ba a sami rukunin ba",
     "invalid_quantity": "Adadin ba ya inganta",
     "product_shop_id_required": "Ana buƙatar product_id da shop_id",
     "sync_conflict": "Rikicin daidaitawa — sake gwadawa.",
