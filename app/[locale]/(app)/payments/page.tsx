@@ -483,6 +483,9 @@ export default function CreditsPage() {
   const t = useTranslations()
   const locale = useLocale()
   const { shop, profile, effectiveShopIds, userShops, roleInActiveShop } = useAuth()
+  // Boutique d'une dette : chaque client / fournisseur appartient à UNE boutique. Actions, reçus et modes de
+  // paiement suivent cette boutique — jamais la boutique active, cachée en « Toutes les boutiques »
+  const shopOf = (shopId?: string | null) => userShops.find(x => x.id === shopId) ?? null
   const isMultiShop = effectiveShopIds.length > 1
   // Règle unique : « Paiements / Crédits » en modification pour encaisser,
   // reporter, modifier ; direction seule pour passer en perte ou annuler
@@ -713,6 +716,8 @@ export default function CreditsPage() {
   }
 
   const recordSupplierPayment = async () => {
+    const supShop = shopOf(repaySupplier?.supplier.shop_id)
+    if (!supShop) return
     if (!repaySupplier || supplierAmount <= 0) {
       toast({ title: t('toast.payment_amount_required'), variant: 'destructive' })
       return
@@ -729,7 +734,7 @@ export default function CreditsPage() {
       if (!isOnline) {
         await savePendingSupplierPayment({
           local_id: clientRequestId,
-          shop_id: shop!.id,
+          shop_id: supShop.id,
           purchase_order_ids: repaySupplier.unpaidPOs.map(po => po.id),
           amount: supplierAmount,
           method: supplierRepayMethod,
@@ -760,7 +765,7 @@ export default function CreditsPage() {
           method: supplierRepayMethod,
           reference: supplierRepayRef || null,
           notes: supplierRepayNotes || null,
-          shop_id: shop!.id,
+          shop_id: supShop.id,
           client_request_id: clientRequestId,
         }),
       }))
@@ -778,7 +783,7 @@ export default function CreditsPage() {
         try {
           await savePendingSupplierPayment({
             local_id: supplierRepayIdRef.current || crypto.randomUUID(),
-            shop_id: shop!.id,
+            shop_id: supShop.id,
             purchase_order_ids: repaySupplier.unpaidPOs.map(po => po.id),
             amount: supplierAmount,
             method: supplierRepayMethod,
@@ -823,7 +828,7 @@ export default function CreditsPage() {
     setHistorySupplierPayments([])
     setLoadingSupplierHistory(true)
     try {
-      const res = await fetch(`/api/supplier-payments/history?shop_id=${shop!.id}&supplier_id=${debtor.supplier.id}`)
+      const res = await fetch(`/api/supplier-payments/history?shop_id=${debtor.supplier.shop_id}&supplier_id=${debtor.supplier.id}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       supplierHistoryCache.current.set(debtor.supplier.id, { pos: data.purchaseOrders || [], payments: data.payments || [] })
@@ -967,7 +972,7 @@ export default function CreditsPage() {
   }
 
   const submitPostpone = async () => {
-    if (!postponeSale || !postponeDate || !shop?.id) return
+    if (!postponeSale || !postponeDate) return
     setPostponingSaving(true)
     try {
       const res = await withTimeout(fetch('/api/sales/postpone-due-date', {
@@ -975,7 +980,7 @@ export default function CreditsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sale_id: postponeSale.sale.id,
-          shop_id: shop.id,
+          shop_id: postponeSale.customer.shop_id,
           new_due_date: postponeDate,
           reason: postponeReason || null,
         }),
@@ -1004,13 +1009,13 @@ export default function CreditsPage() {
   }
 
   const confirmWriteOff = async () => {
-    if (!writeOffSale || !shop?.id || !writeOffReason.trim()) return
+    if (!writeOffSale || !writeOffReason.trim()) return
     setWriteOffSaving(true)
     try {
       const res = await withTimeout(fetch('/api/payments/write-off', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sale_id: writeOffSale.sale.id, shop_id: shop.id, reason: writeOffReason.trim() }),
+        body: JSON.stringify({ sale_id: writeOffSale.sale.id, shop_id: writeOffSale.customer.shop_id, reason: writeOffReason.trim() }),
       }))
       const data = await res.json()
       if (!res.ok) { toast({ title: data.error || t('toast.error'), variant: 'destructive' }); return }
@@ -1027,6 +1032,8 @@ export default function CreditsPage() {
 
   // ── Record repayment ─────────────────────────────────────
   const recordRepayment = async () => {
+    const debtShop = shopOf(repayDebtor?.customer.shop_id)
+    if (!debtShop) return
     if (!repayDebtor || amount <= 0) {
       toast({ title: t('toast.payment_amount_required'), variant: 'destructive' })
       return
@@ -1047,7 +1054,7 @@ export default function CreditsPage() {
       if (!isOnline) {
         await savePendingCustomerPayment({
           local_id: clientRequestId,
-          shop_id: shop!.id,
+          shop_id: debtShop.id,
           unpaid_sale_ids: repayDebtor.unpaidSales.map(s => s.id),
           amount,
           method: repayMethod,
@@ -1078,7 +1085,7 @@ export default function CreditsPage() {
           method: repayMethod,
           reference: repayRef || null,
           notes: repayNotes || null,
-          shop_id: shop!.id,
+          shop_id: debtShop.id,
           client_request_id: clientRequestId,
         }),
       }))
@@ -1089,8 +1096,8 @@ export default function CreditsPage() {
       toast({ title: t('toast.payment_recorded'), variant: 'success' })
       historyCache.current.delete(repayDebtor.customer.id)
 
-      if (shop && data.applied?.length > 0) {
-        const shopCountry = getCountry(shop?.country)
+      if (data.applied?.length > 0) {
+        const shopCountry = getCountry(debtShop.country)
         const selectedMethod = shopCountry.paymentMethods.find(m => m.id === repayMethod)
         const result = await generateDebtReceiptPDFBlob({
           locale,
@@ -1101,7 +1108,7 @@ export default function CreditsPage() {
           reference: repayRef || null,
           notes: repayNotes || null,
           receivedBy: profile?.full_name || t('receipt.cashier'),
-          shop,
+          shop: debtShop,
           appliedSales: data.applied.map((a: any) => ({ sale_number: a.sale_number, amount: a.amount })),
           remainingBalance: Math.max(0, remaining),
           labels: buildReceiptLabels(),
@@ -1123,7 +1130,7 @@ export default function CreditsPage() {
         try {
           await savePendingCustomerPayment({
             local_id: repayIdRef.current || crypto.randomUUID(),
-            shop_id: shop!.id,
+            shop_id: debtShop.id,
             unpaid_sale_ids: repayDebtor.unpaidSales.map(s => s.id),
             amount,
             method: repayMethod,
@@ -1170,7 +1177,7 @@ export default function CreditsPage() {
     setHistoryPayments([])
     setLoadingHistory(true)
     try {
-      const res = await fetch(`/api/payments/history?shop_id=${shop!.id}&customer_id=${debtor.customer.id}`)
+      const res = await fetch(`/api/payments/history?shop_id=${debtor.customer.shop_id}&customer_id=${debtor.customer.id}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       historyCache.current.set(debtor.customer.id, { sales: data.sales || [], payments: data.payments || [] })
@@ -1210,9 +1217,10 @@ export default function CreditsPage() {
   })
 
   const printHistoryPayment = async (sale: SaleRecord, payment: PaymentRecord) => {
-    if (!shop) return
+    const payShop = shopOf(historyDebtor?.customer.shop_id)
+    if (!payShop) return
     try {
-      const shopCountry = getCountry(shop.country)
+      const shopCountry = getCountry(payShop.country)
       const selectedMethod = shopCountry.paymentMethods.find(m => m.id === payment.method)
       const result = await generateDebtReceiptPDFBlob({
         locale,
@@ -1223,7 +1231,7 @@ export default function CreditsPage() {
         reference: payment.reference,
         notes: payment.notes,
         receivedBy: payment.received_by_name || t('receipt.cashier'),
-        shop,
+        shop: payShop,
         appliedSales: [{ sale_number: sale.sale_number, amount: payment.amount }],
         remainingBalance: Math.max(0, sale.balance),
         paidAt: payment.paid_at,
@@ -1338,14 +1346,15 @@ export default function CreditsPage() {
   }
 
   const saveEditPayment = async () => {
-    if (!editingPayment || !shop) return
+    const editShop = shopOf(historyDebtor?.customer.shop_id)
+    if (!editingPayment || !editShop) return
     setSavingEdit(true)
     try {
       const res = await withTimeout(fetch('/api/payments/edit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          payment_id: editingPayment.id, shop_id: shop.id,
+          payment_id: editingPayment.id, shop_id: editShop.id,
           method: editMethod, reference: editRef || null, notes: editNotes || null,
         }),
       }))
@@ -1362,13 +1371,14 @@ export default function CreditsPage() {
   }
 
   const confirmCancelPayment = async () => {
-    if (!cancellingPayment || !shop) return
+    const cancelShop = shopOf(historyDebtor?.customer.shop_id)
+    if (!cancellingPayment || !cancelShop) return
     setCancellingSaving(true)
     try {
       const res = await withTimeout(fetch('/api/payments/cancel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ payment_id: cancellingPayment.id, shop_id: shop.id, reason: cancelReason || null }),
+        body: JSON.stringify({ payment_id: cancellingPayment.id, shop_id: cancelShop.id, reason: cancelReason || null }),
       }))
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -2153,7 +2163,7 @@ export default function CreditsPage() {
                 </Button>
               </div>
               {receiptResult.phone && (
-                <a href={`https://wa.me/${normalizeWhatsAppNumber(receiptResult.phone, getCountry(shop?.country).phonePrefix)}?text=${encodeURIComponent(t('payments.whatsapp_receipt_message', { customer: receiptResult.customerName }))}`}
+                <a href={`https://wa.me/${normalizeWhatsAppNumber(receiptResult.phone, getCountry(shopOf(repayDebtor?.customer.shop_id)?.country).phonePrefix)}?text=${encodeURIComponent(t('payments.whatsapp_receipt_message', { customer: receiptResult.customerName }))}`}
                   target="_blank" rel="noreferrer" className="block">
                   <Button variant="outline" className="w-full gap-2 border-green-300 dark:border-green-700/60 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/30">
                     💬 {t('payments.open_whatsapp_chat')}
@@ -2242,7 +2252,7 @@ export default function CreditsPage() {
               <div className="space-y-1">
                 <Label>{t('payment.method')}</Label>
                 <div className="grid grid-cols-3 gap-2.5">
-                  {getCountry(shop?.country).paymentMethods
+                  {getCountry(shopOf(repayDebtor?.customer.shop_id)?.country).paymentMethods
                     .filter(m => m.type !== 'credit')
                     .map(m => (
                       <button key={m.id} onClick={() => setRepayMethod(m.id)}
@@ -2268,7 +2278,7 @@ export default function CreditsPage() {
                 </div>
               </div>
 
-              {getMethodType(repayMethod, getCountry(shop?.country)) !== 'cash' && (
+              {getMethodType(repayMethod, getCountry(shopOf(repayDebtor?.customer.shop_id)?.country)) !== 'cash' && (
                 <div className="space-y-1">
                   <Label>{t('payment.reference')}</Label>
                   <Input value={repayRef} onChange={e => setRepayRef(e.target.value)} placeholder={t('payment.reference_placeholder')} />
@@ -2586,7 +2596,7 @@ export default function CreditsPage() {
               <div className="space-y-1">
                 <Label>{t('payment.method')}</Label>
                 <div className="flex flex-wrap gap-1.5">
-                  {getCountry(shop?.country).paymentMethods
+                  {getCountry(shopOf(historyDebtor?.customer.shop_id)?.country).paymentMethods
                     .filter(m => m.type !== 'credit')
                     .map(m => (
                       <button
@@ -2606,7 +2616,7 @@ export default function CreditsPage() {
                 </div>
               </div>
 
-              {getMethodType(editMethod, getCountry(shop?.country)) !== 'cash' && (
+              {getMethodType(editMethod, getCountry(shopOf(historyDebtor?.customer.shop_id)?.country)) !== 'cash' && (
                 <div className="space-y-1">
                   <Label>{t('payment.reference')}</Label>
                   <Input value={editRef} onChange={e => setEditRef(e.target.value)} placeholder={t('payment.reference_placeholder')} />
@@ -2734,7 +2744,7 @@ export default function CreditsPage() {
           <div className="space-y-1">
             <Label>{t('payment.method')}</Label>
             <div className="grid grid-cols-3 gap-2.5">
-              {getCountry(shop?.country).paymentMethods
+              {getCountry(shopOf(repaySupplier?.supplier.shop_id)?.country).paymentMethods
                 .filter(m => m.type !== 'credit')
                 .map(m => (
                   <button key={m.id} onClick={() => setSupplierRepayMethod(m.id)}
@@ -2760,7 +2770,7 @@ export default function CreditsPage() {
             </div>
           </div>
 
-          {getMethodType(supplierRepayMethod, getCountry(shop?.country)) !== 'cash' && (
+          {getMethodType(supplierRepayMethod, getCountry(shopOf(repaySupplier?.supplier.shop_id)?.country)) !== 'cash' && (
             <div className="space-y-1">
               <Label>{t('payment.reference')}</Label>
               <Input value={supplierRepayRef} onChange={e => setSupplierRepayRef(e.target.value)} placeholder={t('payment.reference_placeholder')} />

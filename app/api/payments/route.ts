@@ -34,7 +34,10 @@ export async function POST(request: Request) {
       .single()
 
     const callerRole = memberRow?.role
-    if (!callerRole || !(await canWriteFeature(supabase, callerRole, shop_id, 'payments'))) {
+    // Plus membre de la boutique du paiement (accès retiré, boutique fermée…) : message explicite — une
+    // synchronisation hors connexion garde l'opération en file avec cette erreur, sans la supprimer
+    if (!callerRole) return NextResponse.json({ error: t('payment_shop_not_accessible') }, { status: 403 })
+    if (!(await canWriteFeature(supabase, callerRole, shop_id, 'payments'))) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 

@@ -342,22 +342,25 @@ export interface CombinedSyncResult {
 // each starting their own pass over the same pending queue.
 let globalSyncPromise: Promise<CombinedSyncResult> | null = null
 
-export async function syncAllPending(shopId: string): Promise<CombinedSyncResult> {
+// shopIds : toutes les boutiques ayant des opérations en attente (getPendingShopIds), traitées l'une après
+// l'autre — une opération en file appartient à la boutique de son objet, pas forcément à la boutique active.
+export async function syncAllPending(shopIds: string | string[]): Promise<CombinedSyncResult> {
   if (globalSyncPromise) return globalSyncPromise
+  const shops = Array.from(new Set(Array.isArray(shopIds) ? shopIds : [shopIds])).filter(Boolean)
   globalSyncPromise = (async () => {
     try {
-      const [salesResult, movResult, expResult, custPayResult, supPayResult] = await Promise.all([
-        syncPendingSales(shopId),
-        syncPendingMovements(shopId),
-        syncPendingExpenses(shopId),
-        syncPendingCustomerPayments(shopId),
-        syncPendingSupplierPayments(shopId),
-      ])
-      return {
-        synced: salesResult.synced + movResult.synced + expResult.synced + custPayResult.synced + supPayResult.synced,
-        failed: salesResult.failed + movResult.failed + expResult.failed + custPayResult.failed + supPayResult.failed,
-        errors: [...salesResult.errors, ...movResult.errors, ...expResult.errors, ...custPayResult.errors, ...supPayResult.errors],
+      const total: CombinedSyncResult = { synced: 0, failed: 0, errors: [] }
+      for (const shopId of shops) {
+        const results = await Promise.all([
+          syncPendingSales(shopId),
+          syncPendingMovements(shopId),
+          syncPendingExpenses(shopId),
+          syncPendingCustomerPayments(shopId),
+          syncPendingSupplierPayments(shopId),
+        ])
+        for (const r of results) { total.synced += r.synced; total.failed += r.failed; total.errors.push(...r.errors) }
       }
+      return total
     } finally {
       globalSyncPromise = null
     }

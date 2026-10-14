@@ -24,6 +24,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { useCurrency } from '@/lib/hooks/use-currency'
+import { formatCurrency } from '@/lib/utils/currency'
+import { resolveCurrencyCode } from '@/lib/saas/currencies'
 import { sharePDFNative, isCapacitor } from '@/lib/utils/native-share'
 import { getCountry, getPaymentMethodLabel } from '@/lib/saas/countries'
 import { useLocale } from 'next-intl'
@@ -94,16 +96,18 @@ export default function SalesHistoryPage() {
   const locale = useLocale()
   // « Reçu PDF » : s'ouvre / se partage (l'impression, c'est le ticket)
   const printSale = async (sale: Sale) => {
-    if (!shop) return
+    // Boutique DE LA VENTE (même règle que le ticket), jamais la boutique active
+    const saleShop = userShops.find(x => x.id === (sale as any).shop_id)
+    if (!saleShop) return
     const { generateReceiptPDFBlob } = await import('@/lib/utils/pdf')
     const blob = await generateReceiptPDFBlob({
       sale: sale as any,
-      shop,
+      shop: saleShop,
       cashierName: cashierMap[(sale as any).cashier_id] || t('sales.cashier'),
       customerName: (sale as any).customers?.name || undefined,
       labels: receiptLabels,
       locale,
-      hideBranding: hideStockShopBranding(shop),
+      hideBranding: hideStockShopBranding(saleShop),
     })
     try {
       await sharePDFNative(blob, `Recu-${sale.sale_number}.pdf`, `Recu-${sale.sale_number}`)
@@ -114,17 +118,20 @@ export default function SalesHistoryPage() {
   // Réimpression du ticket de caisse (mêmes réglages par appareil que Nouvelle vente).
   // Le montant reçu / la monnaie rendue ne sont pas conservés : la ligne n'apparaît pas.
   const printTicket = async (sale: Sale) => {
-    if (!shop) return
     const s: any = sale
-    const code = shop.currency || 'XAF'
+    // Boutique DE LA VENTE : en « Toutes les boutiques », la boutique active peut être une autre boutique
+    // (son nom, son logo, ses mentions et sa devise n'ont rien à faire sur ce ticket)
+    const saleShop = userShops.find(x => x.id === s.shop_id)
+    if (!saleShop) return
+    const code = resolveCurrencyCode(saleShop.currency, saleShop.country)
     try {
       await printSaleTicket({
         settings: readTicketSettings(),
         fileName: `Ticket-${sale.sale_number}.pdf`,
-        logoUrl: shop.logo_url,
+        logoUrl: saleShop.logo_url,
         data: {
-          shop: { name: shop.name, city: shop.city, state: shop.state, whatsapp: shop.whatsapp, tagline: shop.receipt_tagline, legalIds: shop.receipt_legal_ids },
-          footerMessage: shop.receipt_footer,
+          shop: { name: saleShop.name, city: saleShop.city, state: saleShop.state, whatsapp: saleShop.whatsapp, tagline: saleShop.receipt_tagline, legalIds: saleShop.receipt_legal_ids },
+          footerMessage: saleShop.receipt_footer,
           receiptUrl: receiptUrl(sale.receipt_token),
           saleNumber: sale.sale_number,
           createdAt: sale.created_at,
@@ -135,10 +142,10 @@ export default function SalesHistoryPage() {
           cashierName: cashierMap[s.cashier_id] || t('sales.cashier'),
           customerName: s.customers?.name || undefined,
           locale,
-          fmt: n => code === 'NGN' ? `NGN ${Math.round(n).toLocaleString('en-NG')}` : formatNaira(n),
+          fmt: n => code === 'NGN' ? `NGN ${Math.round(n).toLocaleString('en-NG')}` : formatCurrency(n, code),
           fmtShort: n => Math.round(n).toLocaleString(locale),
           labels: ticketLabelsFromT(t),
-          hideBranding: hideStockShopBranding(shop),
+          hideBranding: hideStockShopBranding(saleShop),
         },
       })
     } catch (err: any) {

@@ -278,6 +278,18 @@ export async function getPendingCount(shopId: string): Promise<number> {
   return (await getPendingSales(shopId)).length
 }
 
+// Boutiques ayant au moins une opération en attente, toutes files confondues. Une opération est mise en file
+// avec la boutique DE L'OBJET (client, produit…), qui n'est pas forcément la boutique active : la
+// synchronisation et le compteur parcourent donc toutes ces boutiques.
+export async function getPendingShopIds(): Promise<string[]> {
+  const db = await getDB()
+  const ids = new Set<string>()
+  for (const store of ['pending_sales', 'pending_movements', 'pending_expenses', 'pending_customer_payments', 'pending_supplier_payments'] as const) {
+    for (const item of (await db.getAll(store as any)) as any[]) if (!item.synced && item.shop_id) ids.add(item.shop_id)
+  }
+  return Array.from(ids)
+}
+
 // Total unsynced across ALL shops — used to guard logout
 export async function getTotalPendingCount(): Promise<number> {
   const db = await getDB()

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useSyncExternalStore } from 'react'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
-import { getPendingCount, getPendingMovementCount, getPendingExpenseCount, getPendingCustomerPaymentCount, getPendingSupplierPaymentCount } from './db'
+import { getPendingCount, getPendingMovementCount, getPendingExpenseCount, getPendingCustomerPaymentCount, getPendingSupplierPaymentCount, getPendingShopIds } from './db'
 import { syncAllPending, type SyncResult } from './sync'
 import { isCapacitor } from '@/lib/utils/native-share'
 
@@ -127,19 +127,28 @@ export function useOffline() {
   const pendingCountRef = useRef(0)
   const wasOfflineRef = useRef(false)
 
+  // Toutes les boutiques ayant des opérations en attente (une opération suit la boutique de son objet)
+  const pendingShops = useCallback(async () => {
+    const ids = await getPendingShopIds()
+    return shopId && !ids.includes(shopId) ? [shopId, ...ids] : ids
+  }, [shopId])
+
   const refreshPendingCount = useCallback(async () => {
     if (!shopId) return
-    const [sales, movements, expenses, customerPayments, supplierPayments] = await Promise.all([
-      getPendingCount(shopId),
-      getPendingMovementCount(shopId),
-      getPendingExpenseCount(shopId),
-      getPendingCustomerPaymentCount(shopId),
-      getPendingSupplierPaymentCount(shopId),
-    ])
-    const total = sales + movements + expenses + customerPayments + supplierPayments
+    let total = 0
+    for (const id of await pendingShops()) {
+      const counts = await Promise.all([
+        getPendingCount(id),
+        getPendingMovementCount(id),
+        getPendingExpenseCount(id),
+        getPendingCustomerPaymentCount(id),
+        getPendingSupplierPaymentCount(id),
+      ])
+      total += counts.reduce((a, b) => a + b, 0)
+    }
     setPendingCount(total)
     pendingCountRef.current = total
-  }, [shopId])
+  }, [shopId, pendingShops])
 
   const sync = useCallback(async (): Promise<SyncResult | null> => {
     if (!shopId) return null
@@ -149,14 +158,14 @@ export function useOffline() {
       // is mounted independently in several components at once) join the same
       // in-flight sync instead of each starting their own pass over the same
       // pending queue, which used to insert offline sales more than once.
-      const combined = await syncAllPending(shopId)
+      const combined = await syncAllPending(await pendingShops())
       setLastSyncResult(combined)
       await refreshPendingCount()
       return combined
     } finally {
       setSyncing(false)
     }
-  }, [shopId, refreshPendingCount])
+  }, [shopId, refreshPendingCount, pendingShops])
 
   // Retour en ligne confirmé avec des opérations en attente → synchronisation
   useEffect(() => {

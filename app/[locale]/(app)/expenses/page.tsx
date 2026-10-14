@@ -558,14 +558,16 @@ export default function ExpensesPage() {
 
   const confirmDelete = async () => {
     const { id } = deleteDialog
-    if (!id || !shop?.id) return
+    // Boutique DE LA DÉPENSE (en « Toutes les boutiques », elle peut différer de la boutique active)
+    const target = [...expenses, ...templates].find(x => x.id === id)
+    if (!id || !target?.shop_id) return
     setDeleteDialog({ open: false, id: null, isTemplate: false })
     setDeleting(id)
     try {
       const res = await withTimeout(fetch('/api/expenses/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ expense_id: id, shop_id: shop.id }),
+        body: JSON.stringify({ expense_id: id, shop_id: target.shop_id }),
       }))
       const data = await (res as Response).json()
       if (!(res as Response).ok) { toast({ title: data.error || 'Erreur', variant: 'destructive' }); return }

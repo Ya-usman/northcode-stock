@@ -764,14 +764,14 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         ? await withTimeout(fetch('/api/product-batches/promo', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: promoBatch.id, shop_id: shop.id, promo_price: price, promo_until: until, promo_start: start }),
+            body: JSON.stringify({ id: promoBatch.id, shop_id: promoBatch.shop_id, promo_price: price, promo_until: until, promo_start: start }),
           }))
         : await withTimeout(fetch('/api/products', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               id: promoProduct.id,
-              shop_id: shop.id,
+              shop_id: promoProduct.shop_id,
               promo_price: price,
               promo_until: until,
               promo_start: start,
@@ -804,12 +804,12 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         ? await withTimeout(fetch('/api/product-batches/promo', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: promoBatch.id, shop_id: shop.id, promo_price: null, promo_until: null, promo_start: null }),
+            body: JSON.stringify({ id: promoBatch.id, shop_id: promoBatch.shop_id, promo_price: null, promo_until: null, promo_start: null }),
           }))
         : await withTimeout(fetch('/api/products', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: promoProduct.id, shop_id: shop.id, promo_price: null, promo_until: null, promo_start: null, promo_reason: null }),
+            body: JSON.stringify({ id: promoProduct.id, shop_id: promoProduct.shop_id, promo_price: null, promo_until: null, promo_start: null, promo_reason: null }),
           }))
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
@@ -834,7 +834,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       const res = await withTimeout(fetch('/api/product-batches/expiry', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: expiryBatch.id, shop_id: shop.id, expiry_date: expiryDate }),
+        body: JSON.stringify({ id: expiryBatch.id, shop_id: expiryBatch.shop_id, expiry_date: expiryDate }),
       }))
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
@@ -856,7 +856,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       const res = await withTimeout(fetch('/api/product-batches/expiry', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: expiryBatch.id, shop_id: shop.id, expiry_date: null }),
+        body: JSON.stringify({ id: expiryBatch.id, shop_id: expiryBatch.shop_id, expiry_date: null }),
       }))
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
@@ -878,7 +878,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       const res = await withTimeout(fetch('/api/product-batches/adjust', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: adjustBatch.id, shop_id: shop.id, new_quantity: Number(adjustQuantity), reason_code: adjustReason }),
+        body: JSON.stringify({ id: adjustBatch.id, shop_id: adjustBatch.shop_id, new_quantity: Number(adjustQuantity), reason_code: adjustReason }),
       }))
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
@@ -901,7 +901,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       const res = await withTimeout(fetch('/api/product-batches', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: deleteBatchConfirm.id, shop_id: shop.id, reason_code: deleteBatchReason }),
+        body: JSON.stringify({ id: deleteBatchConfirm.id, shop_id: deleteBatchConfirm.shop_id, reason_code: deleteBatchReason }),
       }))
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
@@ -1005,33 +1005,47 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     }
   }
 
+  // Sélection répartie par boutique DU PRODUIT : en « Toutes les boutiques », une sélection peut mêler
+  // plusieurs boutiques ; chaque boutique reçoit sa propre requête (avec ses propres droits), jamais la
+  // boutique active cachée
+  const selectionByShop = () => {
+    const by = new Map<string, string[]>()
+    for (const id of Array.from(selectedIds)) {
+      const p = products.find(x => x.id === id)
+      if (!p?.shop_id) continue
+      by.set(p.shop_id, [...(by.get(p.shop_id) ?? []), id])
+    }
+    return Array.from(by.entries()).map(([shopId, ids]) => ({ shopId, ids }))
+  }
+
   const bulkDelete = async () => {
-    if (!shop?.id) return
     const isAll = bulkDeleteAll
+    // « Tout supprimer » : seulement quand l'en-tête est sur UNE boutique (le bouton n'est pas proposé sinon)
+    if (isAll && effectiveShopIds.length !== 1) return
     // Pour « tout supprimer », le mot de confirmation est exigé par la ConfirmModal
     setBulkDeleting(true)
-    const payload = isAll
-      ? { shop_id: shop.id, all: true }
-      : { shop_id: shop.id, ids: Array.from(selectedIds) }
-    let res: Response
-    try {
-      res = await withTimeout(fetch('/api/products', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      }), 30_000) // bulk/all delete can legitimately take longer on a large catalog
-    } catch (err: any) {
-      setBulkDeleting(false)
-      toast({ title: err.message || t('toast.error'), variant: 'destructive' })
-      return
+    const payloads = isAll
+      ? [{ shop_id: effectiveShopIds[0], all: true }]
+      : selectionByShop().map(g => ({ shop_id: g.shopId, ids: g.ids }))
+    let count = 0
+    let failure: string | null = null
+    for (const payload of payloads) {
+      try {
+        const res = await withTimeout(fetch('/api/products', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }), 30_000) // bulk/all delete can legitimately take longer on a large catalog
+        const json = await res.json()
+        if (!res.ok) { failure = json.error || t('toast.error'); continue }
+        count += json.deleted ?? 0
+      } catch (err: any) {
+        failure = err.message || t('toast.error')
+      }
     }
     setBulkDeleting(false)
-    const json = await res.json()
-    if (!res.ok) {
-      toast({ title: json.error || t('toast.error'), variant: 'destructive' })
-      return
-    }
-    const count = json.deleted ?? selectedIds.size
+    if (failure) toast({ title: failure, variant: 'destructive' })
+    if (failure && count === 0) { fetchProducts(); return }
     toast({
       title: isAll ? t('products.all_deleted_toast') : t('products.bulk_deleted_toast', { count }),
       variant: 'success',
@@ -1043,14 +1057,18 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     fetchProducts()
   }
 
+  // Une catégorie appartient à UNE boutique : l'attribution groupée n'est possible que pour des produits
+  // d'une même boutique (le panneau l'explique sinon), avec les catégories de cette boutique
+  const bulkCategoryShops = selectionByShop()
+  const bulkCategoryShopId = bulkCategoryShops.length === 1 ? bulkCategoryShops[0].shopId : null
   const bulkAssignCategory = async () => {
-    if (!shop?.id || selectedIds.size === 0) return
+    if (!bulkCategoryShopId || selectedIds.size === 0) return
     setBulkAssigningCategory(true)
     try {
       const res = await withTimeout(fetch('/api/products', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shop_id: shop.id, ids: Array.from(selectedIds), category_id: bulkCategoryId }),
+        body: JSON.stringify({ shop_id: bulkCategoryShopId, ids: Array.from(selectedIds), category_id: bulkCategoryId }),
       }), 30_000)
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
@@ -1072,7 +1090,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   // prix différents. Le calcul se fait ici, côté client, puis chaque
   // (id, promo_price) est envoyé — voir app/api/products/route.ts.
   const bulkApplyPromo = async () => {
-    if (!shop?.id || selectedIds.size === 0) return
+    if (selectedIds.size === 0) return
     const pct = Number(bulkPromoPercent)
     if (!pct || pct <= 0 || pct >= 100 || !bulkPromoUntil) {
       toast({ title: t('products.promo_invalid'), variant: 'destructive' })
@@ -1080,20 +1098,28 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     }
     setBulkApplyingPromo(true)
     try {
-      const items = Array.from(selectedIds)
-        .map(id => products.find(p => p.id === id))
-        .filter((p): p is Product => !!p)
-        .map(p => ({ id: p.id, promo_price: Math.max(1, Math.round(p.selling_price * (1 - pct / 100))) }))
       const until = new Date(`${bulkPromoUntil}T23:59:59`).toISOString()
       const start = bulkPromoStart ? new Date(`${bulkPromoStart}T00:00:00`).toISOString() : null
-      const res = await withTimeout(fetch('/api/products', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shop_id: shop.id, items, promo_until: until, promo_start: start, percent: pct }),
-      }), 30_000)
-      const json = await res.json()
-      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
-      toast({ title: t('products.bulk_promo_applied_toast', { count: json.updated ?? items.length }), variant: 'success' })
+      // Une requête par boutique des produits choisis (jamais la boutique active cachée)
+      let updated = 0
+      let failure: string | null = null
+      for (const group of selectionByShop()) {
+        const items = group.ids
+          .map(id => products.find(p => p.id === id))
+          .filter((p): p is Product => !!p)
+          .map(p => ({ id: p.id, promo_price: Math.max(1, Math.round(p.selling_price * (1 - pct / 100))) }))
+        const res = await withTimeout(fetch('/api/products', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shop_id: group.shopId, items, promo_until: until, promo_start: start, percent: pct }),
+        }), 30_000)
+        const json = await res.json()
+        if (!res.ok) { failure = json.error || t('toast.error'); continue }
+        updated += json.updated ?? items.length
+      }
+      if (failure) toast({ title: failure, variant: 'destructive' })
+      if (failure && updated === 0) return
+      toast({ title: t('products.bulk_promo_applied_toast', { count: updated }), variant: 'success' })
       setBulkPromoDialog(false)
       setBulkPromoPercent('')
       setBulkPromoUntil('')
@@ -1672,7 +1698,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             {selectedIds.size > 0 && selectedIds.size === filtered.length ? t('products.deselect_all') : t('products.select_all')}
             <span className="text-xs font-normal text-stockshop-blue dark:text-blue-400">({filtered.length})</span>
           </button>
-          {canDeleteProducts && products.length > 0 && (
+          {canDeleteProducts && products.length > 0 && effectiveShopIds.length === 1 && (
             <button
               onClick={() => { setBulkDeleteAll(true); setBulkDeleteDialog(true) }}
               className="flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
@@ -2293,6 +2319,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         icon={<Settings2 className="h-4 w-4" />}
       >
         <PremiumDialogBody>
+          {!bulkCategoryShopId ? (
+            <p className="text-sm text-muted-foreground" data-testid="bulk-category-one-shop">{t('products.bulk_category_one_shop')}</p>
+          ) : (
           <div className="space-y-1 max-h-80 overflow-y-auto">
             <button
               type="button"
@@ -2304,7 +2333,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             >
               {t('categories.uncategorized')}
             </button>
-            {categories.filter(c => c.shop_id === shop?.id).map(c => (
+            {categories.filter(c => c.shop_id === bulkCategoryShopId).map(c => (
               <button
                 key={c.id}
                 type="button"
@@ -2319,6 +2348,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               </button>
             ))}
           </div>
+          )}
         </PremiumDialogBody>
         <PremiumDialogFooter
           onCancel={() => { setBulkCategoryDialog(false); setBulkCategoryId(null) }}
@@ -2326,6 +2356,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           onConfirm={bulkAssignCategory}
           confirmLabel={bulkAssigningCategory ? t('payment.saving') : t('actions.save')}
           confirmLoading={bulkAssigningCategory}
+          confirmDisabled={!bulkCategoryShopId}
         />
       </PremiumDialog>
 

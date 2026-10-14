@@ -676,7 +676,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const timeout = new Promise<never>((_, reject) =>
               setTimeout(() => reject(new Error('sync_timeout')), 20_000)
             )
-            const result = await Promise.race([syncAllPending(shopId), timeout])
+            // Toutes les boutiques ayant des opérations en attente (une opération suit la boutique de son objet)
+            const { getPendingShopIds } = await import('@/lib/offline/db')
+            const result = await Promise.race([syncAllPending([shopId, ...(await getPendingShopIds())]), timeout])
             console.info('[sign-out] sync results', result)
             if (result.failed > 0) return 'sync_failed'
           }

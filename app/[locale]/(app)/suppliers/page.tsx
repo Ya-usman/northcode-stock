@@ -408,7 +408,8 @@ export default function SuppliersPage() {
       const res = await withTimeout(fetch('/api/suppliers', {
         method: editingSupplier ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, id: editingSupplier?.id, shop_id: shop!.id }),
+        // Modification : la boutique DU fournisseur (en « Toutes les boutiques », elle peut différer de la boutique active)
+        body: JSON.stringify({ ...data, id: editingSupplier?.id, shop_id: editingSupplier ? editingSupplier.shop_id : shop!.id }),
       }))
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
