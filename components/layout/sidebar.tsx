@@ -15,7 +15,7 @@ import { ShopSelector } from '@/components/layout/shop-selector'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import type { UserRole, Profile } from '@/lib/types/database'
 import { isBetaPeriod } from '@/lib/saas/plans'
-import { useRolePermissions, type PermFeature } from '@/lib/hooks/use-role-permissions'
+import { useRolePermissions, useNavAccess, type PermFeature } from '@/lib/hooks/use-role-permissions'
 import { useOffline } from '@/lib/offline/use-offline'
 import { BrandLogo } from '@/components/brand/brand-logo'
 
@@ -40,6 +40,8 @@ export function Sidebar({ locale, role, profile, onSignOut, signingOut = false, 
   const pathname = usePathname()
   const { isOnline } = useOffline()
   const { canAccess } = useRolePermissions()
+  // Pages adoptées au contexte boutique : visibles si le droit existe dans au moins une boutique de l'en-tête
+  const navAccess = useNavAccess()
 
   const navItems = [
     {
@@ -111,7 +113,7 @@ export function Sidebar({ locale, role, profile, onSignOut, signingOut = false, 
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
         {navItems.map((section) => {
           const visibleItems = section.items.filter(item =>
-            item.roles.includes(role) && (!(item as any).feature || canAccess((item as any).feature))
+            item.roles.includes(role) && (!(item as any).feature || navAccess((item as any).feature))
           )
           if (visibleItems.length === 0) return null
 

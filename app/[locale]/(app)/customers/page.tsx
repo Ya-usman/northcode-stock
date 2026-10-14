@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
@@ -10,7 +10,12 @@ import { useTableExport } from '@/lib/export/use-table-export'
 import { cn } from '@/lib/utils/cn'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
-import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
+import { useShopPermissions } from '@/lib/hooks/use-role-permissions'
+import { useShopScope } from '@/lib/shops/use-shop-scope'
+import { ShopScopeBadge } from '@/components/shops/shop-scope-badge'
+import { useFilterScope } from '@/lib/filters/use-filter-scope'
+import { formatCurrency } from '@/lib/utils/currency'
+import { resolveCurrencyCode, currencySymbol as symbolOfCode } from '@/lib/saas/currencies'
 import { EmptyGuide } from '@/components/onboarding/empty-guide'
 import { isManagerial } from '@/lib/permissions'
 import { useToast } from '@/components/ui/use-toast'
@@ -26,7 +31,7 @@ import { useCurrency } from '@/lib/hooks/use-currency'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createCustomerSchema, type CustomerFormData } from '@/lib/validations/customer'
-import type { Customer } from '@/lib/types/database'
+import type { Customer, Shop } from '@/lib/types/database'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
@@ -77,11 +82,11 @@ function CustomerCard({ customer, canEdit, formatNaira, setEditingCustomer, form
         </div>
         {canEdit && (
           <div className="flex gap-1">
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0"
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label={t('actions.edit')} title={t('actions.edit')}
               onClick={() => { setEditingCustomer(customer); form.reset({ name: customer.name, phone: customer.phone || '', city: customer.city || '', credit_limit: customer.credit_limit != null ? String(customer.credit_limit) : '' }); setShowModal(true) }}>
               <Edit2 className="h-3.5 w-3.5" />
             </Button>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive" aria-label={t('actions.delete')} title={t('actions.delete')}
               onClick={() => deleteCustomer(customer)}>
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
@@ -94,14 +99,31 @@ function CustomerCard({ customer, canEdit, formatNaira, setEditingCustomer, form
 
 export default function CustomersPage() {
   const t = useTranslations()
-  const { profile, shop, effectiveShopIds, userShops, roleInActiveShop } = useAuth()
+  const { effectiveShopIds, userShops, roleByShop } = useAuth()
   const isMultiShop = effectiveShopIds.length > 1
   // Règle unique : niveau « modification » de Clients (ajout, fiche, suppression) ;
   // fusion réservée à la direction (même règle que /api/customers/merge)
-  const { canWrite } = useRolePermissions()
-  const canWriteCustomers = canWrite('customers')
-  const effectiveRole = roleInActiveShop ?? profile?.role
+  // Contexte boutique : l'en-tête décide de ce que l'on voit ; un client existant agit dans SA boutique ; ajouter ou
+  // importer depuis « Toutes les boutiques » demande la boutique. Droits évalués boutique par boutique.
+  const scope = useShopScope()
+  const scopeKey = scope.shopIds.join(',')
+  const filterScope = useFilterScope()
+  const { canWriteIn } = useShopPermissions()
+  const shopById = useMemo(() => Object.fromEntries(userShops.map(s => [s.id, s])) as Record<string, Shop>, [userShops])
+  const canWriteIn_ = (id?: string | null) => !!id && canWriteIn(id, 'customers')
+  const canWriteCustomers = scope.shopIds.some(id => canWriteIn_(id))
   const { fmt: formatNaira, symbol: currencySymbol } = useCurrency()
+  // Montants d'un client : dans la devise de SA boutique
+  const fmtIn = (shopId?: string | null) => {
+    const sh = shopId ? shopById[shopId] : null
+    return sh ? (v: number) => formatCurrency(v, resolveCurrencyCode(sh.currency, sh.country)) : formatNaira
+  }
+  const symbolIn = (shopId?: string | null) => {
+    const sh = shopId ? shopById[shopId] : null
+    return sh ? symbolOfCode(resolveCurrencyCode(sh.currency, sh.country)) : currencySymbol
+  }
+  // Boutique d'un client en cours d'ajout (celle de l'en-tête, ou choisie)
+  const [formShop, setFormShop] = useState<Shop | null>(null)
   const customersExport = useTableExport()
   const [showImport, setShowImport] = useState(false)
   const { isOnline } = useOffline()
@@ -114,7 +136,7 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(() =>
     !getPageCache(`customers_${effectiveShopIds.join(',')}`)
   )
-  const [{ search }, setFilter] = usePersistedFilters('customers', shop?.id, { search: '' })
+  const [{ search }, setFilter] = usePersistedFilters('customers', filterScope, { search: '' }, { keepPerScope: true })
   const [showModal, setShowModal] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
   const [saving, setSaving] = useState(false)
@@ -177,7 +199,7 @@ export default function CustomersPage() {
 
   // ── Doublons : même nom (accents et majuscules ignorés) ou même numéro, par
   // boutique. Détection seulement : la fusion est une décision du commerçant.
-  const canMerge = isManagerial(effectiveRole) && canWriteCustomers
+  const canMergeIn = (id?: string | null) => !!id && isManagerial(roleByShop[id]) && canWriteIn_(id)
   const duplicateGroups = useMemo(() => {
     const byKey = new Map<string, Customer[]>()
     const add = (key: string, c: Customer) => { const list = byKey.get(key) || []; if (!list.includes(c)) list.push(c); byKey.set(key, list) }
@@ -199,6 +221,17 @@ export default function CustomersPage() {
     }
     return groups
   }, [customers])
+  // Doublons qu'une personne peut fusionner : direction ET « Clients » en modification dans LEUR boutique
+  const mergeableGroups = useMemo(() => duplicateGroups.filter(g => canMergeIn(g[0]?.shop_id)), [duplicateGroups, roleByShop, userShops]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Changement de contexte : formulaire, fusion et suppression en cours fermés — aucune boutique précédente reprise
+  const scopeKeyRef = useRef(scopeKey)
+  useEffect(() => {
+    if (scopeKeyRef.current === scopeKey) return
+    scopeKeyRef.current = scopeKey
+    setShowModal(false); setEditingCustomer(null); setFormShop(null)
+    setMergeGroup(null); setShowImport(false)
+  }, [scopeKey]) // eslint-disable-line react-hooks/exhaustive-deps
   const [showDuplicates, setShowDuplicates] = useState(false)
   const [mergeGroup, setMergeGroup] = useState<Customer[] | null>(null)
   const [keepId, setKeepId] = useState('')
@@ -243,6 +276,9 @@ export default function CustomersPage() {
   }
 
   const onSubmit = async (data: CustomerFormData) => {
+    // Modification : la boutique DU client ; ajout : la boutique choisie (jamais la boutique active cachée)
+    const targetShopId = editingCustomer?.shop_id ?? formShop?.id
+    if (!targetShopId) return
     setSaving(true)
     supabase.auth.getSession().catch(() => {})
     try {
@@ -251,7 +287,7 @@ export default function CustomersPage() {
       const res = await withTimeout<Response>(fetch('/api/customers', {
         method: editingCustomer ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, id: editingCustomer?.id, shop_id: editingCustomer?.shop_id ?? shop!.id }),
+        body: JSON.stringify({ ...data, id: editingCustomer?.id, shop_id: targetShopId }),
       }))
       const json = await res.json().catch(() => ({}))
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
@@ -300,7 +336,7 @@ export default function CustomersPage() {
     const col = (k: string) => t(`import.customers.xlsx.col.${k}.header` as any)
     customersExport.run({
       kind: t('nav.customers'),
-      shopName: userShops.filter(x => effectiveShopIds.includes(x.id)).map(x => x.name).join(', ') || shop?.name || 'StockShop',
+      shopName: userShops.filter(x => effectiveShopIds.includes(x.id)).map(x => x.name).join(', ') || 'StockShop',
       columns: [
         { header: col('name') }, { header: col('phone') }, { header: col('city') },
         { header: `${col('credit_limit')} (${currencySymbol})`, type: 'money' }, { header: `${col('debt')} (${currencySymbol})`, type: 'money' },
@@ -313,6 +349,7 @@ export default function CustomersPage() {
   const closeCustomerForm = () => {
     setShowModal(false)
     setEditingCustomer(null)
+    setFormShop(null)
     form.reset({ name: '', phone: '', city: '', credit_limit: '' })
   }
 
@@ -330,7 +367,7 @@ export default function CustomersPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-60">
-            {canWriteCustomers && shop?.id && (<>
+            {canWriteCustomers && (<>
               <DropdownMenuItem onClick={() => setShowImport(true)} className="gap-2.5" data-testid="customers-import">
                 <Upload className="h-4 w-4 flex-shrink-0" />{t('import.customers.title')}
               </DropdownMenuItem>
@@ -350,7 +387,11 @@ export default function CustomersPage() {
             className="h-9 gap-1"
             size="sm"
             data-testid="customers-add"
-            onClick={() => { form.reset({ name: '', phone: '', city: '', credit_limit: '' }); setEditingCustomer(null); setShowModal(true) }}
+            onClick={async () => {
+              const picked = await scope.requireOneShop({ title: t('customers.pick_shop_title'), eligible: sh => canWriteIn_(sh.id) })
+              if (!picked) return
+              form.reset({ name: '', phone: '', city: '', credit_limit: '' }); setEditingCustomer(null); setFormShop(picked); setShowModal(true)
+            }}
           >
             <Plus className="h-4 w-4" />
             {t('customers.add_customer')}
@@ -358,14 +399,17 @@ export default function CustomersPage() {
         )}
       </div>
 
-      {shop?.id && <ImportDrawer kind="customers" open={showImport} onClose={() => setShowImport(false)} shopId={shop.id} onImported={() => { fetchCustomers() }} />}
+      {/* Import : boutique de l'en-tête ; en « Toutes », aucune présélection — la boutique est choisie dans le panneau */}
+      <ImportDrawer kind="customers" open={showImport} onClose={() => setShowImport(false)} shopId={scope.shopId ?? ''} explicitShopInAllShops onImported={() => { fetchCustomers() }} />
 
-      {canMerge && !loading && duplicateGroups.length > 0 && (
+      {scope.multiShop && scope.isAllShops && <div><ShopScopeBadge /></div>}
+
+      {!loading && mergeableGroups.length > 0 && (
         <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm dark:border-amber-800/60 dark:bg-amber-950/40">
           <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
           <div className="min-w-0 flex-1">
             <p className="font-medium text-amber-800 dark:text-amber-200">
-              {t(duplicateGroups.length === 1 ? 'customers.duplicates_banner_one' : 'customers.duplicates_banner_other', { count: duplicateGroups.length })}
+              {t(mergeableGroups.length === 1 ? 'customers.duplicates_banner_one' : 'customers.duplicates_banner_other', { count: mergeableGroups.length })}
             </p>
             <p className="text-xs text-amber-700 dark:text-amber-300">{t('customers.duplicates_hint')}</p>
           </div>
@@ -379,9 +423,9 @@ export default function CustomersPage() {
         <LoadErrorFallback />
       ) : loading ? (
         <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
-      ) : showDuplicates && canMerge && duplicateGroups.length > 0 ? (
+      ) : showDuplicates && mergeableGroups.length > 0 ? (
         <div className="space-y-4">
-          {duplicateGroups.map((group, i) => (
+          {mergeableGroups.map((group, i) => (
             <div key={i} className="space-y-2 rounded-xl border border-amber-200 bg-amber-50/40 p-3 dark:border-amber-800/60 dark:bg-amber-950/20">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold">{group[0].name} <span className="font-normal text-muted-foreground">× {group.length}</span></p>
@@ -389,7 +433,7 @@ export default function CustomersPage() {
                   <Merge className="h-3.5 w-3.5" /> {t('customers.merge')}
                 </Button>
               </div>
-              {group.map(customer => <CustomerCard key={customer.id} customer={customer} canEdit={canWriteCustomers} formatNaira={formatNaira} setEditingCustomer={setEditingCustomer} form={form} setShowModal={setShowModal} deleteCustomer={deleteCustomer} t={t} />)}
+              {group.map(customer => <CustomerCard key={customer.id} customer={customer} canEdit={canWriteIn_(customer.shop_id)} formatNaira={fmtIn(customer.shop_id)} setEditingCustomer={setEditingCustomer} form={form} setShowModal={setShowModal} deleteCustomer={deleteCustomer} t={t} />)}
             </div>
           ))}
         </div>
@@ -411,14 +455,14 @@ export default function CustomersPage() {
                   <span className="text-xs font-semibold text-stockshop-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
                   <div className="flex-1 h-px bg-border" />
                 </div>
-                {shopCustomers.map(customer => <CustomerCard key={customer.id} customer={customer} canEdit={canWriteCustomers} formatNaira={formatNaira} setEditingCustomer={setEditingCustomer} form={form} setShowModal={setShowModal} deleteCustomer={deleteCustomer} t={t} />)}
+                {shopCustomers.map(customer => <CustomerCard key={customer.id} customer={customer} canEdit={canWriteIn_(customer.shop_id)} formatNaira={fmtIn(customer.shop_id)} setEditingCustomer={setEditingCustomer} form={form} setShowModal={setShowModal} deleteCustomer={deleteCustomer} t={t} />)}
               </div>
             )
           })}
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map(customer => <CustomerCard key={customer.id} customer={customer} canEdit={canWriteCustomers} formatNaira={formatNaira} setEditingCustomer={setEditingCustomer} form={form} setShowModal={setShowModal} deleteCustomer={deleteCustomer} t={t} />)}
+          {filtered.map(customer => <CustomerCard key={customer.id} customer={customer} canEdit={canWriteIn_(customer.shop_id)} formatNaira={fmtIn(customer.shop_id)} setEditingCustomer={setEditingCustomer} form={form} setShowModal={setShowModal} deleteCustomer={deleteCustomer} t={t} />)}
         </div>
       )}
 
@@ -428,6 +472,7 @@ export default function CustomersPage() {
         open={showModal}
         onOpenChange={open => { if (!open) closeCustomerForm() }}
         title={editingCustomer ? t('customers.edit_customer') : t('customers.add_customer')}
+        category={scope.multiShop && (editingCustomer ? shopById[editingCustomer.shop_id] : formShop) ? t('scope.shop_label', { name: (editingCustomer ? shopById[editingCustomer.shop_id] : formShop)!.name }) : undefined}
         description={editingCustomer?.name}
         icon={<User className="h-4 w-4" />}
         maxWidth="max-w-lg"
@@ -460,7 +505,7 @@ export default function CustomersPage() {
                     setPhoneValid(valid)
                     if (form.formState.errors.phone) form.clearErrors('phone')
                   }}
-                  defaultCountry={shop?.country}
+                  defaultCountry={(editingCustomer ? shopById[editingCustomer.shop_id] : formShop)?.country}
                   preferredCountries={shopCountries}
                   invalid={!!form.formState.errors.phone}
                 />
@@ -473,7 +518,7 @@ export default function CustomersPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="customer-credit-limit">{t('customers.credit_limit')} <span className="text-muted-foreground font-normal">({t('form.optional')})</span></Label>
-              <InputGroup suffix={currencySymbol}>
+              <InputGroup suffix={symbolIn(editingCustomer?.shop_id ?? formShop?.id)}>
                 <Input id="customer-credit-limit" {...form.register('credit_limit')} type="number" min="0" placeholder={t('customers.credit_limit_placeholder')} aria-invalid={!!form.formState.errors.credit_limit} />
               </InputGroup>
               {form.formState.errors.credit_limit && <p className="text-xs text-destructive">{form.formState.errors.credit_limit.message}</p>}
@@ -539,7 +584,7 @@ export default function CustomersPage() {
                   ))}
                 </div>
                 <div className="rounded-lg bg-muted p-3 text-sm">
-                  <p className="font-medium">{t('customers.merge_summary', { name: keep.name, sales, debt: formatNaira(debt) })}</p>
+                  <p className="font-medium">{t('customers.merge_summary', { name: keep.name, sales, debt: fmtIn(keep.shop_id)(debt) })}</p>
                   <p className="mt-1 text-xs text-muted-foreground">{t('customers.merge_note')}</p>
                 </div>
             </>

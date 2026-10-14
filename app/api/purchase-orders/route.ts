@@ -27,7 +27,9 @@ async function nextReference(admin: any, shopId: string): Promise<string> {
   return `BC-${year}-${String(seq).padStart(4, '0')}`
 }
 
-// GET /api/purchase-orders?shop_id= — list purchase orders with their items
+// GET /api/purchase-orders?shop_id= | ?shop_ids=a,b — list purchase orders with their items
+// Une boutique (shop_id) ou le contexte « Toutes les boutiques » (shop_ids) : seules les boutiques dont la personne
+// est membre ET où elle peut voir « Fournisseurs » comptent ; les coûts sont décidés boutique par boutique.
 // Droit : voir « Fournisseurs » dans la boutique. Sans le droit de voir les coûts, un bon garde ses lignes (ce qui
 // est commandé et reçu) mais ni prix unitaires ni montants — ils ne sont pas envoyés (lib/api/supplier-access).
 export async function GET(request: Request) {
@@ -37,18 +39,23 @@ export async function GET(request: Request) {
     if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { searchParams } = new URL(request.url)
-    const shopId = searchParams.get('shop_id')
-    if (!shopId) return NextResponse.json({ error: t('shop_id_required') }, { status: 400 })
-
-    const role = await checkShopRole(supabase, user.id, shopId)
-    if (!role || !(await canViewFeature(supabase, role, shopId, 'suppliers'))) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
-    const cost = await canViewCost(supabase, role, shopId)
+    const requested = (searchParams.get('shop_ids') ?? searchParams.get('shop_id') ?? '').split(',').map(x => x.trim()).filter(x => /^[0-9a-f-]{36}$/i.test(x))
+    if (!requested.length) return NextResponse.json({ error: t('shop_id_required') }, { status: 400 })
+    const allowed: string[] = []
+    const costShops = new Set<string>()
+    for (const id of Array.from(new Set(requested))) {
+      const role = await checkShopRole(supabase, user.id, id)
+      if (!role || !(await canViewFeature(supabase, role, id, 'suppliers'))) continue
+      allowed.push(id)
+      if (await canViewCost(supabase, role, id)) costShops.add(id)
+    }
+    if (!allowed.length) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()
     const { data, error } = await (admin as any)
       .from('purchase_orders')
       .select('*, purchase_order_items(*), suppliers(name, phone, email, city)')
-      .eq('shop_id', shopId)
+      .in('shop_id', allowed)
       .eq('is_opening_balance', false) // reprises de dette : dans Crédits, pas des bons de commande
       .order('created_at', { ascending: false })
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
@@ -72,7 +79,9 @@ export async function GET(request: Request) {
       received_by_name: po.received_by ? (actorMap[po.received_by] || null) : null,
     }))
 
-    return NextResponse.json({ data: cost ? enriched : enriched.map(orderWithoutCost), cost })
+    // Montants d'un bon : seulement si la personne peut voir les coûts dans SA boutique
+    const out = enriched.map((po: any) => (costShops.has(po.shop_id) ? po : orderWithoutCost(po)))
+    return NextResponse.json({ data: out, cost: allowed.every(id => costShops.has(id)) })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

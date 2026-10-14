@@ -48,5 +48,28 @@ export function useShopPermissions() {
   return {
     canAccessIn: (shopId: string | null | undefined, feature: PermFeature) => resolveIn(shopId, feature).view,
     canWriteIn: (shopId: string | null | undefined, feature: PermFeature) => resolveIn(shopId, feature).write,
+    /** Prix d'achat, marges, montants des bons : règle unique canViewCost, dans CETTE boutique */
+    canViewCostIn: (shopId: string | null | undefined) => {
+      const role = shopId ? roleByShop[shopId] : undefined
+      const shop = shopId ? userShops.find(s => s.id === shopId) : undefined
+      if (!role || !shop) return false
+      return canViewCostRule((shop as any).role_permissions as StoredPermissions | null | undefined, role)
+    },
   }
+}
+
+/**
+ * Navigation en « Toutes les boutiques » (règle D2, appliquée domaine par domaine) : pour une page DÉJÀ adoptée au
+ * contexte boutique, l'entrée est visible si la personne a le droit de voir dans AU MOINS UNE boutique de l'en-tête
+ * (la page fait ensuite choisir / filtrer la boutique, et chaque action est vérifiée sur la boutique réellement
+ * utilisée). Pages pas encore adoptées : règle actuelle (boutique active), inchangée jusqu'à leur adoption.
+ */
+export const SCOPE_ADOPTED_FEATURES: PermFeature[] = ['new_sale', 'customers', 'categories', 'suppliers']
+export function useNavAccess() {
+  const { canAccess } = useRolePermissions()
+  const { canAccessIn } = useShopPermissions()
+  const { effectiveShopIds } = useAuthContext()
+  return (feature: PermFeature) => (SCOPE_ADOPTED_FEATURES.includes(feature)
+    ? effectiveShopIds.some(id => canAccessIn(id, feature))
+    : canAccess(feature))
 }

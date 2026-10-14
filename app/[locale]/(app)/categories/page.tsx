@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations, useLocale } from 'next-intl'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
@@ -8,7 +8,11 @@ import { Plus, Trash2, Tag, Search, RotateCcw, ChevronDown, ChevronRight, Packag
 import { CATEGORY_COLORS } from '@/lib/constants/category-colors'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext } from '@/lib/contexts/auth-context'
-import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
+import { useShopPermissions } from '@/lib/hooks/use-role-permissions'
+import { useShopScope } from '@/lib/shops/use-shop-scope'
+import { ShopScopeBadge } from '@/components/shops/shop-scope-badge'
+import { formatCurrency } from '@/lib/utils/currency'
+import { resolveCurrencyCode } from '@/lib/saas/currencies'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { normalize } from '@/lib/utils/normalize'
 import { useToast } from '@/components/ui/use-toast'
@@ -24,7 +28,7 @@ import { ConfirmModal } from '@/components/ui/confirm-modal'
 import { RequiredMark } from '@/components/ui/input-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils/cn'
-import type { Category, Product } from '@/lib/types/database'
+import type { Category, Product, Shop } from '@/lib/types/database'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { fetchCosts } from '@/lib/costs/client'
 import { useOffline } from '@/lib/offline/use-offline'
@@ -153,8 +157,30 @@ export default function CategoriesPage() {
 
   const effectiveRole = roleInActiveShop ?? profile?.role
   // Règle unique : niveau « modification » de Catégories (même règle que /api/categories)
-  const { canWrite, canViewCost } = useRolePermissions()
-  const canEdit = canWrite('categories')
+  // Contexte boutique : l'en-tête décide de ce que l'on voit ; une catégorie existante agit dans SA boutique ; ajouter
+  // ou restaurer depuis « Toutes les boutiques » demande la boutique (requireOneShop). Droits boutique par boutique.
+  const scope = useShopScope()
+  const scopeKey = scope.shopIds.join(',')
+  const { canWriteIn, canViewCostIn } = useShopPermissions()
+  const shopById = useMemo(() => Object.fromEntries(userShops.map(s => [s.id, s])) as Record<string, Shop>, [userShops])
+  const canEditIn = (id?: string | null) => !!id && canWriteIn(id, 'categories')
+  const canEdit = scope.shopIds.some(id => canEditIn(id))
+  const canViewCost = scope.shopIds.some(id => canViewCostIn(id))
+  const fmtIn = (shopId?: string | null) => {
+    const sh = shopId ? shopById[shopId] : null
+    return sh ? (v: number) => formatCurrency(v, resolveCurrencyCode(sh.currency, sh.country)) : fmt
+  }
+  // Boutique de la catégorie en cours d'ajout / de modification, et de la restauration
+  const [formShop, setFormShop] = useState<Shop | null>(null)
+  const [restoreShop, setRestoreShop] = useState<Shop | null>(null)
+  // Changement de contexte : formulaire et restauration en cours fermés — aucune boutique précédente reprise
+  const scopeKeyRef = useRef(scopeKey)
+  useEffect(() => {
+    if (scopeKeyRef.current === scopeKey) return
+    scopeKeyRef.current = scopeKey
+    setFormOpen(false); setEditingCat(null); setFormShop(null)
+    setRestoreOpen(false); setRestoreShop(null)
+  }, [scopeKey]) // eslint-disable-line react-hooks/exhaustive-deps
   // Valeur du stock (coût d'achat) : règle unique canViewCost (13 oct. 2026) — les coûts sont demandés au
   // serveur, jamais lus par le navigateur ; sans eux la part est donnée en nombre de produits.
   const [costs, setCosts] = useState<Record<string, number> | null>(null)
@@ -181,12 +207,12 @@ export default function CategoriesPage() {
       const qty = Number(p.quantity) || 0
       s.count++
       if (qty <= 0) s.out++
-      else if (qty <= lowStockThresholdOf(p, shop?.low_stock_threshold)) s.low++
+      else if (qty <= lowStockThresholdOf(p, shopById[p.shop_id]?.low_stock_threshold)) s.low++
       s.value += qty * (Number((costs || {})[p.id]) || 0)
       s.sold += soldQty?.[p.id] || 0
     }
     return map
-  }, [products, soldQty, shop?.low_stock_threshold, catShop]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [products, soldQty, shopById, catShop]) // eslint-disable-line react-hooks/exhaustive-deps
   const totals = useMemo(() => {
     const all = Object.values(statsByCat)
     return { count: all.reduce((a, s) => a + s.count, 0), value: all.reduce((a, s) => a + s.value, 0) }
@@ -215,7 +241,13 @@ export default function CategoriesPage() {
 
   // ── Formulaire ajouter / modifier ─────────────────────────────────────────
   const snap = (n: string, c: string | null, d: string) => JSON.stringify([n.trim(), c, d])
-  const openForm = (cat: Category | null) => {
+  const openForm = async (cat: Category | null) => {
+    if (cat) setFormShop(shopById[cat.shop_id] ?? null)
+    else {
+      const picked = await scope.requireOneShop({ title: t('categories.pick_shop_title'), eligible: sh => canEditIn(sh.id) })
+      if (!picked) return
+      setFormShop(picked)
+    }
     const name = cat?.name ?? ''
     const color = cat?.color || CATEGORY_COLORS[0]
     const days = cat?.expiry_alert_days != null ? String(cat.expiry_alert_days) : ''
@@ -227,7 +259,8 @@ export default function CategoriesPage() {
   const formDirty = formOpen && snap(formName, formColor, formAlertDays) !== formInitial
 
   const submitForm = async () => {
-    if (!shop?.id || !formName.trim()) return
+    const targetShopId = editingCat ? editingCat.shop_id : formShop?.id
+    if (!targetShopId || !formName.trim()) return
     setSaving(true)
     try {
       const body = { name: formName.trim(), color: formColor, expiry_alert_days: formAlertDays ? Number(formAlertDays) : null }
@@ -235,7 +268,7 @@ export default function CategoriesPage() {
         method: editingCat ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         // Modification : la boutique de la catégorie (vue multi-boutiques)
-        body: JSON.stringify(editingCat ? { id: editingCat.id, shop_id: editingCat.shop_id, ...body } : { shop_id: shop.id, ...body }),
+        body: JSON.stringify(editingCat ? { id: editingCat.id, shop_id: editingCat.shop_id, ...body } : { shop_id: targetShopId, ...body }),
       }))
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
@@ -291,14 +324,20 @@ export default function CategoriesPage() {
   }
 
   // ── Restauration des catégories par défaut (confirmée) ────────────────────
+  const openRestore = async () => {
+    const picked = await scope.requireOneShop({ title: t('categories.restore_pick_shop_title'), eligible: sh => canEditIn(sh.id) })
+    if (!picked) return
+    setRestoreShop(picked)
+    setRestoreOpen(true)
+  }
   const restoreDefaults = async () => {
-    if (!shop?.id) return
+    if (!restoreShop) return
     setSeeding(true)
     try {
       const res = await withTimeout(fetch('/api/categories', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shop_id: shop.id }),
+        body: JSON.stringify({ shop_id: restoreShop.id }),
       }), 30_000)
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
@@ -331,13 +370,13 @@ export default function CategoriesPage() {
     )
   }
 
-  const statLine = (s: CatStats) => (
+  const statLine = (s: CatStats, shopId?: string | null) => (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground" data-testid="category-stats">
       <span>{t('categories.products_count', { count: s.count })}</span>
       {s.out > 0 && <span className="font-medium text-red-600 dark:text-red-400">{t('categories.out_count', { count: s.out })}</span>}
       {s.low > 0 && <span className="font-medium text-amber-600 dark:text-amber-400">{t('categories.low_count', { count: s.low })}</span>}
       {soldQty && <span>{t('categories.sold_30d', { count: s.sold })}</span>}
-      {showValue && <span>{t('categories.stock_value', { amount: fmt(s.value) })}</span>}
+      {showValue && <span>{t('categories.stock_value', { amount: fmtIn(shopId)(s.value) })}</span>}
     </div>
   )
 
@@ -354,7 +393,7 @@ export default function CategoriesPage() {
             </div>
             <div className="flex items-center gap-3 shrink-0 ml-2">
               <span className={cn('text-xs', Number(p.quantity) <= 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground')}>{p.quantity} {unitLabel(p.unit, p.quantity)}</span>
-              <span className="text-sm font-semibold text-stockshop-blue dark:text-blue-400">{fmt(p.selling_price)}</span>
+              <span className="text-sm font-semibold text-stockshop-blue dark:text-blue-400">{fmtIn(p.shop_id)(p.selling_price)}</span>
             </div>
           </div>
         ))}
@@ -385,7 +424,7 @@ export default function CategoriesPage() {
                 <span className="font-medium text-sm truncate">{cat.name}</span>
                 <Badge variant="secondary" className="text-xs shrink-0">{s.count}</Badge>
               </div>
-              {statLine(s)}
+              {statLine(s, cat.shop_id)}
               {shareBar(s)}
             </div>
           </button>
@@ -395,7 +434,7 @@ export default function CategoriesPage() {
                 <ExternalLink className="h-3.5 w-3.5" />
               </button>
             )}
-            {canEdit && (
+            {canEditIn(cat.shop_id) && (
               <>
                 <button type="button" className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors" aria-label={t('categories.edit_dialog_title')} onClick={() => openForm(cat)} data-testid="category-edit">
                   <Edit2 className="h-3.5 w-3.5" />
@@ -463,7 +502,7 @@ export default function CategoriesPage() {
         </Select>
         {canEdit && (
           <div className="flex gap-2 shrink-0">
-            <Button variant="outline" onClick={() => setRestoreOpen(true)} className="gap-1.5 h-9 px-3 text-sm text-muted-foreground" title={t('categories.restore_hint')} aria-label={t('categories.restore')}>
+            <Button variant="outline" onClick={openRestore} className="gap-1.5 h-9 px-3 text-sm text-muted-foreground" title={t('categories.restore_hint')} aria-label={t('categories.restore')}>
               <RotateCcw className="h-4 w-4" />
               <span className="hidden sm:inline">{t('categories.restore')}</span>
             </Button>
@@ -513,13 +552,14 @@ export default function CategoriesPage() {
         ) : (
           <>
             {filtered.map(renderCategory)}
-            {!search && uncategorized.length > 0 && renderUncategorized(uncategorized, shop?.id || '')}
+            {!search && uncategorized.length > 0 && renderUncategorized(uncategorized, scope.shopId ?? '')}
           </>
         )}
       </div>
 
       {filtered.length > 0 && (
-        <p className="text-xs text-muted-foreground">
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground" data-testid="categories-count">
+          <ShopScopeBadge />
           {t('categories.count', { count: filtered.length })} · {products.length} {t('categories.products_total')}
         </p>
       )}
@@ -529,6 +569,7 @@ export default function CategoriesPage() {
         open={formOpen}
         onOpenChange={open => { if (!open) { setFormOpen(false); setEditingCat(null) } }}
         title={editingCat ? t('categories.edit_dialog_title') : t('categories.add_dialog_title')}
+        category={scope.multiShop && formShop ? t('scope.shop_label', { name: formShop.name }) : undefined}
         description={editingCat?.name}
         icon={editingCat ? <Edit2 className="h-4 w-4" /> : <Tag className="h-4 w-4" />}
         maxWidth="max-w-md"
@@ -558,7 +599,7 @@ export default function CategoriesPage() {
               min={1}
               value={formAlertDays}
               onChange={e => setFormAlertDays(e.target.value)}
-              placeholder={t('categories.expiry_alert_days_placeholder', { days: shop?.expiry_alert_days ?? 14 })}
+              placeholder={t('categories.expiry_alert_days_placeholder', { days: formShop?.expiry_alert_days ?? 14 })}
             />
           </div>
         </PremiumDialogBody>
@@ -620,6 +661,7 @@ export default function CategoriesPage() {
         open={restoreOpen}
         onOpenChange={open => { if (!open && !seeding) setRestoreOpen(false) }}
         title={t('categories.restore_title')}
+        category={scope.multiShop && restoreShop ? t('scope.shop_label', { name: restoreShop.name }) : undefined}
         description={t('categories.restore_confirm')}
         icon={<RotateCcw className="h-4 w-4" />}
         tone="primary"

@@ -14,7 +14,7 @@ import {
 import { cn } from '@/lib/utils/cn'
 import type { UserRole } from '@/lib/types/database'
 import { isBetaPeriod } from '@/lib/saas/plans'
-import { useRolePermissions, type PermFeature } from '@/lib/hooks/use-role-permissions'
+import { useRolePermissions, useNavAccess, type PermFeature } from '@/lib/hooks/use-role-permissions'
 import { useOfflineRoutes } from '@/lib/offline/use-offline-routes'
 import { useOffline } from '@/lib/offline/use-offline'
 
@@ -49,6 +49,8 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
     router.replace(pathname.replace(new RegExp(`^/${locale}(?=/|$)`), `/${next}`) + window.location.search)
   }
   const { canAccess } = useRolePermissions()
+  // Pages adoptées au contexte boutique : visibles si le droit existe dans au moins une boutique de l'en-tête
+  const navAccess = useNavAccess()
   const { isOnline } = useOffline()
   const { isOffline, isAvailable } = useOfflineRoutes(isOnline)
 
@@ -70,7 +72,7 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
     { href: `/${locale}/billing`,         icon: Zap,             label: t('billing'),       roles: ['owner'],                                                primary: false },
     { href: `/${locale}/settings`,        icon: Settings,        label: t('settings'),      roles: ['owner', 'manager'],                                     primary: false },
     { href: `/${locale}/help`,            icon: BookOpen,        label: t('help'),          roles: ALL_NON_OWNER,                                                primary: false },
-  ].filter(item => item.roles.includes(role) && (!item.feature || canAccess(item.feature)))
+  ].filter(item => item.roles.includes(role) && (!item.feature || navAccess(item.feature)))
 
   const primaryItems = allItems.filter(i => i.primary)
   const moreItems = allItems.filter(i => !i.primary)

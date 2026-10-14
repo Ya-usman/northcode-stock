@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
@@ -17,10 +17,14 @@ import { getCountry } from '@/lib/saas/countries'
 import { startNavigationProgress } from '@/components/layout/navigation-progress'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
-import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
+import { useRolePermissions, useShopPermissions } from '@/lib/hooks/use-role-permissions'
+import { useShopScope } from '@/lib/shops/use-shop-scope'
+import { ShopScopeBadge } from '@/components/shops/shop-scope-badge'
+import { useFilterScope } from '@/lib/filters/use-filter-scope'
+import { resolveCurrencyCode, currencySymbol } from '@/lib/saas/currencies'
 import { useToast } from '@/components/ui/use-toast'
 import { useCurrency } from '@/lib/hooks/use-currency'
-import { formatInputValue } from '@/lib/utils/currency'
+import { formatInputValue, formatCurrency } from '@/lib/utils/currency'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -47,7 +51,7 @@ const PhoneInput = dynamic(() => import('@/components/ui/phone-input').then(m =>
   ssr: false,
   loading: () => <div className="h-10 w-full animate-pulse rounded-md border border-input bg-muted/40" />,
 })
-import type { Supplier, Product, PurchaseOrder } from '@/lib/types/database'
+import type { Supplier, Product, PurchaseOrder, Shop } from '@/lib/types/database'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
@@ -149,15 +153,35 @@ export default function SuppliersPage() {
   const effectiveRole = roleInActiveShop ?? profile?.role
   // Règle unique : niveau « modification » de Fournisseurs (fiches, prix,
   // bons de commande) — même règle que les routes /api/suppliers et /api/purchase-orders
-  const { canWrite, canAccess, canViewCost } = useRolePermissions()
-  const canManage = canWrite('suppliers')
+  const { canAccess } = useRolePermissions()
+  // Contexte boutique : l'en-tête décide de ce que l'on voit ; un objet existant (fournisseur, bon, prix) agit dans SA
+  // boutique ; une création depuis « Toutes les boutiques » demande la boutique (requireOneShop). Droits évalués
+  // boutique par boutique (useShopPermissions) — jamais sur la boutique active cachée.
+  const scope = useShopScope()
+  const scopeKey = scope.shopIds.join(',')
+  const filterScope = useFilterScope()
+  const { canWriteIn, canAccessIn, canViewCostIn } = useShopPermissions()
+  const shopById = useMemo(() => Object.fromEntries(userShops.map(s => [s.id, s])) as Record<string, Shop>, [userShops])
+  const canManageIn = (id?: string | null) => !!id && canWriteIn(id, 'suppliers')
+  const canManageAny = scope.shopIds.some(id => canWriteIn(id, 'suppliers'))
+  // Montants d'un objet : dans la devise de SA boutique (un bon, un fournisseur, un produit du comparateur)
+  const fmtIn = (shopId?: string | null) => {
+    const sh = shopId ? shopById[shopId] : null
+    return sh ? (v: number) => formatCurrency(v, resolveCurrencyCode(sh.currency, sh.country)) : fmt
+  }
+  const symbolIn = (shopId?: string | null) => {
+    const sh = shopId ? shopById[shopId] : null
+    return sh ? currencySymbol(resolveCurrencyCode(sh.currency, sh.country)) : symbol
+  }
+  // Boutique d'une création en cours (fournisseur, bon de commande) : celle de l'en-tête, ou choisie
+  const [createShop, setCreateShop] = useState<Shop | null>(null)
+  const [poShop, setPoShop] = useState<Shop | null>(null)
   // Prix d'achat (prix des produits, comparateur, montants des bons) : règle unique canViewCost. Sans ce droit,
   // l'écran ne les demande pas — et le serveur ne les enverrait pas. Payer une dette suit le droit « Crédits ».
-  const showCost = canViewCost
+  const showCost = scope.shopIds.some(id => canViewCostIn(id))
   // Dettes fournisseurs (solde dû) : Crédits ET Fournisseurs en lecture ; payer : Crédits en modification
   // (cet écran demande déjà Fournisseurs en lecture)
-  const showDebt = canAccess('payments')
-  const canPay = canWrite('payments')
+  const showDebt = scope.shopIds.some(id => canAccessIn(id, 'payments'))
 
   const [rawSuppliers, setSuppliers] = useState<Supplier[]>(() => {
     const c = getPageCache<{ suppliers: Supplier[]; products: Product[] }>(`suppliers_${effectiveShopIds.join(',')}`)
@@ -179,7 +203,7 @@ export default function SuppliersPage() {
   const [costs, setCosts] = useState<Record<string, number> | null>(null)
   const products = useMemo(() => (showCost ? withCosts(rawProducts, costs) : rawProducts), [rawProducts, costs, showCost])
   const [loading, setLoading] = useState(() => !getPageCache(`suppliers_${effectiveShopIds.join(',')}`))
-  const [{ search }, setFilter] = usePersistedFilters('suppliers', shop?.id, { search: '' })
+  const [{ search }, setFilter] = usePersistedFilters('suppliers', filterScope, { search: '' }, { keepPerScope: true })
   const [showModal, setShowModal] = useState(false)
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null)
   const [saving, setSaving] = useState(false)
@@ -232,7 +256,7 @@ export default function SuppliersPage() {
   const [receivePaymentMethod, setReceivePaymentMethod] = useState('cash')
   const [receivingLoading, setReceivingLoading] = useState(false)
   const [{ search: poSearch, status: poStatusFilter, dateFrom: poDateFrom, dateTo: poDateTo }, setPoFilter] = usePersistedFilters(
-    'purchase_orders', shop?.id, { search: '', status: '', dateFrom: '', dateTo: '' }
+    'purchase_orders', filterScope, { search: '', status: '', dateFrom: '', dateTo: '' }, { keepPerScope: true }
   )
   const [journalPo, setJournalPo] = useState<any | null>(null)
   const [poExpandedId, setPoExpandedId] = useState<string | null>(null)
@@ -260,7 +284,12 @@ export default function SuppliersPage() {
   const form = useForm<SupplierFormData>({ resolver: zodResolver(supplierSchema) })
   useEffect(() => { if (showModal) setPhoneValid(true) }, [showModal])
 
-  const openSupplierForm = (s: Supplier | null) => {
+  const openSupplierForm = async (s: Supplier | null) => {
+    if (!s) {
+      const picked = await scope.requireOneShop({ title: t('suppliers.pick_shop_title'), eligible: sh => canManageIn(sh.id) })
+      if (!picked) return
+      setCreateShop(picked)
+    } else setCreateShop(null)
     setEditingSupplier(s)
     form.reset(s ? { name: s.name, phone: s.phone || '', city: s.city || '', email: s.email || '' } : { name: '', phone: '', city: '', email: '' })
     setShowModal(true)
@@ -268,6 +297,7 @@ export default function SuppliersPage() {
   const closeSupplierForm = () => {
     setShowModal(false)
     setEditingSupplier(null)
+    setCreateShop(null)
     form.reset({ name: '', phone: '', city: '', email: '' })
   }
 
@@ -307,11 +337,11 @@ export default function SuppliersPage() {
   }
 
   const fetchProductPrices = async () => {
-    if (!shop?.id || !showCost) return
+    if (!scopeKey || !showCost) return
     try {
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave a hung request retried forever.
-      const res = await withTimeout(fetch(`/api/product-supplier-prices?shop_id=${shop.id}`), 20_000)
+      const res = await withTimeout(fetch(`/api/product-supplier-prices?shop_ids=${scopeKey}`), 20_000)
       if (!res.ok) return
       const json = await res.json()
       setProductPrices(json.data || [])
@@ -321,9 +351,10 @@ export default function SuppliersPage() {
   }
 
   const fetchPurchaseOrders = async () => {
-    if (!shop?.id) return
+    if (!scopeKey) return
     try {
-      const res = await withTimeout(fetch(`/api/purchase-orders?shop_id=${shop.id}`), 20_000)
+      // Bons de toutes les boutiques du contexte (avant : boutique active cachée seulement)
+      const res = await withTimeout(fetch(`/api/purchase-orders?shop_ids=${scopeKey}`), 20_000)
       if (!res.ok) return
       const json = await res.json()
       setPurchaseOrders(json.data || [])
@@ -332,7 +363,18 @@ export default function SuppliersPage() {
     }
   }
 
-  useEffect(() => { fetchSuppliers(); fetchProductPrices(); fetchPurchaseOrders() }, [effectiveShopIds.join(',')])
+  useEffect(() => { fetchSuppliers(); fetchProductPrices(); fetchPurchaseOrders() }, [effectiveShopIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Changement de contexte : toute création ou action en cours est fermée — aucune boutique précédente reprise
+  const scopeKeyRef = useRef(scopeKey)
+  useEffect(() => {
+    if (scopeKeyRef.current === scopeKey) return
+    scopeKeyRef.current = scopeKey
+    setShowModal(false); setEditingSupplier(null); setCreateShop(null)
+    setShowPoDialog(false); setPoShop(null)
+    setReceivingPo(null); setEditingPo(null); setReorderPo(null); setJournalPo(null); setDeletePoConfirm(null)
+    setSheetSupplier(null); setDeleteSupplierTarget(null); setAddPriceProduct(null)
+  }, [scopeKey])
 
   // Refresh when the user comes back to this tab — catches suppliers/prices/
   // bons de commande ajoutés ou modifiés par un autre membre de l'équipe.
@@ -360,7 +402,7 @@ export default function SuppliersPage() {
     const col = (k: string) => t(`import.suppliers.xlsx.col.${k}.header` as any)
     suppliersExport.run({
       kind: t('nav.suppliers'),
-      shopName: userShops.filter(x => effectiveShopIds.includes(x.id)).map(x => x.name).join(', ') || shop?.name || 'StockShop',
+      shopName: userShops.filter(x => effectiveShopIds.includes(x.id)).map(x => x.name).join(', ') || 'StockShop',
       columns: [
         { header: col('name') }, { header: col('phone') }, { header: col('email') }, { header: col('city') },
         ...(showDebt ? [{ header: `${col('debt')} (${symbol})`, type: 'money' as const }] : []),
@@ -403,19 +445,22 @@ export default function SuppliersPage() {
   }, [purchaseOrders, poSearch, poStatusFilter, poDateFrom, poDateTo, poOverdueOnly])
 
   const onSubmit = async (data: SupplierFormData) => {
+    const targetShopId = editingSupplier ? editingSupplier.shop_id : createShop?.id
+    if (!targetShopId) return
     setSaving(true)
     try {
       const res = await withTimeout(fetch('/api/suppliers', {
         method: editingSupplier ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         // Modification : la boutique DU fournisseur (en « Toutes les boutiques », elle peut différer de la boutique active)
-        body: JSON.stringify({ ...data, id: editingSupplier?.id, shop_id: editingSupplier ? editingSupplier.shop_id : shop!.id }),
+        body: JSON.stringify({ ...data, id: editingSupplier?.id, shop_id: targetShopId }),
       }))
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
       toast({ title: editingSupplier ? t('toast.supplier_updated') : t('toast.supplier_added'), variant: 'success' })
       setShowModal(false)
       setEditingSupplier(null)
+      setCreateShop(null)
       form.reset({ name: '', phone: '', city: '', email: '' })
       fetchSuppliers()
     } catch (err: any) {
@@ -457,7 +502,7 @@ export default function SuppliersPage() {
     const { subject, body } = buildPoEmailContent(po)
     const message = `*${subject}*\n\n${body}`
     const phone = po.suppliers?.phone || suppliers.find(s => s.id === po.supplier_id)?.phone || ''
-    if (phone) shareViaWhatsApp(normalizeWhatsAppNumber(phone, getCountry(shop?.country).phonePrefix), message)
+    if (phone) shareViaWhatsApp(normalizeWhatsAppNumber(phone, getCountry(shopById[po.shop_id]?.country).phonePrefix), message)
     else window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank')
   }
 
@@ -498,7 +543,7 @@ export default function SuppliersPage() {
   }
 
   const submitAddPrice = async () => {
-    if (!addPriceProduct || !addPriceSupplierId || !shop?.id) return
+    if (!addPriceProduct || !addPriceSupplierId) return
     setSavingPrice(true)
     try {
       const res = await fetch('/api/product-supplier-prices', {
@@ -522,9 +567,9 @@ export default function SuppliersPage() {
     }
   }
 
-  const deletePrice = async (entryId: string) => {
-    if (!shop?.id) return
-    const res = await fetch(`/api/product-supplier-prices?id=${entryId}&shop_id=${shop.id}`, { method: 'DELETE' })
+  // Entrée du comparateur : supprimée dans la boutique de SON produit (jamais la boutique active cachée)
+  const deletePrice = async (entryId: string, shopId: string) => {
+    const res = await fetch(`/api/product-supplier-prices?id=${entryId}&shop_id=${shopId}`, { method: 'DELETE' })
     if (!res.ok) { const json = await res.json().catch(() => ({})); toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
     fetchProductPrices()
   }
@@ -556,7 +601,7 @@ export default function SuppliersPage() {
   }
 
   // ── Bons de commande ─────────────────────────────────────────────────────
-  const lowStockThreshold = (p: any) => p.low_stock_threshold || shop?.low_stock_threshold || 10
+  const lowStockThreshold = (p: any) => p.low_stock_threshold || shopById[p.shop_id]?.low_stock_threshold || 10
   const isLowOrOut = (p: any) => p.quantity === 0 || p.quantity <= lowStockThreshold(p)
   const priceFor = (product: any, supplierId: string) =>
     productPrices.find(e => e.product_id === product.id && e.supplier_id === supplierId)?.price ?? Number(product.buying_price || 0)
@@ -569,13 +614,21 @@ export default function SuppliersPage() {
     return priceFor(p, poSupplierId)
   }
 
-  const poSupplierProducts = products.filter((p: any) => p.supplier_id === poSupplierId || poExtraProductIds.has(p.id))
+  // Produits de la boutique du bon seulement
+  const poSupplierProducts = products.filter((p: any) => p.shop_id === poShop?.id && (p.supplier_id === poSupplierId || poExtraProductIds.has(p.id)))
   const poVisibleProducts = poShowAll ? poSupplierProducts : poSupplierProducts.filter(isLowOrOut)
   const poTotal = poVisibleProducts
     .filter((p: any) => poChecked[p.id])
     .reduce((sum: number, p: any) => sum + poUnitPrice(p) * (Number(poQuantities[p.id]) || 0), 0)
 
-  const openCreatePo = () => {
+  // Nouveau bon : depuis « Toutes les boutiques », la boutique qui recevra le bon est choisie (seulement celles où la
+  // personne gère les fournisseurs) ; depuis un fournisseur, un produit ou une boutique précise : sa boutique.
+  const openCreatePo = async () => {
+    const picked = await scope.requireOneShop({ title: t('suppliers.po_pick_shop_title'), eligible: sh => canManageIn(sh.id) })
+    if (picked) openCreatePoIn(picked)
+  }
+  const openCreatePoIn = (target: Shop) => {
+    setPoShop(target)
     setPoSupplierId('')
     setPoShowAll(false)
     setPoChecked({})
@@ -607,6 +660,7 @@ export default function SuppliersPage() {
   // produit chez ce fournisseur précis (potentiellement différent de son
   // fournisseur habituel), coché et visible même s'il n'est pas en stock bas.
   const orderFromComparator = (product: any, supplierId: string) => {
+    setPoShop(shopById[product.shop_id] ?? null)
     setPoSupplierId(supplierId)
     setPoExtraProductIds(new Set([product.id]))
     setPoPriceOverrides({})
@@ -648,7 +702,7 @@ export default function SuppliersPage() {
   }, [orderProductId, products])
 
   const submitCreatePo = async () => {
-    if (!shop?.id || !poSupplierId) return
+    if (!poShop || !poSupplierId) return
     const items = poVisibleProducts
       .filter((p: any) => poChecked[p.id])
       .map((p: any) => ({
@@ -668,7 +722,7 @@ export default function SuppliersPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          shop_id: shop.id, supplier_id: poSupplierId, items,
+          shop_id: poShop.id, supplier_id: poSupplierId, items,
           notes: poNotes.trim() || null,
           expected_delivery_date: poDeliveryDate || null,
         }),
@@ -686,13 +740,12 @@ export default function SuppliersPage() {
   }
 
   const updatePoStatus = async (po: any, status: string) => {
-    if (!shop?.id) return
     setPoActionLoading(po.id)
     try {
       const res = await fetch('/api/purchase-orders', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: po.id, shop_id: shop.id, status }),
+        body: JSON.stringify({ id: po.id, shop_id: po.shop_id, status }),
       })
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
@@ -723,7 +776,7 @@ export default function SuppliersPage() {
     s + (it.unit_price || 0) * (Number(receiveQuantities[it.id]) || 0), 0)
 
   const submitReceivePo = async () => {
-    if (!shop?.id || !receivingPo) return
+    if (!receivingPo) return
     // Une date de péremption déjà passée sur une ligne reçue : avertissement et confirmation, jamais interdite
     const datesReceived = (receivingPo.purchase_order_items || []).filter((it: any) => Number(receiveQuantities[it.id]) > 0).map((it: any) => receiveExpiryDates[it.id])
     if (!(await pastExpiry.confirm(datesReceived))) return
@@ -746,7 +799,7 @@ export default function SuppliersPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          shop_id: shop.id,
+          shop_id: receivingPo.shop_id,
           purchase_order_id: receivingPo.id,
           items,
           payment_amount: paymentAmount > 0 ? paymentAmount : null,
@@ -767,10 +820,10 @@ export default function SuppliersPage() {
   }
 
   const confirmDeletePo = async () => {
-    if (!shop?.id || !deletePoConfirm) return
+    if (!deletePoConfirm) return
     setDeletingPo(true)
     try {
-      const res = await fetch(`/api/purchase-orders?id=${deletePoConfirm.id}&shop_id=${shop.id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/purchase-orders?id=${deletePoConfirm.id}&shop_id=${deletePoConfirm.shop_id}`, { method: 'DELETE' })
       if (!res.ok) { const json = await res.json().catch(() => ({})); toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
       setDeletePoConfirm(null)
       fetchPurchaseOrders()
@@ -794,7 +847,7 @@ export default function SuppliersPage() {
   }
 
   const submitEditPo = async () => {
-    if (!shop?.id || !editingPo) return
+    if (!editingPo) return
     if (editItems.length === 0) {
       toast({ title: t('suppliers.po_must_have_product'), variant: 'destructive' })
       return
@@ -811,7 +864,7 @@ export default function SuppliersPage() {
       const res = await fetch('/api/purchase-orders', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: editingPo.id, shop_id: shop.id, items }),
+        body: JSON.stringify({ id: editingPo.id, shop_id: editingPo.shop_id, items }),
       })
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
@@ -841,7 +894,7 @@ export default function SuppliersPage() {
   }
 
   const submitReorder = async () => {
-    if (!shop?.id || !reorderPo || reorderItems.length === 0) return
+    if (!reorderPo || reorderItems.length === 0) return
     setCreatingReorder(true)
     try {
       const items = reorderItems.map(it => ({
@@ -855,7 +908,7 @@ export default function SuppliersPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          shop_id: shop.id,
+          shop_id: reorderPo.shop_id, // complément : même boutique que le bon d'origine
           supplier_id: reorderPo.supplier_id,
           items,
           // Marqueur machine (pas affiché tel quel) — garde le lien vers le
@@ -878,8 +931,9 @@ export default function SuppliersPage() {
 
   const downloadPoPdf = async (po: any) => {
     const items = (po.purchase_order_items || [])
+    const fmt = fmtIn(po.shop_id) // devise de la boutique du bon
     await generatePurchaseOrderPDF({
-      shopName: shop?.name || 'StockShop',
+      shopName: shopById[po.shop_id]?.name || 'StockShop',
       reference: po.reference,
       dateStr: new Date(po.created_at).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'long', year: 'numeric' }),
       supplierName: po.suppliers?.name || supplierName(po.supplier_id),
@@ -903,9 +957,10 @@ export default function SuppliersPage() {
     // Bon créé via "Commander le reste" (voir submitReorder) — garde le
     // lien vers le bon d'origine dans notes pour adapter l'objet/le corps.
     const reorderOriginalRef = po.notes?.match(/^\[reorder:(.+?)\]/)?.[1] as string | undefined
+    const poShopName = shopById[po.shop_id]?.name || 'StockShop' // boutique DU bon (objet et signature)
     const subject = reorderOriginalRef
-      ? `Complément au bon ${reorderOriginalRef} — solde manquant (${po.reference}) — ${shop?.name || 'StockShop'}`
-      : `Bon de commande ${po.reference} — ${shop?.name || 'StockShop'}`
+      ? `Complément au bon ${reorderOriginalRef} — solde manquant (${po.reference}) — ${poShopName}`
+      : `Bon de commande ${po.reference} — ${poShopName}`
     const lines = items.map((it: any) => `- ${it.product_name} : ${it.quantity_ordered} ${unitLabel(it.unit, it.quantity_ordered)}`.trim())
     const intro = reorderOriginalRef
       ? `Suite à la livraison partielle de notre bon de commande ${reorderOriginalRef}, veuillez trouver ci-joint le bon ${po.reference} du ${dateStr} pour le solde manquant.`
@@ -921,7 +976,7 @@ export default function SuppliersPage() {
       'Merci de nous confirmer la réception de cette commande.',
       '',
       'Cordialement,',
-      shop?.name || 'StockShop',
+      poShopName,
     ].join('\n')
     return { subject, body }
   }
@@ -951,7 +1006,7 @@ export default function SuppliersPage() {
       <div key={p.id} className="rounded-lg border bg-card shadow-sm p-4">
         <div className="flex items-center justify-between gap-2">
           <p className="font-semibold text-sm truncate">{p.name}</p>
-          {canManage && (
+          {canManageIn(p.shop_id) && (
             <Button variant="outline" size="sm" className="h-7 gap-1 text-xs shrink-0" onClick={() => openAddPrice(p)}>
               <Plus className="h-3 w-3" />{t('suppliers.add_price')}
             </Button>
@@ -980,13 +1035,13 @@ export default function SuppliersPage() {
                       {showSavings && (
                         <span className="flex items-center gap-0.5 text-[10px] font-medium rounded-full bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400 px-2 py-0.5 shrink-0">
                           <TrendingDown className="h-2.5 w-2.5" />
-                          {t('suppliers.savings_label')} {fmt(savings)}{savingsPct != null ? ` (-${savingsPct}%)` : ''}
+                          {t('suppliers.savings_label')} {fmtIn(p.shop_id)(savings)}{savingsPct != null ? ` (-${savingsPct}%)` : ''}
                         </span>
                       )}
                     </div>
                     <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
                       {marginAmount != null && (
-                        <span>{t('suppliers.margin_label')} {fmt(marginAmount)}{marginPct != null ? ` (${marginPct}%)` : ''}</span>
+                        <span>{t('suppliers.margin_label')} {fmtIn(p.shop_id)(marginAmount)}{marginPct != null ? ` (${marginPct}%)` : ''}</span>
                       )}
                       {row.updatedAt && (
                         <span>
@@ -997,8 +1052,8 @@ export default function SuppliersPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:shrink-0 sm:ml-2">
-                    <span className="text-sm font-semibold">{fmt(row.price)}</span>
-                    {!row.isCurrent && canManage && (
+                    <span className="text-sm font-semibold">{fmtIn(p.shop_id)(row.price)}</span>
+                    {!row.isCurrent && canManageIn(p.shop_id) && (
                       <>
                         <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => usePrice(p, row.supplierId, row.price)}>
                           {t('suppliers.use_this_price')}
@@ -1008,7 +1063,7 @@ export default function SuppliersPage() {
                         </Button>
                         <button
                           className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-                          onClick={() => row.entryId && deletePrice(row.entryId)}
+                          onClick={() => row.entryId && deletePrice(row.entryId, p.shop_id)}
                         >
                           <X className="h-3.5 w-3.5" />
                         </button>
@@ -1026,7 +1081,8 @@ export default function SuppliersPage() {
 
   return (
     <div className="space-y-4">
-      {/* View toggle */}
+      {/* View toggle + contexte (« Toutes les boutiques » ; rien pour un compte à une seule boutique) */}
+      <div className="flex flex-wrap items-center gap-2">
       <div className="flex gap-1 rounded-lg border bg-muted/30 p-1 w-fit">
         <button
           onClick={() => setView('suppliers')}
@@ -1050,6 +1106,8 @@ export default function SuppliersPage() {
           <FileText className="h-3.5 w-3.5" /> {t('suppliers.tab_purchase_orders')}
         </button>
       </div>
+      <ShopScopeBadge />
+      </div>
 
       {view === 'suppliers' && (
       <>
@@ -1065,7 +1123,7 @@ export default function SuppliersPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-64">
-            {canManage && shop?.id && (<>
+            {canManageAny && (<>
               <DropdownMenuItem onClick={() => setShowImport(true)} className="gap-2.5" data-testid="suppliers-import">
                 <Upload className="h-4 w-4 flex-shrink-0" />{t('import.suppliers.title')}
               </DropdownMenuItem>
@@ -1079,7 +1137,7 @@ export default function SuppliersPage() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        {canManage && (
+        {canManageAny && (
           <Button
             variant="stockshop"
             className="h-9 gap-1"
@@ -1092,7 +1150,8 @@ export default function SuppliersPage() {
         )}
       </div>
 
-      {shop?.id && <ImportDrawer kind="suppliers" open={showImport} onClose={() => setShowImport(false)} shopId={shop.id} onImported={() => { fetchSuppliers() }} />}
+      {/* Import : boutique de l'en-tête ; en « Toutes », aucune présélection — la boutique est choisie dans le panneau */}
+      <ImportDrawer kind="suppliers" open={showImport} onClose={() => setShowImport(false)} shopId={scope.shopId ?? ''} explicitShopInAllShops onImported={() => { fetchSuppliers() }} />
 
       {totalOwedAll > 0 && (
         <div className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm dark:border-amber-800 dark:bg-amber-950/30" data-testid="suppliers-total-owed">
@@ -1122,8 +1181,8 @@ export default function SuppliersPage() {
                   <div className="flex-1 h-px bg-border" />
                 </div>
                 {shopSuppliers.map(supplier => (
-                  <SupplierCard key={supplier.id} supplier={supplier} productCount={productCounts[supplier.id] || 0} canManage={canManage}
-                    onOpen={setSheetSupplier} onEdit={openSupplierForm} onDelete={deleteSupplier} t={t} fmt={fmt} />
+                  <SupplierCard key={supplier.id} supplier={supplier} productCount={productCounts[supplier.id] || 0} canManage={canManageIn(supplier.shop_id)}
+                    onOpen={setSheetSupplier} onEdit={openSupplierForm} onDelete={deleteSupplier} t={t} fmt={fmtIn(supplier.shop_id)} />
                 ))}
               </div>
             )
@@ -1132,8 +1191,8 @@ export default function SuppliersPage() {
       ) : (
         <div className="space-y-2">
           {filtered.map(supplier => (
-            <SupplierCard key={supplier.id} supplier={supplier} productCount={productCounts[supplier.id] || 0} canManage={canManage}
-              onOpen={setSheetSupplier} onEdit={openSupplierForm} onDelete={deleteSupplier} t={t} fmt={fmt} />
+            <SupplierCard key={supplier.id} supplier={supplier} productCount={productCounts[supplier.id] || 0} canManage={canManageIn(supplier.shop_id)}
+              onOpen={setSheetSupplier} onEdit={openSupplierForm} onDelete={deleteSupplier} t={t} fmt={fmtIn(supplier.shop_id)} />
           ))}
         </div>
       )}
@@ -1172,7 +1231,7 @@ export default function SuppliersPage() {
 
       {view === 'purchase_orders' && (
         <div className="space-y-3">
-          {canManage && (
+          {canManageAny && (
             <div className="flex justify-end">
               <Button variant="stockshop" size="sm" className="h-9 gap-1" onClick={openCreatePo}>
                 <Plus className="h-4 w-4" />{t('suppliers.new_po')}
@@ -1263,7 +1322,7 @@ export default function SuppliersPage() {
                 const isExpanded = poExpandedId === po.id
                 const isOverdue = isPoOverdue(po)
                 return (
-                  <div key={po.id} className="rounded-lg border bg-card shadow-sm overflow-hidden">
+                  <div key={po.id} className="rounded-lg border bg-card shadow-sm overflow-hidden" data-po-card={po.reference} data-po-shop-id={po.shop_id}>
                     <div
                       role="button"
                       tabIndex={0}
@@ -1284,7 +1343,8 @@ export default function SuppliersPage() {
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {po.suppliers?.name || supplierName(po.supplier_id)} · {t('suppliers.po_items_count', { count: itemCount })}{showCost && <> · <span data-po-total>{fmt(total)}</span></>}
+                          {scope.isAllShops && scope.multiShop && <><span data-po-shop>{shopById[po.shop_id]?.name}</span> · </>}
+                          {po.suppliers?.name || supplierName(po.supplier_id)} · {t('suppliers.po_items_count', { count: itemCount })}{canViewCostIn(po.shop_id) && <> · <span data-po-total>{fmtIn(po.shop_id)(total)}</span></>}
                         </p>
                         <p className="text-[11px] text-muted-foreground/70 mt-0.5">
                           {new Date(po.created_at).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -1313,12 +1373,12 @@ export default function SuppliersPage() {
                         <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setEmailPo(po)} data-testid="po-send">
                           <Send className="h-3 w-3" />{t('suppliers.po_send')}
                         </Button>
-                        {canManage && po.status === 'draft' && (
+                        {canManageIn(po.shop_id) && po.status === 'draft' && (
                           <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" loading={poActionLoading === po.id} onClick={() => updatePoStatus(po, 'sent')}>
                             <Send className="h-3 w-3" />{t('suppliers.po_mark_sent')}
                           </Button>
                         )}
-                        {canManage && po.status === 'sent' && (
+                        {canManageIn(po.shop_id) && po.status === 'sent' && (
                           <Button size="sm" className="h-7 gap-1 text-xs bg-green-700 hover:bg-green-800 text-white border-0" onClick={() => openReceivePo(po)}>
                             <CheckCircle2 className="h-3 w-3" />{t('suppliers.po_mark_received')}
                           </Button>
@@ -1338,7 +1398,7 @@ export default function SuppliersPage() {
                                   <span className="truncate">{it.product_name} × {it.quantity_ordered} {unitLabel(it.unit, it.quantity_ordered)}</span>
                                   {showCost && (
                                   <span className="tabular-nums text-muted-foreground shrink-0" data-po-line-amount>
-                                    {it.unit_price != null ? fmt(it.unit_price * it.quantity_ordered) : '—'}
+                                    {it.unit_price != null ? fmtIn(po.shop_id)(it.unit_price * it.quantity_ordered) : '—'}
                                   </span>
                                   )}
                                 </div>
@@ -1352,7 +1412,7 @@ export default function SuppliersPage() {
                             )
                           })}
                         </div>
-                        {canManage && po.status === 'partial' && (
+                        {canManageIn(po.shop_id) && po.status === 'partial' && (
                           <div className="flex gap-2 pt-3 mt-3 border-t">
                             <Button
                               variant="outline" size="sm"
@@ -1363,7 +1423,7 @@ export default function SuppliersPage() {
                             </Button>
                           </div>
                         )}
-                        {canManage && (po.status === 'draft' || po.status === 'sent') && (
+                        {canManageIn(po.shop_id) && (po.status === 'draft' || po.status === 'sent') && (
                           <div className="flex gap-2 pt-3 mt-3 border-t">
                             {po.status === 'draft' && (
                               <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs flex-1" onClick={() => openEditPo(po)}>
@@ -1404,6 +1464,7 @@ export default function SuppliersPage() {
         open={showModal}
         onOpenChange={open => { if (!open) closeSupplierForm() }}
         title={editingSupplier ? t('suppliers.edit_title') : t('suppliers.add_supplier')}
+        category={scope.multiShop ? (editingSupplier ? shopById[editingSupplier.shop_id] : createShop)?.name && t('scope.shop_label', { name: (editingSupplier ? shopById[editingSupplier.shop_id] : createShop)!.name }) : undefined}
         description={editingSupplier?.name}
         icon={<Package className="h-4 w-4" />}
         maxWidth="max-w-lg"
@@ -1436,7 +1497,7 @@ export default function SuppliersPage() {
                     setPhoneValid(valid)
                     if (form.formState.errors.phone) form.clearErrors('phone')
                   }}
-                  defaultCountry={shop?.country}
+                  defaultCountry={(editingSupplier ? shopById[editingSupplier.shop_id] : createShop)?.country}
                   preferredCountries={shopCountries}
                   invalid={!!form.formState.errors.phone}
                 />
@@ -1483,14 +1544,14 @@ export default function SuppliersPage() {
         onOpenChange={open => { if (!open) setSheetSupplier(null) }}
         products={products.filter((p: any) => p.supplier_id === sheetSupplier?.id)}
         orders={purchaseOrders.filter((po: any) => po.supplier_id === sheetSupplier?.id)}
-        canManage={canManage}
-        showCost={showCost}
-        showDebt={showDebt}
-        canPay={canPay}
-        shopCountry={shop?.country}
-        fmt={fmt}
+        canManage={canManageIn(sheetSupplier?.shop_id)}
+        showCost={canViewCostIn(sheetSupplier?.shop_id)}
+        showDebt={canAccessIn(sheetSupplier?.shop_id, 'payments')}
+        canPay={canWriteIn(sheetSupplier?.shop_id, 'payments')}
+        shopCountry={sheetSupplier ? shopById[sheetSupplier.shop_id]?.country : undefined}
+        fmt={fmtIn(sheetSupplier?.shop_id)}
         onEdit={s => { setSheetSupplier(null); openSupplierForm(s) }}
-        onNewPo={s => { setSheetSupplier(null); openCreatePo(); onPoSupplierChange(s.id) }}
+        onNewPo={s => { setSheetSupplier(null); const target = shopById[s.shop_id]; if (!target) return; openCreatePoIn(target); onPoSupplierChange(s.id) }}
         onOpenPo={po => setJournalPo(po)}
         onRecordPayment={goRecordPayment}
       />
@@ -1519,7 +1580,7 @@ export default function SuppliersPage() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="add-price-value">{t('suppliers.price_label')}<RequiredMark /></Label>
-            <InputGroup suffix={symbol}>
+            <InputGroup suffix={symbolIn(addPriceProduct?.shop_id)}>
               <Input id="add-price-value" type="number" min={0} inputMode="numeric" value={addPriceValue} onChange={e => setAddPriceValue(e.target.value)} placeholder="0" />
             </InputGroup>
           </div>
@@ -1540,6 +1601,7 @@ export default function SuppliersPage() {
         open={showPoDialog}
         onOpenChange={open => { if (!open) setShowPoDialog(false) }}
         title={t('suppliers.new_po')}
+        category={scope.multiShop && poShop ? t('scope.shop_label', { name: poShop.name }) : undefined}
         description={poSupplierId ? supplierName(poSupplierId) : undefined}
         icon={<FileText className="h-4 w-4" />}
         width="lg"
@@ -1551,7 +1613,7 @@ export default function SuppliersPage() {
         footerExtra={poSupplierId ? (
           <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
             <span className="text-sm font-medium">{t('suppliers.po_total_label')}</span>
-            <span className="text-base font-bold tabular-nums text-stockshop-blue dark:text-blue-400" data-testid="po-total">{fmt(poTotal)}</span>
+            <span className="text-base font-bold tabular-nums text-stockshop-blue dark:text-blue-400" data-testid="po-total">{fmtIn(poShop?.id)(poTotal)}</span>
           </div>
         ) : undefined}
       >
@@ -1559,7 +1621,7 @@ export default function SuppliersPage() {
           <Select value={poSupplierId} onValueChange={onPoSupplierChange}>
             <SelectTrigger className="h-10" data-testid="po-supplier"><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
             <SelectContent>
-              {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              {suppliers.filter(s => s.shop_id === poShop?.id).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
             </SelectContent>
           </Select>
         </DrawerSection>
@@ -1854,7 +1916,7 @@ export default function SuppliersPage() {
         footerExtra={(
           <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
             <span className="text-sm font-medium">{t('suppliers.po_total_label')}</span>
-            <span className="text-base font-bold tabular-nums text-stockshop-blue dark:text-blue-400">{fmt(receiveTotal)}</span>
+            <span className="text-base font-bold tabular-nums text-stockshop-blue dark:text-blue-400">{fmtIn(receivingPo?.shop_id)(receiveTotal)}</span>
           </div>
         )}
       >
@@ -1920,10 +1982,10 @@ export default function SuppliersPage() {
                 ))}
               </div>
               {receivePaymentStatus === 'partial' && (
-                <InputGroup suffix={symbol}>
+                <InputGroup suffix={symbolIn(receivingPo?.shop_id)}>
                   <Input
                     inputMode="numeric"
-                    value={formatInputValue(receivePaymentAmount, symbol)}
+                    value={formatInputValue(receivePaymentAmount, symbolIn(receivingPo?.shop_id))}
                     onChange={e => { setReceiveTouched(true); setReceivePaymentAmount(e.target.value.replace(/\D/g, '')) }}
                     placeholder={t('suppliers.po_payment_amount_placeholder')}
                   />

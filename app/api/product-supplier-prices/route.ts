@@ -5,7 +5,7 @@ import { canViewCost, canWriteFeature } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { supplierOfShop, productsOutsideShop } from '@/lib/api/shop-objects'
 
-// GET /api/product-supplier-prices?shop_id= — raw price comparison entries;
+// GET /api/product-supplier-prices?shop_id= | ?shop_ids=a,b — raw price comparison entries (avec leur boutique);
 // joined against product/supplier names client-side (already in memory there).
 // Ce sont des prix d'achat : réservé au droit de voir les coûts (lib/permissions → canViewCost).
 export async function GET(request: Request) {
@@ -15,17 +15,21 @@ export async function GET(request: Request) {
     if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { searchParams } = new URL(request.url)
-    const shopId = searchParams.get('shop_id')
-    if (!shopId) return NextResponse.json({ error: t('shop_id_required') }, { status: 400 })
-
-    const role = await checkShopRole(supabase, user.id, shopId)
-    if (!role || !(await canViewCost(supabase, role, shopId))) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+    // Une boutique ou « Toutes les boutiques » : seules celles dont la personne est membre ET voit les coûts
+    const requested = (searchParams.get('shop_ids') ?? searchParams.get('shop_id') ?? '').split(',').map(x => x.trim()).filter(x => /^[0-9a-f-]{36}$/i.test(x))
+    if (!requested.length) return NextResponse.json({ error: t('shop_id_required') }, { status: 400 })
+    const allowed: string[] = []
+    for (const id of Array.from(new Set(requested))) {
+      const role = await checkShopRole(supabase, user.id, id)
+      if (role && (await canViewCost(supabase, role, id))) allowed.push(id)
+    }
+    if (!allowed.length) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()
     const { data, error } = await (admin as any)
       .from('product_supplier_prices')
-      .select('id, product_id, supplier_id, price, updated_at')
-      .eq('shop_id', shopId)
+      .select('id, shop_id, product_id, supplier_id, price, updated_at')
+      .in('shop_id', allowed)
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
     return NextResponse.json({ data: data || [] })
