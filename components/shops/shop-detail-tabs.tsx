@@ -93,7 +93,7 @@ export function ShopStockTab({ shop, can, isOwner, fmt, openPage }: {
         <Section title={t('levels_title')} icon={PackageX} testId="shop-stock-levels"
           summary={levels?.data ? t('levels_summary', { out: levels.data.out, low: levels.data.low }) : undefined}
           action={<OpenButton label={t('open_products')} testId="shop-open-products"
-            onClick={() => openPage('stock/products', { page: 'stock', filters: { statusFilter: levels?.data?.out ? 'out' : levels?.data?.low ? 'low' : 'all' } })} />}>
+            onClick={() => openPage('stock/products', { page: 'stock', filters: { statuses: levels?.data?.out ? ['out'] : levels?.data?.low ? ['low'] : [] } })} />}>
           {!detail ? <Loading /> : levels!.error ? <Unavailable onRetry={refresh} /> : !levels!.data!.list.length ? <Empty text={t('levels_empty')} /> : (
             <ul className="divide-y">
               {levels!.data!.list.map(p => (

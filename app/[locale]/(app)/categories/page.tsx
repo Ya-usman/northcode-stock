@@ -35,6 +35,7 @@ import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { fetchSoldQty30d, lowStockThresholdOf } from '@/lib/stock/signals'
 import { presetPersistedFilters } from '@/lib/hooks/use-persisted-filters'
+import { useFilterScope } from '@/lib/filters/use-filter-scope'
 import { startNavigationProgress } from '@/components/layout/navigation-progress'
 
 // Catégories : repères par catégorie (produits, ruptures, stock bas, ventes
@@ -73,6 +74,7 @@ export default function CategoriesPage() {
   const locale = useLocale()
   const router = useRouter()
   const { shop, profile, roleInActiveShop, effectiveShopIds, userShops } = useAuthContext()
+  const filterScope = useFilterScope()
   const { fmt } = useCurrency()
   const { isOnline } = useOffline()
   const isMultiShop = effectiveShopIds.length > 1
@@ -204,7 +206,8 @@ export default function CategoriesPage() {
 
   // Liste Produits filtrée (catégorie, ou « sans catégorie »)
   const openInProducts = (categoryId: string) => {
-    presetPersistedFilters('stock', shop?.id, { categoryFilter: categoryId, statusFilter: 'all', search: '' })
+    // Produits : mémoire par contexte réel de l'en-tête, catégorie et statut en listes (choix multiples)
+    presetPersistedFilters('stock', filterScope, { categoryIds: [categoryId], statuses: [], search: '' })
     const href = `/${locale}/stock/products`
     startNavigationProgress(href)
     router.push(href)

@@ -51,6 +51,9 @@ import { fetchStockPipeline, type StockPipeline } from '@/lib/stock/pipeline'
 import { fetchReservedQtyByProduct } from '@/lib/stock/reservations'
 import { ProductThumbnail } from '@/components/stock/product-thumbnail'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
+import { MultiSelectFilter, MultiSelectList } from '@/components/ui/multi-select-filter'
+import { asValueList, keepKnown, matchesAny, shopScopedGroups, toggleValue, type FilterGroup } from '@/lib/filters/multi-select'
+import { useFilterScope } from '@/lib/filters/use-filter-scope'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
@@ -78,6 +81,9 @@ const ProductForm = dynamic(() => import('@/components/stock/product-form').then
 const ImportProductsModal = dynamic(() => import('@/components/stock/import-products-modal').then(m => ({ default: m.ImportProductsModal })), { ssr: false })
 const BulkAddModal = dynamic(() => import('@/components/stock/bulk-add-modal').then(m => ({ default: m.BulkAddModal })), { ssr: false })
 
+
+// Ordre MÉTIER du filtre Statut (jamais alphabétique) ; « Archivé » s'ajoute pour qui gère le stock
+const STATUS_ORDER = ['ok', 'low', 'out', 'expiry', 'dormant', 'promo']
 
 function StockBadge({ quantity, threshold }: { quantity: number; threshold: number }) {
   const t = useTranslations('status')
@@ -120,8 +126,14 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const { isOnline } = useOffline()
   // Pas de filtre « Boutique » ici : la boutique affichée est celle du sélecteur de l'en-tête (effectiveShopIds),
   // seule source de vérité — toutes les boutiques (produits regroupés par boutique) ou une boutique précise.
-  const [{ search, categoryFilter, statusFilter, supplierFilter, noSku, noImage }, setFilter, resetFilters] = usePersistedFilters(
-    'stock', shop?.id, { search: '', categoryFilter: 'all', statusFilter: 'all', supplierFilter: 'all', noSku: false, noImage: false }
+  // Catégorie, Statut et Fournisseur : choix multiples (OU dans un filtre, ET entre filtres), par
+  // identifiant — jamais par libellé. Mémoire par contexte réel de l'en-tête (une boutique ou « Toutes
+  // les boutiques ») : chaque contexte retrouve son propre état, un filtre d'Akwa ne suit pas vers Bastos.
+  const filterScope = useFilterScope()
+  const [{ search, categoryIds, statuses, supplierIds, noSku, noImage }, setFilter, resetFilters] = usePersistedFilters(
+    'stock', filterScope,
+    { search: '', categoryIds: [] as string[], statuses: [] as string[], supplierIds: [] as string[], noSku: false, noImage: false },
+    { keepPerScope: true },
   )
   // Signaux (péremption, ventes 30 j) : repris du cache local partagé avec la
   // Vue d'ensemble (lib/stock/signals), rafraîchis ensuite en arrière-plan.
@@ -259,10 +271,16 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   // valeur du stock, archivage, journal d'activité (règle du 9 oct. 2026)
   const fullStock = canWriteStock
   const [journalOpen, setJournalOpen] = useState(false)
-  const showArchived = fullStock && statusFilter === 'archived'
+  // Valeurs mémorisées encore valables : une catégorie supprimée, un fournisseur retiré ou un statut
+  // réservé (Archivé) ne restent jamais comme filtre fantôme qui viderait la liste
+  const statusValues = fullStock ? [...STATUS_ORDER, 'archived'] : STATUS_ORDER
+  const categoryFilter = keepKnown(asValueList(categoryIds), loading ? null : new Set(['uncategorized', ...categories.map(c => c.id)]))
+  const statusFilter = keepKnown(asValueList(statuses), new Set(statusValues))
+  const supplierFilter = keepKnown(asValueList(supplierIds), loading ? null : new Set(suppliers.map(s => s.id)))
+  const showArchived = fullStock && statusFilter.includes('archived')
   // Filtres secondaires actifs (badge sur « Plus de filtres ») et lien « Réinitialiser »
-  const extraFilterCount = (supplierFilter !== 'all' ? 1 : 0) + (noSku ? 1 : 0) + (noImage ? 1 : 0)
-  const anyFilterActive = !!search || categoryFilter !== 'all' || statusFilter !== 'all' || extraFilterCount > 0
+  const extraFilterCount = (supplierFilter.length ? 1 : 0) + (noSku ? 1 : 0) + (noImage ? 1 : 0)
+  const anyFilterActive = !!search || categoryFilter.length > 0 || statusFilter.length > 0 || extraFilterCount > 0
   // Mode sélection (cartes) : mêmes rôles qu'avant pour les actions groupées
   const canSelectProducts = canWriteStock || canWrite('categories') || canDeleteProducts
   const [archiveDateFrom, setArchiveDateFrom] = useState('')
@@ -444,7 +462,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   useEffect(() => {
     const s = searchParams.get('status')
     if (!s) return
-    if (['all', 'ok', 'low', 'out', 'expiry', 'dormant', 'promo', 'archived'].includes(s)) setFilter({ statusFilter: s })
+    if (s === 'all') setFilter({ statuses: [] })
+    else if ([...STATUS_ORDER, 'archived'].includes(s)) setFilter({ statuses: [s] })
     // replaceState natif (synchronisé avec le routeur de Next 14) : un
     // router.replace lancé pendant la navigation entrante était ignoré.
     window.history.replaceState(window.history.state, '', `/${locale}/stock/products`)
@@ -542,18 +561,22 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         const hit = normalize(p.name).includes(q) || (!!p.sku && normalize(p.sku).includes(q))
         if (!hit) return false
       }
-      if (supplierFilter !== 'all' && p.supplier_id !== supplierFilter) return false
       if (noSku && p.sku) return false
       if (noImage && p.image_url) return false
-      if (categoryFilter === 'uncategorized' && p.category_id) return false
-      if (categoryFilter !== 'all' && categoryFilter !== 'uncategorized' && p.category_id !== categoryFilter) return false
+      // OU à l'intérieur de chaque filtre, ET entre les filtres ; toujours par identifiant
+      if (!matchesAny(supplierFilter, v => p.supplier_id === v)) return false
+      if (!matchesAny(categoryFilter, v => (v === 'uncategorized' ? !p.category_id : p.category_id === v))) return false
+      // Statuts : chacun garde sa propre règle. En stock / faible / rupture = niveau (un seul par produit) ;
+      // péremption, ventes lentes, promo = conditions calculées qui peuvent se cumuler. Archivé est une
+      // autre liste (produits désactivés), jamais combinée avec les autres.
       const level = levelOf(p)
-      if (statusFilter === 'out' && level !== 'out') return false
-      if (statusFilter === 'low' && level !== 'low') return false
-      if (statusFilter === 'ok' && level !== 'ok') return false
-      if (statusFilter === 'expiry' && !isExpired(p) && !isExpiringSoon(p)) return false
-      if (statusFilter === 'dormant' && !isDormant(p)) return false
-      if (statusFilter === 'promo' && !isPromoActive(p)) return false
+      if (!matchesAny(statusFilter, v => {
+        if (v === 'ok' || v === 'low' || v === 'out') return level === v
+        if (v === 'expiry') return isExpired(p) || isExpiringSoon(p)
+        if (v === 'dormant') return isDormant(p)
+        if (v === 'promo') return isPromoActive(p)
+        return false
+      })) return false
       return true
     })
 
@@ -1393,6 +1416,29 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     onArchive: (p: Product) => setArchiveConfirmProduct(p),
   }
 
+  // Options des filtres. Une boutique dans l'en-tête : liste simple. « Toutes les boutiques » : un groupe
+  // titré par boutique — deux « Alimentation » de deux boutiques restent deux options distinctes.
+  const groupByShop = effectiveShopIds.length > 1
+  const shopRefs = userShops.filter(s => effectiveShopIds.includes(s.id)).map(s => ({ id: s.id, name: s.name }))
+  const uncategorizedCount = products.filter(p => !p.category_id).length
+  const categoryGroups: FilterGroup[] = [
+    ...(uncategorizedCount ? [{ id: 'none', options: [{ value: 'uncategorized', label: t('categories.uncategorized'), hint: String(uncategorizedCount) }] }] : []),
+    ...shopScopedGroups(categories, { id: c => c.id, label: c => c.name, shopId: c => (c as any).shop_id, color: c => c.color }, shopRefs, groupByShop, locale),
+  ]
+  const supplierGroups = shopScopedGroups(
+    suppliers.filter((s: any) => effectiveShopIds.includes(s.shop_id)),
+    { id: s => s.id, label: s => s.name, shopId: s => (s as any).shop_id }, shopRefs, groupByShop, locale,
+  )
+  const statusLabels: Record<string, string> = {
+    ok: t('status.in_stock'), low: t('status.low_stock'), out: t('status.out_of_stock'),
+    expiry: t('products.card_expiry'), dormant: t('products.card_dormant'), promo: t('products.promo_badge'),
+    archived: t('products.tab_archived'),
+  }
+  const statusGroups: FilterGroup[] = [{
+    id: 'status',
+    options: statusValues.map(v => ({ value: v, label: statusLabels[v], hint: v === 'archived' && archivedProducts.length ? String(archivedProducts.length) : undefined })),
+  }]
+
   const productFormProps = {
     categories: categories.filter((c: any) => !shop?.id || c.shop_id === shop.id),
     suppliers: suppliers.filter((s: any) => !shop?.id || s.shop_id === shop.id),
@@ -1440,47 +1486,28 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             </DropdownMenu>
           )}
           <div className="order-3 flex w-full basis-full items-center gap-1.5 sm:gap-2 xl:w-auto xl:flex-1 xl:basis-auto">
-            <Select value={categoryFilter} onValueChange={v => setFilter({ categoryFilter: v })}>
-              <SelectTrigger className="h-9 min-w-0 flex-1 gap-1 px-2.5 sm:w-auto sm:flex-none sm:px-3 [&>span]:truncate sm:min-w-[150px]" aria-label={t('products.category')}>
-                {/* Téléphone : « Catégorie » suffit tant qu'aucune n'est choisie (le libellé long y serait coupé) */}
-                <SelectValue placeholder={t('products.all_categories')}>{categoryFilter === 'all' ? <><span className="sm:hidden">{t('products.category')}</span><span className="hidden sm:inline">{t('products.all_categories')}</span></> : undefined}</SelectValue>
-              </SelectTrigger>
-              <SelectContent className="max-h-80">
-                <SelectItem value="all">{t('products.all_categories')}</SelectItem>
-                {products.some(p => !p.category_id) && (
-                  <SelectItem value="uncategorized">
-                    {t('categories.uncategorized')} ({products.filter(p => !p.category_id).length})
-                  </SelectItem>
-                )}
-                {categories.map(c => (
-                  <SelectItem key={c.id} value={c.id}>
-                    <span className="flex items-center gap-1.5">
-                      {c.color && <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.color }} />}
-                      {c.name}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={statusFilter} onValueChange={v => setFilter({ statusFilter: v })}>
-              <SelectTrigger className="h-9 min-w-0 flex-1 gap-1 px-2.5 sm:w-auto sm:flex-none sm:px-3 [&>span]:truncate sm:min-w-[140px]" aria-label={t('products.status_label')}>
-                <SelectValue placeholder={t('products.all_statuses')}>{statusFilter === 'all' ? <><span className="sm:hidden">{t('products.status_label')}</span><span className="hidden sm:inline">{t('products.all_statuses')}</span></> : undefined}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('products.all_statuses')}</SelectItem>
-                <SelectItem value="ok">{t('status.in_stock')}</SelectItem>
-                <SelectItem value="low">{t('status.low_stock')}</SelectItem>
-                <SelectItem value="out">{t('status.out_of_stock')}</SelectItem>
-                <SelectItem value="expiry">{t('products.card_expiry')}</SelectItem>
-                <SelectItem value="dormant">{t('products.card_dormant')}</SelectItem>
-                <SelectItem value="promo">{t('products.promo_badge')}</SelectItem>
-                {fullStock && (
-                  <SelectItem value="archived">
-                    <span className="flex items-center gap-1.5"><Archive className="h-3 w-3" /> {t('products.tab_archived')}{archivedProducts.length > 0 ? ` (${archivedProducts.length})` : ''}</span>
-                  </SelectItem>
-                )}
-              </SelectContent>
-            </Select>
+            {/* Choix multiples : « Catégorie » / « Alimentation » / « Catégorie · 2 » */}
+            <MultiSelectFilter
+              label={t('products.category')}
+              allLabel={t('products.all_categories')}
+              groups={categoryGroups}
+              selected={categoryFilter}
+              onChange={v => setFilter({ categoryIds: v })}
+              className="flex-1 sm:w-auto sm:max-w-[240px] sm:flex-none sm:min-w-[150px]"
+              testId="filter-category"
+            />
+            <MultiSelectFilter
+              label={t('products.status_label')}
+              allLabel={t('products.all_statuses')}
+              groups={statusGroups}
+              selected={statusFilter}
+              onChange={v => setFilter({ statuses: v })}
+              exclusive={['archived']}
+              searchable={false}
+              optionIcon={v => (v === 'archived' ? <Archive aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : null)}
+              className="flex-1 sm:w-auto sm:max-w-[220px] sm:flex-none sm:min-w-[140px]"
+              testId="filter-status"
+            />
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="h-9 shrink-0 gap-1.5 px-2.5 sm:px-3" aria-label={t('products.more_filters')} title={t('products.more_filters')} data-testid="products-more-filters">
@@ -1491,18 +1518,21 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                   )}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="start" className="w-72 space-y-3">
+              <PopoverContent align="start" className="w-80 max-w-[calc(100vw-2rem)] space-y-3">
+                {/* Fournisseur : même liste à choix multiple, posée directement dans ce panneau
+                    (pas de fenêtre ouverte dans une autre) ; groupée par boutique en « Toutes les boutiques » */}
                 <div className="space-y-1.5">
                   <Label className="text-xs">{t('products.filter_supplier')}</Label>
-                  <Select value={supplierFilter} onValueChange={v => setFilter({ supplierFilter: v })}>
-                    <SelectTrigger className="h-9"><SelectValue placeholder={t('products.all_suppliers')} /></SelectTrigger>
-                    <SelectContent className="max-h-72">
-                      <SelectItem value="all">{t('products.all_suppliers')}</SelectItem>
-                      {suppliers.filter((s: any) => effectiveShopIds.includes(s.shop_id)).map(s => (
-                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <MultiSelectList
+                    label={t('products.filter_supplier')}
+                    allLabel={t('products.all_suppliers')}
+                    groups={supplierGroups}
+                    selected={supplierFilter}
+                    onToggle={v => setFilter({ supplierIds: toggleValue(supplierFilter, v) })}
+                    onClear={() => setFilter({ supplierIds: [] })}
+                    maxHeightClass="max-h-56"
+                    testId="filter-supplier"
+                  />
                 </div>
                 <label className="flex cursor-pointer items-center gap-2 text-sm">
                   <input type="checkbox" className="h-4 w-4 rounded accent-stockshop-blue" checked={noSku} onChange={e => setFilter({ noSku: e.target.checked })} />
@@ -1512,6 +1542,18 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                   <input type="checkbox" className="h-4 w-4 rounded accent-stockshop-blue" checked={noImage} onChange={e => setFilter({ noImage: e.target.checked })} />
                   {t('products.filter_no_image')}
                 </label>
+                {/* Vide en un geste les filtres de ce panneau (fournisseurs choisis, sans code, sans image) */}
+                <div className="border-t pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setFilter({ supplierIds: [], noSku: false, noImage: false })}
+                    disabled={extraFilterCount === 0}
+                    className="h-12 rounded-md px-3 text-sm font-medium text-stockshop-blue hover:bg-muted disabled:opacity-40 dark:text-blue-400 sm:h-10"
+                    data-testid="more-filters-reset"
+                  >
+                    {t('filters.reset')}
+                  </button>
+                </div>
               </PopoverContent>
             </Popover>
             {/* Actions occasionnelles : exports, sélection (cartes), journal d'activité (propriétaire) */}

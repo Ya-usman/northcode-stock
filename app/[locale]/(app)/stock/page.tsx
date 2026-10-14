@@ -17,6 +17,7 @@ import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { useShopLoadTimeout } from '@/lib/hooks/use-shop-load-timeout'
 import { getPageCache, setPageCache } from '@/lib/offline/page-cache'
 import { presetPersistedFilters } from '@/lib/hooks/use-persisted-filters'
+import { useFilterScope } from '@/lib/filters/use-filter-scope'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { cn } from '@/lib/utils/cn'
 import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
@@ -90,6 +91,7 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
   const t = useTranslations()
   const router = useRouter()
   const { shop, effectiveShopIds, profile, roleInActiveShop, userShops } = useAuth()
+  const filterScope = useFilterScope()
   const effectiveRole = roleInActiveShop ?? profile?.role
   const { fmt } = useCurrency()
   const { isOnline } = useOffline()
@@ -216,7 +218,8 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
   // premier rendu : pas de paramètre d'URL, donc la route préchargée s'ouvre
   // immédiatement. Repli ?status= si la boutique n'est pas connue.
   const goToProducts = (status?: string) => {
-    const ok = presetPersistedFilters('stock', shop?.id, { statusFilter: status ?? 'all' })
+    // Mémoire de Produits = contexte réel de l'en-tête ; le statut est une liste (choix multiple)
+    const ok = presetPersistedFilters('stock', filterScope, { statuses: status && status !== 'all' ? [status] : [] })
     const href = `/${locale}/stock/products${!ok && status ? `?status=${status}` : ''}`
     startNavigationProgress(href)
     router.push(href)
