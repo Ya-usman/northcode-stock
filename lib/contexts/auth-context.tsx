@@ -9,6 +9,7 @@ import { setLocaleCookie, getLocaleCookie } from '@/lib/utils/cookies'
 import { isCapacitor } from '@/lib/utils/native-share'
 import { ensureFreshSession } from '@/lib/session-refresh'
 import { withTimeout } from '@/lib/utils/with-timeout'
+import { ALL_SHOPS, readShopSelection, resolveShopContext, writeShopSelection } from '@/lib/shops/initial-context'
 
 interface AuthState {
   user: User | null
@@ -206,13 +207,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const activeShopIdRef = useRef(activeShopId)
   useEffect(() => { activeShopIdRef.current = activeShopId }, [activeShopId])
 
-  // Read persisted values from localStorage after mount to avoid SSR/client hydration mismatch
-  useEffect(() => {
-    const savedShop = localStorage.getItem('active_shop_id')
-    if (savedShop) setActiveShopId(savedShop)
-    const savedFilter = localStorage.getItem('dashboard_shop_filter')
-    if (savedFilter) setDashboardShopFilterState(savedFilter)
-  }, [])
+  // Contexte boutique : résolu dans applyUserData, une fois l'utilisateur et ses boutiques connus
+  // (mémorisé PAR UTILISATEUR — voir lib/shops/initial-context)
+  const userIdRef = useRef<string | null>(null)
 
   const applyUserData = useCallback((
     user: User,
@@ -223,16 +220,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     skipCache = false
   ) => {
     setMemberships(rows)
-    const resolvedId = currentActiveId && userShops.find(s => s.id === currentActiveId)
-      ? currentActiveId
-      : userShops[0]?.id ?? null
+    userIdRef.current = user.id
+    // Contexte boutique déterministe (jamais la première boutique renvoyée par la base) : une boutique →
+    // elle ; plusieurs → la sélection mémorisée de CET utilisateur si elle est encore accessible, sinon
+    // « Toutes les boutiques ». La boutique active interne suit une règle explicite (initial-context).
+    const ctx = resolveShopContext({
+      shops: userShops,
+      savedFilter: readShopSelection(user.id, 'filter'),
+      savedActive: readShopSelection(user.id, 'active'),
+      profileShopId: profile?.shop_id,
+    })
+    setDashboardShopFilterState(ctx.filter)
+    writeShopSelection(user.id, 'filter', ctx.filter ?? (userShops.length > 1 ? ALL_SHOPS : null))
+    const resolvedId = ctx.active
+    if (resolvedId !== currentActiveId) setActiveShopId(resolvedId)
+    writeShopSelection(user.id, 'active', resolvedId)
 
-    if (resolvedId && resolvedId !== currentActiveId) {
-      setActiveShopId(resolvedId)
-      localStorage.setItem('active_shop_id', resolvedId)
-    }
-
-    const activeShop = userShops.find(s => s.id === (resolvedId ?? userShops[0]?.id)) ?? userShops[0] ?? null
+    const activeShop = userShops.find(s => s.id === resolvedId) ?? null
     const memberRole = rows.find(m => m.shops?.id === activeShop?.id)?.role
     const roleInActiveShop = resolveRoleInShop(memberRole, profile, activeShop?.id ?? '')
 
@@ -496,13 +500,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const setDashboardShopFilter = useCallback((id: string | null) => {
     setDashboardShopFilterState(id)
-    if (id === null) localStorage.removeItem('dashboard_shop_filter')
-    else localStorage.setItem('dashboard_shop_filter', id)
+    // Sélection explicite, mémorisée pour CET utilisateur (« all » = Toutes les boutiques choisi)
+    writeShopSelection(userIdRef.current, 'filter', id ?? ALL_SHOPS)
   }, [])
 
   const switchShop = useCallback((shopId: string) => {
     setActiveShopId(shopId)
-    localStorage.setItem('active_shop_id', shopId)
+    writeShopSelection(userIdRef.current, 'active', shopId)
     // Update HttpOnly role cookie via server endpoint
     fetch('/api/auth/set-role', {
       method: 'POST',
@@ -690,6 +694,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     localStorage.removeItem('active_shop_id')
+    localStorage.removeItem('dashboard_shop_filter')
+    // Filtres mémorisés de l'onglet : jamais repris par le compte suivant
+    try { for (const k of Object.keys(sessionStorage)) if (k.startsWith('filters_session_')) sessionStorage.removeItem(k) } catch {}
+    userIdRef.current = null
     clearCache()
     clearReadCaches()
     // Await the set-role DELETE (fast — no Supabase network call inside) so the
@@ -708,7 +716,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [state.activeShop?.id])
 
   const effectiveShopIds = useMemo<string[]>(() => {
-    if (dashboardShopFilter === null) return state.userShops.map(s => s.id)
+    if (dashboardShopFilter === null || !state.userShops.some(s => s.id === dashboardShopFilter)) return state.userShops.map(s => s.id)
     return [dashboardShopFilter]
   }, [dashboardShopFilter, state.userShops])
 
