@@ -388,9 +388,10 @@ export async function DELETE(request: Request) {
       const { error } = await (admin as any).from('products').delete().eq('id', singleId)
       if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
-      // Audit log
+      // Audit log — non bloquant. Une requête Supabase n'a pas de .catch : l'ancien appel levait une
+      // erreur APRÈS la suppression (réponse 500 alors que le produit était bien supprimé).
       const { data: actorProfile } = await (admin as any).from('profiles').select('full_name').eq('id', user.id).single()
-      await (admin as any).from('audit_logs').insert({
+      await Promise.resolve((admin as any).from('audit_logs').insert({
         shop_id: singleShopId,
         actor_id: user.id,
         actor_email: user.email,
@@ -404,7 +405,7 @@ export async function DELETE(request: Request) {
           quantity: product?.quantity,
           selling_price: product?.selling_price,
         },
-      }).catch(() => {}) // non-blocking
+      })).catch(() => {}) // non-blocking
 
       return NextResponse.json({ ok: true })
     }
@@ -457,7 +458,7 @@ export async function DELETE(request: Request) {
     const snapshot = (prodsWithDetails ?? []).slice(0, 10).map((p: any) => ({
       id: p.id, name: p.name, quantity: p.quantity,
     }))
-    await (admin as any).from('audit_logs').insert({
+    await Promise.resolve((admin as any).from('audit_logs').insert({
       shop_id: body.shop_id,
       actor_id: user.id,
       actor_email: user.email,
@@ -469,7 +470,7 @@ export async function DELETE(request: Request) {
         count: ids.length,
         products_snapshot: snapshot,
       },
-    }).catch(() => {}) // non-blocking
+    })).catch(() => {}) // non-blocking (même correction que la suppression unitaire)
 
     return NextResponse.json({ ok: true, deleted: ids.length })
   } catch (e: any) {
