@@ -34,6 +34,9 @@ interface Props {
   /** Boutique proposée par défaut (la boutique active) */
   shopId: string
   onImported: (count: number) => void
+  /** « Toutes les boutiques » : aucune boutique présélectionnée, choix explicite obligatoire (adopté pour les
+   *  produits ; clients et fournisseurs suivront à l’adoption de leur domaine) */
+  explicitShopInAllShops?: boolean
 }
 
 type Status = 'new' | 'exists' | 'error' | 'ignored'
@@ -59,13 +62,16 @@ const CONTACT_COLUMNS: Record<'customers' | 'suppliers', { key: string; width: n
 }
 const ENDPOINT: Record<ImportKind, string> = { products: '/api/products/import', customers: '/api/customers/import', suppliers: '/api/suppliers/import' }
 
-export function ImportDrawer({ kind, open, onClose, shopId, onImported }: Props) {
+export function ImportDrawer({ kind, open, onClose, shopId, onImported, explicitShopInAllShops = false }: Props) {
   const tBase = useTranslations('import')
   const tRoot = useTranslations()
   const { userShops, effectiveShopIds } = useAuthContext()
-  const [target, setTarget] = useState(shopId)
-  useEffect(() => { if (open) setTarget(shopId) }, [open, shopId])
   const shopChoices = effectiveShopIds.length > 1 ? userShops.filter(s => effectiveShopIds.includes(s.id)) : []
+  // « Toutes les boutiques » : la boutique qui reçoit l'import est choisie explicitement, aucune présélection
+  // (jamais la boutique active cachée) ; une boutique dans l'en-tête : c'est elle
+  const initialTarget = explicitShopInAllShops && shopChoices.length > 1 ? '' : shopId
+  const [target, setTarget] = useState(initialTarget)
+  useEffect(() => { if (open) setTarget(initialTarget) }, [open, initialTarget])
   const shopName = userShops.find(s => s.id === target)?.name || 'StockShop'
   const { fmt } = useCurrency()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -146,6 +152,8 @@ export function ImportDrawer({ kind, open, onClose, shopId, onImported }: Props)
   }), timeout)
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Boutique pas encore choisie (« Toutes les boutiques ») : rien n'est lu ni envoyé
+    if (!target) { e.target.value = ''; return }
     const file = e.target.files?.[0]
     if (fileRef.current) fileRef.current.value = ''
     if (!file) return
@@ -249,7 +257,7 @@ export function ImportDrawer({ kind, open, onClose, shopId, onImported }: Props)
                 </button>
               ))}
             </div>
-            <p className="text-[11px] text-muted-foreground">{tBase('shop_pick_hint')}</p>
+            <p className="text-[11px] text-muted-foreground">{target ? tBase('shop_pick_hint') : <span className="font-medium text-amber-700 dark:text-amber-400" data-testid="import-shop-required">{tBase('shop_pick_required')}</span>}</p>
           </section>
         ) : (
           <p className="text-xs text-muted-foreground" data-testid="import-shop">{tBase('shop_label')} : <strong className="text-foreground">{shopName}</strong></p>
@@ -271,8 +279,8 @@ export function ImportDrawer({ kind, open, onClose, shopId, onImported }: Props)
           <section className="space-y-2" data-tour="import-file">
             <p className="text-sm font-semibold">{tBase('step2_title')}</p>
             {!fileName ? (
-              <button type="button" onClick={() => fileRef.current?.click()}
-                className="flex h-20 w-full flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-border bg-card text-muted-foreground transition-colors hover:border-stockshop-blue hover:text-foreground dark:hover:border-blue-400">
+              <button type="button" onClick={() => fileRef.current?.click()} disabled={!target}
+                className="flex h-20 w-full disabled:cursor-not-allowed disabled:opacity-50 flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-border bg-card text-muted-foreground transition-colors hover:border-stockshop-blue hover:text-foreground dark:hover:border-blue-400">
                 <Upload className="h-5 w-5" /><span className="text-xs">{tBase('drop_hint')}</span>
               </button>
             ) : (

@@ -59,6 +59,8 @@ interface ProductDetail {
 
 export interface ProductDetailDrawerProps {
   product: Product | null
+  /** Boutique DU PRODUIT (compte à plusieurs boutiques) : identité de l'objet, même si la page est déjà sur cette boutique */
+  shopName?: string
   onClose: () => void
   /** Section à montrer à l'ouverture : haut de la fiche, ou directement les lots (icône « Lots ») */
   section: ProductDetailSection
@@ -89,7 +91,7 @@ export interface ProductDetailDrawerProps {
 const TILE = 'rounded-xl border border-border bg-card px-3 py-2.5'
 
 export function ProductDetailDrawer({
-  product, onClose, section, refreshKey, fallbackQuantities, status: listStatus, statusLabels, promoActive, promoSuggestion, formatPrice, batches, actions, onChanged,
+  product, shopName, onClose, section, refreshKey, fallbackQuantities, status: listStatus, statusLabels, promoActive, promoSuggestion, formatPrice, batches, actions, onChanged,
 }: ProductDetailDrawerProps) {
   const t = useTranslations()
   const td = useTranslations('product_detail')
@@ -198,7 +200,7 @@ export function ProductDetailDrawer({
       <DetailDrawer
         open={!!product}
         onOpenChange={open => { if (!open) onClose() }}
-        category={td('category')}
+        category={shopName ? `${td('category')} · ${shopName}` : td('category')}
         title={product?.name || ''}
         icon={<Package className="h-4 w-4" />}
         width="lg"

@@ -9,6 +9,8 @@ import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { useTableExport } from '@/lib/export/use-table-export'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
+import { ShopScopeBadge } from '@/components/shops/shop-scope-badge'
+import { useShopScope } from '@/lib/shops/use-shop-scope'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 import { fetchCosts } from '@/lib/costs/client'
 import { useToast } from '@/components/ui/use-toast'
@@ -146,6 +148,9 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
 
   const today = localToday()
   const multiShop = effectiveShopIds.length > 1
+  // Périmètre réel (en-tête) pour les documents ; jamais le nom de la boutique active cachée
+  const scope = useShopScope()
+  const scopeTitle = scope.isAllShops ? t('scope.all_shops') : scope.shopName ?? ''
   const shopById = useMemo(() => Object.fromEntries((userShops || []).map(s => [s.id, s])), [userShops])
   // Seuil « bientôt » : celui de la catégorie, sinon celui de la boutique DU LOT, sinon 14 jours
   const statusOf = (b: LotRow): BatchExpiryStatus =>
@@ -186,11 +191,11 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
   ]))
 
   const exportPDF = async () => {
-    if (!shop) return
+    if (!scopeTitle) return
     setExporting(true)
     try {
       const result = await generateReportPDFBlob({
-        shopName: shop.name,
+        shopName: scopeTitle,
         dateRange: format(new Date(), 'dd/MM/yyyy'),
         sections: [{
           title: t('expiry.title'),
@@ -201,7 +206,7 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
           rows: exportRows(),
         }],
       })
-      await saveFile(result.blob, `StockShop - Péremptions - ${shop.name}.pdf`)
+      await saveFile(result.blob, `StockShop - Péremptions - ${scopeTitle}.pdf`)
     } catch (e: any) {
       toast({ title: e.message, variant: 'destructive' })
     } finally {
@@ -335,6 +340,7 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
 
       {!loading && batches.length > 0 && (
         <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+          <ShopScopeBadge />
           <span data-testid="lots-count">{t('expiry.count', { count: filtered.length })}</span>
           {filtersActive && (
             <button type="button" onClick={resetFilters} className="font-medium text-stockshop-blue hover:underline dark:text-blue-400" data-testid="lots-reset">
@@ -475,7 +481,7 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
         status={selected ? statusOf(selected) : 'none'}
         today={today}
         onClose={() => setSelectedId(null)}
-        shopName={selected && multiShop ? shopById[selected.shop_id]?.name : null}
+        shopName={selected && userShops.length > 1 ? shopById[selected.shop_id]?.name : null}
         cost={selected && showValue && batchCosts && selected.id in batchCosts ? batchCosts[selected.id] : null}
         formatPrice={formatMoney}
         fefoFirst={!!selected && fefoHeads.has(selected.id)}

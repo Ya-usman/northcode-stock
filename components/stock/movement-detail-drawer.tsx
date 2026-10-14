@@ -12,6 +12,7 @@ import { movementVisual, signedQuantity, deltaTone, type MovementLike } from '@/
 import { describeMovement, movementDelta } from '@/lib/stock/movement-label'
 import { presetPersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
+import { useFilterScope } from '@/lib/filters/use-filter-scope'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { formatLocaleDate, formatLocaleTime } from '@/lib/i18n/date-format'
 import { withTimeout } from '@/lib/utils/with-timeout'
@@ -72,6 +73,8 @@ export function MovementDetailDrawer({ movement, onClose, showShop, onViewProduc
   const router = useRouter()
   const unitLabel = useUnitLabel()
   const { shop, userShops } = useAuth()
+  // Transferts : mémoire des filtres par contexte réel de l'en-tête (comme l'écran Transferts)
+  const filterScope = useFilterScope()
 
   const [detail, setDetail] = useState<ServerDetail | null>(null)
   const [failed, setFailed] = useState(false)
@@ -123,7 +126,7 @@ export function MovementDetailDrawer({ movement, onClose, showShop, onViewProduc
       presetPersistedFilters('purchase_orders', shop?.id, { search: found.ref, status: '', dateFrom: '', dateTo: '' })
       router.push(`/${locale}/suppliers?view=purchase_orders`)
     } else {
-      presetPersistedFilters('transfers', shop?.id, { search: found.ref })
+      presetPersistedFilters('transfers', filterScope, { search: found.ref })
       router.push(`/${locale}/stock/transfers`)
     }
   }

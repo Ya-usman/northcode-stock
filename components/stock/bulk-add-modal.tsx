@@ -23,6 +23,8 @@ interface Props {
   open: boolean
   onClose: () => void
   shopId: string
+  /** « Boutique : Akwa » — boutique qui reçoit les produits, rappelée au-dessus du titre (plusieurs boutiques) */
+  shopLabel?: string
   currency: string
   fullRights: boolean
   onSaved: (count: number) => void
@@ -33,7 +35,7 @@ const UNITS = ['piece', 'kg', 'g', 'litre', 'ml', 'pack', 'carton', 'dozen', 'ba
 let nextId = 1
 const newRow = (): Row => ({ id: nextId++, name: '', selling_price: '', buying_price: '', quantity: '0', unit: 'piece' })
 
-export function BulkAddModal({ open, onClose, shopId, currency, fullRights, onSaved }: Props) {
+export function BulkAddModal({ open, onClose, shopId, shopLabel, currency, fullRights, onSaved }: Props) {
   const t = useTranslations('bulk_add')
   const tCommon = useTranslations()
   const unitLabel = useUnitLabel()
@@ -102,7 +104,7 @@ export function BulkAddModal({ open, onClose, shopId, currency, fullRights, onSa
   const handleClose = () => { reset(); onClose() }
 
   return (
-    <PremiumDialog open={open} onOpenChange={v => { if (!v) handleClose() }} title={t('title')} icon={<Plus className="h-4 w-4" />} maxWidth="max-w-xl">
+    <PremiumDialog open={open} onOpenChange={v => { if (!v) handleClose() }} category={shopLabel} title={t('title')} icon={<Plus className="h-4 w-4" />} maxWidth="max-w-xl">
       <PremiumDialogBody className="space-y-3">
 
         {savedCount > 0 ? (

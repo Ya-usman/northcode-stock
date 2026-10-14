@@ -46,7 +46,7 @@ import { isNeutralClick } from '@/lib/utils/open-on-click'
 import { PRODUCT_PUBLIC_COLUMNS } from '@/lib/products/columns'
 import { SUPPLIER_PUBLIC_COLUMNS } from '@/lib/suppliers/columns'
 import { fetchCosts, withCosts } from '@/lib/costs/client'
-import { fetchExpiryByProduct, fetchExpiredQtyByProduct, availableQty, stockLevelOf, stockQuantities, fetchSoldQty30dForShops, readSignalsCache, writeSignalsCache } from '@/lib/stock/signals'
+import { fetchExpiryByProduct, fetchExpiredQtyByProduct, availableQty, stockLevelOf, stockQuantities, fetchSoldQty30dForShops, readSignalsCache, shopRulesOf, writeSignalsCache } from '@/lib/stock/signals'
 import { fetchStockPipeline, type StockPipeline } from '@/lib/stock/pipeline'
 import { fetchReservedQtyByProduct } from '@/lib/stock/reservations'
 import { ProductThumbnail } from '@/components/stock/product-thumbnail'
@@ -54,6 +54,8 @@ import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { MultiSelectFilter, MultiSelectList } from '@/components/ui/multi-select-filter'
 import { asValueList, keepKnown, matchesAny, shopScopedGroups, toggleValue, type FilterGroup } from '@/lib/filters/multi-select'
 import { useFilterScope } from '@/lib/filters/use-filter-scope'
+import { useShopScope } from '@/lib/shops/use-shop-scope'
+import { ShopScopeBadge } from '@/components/shops/shop-scope-badge'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
@@ -130,6 +132,23 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   // identifiant — jamais par libellé. Mémoire par contexte réel de l'en-tête (une boutique ou « Toutes
   // les boutiques ») : chaque contexte retrouve son propre état, un filtre d'Akwa ne suit pas vers Bastos.
   const filterScope = useFilterScope()
+  // Contexte boutique : l'en-tête décide de ce que l'on voit ; l'OBJET décide où s'applique une action sur
+  // un produit existant ; une création sans boutique déterminée passe par requireOneShop (jamais la
+  // boutique active cachée)
+  const scope = useShopScope()
+  const multiShopAccount = userShops.length > 1
+  const shopById: Record<string, (typeof userShops)[number]> = Object.fromEntries(userShops.map(s => [s.id, s]))
+  const [createShop, setCreateShop] = useState<(typeof userShops)[number] | null>(null)
+  const [journalShop, setJournalShop] = useState<(typeof userShops)[number] | null>(null)
+  // Changement de contexte (Akwa → Toutes → Bastos…) : création, ajout rapide et journal en cours sont
+  // fermés et leur boutique oubliée — aucune action ne part avec la boutique précédente
+  const scopeKey = `${scope.mode}:${scope.shopIds.join(',')}`
+  const firstScope = useRef(true)
+  useEffect(() => {
+    if (firstScope.current) { firstScope.current = false; return }
+    setShowAddModal(false); setShowBulkModal(false); setJournalOpen(false)
+    setCreateShop(null); setJournalShop(null)
+  }, [scopeKey]) // eslint-disable-line react-hooks/exhaustive-deps
   const [{ search, categoryIds, statuses, supplierIds, noSku, noImage }, setFilter, resetFilters] = usePersistedFilters(
     'stock', filterScope,
     { search: '', categoryIds: [] as string[], statuses: [] as string[], supplierIds: [] as string[], noSku: false, noImage: false },
@@ -507,14 +526,14 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   // réglage de la boutique — voir lib/utils/expiry.ts.
   const getExpiryCutoffFor = (p: Product) => {
     const cat = categories.find(c => c.id === p.category_id)
-    const alertDays = getExpiryAlertDays(cat?.expiry_alert_days, shop?.expiry_alert_days)
+    const alertDays = getExpiryAlertDays(cat?.expiry_alert_days, shopById[p.shop_id]?.expiry_alert_days ?? shop?.expiry_alert_days)
     return new Date(Date.now() + alertDays * 86_400_000).toISOString().slice(0, 10)
   }
   const isExpired = (p: Product) => { const exp = expiryByProduct[p.id]; return !!exp && exp < todayStr }
   const isExpiringSoon = (p: Product) => { const exp = expiryByProduct[p.id]; return !!exp && exp >= todayStr && exp <= getExpiryCutoffFor(p) }
   const isDormant = (p: Product) => soldQtyLoaded && p.quantity > 0 && !(soldQtyByProduct[p.id] > 0)
   // Niveau de stock jugé sur le disponible (physique − périmé − réservé) — règle commune lib/stock/signals
-  const levelOf = (p: Product) => stockLevelOf(p, { shopLowStockThreshold: shop?.low_stock_threshold, expiredQtyByProduct, reservedQtyByProduct })
+  const levelOf = (p: Product) => stockLevelOf(p, { shopRules: shopRulesOf(userShops), shopLowStockThreshold: shop?.low_stock_threshold, expiredQtyByProduct, reservedQtyByProduct })
   // Partagé produit/lot (les deux ont promo_price/promo_until) — un seul
   // endroit à faire évoluer quand promo_start (Étape 4) sera ajouté.
   const isPromoActive = (o: { promo_price?: number | null; promo_until?: string | null; promo_start?: string | null }) =>
@@ -582,14 +601,16 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
 
   const saveProduct = async (data: ProductFormData): Promise<true | false | ProductFieldError> => {
-    if (!shop?.id) { toast({ title: t('toast.no_active_shop'), variant: 'destructive' }); return false }
+    const target = createShop
+    if (!target) { toast({ title: t('toast.no_active_shop'), variant: 'destructive' }); return false }
     setSaving(true)
     try {
       const res = await withTimeout(fetch('/api/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          shop_id: shop.id,
+          // Boutique choisie pour cette création (en-tête, ou choix explicite en « Toutes les boutiques »)
+          shop_id: target.id,
           name: data.name,
           category_id: data.category_id || null,
           supplier_id: data.supplier_id || null,
@@ -989,7 +1010,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         { header: t('exports.col_category') }, { header: t('exports.col_status') },
       ],
       rows: filtered.map(p => {
-        const threshold = p.low_stock_threshold || shop?.low_stock_threshold || 10
+        const threshold = p.low_stock_threshold || shopById[p.shop_id]?.low_stock_threshold || shop?.low_stock_threshold || 10
         const level = levelOf(p)
         const status = level === 'out' ? t('status.out_of_stock') : level === 'low' ? t('status.low_stock') : t('status.in_stock')
         return [p.name, p.selling_price, p.buying_price, p.quantity, unitLabel(p.unit || 'piece'), p.sku || '', p.low_stock_threshold ?? '', (p as any).categories?.name || '', status]
@@ -1163,7 +1184,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   }
 
   const renderProductCard = (product: Product, idx: number) => {
-    const threshold = product.low_stock_threshold || shop?.low_stock_threshold || 10
+    const threshold = product.low_stock_threshold || shopById[product.shop_id]?.low_stock_threshold || shop?.low_stock_threshold || 10
     // Disponible = physique − périmé − réservé (lib/stock/signals)
     const cardExpired = Math.min(product.quantity, expiredQtyByProduct[product.id] || 0)
     const cardReserved = reservedQtyByProduct[product.id] || 0
@@ -1352,6 +1373,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       setRestoredEdit({ productId, values, file, applied: false })
       return
     }
+    const draftShop = userShops.find(x => x.id === (draft as any).shopId) ?? null
+    if (!draftShop) return
+    setCreateShop(draftShop)
     const nextKey = addFormKey + 1
     setEditingProduct(null)
     setSessionAddCount(0)
@@ -1400,7 +1424,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   useEffect(() => {
     if (viewMode === 'table' && selectionMode && selectedIds.size === 0) setSelectionMode(false)
   }, [viewMode, selectionMode, selectedIds])
-  const thresholdFor = (p: Product) => p.low_stock_threshold || shop?.low_stock_threshold || 10
+  const thresholdFor = (p: Product) => p.low_stock_threshold || shopById[p.shop_id]?.low_stock_threshold || shop?.low_stock_threshold || 10
   // Produit de la fiche, dans sa version la plus récente de la liste (nom, prix, quantité après une modification)
   const detailProduct = batchesProduct ? products.find(p => p.id === batchesProduct.id) ?? batchesProduct : null
   const detailStatusLabel: Record<ProductStatus, string> = { out: t('status.out_of_stock'), low: t('status.low_stock'), dormant: t('products.card_dormant'), ok: t('status.in_stock') }
@@ -1465,12 +1489,29 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     options: statusValues.map(v => ({ value: v, label: statusLabels[v], hint: v === 'archived' && archivedProducts.length ? String(archivedProducts.length) : undefined })),
   }]
 
+  // Créer (fiche, ajout rapide) : la boutique de l'en-tête si elle en désigne une, sinon un choix explicite
+  const startCreate = async (open: () => void) => {
+    const target = await scope.requireOneShop({ title: t('products.pick_shop_title') })
+    if (!target) return
+    setCreateShop(target)
+    open()
+  }
+  const openJournal = async () => {
+    const target = await scope.requireOneShop({ title: t('products.pick_shop_journal') })
+    if (!target) return
+    setJournalShop(target)
+    setJournalOpen(true)
+  }
+  const createShopLabel = multiShopAccount && createShop ? t('scope.shop_label', { name: createShop.name }) : undefined
+  // Listes du formulaire de création : celles de la boutique de création
+  const formShopId = createShop?.id ?? scope.shopId ?? undefined
+
   const productFormProps = {
-    categories: categories.filter((c: any) => !shop?.id || c.shop_id === shop.id),
-    suppliers: suppliers.filter((s: any) => !shop?.id || s.shop_id === shop.id),
+    categories: categories.filter((c: any) => !formShopId || c.shop_id === formShopId),
+    suppliers: suppliers.filter((s: any) => !formShopId || s.shop_id === formShopId),
     currency: currencySymbol,
     fullRights: fullStock,
-    shopId: shop?.id,
+    shopId: formShopId,
   }
   const resetAddForm = () => { setShowAddModal(false); setSessionAddCount(0); setAddFormState({ dirty: false, busy: false }) }
 
@@ -1503,10 +1544,10 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-[230px]">
-                <DropdownMenuItem data-tour="add-product-item" onClick={() => { setEditingProduct(null); setShowRestockModal(false); setSessionAddCount(0); setAddFormKey(k => k + 1); setShowAddModal(true) }}>
+                <DropdownMenuItem data-tour="add-product-item" onClick={() => startCreate(() => { setEditingProduct(null); setShowRestockModal(false); setSessionAddCount(0); setAddFormKey(k => k + 1); setShowAddModal(true) })}>
                   <Plus className="mr-2 h-4 w-4" /> {t('actions.add_product')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setShowBulkModal(true)}><Zap className="mr-2 h-4 w-4" /> {t('products.add_quick')}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => startCreate(() => setShowBulkModal(true))}><Zap className="mr-2 h-4 w-4" /> {t('products.add_quick')}</DropdownMenuItem>
                 <DropdownMenuItem data-tour="add-product-import" onClick={() => setShowImportModal(true)}><Upload className="mr-2 h-4 w-4" /> {t('products.add_import')}</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -1602,7 +1643,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                     <DropdownMenuItem onClick={() => setSelectionMode(true)}><CheckSquare className="mr-2 h-4 w-4" /> {t('products.select_action')}</DropdownMenuItem>
                   )}
                   {fullStock && (
-                    <DropdownMenuItem onClick={() => setJournalOpen(true)}><History className="mr-2 h-4 w-4" /> {t('products.activity_journal')}</DropdownMenuItem>
+                    <DropdownMenuItem onClick={openJournal}><History className="mr-2 h-4 w-4" /> {t('products.activity_journal')}</DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -1614,6 +1655,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         <div className="flex min-h-9 items-center justify-between gap-2">
           <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
             {/* Pas de « 0 produit » trompeur tant que la liste se charge sans cache */}
+            <ShopScopeBadge />
             <span data-testid="products-count">{loading && products.length === 0 ? '…' : t('products.stats_count', { count: showArchived ? archivedProducts.length : filtered.length })}</span>
             {anyFilterActive && (
               <button type="button" onClick={resetFilters} className="text-xs underline hover:text-foreground">
@@ -1836,7 +1878,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       <ProductActivityJournal
         open={journalOpen}
         onOpenChange={setJournalOpen}
-        shopId={shop?.id}
+        shopId={journalShop?.id}
+        shopLabel={multiShopAccount && journalShop ? t('scope.shop_label', { name: journalShop.name }) : undefined}
         productExists={id => products.some(p => p.id === id)}
         onOpenProduct={id => {
           const p = products.find(x => x.id === id)
@@ -1847,11 +1890,12 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       />
 
       {/* Bulk Add Modal */}
-      {shop?.id && (
+      {createShop && (
         <BulkAddModal
           open={showBulkModal}
           onClose={() => setShowBulkModal(false)}
-          shopId={shop.id}
+          shopId={createShop.id}
+          shopLabel={createShopLabel}
           currency={currencySymbol}
           fullRights={fullStock}
           onSaved={(count) => { fetchProducts() }}
@@ -1875,6 +1919,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       <FormDrawer
         open={showAddModal}
         onOpenChange={open => { if (!open) resetAddForm() }}
+        category={createShopLabel}
         title={t('actions.add_product')}
         icon={<Package className="h-4 w-4" />}
         width="md"
@@ -1931,6 +1976,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           <ProductForm key={editingProduct.id} {...productFormProps} isEdit productId={editingProduct.id}
             categories={categories.filter((c: any) => c.shop_id === editingProduct.shop_id)}
             suppliers={suppliers.filter((s: any) => s.shop_id === editingProduct.shop_id)}
+            shopId={editingProduct.shop_id}
             defaultValues={{ name: editingProduct.name, category_id: editingProduct.category_id || '', supplier_id: editingProduct.supplier_id || '', buying_price: editingProduct.buying_price, selling_price: editingProduct.selling_price, quantity: editingProduct.quantity, unit: editingProduct.unit, low_stock_threshold: editingProduct.low_stock_threshold || undefined, sku: editingProduct.sku || '', image_url: editingProduct.image_url || '', ...(editRestore?.values ?? {}) }}
             initialPhoto={editRestore?.file ?? null}
             startDirty={!!editRestore}
@@ -1968,6 +2014,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         onConfirm={permanentlyDelete}
         requireText={deleteConfirmProduct?.name}
       >
+        {multiShopAccount && deleteConfirmProduct && (
+          <p className="text-sm font-medium" data-testid="delete-product-shop">{t('scope.shop_label', { name: shopById[deleteConfirmProduct.shop_id]?.name ?? '' })}</p>
+        )}
         <div className="rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 p-3 text-sm text-red-700 dark:text-red-400 space-y-1">
           <p className="font-semibold">{t('products.delete_warning_title')}</p>
           <p>{t('products.delete_warning_body')}</p>
@@ -2007,7 +2056,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       </ConfirmModal>
 
       {/* Restock Modal */}
-      <PremiumDialog open={showRestockModal} onOpenChange={setShowRestockModal} category={t('products.restock_title')} title={restockProduct?.name || ''} icon={<ArrowDown className="h-4 w-4" />} dirty={restockForm.formState.isDirty}>
+      <PremiumDialog open={showRestockModal} onOpenChange={setShowRestockModal} category={multiShopAccount && restockProduct ? `${t('products.restock_title')} · ${shopById[restockProduct.shop_id]?.name ?? ''}` : t('products.restock_title')} title={restockProduct?.name || ''} icon={<ArrowDown className="h-4 w-4" />} dirty={restockForm.formState.isDirty}>
         <form onSubmit={restockForm.handleSubmit(onRestock)}>
           <PremiumDialogBody>
             <input type="hidden" {...restockForm.register('product_id')} />
@@ -2171,6 +2220,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           implémentation (section de la fiche) ; leurs actions ouvrent les petites fenêtres ci-dessous. */}
       <ProductDetailDrawer
         product={detailProduct}
+        shopName={multiShopAccount && detailProduct ? shopById[detailProduct.shop_id]?.name : undefined}
         onClose={() => setBatchesProduct(null)}
         section={detailSection}
         refreshKey={detailRefreshKey}

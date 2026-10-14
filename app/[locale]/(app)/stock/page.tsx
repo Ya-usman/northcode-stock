@@ -18,12 +18,13 @@ import { useShopLoadTimeout } from '@/lib/hooks/use-shop-load-timeout'
 import { getPageCache, setPageCache } from '@/lib/offline/page-cache'
 import { presetPersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useFilterScope } from '@/lib/filters/use-filter-scope'
+import { ShopScopeBadge } from '@/components/shops/shop-scope-badge'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { cn } from '@/lib/utils/cn'
 import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StockTabs } from '@/components/stock/stock-tabs'
-import { computeStockKpis, fetchExpiryByProduct, fetchExpiredQtyByProduct, fetchSoldQty30dForShops, readSignalsCache, writeSignalsCache, type StockProductLike } from '@/lib/stock/signals'
+import { computeStockKpis, fetchExpiryByProduct, fetchExpiredQtyByProduct, fetchSoldQty30dForShops, readSignalsCache, shopRulesOf, writeSignalsCache, type StockProductLike } from '@/lib/stock/signals'
 import { fetchStockPipeline, type StockPipeline } from '@/lib/stock/pipeline'
 import { fetchReservedQtyByProduct } from '@/lib/stock/reservations'
 import { PRODUCT_PUBLIC_COLUMNS } from '@/lib/products/columns'
@@ -114,12 +115,6 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
 
   const { canViewCost } = useRolePermissions()
   const [showAllPriorities, setShowAllPriorities] = useState(false)
-  // Contexte de boutique : celui du sélecteur de l'en-tête, seulement rappelé ici (sur téléphone, l'en-tête
-  // n'en montre que l'icône). Sans objet avec une seule boutique.
-  const allShops = effectiveShopIds.length > 1
-  const shopContext = userShops.length > 1
-    ? (allShops ? t('dashboard.all_shops') : userShops.find(s => s.id === effectiveShopIds[0])?.name ?? shop?.name ?? '')
-    : ''
   const [costs, setCosts] = useState<Record<string, number> | null>(null)
   // Coûts demandés au serveur, réponse pas encore arrivée : la carte « Valeur du stock » garde sa place
   // (sinon elle surgit après les autres et décale toute la grille)
@@ -199,6 +194,8 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
   const shopLoadTimedOut = useShopLoadTimeout(effectiveShopIds.length)
 
   const kpis = useMemo(() => computeStockKpis(withCosts(products as any[], costs) as StockProductLike[], {
+    // Seuils de la boutique DE CHAQUE PRODUIT (en « Toutes les boutiques », jamais ceux d'une seule boutique)
+    shopRules: shopRulesOf(userShops),
     shopLowStockThreshold: shop?.low_stock_threshold,
     shopExpiryAlertDays: shop?.expiry_alert_days,
     categoryAlertDays: Object.fromEntries(categories.map(c => [c.id, c.expiry_alert_days])),
@@ -207,7 +204,7 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
     soldQtyLoaded,
     expiredQtyByProduct,
     reservedQtyByProduct,
-  }), [products, categories, shop?.low_stock_threshold, shop?.expiry_alert_days, expiryByProduct, soldQtyByProduct, soldQtyLoaded, expiredQtyByProduct, reservedQtyByProduct, costs])
+  }), [products, categories, shop?.low_stock_threshold, shop?.expiry_alert_days, expiryByProduct, soldQtyByProduct, soldQtyLoaded, expiredQtyByProduct, reservedQtyByProduct, costs, userShops])
 
   // Les coûts sont des données financières : pas pour la caisse ni la lecture seule
   // Valeur du stock : règle unique canViewCost (lib/permissions), et seulement une fois les coûts reçus du serveur
@@ -281,12 +278,8 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
       <div>
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-lg font-semibold">{t('stock_overview.title')}</h1>
-          {shopContext && (
-            <p data-testid="overview-shop-context" className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-muted-foreground">
-              {allShops ? <Layers aria-hidden className="h-3.5 w-3.5 shrink-0" /> : <Store aria-hidden className="h-3.5 w-3.5 shrink-0" />}
-              <span className="truncate">{shopContext}</span>
-            </p>
-          )}
+          {/* Périmètre des chiffres : « Toutes les boutiques » ou la boutique de l'en-tête (compte multi-boutique) */}
+          <ShopScopeBadge emphasizeSingle testId="overview-shop-context" className="min-w-0" />
         </div>
         <p className="text-sm text-muted-foreground">{t('stock_overview.subtitle')}</p>
       </div>

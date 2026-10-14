@@ -353,6 +353,8 @@
     "import_export": "Import / Export",
     "import_csv": "Import an Excel or CSV file",
     "activity_journal": "Activity log",
+    "pick_shop_title": "Which shop are you adding products to?",
+    "pick_shop_journal": "Activity log of which shop?",
     "activity_journal_hint": "Product creations, price changes, promos, archiving and deletions.",
     "view_label": "Display",
     "view_cards": "Card view",
@@ -919,6 +921,9 @@
     "discrepancy_detail_placeholder": "Detail (optional)",
     "received_toast": "Transfer received",
     "confirm_cancel": "Cancel transfer {reference}? Your shop's stock will be restored.",
+    "pick_source_title": "Which shop are you sending from?",
+    "from_shop": "From: {name}",
+    "confirm_cancel_shops": "Cancel transfer {reference} ({from} → {to})? The stock of the sending shop will be restored.",
     "cancelled_toast": "Transfer cancelled"
   },
   "payments": {
@@ -1766,6 +1771,12 @@
     "no_products": "No products to count.",
     "diffs_count": "{count} discrepanc(y/ies)",
     "validate_button": "Validate inventory",
+    "pick_shop_title": "Which shop do you want to count?",
+    "pick_shop_explain": "A stock count covers a single shop. Choose the shop to count before you start.",
+    "pick_shop_button": "Choose the shop",
+    "counting_in": "Counting: {name}",
+    "change_shop": "Change shop",
+    "confirm_title_shop": "Finalize the count for {name}?",
     "confirm_title": "Confirm inventory",
     "confirm_warning": "This will update the real stock of the products listed below. Review before confirming.",
     "value_impact": "Value impact (cost)",
@@ -3392,6 +3403,7 @@
     "detail_debt": "Owes {amount}",
     "shop_label": "Shop",
     "shop_pick_hint": "The import goes into the selected shop (checks and duplicates are specific to that shop).",
+    "shop_pick_required": "First choose the shop that receives the import.",
     "import_idle": "Import"
   },
   "shop_hours": {
@@ -4176,6 +4188,7 @@
     "all_shops": "All shops",
     "company_view": "Company view",
     "pick_title": "In which shop?",
-    "pick_none": "None of your shops allows this action for your account."
+    "pick_none": "None of your shops allows this action for your account.",
+    "shop_label": "Shop: {name}"
   }
 }

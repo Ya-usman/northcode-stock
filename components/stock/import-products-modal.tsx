@@ -13,5 +13,6 @@ interface Props {
 }
 
 export function ImportProductsModal(props: Props) {
-  return <ImportDrawer kind="products" {...props} />
+  // Produits : en « Toutes les boutiques », la boutique qui reçoit l’import est choisie explicitement
+  return <ImportDrawer kind="products" explicitShopInAllShops {...props} />
 }

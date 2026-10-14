@@ -209,6 +209,8 @@ export async function fetchSoldQty30dForShops(shopIds: string[]): Promise<Record
 // ── Règles de statut ───────────────────────────────────────────────────────
 
 export interface StockProductLike {
+  /** Boutique du produit : ses réglages (seuils) priment — voir StockRulesContext.shopRules */
+  shop_id?: string | null
   id: string
   quantity: number
   low_stock_threshold: number | null
@@ -222,11 +224,22 @@ export interface StockProductLike {
   promo_reason?: string | null
 }
 
+/** Réglages d'une boutique utilisés par les règles de stock */
+export interface ShopStockRules { lowStockThreshold?: number | null; expiryAlertDays?: number | null }
+
+/** Réglages par boutique (id → réglages), pour juger chaque produit avec ceux de SA boutique */
+export function shopRulesOf(shops: { id: string; low_stock_threshold?: number | null; expiry_alert_days?: number | null }[]): Record<string, ShopStockRules> {
+  return Object.fromEntries(shops.map(s => [s.id, { lowStockThreshold: s.low_stock_threshold ?? null, expiryAlertDays: s.expiry_alert_days ?? null }]))
+}
+
 export interface StockRulesContext {
-  /** Seuil de stock bas de la boutique (repli : 10) */
+  /** Seuil de stock bas de la boutique (repli : 10) — utilisé seulement sans réglage de la boutique du produit */
   shopLowStockThreshold?: number | null
-  /** Délai d'alerte péremption de la boutique */
+  /** Délai d'alerte péremption de la boutique — idem */
   shopExpiryAlertDays?: number | null
+  /** Réglages de la boutique DU PRODUIT (prioritaires) : en « Toutes les boutiques », chaque produit est
+   *  jugé avec les seuils de sa propre boutique */
+  shopRules?: Record<string, ShopStockRules>
   /** Délais d'alerte par catégorie (id → jours) */
   categoryAlertDays?: Record<string, number | null | undefined>
   expiryByProduct: Record<string, string>
@@ -247,8 +260,12 @@ export function lowStockThresholdOf(p: { low_stock_threshold: number | null }, s
   return p.low_stock_threshold || shopThreshold || DEFAULT_LOW_STOCK_THRESHOLD
 }
 
-export function expiryCutoffFor(p: { category_id: string | null }, ctx: StockRulesContext): string {
-  const alertDays = getExpiryAlertDays(ctx.categoryAlertDays?.[p.category_id || ''], ctx.shopExpiryAlertDays)
+const rulesFor = (p: { shop_id?: string | null }, ctx: { shopRules?: Record<string, ShopStockRules> }) =>
+  (p.shop_id && ctx.shopRules?.[p.shop_id]) || null
+
+export function expiryCutoffFor(p: { category_id: string | null; shop_id?: string | null }, ctx: StockRulesContext): string {
+  const own = rulesFor(p, ctx)
+  const alertDays = getExpiryAlertDays(ctx.categoryAlertDays?.[p.category_id || ''], own ? own.expiryAlertDays : ctx.shopExpiryAlertDays)
   // Jours calendaires du téléphone, comme les lots (lib/stock/batch-status) : une seule règle de péremption
   return addDays(ctx.today ?? localToday(), alertDays)
 }
@@ -258,7 +275,7 @@ export function isExpired(p: { id: string }, ctx: StockRulesContext): boolean {
   return !!exp && exp < (ctx.today ?? localToday())
 }
 
-export function isExpiringSoon(p: { id: string; category_id: string | null }, ctx: StockRulesContext): boolean {
+export function isExpiringSoon(p: { id: string; category_id: string | null; shop_id?: string | null }, ctx: StockRulesContext): boolean {
   const exp = ctx.expiryByProduct[p.id]
   const today = ctx.today ?? localToday()
   return !!exp && exp >= today && exp <= expiryCutoffFor(p, ctx)
@@ -309,12 +326,13 @@ export type StockLevel = 'out' | 'low' | 'ok'
  * filtres, chiffres clés, export).
  */
 export function stockLevelOf(
-  p: { id: string; quantity: number; low_stock_threshold: number | null },
-  ctx: { shopLowStockThreshold?: number | null; expiredQtyByProduct?: Record<string, number>; reservedQtyByProduct?: Record<string, number> },
+  p: { id: string; quantity: number; low_stock_threshold: number | null; shop_id?: string | null },
+  ctx: { shopLowStockThreshold?: number | null; shopRules?: Record<string, ShopStockRules>; expiredQtyByProduct?: Record<string, number>; reservedQtyByProduct?: Record<string, number> },
 ): StockLevel {
   const available = availableQty(p.quantity, ctx.expiredQtyByProduct?.[p.id], ctx.reservedQtyByProduct?.[p.id])
   if (available === 0) return 'out'
-  return available <= lowStockThresholdOf(p, ctx.shopLowStockThreshold) ? 'low' : 'ok'
+  const own = rulesFor(p, ctx)
+  return available <= lowStockThresholdOf(p, own ? own.lowStockThreshold : ctx.shopLowStockThreshold) ? 'low' : 'ok'
 }
 
 export function computeStockKpis(products: StockProductLike[], ctx: StockRulesContext): StockKpis {

@@ -7,10 +7,11 @@ import { useTranslations } from 'next-intl'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { format } from 'date-fns'
 import { dateFnsLocale } from '@/lib/i18n/date-format'
-import { Search, ClipboardCheck, AlertTriangle } from 'lucide-react'
+import { Search, ClipboardCheck, AlertTriangle, Store } from 'lucide-react'
 import { StockTabs } from '@/components/stock/stock-tabs'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
+import { useShopScope } from '@/lib/shops/use-shop-scope'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 import { useToast } from '@/components/ui/use-toast'
 import { useCurrency } from '@/lib/hooks/use-currency'
@@ -50,7 +51,13 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
   const tProducts = useTranslations('products')
   const unitLabel = useUnitLabel()
   const router = useRouter()
-  const { shop, profile, roleInActiveShop } = useAuth()
+  const { profile, roleInActiveShop, userShops, switchShop } = useAuth()
+  // Boutique comptée : celle de l'en-tête ; en « Toutes les boutiques », celle choisie explicitement
+  // (jamais la boutique active cachée). Un comptage ne mélange jamais plusieurs boutiques.
+  const scope = useShopScope()
+  const [chosenShopId, setChosenShopId] = useState<string | null>(null)
+  const shop = (scope.shopId ? userShops.find(x => x.id === scope.shopId) : userShops.find(x => x.id === chosenShopId)) ?? null
+  const multiShopAccount = userShops.length > 1
   const { canAccess, canViewCost } = useRolePermissions()
   // Coûts : demandés au serveur seulement avec le droit de les voir ; sans eux, pas d'« impact en valeur »
   const [costs, setCosts] = useState<Record<string, number> | null>(null)
@@ -75,6 +82,10 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [counts, setCounts] = useState<Record<string, string>>({})
   const [reasons, setReasons] = useState<Record<string, string>>({})
+  // Changement de contexte dans l'en-tête (Akwa → Toutes → Bastos…) : le choix fait en « Toutes les
+  // boutiques » et le comptage en cours sont oubliés — jamais repris silencieusement
+  const scopeKey = `${scope.mode}:${scope.shopIds.join(',')}`
+  useEffect(() => { setChosenShopId(null); setCounts({}); setReasons({}) }, [scopeKey]) // eslint-disable-line react-hooks/exhaustive-deps
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [previousSession, setPreviousSession] = useState<{ countedAt: string; items: Record<string, { countedQty: number; previousQty: number; reasonLabel: string | null }> } | null>(null)
@@ -140,6 +151,15 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
   })
 
   const countedTotal = Object.values(counts).filter(v => v.trim() !== '').length
+
+  const chooseShop = async () => {
+    const target = await scope.requireOneShop({ title: t('pick_shop_title') })
+    if (!target) return
+    setChosenShopId(target.id)
+    // Boutique active interne alignée sur la boutique comptée (droits de la page) ; l'en-tête reste sur « Toutes »
+    switchShop(target.id)
+    setCounts({}); setReasons({})
+  }
 
   // Only show the year if the previous session wasn't this year — showing it
   // unconditionally would be redundant noise for shops that count often.
@@ -215,6 +235,28 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
       <StockTabs locale={locale} />
       <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
 
+      {/* Boutique comptée : toujours visible pendant le comptage (compte à plusieurs boutiques) */}
+      {shop && multiShopAccount && (
+        <div className="flex flex-wrap items-center gap-2" data-testid="inventory-shop">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-stockshop-blue/30 bg-stockshop-blue-muted px-3 py-1 text-xs font-semibold text-stockshop-blue dark:border-blue-500/40 dark:bg-blue-950/40 dark:text-blue-300">
+            <Store aria-hidden className="h-3.5 w-3.5 shrink-0" />{t('counting_in', { name: shop.name })}
+          </span>
+          {!scope.shopId && countedTotal === 0 && (
+            <button type="button" onClick={chooseShop} className="min-h-10 text-xs font-medium text-stockshop-blue underline dark:text-blue-400" data-testid="inventory-change-shop">
+              {t('change_shop')}
+            </button>
+          )}
+        </div>
+      )}
+      {!shop && (
+        <div className="rounded-xl border bg-card p-5 text-center" data-testid="inventory-pick-shop">
+          <Store aria-hidden className="mx-auto mb-2 h-8 w-8 text-muted-foreground/60" />
+          <p className="mx-auto max-w-md text-sm text-muted-foreground">{t('pick_shop_explain')}</p>
+          <Button variant="stockshop" className="mt-4 h-11" onClick={chooseShop}>{t('pick_shop_button')}</Button>
+        </div>
+      )}
+      {shop && (<>
+
       {/* Filters */}
       <div className="flex flex-wrap items-end gap-2">
         <div className="relative flex-1 min-w-[180px] sm:max-w-sm">
@@ -285,6 +327,8 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
         </div>
       )}
 
+      </>)}
+
       {/* Sticky summary bar — hidden while the confirmation dialog is open: it
           shares the same z-index as the dialog, and on some WebViews the first
           tap could land on this still-visible button (a no-op re-open) instead
@@ -299,7 +343,7 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
       )}
 
       {/* Confirmation dialog */}
-      <PremiumDialog open={confirmOpen} onOpenChange={setConfirmOpen} title={t('confirm_title')} icon={<ClipboardCheck className="h-4 w-4" />} maxWidth="max-w-lg">
+      <PremiumDialog open={confirmOpen} onOpenChange={setConfirmOpen} title={shop && multiShopAccount ? t('confirm_title_shop', { name: shop.name }) : t('confirm_title')} icon={<ClipboardCheck className="h-4 w-4" />} maxWidth="max-w-lg">
         <PremiumDialogBody>
           <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 p-3 flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />

@@ -76,13 +76,15 @@ interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   shopId: string | undefined
+  /** Boutique du journal, affichée au-dessus du titre (compte à plusieurs boutiques) */
+  shopLabel?: string
   /** Ouvre la fiche du produit si elle existe encore (renvoie false sinon) */
   onOpenProduct?: (productId: string) => boolean
   /** Le produit est-il encore présent dans la liste ? */
   productExists?: (productId: string) => boolean
 }
 
-export function ProductActivityJournal({ open, onOpenChange, shopId, onOpenProduct, productExists }: Props) {
+export function ProductActivityJournal({ open, onOpenChange, shopId, shopLabel, onOpenProduct, productExists }: Props) {
   const t = useTranslations()
   const tj = useTranslations('activity_journal')
   const locale = useLocale()
@@ -353,6 +355,7 @@ export function ProductActivityJournal({ open, onOpenChange, shopId, onOpenProdu
     <DetailDrawer
       open={open}
       onOpenChange={onOpenChange}
+      category={shopLabel}
       title={t('products.activity_journal')}
       description={t('products.activity_journal_hint')}
       icon={<History className="h-4 w-4" />}

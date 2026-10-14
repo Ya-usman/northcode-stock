@@ -18,16 +18,26 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const shopId = searchParams.get('shop_id')
     const reference = searchParams.get('reference')
-    if (!shopId) return NextResponse.json({ error: t('shop_id_required') }, { status: 400 })
-
-    const role = await checkShopRole(supabase, user.id, shopId)
-    if (!role) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+    // Une boutique (shop_id) ou le contexte « Toutes les boutiques » (shop_ids) : transferts dont une de ces
+    // boutiques est la source OU la destination. Seules les boutiques dont la personne est membre comptent.
+    const requested = (searchParams.get('shop_ids') ?? shopId ?? '').split(',').map(x => x.trim()).filter(x => /^[0-9a-f-]{36}$/i.test(x))
+    if (!requested.length) return NextResponse.json({ error: t('shop_id_required') }, { status: 400 })
+    const allowed: string[] = []
+    const costShops = new Set<string>() // boutiques où la personne peut voir les prix d'achat
+    for (const id of Array.from(new Set(requested))) {
+      const role = await checkShopRole(supabase, user.id, id)
+      if (!role) continue
+      allowed.push(id)
+      if (await canViewCost(supabase, role, id)) costShops.add(id)
+    }
+    if (!allowed.length) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+    const inList = allowed.join(',')
 
     const admin = await createAdminClient()
     let query = (admin as any)
       .from('stock_transfers')
       .select('*, stock_transfer_items(*)')
-      .or(`source_shop_id.eq.${shopId},destination_shop_id.eq.${shopId}`)
+      .or(`source_shop_id.in.(${inList}),destination_shop_id.in.(${inList})`)
       .order('created_at', { ascending: false })
 
     if (reference) query = query.ilike('reference', reference.trim())
@@ -46,10 +56,10 @@ export async function GET(request: Request) {
 
     // Prix d'achat des lignes : seulement avec le droit de voir les coûts (règle unique canViewCost) ; sinon la
     // colonne est retirée de la réponse — l'écran des transferts n'en a pas besoin.
-    const seeCost = await canViewCost(supabase, role, shopId)
+    // Prix d'achat d'un transfert : visibles si la personne peut voir les coûts dans sa source ou sa destination
     const enriched = (data || []).map((t: any) => ({
       ...t,
-      stock_transfer_items: seeCost ? t.stock_transfer_items : (t.stock_transfer_items || []).map(({ buying_price: _cost, ...line }: any) => line),
+      stock_transfer_items: (costShops.has(t.source_shop_id) || costShops.has(t.destination_shop_id)) ? t.stock_transfer_items : (t.stock_transfer_items || []).map(({ buying_price: _cost, ...line }: any) => line),
       source_shop_name: shopMap[t.source_shop_id] || null,
       destination_shop_name: shopMap[t.destination_shop_id] || null,
     }))

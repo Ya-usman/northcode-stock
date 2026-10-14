@@ -353,6 +353,8 @@
     "import_export": "Importer / Exporter",
     "import_csv": "Importer un fichier Excel ou CSV",
     "activity_journal": "Journal d’activité",
+    "pick_shop_title": "Dans quelle boutique voulez-vous ajouter des produits ?",
+    "pick_shop_journal": "Journal d’activité de quelle boutique ?",
     "activity_journal_hint": "Créations, modifications de prix, promos, archivages et suppressions de produits.",
     "view_label": "Affichage",
     "view_cards": "Vue en cartes",
@@ -919,6 +921,9 @@
     "discrepancy_detail_placeholder": "Détail (optionnel)",
     "received_toast": "Transfert réceptionné",
     "confirm_cancel": "Annuler le transfert {reference} ? Le stock de votre boutique sera restauré.",
+    "pick_source_title": "Depuis quelle boutique envoyez-vous ?",
+    "from_shop": "Depuis : {name}",
+    "confirm_cancel_shops": "Annuler le transfert {reference} ({from} → {to}) ? Le stock de la boutique de départ sera restauré.",
     "cancelled_toast": "Transfert annulé"
   },
   "payments": {
@@ -1766,6 +1771,12 @@
     "no_products": "Aucun produit à compter.",
     "diffs_count": "{count} écart(s) détecté(s)",
     "validate_button": "Valider l'inventaire",
+    "pick_shop_title": "Dans quelle boutique voulez-vous faire l’inventaire ?",
+    "pick_shop_explain": "Un inventaire concerne une seule boutique. Choisissez la boutique à compter avant de commencer.",
+    "pick_shop_button": "Choisir la boutique",
+    "counting_in": "Inventaire : {name}",
+    "change_shop": "Changer de boutique",
+    "confirm_title_shop": "Finaliser l’inventaire — {name} ?",
     "confirm_title": "Confirmer l'inventaire",
     "confirm_warning": "Cette action va mettre à jour le stock réel des produits listés ci-dessous. Vérifiez avant de valider.",
     "value_impact": "Impact valeur (achat)",
@@ -3392,6 +3403,7 @@
     "detail_debt": "Dû {amount}",
     "shop_label": "Boutique",
     "shop_pick_hint": "L’import va dans la boutique choisie (vérification et doublons propres à cette boutique).",
+    "shop_pick_required": "Choisissez d’abord la boutique qui reçoit l’import.",
     "import_idle": "Importer"
   },
   "shop_hours": {
@@ -4176,6 +4188,7 @@
     "all_shops": "Toutes les boutiques",
     "company_view": "Vue entreprise",
     "pick_title": "Dans quelle boutique ?",
-    "pick_none": "Aucune boutique ne permet cette action pour votre compte."
+    "pick_none": "Aucune boutique ne permet cette action pour votre compte.",
+    "shop_label": "Boutique : {name}"
   }
 }

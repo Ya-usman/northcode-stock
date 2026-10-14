@@ -8,6 +8,8 @@ import { Search, Plus, X, ArrowRight, Package, Download, Share2, Mail, Copy, Ban
 import { isCapacitor } from '@/lib/utils/native-share'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
+import { useShopScope } from '@/lib/shops/use-shop-scope'
+import { useFilterScope } from '@/lib/filters/use-filter-scope'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 import { useToast } from '@/components/ui/use-toast'
 import { normalize } from '@/lib/utils/normalize'
@@ -54,14 +56,23 @@ export function StockTransfersTab() {
   const { canWrite } = useRolePermissions()
   const canManage = canWrite('transfers')
 
-  const [transfers, setTransfers] = useState<any[]>(() => getPageCache<any[]>(`transfers_${shop?.id}`) || [])
+  // Périmètre : celui de l'en-tête (une boutique, ou toutes les boutiques accessibles)
+  const scope = useShopScope()
+  const scopeKey = scope.shopIds.join(',')
+  const filterScope = useFilterScope()
+  const [transfers, setTransfers] = useState<any[]>(() => getPageCache<any[]>(`transfers_${scopeKey}`) || [])
+  // Produits d'UNE boutique : la source d'un nouveau transfert, ou la destination d'une réception
   const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(() => !getPageCache(`transfers_${shop?.id}`))
-  const [{ search }, setFilter] = usePersistedFilters('transfers', shop?.id, { search: '' })
+  const [loading, setLoading] = useState(() => !getPageCache(`transfers_${scopeKey}`))
+  const [{ search }, setFilter] = usePersistedFilters('transfers', filterScope, { search: '' }, { keepPerScope: true })
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   // ── Nouveau transfert ────────────────────────────────────────────────────
   const [showNewDialog, setShowNewDialog] = useState(false)
+  // Boutique SOURCE du nouveau transfert (en-tête, ou choisie explicitement)
+  const [newSourceShop, setNewSourceShop] = useState<(typeof userShops)[number] | null>(null)
+  // Changement de contexte : un nouveau transfert en cours est fermé, sa source oubliée
+  useEffect(() => { setShowNewDialog(false); setNewSourceShop(null); setReceivingTransfer(null) }, [scopeKey]) // eslint-disable-line react-hooks/exhaustive-deps
   const [newDestShopId, setNewDestShopId] = useState('')
   const [newProductSearch, setNewProductSearch] = useState('')
   const [newItems, setNewItems] = useState<{ product_id: string; name: string; unit: string; available: number; quantity: string }[]>([])
@@ -85,13 +96,13 @@ export function StockTransfersTab() {
   const [emailTransfer, setEmailTransfer] = useState<any | null>(null)
 
   const fetchTransfers = async () => {
-    if (!shop?.id) return
-    const cacheKey = `transfers_${shop.id}`
+    if (!scope.shopIds.length) return
+    const cacheKey = `transfers_${scopeKey}`
     const cached = getPageCache<any[]>(cacheKey)
     if (cached) { setTransfers(cached); setLoading(false) }
     if (!isOnline) { if (!cached) setLoading(false); return }
     try {
-      const res = await withTimeout(fetch(`/api/stock-transfers?shop_id=${shop.id}`), 20_000, t('transfers.load_timeout'))
+      const res = await withTimeout(fetch(`/api/stock-transfers?shop_ids=${scopeKey}`), 20_000, t('transfers.load_timeout'))
       if (!res.ok) return
       const json = await res.json()
       setTransfers(json.data || [])
@@ -103,24 +114,28 @@ export function StockTransfersTab() {
     }
   }
 
-  const fetchProducts = async () => {
-    if (!shop?.id) return
+  // Produits d'une boutique précise (source d'un envoi, destination d'une réception)
+  const loadProductsOf = async (shopId: string): Promise<Product[]> => {
     try {
       const { data } = await withTimeout<any>(
         supabase.from('products').select('id, name, unit, quantity, selling_price')
-          .eq('shop_id', shop.id).eq('is_active', true).order('name'),
+          .eq('shop_id', shopId).eq('is_active', true).order('name'),
         20_000
       )
-      setProducts((data || []) as Product[])
+      const list = (data || []) as Product[]
+      setProducts(list)
+      return list
     } catch {
       // silencieux — la sélection de produits rouvre juste vide
+      setProducts([])
+      return []
     }
   }
 
-  useEffect(() => { fetchTransfers(); fetchProducts() }, [shop?.id])
+  useEffect(() => { fetchTransfers() }, [scopeKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useRefetchOnVisible(() => { fetchTransfers(); fetchProducts() })
-  useRefetchOnReconnect(() => { fetchTransfers(); fetchProducts() }, isOnline)
+  useRefetchOnVisible(() => { fetchTransfers() })
+  useRefetchOnReconnect(() => { fetchTransfers() }, isOnline)
 
   const shopName = (id: string) => userShops.find(s => s.id === id)?.name ?? '—'
 
@@ -132,10 +147,15 @@ export function StockTransfersTab() {
       || normalize(tr.destination_shop_name || '').includes(q)
   })
 
-  const destShopOptions = userShops.filter(s => s.id !== shop?.id)
+  // Destinations possibles : toutes les autres boutiques du compte (au moins une, sinon pas de transfert)
+  const destShopOptions = userShops.filter(s => s.id !== newSourceShop?.id)
 
   // ── Nouveau transfert ────────────────────────────────────────────────────
-  const openNewTransfer = () => {
+  const openNewTransfer = async () => {
+    const source = await scope.requireOneShop({ title: t('transfers.pick_source_title') })
+    if (!source) return
+    setNewSourceShop(source)
+    await loadProductsOf(source.id)
     setNewDestShopId('')
     setNewProductSearch('')
     setNewItems([])
@@ -159,7 +179,7 @@ export function StockTransfersTab() {
     : []
 
   const submitNewTransfer = async () => {
-    if (!shop?.id || !newDestShopId) return
+    if (!newSourceShop || !newDestShopId) return
     const items = newItems
       .filter(it => Number(it.quantity) > 0)
       .map(it => ({ product_id: it.product_id, quantity: Number(it.quantity) }))
@@ -172,14 +192,14 @@ export function StockTransfersTab() {
       const res = await withTimeout(fetch('/api/stock-transfers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source_shop_id: shop.id, destination_shop_id: newDestShopId, notes: newNotes.trim() || null, items }),
+        body: JSON.stringify({ source_shop_id: newSourceShop.id, destination_shop_id: newDestShopId, notes: newNotes.trim() || null, items }),
       }))
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
       setLastCreatedRef(json.data?.reference || null)
       toast({ title: t('transfers.created_toast', { reference: json.data?.reference || '' }), variant: 'success' })
       fetchTransfers()
-      fetchProducts()
+      loadProductsOf(newSourceShop.id)
     } catch (err: any) {
       toast({ title: err.message || t('toast.error'), variant: 'destructive' })
     } finally {
@@ -188,10 +208,12 @@ export function StockTransfersTab() {
   }
 
   // ── Réception ────────────────────────────────────────────────────────────
-  const openReceive = (tr: any) => {
+  const openReceive = async (tr: any) => {
+    // Rapprochement avec les produits de la boutique DE DESTINATION du transfert
+    const destProducts = await loadProductsOf(tr.destination_shop_id)
     const lines: typeof receiveLines = {}
     for (const item of (tr.stock_transfer_items || [])) {
-      const match = products.find(p => normalize(p.name) === normalize(item.product_name))
+      const match = destProducts.find(p => normalize(p.name) === normalize(item.product_name))
       lines[item.id] = {
         destination_product_id: match?.id ?? null,
         matchSearch: match?.name ?? item.product_name,
@@ -209,7 +231,7 @@ export function StockTransfersTab() {
   }
 
   const submitReceive = async () => {
-    if (!receivingTransfer || !shop?.id) return
+    if (!receivingTransfer) return
     const items = (receivingTransfer.stock_transfer_items || []).map((item: any) => {
       const line = receiveLines[item.id]
       const received = Number(line?.quantity_received) || 0
@@ -227,14 +249,13 @@ export function StockTransfersTab() {
       const res = await withTimeout(fetch('/api/stock-transfers/receive', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transfer_id: receivingTransfer.id, destination_shop_id: shop.id, items }),
+        body: JSON.stringify({ transfer_id: receivingTransfer.id, destination_shop_id: receivingTransfer.destination_shop_id, items }),
       }))
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
       toast({ title: t('transfers.received_toast'), variant: 'success' })
       setReceivingTransfer(null)
       fetchTransfers()
-      fetchProducts()
     } catch (err: any) {
       toast({ title: err.message || t('toast.error'), variant: 'destructive' })
     } finally {
@@ -244,20 +265,19 @@ export function StockTransfersTab() {
 
   // ── Annulation ───────────────────────────────────────────────────────────
   const cancelTransfer = async (tr: any) => {
-    if (!shop?.id) return
-    if (!confirm(t('transfers.confirm_cancel', { reference: tr.reference }))) return
+    // La confirmation nomme les deux boutiques : « Annuler le transfert … (Akwa → Bastos) ? »
+    if (!confirm(t('transfers.confirm_cancel_shops', { reference: tr.reference, from: tr.source_shop_name || shopName(tr.source_shop_id), to: tr.destination_shop_name || shopName(tr.destination_shop_id) }))) return
     setCancelling(tr.id)
     try {
       const res = await fetch('/api/stock-transfers/cancel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transfer_id: tr.id, source_shop_id: shop.id }),
+        body: JSON.stringify({ transfer_id: tr.id, source_shop_id: tr.source_shop_id }),
       })
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
       toast({ title: t('transfers.cancelled_toast') })
       fetchTransfers()
-      fetchProducts()
     } catch (err: any) {
       toast({ title: err.message || t('toast.error'), variant: 'destructive' })
     } finally {
@@ -336,8 +356,12 @@ export function StockTransfersTab() {
       ) : (
         <div className="space-y-2">
           {filteredTransfers.map(tr => {
-            const isSource = tr.source_shop_id === shop.id
-            const isDestination = tr.destination_shop_id === shop.id
+            // Mise en avant : la boutique de l'en-tête (une seule) ; en « Toutes les boutiques », aucune
+            const isSource = !scope.isAllShops && scope.shopIds.includes(tr.source_shop_id)
+            const isDestination = !scope.isAllShops && scope.shopIds.includes(tr.destination_shop_id)
+            // Actions : réception par la destination, annulation par la source — boutiques du périmètre affiché
+            const canReceiveHere = scope.shopIds.includes(tr.destination_shop_id)
+            const canCancelHere = scope.shopIds.includes(tr.source_shop_id)
             const itemCount = (tr.stock_transfer_items || []).length
             const isExpanded = expandedId === tr.id
             return (
@@ -374,7 +398,7 @@ export function StockTransfersTab() {
                     <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setEmailTransfer(tr)}>
                       <Mail className="h-3 w-3" />{t('suppliers.po_email_helper')}
                     </Button>
-                    {tr.status === 'sent' && isDestination && canManage && (
+                    {tr.status === 'sent' && canReceiveHere && canManage && (
                       <Button variant="stockshop" size="sm" className="h-7 gap-1 text-xs" onClick={() => openReceive(tr)}>
                         <CheckCircle2 className="h-3 w-3" />{t('transfers.receive_button')}
                       </Button>
@@ -413,7 +437,7 @@ export function StockTransfersTab() {
                       </p>
                     )}
 
-                    {tr.status === 'sent' && isSource && canManage && (
+                    {tr.status === 'sent' && canCancelHere && canManage && (
                       <div className="flex gap-2 pt-3 mt-3 border-t">
                         <Button
                           variant="outline" size="sm" className="h-8 gap-1.5 text-xs flex-1 text-destructive border-destructive/30 hover:bg-red-50 dark:hover:bg-red-950/40"
@@ -436,6 +460,7 @@ export function StockTransfersTab() {
       <AppDrawer
         open={showNewDialog}
         onOpenChange={open => { if (!open) setShowNewDialog(false) }}
+        category={newSourceShop ? t('transfers.from_shop', { name: newSourceShop.name }) : undefined}
         title={t('transfers.new_transfer')}
         icon={<Package className="h-4 w-4" />}
         width="md"
