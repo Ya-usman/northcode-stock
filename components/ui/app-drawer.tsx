@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils/cn'
 import { PremiumHeader } from '@/components/ui/premium-header'
 import { UnsavedChangesDialog, useCloseGuard } from '@/components/ui/unsaved-changes'
+import { refocusTopModal, useModalStack } from '@/components/ui/modal-stack'
 
 // ── AppDrawer ────────────────────────────────────────────────────────────────
 // Panneau latéral droit (420 à 720 px) sur ordinateur, plein écran ou feuille
@@ -55,6 +56,8 @@ export function AppDrawer({
   const contentRef = React.useRef<HTMLDivElement>(null)
   const close = React.useCallback(() => onOpenChange(false), [onOpenChange])
   const guard = useCloseGuard({ open, dirty, onClose: close })
+  // Pile commune : Échap ferme le niveau du dessus même quand un message est affiché
+  useModalStack(open, guard.requestClose, contentRef)
 
   // Ordinateur : focus sur le premier champ. Téléphone : focus sur le panneau
   // lui-même, pour ne pas faire surgir le clavier à l'ouverture. Un contenu
@@ -95,6 +98,8 @@ export function AppDrawer({
           onPointerDownOutside={e => e.preventDefault()}
           onInteractOutside={e => e.preventDefault()}
           onOpenAutoFocus={handleAutoFocus}
+          // Panneau ouvert depuis un autre panneau : à sa fermeture, le focus revient dans celui du dessous
+          onCloseAutoFocus={refocusTopModal}
           {...(description ? {} : { 'aria-describedby': undefined })}
         >
           <DialogPrimitive.Title className="sr-only">{title}</DialogPrimitive.Title>

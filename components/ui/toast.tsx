@@ -5,6 +5,7 @@ import * as ToastPrimitive from '@radix-ui/react-toast'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { closeTopModal } from '@/components/ui/modal-stack'
 
 const ToastProvider = ToastPrimitive.Provider
 const ToastViewport = React.forwardRef<
@@ -42,8 +43,15 @@ const toastVariants = cva(
 const Toast = React.forwardRef<
   React.ElementRef<typeof ToastPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitive.Root> & VariantProps<typeof toastVariants>
->(({ className, variant, ...props }, ref) => (
-  <ToastPrimitive.Root ref={ref} className={cn(toastVariants({ variant }), className)} {...props} />
+>(({ className, variant, onEscapeKeyDown, ...props }, ref) => (
+  <ToastPrimitive.Root
+    ref={ref}
+    className={cn(toastVariants({ variant }), className)}
+    // Un message affiché est la couche la plus récente : c'est lui qui reçoit Échap. Il se ferme, et
+    // transmet Échap au panneau ou à la fenêtre visible dessous — un seul appui suffit, comme sans message.
+    onEscapeKeyDown={e => { onEscapeKeyDown?.(e); closeTopModal() }}
+    {...props}
+  />
 ))
 Toast.displayName = ToastPrimitive.Root.displayName
 

@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/compone
 import { Button } from '@/components/ui/button'
 import { PremiumHeader } from '@/components/ui/premium-header'
 import { UnsavedChangesDialog, useCloseGuard } from '@/components/ui/unsaved-changes'
+import { refocusTopModal, useModalStack } from '@/components/ui/modal-stack'
 import { cn } from '@/lib/utils/cn'
 
 // ── PremiumDialog (AppModal) ─────────────────────────────────────────────────
@@ -43,6 +44,8 @@ export function PremiumDialog({
   const contentRef = React.useRef<HTMLDivElement>(null)
   const close = React.useCallback(() => onOpenChange(false), [onOpenChange])
   const guard = useCloseGuard({ open, dirty, onClose: close })
+  // Pile commune : Échap ferme le niveau du dessus même quand un message est affiché
+  useModalStack(open, guard.requestClose, contentRef)
 
   // Le X de l'en-tête est le premier élément focusable : sans cela, le focus
   // initial tomberait dessus. Ordinateur : premier champ ; téléphone : la
@@ -63,6 +66,9 @@ export function PremiumDialog({
         ref={contentRef}
         data-testid={testId}
         onOpenAutoFocus={handleAutoFocus}
+        // Fenêtre ouverte depuis un panneau (souvent par un menu disparu entre-temps) : à sa fermeture,
+        // le focus revient dans le panneau au lieu de retomber sur la page
+        onCloseAutoFocus={refocusTopModal}
         className={cn(
           'p-0 gap-0 flex flex-col max-h-[90dvh] overflow-hidden rounded-xl',
           // Le X de l'en-tête commun remplace celui de la modale shadcn
