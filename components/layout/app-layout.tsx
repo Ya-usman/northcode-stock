@@ -23,6 +23,7 @@ import { PlanLimitAlert } from '@/components/saas/plan-limit-alert'
 import { GracePeriodBanner } from '@/components/saas/grace-period-banner'
 import { WhatsNewPanel, LivePageAnnouncement } from '@/components/announcements/whats-new'
 import { OnboardingProvider } from '@/components/onboarding/onboarding-provider'
+import { ShopPickerProvider } from '@/components/shops/shop-picker'
 import { useAnnouncements, appPath } from '@/lib/announcements/use-announcements'
 import { ShopClosedWall } from '@/components/saas/shop-closed-wall'
 import { ShopHoursCountdownBanner } from '@/components/saas/shop-hours-countdown-banner'
@@ -420,6 +421,8 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   return (
     // Accompagnement « Bien démarrer » : état et tours guidés disponibles sur toutes les pages
     <OnboardingProvider userId={profile.id}>
+    {/* Choix explicite d'une boutique pour une action lancée depuis « Toutes les boutiques » (useShopScope) */}
+    <ShopPickerProvider>
     <div className="min-h-screen bg-background">
       <NavigationProgress />
       {!accessAllowed && !isBillingPage && (
@@ -522,6 +525,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         }}
       />
     </div>
+    </ShopPickerProvider>
     </OnboardingProvider>
   )
 }

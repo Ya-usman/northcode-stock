@@ -4172,6 +4172,10 @@
   },
   "scope": {
     "all_short": "All shops",
-    "aria_context": "Shop context: {name}"
+    "aria_context": "Shop context: {name}",
+    "all_shops": "All shops",
+    "company_view": "Company view",
+    "pick_title": "In which shop?",
+    "pick_none": "None of your shops allows this action for your account."
   }
 }

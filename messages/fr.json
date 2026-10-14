@@ -4172,6 +4172,10 @@
   },
   "scope": {
     "all_short": "Toutes",
-    "aria_context": "Contexte boutique : {name}"
+    "aria_context": "Contexte boutique : {name}",
+    "all_shops": "Toutes les boutiques",
+    "company_view": "Vue entreprise",
+    "pick_title": "Dans quelle boutique ?",
+    "pick_none": "Aucune boutique ne permet cette action pour votre compte."
   }
 }

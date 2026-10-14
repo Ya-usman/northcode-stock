@@ -104,7 +104,7 @@
     "low_stock_warning": "Kayan {count} suna ƙarewa",
     "out_of_stock_warning": "Kayan {count} sun ƙare",
     "view_all": "Duba Duka",
-    "all_shops": "Dukkan Kantuna",
+    "all_shops": "Duk shaguna",
     "active_shop": "Kantin da ke Aiki",
     "today_cash": "Kuɗin da Aka Karba",
     "today_cash_sub": "Sayarwa + biyan bashi",
@@ -1147,7 +1147,7 @@
     "top_products": "Kayan da Aka Fi Sayarwa",
     "stock_valuation": "Ƙimar Kaya",
     "cashier_performance": "Aikin Ma'aikatan Kuɗi",
-    "all_shops_ranking": "Matsayin dukkan kantunan",
+    "all_shops_ranking": "Matsayin duk shaguna",
     "buying_value": "Farashin Siye",
     "selling_value": "Farashin Sayarwa",
     "potential_profit": "Hasashen Riba",
@@ -4172,6 +4172,10 @@
   },
   "scope": {
     "all_short": "Duk shaguna",
-    "aria_context": "Mahallin shago: {name}"
+    "aria_context": "Mahallin shago: {name}",
+    "all_shops": "Duk shaguna",
+    "company_view": "Duban kasuwanci",
+    "pick_title": "A wane shago?",
+    "pick_none": "Babu shagon da ya ba asusunka damar wannan aiki."
   }
 }

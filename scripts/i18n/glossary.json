@@ -9,6 +9,15 @@
         "forbid": ["rukuni", "rukunin", "rukunoni", "lot", "lots"],
         "note": "« rukuni » veut dire « catégorie » : ne jamais l'employer pour un lot. Formes : lodi, lodin (« le lot de… », « ce lot »)."
       }
+    },
+    {
+      "notion": "toutes les boutiques (contexte agrégé du sélecteur de boutique)",
+      "match": "\\btoutes (les )?boutiques\\b",
+      "ha": {
+        "use": "Duk shaguna",
+        "forbid": ["dukkan kantuna", "dukkan kantunan"],
+        "note": "Terme unique depuis le 14 oct. 2026 : « Duk shaguna ». « Vue entreprise » (page indépendante du sélecteur) est une autre notion : « Duban kasuwanci »."
+      }
     }
   ]
 }
