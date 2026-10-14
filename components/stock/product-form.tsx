@@ -23,6 +23,7 @@ const BarcodeScanner = dynamic(
 )
 import { useToast } from '@/components/ui/use-toast'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
+import { ExpiryDateField, usePastExpiryConfirm } from '@/components/stock/expiry-date-field'
 import { classifyBarcode } from '@/lib/products/barcode'
 import { compressImage } from '@/lib/utils/compress-image'
 import { withTimeout } from '@/lib/utils/with-timeout'
@@ -106,6 +107,7 @@ export function ProductForm({
       low_stock_threshold: undefined,
       sku: '',
       image_url: '',
+      expiry_date: '',
       ...defaultValues,
     },
   })
@@ -228,6 +230,7 @@ export function ProductForm({
 
   // Envoi : une erreur de champ renvoyée par le serveur s'affiche sous le champ concerné
   // (la photo déjà choisie reste dans le formulaire : on corrige et on réenregistre)
+  const pastExpiry = usePastExpiryConfirm()
   const submit = (data: ProductFormData) => runSubmit(data, false)
   const runSubmit = async (data: ProductFormData, skuConfirmed: boolean) => {
     const sku = (data.sku || '').trim()
@@ -240,6 +243,8 @@ export function ProductForm({
       }
       if (kind === 'numeric_nonstandard' && !skuConfirmed) { setConfirmSku(data); return }
     }
+    // Stock initial avec une date déjà passée : on demande, on n'interdit pas
+    if (!isEdit && Number(data.quantity) > 0 && !(await pastExpiry.confirm([data.expiry_date]))) return
     const r = await onSubmit(data)
     if (r && typeof r === 'object' && 'field' in r) {
       form.setError(r.field, { type: 'server', message: r.message })
@@ -328,6 +333,12 @@ export function ProductForm({
             </div>
           )}
         </div>
+        {/* Date de péremption du lot initial : seulement s'il y a du stock à dater */}
+        {!isEdit && Number(form.watch('quantity')) > 0 && (
+          <Controller control={form.control} name="expiry_date" render={({ field }) => (
+            <ExpiryDateField id="product-expiry-date" value={field.value} onChange={v => field.onChange(v)} />
+          )} />
+        )}
 
         {/* SKU / Barcode, scanner accolé */}
         <div className="space-y-1.5">
@@ -470,6 +481,7 @@ export function ProductForm({
         </div>
       </DrawerSection>
     </form>
+    {pastExpiry.dialog}
 
     {/* « 50 » n'est pas un code-barres standard : référence maison, ou erreur ? */}
     <ConfirmModal

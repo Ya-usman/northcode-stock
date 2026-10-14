@@ -1691,6 +1691,14 @@
     "reason_batch_corrected": "Lot corrigé — {detail}",
     "reason_batch_deleted": "Lot supprimé — {detail}"
   },
+  "expiry_field": {
+    "label": "Date de péremption",
+    "optional": "Facultative",
+    "past_inline": "Cette date est déjà passée.",
+    "confirm_title": "Date déjà passée",
+    "confirm_desc": "Cette date est déjà passée. Voulez-vous continuer ?",
+    "confirm_action": "Continuer"
+  },
   "expiry": {
     "title": "Lots & péremptions",
     "subtitle": "Suivez vos lots et anticipez les péremptions.",
@@ -3043,6 +3051,7 @@
       "missing_price": "Prix de vente manquant.",
       "invalid_price": "Prix de vente invalide : un nombre supérieur à 0.",
       "invalid_buying_price": "Prix d’achat invalide.",
+      "invalid_expiry_date": "Date de péremption illisible : « {value} ». Écrivez-la JJ/MM/AAAA, ou laissez la case vide.",
       "invalid_quantity": "Quantité invalide : un nombre entier, 0 ou plus.",
       "invalid_threshold": "Seuil d’alerte invalide : un nombre entier.",
       "unknown_unit": "Unité « {unit} » inconnue : choisissez-la dans la liste du modèle.",
@@ -3065,6 +3074,8 @@
     },
     "warning": {
       "buying_above_selling": "Prix d’achat supérieur au prix de vente.",
+      "expiry_past": "Date de péremption déjà passée ({date}) : importée telle quelle, le lot sera « Périmé ».",
+      "expiry_without_stock": "Date de péremption ({date}) ignorée : pas de stock sur cette ligne, donc pas de lot à dater.",
       "ambiguous_number": "« {raw} » lu comme {value}.",
       "debt_not_applied": "Fiche déjà enregistrée : la dette ({amount}) n’est pas reprise. Ajoutez-la depuis Crédits si besoin.",
       "debt_no_permission": "Fiche importée sans sa dette : il faut le droit « Crédits » en modification.",
@@ -3110,6 +3121,11 @@
           "header": "Seuil d’alerte",
           "help": "Vous êtes prévenu quand le stock descend à ce nombre. Facultatif.",
           "example": "3"
+        },
+        "expiry_date": {
+          "header": "Date de péremption",
+          "help": "Date de péremption du stock importé (JJ/MM/AAAA). Facultative : laissez vide pour un produit qui ne périme pas.",
+          "example": "30/11/2026"
         }
       },
       "guide_title": "Importer vos produits dans StockShop",
@@ -3489,6 +3505,7 @@
     "invalid_or_expired_link": "Lien invalide ou expiré. Demandez un nouveau lien.",
     "invalid_session": "Session invalide ou expirée. Cliquez à nouveau sur le lien dans votre email.",
     "date_invalid": "Date invalide",
+    "initial_stock_failed": "Le stock initial n’a pas pu être enregistré : le produit n’a pas été créé. Réessayez.",
     "client_request_id_required": "client_request_id requis",
     "amount_must_be_positive": "Le montant doit être supérieur à 0",
     "shop_customer_ids_required": "shop_id et customer_id requis",

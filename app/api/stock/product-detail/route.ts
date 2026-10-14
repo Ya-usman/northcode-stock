@@ -111,7 +111,7 @@ export async function GET(request: Request) {
         stock_value: quantities.physical * cost,
         supplier: supplier ? { id: supplier.id, name: supplier.name } : null,
         // Coût de chaque lot en stock (le navigateur lit les lots sans cette colonne)
-        batch_costs: Object.fromEntries((lots || []).map((l: any) => [l.id, Number(l.buying_price) || 0])),
+        batch_costs: Object.fromEntries((lots || []).map((l: any) => [l.id, l.buying_price == null ? null : Number(l.buying_price)])), // coût inconnu : null, jamais 0
         supplier_prices: (prices || []).map((sp: any) => ({ supplier_id: sp.supplier_id, supplier_name: sp.suppliers?.name || null, price: Number(sp.price), updated_at: sp.updated_at })),
       }
     }

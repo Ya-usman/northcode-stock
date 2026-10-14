@@ -29,6 +29,8 @@ export function createProductSchema(msg: ValidationMessages = defaultMessages) {
     sku: z.string().max(100).optional().or(z.literal('')),
     image_url: z.string().url().optional().or(z.literal('')),
     is_active: z.boolean().default(true),
+    /** Date de péremption du LOT initial (création avec stock > 0) — jamais une propriété du produit */
+    expiry_date: z.string().optional().or(z.literal('')),
   })
 }
 

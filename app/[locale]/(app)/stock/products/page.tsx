@@ -27,6 +27,7 @@ import { FormDrawer } from '@/components/ui/form-drawer'
 import { emitOnboarding } from '@/lib/onboarding/events'
 import { DetailDrawer } from '@/components/ui/detail-drawer'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
+import { ExpiryDateField, usePastExpiryConfirm } from '@/components/stock/expiry-date-field'
 import { PRODUCT_FORM_ID, type ProductFormState } from '@/components/stock/product-form-submit'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrency } from '@/lib/hooks/use-currency'
@@ -268,6 +269,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [archiveDateTo, setArchiveDateTo] = useState('')
 
   const restockForm = useForm<RestockFormData>({ resolver: zodResolver(createRestockSchema({ restock_min_qty: t('errors.restock_min_qty') })) })
+  // Date de péremption déjà passée (réassort, date d'un lot) : on demande, on n'interdit pas
+  const pastExpiry = usePastExpiryConfirm()
 
 
   // Réinitialiser la sélection quand on change de boutique
@@ -575,6 +578,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           sku: data.sku || null,
           image_url: data.image_url || null,
           is_active: true,
+          // Date du LOT initial créé avec le stock (jamais enregistrée sur le produit)
+          expiry_date: Number(data.quantity) > 0 && data.expiry_date ? data.expiry_date : null,
         }),
       }))
       const json = await res.json()
@@ -654,6 +659,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
   const onRestock = async (data: RestockFormData) => {
     if (!restockProduct || !shop?.id) return
+    if (!(await pastExpiry.confirm([data.expiry_date]))) return
     setSaving(true)
 
     // Offline path — save to IndexedDB and update local cache optimistically
@@ -798,6 +804,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
   const submitExpiry = async () => {
     if (!expiryBatch || !shop?.id || !expiryDate) return
+    if (!(await pastExpiry.confirm([expiryDate]))) return
     setSavingExpiry(true)
     try {
       const res = await withTimeout(fetch('/api/product-batches/expiry', {
@@ -1948,10 +1955,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 <Input type="number" {...restockForm.register('buying_price')} placeholder={String(restockProduct?.buying_price)} />
               </div>
             )}
-            <div className="space-y-1.5">
-              <Label>{t('products.expiry_date_label')}</Label>
-              <Input type="date" {...restockForm.register('expiry_date')} />
-            </div>
+            {/* Chaque réassort crée un NOUVEAU lot, avec sa propre date (facultative) */}
+            <ExpiryDateField id="restock-expiry-date" value={restockForm.watch('expiry_date')} onChange={v => restockForm.setValue('expiry_date', v, { shouldDirty: true })} />
             <div className="space-y-1.5">
               <Label>{t('products.notes_label')}</Label>
               <Input {...restockForm.register('notes')} placeholder={t('products.notes_placeholder')} />
@@ -2146,10 +2151,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         {expiryBatch && (
           <>
             <PremiumDialogBody>
-              <div className="space-y-1.5">
-                <Label>{t('products.card_expiry')}</Label>
-                <Input type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} className="h-9" />
-              </div>
+              <ExpiryDateField id="product-batch-expiry-date" value={expiryDate} onChange={setExpiryDate} />
             </PremiumDialogBody>
             <PremiumDialogFooter onCancel={() => setExpiryBatch(null)} cancelLabel={t('actions.cancel')}>
               {expiryBatch.expiry_date && (
@@ -2164,6 +2166,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           </>
         )}
       </PremiumDialog>
+
+      {pastExpiry.dialog}
 
       {/* Correction de la quantité d'un lot */}
       <PremiumDialog

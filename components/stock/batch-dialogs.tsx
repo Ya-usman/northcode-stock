@@ -12,6 +12,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { formatLocaleDate } from '@/lib/i18n/date-format'
 import { dayOf, localDate } from '@/lib/stock/batch-status'
 import { withTimeout } from '@/lib/utils/with-timeout'
+import { ExpiryDateField, usePastExpiryConfirm } from '@/components/stock/expiry-date-field'
 
 // Fenêtres d'action sur UN lot : corriger la quantité, modifier la date de
 // péremption, mettre en promo, retirer du stock. Elles appellent les routes
@@ -114,10 +115,13 @@ export function BatchExpiryDialog({ batch, onClose, onSaved }: DialogProps) {
   const { toast } = useToast()
   const [date, setDate] = useState('')
   const [saving, setSaving] = useState(false)
+  const pastExpiry = usePastExpiryConfirm()
   useEffect(() => { if (batch) setDate(batch.expiry_date ? dayOf(batch.expiry_date) : '') }, [batch?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = async (value: string | null) => {
     if (!batch) return
+    // Date déjà passée : avertissement et confirmation, jamais interdite
+    if (value && !(await pastExpiry.confirm([value]))) return
     setSaving(true)
     try {
       const r = await call('/api/product-batches/expiry', 'PATCH', { id: batch.id, shop_id: batch.shop_id, expiry_date: value })
@@ -134,9 +138,8 @@ export function BatchExpiryDialog({ batch, onClose, onSaved }: DialogProps) {
       {batch && (
         <>
           <PremiumDialogBody>
-            <div className="space-y-1.5" data-testid="batch-expiry-dialog">
-              <Label htmlFor="batch-expiry-date">{t('products.card_expiry')}</Label>
-              <Input id="batch-expiry-date" type="date" value={date} onChange={e => setDate(e.target.value)} className="h-11 sm:h-9" />
+            <div data-testid="batch-expiry-dialog">
+              <ExpiryDateField id="batch-expiry-date" value={date} onChange={setDate} />
             </div>
           </PremiumDialogBody>
           <PremiumDialogFooter onCancel={onClose} cancelLabel={t('actions.cancel')}>
@@ -151,6 +154,7 @@ export function BatchExpiryDialog({ batch, onClose, onSaved }: DialogProps) {
           </PremiumDialogFooter>
         </>
       )}
+      {pastExpiry.dialog}
     </PremiumDialog>
   )
 }

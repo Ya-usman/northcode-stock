@@ -1691,6 +1691,14 @@
     "reason_batch_corrected": "Batch corrected — {detail}",
     "reason_batch_deleted": "Batch deleted — {detail}"
   },
+  "expiry_field": {
+    "label": "Expiry date",
+    "optional": "Optional",
+    "past_inline": "This date has already passed.",
+    "confirm_title": "Date already passed",
+    "confirm_desc": "This date has already passed. Do you want to continue?",
+    "confirm_action": "Continue"
+  },
   "expiry": {
     "title": "Lots & expiry",
     "subtitle": "Track your batches and stay ahead of expiry dates.",
@@ -3043,6 +3051,7 @@
       "missing_price": "Selling price missing.",
       "invalid_price": "Invalid selling price: a number above 0.",
       "invalid_buying_price": "Invalid buying price.",
+      "invalid_expiry_date": "Unreadable expiry date: “{value}”. Write it DD/MM/YYYY, or leave the cell empty.",
       "invalid_quantity": "Invalid quantity: a whole number, 0 or more.",
       "invalid_threshold": "Invalid alert threshold: a whole number.",
       "unknown_unit": "Unknown unit “{unit}”: pick one from the template list.",
@@ -3065,6 +3074,8 @@
     },
     "warning": {
       "buying_above_selling": "Buying price higher than selling price.",
+      "expiry_past": "Expiry date already passed ({date}): imported as is, the batch will be “Expired”.",
+      "expiry_without_stock": "Expiry date ({date}) ignored: no stock on this row, so no batch to date.",
       "ambiguous_number": "“{raw}” read as {value}.",
       "debt_not_applied": "Record already exists: the debt ({amount}) is not carried over. Add it from Credits if needed.",
       "debt_no_permission": "Record imported without its debt: you need edit rights on “Credits”.",
@@ -3110,6 +3121,11 @@
           "header": "Alert threshold",
           "help": "You are alerted when stock falls to this number. Optional.",
           "example": "3"
+        },
+        "expiry_date": {
+          "header": "Expiry date",
+          "help": "Expiry date of the imported stock (DD/MM/YYYY). Optional: leave empty for a product that does not expire.",
+          "example": "30/11/2026"
         }
       },
       "guide_title": "Import your products into StockShop",
@@ -3489,6 +3505,7 @@
     "invalid_or_expired_link": "Invalid or expired link. Request a new link.",
     "invalid_session": "Invalid or expired session. Click the link in your email again.",
     "date_invalid": "Invalid date",
+    "initial_stock_failed": "The initial stock could not be saved: the product was not created. Please try again.",
     "client_request_id_required": "client_request_id required",
     "amount_must_be_positive": "Amount must be greater than 0",
     "shop_customer_ids_required": "shop_id and customer_id required",

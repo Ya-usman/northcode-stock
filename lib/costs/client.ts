@@ -13,7 +13,8 @@ export interface Costs {
   /** Boutiques pour lesquelles le serveur a accordé les coûts */
   shops: string[]
   products: Record<string, number>
-  batches: Record<string, number>
+  /** Coût de chaque lot ; null = inconnu (lot créé sans prix d’achat connu) */
+  batches: Record<string, number | null>
 }
 
 export const NO_COSTS: Costs = { shops: [], products: {}, batches: {} }

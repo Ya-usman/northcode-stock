@@ -6,13 +6,14 @@
 // Fonctions PURES : aucun accès à la base.
 
 import { classifyBarcode } from '@/lib/products/barcode'
+import { parseImportDate } from './dates'
 
 export const PRODUCT_UNITS = ['piece', 'kg', 'g', 'litre', 'ml', 'pack', 'carton', 'dozen', 'bag', 'bottle', 'tin', 'box'] as const
 export type ProductUnit = typeof PRODUCT_UNITS[number]
 export const IMPORT_MAX_ROWS = 1000
 
-export type ImportField = 'name' | 'selling_price' | 'buying_price' | 'quantity' | 'unit' | 'sku' | 'low_stock_threshold'
-export const IMPORT_FIELDS: ImportField[] = ['name', 'selling_price', 'buying_price', 'quantity', 'unit', 'sku', 'low_stock_threshold']
+export type ImportField = 'name' | 'selling_price' | 'buying_price' | 'quantity' | 'unit' | 'sku' | 'low_stock_threshold' | 'expiry_date'
+export const IMPORT_FIELDS: ImportField[] = ['name', 'selling_price', 'buying_price', 'quantity', 'unit', 'sku', 'low_stock_threshold', 'expiry_date']
 
 /** Texte comparable : minuscules, sans accents, sans ponctuation superflue ni espaces doubles */
 export function normalizeText(s: unknown): string {
@@ -29,6 +30,8 @@ const HEADER_WORDS: Record<ImportField, string[]> = {
   unit: ['unit', 'unite', 'unite (piece, kg, litre…)', 'unit (piece, kg, litre…)', 'naui', 'naui (piece, kg, litre…)', "ma'auni", 'mauni'],
   sku: ['sku', 'code-barres', 'code barres', 'code-barres / sku', 'sku / code-barres', 'code', 'reference', 'ref', 'barcode', 'barcode / sku', 'sku / barcode', 'lambar kaya', 'lambar barcode'],
   low_stock_threshold: ['low_stock_threshold', 'seuil stock faible', "seuil d'alerte", "seuil d'alerte stock", 'seuil', 'alerte', 'low stock threshold', 'alert threshold', 'reorder level', 'kananan hannun kaya', 'kananan hanawa', 'iyakar fadakarwa'],
+  // Date de péremption du lot initial (facultative) — jamais une propriété du produit
+  expiry_date: ['expiry_date', 'date de peremption', 'peremption', 'date peremption', "date d'expiration", 'expiration', 'dlc', 'dluo', 'expiry date', 'expiry', 'expiration date', 'best before', 'use by', 'ranar karewa', 'ranar ƙarewa'],
 }
 const HEADER_INDEX = new Map<string, ImportField>()
 for (const f of IMPORT_FIELDS) for (const w of HEADER_WORDS[f]) HEADER_INDEX.set(normalizeText(w), f)
@@ -125,8 +128,8 @@ const EXAMPLES = new Set([
 export type RowIssue =
   | 'missing_name' | 'name_too_long' | 'missing_price' | 'invalid_price' | 'invalid_buying_price'
   | 'invalid_quantity' | 'invalid_threshold' | 'unknown_unit' | 'sku_damaged' | 'sku_too_long' | 'sku_invalid_barcode'
-  | 'duplicate_in_file' | 'exists_name' | 'exists_sku' | 'example_row' | 'insert_failed'
-export type RowWarning = 'buying_above_selling' | 'ambiguous_number' | 'sku_nonstandard'
+  | 'duplicate_in_file' | 'exists_name' | 'exists_sku' | 'example_row' | 'insert_failed' | 'invalid_expiry_date'
+export type RowWarning = 'buying_above_selling' | 'ambiguous_number' | 'sku_nonstandard' | 'expiry_past' | 'expiry_without_stock'
 
 export interface ImportProduct {
   name: string; selling_price: number; buying_price: number; quantity: number
@@ -139,13 +142,21 @@ export interface RowReport {
   params?: Record<string, string | number>
   warnings: { code: RowWarning; params?: Record<string, string | number> }[]
   product?: ImportProduct
+  /** Lot initial créé avec le produit (stock > 0) : péremption facultative, coût seulement s'il est connu */
+  lot?: { expiry_date: string | null; cost: number | null }
   /** Valeurs telles que lues (aperçu, lignes à corriger) */
   raw: Partial<Record<ImportField, unknown>>
 }
 export interface RawRow { line: number; values: Partial<Record<ImportField, unknown>> }
 
+/** Jour courant « AAAA-MM-JJ » (date passée : avertissement, jamais correction) */
+function currentDay(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 /** Rapport ligne par ligne. existing : produits actuels de la boutique (nom, code-barres). */
-export function checkRows(rows: RawRow[], existing: { name: string; sku: string | null }[]): RowReport[] {
+export function checkRows(rows: RawRow[], existing: { name: string; sku: string | null }[], today: string = currentDay()): RowReport[] {
   const existingNames = new Map(existing.map(p => [normalizeText(p.name), p.name]))
   const existingSkus = new Map(existing.filter(p => p.sku).map(p => [String(p.sku).trim().toLowerCase(), p.name]))
   const seenNames = new Map<string, number>(), seenSkus = new Map<string, number>()
@@ -170,6 +181,9 @@ export function checkRows(rows: RawRow[], existing: { name: string; sku: string 
     if (th.invalid || (th.value !== null && (th.value < 0 || !Number.isInteger(th.value)))) return fail('invalid_threshold')
     const unit = parseUnit(values.unit)
     if (!unit) return fail('unknown_unit', { unit: String(values.unit) })
+    // Date de péremption : facultative ; illisible = ligne à corriger ; jamais inventée ni corrigée
+    const exp = parseImportDate(values.expiry_date)
+    if (exp.invalid) return fail('invalid_expiry_date', { value: String(values.expiry_date) })
     const sku = parseSku(values.sku)
     if (sku.damaged) return fail('sku_damaged')
     if (sku.value && sku.value.length > 64) return fail('sku_too_long')
@@ -182,12 +196,18 @@ export function checkRows(rows: RawRow[], existing: { name: string; sku: string 
       if (p.ambiguous) r.warnings.push({ code: 'ambiguous_number', params: { raw: String(raw), value: p.value! } })
     }
     if (bp.value !== null && bp.value > sp.value) r.warnings.push({ code: 'buying_above_selling' })
+    const stock = qt.value ?? 0
+    const dayLabel = (iso: string) => iso.split('-').reverse().join('/')
+    if (exp.value && stock > 0 && exp.value < today) r.warnings.push({ code: 'expiry_past', params: { date: dayLabel(exp.value) } })
+    if (exp.value && stock === 0) r.warnings.push({ code: 'expiry_without_stock', params: { date: dayLabel(exp.value) } })
 
     const key = normalizeText(name), skuKey = sku.value?.toLowerCase() ?? null
     r.product = {
       name, selling_price: sp.value, buying_price: bp.value ?? 0, quantity: qt.value ?? 0,
       unit, sku: sku.value, low_stock_threshold: th.value,
     }
+    // Une ligne = un produit = un lot initial (s'il y a du stock) ; coût seulement s'il est réellement donné
+    if (stock > 0) r.lot = { expiry_date: exp.value, cost: bp.value !== null && bp.value > 0 ? bp.value : null }
     // Code-barres pris par un AUTRE produit du stock : à corriger (avant les doublons du
     // fichier : une ligne refusée ne doit pas faire refuser la suivante)
     const skuOwner = skuKey ? existingSkus.get(skuKey) : undefined

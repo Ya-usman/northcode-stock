@@ -12,7 +12,10 @@ import { checkRows, summarize, IMPORT_FIELDS, IMPORT_MAX_ROWS, type RawRow, type
 // ou même code-barres) est laissé tel quel — réimporter le même fichier ne crée
 // jamais de doublon. Un code-barres pris par un AUTRE produit est une erreur de la
 // ligne, pas de tout l'import. Chaque produit créé avec du stock reçoit son
-// mouvement « Stock initial ». Ancien format (lignes à plat) encore accepté.
+// mouvement « Stock initial » ET son lot initial (date de péremption facultative,
+// coût seulement s'il est donné) : jamais de stock sans lot. Si le mouvement ou le
+// lot ne peut pas être enregistré, les produits du paquet sont retirés et signalés.
+// Ancien format (lignes à plat) encore accepté.
 export async function POST(request: Request) {
   const t = getApiTranslator(request)
   try {
@@ -77,16 +80,33 @@ export async function POST(request: Request) {
           else created.push({ id: one.data.id, idx: k })
         }
       }
-      inserted += created.length
-      // Mouvement « Stock initial » — comme l'ajout d'un produit à l'unité
-      const movements = created
-        .map(c => ({ id: c.id, qty: chunk[c.idx].product!.quantity }))
-        .filter(m => m.qty > 0)
-        .map(m => ({ shop_id: shopId, product_id: m.id, type: 'in', quantity: m.qty, reason: 'Stock initial', performed_by: user.id, previous_qty: 0, new_qty: m.qty }))
+      // Stock initial : mouvement + lot, comme l'ajout d'un produit à l'unité
+      const withStock = created.filter(c => chunk[c.idx].product!.quantity > 0)
+      const movements = withStock.map(c => ({ shop_id: shopId, product_id: c.id, type: 'in', quantity: chunk[c.idx].product!.quantity, reason: 'Stock initial', performed_by: user.id, previous_qty: 0, new_qty: chunk[c.idx].product!.quantity }))
+      const lots = withStock.map(c => ({
+        shop_id: shopId, product_id: c.id, quantity: chunk[c.idx].product!.quantity, initial_quantity: chunk[c.idx].product!.quantity,
+        buying_price: chunk[c.idx].lot?.cost ?? null, expiry_date: chunk[c.idx].lot?.expiry_date ?? null, source: 'backfill', // « Stock initial »
+      }))
+      let failed: string | null = null
+      let movementIds: string[] = []
       if (movements.length) {
-        const mv = await admin.from('stock_movements').insert(movements)
-        if (mv.error) console.error('[import] mouvements « Stock initial » non enregistrés', mv.error.message)
+        const mv = await admin.from('stock_movements').insert(movements).select('id')
+        if (mv.error) failed = mv.error.message
+        else movementIds = (mv.data || []).map((m: any) => m.id)
       }
+      if (!failed && lots.length) {
+        const lt = await admin.from('product_batches').insert(lots)
+        if (lt.error) failed = lt.error.message
+      }
+      if (failed) {
+        // Jamais de produit avec du stock sans son lot : les produits avec stock de ce paquet sont retirés
+        console.error('[import] stock initial non enregistré, produits du paquet retirés', failed)
+        if (movementIds.length) await admin.from('stock_movements').delete().in('id', movementIds)
+        await admin.from('products').delete().in('id', withStock.map(c => c.id))
+        for (const c of withStock) Object.assign(chunk[c.idx], { status: 'error', issue: 'insert_failed', params: { name: chunk[c.idx].product!.name } })
+        created = created.filter(c => !withStock.includes(c))
+      }
+      inserted += created.length
     }
 
     const summary = { ...summarize(reports), inserted }

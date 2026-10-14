@@ -47,7 +47,9 @@ export async function GET(request: Request) {
         : Promise.resolve([]),
     ])
     const byId = (rows: { id: string; buying_price: number | null }[]) => Object.fromEntries(rows.map(r => [r.id, Number(r.buying_price) || 0]))
-    return NextResponse.json({ shops: allowed, products: byId(products), batches: byId(batches) })
+    // Lot : un coût inconnu reste inconnu (null), jamais 0 — l'écran n'affiche alors pas de valeur
+    const lotCosts = Object.fromEntries(batches.map(r => [r.id, r.buying_price == null ? null : Number(r.buying_price)]))
+    return NextResponse.json({ shops: allowed, products: byId(products), batches: lotCosts })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

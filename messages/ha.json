@@ -1691,6 +1691,14 @@
     "reason_batch_corrected": "An gyara lodi — {detail}",
     "reason_batch_deleted": "An share lodi — {detail}"
   },
+  "expiry_field": {
+    "label": "Ranar ƙarewa",
+    "optional": "Ba dole ba",
+    "past_inline": "Wannan rana ta riga ta wuce.",
+    "confirm_title": "Rana ta riga ta wuce",
+    "confirm_desc": "Wannan rana ta riga ta wuce. Kana son ci gaba?",
+    "confirm_action": "Ci gaba"
+  },
   "expiry": {
     "title": "Lodi & ƙarewa",
     "subtitle": "Bi lodin kayanka, ka riga ranar ƙarewarsu.",
@@ -3043,6 +3051,7 @@
       "missing_price": "Babu farashin sayarwa.",
       "invalid_price": "Farashin sayarwa bai dace ba: lamba sama da 0.",
       "invalid_buying_price": "Farashin saye bai dace ba.",
+      "invalid_expiry_date": "Ba a iya karanta ranar ƙarewa ba: « {value} ». Rubuta ta RR/WW/SSSS, ko bar akwatin babu komai.",
       "invalid_quantity": "Adadi bai dace ba: cikakkiyar lamba, 0 ko sama.",
       "invalid_threshold": "Iyakar faɗakarwa ba ta dace ba: cikakkiyar lamba.",
       "unknown_unit": "Ba a san ma’auni “{unit}” ba: zaɓe shi daga jerin samfurin.",
@@ -3065,6 +3074,8 @@
     },
     "warning": {
       "buying_above_selling": "Farashin saye ya fi farashin sayarwa.",
+      "expiry_past": "Ranar ƙarewa ta riga ta wuce ({date}): an shigo da ita yadda take, lodin zai zama « Ya ƙare ».",
+      "expiry_without_stock": "An yi watsi da ranar ƙarewa ({date}): babu kaya a wannan layi, don haka babu lodin da za a sa wa rana.",
       "ambiguous_number": "An karanta “{raw}” a matsayin {value}.",
       "debt_not_applied": "Shafin yana nan tun da: ba a kawo bashin ({amount}) ba. Ƙara shi daga Bashi idan ya cancanta.",
       "debt_no_permission": "An shigo da shafi ba tare da bashinsa ba: ana buƙatar izinin gyara « Bashi ».",
@@ -3110,6 +3121,11 @@
           "header": "Iyakar faɗakarwa",
           "help": "Za a faɗakar da kai idan kaya sun ragu zuwa wannan lamba. Ba tilas ba.",
           "example": "3"
+        },
+        "expiry_date": {
+          "header": "Ranar ƙarewa",
+          "help": "Ranar ƙarewar kayan da aka shigo da su (RR/WW/SSSS). Ba dole ba: bar shi babu komai ga kayan da ba ya ƙarewa.",
+          "example": "30/11/2026"
         }
       },
       "guide_title": "Shigo da kayanka cikin StockShop",
@@ -3489,6 +3505,7 @@
     "invalid_or_expired_link": "Hanyar haɗi ba ta inganta ba ko ta ƙare. Nemi sabuwar hanyar haɗi.",
     "invalid_session": "Zaman ba ya inganta ko ya ƙare. Danna hanyar haɗi a imel ɗinka kuma.",
     "date_invalid": "Ranar ba ta inganta ba",
+    "initial_stock_failed": "Ba a iya adana kayan farko ba: ba a ƙirƙiri kayan ba. Sake gwadawa.",
     "client_request_id_required": "Ana buƙatar client_request_id",
     "amount_must_be_positive": "Adadin dole ya fi 0",
     "shop_customer_ids_required": "Ana buƙatar shop_id da customer_id",

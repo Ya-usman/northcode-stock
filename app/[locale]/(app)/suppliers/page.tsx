@@ -29,6 +29,7 @@ import { FormDrawer } from '@/components/ui/form-drawer'
 import { DrawerSection } from '@/components/ui/app-drawer'
 import { DetailDrawer } from '@/components/ui/detail-drawer'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
+import { ExpiryDateField, usePastExpiryConfirm } from '@/components/stock/expiry-date-field'
 import { InputGroup, RequiredMark } from '@/components/ui/input-group'
 import { SupplierSheet, PO_STATUS_STYLES, poTotalOf } from '@/components/suppliers/supplier-sheet'
 import { fetchCosts, withCosts } from '@/lib/costs/client'
@@ -224,6 +225,7 @@ export default function SuppliersPage() {
   const [receivingPo, setReceivingPo] = useState<any | null>(null)
   const [receiveQuantities, setReceiveQuantities] = useState<Record<string, string>>({})
   const [receiveExpiryDates, setReceiveExpiryDates] = useState<Record<string, string>>({})
+  const pastExpiry = usePastExpiryConfirm()
   const [receiveNotes, setReceiveNotes] = useState<Record<string, string>>({})
   const [receivePaymentStatus, setReceivePaymentStatus] = useState<'paid' | 'partial' | 'credit'>('credit')
   const [receivePaymentAmount, setReceivePaymentAmount] = useState('')
@@ -721,6 +723,9 @@ export default function SuppliersPage() {
 
   const submitReceivePo = async () => {
     if (!shop?.id || !receivingPo) return
+    // Une date de péremption déjà passée sur une ligne reçue : avertissement et confirmation, jamais interdite
+    const datesReceived = (receivingPo.purchase_order_items || []).filter((it: any) => Number(receiveQuantities[it.id]) > 0).map((it: any) => receiveExpiryDates[it.id])
+    if (!(await pastExpiry.confirm(datesReceived))) return
     setReceivingLoading(true)
     try {
       const items = (receivingPo.purchase_order_items || []).map((it: any) => ({
@@ -1829,6 +1834,8 @@ export default function SuppliersPage() {
         })()}
       </PremiumDialog>
 
+      {pastExpiry.dialog}
+
       {/* Réceptionner un bon : quantités reçues puis paiement, en panneau */}
       <FormDrawer
         open={!!receivingPo}
@@ -1872,15 +1879,11 @@ export default function SuppliersPage() {
                           aria-label={it.product_name}
                         />
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-muted-foreground shrink-0">{t('products.expiry_date_label')}</span>
-                        <Input
-                          type="date"
-                          value={receiveExpiryDates[it.id] ?? ''}
-                          onChange={e => { setReceiveTouched(true); setReceiveExpiryDates(prev => ({ ...prev, [it.id]: e.target.value })) }}
-                          className="h-8 text-xs flex-1"
-                        />
-                      </div>
+                      <ExpiryDateField
+                        compact id={`po-expiry-${it.id}`}
+                        value={receiveExpiryDates[it.id] ?? ''}
+                        onChange={v => { setReceiveTouched(true); setReceiveExpiryDates(prev => ({ ...prev, [it.id]: v })) }}
+                      />
                       {isShort && (
                         <Input
                           value={receiveNotes[it.id] ?? ''}

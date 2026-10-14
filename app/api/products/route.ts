@@ -49,6 +49,14 @@ export async function POST(request: Request) {
     // Always null-ify empty SKU to avoid unique constraint on empty strings
     body.sku = body.sku?.trim() || null
     if (classifyBarcode(body.sku) === 'gtin_invalid') return NextResponse.json({ error: t('barcode_invalid'), field: 'sku' }, { status: 400 })
+    // La date de péremption appartient au LOT initial, jamais au produit : retirée de la fiche
+    const expiryDate: string | null = typeof body.expiry_date === 'string' && body.expiry_date.trim() ? body.expiry_date.trim() : null
+    delete body.expiry_date
+    // Date du calendrier réelle (AAAA-MM-JJ, jour existant) : jamais corrigée, refusée sinon
+    const [ey, em, ed] = (expiryDate || '').split('-').map(Number)
+    const realDay = !!expiryDate && /^\d{4}-\d{2}-\d{2}$/.test(expiryDate) &&
+      new Date(Date.UTC(ey, em - 1, ed)).toISOString().slice(0, 10) === expiryDate
+    if (expiryDate && !realDay) return NextResponse.json({ error: t('date_invalid') }, { status: 400 })
     const admin = await createAdminClient()
     if (!(await categoryInShop(admin, body.category_id, shop_id))) return NextResponse.json({ error: t('category_wrong_shop') }, { status: 400 })
     const { data, error } = await (admin as any).from('products').insert(body).select().single()
@@ -57,10 +65,14 @@ export async function POST(request: Request) {
       if (taken) return taken
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
-    // Record initial stock movement if product created with quantity > 0
+    // Stock initial : son mouvement ET son lot. Toute entrée physique de stock est représentée
+    // par un lot (daté ou « Sans date ») ; le coût n'y est mis que s'il est réellement connu.
+    // Pas de transaction possible ici sans fonction en base : si le mouvement ou le lot échoue,
+    // le produit est retiré — jamais de produit avec du stock et sans lot.
     const initialQty = Number(body.quantity) || 0
     if (initialQty > 0 && data?.id) {
-      await (admin as any).from('stock_movements').insert({
+      const knownCost = Number(body.buying_price) > 0 ? Number(body.buying_price) : null
+      const { data: movement, error: mvError } = await (admin as any).from('stock_movements').insert({
         shop_id: body.shop_id,
         product_id: data.id,
         type: 'in',
@@ -69,7 +81,23 @@ export async function POST(request: Request) {
         performed_by: user.id,
         previous_qty: 0,
         new_qty: initialQty,
+      }).select('id').single()
+      const { error: lotError } = mvError ? { error: mvError } : await (admin as any).from('product_batches').insert({
+        shop_id: body.shop_id,
+        product_id: data.id,
+        supplier_id: body.supplier_id || null,
+        quantity: initialQty,
+        initial_quantity: initialQty,
+        buying_price: knownCost,
+        expiry_date: expiryDate,
+        source: 'backfill', // libellé « Stock initial »
       })
+      if (mvError || lotError) {
+        if (movement?.id) await (admin as any).from('stock_movements').delete().eq('id', movement.id)
+        await (admin as any).from('products').delete().eq('id', data.id)
+        console.error('[products] stock initial non enregistré, produit retiré', (mvError || lotError)?.message)
+        return NextResponse.json({ error: t('initial_stock_failed') }, { status: 500 })
+      }
     }
 
     const { data: actorProfile } = await (admin as any).from('profiles').select('full_name').eq('id', user.id).single()

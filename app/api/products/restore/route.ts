@@ -58,6 +58,19 @@ export async function POST(request: Request) {
       // Réinsérer le produit complet
       const { error: insertErr } = await admin.from('products').insert(restored)
       if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 400 })
+      // Les lots du produit ont été effacés avec lui : son stock revient dans un lot « Sans date »
+      // (origine « Ajustement », coût seulement s'il était connu) — jamais de stock sans lot.
+      const qty = Number(restored.quantity) || 0
+      if (qty > 0) {
+        const { error: lotErr } = await admin.from('product_batches').insert({
+          shop_id: restored.shop_id, product_id: restored.id, quantity: qty, initial_quantity: qty,
+          buying_price: Number(restored.buying_price) > 0 ? Number(restored.buying_price) : null, source: 'adjustment',
+        })
+        if (lotErr) {
+          await admin.from('products').delete().eq('id', restored.id)
+          return NextResponse.json({ error: t('initial_stock_failed') }, { status: 500 })
+        }
+      }
     }
 
     // Supprimer l'entrée du journal (restauration réussie)

@@ -63,7 +63,7 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
   const { canAccess, canWrite, canViewCost } = useRolePermissions()
   // Coût de chaque lot : demandé au serveur seulement avec le droit de voir les prix d'achat (jamais lu par le
   // navigateur). Sans lui : ni valeur dans le détail, ni total à risque, ni valeur dans les exports.
-  const [batchCosts, setBatchCosts] = useState<Record<string, number> | null>(null)
+  const [batchCosts, setBatchCosts] = useState<Record<string, number | null> | null>(null)
   const showValue = canViewCost && batchCosts !== null
   const valueOf = (b: { id: string; quantity: number }) => b.quantity * ((batchCosts || {})[b.id] || 0)
   /** Retire la colonne « Valeur » (la 4e) d'une ligne d'export quand elle n'est pas due */
