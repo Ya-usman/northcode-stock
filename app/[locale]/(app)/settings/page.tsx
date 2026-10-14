@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { Save, Upload, Globe, Moon, Sun, ShoppingCart, History, CreditCard, Users, Package, ArrowLeftRight, Tag, Truck, BarChart2, ShieldCheck, Bell, Receipt, NotebookPen, Trash2, ClipboardList, ClipboardCheck, TrendingUp, AlertTriangle, CalendarDays, Clock, Gift, ChevronRight, Printer, Bluetooth, Percent } from 'lucide-react'
+import { Save, Upload, Globe, Moon, Sun, ShoppingCart, History, CreditCard, Users, Package, ArrowLeftRight, Tag, Truck, BarChart2, ShieldCheck, Bell, Receipt, NotebookPen, Trash2, ClipboardList, ClipboardCheck, TrendingUp, AlertTriangle, CalendarDays, Clock, Gift, ChevronRight, Printer, Bluetooth, Percent, Store } from 'lucide-react'
 import { readTicketSettings, writeTicketSettings, DEFAULT_TICKET_SETTINGS, type TicketPrintSettings } from '@/lib/receipt/print-settings'
 import { printSaleTicket, ticketErrorKey } from '@/lib/receipt/print-ticket'
 import { BluetoothPrinter, BLUETOOTH_IMAGING_CLASS, type PairedDevice } from '@/lib/receipt/bluetooth-printer'
@@ -37,12 +37,21 @@ import { isLevelFeature, isViewerLocked, levelOf, mergeRolePerms, withLevel, typ
 import { cn } from '@/lib/utils/cn'
 import { CompanyCard } from '@/components/settings/company-card'
 import { withTimeout } from '@/lib/utils/with-timeout'
+import { useShopScope, useHeaderShop } from '@/lib/shops/use-shop-scope'
+import { useShopPicker } from '@/components/shops/shop-picker'
 import { ShopHoursEditor } from '@/components/shops/shop-hours-editor'
 import { emitOnboarding } from '@/lib/onboarding/events'
 
 export default function SettingsPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations()
-  const { shop: shopData, profile, refreshShop, patchShop, updateLocale, roleInActiveShop } = useAuth()
+  const { profile, refreshShop, patchShop, updateLocale, roleInActiveShop, userShops, roleByShop } = useAuth()
+  // Réglages de boutique : toujours ceux de la boutique de l'EN-TÊTE (useHeaderShop). En « Toutes les
+  // boutiques », aucune boutique n'est modifiable tant que la personne n'en a pas choisi une (le choix
+  // place l'en-tête sur cette boutique) — jamais la boutique active cachée. Entreprise et réglages de
+  // l'appareil (apparence, langue, impression) restent affichés dans tous les contextes.
+  const scope = useShopScope()
+  const pickShop = useShopPicker()
+  const { shop: shopData, selectShop } = useHeaderShop()
   const supabase = createClient() as any
   const { toast } = useToast()
   const router = useRouter()
@@ -50,18 +59,27 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const { isDark, setIsDark } = useTheme()
 
   const isOwner = profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'shop_manager' || profile?.role === 'super_admin'
+  // Sections de la boutique : rôle de la personne DANS cette boutique (même liste de rôles qu'isOwner)
+  const SHOP_SETTINGS_ROLES = ['owner', 'manager', 'shop_manager', 'super_admin']
+  const canEditShopIn = (id: string) => profile?.role === 'super_admin' || SHOP_SETTINGS_ROLES.includes(roleByShop[id] as string)
+  const settingsShops = userShops.filter(s => canEditShopIn(s.id))
+  const canEditShop = !!shopData && canEditShopIn(shopData.id)
+  const chooseSettingsShop = async () => {
+    const picked = await pickShop({ title: t('settings.pick_shop_title'), shops: settingsShops })
+    if (picked) selectShop(picked.id)
+  }
   // Plus étroit que isOwner ci-dessus (qui inclut manager/shop_manager) —
   // aligné sur la vérification réelle de /api/shops/settings, pour ne pas
   // afficher une carte qu'un manager pourrait remplir mais jamais enregistrer.
-  const canManageHours = profile?.role === 'owner' || profile?.role === 'super_admin'
+  const canManageHours = profile?.role === 'super_admin' || (!!shopData && roleByShop[shopData.id] === 'owner')
   // Accès par rôle : réservé au PROPRIÉTAIRE de la boutique (décision du 5 oct.
   // 2026, même règle que /api/team/permissions) — un Manager ou un Responsable
   // ne modifie jamais les droits, pas même ceux de son propre rôle.
-  const canEditPermissions = roleInActiveShop === 'owner' || roleInActiveShop === 'super_admin'
+  const canEditPermissions = !!shopData && (roleInActiveShop === 'owner' || roleInActiveShop === 'super_admin')
 
   const [shop, setShop] = useState<Shop | null>(shopData)
   const [saving, setSaving] = useState(false)
-  const [loading, setLoading] = useState(!shopData)
+  const [loading, setLoading] = useState(!shopData && !scope.isAllShops)
 
   const [name, setName] = useState('')
   const [city, setCity] = useState('')
@@ -231,12 +249,14 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
     stock_manager: t('settings.role_stock_manager'),
   }
 
-  // Initialise the form only once when shopData first loads (not on every re-render)
-  // so that navigating away and back doesn't reset unsaved or just-saved values.
-  const initialised = useState(false)
+  // Formulaire initialisé une fois PAR BOUTIQUE (pas à chaque rendu : une saisie en cours n'est pas
+  // écrasée). Changement de boutique dans l'en-tête → formulaire rechargé avec les valeurs de la
+  // nouvelle boutique : jamais les valeurs d'une boutique enregistrées dans une autre.
+  const initialisedFor = useRef<string | null>(null)
   useEffect(() => {
-    if (shopData && !initialised[0]) {
-      initialised[1](true)
+    if (!shopData) { initialisedFor.current = null; setShop(null); if (scope.isAllShops) setLoading(false); return }
+    if (initialisedFor.current !== shopData.id) {
+      initialisedFor.current = shopData.id
       setShop(shopData)
       setName(shopData.name)
       setCity(shopData.city)
@@ -266,19 +286,18 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       // Réglages enregistrés fusionnés par la règle unique (mergeRolePerms) :
       // le niveau affiché est exactement celui que le serveur applique, y
       // compris pour les anciens « oui » explicites (= modification conservée).
+      // Toujours rechargés (même sans réglage enregistré : défauts) — jamais ceux de la boutique précédente
       const stored = (shopData as any).role_permissions as StoredPermissions | null
-      if (stored) {
-        setPermissions({
-          shop_manager:  mergeRolePerms('shop_manager', stored),
-          manager:       mergeRolePerms('manager', stored),
-          cashier:       mergeRolePerms('cashier', stored),
-          viewer:        mergeRolePerms('viewer', stored),
-          stock_manager: mergeRolePerms('stock_manager', stored),
-        })
-        setGeneralPerms({ ...DEFAULT_GENERAL, ...(stored.general ?? {}) })
-      }
+      setPermissions({
+        shop_manager:  mergeRolePerms('shop_manager', stored),
+        manager:       mergeRolePerms('manager', stored),
+        cashier:       mergeRolePerms('cashier', stored),
+        viewer:        mergeRolePerms('viewer', stored),
+        stock_manager: mergeRolePerms('stock_manager', stored),
+      })
+      setGeneralPerms({ ...DEFAULT_GENERAL, ...(stored?.general ?? {}) })
     }
-  }, [shopData])
+  }, [shopData, scope.isAllShops]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Check current push subscription state
   useEffect(() => {
@@ -475,6 +494,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
     void savePermissions(permissions, updated, () => setGeneralPerms(prev))
   }
 
+  // Impression (réglage de l'appareil) : en « Toutes les boutiques », le logo est celui de la boutique de chaque vente
+  const ticketLogoAvailable = shop ? !!shop.logo_url : true
   const isPermChecked = (key: PermFeature) => activePermRole === 'general' ? generalPerms[key] : permissions[activePermRole][key]
   const onPermToggle = (key: PermFeature, val: boolean) =>
     activePermRole === 'general' ? toggleGeneralPermission(key, val) : togglePermission(activePermRole, key, val)
@@ -493,10 +514,9 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       {/* Entreprise (racine du compte) : nom, propriétaire, facturation, abonnement */}
       {isOwner && <CompanyCard />}
 
-      {/* Owner-only sections: shop info, business settings, notifications */}
+      {/* Parrainage & récompenses (entreprise) */}
       {isOwner && (
         <>
-          {/* Parrainage & récompenses */}
           <Link href={`/${locale}/settings/referrals`}>
             <Card className="border-0 shadow-sm hover:bg-accent/40 transition-colors cursor-pointer">
               <CardContent className="p-4 flex items-center gap-3">
@@ -511,6 +531,32 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
               </CardContent>
             </Card>
           </Link>
+        </>
+      )}
+
+      {/* « Toutes les boutiques » : les réglages ci-dessous concernent UNE boutique — choix explicite */}
+      {!shopData && scope.isAllShops && settingsShops.length > 0 && (
+        <div className="rounded-xl border bg-card p-5 text-center" data-testid="settings-pick-shop">
+          <Store aria-hidden className="mx-auto mb-2 h-8 w-8 text-muted-foreground/60" />
+          <p className="mx-auto max-w-md text-sm text-muted-foreground">{t('settings.pick_shop_explain')}</p>
+          <Button variant="stockshop" className="mt-4 h-11" onClick={chooseSettingsShop}>{t('settings.pick_shop_button')}</Button>
+        </div>
+      )}
+
+      {/* Sections de la boutique de l'en-tête : informations, activité, horaires, notifications */}
+      {canEditShop && (
+        <>
+          {scope.multiShop && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-stockshop-blue/20 bg-stockshop-blue-muted px-4 py-3 dark:border-blue-800 dark:bg-blue-950/40" data-testid="settings-shop">
+              <Store aria-hidden className="h-4 w-4 shrink-0 text-stockshop-blue dark:text-blue-400" />
+              <p className="min-w-0 flex-1 text-sm font-semibold text-stockshop-blue dark:text-blue-300">{t('settings.settings_of', { name: shopData!.name })}</p>
+              {settingsShops.length > 1 && (
+                <button type="button" onClick={chooseSettingsShop} className="text-sm font-medium text-stockshop-blue underline-offset-2 hover:underline dark:text-blue-400 tap-target">
+                  {t('settings.change_shop')}
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Shop Info */}
           <Card className="border-0 shadow-sm">
@@ -971,10 +1017,10 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
             <div>
               <p className="text-sm font-medium">{t('settings.ticket_print_logo')}</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {shop?.logo_url ? t('settings.ticket_print_logo_desc') : t('settings.ticket_print_logo_none')}
+                {ticketLogoAvailable ? t('settings.ticket_print_logo_desc') : t('settings.ticket_print_logo_none')}
               </p>
             </div>
-            <Switch checked={!!ticket.printLogo && !!shop?.logo_url} disabled={!shop?.logo_url} onCheckedChange={v => updateTicket({ printLogo: v })} />
+            <Switch checked={!!ticket.printLogo && ticketLogoAvailable} disabled={!ticketLogoAvailable} onCheckedChange={v => updateTicket({ printLogo: v })} />
           </div>
           <Button variant="outline" className="w-full gap-2" onClick={printTestTicket} loading={testPrinting}>
             <Printer className="h-4 w-4" />
@@ -994,6 +1040,9 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
             <p className="text-xs text-muted-foreground mt-1">
               {t('settings.role_permissions_desc')}
             </p>
+            {scope.multiShop && shopData && (
+              <p className="mt-1 text-xs font-medium text-stockshop-blue dark:text-blue-400" data-testid="settings-permissions-shop">{t('scope.shop_label', { name: shopData.name })}</p>
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Role tabs */}
@@ -1130,8 +1179,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
         </Card>
       )}
 
-      {/* Save button — owner only */}
-      {isOwner && (
+      {/* Enregistrer — réglages de la boutique de l'en-tête, nommée pour un compte à plusieurs boutiques */}
+      {canEditShop && (
         <Button
           data-tour="settings-save"
           onClick={saveSettings}
@@ -1141,7 +1190,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
           size="sm"
         >
           <Save className="mr-2 h-4 w-4" />
-          {t('actions.save')}
+          {scope.multiShop && shopData ? t('settings.save_for_shop', { name: shopData.name }) : t('actions.save')}
         </Button>
       )}
     </div>

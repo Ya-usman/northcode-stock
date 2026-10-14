@@ -30,3 +30,23 @@ export function useRolePermissions() {
 
   return { canAccess, canWrite, canViewCost, permissions }
 }
+
+/**
+ * Droits évalués dans UNE boutique donnée (rôle de la personne dans cette boutique + réglages de cette
+ * boutique), indépendamment de la boutique active interne. Sert en « Toutes les boutiques » : une
+ * création ne propose que les boutiques où le droit existe ; une action suit la boutique de l'objet.
+ * Boutique inconnue ou sans rôle → aucun droit (jamais le repli « propriétaire » de resolvePermission).
+ */
+export function useShopPermissions() {
+  const { userShops, roleByShop } = useAuthContext()
+  const resolveIn = (shopId: string | null | undefined, feature: PermFeature) => {
+    const role = shopId ? roleByShop[shopId] : undefined
+    const shop = shopId ? userShops.find(s => s.id === shopId) : undefined
+    if (!role || !shop) return { view: false, write: false }
+    return resolvePermission((shop as any).role_permissions as StoredPermissions | null | undefined, role, feature)
+  }
+  return {
+    canAccessIn: (shopId: string | null | undefined, feature: PermFeature) => resolveIn(shopId, feature).view,
+    canWriteIn: (shopId: string | null | undefined, feature: PermFeature) => resolveIn(shopId, feature).write,
+  }
+}

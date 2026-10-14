@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, Plus, Minus, Trash2, CheckCircle, MessageCircle, Printer, Share2,
   Scan, X, User, Clock, PauseCircle, PlayCircle, Edit2, ShoppingCart, ChevronUp, ChevronRight, Star, ArrowLeft,
-  AlertTriangle, CreditCard, Coins, ShoppingBag, FileText,
+  AlertTriangle, CreditCard, Coins, ShoppingBag, FileText, Store,
 } from 'lucide-react'
 import { readTicketSettings } from '@/lib/receipt/print-settings'
 import { printSaleTicket, ticketErrorKey } from '@/lib/receipt/print-ticket'
@@ -14,7 +14,9 @@ import { ticketLabelsFromT } from '@/lib/receipt/ticket'
 import { hideStockShopBranding } from '@/lib/receipt/branding'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
-import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
+import { useRolePermissions, useShopPermissions } from '@/lib/hooks/use-role-permissions'
+import { useShopScope, useHeaderShop } from '@/lib/shops/use-shop-scope'
+import { Skeleton } from '@/components/ui/skeleton'
 import { effectivePrice as sharedEffectivePrice } from '@/lib/sales/pricing'
 import { ShopSelector } from '@/components/layout/shop-selector'
 import { ProductCard, type StockVariant } from '@/components/sales/product-card'
@@ -149,14 +151,54 @@ function saveDraftsToStorage(drafts: Draft[]) {
   localStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts))
 }
 
-export default function NewSalePage({ params: { locale: _locale } }: { params: { locale: string } }) {
+// ── Caisse : une vente se fait toujours dans UNE boutique ──────────────────────
+// L'écran de vente (PosScreen) lit la boutique active interne ; il ne s'ouvre que lorsque l'en-tête
+// désigne une boutique et que la boutique active la suit (useHeaderShop). En « Toutes les boutiques » :
+// « Dans quelle boutique vendez-vous ? » — le choix place l'en-tête sur cette boutique. L'écran est
+// remonté à chaque changement de boutique (key) : panier, client, paiement et reçu repartent à zéro,
+// rien n'est vendu dans la boutique précédente.
+export default function NewSalePage(props: { params: { locale: string } }) {
+  const t = useTranslations('sales')
+  const scope = useShopScope()
+  const { shop, selectShop } = useHeaderShop()
+  const { canWriteIn } = useShopPermissions()
+  const canSellIn = (id: string) => canWriteIn(id, 'new_sale')
+
+  const chooseShop = async () => {
+    const picked = await scope.requireOneShop({ title: t('pos_pick_title'), eligible: s => canSellIn(s.id) })
+    if (picked) selectShop(picked.id)
+  }
+
+  if (scope.isAllShops) {
+    return (
+      <div className="mx-auto w-full max-w-md rounded-xl border bg-card p-5 text-center" data-testid="pos-pick-shop">
+        <Store aria-hidden className="mx-auto mb-2 h-8 w-8 text-muted-foreground/60" />
+        <p className="text-base font-semibold">{t('pos_pick_title')}</p>
+        <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">{t('pos_pick_explain')}</p>
+        <Button variant="stockshop" className="mt-4 h-11" onClick={chooseShop}>{t('pos_pick_button')}</Button>
+      </div>
+    )
+  }
+  if (!shop) return <div className="space-y-3"><Skeleton className="h-12 rounded-lg" /><Skeleton className="h-64 rounded-lg" /></div>
+  if (!canSellIn(shop.id)) {
+    return (
+      <div className="mx-auto w-full max-w-md rounded-xl border bg-card p-5 text-center" data-testid="pos-no-right">
+        <Store aria-hidden className="mx-auto mb-2 h-8 w-8 text-muted-foreground/60" />
+        <p className="text-sm font-medium">{t('pos_no_right', { name: shop.name })}</p>
+        {scope.multiShop && <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">{t('pos_no_right_hint')}</p>}
+      </div>
+    )
+  }
+  return <PosScreen key={shop.id} {...props} />
+}
+
+function PosScreen({ params: { locale: _locale } }: { params: { locale: string } }) {
   const t = useTranslations()
   const locale = useLocale()
   const { profile, shop, userShops } = useAuth()
   // Remise : droit « Accorder une remise » (règle unique des permissions)
   const { canAccess } = useRolePermissions()
   const canDiscount = canAccess('discount')
-  const isOwner = profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'shop_manager' || profile?.role === 'super_admin'
   const { fmt: _fmtGlobal, code: currencyCode, symbol } = useCurrency()
   // Code ISO + symbole résolus depuis la boutique active (via useCurrency,
   // qui normalise shop.currency + shop.country). Les prix restent en phase
@@ -1740,12 +1782,13 @@ export default function NewSalePage({ params: { locale: _locale } }: { params: {
       {/* ── LEFT column: search + products ── */}
       <div className={cn('flex flex-col lg:flex-1 lg:overflow-hidden lg:border-r lg:border-border lg:min-h-0', (cart.length > 0 || shopDrafts.length > 0) && 'pb-16 lg:pb-0')}>
 
-      {/* Shop selector — same shared control as everywhere else in the app, restricted to a single concrete shop (a sale can't target "all shops") */}
-      {isOwner && (
+      {/* Boutique de vente — le même contrôle que l'en-tête (il le modifie), limité à une boutique
+          précise. Affiché pour tout compte à plusieurs boutiques, quel que soit le rôle : la boutique
+          où l'on vend doit toujours être visible. Changer de boutique remonte l'écran (panier vidé). */}
+      {userShops.length > 1 && (
         <ShopSelector
           variant="compact"
           allowAllShops={false}
-          onShopChange={() => setCart([])}
           label={t('sales.selling_at')}
         />
       )}
