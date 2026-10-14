@@ -3466,6 +3466,7 @@
     "shop_phone_invalid": "Numéro de téléphone invalide.",
     "shop_email_invalid": "Adresse e-mail invalide.",
     "category_wrong_shop": "Cette catégorie appartient à une autre boutique.",
+    "supplier_wrong_shop": "Ce fournisseur n’appartient pas à la boutique de ce produit.",
     "permission_denied": "Permission refusée",
     "invalid_amount": "Montant invalide.",
     "description_required": "Le libellé est obligatoire.",

@@ -23,6 +23,15 @@ async function categoryInShop(admin: any, categoryId: unknown, shopId: string): 
   return data?.shop_id === shopId
 }
 
+// Un fournisseur appartient à UNE boutique (suppliers.shop_id, lecture réservée aux membres de cette
+// boutique) : il n'est valable que pour les produits — et donc les lots — de cette boutique, même en
+// « Toutes les boutiques ». Fiche supprimée = refusée. Renvoie la fiche (nom) ou null.
+async function supplierOfShop(admin: any, supplierId: unknown, shopId: string): Promise<{ id: string; name: string } | null> {
+  if (!supplierId || typeof supplierId !== 'string') return null
+  const { data } = await admin.from('suppliers').select('id, name').eq('id', supplierId).eq('shop_id', shopId).is('deleted_at', null).maybeSingle()
+  return data ?? null
+}
+
 // Code-barres (sku) déjà utilisé dans la boutique : on nomme le produit qui le porte,
 // et on vise le champ (le formulaire affiche le message sous « Code-barres »).
 async function skuTakenResponse(admin: any, t: (k: any, v?: any) => string, error: any, shopId: string, sku: unknown, exceptId?: string) {
@@ -59,6 +68,7 @@ export async function POST(request: Request) {
     if (expiryDate && !realDay) return NextResponse.json({ error: t('date_invalid') }, { status: 400 })
     const admin = await createAdminClient()
     if (!(await categoryInShop(admin, body.category_id, shop_id))) return NextResponse.json({ error: t('category_wrong_shop') }, { status: 400 })
+    if (body.supplier_id && !(await supplierOfShop(admin, body.supplier_id, shop_id))) return NextResponse.json({ error: t('supplier_wrong_shop'), field: 'supplier_id' }, { status: 400 })
     const { data, error } = await (admin as any).from('products').insert(body).select().single()
     if (error) {
       const taken = await skuTakenResponse(admin, t, error, shop_id, body.sku)
@@ -259,6 +269,8 @@ export async function PATCH(request: Request) {
     const admin = await createAdminClient()
     if ('category_id' in safeUpdates && !(await categoryInShop(admin, safeUpdates.category_id, shop_id)))
       return NextResponse.json({ error: t('category_wrong_shop') }, { status: 400 })
+    if (safeUpdates.supplier_id && !(await supplierOfShop(admin, safeUpdates.supplier_id, shop_id)))
+      return NextResponse.json({ error: t('supplier_wrong_shop'), field: 'supplier_id' }, { status: 400 })
 
     // Snapshot avant modification, pour le journal d'audit
     const TRACKED_FIELDS = ['name', 'selling_price', 'buying_price', 'low_stock_threshold', 'sku', 'category_id', 'supplier_id', 'promo_price', 'promo_until', 'promo_start'] as const
@@ -484,7 +496,10 @@ export async function PUT(request: Request) {
   try {
     const { user, supabase } = await getAuthedUser()
     if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
-    const { product_id, shop_id, quantity_to_add, supplier_name, supplier_id, buying_price, expiry_date, notes, performed_by } = await request.json()
+    // supplier_name et performed_by envoyés par l'appareil ne sont plus crus : le nom vient de la fiche
+    // fournisseur vérifiée, l'auteur est la personne connectée
+    const { product_id, shop_id, quantity_to_add, supplier_id, buying_price, expiry_date, notes } = await request.json()
+    const performed_by = user.id
     if (!product_id || !shop_id) return NextResponse.json({ error: t('product_shop_id_required') }, { status: 400 })
     if (!Number.isFinite(Number(quantity_to_add)) || Number(quantity_to_add) <= 0)
       return NextResponse.json({ error: t('invalid_quantity') }, { status: 400 })
@@ -503,6 +518,10 @@ export async function PUT(request: Request) {
       .eq('shop_id', shop_id)
       .single()
     if (fetchError || !product) return NextResponse.json({ error: t('product_not_found') }, { status: 404 })
+    // Le fournisseur doit être un fournisseur de la boutique DU produit (jamais d'association incohérente sur le lot)
+    const supplier = supplier_id ? await supplierOfShop(admin, supplier_id, product.shop_id) : null
+    if (supplier_id && !supplier) return NextResponse.json({ error: t('supplier_wrong_shop') }, { status: 400 })
+    const supplier_name = supplier?.name ?? null
 
     const prevQty = Number(product.quantity)
     const addQty  = Number(quantity_to_add)

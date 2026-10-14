@@ -667,7 +667,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       const localId = `mv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
       await savePendingMovement({
         local_id: localId,
-        shop_id: shop.id,
+        shop_id: restockProduct.shop_id,
         product_id: restockProduct.id,
         product_name: restockProduct.name,
         current_quantity: restockProduct.quantity,
@@ -700,7 +700,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           product_id: restockProduct.id,
-          shop_id: shop.id,
+          // La boutique DU produit (en « Toutes les boutiques », elle peut différer de la boutique active)
+          shop_id: restockProduct.shop_id,
           current_quantity: restockProduct.quantity,
           quantity_to_add: data.quantity,
           supplier_name: suppliers.find(s => s.id === data.supplier_id)?.name || null,
@@ -1857,7 +1858,11 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         testId="product-drawer"
       >
         {editingProduct && (
+          // Modification : catégories et fournisseurs de la boutique DU produit (en « Toutes les boutiques »,
+          // elle peut différer de la boutique active) — le serveur refuse ceux d'une autre boutique
           <ProductForm key={editingProduct.id} {...productFormProps} isEdit productId={editingProduct.id}
+            categories={categories.filter((c: any) => c.shop_id === editingProduct.shop_id)}
+            suppliers={suppliers.filter((s: any) => s.shop_id === editingProduct.shop_id)}
             defaultValues={{ name: editingProduct.name, category_id: editingProduct.category_id || '', supplier_id: editingProduct.supplier_id || '', buying_price: editingProduct.buying_price, selling_price: editingProduct.selling_price, quantity: editingProduct.quantity, unit: editingProduct.unit, low_stock_threshold: editingProduct.low_stock_threshold || undefined, sku: editingProduct.sku || '', image_url: editingProduct.image_url || '', ...(editRestore?.values ?? {}) }}
             initialPhoto={editRestore?.file ?? null}
             startDirty={!!editRestore}
@@ -1945,8 +1950,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             <div className="space-y-1.5">
               <Label>{t('products.supplier')}</Label>
               <Select onValueChange={v => restockForm.setValue('supplier_id', v)}>
-                <SelectTrigger><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
-                <SelectContent>{suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                <SelectTrigger data-testid="restock-supplier"><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
+                {/* Seulement les fournisseurs de la boutique du produit — même en « Toutes les boutiques » */}
+                <SelectContent>{suppliers.filter(s => s.shop_id === restockProduct?.shop_id).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             {fullStock && (

@@ -3466,6 +3466,7 @@
     "shop_phone_invalid": "Lambar waya ba daidai ba.",
     "shop_email_invalid": "Imel ba daidai ba.",
     "category_wrong_shop": "Wannan rukuni na wani shago ne.",
+    "supplier_wrong_shop": "Wannan mai kawo kaya ba na shagon wannan kaya ba ne.",
     "permission_denied": "An hana izini",
     "invalid_amount": "Adadin kuɗi ba daidai ba ne.",
     "description_required": "Dole a rubuta bayani.",
