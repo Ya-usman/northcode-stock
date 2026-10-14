@@ -46,7 +46,14 @@ export function presetPersistedFilters(pageKey: string, shopId: string | null | 
 export function usePersistedFilters<T extends Record<string, unknown>>(
   pageKey: string,
   shopId: string | null | undefined,
-  defaults: T
+  defaults: T,
+  /**
+   * keepPerScope : la clé est un CONTEXTE (useFilterScope : une boutique ou « Toutes
+   * les boutiques ») et chaque contexte garde son propre état — rien n'est effacé
+   * en changeant de contexte, revenir restaure. Sans l'option : comportement
+   * historique (les filtres de l'ancienne boutique sont effacés).
+   */
+  options: { keepPerScope?: boolean } = {}
 ): readonly [T, (updates: Partial<T>) => void, () => void] {
   const defaultsRef = useRef(defaults)
 
@@ -89,7 +96,7 @@ export function usePersistedFilters<T extends Record<string, unknown>>(
     // Shop changed: discard old shop's persisted filters and load the new shop's.
     const oldKey = makeKey(prevShopId.current)
     prevShopId.current = shopId
-    if (oldKey) { try { sessionStorage.removeItem(oldKey) } catch {} }
+    if (oldKey && !options.keepPerScope) { try { sessionStorage.removeItem(oldKey) } catch {} }
     setFiltersState(read(makeKey(shopId)))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shopId])

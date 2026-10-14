@@ -4156,5 +4156,15 @@
     "offline_values": "Offline: quantities as last known by the list. The rest will show when the connection is back.",
     "retry": "Try again",
     "promo_suggested": "Suggested promotion"
+  },
+  "filters": {
+    "compact": "{label} · {count}",
+    "aria_value": "{label}: {value}",
+    "search": "Search…",
+    "search_in": "Search in {label}",
+    "no_results": "No results",
+    "reset": "Reset",
+    "apply": "Apply",
+    "close": "Close"
   }
 }

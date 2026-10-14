@@ -4156,5 +4156,15 @@
     "offline_values": "Babu intanet: adadin kamar yadda jerin ya san su na ƙarshe. Sauran za su bayyana idan intanet ya dawo.",
     "retry": "Sake gwadawa",
     "promo_suggested": "Rangwamen da aka ba da shawara"
+  },
+  "filters": {
+    "compact": "{label} · {count}",
+    "aria_value": "{label}: {value}",
+    "search": "Nema…",
+    "search_in": "Nema a cikin {label}",
+    "no_results": "Babu sakamako",
+    "reset": "Sake saiti",
+    "apply": "Aiwatar",
+    "close": "Rufe"
   }
 }

@@ -4156,5 +4156,15 @@
     "offline_values": "Hors connexion : quantités telles que la liste les connaissait. Le reste s’affichera au retour du réseau.",
     "retry": "Réessayer",
     "promo_suggested": "Promotion suggérée"
+  },
+  "filters": {
+    "compact": "{label} · {count}",
+    "aria_value": "{label} : {value}",
+    "search": "Rechercher…",
+    "search_in": "Rechercher dans {label}",
+    "no_results": "Aucun résultat",
+    "reset": "Réinitialiser",
+    "apply": "Appliquer",
+    "close": "Fermer"
   }
 }
