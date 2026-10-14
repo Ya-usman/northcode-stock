@@ -51,6 +51,7 @@ export type AuditAction =
   | 'restore_product'
   | 'bulk_update_category'
   | 'update_batch_promo'
+  | 'update_batch_expiry'
   | 'bulk_update_promo'
   | 'admin.suspend_shop'
   | 'admin.reactivate_shop'

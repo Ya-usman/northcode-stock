@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { Archive, ChevronDown, Edit2, ExternalLink, History, Unlock, Plus, RotateCcw, Search, Tag, Trash2, X } from 'lucide-react'
+import { Archive, CalendarClock, ChevronDown, Edit2, ExternalLink, History, Unlock, Plus, RotateCcw, Search, Tag, Trash2, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { withTimeout } from '@/lib/utils/with-timeout'
@@ -30,7 +30,7 @@ type Period = 'all' | 'today' | '7d' | '30d' | 'custom'
 
 const GROUPS: Record<Exclude<ActionGroup, 'all'>, string[]> = {
   created: ['create_product'],
-  updated: ['update_product'],
+  updated: ['update_product', 'update_batch_expiry'],
   promo: ['update_batch_promo', 'bulk_update_promo'],
   archived: ['archive_product', 'restore_product'],
   deleted: ['delete_product', 'bulk_delete_products', 'delete_all_products'],
@@ -43,6 +43,7 @@ const KIND: Record<string, { icon: typeof Plus; tone: string }> = {
   create_product: { icon: Plus, tone: 'bg-green-50 text-green-600 dark:bg-green-950/40 dark:text-green-400' },
   update_product: { icon: Edit2, tone: 'bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-400' },
   update_batch_promo: { icon: Tag, tone: 'bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400' },
+  update_batch_expiry: { icon: CalendarClock, tone: 'bg-orange-50 text-orange-600 dark:bg-orange-950/40 dark:text-orange-400' },
   bulk_update_promo: { icon: Tag, tone: 'bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400' },
   archive_product: { icon: Archive, tone: 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400' },
   restore_product: { icon: RotateCcw, tone: 'bg-green-50 text-green-600 dark:bg-green-950/40 dark:text-green-400' },
@@ -53,7 +54,7 @@ const KIND: Record<string, { icon: typeof Plus; tone: string }> = {
 }
 
 const PRICE_FIELDS = new Set(['selling_price', 'buying_price', 'promo_price'])
-const DATE_FIELDS = new Set(['promo_until', 'promo_start'])
+const DATE_FIELDS = new Set(['promo_until', 'promo_start', 'expiry_date'])
 const FIELD_KEYS: Record<string, string> = {
   name: 'products.journal_field_name',
   selling_price: 'products.journal_field_selling_price',
@@ -192,6 +193,8 @@ export function ProductActivityJournal({ open, onOpenChange, shopId, onOpenProdu
         return { title: meta.product_name || '—', summary: t('products.journal_deleted') }
       case 'update_batch_promo':
         return { title: meta.product_name || t('products.journal_batch_promo_updated'), summary: meta.new_price ? tj('summary_batch_promo_set') : tj('summary_batch_promo_cleared') }
+      case 'update_batch_expiry':
+        return { title: meta.product_name || '—', summary: meta.new_date ? tj('summary_batch_expiry_set') : tj('summary_batch_expiry_cleared') }
       case 'bulk_update_promo':
         return { title: t('products.journal_bulk_promo_updated'), summary: t('products.journal_bulk_promo_detail', { count: meta.count, percent: meta.percent ?? 0 }) }
       case 'bulk_delete_products':
@@ -231,7 +234,7 @@ export function ProductActivityJournal({ open, onOpenChange, shopId, onOpenProdu
   const renderDetail = (log: any) => {
     const meta = log.metadata || {}
     const changes: Record<string, { from: unknown; to: unknown }> = meta.changes || {}
-    const productId: string | null = log.action === 'update_batch_promo' ? meta.product_id || null : (log.target_type === 'product' ? log.target_id : null)
+    const productId: string | null = (log.action === 'update_batch_promo' || log.action === 'update_batch_expiry') ? meta.product_id || null : (log.target_type === 'product' ? log.target_id : null)
     const deleted = log.action === 'delete_product' || log.action === 'bulk_delete_products' || log.action === 'delete_all_products'
     const canOpen = !!productId && !!onOpenProduct && !deleted && (!productExists || productExists(productId))
 
@@ -253,6 +256,8 @@ export function ProductActivityJournal({ open, onOpenChange, shopId, onOpenProdu
     } else if (log.action === 'update_batch_promo') {
       rows.push({ label: fieldLabel('promo_price'), from: fmtValue('promo_price', meta.old_price), to: fmtValue('promo_price', meta.new_price) })
       rows.push({ label: fieldLabel('promo_until'), from: fmtValue('promo_until', meta.old_until), to: fmtValue('promo_until', meta.new_until) })
+    } else if (log.action === 'update_batch_expiry') {
+      rows.push({ label: t('products.card_expiry'), from: fmtValue('expiry_date', meta.old_date), to: fmtValue('expiry_date', meta.new_date) })
     } else if (log.action === 'delete_product') {
       if (meta.sku) rows.push({ label: fieldLabel('sku'), to: String(meta.sku) })
       if (meta.selling_price != null) rows.push({ label: fieldLabel('selling_price'), to: fmtValue('selling_price', meta.selling_price) })

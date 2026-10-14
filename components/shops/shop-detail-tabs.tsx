@@ -283,7 +283,7 @@ const LABELLED = new Set([
   'purchase_order.send', 'purchase_order.receive', 'purchase_order.cancel', 'purchase_order.delete',
   'stock_transfer.send', 'stock_transfer.receive', 'stock_transfer.cancel',
   'create_product', 'update_product', 'archive_product', 'restore_product', 'delete_product', 'bulk_delete_products', 'delete_all_products',
-  'bulk_update_category', 'update_batch_promo', 'bulk_update_promo',
+  'bulk_update_category', 'update_batch_promo', 'update_batch_expiry', 'bulk_update_promo',
 ])
 
 const GROUP_STYLE: Record<HistoryGroup, { icon: typeof Store; tone: string }> = {

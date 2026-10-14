@@ -246,7 +246,7 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
       key: 'expiring', tone: 'orange' as Tone, icon: CalendarClock,
       title: t('stock_overview.opp_expiring', { count: kpis.expiring }),
       desc: t('stock_overview.opp_expiring_desc'),
-      action: t('stock_overview.act_lots'), onClick: () => goToLots('expiring'),
+      action: t('stock_overview.act_lots'), onClick: () => goToLots('attention'),
     },
     kpis.dormant > 0 && {
       key: 'dormant', tone: 'blue' as Tone, icon: TrendingDown,
@@ -308,7 +308,7 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
             <KpiCard id="products" className={showValueCard ? 'col-span-2' : 'col-span-2 sm:col-span-4 md:col-span-2 lg:col-span-4'} icon={Package} label={t('stock_overview.products_count')} value={kpis.total} actionLabel={t('stock_overview.open_products')} onClick={() => goToProducts()} />
             <KpiCard id="out" tone={alertTone(kpis.out, 'red')} icon={PackageX} label={t('stock_overview.kpi_out')} value={kpis.out} actionLabel={t('stock_overview.open_products')} onClick={() => goToProducts('out')} />
             <KpiCard id="low" tone={alertTone(kpis.low, 'amber')} icon={PackageMinus} label={t('stock_overview.kpi_low')} value={kpis.low} actionLabel={t('stock_overview.open_products')} onClick={() => goToProducts('low')} />
-            <KpiCard id="expiring" tone={alertTone(kpis.expiring, 'orange')} icon={CalendarClock} label={t('stock_overview.kpi_expiring')} value={kpis.expiring} actionLabel={t('stock_overview.open_products')} onClick={() => goToProducts('expiry')} />
+            <KpiCard id="expiring" tone={alertTone(kpis.expiring, 'orange')} icon={CalendarClock} label={t('stock_overview.kpi_expiring')} value={kpis.expiring} actionLabel={t('stock_overview.act_lots')} onClick={() => goToLots('attention')} />
             <KpiCard
               id="dormant" tone={alertTone(kpis.dormant, 'blue')} icon={TrendingDown} label={t('stock_overview.kpi_dormant')} value={kpis.dormant}
               hint={canSeeValue && kpis.dormant > 0 ? t('stock_overview.hint_immobilized', { amount: fmt(kpis.dormantValue) }) : undefined}

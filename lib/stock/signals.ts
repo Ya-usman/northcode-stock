@@ -1,6 +1,7 @@
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { getExpiryAlertDays } from '@/lib/utils/expiry'
 import { getPageCache, setPageCache } from '@/lib/offline/page-cache'
+import { addDays } from './batch-status'
 
 // ── Cache local des signaux ────────────────────────────────────────────────
 // Partagé entre la Vue d'ensemble et Produits : la page qui a chargé les
@@ -248,17 +249,18 @@ export function lowStockThresholdOf(p: { low_stock_threshold: number | null }, s
 
 export function expiryCutoffFor(p: { category_id: string | null }, ctx: StockRulesContext): string {
   const alertDays = getExpiryAlertDays(ctx.categoryAlertDays?.[p.category_id || ''], ctx.shopExpiryAlertDays)
-  return new Date(Date.now() + alertDays * 86_400_000).toISOString().slice(0, 10)
+  // Jours calendaires du téléphone, comme les lots (lib/stock/batch-status) : une seule règle de péremption
+  return addDays(ctx.today ?? localToday(), alertDays)
 }
 
 export function isExpired(p: { id: string }, ctx: StockRulesContext): boolean {
   const exp = ctx.expiryByProduct[p.id]
-  return !!exp && exp < (ctx.today ?? new Date().toISOString().slice(0, 10))
+  return !!exp && exp < (ctx.today ?? localToday())
 }
 
 export function isExpiringSoon(p: { id: string; category_id: string | null }, ctx: StockRulesContext): boolean {
   const exp = ctx.expiryByProduct[p.id]
-  const today = ctx.today ?? new Date().toISOString().slice(0, 10)
+  const today = ctx.today ?? localToday()
   return !!exp && exp >= today && exp <= expiryCutoffFor(p, ctx)
 }
 

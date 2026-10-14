@@ -1,0 +1,14 @@
+{
+  "_doc": "Glossaire des termes métier par langue : un seul mot par notion. Vérifié au build par scripts/i18n/check-glossary.js. « match » repère, dans le texte français, les chaînes qui parlent de la notion ; « forbid » liste les mots interdits dans la traduction de ces chaînes ; « use » est le terme retenu.",
+  "terms": [
+    {
+      "notion": "lot (lot de stock, avec ou sans date de péremption)",
+      "match": "\\blots?\\b",
+      "ha": {
+        "use": "lodi",
+        "forbid": ["rukuni", "rukunin", "rukunoni", "lot", "lots"],
+        "note": "« rukuni » veut dire « catégorie » : ne jamais l'employer pour un lot. Formes : lodi, lodin (« le lot de… », « ce lot »)."
+      }
+    }
+  ]
+}
