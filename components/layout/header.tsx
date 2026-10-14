@@ -46,9 +46,10 @@ export function Header({ title, locale, whatsNew }: HeaderProps) {
       <h1 className="flex-1 font-semibold text-base text-foreground truncate">{title}</h1>
 
       <div className="flex items-center gap-1">
-        {/* Shop switcher — mobile only (desktop already has it in the sidebar). Icon-only:
-            the header has no room for the shop name next to the title (see the dropdown
-            for the full name/list). */}
+        {/* Contexte boutique — téléphone seulement (sur ordinateur, il est dans la barre latérale).
+            Texte court toujours visible (« Akwa ▾ » / « Toutes ▾ ») dans cet en-tête collant : le
+            contexte ne disparaît jamais au défilement ; noms complets dans la liste. Comptes à
+            plusieurs boutiques uniquement (rien à choisir sinon). */}
         <ShopSelector variant="compact" iconOnly className="flex sm:hidden w-auto" />
 
         {/* Messages du support — visible seulement pour le owner (voir notification-bell.tsx) */}

@@ -4169,5 +4169,9 @@
     "reset": "Réinitialiser",
     "apply": "Appliquer",
     "close": "Fermer"
+  },
+  "scope": {
+    "all_short": "Toutes",
+    "aria_context": "Contexte boutique : {name}"
   }
 }

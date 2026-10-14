@@ -4169,5 +4169,9 @@
     "reset": "Sake saiti",
     "apply": "Aiwatar",
     "close": "Rufe"
+  },
+  "scope": {
+    "all_short": "Duk shaguna",
+    "aria_context": "Mahallin shago: {name}"
   }
 }

@@ -4169,5 +4169,9 @@
     "reset": "Reset",
     "apply": "Apply",
     "close": "Close"
+  },
+  "scope": {
+    "all_short": "All shops",
+    "aria_context": "Shop context: {name}"
   }
 }

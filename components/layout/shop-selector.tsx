@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Store, ChevronDown, Layers, Check } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { useAuthContext } from '@/lib/contexts/auth-context'
+import { shortShopName } from '@/lib/shops/short-name'
 
 interface ShopSelectorProps {
   /** 'sidebar' = dark gradient block (desktop sidebar). 'compact' = light button + dropdown (header, inline in pages). */
@@ -16,7 +17,8 @@ interface ShopSelectorProps {
   onShopChange?: (shopId: string) => void
   /** Compact variant only — optional prefix shown before the shop name, e.g. "Selling at". */
   label?: string
-  /** Compact variant only — trigger shrinks to a single icon button (no name/chevron), for cramped spots like the mobile header. The full list still opens with names. */
+  /** Compact variant only — short trigger for the mobile header: icon + SHORT context text
+   *  (« Akwa ▾ » / « Toutes ▾ »), always readable — never an icon alone. The list shows full names. */
   iconOnly?: boolean
 }
 
@@ -25,6 +27,7 @@ interface ShopSelectorProps {
 // copy, so switching shop anywhere stays in sync everywhere.
 export function ShopSelector({ variant, allowAllShops = true, className, onShopChange, label, iconOnly = false }: ShopSelectorProps) {
   const t = useTranslations('dashboard')
+  const tScope = useTranslations('scope')
   const { userShops, shop, dashboardShopFilter, setDashboardShopFilter, switchShop } = useAuthContext()
   const [open, setOpen] = useState(false)
 
@@ -115,15 +118,22 @@ export function ShopSelector({ variant, allowAllShops = true, className, onShopC
   return (
     <div className={cn('relative', className)}>
       {iconOnly ? (
+        // En-tête du téléphone : le contexte reste LISIBLE pendant le défilement (l'en-tête est collant) —
+        // « Akwa ▾ » ou « Toutes ▾ », nom complet en info-bulle, pour les lecteurs d'écran et dans la liste
         <button
           onClick={() => setOpen(o => !o)}
-          aria-label={currentLabel}
-          className="relative h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          aria-label={tScope('aria_context', { name: currentLabel ?? '' })}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          title={currentLabel}
+          data-testid="header-shop-context"
+          className="tap-target flex max-w-[8.5rem] items-center gap-1 rounded-md px-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
         >
-          {showingAll ? <Layers className="h-4 w-4" /> : <Store className="h-4 w-4" />}
-          {!showingAll && (
-            <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-stockshop-blue dark:bg-blue-400 ring-1 ring-card" />
-          )}
+          {showingAll
+            ? <Layers aria-hidden className="h-4 w-4 shrink-0 text-stockshop-blue dark:text-blue-400" />
+            : <Store aria-hidden className="h-4 w-4 shrink-0 text-stockshop-blue dark:text-blue-400" />}
+          <span className="min-w-0 truncate">{showingAll ? tScope('all_short') : shortShopName(shop?.name, shop?.entity_name)}</span>
+          <ChevronDown aria-hidden className={cn('h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
         </button>
       ) : (
         <button
