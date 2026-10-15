@@ -20,12 +20,18 @@ import { DetailDrawer } from '@/components/ui/detail-drawer'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
 import { InputGroup, RequiredMark } from '@/components/ui/input-group'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Plus, Pencil, Trash2, Receipt, RefreshCw, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Target, FileDown, FileText, Table2, Camera, Paperclip, X, WifiOff, Clock, AlertTriangle, Search, Copy, TrendingUp, TrendingDown, ExternalLink, Save, FileSpreadsheet } from 'lucide-react'
+import { Plus, Pencil, Trash2, Receipt, RefreshCw, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Target, FileDown, FileText, Table2, Camera, Paperclip, X, WifiOff, Clock, AlertTriangle, Search, Copy, TrendingUp, TrendingDown, ExternalLink, Save, FileSpreadsheet, Store } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { NumericInput } from '@/components/ui/numeric-input'
 import { format, startOfMonth, endOfMonth, addMonths, addWeeks, parseISO } from 'date-fns'
-import type { Expense, ExpenseBudget } from '@/lib/types/database'
+import type { Expense, ExpenseBudget, Shop } from '@/lib/types/database'
+import { useShopScope } from '@/lib/shops/use-shop-scope'
+import { ShopScopeBadge } from '@/components/shops/shop-scope-badge'
+import { useFilterScope } from '@/lib/filters/use-filter-scope'
+import { useShopPermissions } from '@/lib/hooks/use-role-permissions'
+import { formatCurrency } from '@/lib/utils/currency'
+import { resolveCurrencyCode, currencySymbol } from '@/lib/saas/currencies'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
@@ -73,9 +79,15 @@ function catFor(id: string) {
 }
 
 export default function ExpensesPage() {
-  const { shop, effectiveShopIds, profile, roleInActiveShop } = useAuth()
+  const { effectiveShopIds, profile, roleInActiveShop, userShops } = useAuth()
+  // Contexte boutique : l'en-tête décide de ce que l'on voit ; une dépense existante agit dans SA boutique ;
+  // une nouvelle dépense (en ligne ou hors connexion) depuis « Toutes » demande la boutique (requireOneShop).
+  // Budgets PAR boutique (décision D5) ; droits évalués boutique par boutique — jamais la boutique cachée.
+  const scope = useShopScope()
+  const scopeKey = scope.shopIds.join(',')
+  const filterScope = useFilterScope()
   const [{ monthFilter, categoryFilter, paymentFilter }, setFilter] = usePersistedFilters(
-    'expenses', shop?.id, { monthFilter: format(new Date(), 'yyyy-MM'), categoryFilter: 'all', paymentFilter: 'all' }
+    'expenses', filterScope, { monthFilter: format(new Date(), 'yyyy-MM'), categoryFilter: 'all', paymentFilter: 'all' }, { keepPerScope: true }
   )
   const [search, setSearch] = useState('')
   const locale = useLocale()
@@ -84,12 +96,27 @@ export default function ExpensesPage() {
   const t = useTranslations('expenses')
   const tPhoto = useTranslations('photo')
   const tRoot = useTranslations()
-  const { canAccess, canWrite } = useRolePermissions()
+  const { canAccess } = useRolePermissions()
   // Règle unique : « Supprimer des dépenses » (oui par défaut pour Manager et
   // Responsable) et niveau « modification » de Dépenses (ajout, fiche, budgets)
   const effectiveRole = roleInActiveShop ?? profile?.role
-  const canDeleteExpenses = canAccess('delete_expenses')
-  const canWriteExpenses = canWrite('expenses')
+  const { canWriteIn, canAccessIn } = useShopPermissions()
+  const shopById = useMemo(() => Object.fromEntries(userShops.map(x => [x.id, x])) as Record<string, Shop>, [userShops])
+  const canWriteIn_ = (id?: string | null) => !!id && canWriteIn(id, 'expenses')
+  const canDeleteIn = (id?: string | null) => !!id && canAccessIn(id, 'delete_expenses')
+  const canWriteExpenses = scope.shopIds.some(id => canWriteIn_(id))
+  // Montants d'un objet dans la devise de SA boutique (totaux agrégés : décision D1, lot 5)
+  const fmtIn = (shopId?: string | null) => {
+    const sh = shopId ? shopById[shopId] : null
+    return sh ? (v: number) => formatCurrency(v, resolveCurrencyCode(sh.currency, sh.country)) : fmt
+  }
+  const symbolIn = (shopId?: string | null) => {
+    const sh = shopId ? shopById[shopId] : null
+    return sh ? currencySymbol(resolveCurrencyCode(sh.currency, sh.country)) : symbol
+  }
+  // Boutique d'une nouvelle dépense (celle de l'en-tête, ou choisie) et du budget en cours de saisie
+  const [formShop, setFormShop] = useState<Shop | null>(null)
+  const [budgetShopId, setBudgetShopId] = useState<string | null>(null)
   const tA = useTranslations('actions')
   const expensesExport = useTableExport()
 
@@ -97,7 +124,7 @@ export default function ExpensesPage() {
     getPageCache<Expense[]>(`expenses_${effectiveShopIds.join(',')}_${monthFilter}`) || []
   )
   const [templates, setTemplates]     = useState<Expense[]>([])
-  const [budgets, setBudgets]         = useState<Record<string, number>>({})
+  const [budgets, setBudgets]         = useState<Record<string, Record<string, number>>>({}) // boutique → catégorie → montant
   const [loading, setLoading]         = useState(() =>
     !getPageCache(`expenses_${effectiveShopIds.join(',')}_${monthFilter}`)
   )
@@ -118,7 +145,7 @@ export default function ExpensesPage() {
   const [view, setView] = useState<'expenses' | 'journal'>('expenses')
   const [exporting, setExporting]     = useState(false)
   // Mois précédent (total et par catégorie) pour la comparaison « vs mois dernier »
-  const [prevTotals, setPrevTotals] = useState<{ total: number; byCat: Record<string, number> } | null>(null)
+  const [prevTotals, setPrevTotals] = useState<{ total: number; byCat: Record<string, number>; byShopCat: Record<string, Record<string, number>> } | null>(null)
   // Fiche d'une dépense (panneau de consultation)
   const [detailExpense, setDetailExpense] = useState<Expense | null>(null)
   // Instantané du formulaire à l'ouverture : la garde de fermeture compare
@@ -151,20 +178,27 @@ export default function ExpensesPage() {
   const [budgetCategory, setBudgetCategory]   = useState<CategoryId>('other')
   const [budgetAmount, setBudgetAmount]       = useState('')
 
+  // Dépenses en attente (hors connexion) de TOUTES les boutiques du contexte (avant : boutique cachée seulement)
+  const loadPending = useCallback(() => {
+    Promise.all(scope.shopIds.map(id => getPendingExpenses(id))).then(lists => setPendingExpenses(lists.flat())).catch(() => {})
+  }, [scopeKey]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     // Refresh pending expense list ~3s after coming back online (sync has likely completed by then)
-    const on = () => {
-      if (shop?.id) setTimeout(() => getPendingExpenses(shop.id!).then(setPendingExpenses), 3000)
-    }
+    const on = () => { setTimeout(loadPending, 3000) }
     window.addEventListener('online', on)
     return () => window.removeEventListener('online', on)
-  }, [shop?.id])
+  }, [loadPending])
+  useEffect(() => { loadPending() }, [loadPending])
 
-  // Load pending (offline) expenses from IndexedDB on mount and after shop changes
+  // Changement de contexte : formulaire, budget, fiche et confirmation en cours fermés — aucune boutique reprise
+  const scopeKeyRef = useRef(scopeKey)
   useEffect(() => {
-    if (!shop?.id) return
-    getPendingExpenses(shop.id).then(setPendingExpenses)
-  }, [shop?.id])
+    if (scopeKeyRef.current === scopeKey) return
+    scopeKeyRef.current = scopeKey
+    setModalOpen(false); setEditing(null); setFormShop(null)
+    setBudgetModalOpen(false); setBudgetShopId(null); setDetailExpense(null)
+    setDeleteDialog({ open: false, id: null, isTemplate: false })
+  }, [scopeKey])
 
   const shopIdsKey = effectiveShopIds.join(',')
 
@@ -212,7 +246,7 @@ export default function ExpensesPage() {
         // Mois précédent : seulement montant et catégorie, pour la comparaison
         supabase
           .from('expenses')
-          .select('amount, category')
+          .select('amount, category, shop_id')
           .in('shop_id', effectiveShopIds)
           .eq('is_recurring', false)
           .gte('date', prevStart)
@@ -229,14 +263,17 @@ export default function ExpensesPage() {
       setTemplates((tplData || []) as Expense[])
       setPageCache(cacheKey, expData || [])
       const byCat: Record<string, number> = {}
+      const byShopCat: Record<string, Record<string, number>> = {}
       let prevTotal = 0
-      for (const row of (prevData || []) as { amount: number; category: string | null }[]) {
+      for (const row of (prevData || []) as { amount: number; category: string | null; shop_id: string }[]) {
         const amt = Number(row.amount) || 0
         prevTotal += amt
         const key = row.category || 'other'
         byCat[key] = (byCat[key] || 0) + amt
+        const m = (byShopCat[row.shop_id] ||= {})
+        m[key] = (m[key] || 0) + amt
       }
-      setPrevTotals({ total: prevTotal, byCat })
+      setPrevTotals({ total: prevTotal, byCat, byShopCat })
     } catch (err: any) {
       if (!cached) toast({ title: err.message || 'Erreur chargement', variant: 'destructive' })
     } finally {
@@ -245,37 +282,41 @@ export default function ExpensesPage() {
   }, [shopIdsKey, monthFilter, isReallyOnline])
 
   const fetchBudgets = useCallback(async () => {
-    if (!shop?.id || !isReallyOnline) return
+    if (!scope.shopIds.length || !isReallyOnline) return
     try {
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave a hung request retried forever.
       const { data } = await withTimeout<any>(
-        supabase.from('expense_budgets').select('category, amount').eq('shop_id', shop.id),
+        supabase.from('expense_budgets').select('shop_id, category, amount').in('shop_id', scope.shopIds),
         20_000
       )
       if (!data) return
-      const map: Record<string, number> = {}
-      ;(data as ExpenseBudget[]).forEach(b => { map[b.category] = Number(b.amount) })
+      const map: Record<string, Record<string, number>> = {}
+      ;(data as (ExpenseBudget & { shop_id: string })[]).forEach(b => { (map[b.shop_id] ||= {})[b.category] = Number(b.amount) })
       setBudgets(map)
     } catch {
       // budgets bar just keeps showing its last known values
     }
-  }, [shop?.id, isReallyOnline])
+  }, [scopeKey, isReallyOnline]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Budgets et journal des suppressions : « Dépenses : modification » (règle du 9 oct. 2026)
 
   const fetchDeleteLogs = useCallback(async () => {
-    if (!shop?.id || !canWriteExpenses || !isReallyOnline) return
+    // Boutiques du contexte où la personne a « Dépenses : modification » (journal lu par le serveur, boutique par boutique)
+    const ids = scope.shopIds.filter(id => canWriteIn_(id))
+    if (!ids.length || !isReallyOnline) return
     try {
-      // Lu par le serveur : ouvert à qui a « Dépenses : modification » (pas seulement au propriétaire)
-      const res = await withTimeout(fetch(`/api/audit/journal?${new URLSearchParams({ shop_id: shop.id, feature: 'expenses', actions: 'expense.delete', limit: '50' })}`), 20_000)
-      const { logs, error } = await res.json()
-      if (error) throw new Error(error)
-      setDeleteLogs((logs || []) as DeleteLog[])
+      const lists = await Promise.all(ids.map(async id => {
+        const res = await withTimeout(fetch(`/api/audit/journal?${new URLSearchParams({ shop_id: id, feature: 'expenses', actions: 'expense.delete', limit: '50' })}`), 20_000)
+        const { logs, error } = await res.json()
+        if (error) throw new Error(error)
+        return ((logs || []) as DeleteLog[]).map(l => ({ ...l, shop_id: id }))
+      }))
+      setDeleteLogs(lists.flat().sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 50))
     } catch {
       // journal just stays empty/stale — non-critical secondary tab
     }
-  }, [shop?.id, canWriteExpenses, isReallyOnline])
+  }, [scopeKey, isReallyOnline, userShops]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Dépenses récurrentes générées PAR LE SERVEUR (lot 2) : une seule règle,
   // aucun doublon possible entre appareils (index unique, migration 156), et
@@ -321,7 +362,14 @@ export default function ExpensesPage() {
   const formSnapshot = () => snapOf({ amount, description, date, category, paymentMethod, isRecurring, recurrence, recurrenceDay, receiptPreview })
   const formDirty = modalOpen && (formSnapshot() !== formInitial || !!receiptFile)
 
-  const openAdd = () => {
+  // Nouvelle dépense : boutique de l'en-tête, ou choisie en « Toutes » (seulement celles où la personne a le droit)
+  const openAdd = async () => {
+    const picked = await scope.requireOneShop({ title: t('pick_shop_title'), eligible: x => canWriteIn_(x.id) })
+    if (picked) openAddIn(picked)
+  }
+  const openAddIn = (target: Shop | null) => {
+    if (!target) return
+    setFormShop(target)
     const today = format(new Date(), 'yyyy-MM-dd')
     const day = Math.min(new Date().getDate(), 28)
     setEditing(null)
@@ -348,6 +396,7 @@ export default function ExpensesPage() {
       receiptPreview: receiptSrc(exp.receipt_url),
     }
     setEditing(exp)
+    setFormShop(shopById[exp.shop_id] ?? null)
     setAmount(values.amount)
     setDescription(values.description)
     setDate(values.date)
@@ -365,7 +414,7 @@ export default function ExpensesPage() {
 
   // Dupliquer : même dépense, à la date du jour, sans justificatif ni récurrence
   const openDuplicate = (exp: Expense) => {
-    openAdd()
+    openAddIn(shopById[exp.shop_id] ?? null) // même boutique que la dépense d'origine
     setAmount(String(exp.amount))
     setDescription(exp.description)
     setCategory((exp.category as CategoryId) || 'other')
@@ -395,11 +444,12 @@ export default function ExpensesPage() {
       ;(source === 'camera' ? receiptCameraRef : receiptFileRef).current?.click()
       return
     }
-    if (!shop?.id) return
+    const photoShopId = editing?.shop_id ?? formShop?.id
+    if (!photoShopId) return
     try {
       const file = await pickPhotoNative('camera', {
         kind: 'expense',
-        shopId: shop.id,
+        shopId: photoShopId,
         route: window.location.pathname,
         values: { amount, description, date, category, paymentMethod, isRecurring, recurrence, recurrenceDay },
         meta: { editingId: editing?.id ?? null },
@@ -425,7 +475,7 @@ export default function ExpensesPage() {
       if (!exp) return
       openEdit(exp)
     } else {
-      openAdd()
+      openAddIn(shopById[(draft as any).shopId] ?? null) // boutique notée avec la prise de vue, jamais la boutique cachée
     }
     if (typeof v.amount === 'string') setAmount(v.amount)
     if (typeof v.description === 'string') setDescription(v.description)
@@ -445,14 +495,16 @@ export default function ExpensesPage() {
   const uploadReceipt = async (file: File): Promise<string | null> => {
     const fd = new FormData()
     fd.append('file', file)
-    fd.append('shop_id', editing?.shop_id ?? shop!.id)
+    fd.append('shop_id', (editing?.shop_id ?? formShop?.id) as string)
     const res = await withTimeout<Response>(fetch('/api/expenses/receipt', { method: 'POST', body: fd }), 30_000)
     const json = await res.json().catch(() => ({}))
     return res.ok && typeof json.path === 'string' ? json.path : null
   }
 
   const handleSave = async () => {
-    if (!shop?.id || !amount || !description.trim()) return
+    // Modification : la boutique DE la dépense ; ajout : la boutique choisie
+    const targetShopId = editing?.shop_id ?? formShop?.id
+    if (!targetShopId || !amount || !description.trim()) return
     setSaving(true)
 
     // ── Offline path: save to IndexedDB (non-recurring new expenses only) ──
@@ -460,7 +512,7 @@ export default function ExpensesPage() {
       try {
         await savePendingExpense({
           local_id:       crypto.randomUUID(),
-          shop_id:        shop.id,
+          shop_id:        targetShopId,
           amount:         Number(amount),
           description:    description.trim(),
           date,
@@ -469,8 +521,7 @@ export default function ExpensesPage() {
           created_at:     new Date().toISOString(),
           synced:         false,
         })
-        const updated = await getPendingExpenses(shop.id)
-        setPendingExpenses(updated)
+        loadPending()
         toast({ title: t('added_offline', { added: t('added') }), variant: 'success' })
         setModalOpen(false)
       } catch (err: any) {
@@ -493,7 +544,7 @@ export default function ExpensesPage() {
     // en modification ; l'échéancier d'un modèle récurrent est géré côté serveur.
     const payload = {
       id:             editing?.id,
-      shop_id:        editing?.shop_id ?? shop.id,
+      shop_id:        targetShopId,
       amount:         Number(amount),
       description:    description.trim(),
       date,
@@ -517,12 +568,12 @@ export default function ExpensesPage() {
       // Notify owner when a non-owner creates a new (non-recurring) expense
       const role = profile?.role
       if (!editing && !isRecurring && role && role !== 'owner' && role !== 'super_admin') {
-        const amountStr = fmt(Math.round(Number(amount)))
+        const amountStr = fmtIn(targetShopId)(Math.round(Number(amount)))
         fetch('/api/push/new-expense', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            shop_id: shop!.id,
+            shop_id: targetShopId,
             description: description.trim(),
             amount_str: amountStr,
             created_by_name: profile?.full_name || null,
@@ -531,10 +582,12 @@ export default function ExpensesPage() {
       }
 
       // Budget check (only for new expenses in the displayed month, non-recurring)
-      if (!editing && !isRecurring && date.slice(0, 7) === monthFilter && budgets[category]) {
-        const currentSpent = catTotals[category] ?? 0
+      // Budget de la boutique DE la dépense, comparé aux dépenses de CETTE boutique
+      const shopBudget = budgetsOf(targetShopId)[category]
+      if (!editing && !isRecurring && date.slice(0, 7) === monthFilter && shopBudget) {
+        const currentSpent = catTotalsFor(targetShopId)[category] ?? 0
         const projected = currentSpent + Number(amount)
-        const budget = budgets[category]
+        const budget = shopBudget
         if (projected >= budget) {
           setTimeout(() => toast({ title: `⚠️ ${t('budget_exceeded', { category: t(`cat_${category}` as any) })}`, variant: 'destructive' }), 400)
         } else if (projected >= budget * 0.8) {
@@ -583,20 +636,21 @@ export default function ExpensesPage() {
 
   // ─── Budget CRUD ─────────────────────────────────────────────────────────
 
-  const openBudgetModal = (cat: CategoryId) => {
+  const openBudgetModal = (cat: CategoryId, shopId: string) => {
+    setBudgetShopId(shopId)
     setBudgetCategory(cat)
-    setBudgetAmount(budgets[cat] ? String(budgets[cat]) : '')
+    setBudgetAmount(budgetsOf(shopId)[cat] ? String(budgetsOf(shopId)[cat]) : '')
     setBudgetModalOpen(true)
   }
 
   const saveBudget = async () => {
-    if (!shop?.id || !budgetAmount) return
+    if (!budgetShopId || !budgetAmount) return
     setSavingBudget(true)
     try {
       // Budget PAR LE SERVEUR (lot 2) : droit « Dépenses » en modification
       const res = await withTimeout<Response>(fetch('/api/expenses/budgets', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shop_id: shop.id, category: budgetCategory, amount: Number(budgetAmount) }),
+        body: JSON.stringify({ shop_id: budgetShopId, category: budgetCategory, amount: Number(budgetAmount) }),
       }))
       const json = await res.json().catch(() => ({}))
       if (!res.ok) { toast({ title: json.error || tRoot('toast.error'), variant: 'destructive' }); return }
@@ -612,16 +666,16 @@ export default function ExpensesPage() {
   }
 
   const deleteBudget = async () => {
-    if (!shop?.id) return
+    if (!budgetShopId) return
     setDeletingBudget(true)
     try {
-      const res = await withTimeout<Response>(fetch(`/api/expenses/budgets?shop_id=${shop.id}&category=${encodeURIComponent(budgetCategory)}`, { method: 'DELETE' }))
+      const res = await withTimeout<Response>(fetch(`/api/expenses/budgets?shop_id=${budgetShopId}&category=${encodeURIComponent(budgetCategory)}`, { method: 'DELETE' }))
       const json = await res.json().catch(() => ({}))
       if (!res.ok) { toast({ title: json.error || tRoot('toast.error'), variant: 'destructive' }); return }
       toast({ title: t('budget_deleted'), variant: 'success' })
       setDeleteBudgetConfirm(false)
       setBudgetModalOpen(false)
-      setBudgets(prev => { const n = { ...prev }; delete n[budgetCategory]; return n })
+      setBudgets(prev => { const n = { ...prev, [budgetShopId]: { ...(prev[budgetShopId] || {}) } }; delete n[budgetShopId][budgetCategory]; return n })
     } catch (err: any) {
       toast({ title: err.message || tRoot('toast.retry_error'), variant: 'destructive' })
     } finally {
@@ -683,21 +737,38 @@ export default function ExpensesPage() {
     ])
   )
 
-  // Categories to show in budget section: those with a budget OR with expenses this month
-  const budgetCats = EXPENSE_CATEGORIES.filter(c => budgets[c.id] || activeCatIds.has(c.id))
+  // Par boutique (budgets, D5) : chaque budget est comparé aux dépenses de SA boutique
+  function budgetsOf(shopId?: string | null): Record<string, number> { return (shopId && budgets[shopId]) || {} }
+  function catTotalsFor(shopId?: string | null): Record<string, number> {
+    const out: Record<string, number> = {}
+    for (const e of expenses) if (e.shop_id === shopId) { const k = e.category || 'other'; out[k] = (out[k] || 0) + Number(e.amount) }
+    for (const p of filteredPending) if (p.shop_id === shopId) out[p.category] = (out[p.category] || 0) + p.amount
+    return out
+  }
+  // Catégories à montrer dans la section budgets d'une boutique : avec un budget OU des dépenses ce mois-ci
+  const budgetCatsFor = (shopId: string) => {
+    const totals = catTotalsFor(shopId)
+    return EXPENSE_CATEGORIES.filter(c => budgetsOf(shopId)[c.id] || totals[c.id])
+  }
+  // Une boutique précise : une section ; « Toutes » : une section par boutique (jamais de budget comparé aux autres)
+  const budgetGroups = (scope.shopId ? [scope.shopId] : scope.shopIds).map(id => ({ shopId: id, cats: budgetCatsFor(id) })).filter(g => g.cats.length > 0)
+  const budgetCats = budgetGroups.flatMap(g => g.cats)
 
   // ─── Export helpers ───────────────────────────────────────────────────────
 
   const catLabels = Object.fromEntries(EXPENSE_CATEGORIES.map(c => [c.id, t(`cat_${c.id}` as any)]))
   const pmLabels  = Object.fromEntries(PAYMENT_METHODS.map(m => [m.id, t(`pm_${m.id}` as any)]))
 
+  // Périmètre réel (jamais le nom de la boutique cachée) : « Toutes les boutiques » ou la boutique de l'en-tête
+  const scopeTitle = scope.isAllShops && scope.multiShop ? tRoot('scope.all_shops') : (scope.shopName || userShops[0]?.name || 'StockShop')
+  const withShopColumn = scope.isAllShops && scope.multiShop
   const exportPDF = async () => {
-    if (!shop || !expenses.length) return
+    if (!expenses.length) return
     setExporting(true)
     try {
       const fmtAmt = (n: number) => fmt(Math.round(n))
       await generateExpensesReportPDF({
-        shopName: shop.name,
+        shopName: scopeTitle,
         month: monthLabel,
         expenses: filtered.map(e => ({
           date:           e.date,
@@ -738,14 +809,14 @@ export default function ExpensesPage() {
   const exportExpenses = (fmtOut: 'xlsx' | 'csv') => {
     expensesExport.run({
       kind: expensesExport.kind('expenses'),
-      shopName: shop?.name || 'StockShop',
+      shopName: scopeTitle,
       period: monthLabel,
       columns: [
-        { header: t('date'), type: 'date' }, { header: t('description') }, { header: t('category_label') },
-        { header: t('payment_method_label') }, { header: `${t('amount')} (${symbol})`, type: 'money' },
-      ],
-      rows: filtered.map(e => [e.date, e.description, catLabels[e.category || 'other'] || e.category, pmLabels[e.payment_method || 'cash'] || e.payment_method, Number(e.amount)]),
-      totals: [t('pdf_grand_total'), null, null, null, total],
+        { header: t('date'), type: 'date' }, ...(withShopColumn ? [{ header: t('shop_column') }] : []), { header: t('description') }, { header: t('category_label') },
+        { header: t('payment_method_label') }, { header: `${t('amount')} (${symbol})`, type: 'money' as const },
+      ] as any,
+      rows: filtered.map(e => [e.date, ...(withShopColumn ? [shopById[e.shop_id]?.name || ''] : []), e.description, catLabels[e.category || 'other'] || e.category, pmLabels[e.payment_method || 'cash'] || e.payment_method, Number(e.amount)]),
+      totals: [t('pdf_grand_total'), ...(withShopColumn ? [null] : []), null, null, null, total],
     }, fmtOut, monthFilter)
   }
 
@@ -828,6 +899,8 @@ export default function ExpensesPage() {
         </div>
       </div>
 
+      {scope.isAllShops && scope.multiShop && <div><ShopScopeBadge /></div>}
+
       {/* View toggle */}
       {canWriteExpenses && (
         <div className="flex gap-1 rounded-lg border bg-muted/30 p-1 w-fit">
@@ -882,14 +955,14 @@ export default function ExpensesPage() {
                         {nextDate && ` · ${t('next_due')} ${nextDate}`}
                       </p>
                     </div>
-                    <span className="text-sm font-bold text-red-600 dark:text-red-400 flex-shrink-0">{fmt(Number(tpl.amount))}</span>
+                    <span className="text-sm font-bold text-red-600 dark:text-red-400 flex-shrink-0">{fmtIn(tpl.shop_id)(Number(tpl.amount))}</span>
                     <div className="flex gap-1 flex-shrink-0">
-                      {canWriteExpenses && (
+                      {canWriteIn_(tpl.shop_id) && (
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(tpl)}>
                           <Pencil className="h-3 w-3" />
                         </Button>
                       )}
-                      {canDeleteExpenses && (
+                      {canDeleteIn(tpl.shop_id) && (
                       <Button
                         variant="ghost" size="icon"
                         className="h-7 w-7 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
@@ -908,9 +981,9 @@ export default function ExpensesPage() {
         </Card>
       )}
 
-      {/* ── Budget overview ── */}
-      {budgetCats.length > 0 && (
-        <Card className="border-0 shadow-sm overflow-hidden">
+      {/* ── Budget overview : budgets PAR boutique (D5) — chaque budget comparé aux dépenses de SA boutique ── */}
+      {budgetGroups.length > 0 && (
+        <Card className="border-0 shadow-sm overflow-hidden" data-testid="expenses-budgets">
           <button
             onClick={() => setShowBudgets(v => !v)}
             className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-muted/40 transition-colors"
@@ -921,11 +994,21 @@ export default function ExpensesPage() {
             </div>
             {showBudgets ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
           </button>
-          {showBudgets && (
-            <div className="border-t divide-y">
-              {budgetCats.map(c => {
-                const spent  = catTotals[c.id] ?? 0
-                const budget = budgets[c.id] ?? 0
+          {showBudgets && budgetGroups.map(group => {
+            const totals = catTotalsFor(group.shopId)
+            const shopBudgets = budgetsOf(group.shopId)
+            const fmtShop = fmtIn(group.shopId)
+            return (
+            <div key={group.shopId} className="border-t" data-budget-shop={group.shopId}>
+              {scope.isAllShops && scope.multiShop && (
+                <p className="flex items-center gap-1.5 bg-muted/30 px-4 py-2 text-xs font-semibold text-stockshop-blue dark:text-blue-400">
+                  <Store className="h-3.5 w-3.5" aria-hidden />{shopById[group.shopId]?.name}
+                </p>
+              )}
+              <div className="divide-y">
+              {group.cats.map(c => {
+                const spent  = totals[c.id] ?? 0
+                const budget = shopBudgets[c.id] ?? 0
                 const pct    = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0
                 const over   = budget > 0 && spent > budget
                 const near   = !over && pct >= 80
@@ -941,10 +1024,10 @@ export default function ExpensesPage() {
                         <div className="min-w-0">
                           <p className="text-sm font-medium leading-tight">{t(`cat_${c.id}` as any)}</p>
                           <p className="text-xs text-muted-foreground">
-                            {fmt(spent)}
-                            {budget > 0 && <span className={cn(over ? 'text-red-500' : near ? 'text-orange-500' : '')}>{` / ${fmt(budget)}`}</span>}
+                            {fmtShop(spent)}
+                            {budget > 0 && <span className={cn(over ? 'text-red-500' : near ? 'text-orange-500' : '')}>{` / ${fmtShop(budget)}`}</span>}
                             {(() => {
-                              const pctCat = prevTotals ? trendPct(spent, prevTotals.byCat[c.id]) : null
+                              const pctCat = prevTotals ? trendPct(spent, prevTotals.byShopCat[group.shopId]?.[c.id]) : null
                               return pctCat === null ? null : (
                                 <span className={cn('ml-2 tabular-nums', pctCat > 0 ? 'text-red-500' : 'text-green-600 dark:text-green-400')}>
                                   {pctCat > 0 ? '+' : ''}{pctCat} % {t('vs_last_month')}
@@ -956,10 +1039,11 @@ export default function ExpensesPage() {
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         {over && <span className="text-xs font-bold text-red-500 animate-pulse">⚠️</span>}
-                        {canWriteExpenses && (
+                        {canWriteIn_(group.shopId) && (
                           <Button
                             variant="ghost" size="icon" className="h-7 w-7"
-                            onClick={() => openBudgetModal(c.id)}
+                            aria-label={t('budget_set')}
+                            onClick={() => openBudgetModal(c.id, group.shopId)}
                           >
                             <Pencil className="h-3 w-3" />
                           </Button>
@@ -971,9 +1055,9 @@ export default function ExpensesPage() {
                         <div className={cn('h-full rounded-full transition-all duration-500', bar)} style={{ width: `${pct}%` }} />
                       </div>
                     ) : (
-                      canWriteExpenses ? (
+                      canWriteIn_(group.shopId) ? (
                         <button
-                          onClick={() => openBudgetModal(c.id)}
+                          onClick={() => openBudgetModal(c.id, group.shopId)}
                           className="text-xs text-stockshop-blue dark:text-blue-400 hover:underline"
                         >
                           + {t('budget_set')}
@@ -983,8 +1067,10 @@ export default function ExpensesPage() {
                   </div>
                 )
               })}
+              </div>
             </div>
-          )}
+            )
+          })}
         </Card>
       )}
 
@@ -1044,7 +1130,8 @@ export default function ExpensesPage() {
             {t('filter_all')}
           </button>
           {EXPENSE_CATEGORIES.filter(c => activeCatIds.has(c.id)).map(c => {
-            const pct    = budgets[c.id] ? Math.min((catTotals[c.id] / budgets[c.id]) * 100, 999) : -1
+            const b      = scope.shopId ? budgetsOf(scope.shopId)[c.id] : 0 // « Toutes » : budgets par boutique, voir la section
+            const pct    = b ? Math.min((catTotals[c.id] / b) * 100, 999) : -1
             const over   = pct > 100
             const near   = pct >= 80 && pct <= 100
             return (
@@ -1104,7 +1191,7 @@ export default function ExpensesPage() {
                     </div>
                   </div>
                   <span className="text-base font-bold text-red-600 dark:text-red-400 flex-shrink-0">
-                    {fmt(pexp.amount)}
+                    {fmtIn(pexp.shop_id)(pexp.amount)}
                   </span>
                   <div className="flex-shrink-0 h-8 w-8 flex items-center justify-center text-amber-500">
                     <Clock className="h-4 w-4" aria-label={t('pending_sync_aria')} />
@@ -1143,6 +1230,7 @@ export default function ExpensesPage() {
                             {exp.receipt_url && <Paperclip className="h-3 w-3 flex-shrink-0 text-muted-foreground/60" aria-label={t('receipt_label')} />}
                           </div>
                           <div className="flex items-center gap-2 mt-0.5">
+                            {scope.isAllShops && scope.multiShop && <p className="truncate text-xs font-medium text-stockshop-blue dark:text-blue-400" data-expense-shop>{shopById[exp.shop_id]?.name}</p>}
                             <p className="text-xs text-muted-foreground">{t(`cat_${cat.id}` as any)}</p>
                             {pm && pm !== 'cash' && (
                               <span className={cn(
@@ -1157,16 +1245,16 @@ export default function ExpensesPage() {
                           </div>
                         </div>
                         <span className="text-base font-bold tabular-nums text-red-600 dark:text-red-400 flex-shrink-0">
-                          {fmt(Number(exp.amount))}
+                          {fmtIn(exp.shop_id)(Number(exp.amount))}
                         </span>
                       </button>
                       <div className="flex gap-1 flex-shrink-0 items-center pr-3">
-                        {canWriteExpenses && (
+                        {canWriteIn_(exp.shop_id) && (
                           <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={tA('edit')} onClick={() => openEdit(exp)}>
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
                         )}
-                        {canDeleteExpenses && (
+                        {canDeleteIn(exp.shop_id) && (
                           <Button
                             variant="ghost" size="icon"
                             className="h-8 w-8 text-red-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20"
@@ -1206,13 +1294,14 @@ export default function ExpensesPage() {
                     </span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{log.metadata?.description}</p>
+                      {scope.isAllShops && scope.multiShop && <p className="text-xs font-medium text-stockshop-blue dark:text-blue-400">{shopById[(log as any).shop_id]?.name}</p>}
                       <p className="text-xs text-muted-foreground">
                         {t('deleted_by')} <span className="font-medium text-foreground">{log.actor_email}</span>
                       </p>
                       <p className="text-xs text-muted-foreground">{dateStr}</p>
                     </div>
                     <span className="text-sm font-semibold text-red-500 flex-shrink-0">
-                      -{fmt(Number(log.metadata?.amount))}
+                      -{fmtIn((log as any).shop_id)(Number(log.metadata?.amount))}
                     </span>
                   </div>
                 )
@@ -1227,6 +1316,7 @@ export default function ExpensesPage() {
         open={modalOpen}
         onOpenChange={open => { if (!open) setModalOpen(false) }}
         title={editing ? t('edit_title') : t('new_title')}
+        category={scope.multiShop && (editing ? shopById[editing.shop_id] : formShop) ? tRoot('scope.shop_label', { name: (editing ? shopById[editing.shop_id] : formShop)!.name }) : undefined}
         description={editing?.description}
         icon={<Receipt className="h-4 w-4" />}
         width="md"
@@ -1247,14 +1337,14 @@ export default function ExpensesPage() {
         <DrawerSection title={t('section_amount')}>
           <div className="space-y-1.5">
             <Label htmlFor="expense-amount">{t('amount')}<RequiredMark /></Label>
-            <InputGroup suffix={symbol}>
+            <InputGroup suffix={symbolIn(editing?.shop_id ?? formShop?.id)}>
               <NumericInput
                 id="expense-amount"
                 name="amount"
                 value={amount}
                 onChange={v => setAmount(String(v))}
                 placeholder="0"
-                currency={shop?.currency || 'XOF'}
+                currency={(editing ? shopById[editing.shop_id] : formShop)?.currency || 'XOF'}
                 className="h-10 text-lg font-semibold"
               />
             </InputGroup>
@@ -1465,30 +1555,30 @@ export default function ExpensesPage() {
       <PremiumDialog
         open={budgetModalOpen}
         onOpenChange={open => { if (!open) setBudgetModalOpen(false) }}
-        category={t('budget_section')}
+        category={scope.multiShop && budgetShopId ? `${t('budget_section')} · ${shopById[budgetShopId]?.name}` : t('budget_section')}
         title={`${catFor(budgetCategory).icon} ${t(`cat_${budgetCategory}` as any)}`}
         icon={<Target className="h-4 w-4" />}
         maxWidth="max-w-md"
-        dirty={budgetAmount !== (budgets[budgetCategory] ? String(budgets[budgetCategory]) : '')}
+        dirty={budgetAmount !== (budgetsOf(budgetShopId)[budgetCategory] ? String(budgetsOf(budgetShopId)[budgetCategory]) : '')}
         testId="budget-dialog"
       >
         <PremiumDialogBody>
           <div className="space-y-1.5">
             <Label htmlFor="budget-amount">{t('budget_amount')}</Label>
-            <InputGroup suffix={symbol}>
+            <InputGroup suffix={symbolIn(budgetShopId)}>
               <NumericInput
                 id="budget-amount"
                 value={budgetAmount}
                 onChange={v => setBudgetAmount(String(v))}
                 placeholder="0"
-                currency={shop?.currency || 'XOF'}
+                currency={(budgetShopId ? shopById[budgetShopId] : null)?.currency || 'XOF'}
                 className="h-10 text-lg font-semibold"
               />
             </InputGroup>
           </div>
-          {budgets[budgetCategory] && (
+          {budgetsOf(budgetShopId)[budgetCategory] && (
             <p className="text-xs text-muted-foreground">
-              {t('total')} {monthLabel} : <span className="font-medium">{fmt(catTotals[budgetCategory] ?? 0)}</span>
+              {t('total')} {monthLabel} : <span className="font-medium">{fmtIn(budgetShopId)(catTotalsFor(budgetShopId)[budgetCategory] ?? 0)}</span>
             </p>
           )}
         </PremiumDialogBody>
@@ -1500,7 +1590,7 @@ export default function ExpensesPage() {
           confirmDisabled={!budgetAmount || savingBudget}
           confirmIcon={<Save className="h-4 w-4" />}
         >
-          {budgets[budgetCategory] && (
+          {budgetsOf(budgetShopId)[budgetCategory] && (
             <Button
               type="button"
               variant="outline"
@@ -1545,6 +1635,7 @@ export default function ExpensesPage() {
         open={!!detailExpense}
         onOpenChange={open => { if (!open) setDetailExpense(null) }}
         title={detailExpense?.description || ''}
+        category={scope.multiShop && detailExpense ? shopById[detailExpense.shop_id]?.name : undefined}
         description={detailExpense ? new Date(detailExpense.date + 'T12:00:00').toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : undefined}
         icon={<Receipt className="h-4 w-4" />}
         width="md"
@@ -1560,13 +1651,13 @@ export default function ExpensesPage() {
                   <p className="text-xs text-muted-foreground">{PAYMENT_METHODS.find(m => m.id === detailExpense.payment_method)?.icon} {t(`pm_${detailExpense.payment_method || 'cash'}` as any)}</p>
                 </div>
               </div>
-              <span className="text-xl font-bold tabular-nums text-red-600 dark:text-red-400">{fmt(Number(detailExpense.amount))}</span>
+              <span className="text-xl font-bold tabular-nums text-red-600 dark:text-red-400">{fmtIn(detailExpense.shop_id)(Number(detailExpense.amount))}</span>
             </div>
           )
         })() : undefined}
         actions={detailExpense ? (
           <div className={FOOTER_ROW_CLASS}>
-            {canDeleteExpenses && (
+            {canDeleteIn(detailExpense.shop_id) && (
               <Button
                 type="button"
                 variant="outline"
@@ -1578,12 +1669,12 @@ export default function ExpensesPage() {
                 <span className="ml-1.5 hidden sm:inline">{tA('delete')}</span>
               </Button>
             )}
-            {canWriteExpenses && (
+            {canWriteIn_(detailExpense.shop_id) && (
               <Button type="button" variant="outline" className="h-11 min-w-0 flex-1 gap-2 rounded-lg px-4 sm:flex-none" onClick={() => openDuplicate(detailExpense)} data-testid="expense-duplicate">
                 <Copy className="h-4 w-4" />{t('duplicate')}
               </Button>
             )}
-            {canWriteExpenses && (
+            {canWriteIn_(detailExpense.shop_id) && (
               <Button type="button" variant="stockshop" className="h-11 min-w-0 flex-1 gap-2 rounded-lg px-5 font-semibold sm:flex-none sm:min-w-[140px]" onClick={() => { const exp = detailExpense; setDetailExpense(null); openEdit(exp) }} data-testid="expense-edit">
                 <Pencil className="h-4 w-4" />{tA('edit')}
               </Button>

@@ -8,7 +8,10 @@ import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
-import { ShopSelector } from '@/components/layout/shop-selector'
+import { useShopScope } from '@/lib/shops/use-shop-scope'
+import { ShopScopeBadge } from '@/components/shops/shop-scope-badge'
+import { useFilterScope } from '@/lib/filters/use-filter-scope'
+import { useShopPermissions } from '@/lib/hooks/use-role-permissions'
 import { cn } from '@/lib/utils/cn'
 import { Plus, Pin, Pencil, Trash2, Store, Search, PinOff } from 'lucide-react'
 import { normalize } from '@/lib/utils/normalize'
@@ -59,14 +62,20 @@ export default function NotesPage() {
   const locale = useLocale()
   const dateFnsLocale = locale === 'fr' ? fr : enUS
   const COLORS = COLOR_KEYS.map(key => ({ key, ...COLOR_STYLES[key], label: t(`color_${key}`) }))
-  const { profile, shop, userShops, effectiveShopIds } = useAuth()
+  const { profile, userShops, effectiveShopIds } = useAuth()
+  // Contexte boutique : l'en-tête est la SEULE source (aucun sélecteur local) ; une nouvelle note depuis « Toutes »
+  // demande la boutique ; la boutique d'une note est fixée à sa création (décision D6) — jamais déplacée.
+  const scope = useShopScope()
+  const scopeKey = scope.shopIds.join(',')
+  const filterScope = useFilterScope()
+  const { canWriteIn } = useShopPermissions()
   const { isOnline } = useOffline()
   const { toast } = useToast()
 
   const [notes, setNotes] = useState<Note[]>([])
   const [loading, setLoading] = useState(true)
   const [{ search }, setFilter] = usePersistedFilters(
-    'notes', shop?.id, { search: '' }
+    'notes', filterScope, { search: '' }, { keepPerScope: true }
   )
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Note | null>(null)
@@ -76,7 +85,14 @@ export default function NotesPage() {
   // Form state
   const [color, setColor]     = useState('default')
   const [pinned, setPinned]   = useState(false)
-  const [noteShop, setNoteShop] = useState(shop?.id ?? '')
+  const [noteShop, setNoteShop] = useState('')
+  // Changement de contexte : la note en cours de saisie est fermée — aucune boutique précédente reprise
+  const scopeKeyRef = useRef(scopeKey)
+  useEffect(() => {
+    if (scopeKeyRef.current === scopeKey) return
+    scopeKeyRef.current = scopeKey
+    setModalOpen(false); setEditing(null); setNoteShop('')
+  }, [scopeKey])
   const titleRef    = useRef<HTMLInputElement>(null)
   const contentRef  = useRef<HTMLTextAreaElement>(null)
   // Both title and content are uncontrolled — avoids Android IME re-render interrupting suggestions
@@ -119,12 +135,15 @@ export default function NotesPage() {
   useRefetchOnReconnect(fetchNotes, isOnline)
   const shopLoadTimedOut = useShopLoadTimeout(effectiveShopIds.length)
 
-  const openCreate = () => {
+  const openCreate = async () => {
+    // Boutique de l'en-tête, ou choisie en « Toutes » (jamais la boutique active cachée ni la première de la liste)
+    const picked = await scope.requireOneShop({ title: t('pick_shop_title'), eligible: x => canWriteIn(x.id, 'notes') })
+    if (!picked) return
     setEditing(null)
     contentValueRef.current = ''
     setColor('default')
     setPinned(false)
-    setNoteShop(shop?.id ?? effectiveShopIds[0] ?? '')
+    setNoteShop(picked.id)
     setModalOpen(true)
     setTimeout(() => {
       if (titleRef.current) titleRef.current.value = ''
@@ -164,8 +183,10 @@ export default function NotesPage() {
       supabase.auth.refreshSession(),
       new Promise(r => setTimeout(r, 3_000)),
     ]).catch(() => {})
+    if (!editing && !noteShop) { setSaving(false); return }
     const payload = {
-      shop_id: noteShop,
+      // Modification : la boutique ne change jamais (D6) — seule une création la fixe
+      ...(editing ? {} : { shop_id: noteShop }),
       owner_id: profile!.id,
       title: currentTitle.trim() || null,
       content: currentContent.trim(),
@@ -247,8 +268,6 @@ export default function NotesPage() {
           />
         </div>
 
-        <ShopSelector variant="compact" className="w-auto" />
-
         <Button variant="stockshop" onClick={openCreate} className="gap-2 shrink-0">
           <Plus className="h-4 w-4" />
           {t('new_note')}
@@ -256,6 +275,8 @@ export default function NotesPage() {
       </div>
 
       {/* Loading */}
+      {scope.isAllShops && scope.multiShop && <div><ShopScopeBadge /></div>}
+
       {loading && shopLoadTimedOut && effectiveShopIds.length === 0 && <LoadErrorFallback />}
       {loading && !(shopLoadTimedOut && effectiveShopIds.length === 0) && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -354,20 +375,12 @@ export default function NotesPage() {
               </div>
             </div>
 
-            {/* Shop + Pin row */}
+            {/* Boutique de la note (rappel, non modifiable) + épinglage */}
             <div className="flex items-center gap-3">
               {userShops.length > 1 && (
-                <div className="flex-1">
+                <div className="flex-1" data-testid="note-shop">
                   <p className="text-xs text-muted-foreground mb-1">{t('shop_label')}</p>
-                  <select
-                    value={noteShop}
-                    onChange={e => setNoteShop(e.target.value)}
-                    className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  >
-                    {userShops.map(s => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
+                  <p className="text-sm font-medium">{shopName(editing ? editing.shop_id : noteShop)}</p>
                 </div>
               )}
 

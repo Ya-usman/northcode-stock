@@ -64,7 +64,7 @@ export function useShopPermissions() {
  * (la page fait ensuite choisir / filtrer la boutique, et chaque action est vérifiée sur la boutique réellement
  * utilisée). Pages pas encore adoptées : règle actuelle (boutique active), inchangée jusqu'à leur adoption.
  */
-export const SCOPE_ADOPTED_FEATURES: PermFeature[] = ['new_sale', 'customers', 'categories', 'suppliers']
+export const SCOPE_ADOPTED_FEATURES: PermFeature[] = ['new_sale', 'customers', 'categories', 'suppliers', 'expenses', 'notes']
 export function useNavAccess() {
   const { canAccess } = useRolePermissions()
   const { canAccessIn } = useShopPermissions()
