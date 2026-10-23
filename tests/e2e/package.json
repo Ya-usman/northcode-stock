@@ -1,0 +1,8 @@
+{
+  "name": "stockshop-e2e",
+  "private": true,
+  "description": "Tests navigateur StockShop (Playwright sur le Edge installé). Séparé des dépendances de l'application.",
+  "dependencies": {
+    "playwright-core": "^1.48.2"
+  }
+}

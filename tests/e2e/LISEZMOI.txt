@@ -1,0 +1,14 @@
+Tests navigateur StockShop (Playwright, sur le Edge installé). Dépendances séparées de l'application :
+  cd tests/e2e && npm install
+
+Lancer un test :
+  CAPTURE_BASE=http://localhost:3000 CAPTURE_EMAIL=<compte de test> node tests/e2e/<fichier>.js
+
+Protections permanentes (lib/capture.js) :
+- CAPTURE_BASE est obligatoire : aucune adresse par défaut.
+- Hors serveur local, CAPTURE_PROD_READONLY=1 est exigé (contrôle en ligne de pure lecture).
+- Toute écriture du navigateur (sauf l’ouverture de session) est bloquée et reçoit 204, en local comme en ligne.
+  Un test qui doit lire ce qui part déclare ses propres routes ; rien ne passe jusqu'au serveur.
+- Service worker bloqué : aucune vente hors ligne ne peut être synchronisée par un test.
+- Écritures réelles : uniquement Boutique Alpha, sur des objets « TEST », nettoyés par le parcours normal.
+- Marché Soleil (compte vitrine) : lecture seule.
