@@ -51,6 +51,8 @@ export interface Shop {
   trial_ends_at: string | null
   plan_expires_at: string | null
   country: string | null
+  /** Fuseau IANA de la boutique (migration 178) — SEULE source de la date métier ; absent avant la 178 */
+  timezone?: string | null
   billing_country: string | null
   role_permissions: Record<string, Record<string, boolean>> | null
   deleted_at: string | null

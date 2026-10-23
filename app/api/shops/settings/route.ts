@@ -5,6 +5,8 @@ import { getApiTranslator } from '@/lib/api/i18n'
 import { normalizeCurrency, currencyCodeForCountry } from '@/lib/saas/currencies'
 import { validateShopIdentity, isShopCodeTaken, SHOP_IDENTITY_FIELDS } from '@/lib/saas/shop-identity'
 import { resolveAccount, getAccountShopIds } from '@/lib/saas/team-quota'
+import { timezoneForShopUpdate } from '@/lib/api/shop-timezone'
+import { shopTimezoneErrorResponse } from '@/lib/api/stock-errors'
 
 const HOURS_FIELDS = ['hours_enabled', 'opening_time', 'closing_time', 'hours_manual_override'] as const
 
@@ -124,6 +126,24 @@ export async function PATCH(request: Request) {
       }
     }
 
+    // ── Fuseau horaire (migration 178) ─────────────────────────────────────
+    // Envoyé seul (Paramètres boutique) ou recalculé lors d'un changement de pays : toujours une zone IANA
+    // valable pour le pays (pays à fuseau unique → son fuseau ; plusieurs fuseaux → choix requis). La base
+    // applique la même règle (garde trg_shops_timezone_guard).
+    const timezoneSent = 'timezone' in rawUpdates
+    let timezoneBefore: string | null = null
+    if ('country' in updates || timezoneSent) {
+      const { data: cur } = await admin.from('shops').select('*').eq('id', shop_id).single()
+      timezoneBefore = cur?.timezone ?? null
+      const countryChanged = 'country' in updates && updates.country !== cur?.country
+      const tz = await timezoneForShopUpdate(admin, t, {
+        country: ('country' in updates ? updates.country : cur?.country) as string | null,
+        requested: rawUpdates.timezone, current: timezoneBefore, countryChanged, timezoneSent,
+      })
+      if (!tz.ok) return tz.response
+      Object.assign(updates, tz.values)
+    }
+
     // Les horaires ont besoin de l'état actuel : pour valider fermeture >
     // ouverture même si un seul des deux champs est envoyé dans cette
     // requête, et pour ne journaliser que si l'un des 4 champs change
@@ -175,9 +195,24 @@ export async function PATCH(request: Request) {
 
     const { error } = await admin.from('shops').update(updates).eq('id', shop_id)
     if (error) {
+      const tzErr = shopTimezoneErrorResponse(error, t)
+      if (tzErr) return NextResponse.json(tzErr.body, { status: tzErr.status })
       if ((error as any).code === '23505') return NextResponse.json({ error: t('shop_code_taken'), field: 'code' }, { status: 409 })
       if (touchesInfo && /column .* does not exist|schema cache/i.test(error.message)) return NextResponse.json({ error: t('migration_required') }, { status: 503 })
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    if ('timezone' in updates && updates.timezone !== timezoneBefore) {
+      await writeAuditLog({
+        action: 'shop.update_timezone',
+        shop_id,
+        actor_id: user.id,
+        actor_email: user.email,
+        target_id: shop_id,
+        target_type: 'shop',
+        metadata: { before: timezoneBefore, after: updates.timezone, country: updates.country ?? null },
+        ip: getClientIp(request),
+      })
     }
 
     if (touchesInfo && currentInfo) {

@@ -1,5 +1,6 @@
 'use client'
 
+import { deviceTimeZone } from '@/lib/time/time-zones'
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -145,7 +146,7 @@ export default function LoginPage({ params: { locale }, searchParams }: { params
     localStorage.setItem('auth_remember_me', data.rememberMe ? '1' : '0')
     sessionStorage.setItem('session_alive', '1')
     // Fire-and-forget — ne pas bloquer la navigation sur le cold start Vercel
-    fetch('/api/auth/set-role', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => {})
+    fetch('/api/auth/set-role', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-user-timezone': deviceTimeZone() ?? '' }, body: '{}' }).catch(() => {})
     // Utiliser la locale déjà connue — l'auth context la synchro depuis la DB en arrière-plan
     const preferredLocale = document.cookie.match(/NEXT_LOCALE=([^;]+)/)?.[1] || localStorage.getItem('NEXT_LOCALE') || locale
     localStorage.setItem('NEXT_LOCALE', preferredLocale)

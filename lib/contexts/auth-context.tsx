@@ -1,5 +1,6 @@
 'use client'
 
+import { deviceTimeZone } from '@/lib/time/time-zones'
 import { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { AuthChangeEvent, Session, User } from '@supabase/supabase-js'
@@ -257,7 +258,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (profile && !skipCache) {
       fetch('/api/auth/set-role', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-user-timezone': deviceTimeZone() ?? '' },
         body: '{}',
       }).catch(() => {})
     }
@@ -510,7 +511,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Update HttpOnly role cookie via server endpoint
     fetch('/api/auth/set-role', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-user-timezone': deviceTimeZone() ?? '' },
       body: JSON.stringify({ shop_id: shopId }),
     }).catch(() => {})
     setState(prev => {

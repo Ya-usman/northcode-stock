@@ -16,7 +16,10 @@ interface ProductCardProps {
   /** Prix effectif (promo lot ou produit comprise). */
   price: number
   stockVariant: StockVariant
+  /** Tout le stock en rayon est périmé : rien de vendable (migration 178) — carte grisée, badge « Stock périmé » */
   isExpired: boolean
+  /** Quantité VENDABLE affichée (physique − part périmée) ; absente = quantité physique */
+  sellableQty?: number
   currencyCode: string
   favoriteLabel: string
   expiredLabel: string
@@ -34,7 +37,7 @@ interface ProductCardProps {
 // Sur un téléphone d'entrée de gamme, redessiner 50 cartes à chaque lettre
 // figeait l'écran ~360 ms (mesuré, CPU ralenti ×6).
 function ProductCardImpl({
-  product, price, stockVariant, isExpired, currencyCode, favoriteLabel, expiredLabel, reservedLabel,
+  product, price, stockVariant, isExpired, sellableQty, currencyCode, favoriteLabel, expiredLabel, reservedLabel,
   onAdd, onToggleFavorite, compact = false,
 }: ProductCardProps) {
   const unitLabel = useUnitLabel()
@@ -81,7 +84,10 @@ function ProductCardImpl({
       tabIndex={0}
       onClick={() => onAdd(product)}
       onKeyDown={onKeyDown}
-      className="relative flex flex-col items-stretch text-left rounded-lg border bg-card overflow-hidden hover:border-stockshop-blue hover:bg-stockshop-blue-muted dark:hover:border-blue-500 dark:hover:bg-blue-950/40 transition-colors tap-target cursor-pointer"
+      aria-disabled={isExpired || undefined}
+      data-expired-only={isExpired ? '' : undefined}
+      className={cn('relative flex flex-col items-stretch text-left rounded-lg border bg-card overflow-hidden transition-colors tap-target',
+        isExpired ? 'cursor-not-allowed opacity-60 grayscale' : 'cursor-pointer hover:border-stockshop-blue hover:bg-stockshop-blue-muted dark:hover:border-blue-500 dark:hover:bg-blue-950/40')}
       style={categoryColor ? { borderTopColor: categoryColor, borderTopWidth: 3 } : undefined}
     >
       {star}
@@ -89,7 +95,7 @@ function ProductCardImpl({
         <ProductThumbnail src={product.image_url} alt={product.name} className="w-full aspect-square rounded-none border-0" iconClassName="h-1/3 w-1/3" />
         {/* Stock en pastille sur l'image (téléphone) — libère une ligne de texte */}
         <Badge variant={stockVariant} className="md:hidden absolute bottom-1 left-1 text-[10px] px-1.5 py-0 leading-4">
-          {product.quantity}
+          {sellableQty ?? product.quantity}
         </Badge>
       </div>
       <div className="flex flex-col p-1.5 md:p-2.5">
@@ -115,7 +121,7 @@ function ProductCardImpl({
             <span className="text-[13px] md:text-sm font-bold text-stockshop-blue dark:text-blue-400">{formatCurrency(product.selling_price, currencyCode)}</span>
           )}
           <Badge variant={stockVariant} className="hidden md:inline-flex text-[10px] px-1.5">
-            {product.quantity} {unitLabel(product.unit, product.quantity)}
+            {sellableQty ?? product.quantity} {unitLabel(product.unit, sellableQty ?? product.quantity)}
           </Badge>
         </div>
       </div>

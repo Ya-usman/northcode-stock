@@ -8,6 +8,7 @@ import { resolveCurrencyCode } from '@/lib/saas/currencies'
 import { getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
 import { COUNTRIES, getCountry, getBillingCurrency, type CountryCode } from '@/lib/saas/countries'
 import { CountrySelect } from '@/components/ui/country-select'
+import { TimeZoneField, timeZoneForCountry, timeZoneError } from '@/components/shops/time-zone-field'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { ShopRestorePanel } from '@/components/admin/shop-restore-panel'
@@ -69,7 +70,10 @@ export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
   const [sendingNotif, setSendingNotif] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<'apercu' | 'facturation' | 'equipe' | 'activite' | 'notes' | 'danger'>('apercu')
-  const [editForm, setEditForm] = useState({ name: '', city: '', country: '', whatsapp: '', currency: '' })
+  const [editForm, setEditForm] = useState({ name: '', city: '', country: '', whatsapp: '', currency: '', timezone: '' })
+  // Fuseau d'origine (migration 178) : envoyé seulement s'il change
+  const [timezoneInitial, setTimezoneInitial] = useState('')
+  const [timezoneErr, setTimezoneErr] = useState<string | null>(null)
   const [savingEdit, setSavingEdit] = useState(false)
 
   const load = async () => {
@@ -100,11 +104,15 @@ export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
         country: data.shop.country || '',
         whatsapp: data.shop.whatsapp || '',
         currency: data.shop.currency || '',
+        timezone: timeZoneForCountry(data.shop.country, data.shop.timezone) ?? '',
       })
+      setTimezoneInitial(timeZoneForCountry(data.shop.country, data.shop.timezone) ?? '')
+      setTimezoneErr(null)
     }
   }, [data])
 
   const saveEdit = async () => {
+    if (timeZoneError(editForm.country, editForm.timezone)) { setTimezoneErr('Choisissez un fuseau horaire valable pour ce pays.'); return }
     setSavingEdit(true)
     try {
       const res = await withTimeout(fetch('/api/admin/shop-action', {
@@ -118,6 +126,7 @@ export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
           country: editForm.country || undefined,
           whatsapp: editForm.whatsapp !== '' ? editForm.whatsapp : undefined,
           currency: editForm.currency || undefined,
+          ...(editForm.timezone !== timezoneInitial || editForm.country !== (data?.shop?.country || '') ? { timezone: editForm.timezone || undefined } : {}),
         }),
       }))
       const json = await res.json()
@@ -730,10 +739,13 @@ export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
                     value={editForm.country as CountryCode || null}
                     onChange={code => {
                       const auto = COUNTRIES[code]?.currency || 'NGN' // code ISO (V3)
-                      setEditForm(f => ({ ...f, country: code, currency: auto }))
+                      setEditForm(f => ({ ...f, country: code, currency: auto, timezone: timeZoneForCountry(code, f.timezone) ?? '' }))
+                      setTimezoneErr(null)
                     }}
                   />
                 </div>
+                <TimeZoneField id="inspector-timezone" country={editForm.country} value={editForm.timezone}
+                  onChange={tz => { setEditForm(f => ({ ...f, timezone: tz })); setTimezoneErr(null) }} error={timezoneErr} />
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">WhatsApp (format international)</label>
                   <input

@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     const admin = await createAdminClient() as any
     const { data: shops, error: shopsError } = await admin
       .from('shops')
-      .select('id, name, expiry_alert_days, notify_push_expiry')
+      .select('*')   // toutes les colonnes : timezone (migration 178) sans casser avant son application
       .is('deleted_at', null)
       .eq('notify_push_expiry', true)
     if (shopsError) throw new Error(shopsError.message)

@@ -47,6 +47,8 @@ import { PRODUCT_PUBLIC_COLUMNS } from '@/lib/products/columns'
 import { SUPPLIER_PUBLIC_COLUMNS } from '@/lib/suppliers/columns'
 import { fetchCosts, withCosts } from '@/lib/costs/client'
 import { fetchExpiryByProduct, fetchExpiredQtyByProduct, availableQty, stockLevelOf, stockQuantities, fetchSoldQty30dForShops, readSignalsCache, shopRulesOf, writeSignalsCache } from '@/lib/stock/signals'
+import { shopToday } from '@/lib/stock/sellable'
+import { addDays } from '@/lib/stock/batch-status'
 import { fetchStockPipeline, type StockPipeline } from '@/lib/stock/pipeline'
 import { fetchReservedQtyByProduct } from '@/lib/stock/reservations'
 import { ProductThumbnail } from '@/components/stock/product-thumbnail'
@@ -521,18 +523,18 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     setArchivedProducts(prev => isActive ? prev.filter(p => p.id !== product.id) : upsert(prev))
   })
 
-  const todayStr = new Date().toISOString().slice(0, 10)
-  // Seuil par catégorie (catégorie.expiry_alert_days) si défini, sinon le
-  // réglage de la boutique — voir lib/utils/expiry.ts.
+  // Date métier de la boutique DU produit (shops.timezone, migration 178) — règle commune lib/stock/sellable ;
+  // seuil par catégorie (catégorie.expiry_alert_days) si défini, sinon le réglage de la boutique (lib/utils/expiry.ts).
+  const todayOf = (p: Product) => shopToday(shopById[p.shop_id] ?? shop)
   const getExpiryCutoffFor = (p: Product) => {
     const cat = categories.find(c => c.id === p.category_id)
     const alertDays = getExpiryAlertDays(cat?.expiry_alert_days, shopById[p.shop_id]?.expiry_alert_days ?? shop?.expiry_alert_days)
-    return new Date(Date.now() + alertDays * 86_400_000).toISOString().slice(0, 10)
+    return addDays(todayOf(p), alertDays)
   }
-  const isExpired = (p: Product) => { const exp = expiryByProduct[p.id]; return !!exp && exp < todayStr }
-  const isExpiringSoon = (p: Product) => { const exp = expiryByProduct[p.id]; return !!exp && exp >= todayStr && exp <= getExpiryCutoffFor(p) }
+  const isExpired = (p: Product) => { const exp = expiryByProduct[p.id]; return !!exp && exp < todayOf(p) }
+  const isExpiringSoon = (p: Product) => { const exp = expiryByProduct[p.id]; return !!exp && exp >= todayOf(p) && exp <= getExpiryCutoffFor(p) }
   const isDormant = (p: Product) => soldQtyLoaded && p.quantity > 0 && !(soldQtyByProduct[p.id] > 0)
-  // Niveau de stock jugé sur le disponible (physique − périmé − réservé) — règle commune lib/stock/signals
+  // Niveau de stock jugé sur le disponible (vendable − réservé ; expiredQtyByProduct = part NON VENDABLE) — lib/stock/signals
   const levelOf = (p: Product) => stockLevelOf(p, { shopRules: shopRulesOf(userShops), shopLowStockThreshold: shop?.low_stock_threshold, expiredQtyByProduct, reservedQtyByProduct })
   // Partagé produit/lot (les deux ont promo_price/promo_until) — un seul
   // endroit à faire évoluer quand promo_start (Étape 4) sera ajouté.
@@ -548,7 +550,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const suggestPromo = (p: Product): { price: number; until: string; reason: string; key: 'expiry' | 'dormant' } | null => {
     const exp = expiryByProduct[p.id]
     if (isExpiringSoon(p) && exp) {
-      const daysLeft = Math.round((new Date(exp).getTime() - new Date(todayStr).getTime()) / 86_400_000)
+      const daysLeft = Math.round((new Date(exp).getTime() - new Date(todayOf(p)).getTime()) / 86_400_000)
       const pct = daysLeft <= 3 ? 0.3 : daysLeft <= 7 ? 0.2 : 0.1
       const price = Math.max(1, Math.round(p.selling_price * (1 - pct)))
       return { price, until: exp, reason: t('products.promo_suggested_expiry', { days: daysLeft }), key: 'expiry' }
@@ -1185,14 +1187,14 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
   const renderProductCard = (product: Product, idx: number) => {
     const threshold = product.low_stock_threshold || shopById[product.shop_id]?.low_stock_threshold || shop?.low_stock_threshold || 10
-    // Disponible = physique − périmé − réservé (lib/stock/signals)
+    // Disponible = vendable − réservé (expiredQtyByProduct = part non vendable, lib/stock/signals)
     const cardExpired = Math.min(product.quantity, expiredQtyByProduct[product.id] || 0)
     const cardReserved = reservedQtyByProduct[product.id] || 0
     const cardAvailable = availableQty(product.quantity, cardExpired, cardReserved)
     const isSelected = selectedIds.has(product.id)
     const promoActive = isPromoActive(product)
     const expiry = expiryByProduct[product.id]
-    const expired = expiry ? expiry < todayStr : false
+    const expired = expiry ? expiry < todayOf(product) : false
     const expiringSoonBadge = expiry && !expired ? expiry <= getExpiryCutoffFor(product) : false
     return (
       <div
@@ -1439,7 +1441,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     expiryFor: (p: Product) => {
       const exp = expiryByProduct[p.id]
       if (!exp) return null
-      const expired = exp < todayStr
+      const expired = exp < todayOf(p)
       return { date: exp, expired, soon: !expired && exp <= getExpiryCutoffFor(p) }
     },
     isPromoActive,

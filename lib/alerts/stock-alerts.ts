@@ -3,6 +3,8 @@
 // quotidien groupé par propriétaire (cron owner-alerts). Serveur : client admin.
 
 import { getExpiryAlertDays } from '@/lib/utils/expiry'
+import { shopToday } from '@/lib/stock/sellable'
+import { addDays } from '@/lib/stock/batch-status'
 
 export interface LowStockItem { id: string; name: string; name_hausa: string | null; quantity: number; unit: string | null; threshold: number }
 export interface ExpiryItem { product_id: string; name: string; name_hausa: string | null; unit: string | null; quantity: number; expiry_date: string }
@@ -31,10 +33,11 @@ export async function getLowStockAlerts(admin: any, shop: { id: string; low_stoc
 /**
  * Lots périmés ou dans la fenêtre d'alerte (seuil de la catégorie, sinon de la
  * boutique, sinon 14 j), regroupés par produit : date la plus proche, quantités cumulées.
+ * Date métier de la BOUTIQUE (shops.timezone, migration 178), plus la date UTC du serveur.
  */
-export async function getExpiryAlerts(admin: any, shop: { id: string; expiry_alert_days?: number | null }, today = new Date()) {
+export async function getExpiryAlerts(admin: any, shop: { id: string; expiry_alert_days?: number | null; timezone?: string | null; country?: string | null }, today = new Date()) {
   const shopAlertDays = shop.expiry_alert_days ?? 14
-  const todayStr = today.toISOString().slice(0, 10)
+  const todayStr = shopToday(shop, today)
   const { data: batches } = await admin
     .from('product_batches')
     .select('product_id, quantity, expiry_date, products(name, name_hausa, unit, categories(expiry_alert_days))')
@@ -42,7 +45,7 @@ export async function getExpiryAlerts(admin: any, shop: { id: string; expiry_ale
   const grouped: Record<string, ExpiryItem> = {}
   for (const b of batches ?? []) {
     const alertDays = getExpiryAlertDays(b.products?.categories?.expiry_alert_days, shopAlertDays)
-    const cutoffStr = new Date(today.getTime() + alertDays * 86_400_000).toISOString().slice(0, 10)
+    const cutoffStr = addDays(todayStr, alertDays)
     if (b.expiry_date > cutoffStr) continue
     const p = b.products
     const existing = grouped[b.product_id]

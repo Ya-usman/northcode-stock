@@ -561,6 +561,9 @@
     "cart_empty": "Kwandon sayan ya fanko",
     "add_items": "Nemi kaya a sama domin ƙarawa",
     "expired_batch_warning": "Lodi ya ƙare",
+    "expired_stock_title": "{name}: kaya sun ƙare",
+    "expired_stock_desc": "Dukkan kayan da ke kan shiryayye wa’adinsu ya ƙare: ba za a iya sayar da wannan kaya ba. Cire ko gyara lodi a cikin Kaya › Lodi & ƙarewa.",
+    "expired_stock_badge": "Kaya sun ƙare",
     "expired_confirm_title": "Lodi ya ƙare",
     "expired_confirm_desc": "Lodin «{name}» na yanzu ya wuce ranar ƙarewarsa. Kana son sayar da shi duk da haka?",
     "expired_confirm_action": "Sayar duk da haka",
@@ -2151,6 +2154,7 @@
       "permissions_update": "An canza izinin matsayi",
       "shop_update_hours": "An canza lokutan aiki",
       "shop_update_info": "An canza bayanan shago",
+      "shop_update_timezone": "An canza yankin lokaci na shago",
       "shop_extend_hours": "An tsawaita lokutan aiki",
       "shop_update_logo": "An canza tambari",
       "entity_update": "An canza kasuwanci",
@@ -3566,6 +3570,11 @@
     "inventory_invalid_reason": "Ba a gane dalilin ba.",
     "po_product_wrong_shop": "Ɗaya daga cikin kayan ba na shagon wannan odar sayayya ba ne.",
     "sale_product_wrong_shop": "Ɗaya daga cikin kayan ba na shagon wannan sayarwa ba ne.",
+    "sale_sellable_insufficient": "{name}: babu isasshen kaya da za a iya sayarwa. {available, plural, =0 {Babu ko ɗaya da za a sayar} other {# ne kawai za a iya sayarwa}}, {non_sellable, plural, other {# ba za a sayar ba saboda wa’adinsu ya ƙare}}.",
+    "sale_stock_insufficient": "{name}: babu isasshen kaya ({available, plural, =0 {babu ko ɗaya a ajiye} other {# ne kawai a ajiye}}).",
+    "stock_this_product": "wannan kaya",
+    "shop_timezone_required": "Zaɓi yankin lokaci na shago: wannan ƙasar tana da yankuna da yawa.",
+    "shop_timezone_invalid": "Wannan yankin lokaci bai dace da ƙasar shago ba.",
     "sale_customer_wrong_shop": "Wannan abokin ciniki ba na shagon wannan sayarwa ba ne.",
     "price_product_wrong_shop": "Wannan kaya ba na wannan shago ba ne.",
     "permission_denied": "An hana izini",
@@ -4286,5 +4295,13 @@
     "pick_title": "A wane shago?",
     "pick_none": "Babu shagon da ya ba asusunka damar wannan aiki.",
     "shop_label": "Shago: {name}"
+  },
+  "time_zone": {
+    "label": "Yankin lokaci",
+    "choose": "Zaɓi yankin lokaci",
+    "hint_multi": "Wannan ƙasar tana da yankunan lokaci da yawa: zaɓi na shago. Shi ne ke ƙayyade kwanan wata na yau don ƙarewa da tallace-tallace.",
+    "hint_single": "Ƙasa ce ta ƙayyade shi. Shi ne ke ƙayyade kwanan wata na yau don ƙarewa da tallace-tallace.",
+    "required": "Zaɓi yankin lokaci na shago.",
+    "invalid": "Wannan yankin lokaci bai dace da ƙasar ba."
   }
 }

@@ -561,6 +561,9 @@
     "cart_empty": "Votre panier est vide",
     "add_items": "Recherchez et ajoutez des produits ci-dessus",
     "expired_batch_warning": "Lot périmé",
+    "expired_stock_title": "{name} : stock périmé",
+    "expired_stock_desc": "Tout le stock en rayon est périmé : ce produit ne peut pas être vendu. Retirez ou corrigez les lots dans Stock › Lots & péremptions.",
+    "expired_stock_badge": "Stock périmé",
     "expired_confirm_title": "Lot périmé",
     "expired_confirm_desc": "Le lot en cours de « {name} » a dépassé sa date de péremption. Voulez-vous le vendre quand même ?",
     "expired_confirm_action": "Vendre quand même",
@@ -2116,6 +2119,7 @@
       "permissions_update": "Droits par rôle modifiés",
       "shop_update_hours": "Horaires modifiés",
       "shop_update_info": "Informations de la boutique modifiées",
+      "shop_update_timezone": "Fuseau horaire de la boutique modifié",
       "shop_extend_hours": "Horaires prolongés",
       "shop_update_logo": "Logo modifié",
       "entity_update": "Entreprise modifiée",
@@ -3566,6 +3570,11 @@
     "inventory_invalid_reason": "Motif non reconnu.",
     "po_product_wrong_shop": "Un des produits n’appartient pas à la boutique de ce bon de commande.",
     "sale_product_wrong_shop": "Un des produits n’appartient pas à la boutique de cette vente.",
+    "sale_sellable_insufficient": "{name} : stock disponible à la vente insuffisant. {available, plural, =0 {Aucune unité disponible} one {# unité disponible} other {# unités disponibles}}, {non_sellable, plural, one {# unité non vendable car périmée} other {# unités non vendables car périmées}}.",
+    "sale_stock_insufficient": "{name} : stock insuffisant ({available, plural, =0 {aucune unité en stock} one {# unité en stock} other {# unités en stock}}).",
+    "stock_this_product": "ce produit",
+    "shop_timezone_required": "Choisissez le fuseau horaire de la boutique : ce pays en compte plusieurs.",
+    "shop_timezone_invalid": "Ce fuseau horaire ne correspond pas au pays de la boutique.",
     "sale_customer_wrong_shop": "Ce client n’appartient pas à la boutique de cette vente.",
     "price_product_wrong_shop": "Ce produit n’appartient pas à cette boutique.",
     "permission_denied": "Permission refusée",
@@ -4286,5 +4295,13 @@
     "pick_title": "Dans quelle boutique ?",
     "pick_none": "Aucune boutique ne permet cette action pour votre compte.",
     "shop_label": "Boutique : {name}"
+  },
+  "time_zone": {
+    "label": "Fuseau horaire",
+    "choose": "Choisissez le fuseau horaire",
+    "hint_multi": "Ce pays compte plusieurs fuseaux : choisissez celui de la boutique. Il fixe la date du jour pour les péremptions et les ventes.",
+    "hint_single": "Déterminé par le pays. Il fixe la date du jour pour les péremptions et les ventes.",
+    "required": "Choisissez le fuseau horaire de la boutique.",
+    "invalid": "Ce fuseau horaire ne correspond pas au pays."
   }
 }

@@ -16,6 +16,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CountryPickerList } from '@/components/ui/country-select'
 import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
+import { TimeZoneField, timeZoneForCountry, timeZoneError } from '@/components/shops/time-zone-field'
+import { isMultiTimeZoneCountry } from '@/lib/time/time-zones'
 import { useTheme } from '@/lib/hooks/use-theme'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { BrandLogo } from '@/components/brand/brand-logo'
@@ -50,6 +52,7 @@ const AppleIcon = () => (
 export default function RegisterPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('register')
   const tAuth = useTranslations('auth')
+  const tTz = useTranslations('time_zone')
   const router = useRouter()
   const { isDark, toggle } = useTheme()
 
@@ -60,6 +63,9 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
   const [countdown, setCountdown] = useState(0)
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [country, setCountry] = useState<CountryCode | null>(null)
+  // Fuseau de la boutique (migration 178) : choisi seulement pour un pays à plusieurs fuseaux
+  const [timezone, setTimezone] = useState<string | null>(null)
+  const [timezoneErr, setTimezoneErr] = useState<string | null>(null)
   const [emailSent, setEmailSent] = useState(false)
   const [sentToEmail, setSentToEmail] = useState('')
   const [resendLoading, setResendLoading] = useState(false)
@@ -172,11 +178,15 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
 
   const goStep3 = () => {
     if (!country) return
+    setTimezone(prev => timeZoneForCountry(country, prev))
+    setTimezoneErr(null)
     setStep(3)
   }
 
   const onSubmit = async (data: FormData) => {
     if (!country) return
+    const tzErr = timeZoneError(country, timezone)
+    if (tzErr) { setTimezoneErr(tTz(tzErr === 'required' ? 'required' : 'invalid')); return }
     setError('')
     setCountdown(0)
     try {
@@ -216,6 +226,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
           city: data.city,
           phone: data.phone || null,
           country,
+          timezone,
           referral_code: referralCode.trim() || null,
         }),
       }), 20_000, t('account_error_timeout'))
@@ -470,6 +481,11 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                     </div>
                     {errors.city && <p className="text-xs text-destructive">{errors.city.message}</p>}
                   </div>
+
+                  {isMultiTimeZoneCountry(country) && (
+                    <TimeZoneField id="register-timezone" country={country} value={timezone}
+                      onChange={tz => { setTimezone(tz); setTimezoneErr(null) }} error={timezoneErr} />
+                  )}
 
                   <div className="space-y-1.5">
                     <Label>{t('phone')} <span className="text-muted-foreground text-xs">({t('optional')})</span></Label>

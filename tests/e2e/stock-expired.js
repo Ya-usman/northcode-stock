@@ -1,4 +1,4 @@
-// Périmés : « Disponible » sans les lots périmés, confirmation en caisse. LECTURE SEULE : compilation locale, compte vitrine,
+// Périmés : « Disponible » sans les lots périmés, en caisse, périmé ≠ vendable (migration 178 : plus de confirmation pour forcer). LECTURE SEULE : compilation locale, compte vitrine,
 // écritures bloquées. Aucun lot du compte n'étant périmé aujourd'hui, le lot de « Pain de campagne » (20 unités) est présenté
 // comme périmé DANS LE NAVIGATEUR seulement (réponses interceptées) ; la base n'est pas touchée. Aucune vente n'est validée.
 // Usage : CAPTURE_BASE=http://localhost:3000 node stock-expired.js
@@ -29,7 +29,9 @@ async function open(locale, width, height, expiredQty = 20) {
     if (/expiry_date=lt\./.test(url)) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ product_id: PAIN, quantity: expiredQty }]) })
     const res = await route.fetch()
     let body = await res.text()
-    try { const j = JSON.parse(body); if (Array.isArray(j)) body = JSON.stringify(j.map(b => (b.product_id === PAIN && b.expiry_date ? { ...b, expiry_date: '2026-10-10' } : b))) } catch {}
+    // Lot de pain : daté dans le passé, et sa quantité = expiredQty (formule sellable_stock, migration 178 : le
+    // non-vendable se calcule à partir de tous les lots du produit, plus d'une requête « expiry_date < aujourd'hui »)
+    try { const j = JSON.parse(body); if (Array.isArray(j)) body = JSON.stringify(j.map(b => (b.product_id === PAIN && b.expiry_date ? { ...b, expiry_date: '2026-10-10', ...('quantity' in b ? { quantity: expiredQty } : {}) } : b))) } catch {}
     return route.fulfill({ response: res, body })
   })
   return s
@@ -137,21 +139,13 @@ const rupturesIs = (text, n) => new RegExp(`\\| ${n} \\| Ruptures`).test(text)
       // Produit sain : aucun message
       await card('Ananas').click(); await page.waitForTimeout(900)
       check('produit sans lot périmé : ajouté sans question', (await dialog()) === null && (await cartCount()) === 1, String(await dialog()))
-      // Produit périmé : question, puis « Annuler » n'ajoute rien
+      // Produit en partie périmé (78 en rayon, 20 périmés) : 58 vendables affichés, ajouté SANS question — seules les
+      // unités vendables entrent dans le panier ; jamais de « Vendre quand même » (périmé ≠ vendable, migration 178)
+      const painTxt = await card('Pain de campagne').innerText()
+      check('pain : 58 vendables affichés (pas 78)', /\b58\b/.test(painTxt) && !/\b78\b/.test(painTxt), painTxt.replace(/\n+/g, ' | '))
       await card('Pain de campagne').click(); await page.waitForTimeout(900)
-      let d = await dialog()
-      check('pain : la question « ' + w.title + ' » s\'affiche, avec le nom du produit', !!d && d.includes(w.title) && d.includes('Pain de campagne') && d.includes(w.desc) && d.includes(w.action), d)
-      if (locale === 'fr' && name !== 'ordinateur') await page.screenshot({ path: `${OUT}/fr-${width}-question.png` })
-      check('la question tient dans l\'écran', await page.evaluate(() => { const el = document.querySelector('[role="dialog"], [role="alertdialog"]'); if (!el) return false; const b = el.getBoundingClientRect(); return b.left >= 0 && b.right <= window.innerWidth + 1 && b.bottom <= window.innerHeight + 1 }))
-      await page.locator('[role="dialog"] button, [role="alertdialog"] button').filter({ hasText: w.cancel }).first().click(); await page.waitForTimeout(700)
-      check('« Annuler » : rien n\'est ajouté', (await dialog()) === null && (await cartCount()) === 1, String(await cartCount()))
-      // Redemandé, puis « Vendre quand même » ajoute
-      await card('Pain de campagne').click(); await page.waitForTimeout(900)
-      await page.locator('[role="dialog"] button, [role="alertdialog"] button').filter({ hasText: w.action }).first().click(); await page.waitForTimeout(900)
-      check('« ' + w.action + ' » : le produit est ajouté (pas de blocage)', (await dialog()) === null && (await cartCount()) === 2, String(await cartCount()))
-      // Même panier : plus de question
-      await card('Pain de campagne').click(); await page.waitForTimeout(900)
-      check('même panier : pas redemandé pour ce produit', (await dialog()) === null)
+      check('pain : ajouté sans question (unités vendables)', (await dialog()) === null && (await cartCount()) === 2, String(await dialog()))
+      check('aucun bouton « ' + w.action + ' » (forcer la vente d\'un périmé est impossible)', (await page.getByText(w.action).count()) === 0)
       check('aucune vente envoyée pendant le test', writes.length === 0, writes.join(' '))
       await browser.close()
     }

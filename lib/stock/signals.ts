@@ -2,6 +2,7 @@ import { withTimeout } from '@/lib/utils/with-timeout'
 import { getExpiryAlertDays } from '@/lib/utils/expiry'
 import { getPageCache, setPageCache } from '@/lib/offline/page-cache'
 import { addDays } from './batch-status'
+import { sellableStock, shopToday } from './sellable'
 
 // ── Cache local des signaux ────────────────────────────────────────────────
 // Partagé entre la Vue d'ensemble et Produits : la page qui a chargé les
@@ -13,7 +14,7 @@ import { addDays } from './batch-status'
 export interface CachedSignals {
   expiryByProduct?: Record<string, string>
   soldQtyByProduct?: Record<string, number>
-  /** Quantité des lots PÉRIMÉS encore en stock, par produit */
+  /** Quantité NON VENDABLE car périmée, par produit (formule sellable_stock, migration 178) */
   expiredQtyByProduct?: Record<string, number>
   /** Quantité RÉSERVÉE par les factures en attente, par produit — lib/stock/reservations */
   reservedQtyByProduct?: Record<string, number>
@@ -69,24 +70,47 @@ export function localToday(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-/** Quantité encore en stock dans des lots PÉRIMÉS (date strictement avant aujourd'hui), par produit. */
-export async function fetchExpiredQtyByProduct(supabase: Db, shopIds: string[], today: string = localToday()): Promise<Record<string, number>> {
-  const { data, error } = await withTimeout<any>(supabase
+/**
+ * Quantité NON VENDABLE car périmée, par produit (migration 178) : physique − sellable, avec la formule commune
+ * (lib/stock/sellable) et la date métier de la boutique DE CHAQUE produit (shops.timezone). Seuls les produits
+ * ayant au moins un lot périmé sont concernés (sans lot périmé, tout le physique est vendable).
+ */
+export async function fetchExpiredQtyByProduct(supabase: Db, shopIds: string[]): Promise<Record<string, number>> {
+  const { data: shops, error: shopErr } = await withTimeout<any>(supabase.from('shops').select('*').in('id', shopIds), 20_000)
+  if (shopErr) throw shopErr
+  const todayOf: Record<string, string> = {}
+  for (const sh of (shops || []) as { id: string; timezone?: string | null; country?: string | null }[]) todayOf[sh.id] = shopToday(sh)
+  const { data: dated, error } = await withTimeout<any>(supabase
     .from('product_batches')
-    .select('product_id, quantity')
+    .select('product_id, shop_id, expiry_date')
     .in('shop_id', shopIds)
     .gt('quantity', 0)
-    .lt('expiry_date', today), 20_000)
+    .not('expiry_date', 'is', null), 20_000)
   if (error) throw error
+  const candidates = Array.from(new Set(((dated || []) as { product_id: string; shop_id: string; expiry_date: string }[])
+    .filter(b => b.expiry_date < (todayOf[b.shop_id] ?? localToday())).map(b => b.product_id)))
   const map: Record<string, number> = {}
-  for (const b of (data || []) as { product_id: string; quantity: number }[]) map[b.product_id] = (map[b.product_id] || 0) + Number(b.quantity)
+  for (let i = 0; i < candidates.length; i += 200) {
+    const ids = candidates.slice(i, i + 200)
+    const [{ data: lots, error: e1 }, { data: prods, error: e2 }] = await Promise.all([
+      withTimeout<any>(supabase.from('product_batches').select('product_id, quantity, expiry_date').in('product_id', ids).gt('quantity', 0), 20_000),
+      withTimeout<any>(supabase.from('products').select('id, quantity, shop_id').in('id', ids), 20_000),
+    ])
+    if (e1) throw e1
+    if (e2) throw e2
+    const lotsOf: Record<string, { quantity: number; expiry_date: string | null }[]> = {}
+    for (const l of (lots || []) as { product_id: string; quantity: number; expiry_date: string | null }[]) (lotsOf[l.product_id] ||= []).push(l)
+    for (const pr of (prods || []) as { id: string; quantity: number; shop_id: string }[]) {
+      const st = sellableStock(pr.quantity, lotsOf[pr.id] || [], todayOf[pr.shop_id] ?? localToday())
+      if (st.nonSellable > 0) map[pr.id] = st.nonSellable
+    }
+  }
   return map
 }
 
 /**
- * Stock DISPONIBLE à la vente = physique − périmé − réservé (factures en
- * attente, lib/stock/reservations). Jamais négatif ; le périmé ne peut pas
- * dépasser le physique (un lot peut être en avance sur une correction de quantité).
+ * Stock DISPONIBLE affiché = physique − non vendable (périmé, formule sellable_stock) − réservé (factures en
+ * attente, lib/stock/reservations), soit lib/stock/sellable → availableAfterReservations. Jamais négatif.
  */
 export function availableQty(physical: number, expired: number | null | undefined, reserved: number | null | undefined = 0): number {
   const p = Math.max(0, Number(physical) || 0)
@@ -225,11 +249,11 @@ export interface StockProductLike {
 }
 
 /** Réglages d'une boutique utilisés par les règles de stock */
-export interface ShopStockRules { lowStockThreshold?: number | null; expiryAlertDays?: number | null }
+export interface ShopStockRules { lowStockThreshold?: number | null; expiryAlertDays?: number | null; timezone?: string | null; country?: string | null }
 
 /** Réglages par boutique (id → réglages), pour juger chaque produit avec ceux de SA boutique */
-export function shopRulesOf(shops: { id: string; low_stock_threshold?: number | null; expiry_alert_days?: number | null }[]): Record<string, ShopStockRules> {
-  return Object.fromEntries(shops.map(s => [s.id, { lowStockThreshold: s.low_stock_threshold ?? null, expiryAlertDays: s.expiry_alert_days ?? null }]))
+export function shopRulesOf(shops: { id: string; low_stock_threshold?: number | null; expiry_alert_days?: number | null; timezone?: string | null; country?: string | null }[]): Record<string, ShopStockRules> {
+  return Object.fromEntries(shops.map(s => [s.id, { lowStockThreshold: s.low_stock_threshold ?? null, expiryAlertDays: s.expiry_alert_days ?? null, timezone: s.timezone ?? null, country: s.country ?? null }]))
 }
 
 export interface StockRulesContext {
@@ -263,21 +287,27 @@ export function lowStockThresholdOf(p: { low_stock_threshold: number | null }, s
 const rulesFor = (p: { shop_id?: string | null }, ctx: { shopRules?: Record<string, ShopStockRules> }) =>
   (p.shop_id && ctx.shopRules?.[p.shop_id]) || null
 
+/** Date métier de la boutique DU produit (shops.timezone, migration 178) — une seule règle de péremption */
+export function todayFor(p: { shop_id?: string | null }, ctx: { today?: string; shopRules?: Record<string, ShopStockRules> }): string {
+  if (ctx.today) return ctx.today
+  const own = rulesFor(p, ctx)
+  return own ? shopToday(own) : localToday()
+}
+
 export function expiryCutoffFor(p: { category_id: string | null; shop_id?: string | null }, ctx: StockRulesContext): string {
   const own = rulesFor(p, ctx)
   const alertDays = getExpiryAlertDays(ctx.categoryAlertDays?.[p.category_id || ''], own ? own.expiryAlertDays : ctx.shopExpiryAlertDays)
-  // Jours calendaires du téléphone, comme les lots (lib/stock/batch-status) : une seule règle de péremption
-  return addDays(ctx.today ?? localToday(), alertDays)
+  return addDays(todayFor(p, ctx), alertDays)
 }
 
-export function isExpired(p: { id: string }, ctx: StockRulesContext): boolean {
+export function isExpired(p: { id: string; shop_id?: string | null }, ctx: StockRulesContext): boolean {
   const exp = ctx.expiryByProduct[p.id]
-  return !!exp && exp < (ctx.today ?? localToday())
+  return !!exp && exp < todayFor(p, ctx)
 }
 
 export function isExpiringSoon(p: { id: string; category_id: string | null; shop_id?: string | null }, ctx: StockRulesContext): boolean {
   const exp = ctx.expiryByProduct[p.id]
-  const today = ctx.today ?? localToday()
+  const today = todayFor(p, ctx)
   return !!exp && exp >= today && exp <= expiryCutoffFor(p, ctx)
 }
 

@@ -16,6 +16,7 @@ import { RequiredMark } from '@/components/ui/input-group'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CountrySelect } from '@/components/ui/country-select'
+import { TimeZoneField, timeZoneForCountry, timeZoneError } from '@/components/shops/time-zone-field'
 import { useToast } from '@/components/ui/use-toast'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { currencySymbol, currencyCodeForCountry } from '@/lib/saas/currencies'
@@ -29,7 +30,7 @@ const PhoneInput = dynamic(() => import('@/components/ui/phone-input').then(m =>
   loading: () => <div className="h-10 w-full animate-pulse rounded-md border border-input bg-muted/40" />,
 })
 
-type Field = 'name' | 'code' | 'city' | 'address' | 'phone' | 'email'
+type Field = 'name' | 'code' | 'city' | 'address' | 'phone' | 'email' | 'timezone'
 
 interface Props {
   open: boolean
@@ -52,6 +53,8 @@ export function ShopFormDrawer({ open, onOpenChange, shop, onSaved }: Props) {
     phone: (shop as any)?.phone ?? '',
     email: (shop as any)?.email ?? '',
     country: (shop?.country || activeShop?.country || 'NG') as CountryCode,
+    // Fuseau horaire (migration 178) : celui de la boutique, sinon la proposition pour le pays
+    timezone: timeZoneForCountry(shop?.country || activeShop?.country || 'NG', shop?.timezone) ?? '',
   }), [shop?.id, open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [values, setValues] = useState(initial)
@@ -71,6 +74,8 @@ export function ShopFormDrawer({ open, onOpenChange, shop, onSaved }: Props) {
     const identity = validateShopIdentity({ code: values.code, address: values.address, phone: values.phone, email: values.email })
     for (const [f, key] of Object.entries(identity.errors)) e[f as Field] = t(`api_errors.${key}` as any)
     if (values.phone && !phoneValid) e.phone = t('api_errors.shop_phone_invalid')
+    const tzErr = timeZoneError(values.country, values.timezone)
+    if (tzErr) e.timezone = t(tzErr === 'required' ? 'api_errors.shop_timezone_required' : 'api_errors.shop_timezone_invalid')
     setErrors(e)
     if (Object.values(e).some(Boolean)) return
 
@@ -79,6 +84,8 @@ export function ShopFormDrawer({ open, onOpenChange, shop, onSaved }: Props) {
       const body = {
         name: values.name.trim(), city: values.city.trim(),
         code: values.code, address: values.address, phone: values.phone, email: values.email,
+        // Fuseau : toujours à la création ; en modification, seulement s'il change
+        ...(!editing || values.timezone !== initial.timezone ? { timezone: values.timezone || null } : {}),
       }
       const res = await withTimeout(fetch(editing ? '/api/shops/settings' : '/api/shops', {
         method: editing ? 'PATCH' : 'POST',
@@ -87,7 +94,7 @@ export function ShopFormDrawer({ open, onOpenChange, shop, onSaved }: Props) {
       }))
       const json = await res.json().catch(() => ({}))
       if (!res.ok) {
-        if (json.field && ['code', 'address', 'phone', 'email', 'name'].includes(json.field)) setErrors({ [json.field]: json.error })
+        if (json.field && ['code', 'address', 'phone', 'email', 'name', 'timezone'].includes(json.field)) setErrors({ [json.field]: json.error })
         else setServerError(json.error || t('errors.generic'))
         return
       }
@@ -147,10 +154,11 @@ export function ShopFormDrawer({ open, onOpenChange, shop, onSaved }: Props) {
           {!editing && (
             <div className="space-y-1.5">
               <Label>{t('shops.country')}</Label>
-              <CountrySelect value={values.country} onChange={c => setValues(x => ({ ...x, country: c as CountryCode }))} className="h-10" />
+              <CountrySelect value={values.country} onChange={c => setValues(x => ({ ...x, country: c as CountryCode, timezone: timeZoneForCountry(c, x.timezone) ?? '' }))} className="h-10" />
               <p className="text-[11px] text-muted-foreground">{t('shops.currency')} : {currencySymbol(currencyCodeForCountry(values.country))}</p>
             </div>
           )}
+          <TimeZoneField country={values.country} value={values.timezone} onChange={set('timezone')} error={errors.timezone} />
         </DrawerSection>
         <DrawerSection title={t('shops.section_address')}>
           <div className="grid gap-3 sm:grid-cols-2">

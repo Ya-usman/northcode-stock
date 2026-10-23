@@ -18,6 +18,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
 import { CountrySelect } from '@/components/ui/country-select'
+import { TimeZoneField, timeZoneForCountry, timeZoneError } from '@/components/shops/time-zone-field'
 import { resolveCurrencyCode, currencySymbol } from '@/lib/saas/currencies'
 import { useToast } from '@/components/ui/use-toast'
 import { isPushSupported, subscribeToPush, unsubscribeFromPush, getPushPermission } from '@/lib/push'
@@ -85,6 +86,10 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
   const [country, setCountry] = useState<CountryCode>('NG')
+  // Fuseau horaire de la boutique (migration 178) : envoyé seulement s'il change
+  const [timezone, setTimezone] = useState<string>('')
+  const [timezoneInitial, setTimezoneInitial] = useState<string>('')
+  const [timezoneErr, setTimezoneErr] = useState<string | null>(null)
   const [currency, setCurrency] = useState('')
   const [whatsapp, setWhatsapp] = useState('')
   // Identité imprimée sur les reçus et tickets (migration 149)
@@ -262,6 +267,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       setCity(shopData.city)
       setState(shopData.state)
       setCountry((shopData.country as CountryCode) || 'NG')
+      const tz0 = timeZoneForCountry(shopData.country || 'NG', shopData.timezone) ?? ''
+      setTimezone(tz0); setTimezoneInitial(tz0); setTimezoneErr(null)
       setCurrency(resolveCurrencyCode(shopData.currency, shopData.country))
       setWhatsapp(shopData.whatsapp || COUNTRIES[(shopData.country as CountryCode) || 'NG']?.phonePrefix.replace('+', '') || '')
       setReceiptTagline(shopData.receipt_tagline ?? '')
@@ -353,8 +360,11 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       toast({ title: t('settings.hours_invalid_range'), variant: 'destructive' })
       return
     }
+    const tzErr = timeZoneError(country, timezone)
+    if (tzErr) { setTimezoneErr(t(tzErr === 'required' ? 'api_errors.shop_timezone_required' : 'api_errors.shop_timezone_invalid')); return }
     setSaving(true)
     const updates = {
+      ...(timezone !== timezoneInitial || country !== shop.country ? { timezone: timezone || null } : {}),
       name: name.trim(),
       city,
       state,
@@ -388,7 +398,11 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
         body: JSON.stringify({ shop_id: shop.id, ...updates }),
       }))
       const json = await res.json()
-      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      if (!res.ok) {
+        if (json.field === 'timezone') setTimezoneErr(json.error)
+        toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return
+      }
+      if ('timezone' in updates) setTimezoneInitial(timezone)
       // Update local state immediately
       setShop(prev => prev ? { ...prev, ...updates } : prev)
       // Sync the global auth context — patchShop is the source of truth here
@@ -609,6 +623,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                       }
                       setCountry(code)
                       setCurrency(COUNTRIES[code]?.currency || 'NGN')
+                      setTimezone(prev => timeZoneForCountry(code, prev) ?? '')
+                      setTimezoneErr(null)
                     }}
                   />
                   <p className="text-xs text-muted-foreground">{t('settings.display_and_currency')}</p>
@@ -622,6 +638,11 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                   </div>
                   <p className="text-xs text-muted-foreground">{t('settings.currency_auto_hint')}</p>
                 </div>
+              </div>
+
+              <div className="sm:max-w-sm">
+                <TimeZoneField id="settings-timezone" country={country} value={timezone}
+                  onChange={tz => { setTimezone(tz); setTimezoneErr(null) }} error={timezoneErr} />
               </div>
 
               {/* Identité imprimée sur les reçus et tickets (migration 149) */}

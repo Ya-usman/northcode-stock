@@ -45,6 +45,7 @@ import { receiptLabelsFromT } from '@/lib/receipt/receipt-labels'
 import { sharePDFNative, isCapacitor } from '@/lib/utils/native-share'
 import type { Product, Customer, CartItem, Sale, SaleItem, Category } from '@/lib/types/database'
 import dynamic from 'next/dynamic'
+import { sellableStock, availableAfterReservations, isLotExpired, shopToday, type LotQty } from '@/lib/stock/sellable'
 import { cacheProducts, getCachedProducts, cacheCustomers, getCachedCustomers, savePendingSale, savePendingCustomerPayment, type PendingSalePayment } from '@/lib/offline/db'
 import { allocateCheckout, outstandingDebt } from '@/lib/utils/checkout-allocation'
 import { revalidateHeldCart, heldAgeDays, HELD_STALE_DAYS, type HeldCartChange } from '@/lib/utils/held-sales'
@@ -224,17 +225,14 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [products, setProducts] = useState<Product[]>([])
   const [frontBatchPromo, setFrontBatchPromo] = useState<Record<string, { price: number; until: string; start: string | null }>>({})
-  // Lot le plus proche de la péremption (FEFO) déjà périmé → la prochaine
-  // vente de ce produit y puisera forcément en premier. Purement informatif
-  // (voir plafond de crédit) : jamais bloquant, la vente reste possible.
-  const [frontBatchExpired, setFrontBatchExpired] = useState<Record<string, boolean>>({})
-  // Lot périmé : confirmation avant l'ajout au panier (jamais de blocage). Une fois confirmé, le produit
-  // n'est plus redemandé tant que le panier n'est pas vidé. Références : l'ajout vient aussi du scan,
-  // dont la fonction garde l'état du rendu où elle a été créée.
-  const frontBatchExpiredRef = useRef<Record<string, boolean>>({})
-  frontBatchExpiredRef.current = frontBatchExpired
-  const expiredConfirmedRef = useRef<Set<string>>(new Set())
-  const [expiredPrompt, setExpiredPrompt] = useState<Product | null>(null)
+  // Lots en stock par produit (quantité, péremption) → stock VENDABLE (migration 178, lib/stock/sellable) :
+  // un lot périmé n'est JAMAIS vendable (plus de confirmation pour forcer). Gardés aussi dans le cache hors
+  // connexion. Référence : l'ajout vient aussi du scan, dont la fonction garde l'état du rendu où elle a été créée.
+  const [lotsByProduct, setLotsByProduct] = useState<Record<string, LotQty[]>>({})
+  const lotsRef = useRef<Record<string, LotQty[]>>({})
+  lotsRef.current = lotsByProduct
+  /** Stock vendable d'un produit à la date métier de la boutique (physique − part périmée, formule sellable_stock) */
+  const sellableOf = (product: Product) => sellableStock(Number(product.quantity), lotsRef.current[product.id] || [], shopToday(shop))
   const [categories, setCategories] = useState<Category[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   // Tour guidé « Faire une vente » : un article vient d'entrer dans le panier
@@ -376,6 +374,7 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
           : undefined,
       })) as unknown as Product[]
       setProducts(shaped)
+      setLotsByProduct(Object.fromEntries(cachedProds.map((p: any) => [p.id, Array.isArray(p.lots) ? p.lots : []])))
     }
     if (cachedCusts.length > 0) setCustomers(cachedCusts as unknown as Customer[])
 
@@ -397,7 +396,7 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
         supabase.from('customers').select('*').eq('shop_id', shop.id).order('name'),
         supabase.from('categories').select('*').eq('shop_id', shop.id).order('name'),
         supabase.from('product_batches')
-          .select('product_id, expiry_date, received_at, promo_price, promo_until, promo_start')
+          .select('product_id, quantity, expiry_date, received_at, promo_price, promo_until, promo_start')
           .eq('shop_id', shop.id).gt('quantity', 0)
           .order('expiry_date', { ascending: true, nullsFirst: false })
           .order('received_at', { ascending: true }),
@@ -416,21 +415,20 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
       setCustomers((custs || []) as Customer[])
       setCategories((cats || []) as Category[])
 
-      // Le premier lot rencontré par produit (déjà trié FEFO ci-dessus) est
-      // celui qui sera vendu en premier — seul son prix promo compte pour
-      // la caisse, jamais celui d'un lot plus tardif.
+      // Le premier lot VENDABLE par produit (trié FEFO ci-dessus, lots périmés exclus — même règle que la
+      // base, migration 178) est celui qui sera vendu en premier : seul son prix promo compte pour la caisse.
       const frontSeen = new Set<string>()
       const promoMap: Record<string, { price: number; until: string; start: string | null }> = {}
-      const expiredMap: Record<string, boolean> = {}
-      const todayStr = new Date().toISOString().slice(0, 10)
+      const lotsMap: Record<string, LotQty[]> = {}
+      const today = shopToday(shop)
       for (const b of (batches || []) as any[]) {
-        if (frontSeen.has(b.product_id)) continue
+        ;(lotsMap[b.product_id] ||= []).push({ quantity: Number(b.quantity), expiry_date: b.expiry_date ?? null })
+        if (isLotExpired(b.expiry_date, today) || frontSeen.has(b.product_id)) continue
         frontSeen.add(b.product_id)
         if (b.promo_price && b.promo_until) promoMap[b.product_id] = { price: Number(b.promo_price), until: b.promo_until, start: b.promo_start ?? null }
-        if (b.expiry_date && b.expiry_date < todayStr) expiredMap[b.product_id] = true
       }
       setFrontBatchPromo(promoMap)
-      setFrontBatchExpired(expiredMap)
+      setLotsByProduct(lotsMap)
       // Refresh IndexedDB cache
       await Promise.all([
         cacheProducts(shop.id, safeProds.map((p: any) => ({
@@ -441,6 +439,7 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
           category_name: p.categories?.name ?? null,
           category_color: p.categories?.color ?? null,
           is_favorite: !!p.is_favorite,
+          lots: lotsMap[p.id] || [],
         }))),
         cacheCustomers(shop.id, (custs || []).map((c: any) => ({
           id: c.id, shop_id: shop.id, name: c.name,
@@ -586,8 +585,6 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
     }
   }, [products, toast])
 
-  // Panier vidé (vente terminée, changement de boutique) : les confirmations « lot périmé » repartent de zéro
-  useEffect(() => { if (cart.length === 0) expiredConfirmedRef.current.clear() }, [cart.length])
   useEffect(() => { if (cart.length === 0) reservedWarnedRef.current.clear() }, [cart.length])
 
   // Stock déjà gardé pour une autre facture en attente : avertissement, une fois par produit et par
@@ -595,18 +592,22 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
   const warnIfReserved = (product: Product, wantedQty: number) => {
     const reserved = reservedRef.current[product.id] || 0
     if (!reserved || reservedWarnedRef.current.has(product.id)) return
-    const free = Math.max(0, Number(product.quantity) - reserved)
-    if (wantedQty <= free || wantedQty > Number(product.quantity)) return
+    const sellable = sellableOf(product).sellable
+    const free = availableAfterReservations(sellable, reserved)
+    if (wantedQty <= free || wantedQty > sellable) return
     reservedWarnedRef.current.add(product.id)
     toast({ title: t('sales.reserved_warning_title'), description: t('sales.reserved_warning_desc', { name: product.name, reserved, free }) })
   }
 
-  const addToCartById = (product: Product) => {
-    if (frontBatchExpiredRef.current[product.id] && !expiredConfirmedRef.current.has(product.id)) {
-      setExpiredPrompt(product)
-      return
+  /** Ajoute au panier ; false si refusé (rien de vendable) */
+  const addToCartById = (product: Product): boolean => {
+    // Périmé ≠ vendable (migration 178) : un produit dont tout le stock en rayon est périmé ne s'ajoute pas
+    if (sellableOf(product).sellable <= 0) {
+      toast({ title: t('sales.expired_stock_title', { name: product.name }), description: t('sales.expired_stock_desc'), variant: 'destructive' })
+      return false
     }
     addToCartNow(product)
+    return true
   }
 
   const addToCartNow = (product: Product) => {
@@ -614,8 +615,9 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
     setCart(prev => {
       const existing = prev.find(i => i.product.id === product.id)
       if (existing) {
-        if (existing.quantity >= product.quantity) {
-          toast({ title: t('toast.max_stock', { qty: product.quantity, unit: product.unit }), variant: 'destructive' })
+        const max = sellableOf(product).sellable
+        if (existing.quantity >= max) {
+          toast({ title: t('toast.max_stock', { qty: max, unit: product.unit }), variant: 'destructive' })
           return prev
         }
         return prev.map(i =>
@@ -630,7 +632,8 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
   }
 
   const addToCart = (product: Product) => {
-    addToCartById(product)
+    // Ajout refusé (stock périmé) : la recherche en cours est gardée
+    if (!addToCartById(product)) return
     setSearchQuery('')
     // Always blur active element to dismiss keyboard on Android/mobile
     ;(document.activeElement as HTMLElement)?.blur()
@@ -644,8 +647,9 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
         if (item.product.id !== productId) return item
         const newQty = item.quantity + delta
         if (newQty <= 0) return null
-        if (newQty > item.product.quantity) {
-          toast({ title: t('toast.max_stock', { qty: item.product.quantity, unit: item.product.unit }), variant: 'destructive' })
+        const max = sellableOf(item.product).sellable
+        if (newQty > max) {
+          toast({ title: t('toast.max_stock', { qty: max, unit: item.product.unit }), variant: 'destructive' })
           return item
         }
         return { ...item, quantity: newQty, subtotal: newQty * item.unit_price }
@@ -657,10 +661,10 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
   const setQtyDirect = (productId: string, qty: number) => {
     if (isNaN(qty) || qty < 1) return
     const line = cartRef.current.find(i => i.product.id === productId)
-    if (line) warnIfReserved(line.product, Math.min(qty, Number(line.product.quantity)))
+    if (line) warnIfReserved(line.product, Math.min(qty, sellableOf(line.product).sellable))
     setCart(prev => prev.map(item => {
       if (item.product.id !== productId) return item
-      const capped = Math.min(qty, item.product.quantity)
+      const capped = Math.min(qty, sellableOf(item.product).sellable)
       return { ...item, quantity: capped, subtotal: capped * item.unit_price }
     }))
   }
@@ -959,12 +963,14 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
   const favoriteProducts = products.filter(p => p.is_favorite)
   // Props primitives/stables pour les cartes mémoïsées.
   const favoriteLabel = t('sales.favorites_title')
-  const expiredLabel = t('sales.expired_batch_warning')
+  const expiredLabel = t('sales.expired_stock_badge')
   const lowStockThreshold = shop?.low_stock_threshold || 10
-  const stockVariantOf = (p: Product): StockVariant =>
-    p.quantity === 0 ? 'destructive'
-    : p.quantity <= ((p as any).low_stock_threshold || lowStockThreshold) ? 'warning'
-    : 'success'
+  const stockVariantOf = (p: Product): StockVariant => {
+    const q = sellableOf(p).sellable
+    return q === 0 ? 'destructive' : q <= ((p as any).low_stock_threshold || lowStockThreshold) ? 'warning' : 'success'
+  }
+  /** Rien de vendable alors qu'il en reste en rayon : tout le stock est périmé */
+  const expiredOnly = (p: Product) => { const st = sellableOf(p); return st.sellable === 0 && st.physical > 0 }
   // Section client dépliée (téléphone) dès qu'elle contient quelque chose.
   const customerOpen = showCustomer || !!selectedCustomer || !!customerName.trim() || !!customerPhone.trim()
   const showFavoritesRow = favoriteProducts.length > 0 && !searchQuery.trim()
@@ -1925,7 +1931,8 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
                 product={product}
                 price={effectivePrice(product, frontBatchPromo)}
                 stockVariant={stockVariantOf(product)}
-                isExpired={!!frontBatchExpired[product.id]}
+                isExpired={expiredOnly(product)}
+                sellableQty={sellableOf(product).sellable}
                 currencyCode={currencyCode}
                 favoriteLabel={favoriteLabel}
                 expiredLabel={expiredLabel}
@@ -1953,7 +1960,8 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
                   product={product}
                   price={effectivePrice(product, frontBatchPromo)}
                   stockVariant={stockVariantOf(product)}
-                  isExpired={!!frontBatchExpired[product.id]}
+                  isExpired={expiredOnly(product)}
+                  sellableQty={sellableOf(product).sellable}
                   currencyCode={currencyCode}
                   favoriteLabel={favoriteLabel}
                   expiredLabel={expiredLabel}
@@ -2093,12 +2101,6 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
                             <span className="rounded bg-amber-100 px-1 text-[10px] font-medium text-amber-600 dark:bg-amber-900/40 dark:text-amber-400">{t('payments.edited_badge')}</span>
                           )}
                         </button>
-                        {frontBatchExpired[item.product.id] && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-600 dark:bg-red-950/40 dark:text-red-400">
-                            <AlertTriangle className="h-3 w-3" />
-                            {t('sales.expired_batch_warning')}
-                          </span>
-                        )}
                       </div>
                       {/* Ligne 3 : − qté + groupés dans un seul bloc, sous-total à droite */}
                       <div className="flex items-center justify-between gap-2">
@@ -2114,7 +2116,7 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
                           <input
                             type="number"
                             min={1}
-                            max={item.product.quantity}
+                            max={sellableOf(item.product).sellable}
                             value={qtyInputs[item.product.id] ?? String(item.quantity)}
                             onChange={e => {
                               const raw = e.target.value
@@ -3048,20 +3050,6 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
           )}
         </PremiumDialogBody>
       </PremiumDialog>
-
-      {/* Lot périmé : on demande, on ne bloque pas */}
-      <ConfirmModal
-        open={!!expiredPrompt}
-        onOpenChange={open => { if (!open) setExpiredPrompt(null) }}
-        title={t('sales.expired_confirm_title')}
-        description={expiredPrompt ? t('sales.expired_confirm_desc', { name: expiredPrompt.name }) : ''}
-        tone="warning"
-        confirmLabel={t('sales.expired_confirm_action')}
-        onConfirm={() => {
-          if (expiredPrompt) { expiredConfirmedRef.current.add(expiredPrompt.id); addToCartNow(expiredPrompt) }
-          setExpiredPrompt(null)
-        }}
-      />
 
       {/* Vente encore en file et serveur injoignable : jamais de lien inactif */}
       <ConfirmModal

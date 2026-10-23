@@ -6,6 +6,7 @@ import { validateSale } from '@/lib/api/sale-validation'
 import { withServerCost, withoutCost } from '@/lib/api/sale-cost'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { saleStockErrorResponse } from '@/lib/api/stock-errors'
 
 // POST /api/sales/checkout — checkout atomique en ligne. Résout/crée le
 // client, insère vente + articles + paiement(s), renvoie la vente complète
@@ -74,7 +75,12 @@ export async function POST(request: Request) {
       p_due_date: due_date || null,
     })
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) {
+      // Stock physique (P0001) ou vendable (P0030, lots périmés exclus — migration 178) : message lisible
+      const stockErr = saleStockErrorResponse(error, items, t)
+      if (stockErr) return NextResponse.json(stockErr.body, { status: stockErr.status })
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
 
     // La vente est renvoyée pour le reçu, sans le coût d'achat de ses lignes
     return NextResponse.json({ success: true, ...data, ...(data?.sale ? { sale: withoutCost(data.sale) } : {}) })

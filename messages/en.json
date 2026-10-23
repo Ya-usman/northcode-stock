@@ -561,6 +561,9 @@
     "cart_empty": "Your cart is empty",
     "add_items": "Search and add products above",
     "expired_batch_warning": "Expired batch",
+    "expired_stock_title": "{name}: expired stock",
+    "expired_stock_desc": "All the stock on the shelf has expired: this product cannot be sold. Remove or correct the batches in Stock › Batches & expiry.",
+    "expired_stock_badge": "Expired stock",
     "expired_confirm_title": "Expired batch",
     "expired_confirm_desc": "The current batch of “{name}” is past its expiry date. Sell it anyway?",
     "expired_confirm_action": "Sell anyway",
@@ -2116,6 +2119,7 @@
       "permissions_update": "Role permissions changed",
       "shop_update_hours": "Opening hours changed",
       "shop_update_info": "Shop details changed",
+      "shop_update_timezone": "Shop time zone changed",
       "shop_extend_hours": "Opening hours extended",
       "shop_update_logo": "Logo changed",
       "entity_update": "Company changed",
@@ -3566,6 +3570,11 @@
     "inventory_invalid_reason": "Unknown reason.",
     "po_product_wrong_shop": "One of the products does not belong to this purchase order’s shop.",
     "sale_product_wrong_shop": "One of the products does not belong to this sale’s shop.",
+    "sale_sellable_insufficient": "{name}: not enough stock available for sale. {available, plural, =0 {No units available} one {# unit available} other {# units available}}, {non_sellable, plural, one {# unit cannot be sold because it has expired} other {# units cannot be sold because they have expired}}.",
+    "sale_stock_insufficient": "{name}: not enough stock ({available, plural, =0 {no units in stock} one {# unit in stock} other {# units in stock}}).",
+    "stock_this_product": "this product",
+    "shop_timezone_required": "Choose the shop’s time zone: this country has several.",
+    "shop_timezone_invalid": "This time zone does not match the shop’s country.",
     "sale_customer_wrong_shop": "This customer does not belong to this sale’s shop.",
     "price_product_wrong_shop": "This product does not belong to this shop.",
     "permission_denied": "Permission denied",
@@ -4286,5 +4295,13 @@
     "pick_title": "In which shop?",
     "pick_none": "None of your shops allows this action for your account.",
     "shop_label": "Shop: {name}"
+  },
+  "time_zone": {
+    "label": "Time zone",
+    "choose": "Choose the time zone",
+    "hint_multi": "This country has several time zones: choose the shop’s. It sets today’s date for expiry and sales.",
+    "hint_single": "Set by the country. It sets today’s date for expiry and sales.",
+    "required": "Choose the shop’s time zone.",
+    "invalid": "This time zone does not match the country."
   }
 }

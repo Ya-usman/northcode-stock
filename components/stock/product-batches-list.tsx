@@ -6,7 +6,9 @@ import type { Product } from '@/lib/types/database'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { dateLocaleTag } from '@/lib/i18n/date-format'
-import { isPromoActive, localToday } from '@/lib/stock/signals'
+import { isPromoActive } from '@/lib/stock/signals'
+import { shopToday } from '@/lib/stock/sellable'
+import { useAuthContext } from '@/lib/contexts/auth-context'
 
 // Lots d'un produit (quantité, origine, date de réception, péremption, promo
 // du lot) et leurs actions. UNE seule implémentation : c'est la section
@@ -35,11 +37,13 @@ export function ProductBatchesList({ product, batches: rawBatches, loading, canW
   const t = useTranslations()
   const locale = useLocale()
   const unitLabel = useUnitLabel()
+  const { userShops } = useAuthContext()
 
   if (loading) return <div className="space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
   if (batches.length === 0) return <p className="py-4 text-center text-sm text-muted-foreground">{t('products.no_batches')}</p>
 
-  const today = localToday()
+  // Date métier de la boutique DU produit (shops.timezone, migration 178)
+  const today = shopToday(userShops.find(s => s.id === (product as any)?.shop_id) ?? null)
   return (
     <div className="space-y-2" data-testid="batches-list">
       {batches.map((b: any) => {

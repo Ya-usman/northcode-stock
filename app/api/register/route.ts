@@ -9,6 +9,8 @@ import { getReferralConfig } from '@/lib/referrals/config'
 import { assessReferralRisk } from '@/lib/referrals/fraud'
 import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
 import { z } from 'zod'
+import { getApiTranslator } from '@/lib/api/i18n'
+import { timezoneForNewShop } from '@/lib/api/shop-timezone'
 
 const registerSchema = z.object({
   password: z.string().min(6),
@@ -19,6 +21,8 @@ const registerSchema = z.object({
   phone: z.string().max(20).optional().nullable(),
   country: z.string().length(2).optional(),
   referral_code: z.string().max(20).optional().nullable(),
+  // Fuseau IANA de la boutique (migration 178) : obligatoire pour un pays à plusieurs fuseaux
+  timezone: z.string().max(64).optional().nullable(),
 })
 
 export async function POST(request: Request) {
@@ -29,11 +33,15 @@ export async function POST(request: Request) {
     const body = await request.json()
     const validated = validateBody(registerSchema, body)
     if ('error' in validated) return validated.error
-    const { password, full_name, email, shop_name, city, phone, country, referral_code } = validated.data
+    const { password, full_name, email, shop_name, city, phone, country, referral_code, timezone } = validated.data
 
     const supabase = await createAdminClient() as any
 
     const countryConfig = getCountry(country || 'NG')
+
+    // Fuseau vérifié AVANT la création du compte : jamais de compte sans boutique (migration 178)
+    const tz = await timezoneForNewShop(supabase, getApiTranslator(request), countryConfig.code, timezone)
+    if (!tz.ok) return tz.response
 
     // Create the auth user server-side so the confirmation email only goes out
     // after shop + profile are successfully created (no orphan emails on failure).
@@ -88,6 +96,7 @@ export async function POST(request: Request) {
         country: countryConfig.code,
         billing_country: countryConfig.code,
         agent_id: agentId,
+        ...tz.values,
       } as any)
       .select('id')
       .single()

@@ -1,5 +1,6 @@
 'use client'
 
+import { deviceTimeZone } from '@/lib/time/time-zones'
 import { useEffect } from 'react'
 import { withTimeout } from '@/lib/utils/with-timeout'
 
@@ -75,7 +76,7 @@ async function handleOAuthUrl(url: string, locale: string) {
     // redirect below despite the .catch() suggesting it shouldn't.
     fetch('/api/auth/set-role', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-user-timezone': deviceTimeZone() ?? '' },
       body: '{}',
     }).catch(() => {})
 

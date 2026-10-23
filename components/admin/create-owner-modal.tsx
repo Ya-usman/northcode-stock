@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { useToast } from '@/components/ui/use-toast'
 import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
 import { CountrySelect } from '@/components/ui/country-select'
+import { TimeZoneField, timeZoneForCountry, timeZoneError } from '@/components/shops/time-zone-field'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import type { AdminTier } from '@/lib/api/require-admin'
 
@@ -23,7 +24,9 @@ export function CreateOwnerModal({ tier }: { tier: AdminTier }) {
     shop_name: '',
     city: '',
     country: 'NG',
+    timezone: 'Africa/Lagos',
   })
+  const [timezoneErr, setTimezoneErr] = useState<string | null>(null)
 
   const selectedCountry = COUNTRIES[form.country as keyof typeof COUNTRIES] || COUNTRIES.NG
 
@@ -31,13 +34,16 @@ export function CreateOwnerModal({ tier }: { tier: AdminTier }) {
     setForm(prev => ({ ...prev, [field]: e.target.value }))
 
   const reset = () => {
-    setForm({ full_name: '', email: '', shop_name: '', city: '', country: 'NG' })
+    setForm({ full_name: '', email: '', shop_name: '', city: '', country: 'NG', timezone: 'Africa/Lagos' })
+    setTimezoneErr(null)
     setOpen(false)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.email || !form.full_name || !form.shop_name) return
+    // Fuseau (migration 178) : obligatoire pour un pays à plusieurs fuseaux, toujours cohérent avec le pays
+    if (timeZoneError(form.country, form.timezone)) { setTimezoneErr('Choisissez le fuseau horaire de la boutique.'); return }
 
     setLoading(true)
     try {
@@ -50,6 +56,7 @@ export function CreateOwnerModal({ tier }: { tier: AdminTier }) {
           shop_name: form.shop_name.trim(),
           city: form.city.trim() || null,
           country: form.country,
+          timezone: form.timezone || null,
           // la devise est dérivée du pays côté serveur (code ISO — V3)
         }),
       }))
@@ -128,9 +135,12 @@ export function CreateOwnerModal({ tier }: { tier: AdminTier }) {
                 <label className="text-xs text-muted-foreground mb-1 block">Pays</label>
                 <CountrySelect
                   value={form.country as CountryCode}
-                  onChange={code => setForm(prev => ({ ...prev, country: code }))}
+                  onChange={code => { setForm(prev => ({ ...prev, country: code, timezone: timeZoneForCountry(code, prev.timezone) ?? '' })); setTimezoneErr(null) }}
                 />
               </div>
+
+              <TimeZoneField id="owner-timezone" country={form.country} value={form.timezone}
+                onChange={tz => { setForm(prev => ({ ...prev, timezone: tz })); setTimezoneErr(null) }} error={timezoneErr} />
 
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Ville</label>

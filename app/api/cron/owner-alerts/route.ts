@@ -32,7 +32,7 @@ export async function GET(request: Request) {
     const forcedLocale = dry ? params.get('locale') : null
 
     const { data: shops, error } = await admin.from('shops')
-      .select('id, name, entity_id, low_stock_threshold, expiry_alert_days, notify_email_low_stock, notify_email_expiry, created_at')
+      .select('*')   // toutes les colonnes : timezone (migration 178) sans casser avant son application
       .is('deleted_at', null).not('entity_id', 'is', null)
       .or('notify_email_low_stock.eq.true,notify_email_expiry.eq.true')
       .order('created_at', { ascending: true })

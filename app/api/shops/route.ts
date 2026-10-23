@@ -5,6 +5,8 @@ import { getShopLimit } from '@/lib/saas/team-quota'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { getOwnerShopIds } from '@/lib/api/shop-auth'
 import { validateShopIdentity, isShopCodeTaken } from '@/lib/saas/shop-identity'
+import { timezoneForNewShop } from '@/lib/api/shop-timezone'
+import { shopTimezoneErrorResponse } from '@/lib/api/stock-errors'
 
 export async function POST(request: Request) {
   const t = getApiTranslator(request)
@@ -94,6 +96,10 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: t('shop_code_taken'), field: 'code' }, { status: 409 })
       }
     }
+    // Fuseau de la boutique (migration 178) : obligatoire et cohérent avec le pays
+    const tz = await timezoneForNewShop(admin, t, country, body.timezone)
+    if (!tz.ok) return tz.response
+
     // Seules les valeurs renseignées sont envoyées : une création sans ces
     // champs reste possible même avant l'application de la migration 152.
     const identityValues = Object.fromEntries(Object.entries(identity.values).filter(([, v]) => v))
@@ -109,9 +115,12 @@ export async function POST(request: Request) {
       billing_country: country,
       low_stock_threshold: 10,
       tax_rate: 0,
+      ...tz.values,
     } as any).select().single()
 
     if (shopError || !shop) {
+      const tzErr = shopTimezoneErrorResponse(shopError, t)
+      if (tzErr) return NextResponse.json(tzErr.body, { status: tzErr.status })
       if ((shopError as any)?.code === '23505') return NextResponse.json({ error: t('shop_code_taken'), field: 'code' }, { status: 409 })
       return NextResponse.json({ error: shopError?.message ?? t('create_error') }, { status: 500 })
     }

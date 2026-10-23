@@ -5,6 +5,9 @@ import { getOwnerShopIds } from '@/lib/api/shop-auth'
 import { requireAdmin } from '@/lib/api/require-admin'
 import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
 import { normalizeCurrency, currencyCodeForCountry } from '@/lib/saas/currencies'
+import { getApiTranslator } from '@/lib/api/i18n'
+import { timezoneForShopUpdate } from '@/lib/api/shop-timezone'
+import { shopTimezoneErrorResponse } from '@/lib/api/stock-errors'
 
 export async function POST(request: Request) {
   try {
@@ -130,10 +133,26 @@ export async function POST(request: Request) {
         } else if (country !== undefined) {
           updates.currency = currencyCodeForCountry(country)
         }
+        // Fuseau horaire (migration 178) : même règle que Paramètres boutique — jamais un couple pays / fuseau
+        // incohérent ; pays à plusieurs fuseaux → fuseau à fournir (body.timezone)
+        if (country !== undefined || body.timezone !== undefined) {
+          const { data: cur } = await admin.from('shops').select('*').eq('id', shop_id).single()
+          const t = getApiTranslator(request)
+          const tz = await timezoneForShopUpdate(admin, t, {
+            country: country !== undefined ? country : cur?.country, requested: body.timezone, current: cur?.timezone ?? null,
+            countryChanged: country !== undefined && country !== cur?.country, timezoneSent: body.timezone !== undefined,
+          })
+          if (!tz.ok) return tz.response
+          Object.assign(updates, tz.values)
+        }
         if (Object.keys(updates).length === 0) {
           return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
         }
-        await admin.from('shops').update(updates).eq('id', shop_id)
+        const { error: editErr } = await admin.from('shops').update(updates).eq('id', shop_id)
+        if (editErr) {
+          const tzErr = shopTimezoneErrorResponse(editErr, getApiTranslator(request))
+          return NextResponse.json(tzErr ? tzErr.body : { error: editErr.message }, { status: tzErr ? tzErr.status : 500 })
+        }
         await writeAuditLog({ action: 'admin.edit_shop', shop_id, actor_id: user.id, actor_email: user.email, target_id: shop_id, target_type: 'shop', metadata: updates, ip: getClientIp(request) })
         return NextResponse.json({ success: true, message: 'Boutique mise à jour' })
       }

@@ -28,7 +28,7 @@ import { getExpiryAlertDays } from '@/lib/utils/expiry'
 import { generateReportPDFBlob } from '@/lib/utils/pdf'
 import { saveFile } from '@/lib/utils/save-file'
 import { batchExpiryStatus, compareBatchesForDisplay, fefoHeadIds, type BatchExpiryStatus } from '@/lib/stock/batch-status'
-import { localToday } from '@/lib/stock/signals'
+import { shopToday } from '@/lib/stock/sellable'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -146,15 +146,16 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
   useRefetchOnReconnect(() => fetchData(), isOnline)
   const shopLoadTimedOut = useShopLoadTimeout(effectiveShopIds.length)
 
-  const today = localToday()
+  // Date métier de la boutique DU LOT (shops.timezone, migration 178) — jamais celle de l'appareil
+  const todayOfShop = (shopId: string) => shopToday((shopById[shopId] as any) ?? shop)
   const multiShop = effectiveShopIds.length > 1
   // Périmètre réel (en-tête) pour les documents ; jamais le nom de la boutique active cachée
   const scope = useShopScope()
   const scopeTitle = scope.isAllShops ? t('scope.all_shops') : scope.shopName ?? ''
-  const shopById = useMemo(() => Object.fromEntries((userShops || []).map(s => [s.id, s])), [userShops])
+  const shopById = useMemo<Record<string, any>>(() => Object.fromEntries((userShops || []).map(s => [s.id, s])), [userShops])
   // Seuil « bientôt » : celui de la catégorie, sinon celui de la boutique DU LOT, sinon 14 jours
   const statusOf = (b: LotRow): BatchExpiryStatus =>
-    batchExpiryStatus(b.expiry_date, getExpiryAlertDays(b.products?.categories?.expiry_alert_days, (shopById[b.shop_id] as any)?.expiry_alert_days ?? shop?.expiry_alert_days), today)
+    batchExpiryStatus(b.expiry_date, getExpiryAlertDays(b.products?.categories?.expiry_alert_days, (shopById[b.shop_id] as any)?.expiry_alert_days ?? shop?.expiry_alert_days), todayOfShop(b.shop_id))
   const fefoHeads = useMemo(() => fefoHeadIds(batches), [batches])
 
   const currentStatus: StatusFilter = (STATUS_FILTERS as string[]).includes(statusFilter) ? statusFilter as StatusFilter : 'all'
@@ -412,7 +413,7 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
                         <td className="px-3 py-2">
                           {b.expiry_date ? (
                             <>
-                              <p className={cn('font-medium', countdownTone(status))} data-lot-countdown>{texts.countdown(b.expiry_date, today)}</p>
+                              <p className={cn('font-medium', countdownTone(status))} data-lot-countdown>{texts.countdown(b.expiry_date, todayOfShop(b.shop_id))}</p>
                               <p className="text-xs text-muted-foreground" data-lot-date>{texts.day(b.expiry_date)}</p>
                             </>
                           ) : <span className="text-muted-foreground">—</span>}
@@ -455,7 +456,7 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
                           <span className="text-sm font-semibold tabular-nums" data-lot-qty>{b.quantity} {unitLabel(p?.unit, b.quantity)}</span>
                           {b.expiry_date && (
                             <span className="min-w-0 text-right">
-                              <span className={cn('block text-sm font-medium', countdownTone(status))} data-lot-countdown>{texts.countdown(b.expiry_date, today)}</span>
+                              <span className={cn('block text-sm font-medium', countdownTone(status))} data-lot-countdown>{texts.countdown(b.expiry_date, todayOfShop(b.shop_id))}</span>
                               <span className="block text-xs text-muted-foreground" data-lot-date>{texts.day(b.expiry_date)}</span>
                             </span>
                           )}
@@ -479,7 +480,7 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
       <LotDetailDrawer
         lot={selected}
         status={selected ? statusOf(selected) : 'none'}
-        today={today}
+        today={selected ? todayOfShop(selected.shop_id) : shopToday(shop)}
         onClose={() => setSelectedId(null)}
         shopName={selected && userShops.length > 1 ? shopById[selected.shop_id]?.name : null}
         cost={selected && showValue && batchCosts && selected.id in batchCosts ? batchCosts[selected.id] : null}

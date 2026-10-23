@@ -4,6 +4,8 @@ import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { requireAdmin } from '@/lib/api/require-admin'
 import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
 import { currencyCodeForCountry } from '@/lib/saas/currencies'
+import { getApiTranslator } from '@/lib/api/i18n'
+import { timezoneForNewShop } from '@/lib/api/shop-timezone'
 
 // POST /api/admin/owner — créer un nouveau propriétaire depuis l'admin
 export async function POST(request: Request) {
@@ -23,6 +25,10 @@ export async function POST(request: Request) {
     const admin = createAdminClient() as any
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
 
+    // Fuseau de la boutique (migration 178), vérifié AVANT l'invitation : jamais de compte sans boutique
+    const tz = await timezoneForNewShop(admin, getApiTranslator(request), country || 'NG', body.timezone)
+    if (!tz.ok) return tz.response
+
     // 1. Inviter l'utilisateur (crée le compte auth et envoie l'email)
     const { data: invite, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
       redirectTo: `${appUrl}/fr/reset-password`,
@@ -41,6 +47,7 @@ export async function POST(request: Request) {
       billing_country: country || 'NG',
       currency: currencyCodeForCountry(country || 'NG'), // code ISO dérivé du pays (V3)
       owner_id: userId,
+      ...tz.values,
     }).select('id').single()
 
     if (shopErr) {

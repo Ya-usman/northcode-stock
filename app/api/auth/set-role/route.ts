@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { getCountry, detectCountryFromIso } from '@/lib/saas/countries'
+import { getCountry, detectCountryFromIso, COUNTRIES } from '@/lib/saas/countries'
+import { timezoneForNewShop } from '@/lib/api/shop-timezone'
+import { countryOfTimeZone } from '@/lib/time/time-zones'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
 
@@ -79,7 +81,21 @@ export async function POST(request: Request) {
       // OAuth d'origine. x-vercel-ip-country : présent directement quand cette route est
       // appelée depuis le navigateur (login page, app-layout) plutôt qu'en interne.
       const isoCountry = request.headers.get('x-user-country') || request.headers.get('x-vercel-ip-country')
-      const countryConfig = getCountry(detectCountryFromIso(isoCountry))
+      let countryConfig = getCountry(detectCountryFromIso(isoCountry))
+      // Fuseau de la boutique (migration 178) : celui de l'appareil (en-tête x-user-timezone, envoyé par
+      // l'application) s'il appartient au pays détecté ; sinon, s'il désigne sans ambiguïté UN seul pays pris en
+      // charge (géolocalisation IP erronée), ce pays ; sinon refus — jamais un fuseau déduit du seul pays
+      // quand celui-ci en compte plusieurs.
+      const deviceTz = request.headers.get('x-user-timezone')
+      let tz = await timezoneForNewShop(admin, t, countryConfig.code, deviceTz)
+      if (!tz.ok) {
+        const alt = countryOfTimeZone(deviceTz)
+        if (alt && alt in COUNTRIES) {
+          countryConfig = getCountry(alt)
+          tz = await timezoneForNewShop(admin, t, countryConfig.code, deviceTz)
+        }
+      }
+      if (!tz.ok) return tz.response
       const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
 
       const { data: newShop, error: shopError } = await admin
@@ -92,6 +108,7 @@ export async function POST(request: Request) {
           currency: countryConfig.currency, // code ISO (V3)
           country: countryConfig.code,
           billing_country: countryConfig.code,
+          ...tz.values,
         })
         .select('id')
         .single()

@@ -20,6 +20,8 @@ export interface CachedProduct {
   // mount looks visually complete instead of briefly showing plain boxes
   // and no category color until the live fetch lands.
   image_url?: string | null
+  /** Lots en stock (quantité, péremption) : stock VENDABLE calculable hors connexion (migration 178) */
+  lots?: { quantity: number; expiry_date: string | null }[]
   category_name?: string | null
   category_color?: string | null
   // Rangée "Favoris" de Nouvelle vente — lecture seule hors-ligne (le

@@ -1,3 +1,4 @@
+import { sellableStock, shopToday } from '@/lib/stock/sellable'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
@@ -22,14 +23,6 @@ import { loadStockPipeline } from '@/lib/stock/pipeline-load'
 //     règle de /api/stock/reservations — rien n'est élargi ici.
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-/** Jour de l'appareil s'il est plausible (à un jour près de celui du serveur), sinon jour du serveur. */
-function resolveToday(param: string | null): string {
-  const server = new Date().toISOString().slice(0, 10)
-  if (!param || !/^\d{4}-\d{2}-\d{2}$/.test(param)) return server
-  const gap = Math.abs(new Date(param + 'T00:00:00Z').getTime() - new Date(server + 'T00:00:00Z').getTime())
-  return gap <= 86_400_000 ? param : server
-}
 
 export async function GET(request: Request) {
   const t = getApiTranslator(request)
@@ -61,17 +54,19 @@ export async function GET(request: Request) {
     if (productError) throw productError
     if (!product) return NextResponse.json({ error: t('invalid_data') }, { status: 404 })
 
-    const today = resolveToday(p.get('today'))
     const nowIso = new Date().toISOString()
-    const [expiredRes, reservationsRes, pipeline, sold, shopRes] = await Promise.all([
-      admin.from('product_batches').select('quantity').eq('product_id', productId).eq('shop_id', shopId).gt('quantity', 0).lt('expiry_date', today),
+    const [lotsRes, reservationsRes, pipeline, sold, shopRes] = await Promise.all([
+      admin.from('product_batches').select('quantity, expiry_date').eq('product_id', productId).eq('shop_id', shopId).gt('quantity', 0),
       admin.from('stock_reservations').select('id, quantity, source_ref, label, created_by, created_at, expires_at')
         .eq('shop_id', shopId).eq('product_id', productId).gt('expires_at', nowIso).order('created_at', { ascending: true }),
       loadStockPipeline(admin, { stockShops: [shopId], transferShops: seeTransfers ? [shopId] : [], orderShops: seeOrders ? [shopId] : [] }),
       fetchSoldQty30d(admin, [shopId], productId),
-      admin.from('shops').select('low_stock_threshold').eq('id', shopId).maybeSingle(),
+      admin.from('shops').select('*').eq('id', shopId).maybeSingle(),
     ])
-    if (expiredRes.error) throw expiredRes.error
+    if (lotsRes.error) throw lotsRes.error
+    // Date métier de la BOUTIQUE (shops.timezone, migration 178) — plus jamais celle de l'appareil ; part non
+    // vendable selon la formule commune sellable_stock (lib/stock/sellable)
+    const sellable = sellableStock(product.quantity, lotsRes.data || [], shopToday(shopRes.data))
     if (reservationsRes.error) throw reservationsRes.error
 
     const rows = (reservationsRes.data || []) as any[]
@@ -84,7 +79,7 @@ export async function GET(request: Request) {
 
     const quantities = stockQuantities({
       physical: product.quantity,
-      expired: (expiredRes.data || []).reduce((n: number, b: any) => n + Number(b.quantity), 0),
+      expired: sellable.nonSellable,
       reserved: rows.reduce((n, r) => n + Number(r.quantity), 0),
       inTransit: seeTransfers ? pipeline.byProduct[productId]?.inTransit ?? 0 : null,
       onOrder: seeOrders ? pipeline.byProduct[productId]?.onOrder ?? 0 : null,
@@ -128,7 +123,7 @@ export async function GET(request: Request) {
       sales: { sold30d, coverage: coverageInfo(quantities.physical - quantities.expired, sold30d) },
       purchase,
       permissions: { cost: canCost, release: canRelease },
-      today,
+      today: shopToday(shopRes.data),
     })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })

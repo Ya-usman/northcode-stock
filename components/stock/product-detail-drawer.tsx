@@ -19,7 +19,7 @@ import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { dateLocaleTag } from '@/lib/i18n/date-format'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { useOffline } from '@/lib/offline/use-offline'
-import { localToday, type CoverageInfo, type StockQuantities } from '@/lib/stock/signals'
+import { type CoverageInfo, type StockQuantities } from '@/lib/stock/signals'
 import { cn } from '@/lib/utils/cn'
 
 // Fiche détail d'un produit (étape 6 de la refonte Stock) : panneau latéral
@@ -116,7 +116,7 @@ export function ProductDetailDrawer({
     setFailed(false)
     try {
       const [d, m] = await Promise.all([
-        withTimeout(fetch(`/api/stock/product-detail?shop_id=${shopId}&product_id=${productId}&today=${localToday()}`), 20_000).then(async r => { if (!r.ok) throw new Error(String(r.status)); return r.json() }),
+        withTimeout(fetch(`/api/stock/product-detail?shop_id=${shopId}&product_id=${productId}`), 20_000).then(async r => { if (!r.ok) throw new Error(String(r.status)); return r.json() }),
         // Les mouvements ne doivent pas faire échouer la fiche : en cas d'échec, la section le dit
         withTimeout(fetch(`/api/stock/movements?shop_ids=${shopId}&product_id=${productId}&limit=10`), 20_000).then(r => (r.ok ? r.json() : null)).catch(() => null),
       ])

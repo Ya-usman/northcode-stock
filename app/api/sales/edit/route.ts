@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { saleStockErrorResponse } from '@/lib/api/stock-errors'
 import { canWriteFeature, isManagerial } from '@/lib/api/role-permissions'
 import { validateLinePrices } from '@/lib/api/sale-validation'
 import { customerOfShop, productsOutsideShop } from '@/lib/api/shop-objects'
@@ -93,7 +94,12 @@ export async function POST(request: Request) {
       p_items:          items,
     })
 
-    if (rpcErr) throw new Error(rpcErr.message)
+    if (rpcErr) {
+      // Augmentation au-delà du stock physique (P0001) ou vendable (P0030, migration 178) : message lisible
+      const stockErr = saleStockErrorResponse(rpcErr, items, t)
+      if (stockErr) return NextResponse.json(stockErr.body, { status: stockErr.status })
+      throw new Error(rpcErr.message)
+    }
 
     const row = Array.isArray(result) ? result[0] : result
 
