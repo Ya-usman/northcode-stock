@@ -1,14 +1,30 @@
 Tests navigateur StockShop (Playwright, sur le Edge installé). Dépendances séparées de l'application :
   cd tests/e2e && npm install
 
-Lancer un test :
-  CAPTURE_BASE=http://localhost:3000 CAPTURE_EMAIL=<compte de test> node tests/e2e/<fichier>.js
+Serveur local (compilation de production) :
+  NOTCHPAY_PUBLIC_KEY=pk_test_factice npm run build && NOTCHPAY_PUBLIC_KEY=pk_test_factice npx next start -p 3000
 
-Protections permanentes (lib/capture.js) :
+Lancer les suites courantes (l'une après l'autre, journaux dans tests/e2e/out/, résumé dans out/resume.log) :
+  bash tests/e2e/run-local.sh                  # suites par défaut
+  bash tests/e2e/run-local.sh stock-nav lots-ux   # suites choisies
+Les repères du compte vitrine (out/vitrine/) sont relus en base, en lecture seule, à chaque lancement.
+
+Contrôles en ligne après un push (lecture seule, Marché Soleil) : node tests/e2e/prod-smoke-<lot>.js
+
+Protections permanentes (lib/capture.js, lib/session.js) :
 - CAPTURE_BASE est obligatoire : aucune adresse par défaut.
 - Hors serveur local, CAPTURE_PROD_READONLY=1 est exigé (contrôle en ligne de pure lecture).
 - Toute écriture du navigateur (sauf l’ouverture de session) est bloquée et reçoit 204, en local comme en ligne.
   Un test qui doit lire ce qui part déclare ses propres routes ; rien ne passe jusqu'au serveur.
 - Service worker bloqué : aucune vente hors ligne ne peut être synchronisée par un test.
+- Horaires d'ouverture neutralisés dans le navigateur du test seulement (Boutique Alpha est fermée la nuit).
 - Écritures réelles : uniquement Boutique Alpha, sur des objets « TEST », nettoyés par le parcours normal.
-- Marché Soleil (compte vitrine) : lecture seule.
+- Marché Soleil (compte vitrine) : lecture seule. Il sert aussi aux démonstrations : ne jamais figer ses chiffres
+  dans un test, les relire en base.
+
+Tests à ÉCRITURE RÉELLE sur Boutique Alpha — exclus de run-local.sh, à lancer seulement sur accord explicite.
+Avec le blocage général, ils échouent tant qu'un mode d'écriture explicite (local + Alpha) n'existe pas :
+- inventory-v2      produits « TEST inv », inventaires réels (restent dans l'historique d'Alpha)
+- stock-reserved    réservations de stock d'Alpha (efface TOUTES les réservations d'Alpha au début et à la fin)
+- product-detail    idem pour les réservations
+- lot2-scope        partie B seulement (requêtes qui doivent être refusées par le serveur + bon de commande « TEST »)

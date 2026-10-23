@@ -21,10 +21,14 @@ if (!LOCAL && process.env.CAPTURE_PROD_READONLY !== '1') {
 }
 const REF = env.NEXT_PUBLIC_SUPABASE_URL.match(/https:\/\/([^.]+)\./)[1]
 const DOMAIN = new URL(BASE).hostname
+// Captures et sorties des tests : tests/e2e/out (ignoré par Git)
+const OUT = process.env.CAPTURE_OUT || path.join(__dirname, '..', 'out'); fs.mkdirSync(OUT, { recursive: true })
 const SECURE = BASE.startsWith('https')
 
-async function session({ width = 1366, height = 900, scale = 1, locale = 'fr', email = process.env.CAPTURE_EMAIL } = {}) {
-  if (!email) throw new Error('CAPTURE_EMAIL obligatoire')
+// Compte par défaut : démonstration Boutique Alpha (admin@northcode.ng). Marché Soleil : CAPTURE_EMAIL=ghislainx123@gmail.com.
+// mobile : par défaut, largeur < 900 px.
+async function session({ width = 1366, height = 900, scale = 1, locale = 'fr', email = process.env.CAPTURE_EMAIL || 'admin@northcode.ng', mobile } = {}) {
+  const isMobile = mobile === undefined ? width < 900 : !!mobile
   const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
   const anon = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false } })
   const { data: link, error: linkErr } = await admin.auth.admin.generateLink({ type: 'magiclink', email })
@@ -33,7 +37,7 @@ async function session({ width = 1366, height = 900, scale = 1, locale = 'fr', e
   if (error) throw new Error('connexion : ' + error.message)
   const value = 'base64-' + Buffer.from(JSON.stringify(data.session)).toString('base64url')
   const browser = await chromium.launch({ channel: 'msedge', headless: true })
-  const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: scale, isMobile: width < 900, hasTouch: true, serviceWorkers: 'block', locale: locale === 'fr' ? 'fr-FR' : 'en-US' })
+  const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: scale, isMobile, hasTouch: true, serviceWorkers: 'block', locale: locale === 'fr' ? 'fr-FR' : 'en-US', ...(process.env.CAPTURE_TZ ? { timezoneId: process.env.CAPTURE_TZ } : {}) })
   const parts = []; for (let i = 0; i < value.length; i += 3180) parts.push(value.slice(i, i + 3180))
   await ctx.addCookies([
     ...parts.map((p, i) => ({ name: `sb-${REF}-auth-token.${i}`, value: p, domain: DOMAIN, path: '/', secure: SECURE })),
@@ -45,6 +49,13 @@ async function session({ width = 1366, height = 900, scale = 1, locale = 'fr', e
   await page.route('**/*', async route => {
     const r = route.request(), url = r.url(), method = r.method()
     if (method === 'GET' && /\/rest\/v1\/announcements\?/.test(url)) return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    // Langue du profil remplacée par celle du test (dans ce navigateur seulement)
+    if (method === 'GET' && /\/rest\/v1\/profiles\?/.test(url)) {
+      const res = await route.fetch()
+      let body = await res.text()
+      try { const j = JSON.parse(body); const fix = x => (x && typeof x === 'object' && 'locale' in x ? { ...x, locale } : x); body = JSON.stringify(Array.isArray(j) ? j.map(fix) : fix(j)) } catch {}
+      return route.fulfill({ response: res, body })
+    }
     // Horaires d'ouverture neutralisés dans CE navigateur seulement (aucune écriture)
     if (method === 'GET' && /\/rest\/v1\/(shops|shop_members)\?/.test(url)) {
       const res = await route.fetch()
@@ -58,4 +69,4 @@ async function session({ width = 1366, height = 900, scale = 1, locale = 'fr', e
   return { browser, ctx, page }
 }
 
-module.exports = { session, BASE, LOCAL }
+module.exports = { session, BASE, LOCAL, OUT }
