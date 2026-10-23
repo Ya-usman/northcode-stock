@@ -44,7 +44,10 @@ const patches = s => s.writes.filter(w => !BACKGROUND(w) && w.method === 'PATCH'
 const inViewport = async (s, loc) => { const b = await loc.boundingBox(); const vh = s.page.viewportSize().height; return b && b.y >= 0 && b.y + b.height <= vh + 1 ? b : null }
 const scroll = (s, where) => s.page.evaluate(w => window.scrollTo(0, w === 'top' ? 0 : document.body.scrollHeight), where).then(() => s.page.waitForTimeout(300))
 
+const snapshot = async () => JSON.stringify((await db.from('entities').select('id, name, city, name_confirmed, updated_at').in('id', [ACCOUNTS.alpha.entity, ACCOUNTS.soleil.entity]).order('id')).data)
+
 ;(async () => {
+  const before = await snapshot()
   console.log('\n1. Ordinateur (1366 × 900) — Alpha, nom non confirmé')
   let s = await open({ width: 1366, height: 900, account: 'alpha' })
   ok(s.entity.name_confirmed === false, `état en base : nom « ${s.entity.name} » non confirmé`)
@@ -120,7 +123,8 @@ const scroll = (s, where) => s.page.evaluate(w => window.scrollTo(0, w === 'top'
     ok(text.width > banner.width * 0.7, `bandeau : texte sur toute la largeur (${Math.round(text.width)} px)`)
     await s.page.screenshot({ path: path.join(OUT, 'company-banner-mobile.png') })
   }
-  await s.page.locator('#entity-name').fill('Marché Soleil SARL')
+  const mobileName = `${s.entity.name} TEST`   // toujours différent du nom en place
+  await s.page.locator('#entity-name').fill(mobileName)
   const mbar = s.page.getByTestId('company-savebar')
   await mbar.waitFor({ timeout: 5000 })
   await scroll(s, 'top')
@@ -136,12 +140,11 @@ const scroll = (s, where) => s.page.evaluate(w => window.scrollTo(0, w === 'top'
   await s.page.screenshot({ path: path.join(OUT, 'company-savebar-mobile.png') })
   await s.page.getByTestId('company-save').click(); await s.page.waitForTimeout(1500)
   p = patches(s)
-  ok(p.length === 1 && JSON.stringify(p[0].body) === '{"name":"Marché Soleil SARL"}', `Enregistrer (barre) : envoi intercepté : ${p[0] && JSON.stringify(p[0].body)}`)
+  ok(p.length === 1 && JSON.stringify(p[0].body) === JSON.stringify({ name: mobileName }), `Enregistrer (barre) : envoi intercepté : ${p[0] && JSON.stringify(p[0].body)}`)
   ok(!s.errors.length, 'aucune erreur')
   await s.browser.close()
 
-  const after = (await db.from('entities').select('name, city, name_confirmed').in('id', [ACCOUNTS.alpha.entity, ACCOUNTS.soleil.entity])).data
-  ok(after.every(e => !/TEST|SARL/.test(`${e.name} ${e.city}`)), 'base inchangée : aucun nom ni ville de test enregistré')
+  ok(await snapshot() === before, 'base inchangée : nom, ville, confirmation et date de mise à jour identiques avant / après')
 
   console.log(`\n${pass} réussis, ${fail} échec(s)`); process.exit(fail ? 1 : 0)
 })().catch(e => { console.error('ERREUR', e.message); process.exit(1) })
