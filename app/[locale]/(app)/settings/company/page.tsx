@@ -84,8 +84,10 @@ export default function CompanySettingsPage() {
   }
   useEffect(() => { load() }, [shop?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const dirty = FIELDS.some(f => (values[f] ?? '') !== (initial[f] ?? ''))
+  const changed = FIELDS.filter(f => (values[f] ?? '') !== (initial[f] ?? ''))
+  const dirty = changed.length > 0
   const set = (f: Field) => (v: string) => { setValues(x => ({ ...x, [f]: v })); if (errors[f]) setErrors(e => ({ ...e, [f]: undefined })) }
+  const discard = () => { setValues(initial); setErrors({}) }
 
   const save = async (opts?: { confirmOnly?: boolean }) => {
     if (!shop?.id || !entity) return
@@ -182,9 +184,16 @@ export default function CompanySettingsPage() {
             <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">{t('entity.confirm_title')}</p>
             <p className="text-sm text-amber-800 dark:text-amber-300">{t('entity.confirm_body', { name: entity.name })}</p>
           </div>
-          <Button variant="stockshop" className="gap-2" loading={saving} disabled={dirty} onClick={() => save({ confirmOnly: true })} data-testid="company-confirm-name">
-            <CheckCircle2 className="h-4 w-4" />{t('entity.confirm_action')}
-          </Button>
+          {/* Sans modification : confirmer le nom tel quel ; après une modification : enregistrer directement d'ici */}
+          {dirty ? (
+            <Button variant="stockshop" className="gap-2" loading={saving} onClick={() => save()} data-testid="company-confirm-save">
+              <Save className="h-4 w-4" />{changed.length === 1 && changed[0] === 'name' ? t('entity.save_name') : t('entity.save_changes')}
+            </Button>
+          ) : (
+            <Button variant="stockshop" className="gap-2" loading={saving} onClick={() => save({ confirmOnly: true })} data-testid="company-confirm-name">
+              <CheckCircle2 className="h-4 w-4" />{t('entity.confirm_action')}
+            </Button>
+          )}
         </div>
       )}
 
@@ -295,10 +304,17 @@ export default function CompanySettingsPage() {
         </>
       ), undefined, 'company-subscription')}
 
-      {canEdit && (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t bg-background/95 px-4 py-3 backdrop-blur md:static md:border-0 md:bg-transparent md:p-0">
-          <div className="mx-auto flex max-w-3xl justify-end">
-            <Button variant="stockshop" className="h-11 w-full gap-2 md:w-auto" loading={saving} disabled={!dirty} onClick={() => save()} data-testid="company-save">
+      {/* Barre d'enregistrement : visible dès qu'un champ est modifié, fixée au bas de l'écran (au-dessus de la barre
+          de navigation sur téléphone, à droite du menu latéral sur ordinateur, alignée sur la colonne du contenu) ;
+          absente sans modification. Position fixe : le conteneur principal (overflow-x-hidden) empêche « sticky ». */}
+      {canEdit && dirty && (
+        <div className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 px-4 sm:bottom-4 sm:left-64 sm:px-6" data-testid="company-savebar">
+          <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-2 rounded-xl border bg-card/95 p-3 shadow-lg backdrop-blur">
+            <p className="flex min-w-0 flex-1 items-center gap-2 text-sm font-medium">
+              <span className="h-2 w-2 flex-shrink-0 rounded-full bg-amber-500" aria-hidden />{t('entity.unsaved')}
+            </p>
+            <Button variant="outline" className="h-11" disabled={saving} onClick={discard} data-testid="company-discard">{t('actions.cancel')}</Button>
+            <Button variant="stockshop" className="h-11 gap-2" loading={saving} onClick={() => save()} data-testid="company-save">
               <Save className="h-4 w-4" />{t('actions.save')}
             </Button>
           </div>

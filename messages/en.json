@@ -3982,7 +3982,7 @@
     "name_hint": "Trade or legal name. Receipts and tickets keep each shop’s name.",
     "name_to_confirm": "Name to confirm",
     "confirm_title": "Check your company name",
-    "confirm_body": "We suggested “{name}” based on your shops. Confirm it, or edit it below and save.",
+    "confirm_body": "We suggested “{name}” based on your shops. Confirm it as is, or edit it in the “Company name” field and save.",
     "confirm_action": "Confirm this name",
     "confirmed_toast": "Company name confirmed",
     "saved": "Company updated",
@@ -4011,7 +4011,10 @@
     "consolidation_currency": "Consolidation currency",
     "consolidation_hint": "Used to consolidate reports when your shops use several currencies. It does not change your shops’ currency.",
     "consolidation_shop_currencies": "Your shops’ currencies: {list}. Amounts are still shown in these currencies; the consolidated “≈” total is shown alongside.",
-    "consolidation_single": "All your shops use the same currency ({currency}): no conversion is applied."
+    "consolidation_single": "All your shops use the same currency ({currency}): no conversion is applied.",
+    "unsaved": "Unsaved changes",
+    "save_name": "Save this name",
+    "save_changes": "Save changes"
   },
   "grant_reminder": {
     "title": "Your complimentary offer ends on {date}",

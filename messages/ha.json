@@ -3982,7 +3982,7 @@
     "name_hint": "Sunan kasuwanci ko na doka. Rasidi da tikiti suna riƙe sunan kowane shago.",
     "name_to_confirm": "Suna da za a tabbatar",
     "confirm_title": "Duba sunan kasuwancinku",
-    "confirm_body": "Mun ba da shawarar « {name} » daga shagunanku. Tabbatar da shi, ko gyara shi a ƙasa sannan ku ajiye.",
+    "confirm_body": "Mun ba da shawarar « {name} » daga shagunanku. Tabbatar da shi kamar yadda yake, ko gyara shi a filin « Sunan kasuwanci » sannan ku ajiye.",
     "confirm_action": "Tabbatar da wannan suna",
     "confirmed_toast": "An tabbatar da sunan kasuwanci",
     "saved": "An sabunta kasuwanci",
@@ -4011,7 +4011,10 @@
     "consolidation_currency": "Kuɗin haɗa rahotanni",
     "consolidation_hint": "Ana amfani da shi wajen haɗa rahotanni idan shagunanku suna amfani da kuɗaɗe daban-daban. Ba ya canza kuɗin shagunanku.",
     "consolidation_shop_currencies": "Kuɗaɗen shagunanku: {list}. Adadin kuɗi na nan a cikin waɗannan kuɗaɗe; jimillar da aka haɗa « ≈ » tana zuwa a matsayin ƙari.",
-    "consolidation_single": "Duk shagunanku suna amfani da kuɗi ɗaya ({currency}): ba a yin wani canji."
+    "consolidation_single": "Duk shagunanku suna amfani da kuɗi ɗaya ({currency}): ba a yin wani canji.",
+    "unsaved": "Akwai canje-canjen da ba a ajiye ba",
+    "save_name": "Ajiye wannan suna",
+    "save_changes": "Ajiye canje-canje"
   },
   "grant_reminder": {
     "title": "Kyautarku za ta ƙare ranar {date}",

@@ -3982,7 +3982,7 @@
     "name_hint": "Nom commercial ou raison sociale. Les reçus et tickets gardent le nom de chaque boutique.",
     "name_to_confirm": "Nom à confirmer",
     "confirm_title": "Vérifiez le nom de votre entreprise",
-    "confirm_body": "Nous avons proposé « {name} » à partir de vos boutiques. Confirmez-le, ou modifiez-le ci-dessous puis enregistrez.",
+    "confirm_body": "Nous avons proposé « {name} » à partir de vos boutiques. Confirmez-le tel quel, ou modifiez-le dans le champ « Nom de l’entreprise » puis enregistrez.",
     "confirm_action": "Confirmer ce nom",
     "confirmed_toast": "Nom de l’entreprise confirmé",
     "saved": "Entreprise mise à jour",
@@ -4011,7 +4011,10 @@
     "consolidation_currency": "Devise de consolidation",
     "consolidation_hint": "Utilisée pour consolider les rapports lorsque vos boutiques utilisent plusieurs devises. Elle ne change pas la devise de vos boutiques.",
     "consolidation_shop_currencies": "Devises de vos boutiques : {list}. Les montants restent affichés dans ces devises ; le total consolidé « ≈ » vient en complément.",
-    "consolidation_single": "Toutes vos boutiques utilisent la même devise ({currency}) : aucune conversion n’est appliquée."
+    "consolidation_single": "Toutes vos boutiques utilisent la même devise ({currency}) : aucune conversion n’est appliquée.",
+    "unsaved": "Modifications non enregistrées",
+    "save_name": "Enregistrer ce nom",
+    "save_changes": "Enregistrer les modifications"
   },
   "grant_reminder": {
     "title": "Fin de votre geste commercial le {date}",
