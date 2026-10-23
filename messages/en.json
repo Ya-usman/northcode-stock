@@ -936,6 +936,8 @@
   },
   "payments": {
     "opening_shop": "Shop",
+    "opening_pick_shop_title": "Which shop is this existing debt for?",
+    "shop_column": "Shop",
     "opening_category": "Opening balance",
     "opening_add_customer": "Add an existing debt (customer)",
     "opening_add_supplier": "Add an existing debt (supplier)",

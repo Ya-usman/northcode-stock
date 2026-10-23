@@ -1540,6 +1540,10 @@ interface SalesReportSale {
   payment_method: string
   payment_status: string
   sale_status: string
+  /** Boutique de la vente — colonne « Boutique » affichée si au moins une vente la renseigne (« Toutes les boutiques ») */
+  shop?: string
+  /** Montants de CETTE vente dans la devise de sa boutique (sinon : fmtAmt du rapport) */
+  fmtAmt?: (n: number) => string
 }
 
 interface SalesReportParams {
@@ -1565,6 +1569,7 @@ interface SalesReportParams {
     colPaid?: string
     colMethod?: string
     colStatus?: string
+    colShop?: string
     summary?: string
     totalSales?: string
     totalRevenue?: string
@@ -1677,15 +1682,21 @@ async function buildSalesReportDoc(params: SalesReportParams) {
 
   // ── Sales table ──────────────────────────────────────────────────────────
   // A4 usable = 182mm → 22 + 26 + 32 + 32 + 30 + 20 + 20 = 182
+  // « Toutes les boutiques » : colonne Boutique (largeurs réparties, 182 mm au total) ; montants dans la devise de
+  // chaque vente quand elle est fournie
+  const withShop = sales.some(s => !!s.shop)
+  const o = withShop ? 1 : 0
+  const rowFmt = (s: SalesReportSale) => (s.fmtAmt ? (n: number) => sanitizePDF(s.fmtAmt!(n)) : fmt)
   autoTable(doc, {
     startY: y,
-    head: [[L.colDate, L.colSale, L.colClient, L.colTotal, L.colPaid, L.colMethod, L.colStatus]],
+    head: [[L.colDate, L.colSale, ...(withShop ? [labels?.colShop ?? 'Shop'] : []), L.colClient, L.colTotal, L.colPaid, L.colMethod, L.colStatus]],
     body: sales.map(s => [
       new Date(s.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' }),
       sanitizePDF(s.sale_number),
+      ...(withShop ? [sanitizePDF(s.shop || '')] : []),
       sanitizePDF(s.customer),
-      fmt(s.total),
-      fmt(s.amount_paid),
+      rowFmt(s)(s.total),
+      rowFmt(s)(s.amount_paid),
       sanitizePDF(pmLabels[s.payment_method] ?? s.payment_method),
       sanitizePDF(
         s.sale_status === 'cancelled'
@@ -1704,7 +1715,16 @@ async function buildSalesReportDoc(params: SalesReportParams) {
     },
     headStyles: { fillColor: [10, 47, 110], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
     alternateRowStyles: { fillColor: [246, 248, 255] },
-    columnStyles: {
+    columnStyles: withShop ? {
+      0: { cellWidth: 18 },
+      1: { cellWidth: 22 },
+      2: { cellWidth: 26, overflow: 'ellipsize' },
+      3: { cellWidth: 28, overflow: 'ellipsize' },
+      4: { cellWidth: 28, halign: 'right', fontStyle: 'bold' },
+      5: { cellWidth: 26, halign: 'right' },
+      6: { cellWidth: 18 },
+      7: { cellWidth: 16 },
+    } : {
       0: { cellWidth: 20 },
       1: { cellWidth: 26 },
       2: { cellWidth: 36, overflow: 'ellipsize' },
@@ -1714,7 +1734,7 @@ async function buildSalesReportDoc(params: SalesReportParams) {
       6: { cellWidth: 18 },
     },
     didParseCell: (data: any) => {
-      if (data.section === 'head' && (data.column.index === 3 || data.column.index === 4)) {
+      if (data.section === 'head' && (data.column.index === 3 + o || data.column.index === 4 + o)) {
         data.cell.styles.halign = 'right'
       }
     },

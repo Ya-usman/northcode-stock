@@ -23,17 +23,20 @@ type Party = { id: string; name: string; phone: string | null }
 
 const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
 
-export function OpeningBalanceDrawer({ open, onOpenChange, kind, shopId: defaultShopId, shops = [], currencySymbol, onCreated }: {
+export function OpeningBalanceDrawer({ open, onOpenChange, kind, shopId, shopName, currencySymbol, onCreated }: {
   open: boolean
   onOpenChange: (o: boolean) => void
   kind: 'customer' | 'supplier'
+  // Boutique de la reprise, déjà déterminée par la page : celle de l'en-tête, ou choisie (requireOneShop) parmi celles
+  // où la personne a le droit — jamais la boutique active cachée ni un choix présélectionné dans ce panneau
   shopId: string
-  // vue « Toutes les boutiques » : la reprise doit être rattachée à une boutique choisie explicitement
-  shops?: { id: string; name: string }[]
+  // Rappel « Boutique : … » (compte à plusieurs boutiques)
+  shopName?: string
   currencySymbol: string
   onCreated: () => void
 }) {
   const t = useTranslations('payments')
+  const tScope = useTranslations('scope')
   const { toast } = useToast()
   const [parties, setParties] = useState<Party[]>([])
   const [query, setQuery] = useState('')
@@ -46,14 +49,13 @@ export function OpeningBalanceDrawer({ open, onOpenChange, kind, shopId: default
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const requestId = useRef<string>('')
-  const [shopId, setShopId] = useState(defaultShopId)
-  // Formulaire remis à zéro à chaque ouverture
+  // Formulaire remis à zéro à chaque ouverture et à chaque changement de boutique (aucune saisie reprise d'une boutique
+  // à l'autre)
   useEffect(() => {
     if (!open) return
-    setShopId(defaultShopId)
     setNewPhone(''); setAmount(''); setDebtDate(todayIso()); setDueDate(''); setNote(''); setError(null)
     requestId.current = crypto.randomUUID()
-  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, shopId])
 
   // Clients / fournisseurs de la boutique choisie (changer de boutique annule le choix)
   useEffect(() => {
@@ -112,18 +114,10 @@ export function OpeningBalanceDrawer({ open, onOpenChange, kind, shopId: default
       testId="opening-drawer"
     >
       <div className="space-y-4">
-        {shops.length > 1 && (
-          <div className="space-y-1.5">
-            <Label>{t('opening_shop')}</Label>
-            <div className="flex flex-wrap gap-2" data-testid="opening-shops">
-              {shops.map(s => (
-                <button key={s.id} type="button" onClick={() => setShopId(s.id)}
-                  className={cn('min-h-[40px] rounded-lg border px-3 text-sm font-medium transition-colors', s.id === shopId ? 'border-stockshop-blue bg-stockshop-blue text-white dark:border-blue-500 dark:bg-blue-500' : 'bg-card hover:bg-muted/50')}>
-                  {s.name}
-                </button>
-              ))}
-            </div>
-          </div>
+        {shopName && (
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground" data-testid="opening-shop">
+            {tScope('shop_label', { name: shopName })}
+          </p>
         )}
         <p className="rounded-lg bg-stockshop-blue-muted px-3 py-2 text-xs leading-relaxed text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-300">
           {kind === 'customer' ? t('opening_explain_customer') : t('opening_explain_supplier')}

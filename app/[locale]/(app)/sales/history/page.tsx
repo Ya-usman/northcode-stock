@@ -9,7 +9,10 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
-import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
+import { useShopPermissions } from '@/lib/hooks/use-role-permissions'
+import { useShopScope } from '@/lib/shops/use-shop-scope'
+import { ShopScopeBadge } from '@/components/shops/shop-scope-badge'
+import { useFilterScope } from '@/lib/filters/use-filter-scope'
 import { EmptyGuide } from '@/components/onboarding/empty-guide'
 import { useTableExport } from '@/lib/export/use-table-export'
 import { isManagerial } from '@/lib/permissions'
@@ -25,7 +28,7 @@ import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { formatCurrency } from '@/lib/utils/currency'
-import { resolveCurrencyCode } from '@/lib/saas/currencies'
+import { resolveCurrencyCode, currencySymbol } from '@/lib/saas/currencies'
 import { sharePDFNative, isCapacitor } from '@/lib/utils/native-share'
 import { getCountry, getPaymentMethodLabel } from '@/lib/saas/countries'
 import { useLocale } from 'next-intl'
@@ -63,32 +66,34 @@ type DialogType = 'cancel' | 'validate'
 
 export default function SalesHistoryPage() {
   const t = useTranslations()
-  const { profile, shop, effectiveShopIds, userShops, roleInActiveShop } = useAuth()
+  const { profile, effectiveShopIds, userShops, roleByShop } = useAuth()
+  // Contexte boutique : l'en-tête décide de ce que l'on voit ; une vente existante agit dans SA boutique (droits,
+  // devise, pays, produits et clients proposés en modification) — jamais la boutique active cachée.
+  const scope = useShopScope()
+  const scopeKey = scope.shopIds.join(',')
+  const filterScope = useFilterScope()
   const isMultiShop = effectiveShopIds.length > 1
+  const shopOf = (shopId?: string | null) => userShops.find(x => x.id === shopId) ?? null
 
-  // Resolve a payment method ID to its human-readable label using the country config
-  const payMethodLabel = useMemo(() => {
-    const labels = Object.fromEntries(
-      getCountry(shop?.country).paymentMethods.map(m => [m.id, m.label])
-    )
-    // Traduit d'abord (Espèces / Cash, Carte, Virement, Crédit) ; sinon nom de marque du pays
-    // (Orange Money, MTN MoMo…) — les libellés de la liste des pays sont en français
-    return (method: string) => !method ? ''
-      : t.has(`payment.${method}` as any) ? t(`payment.${method}` as any)
-      : (labels[method] ?? getPaymentMethodLabel(method) ?? method)
-  }, [shop?.country, t])
+  // Libellé d'un mode de paiement dans le pays de la boutique DE LA VENTE. Traduit d'abord (Espèces / Cash, Carte,
+  // Virement, Crédit) ; sinon nom de marque du pays (Orange Money, MTN MoMo…)
+  const payMethodLabel = (method: string, shopId?: string | null) => {
+    if (!method) return ''
+    if (t.has(`payment.${method}` as any)) return t(`payment.${method}` as any)
+    const m = getCountry(shopOf(shopId)?.country).paymentMethods.find(x => x.id === method)
+    return m?.label ?? getPaymentMethodLabel(method) ?? method
+  }
 
   // Collect all mobile-money method IDs across every shop the user has access to
   const mobileMoneyIds = useMemo(() => {
-    const shops = userShops?.length ? userShops : (shop ? [shop] : [])
     const ids = new Set<string>()
-    for (const s of shops) {
+    for (const s of userShops || []) {
       getCountry(s.country).paymentMethods
         .filter(m => m.type === 'mobile_money')
         .forEach(m => ids.add(m.id))
     }
     return Array.from(ids)
-  }, [userShops, shop])
+  }, [userShops])
 
   // Même liste que Nouvelle vente : l'ancienne, incomplète, laissait le PDF en anglais par endroits
   const receiptLabels = receiptLabelsFromT(t)
@@ -138,7 +143,7 @@ export default function SalesHistoryPage() {
           items: (s.sale_items || []).map((i: any) => ({ name: i.product_name, qty: Number(i.quantity), unitPrice: Number(i.unit_price), subtotal: Number(i.subtotal) })),
           subtotal: Number(sale.subtotal), discount: Number(sale.discount), tax: Number(sale.tax), total: Number(sale.total),
           amountPaid: Number(sale.amount_paid), balance: Number(sale.balance),
-          paymentLabel: (sale.payment_method as string) === 'mixed' ? t('receipt.method_mixed') : payMethodLabel(sale.payment_method),
+          paymentLabel: (sale.payment_method as string) === 'mixed' ? t('receipt.method_mixed') : payMethodLabel(sale.payment_method, s.shop_id),
           cashierName: cashierMap[s.cashier_id] || t('sales.cashier'),
           customerName: s.customers?.name || undefined,
           locale,
@@ -152,7 +157,18 @@ export default function SalesHistoryPage() {
       if (err?.name !== 'AbortError') toast({ title: t(ticketErrorKey(err)), variant: 'destructive' })
     }
   }
-  const { fmt: formatNaira, symbol } = useCurrency()
+  // Totaux agrégés : devise d'affichage actuelle (décision D1, lot 5). Montants d'une vente : devise de SA boutique.
+  const { fmt: formatNaira } = useCurrency()
+  const fmtIn = (shopId?: string | null) => {
+    const sh = shopOf(shopId)
+    return sh ? (v: number) => formatCurrency(v, resolveCurrencyCode(sh.currency, sh.country)) : formatNaira
+  }
+  const symbolIn = (shopId?: string | null) => {
+    const sh = shopOf(shopId)
+    return sh ? currencySymbol(resolveCurrencyCode(sh.currency, sh.country)) : ''
+  }
+  // Périmètre réel (titres des exports) : « Toutes les boutiques » ou la boutique de l'en-tête
+  const scopeTitle = scope.isAllShops && scope.multiShop ? t('scope.all_shops') : (scope.shopName || userShops[0]?.name || 'StockShop')
   const { toast } = useToast()
 
   const PAGE_SIZE = 100
@@ -166,8 +182,9 @@ export default function SalesHistoryPage() {
   const [hasMoreSales, setHasMoreSales] = useState(false)
   const [periodStats, setPeriodStats] = useState<{ count: number; ca: number; collected: number; balance: number } | null>(null)
   const [{ search, dateFilter, methodFilter, statusFilter, saleStatusFilter, customStart, customEnd }, setFilter] = usePersistedFilters(
-    'sales_history', shop?.id,
-    { search: '', dateFilter: 'today', methodFilter: 'all', statusFilter: 'all', saleStatusFilter: 'all' as 'all' | 'active' | 'cancelled', customStart: '', customEnd: '' }
+    'sales_history', filterScope,
+    { search: '', dateFilter: 'today', methodFilter: 'all', statusFilter: 'all', saleStatusFilter: 'all' as 'all' | 'active' | 'cancelled', customStart: '', customEnd: '' },
+    { keepPerScope: true }
   )
   // Lazy initializers: read cache synchronously so first render shows cached data, not a skeleton.
   // Search mode fetches a different row count (SEARCH_LIMIT, unpaginated)
@@ -210,12 +227,25 @@ export default function SalesHistoryPage() {
   const [editSaving, setEditSaving] = useState(false)
 
 
-  const effectiveRole = roleInActiveShop ?? profile?.role
-  // Direction avec « Historique des ventes » en modification (même règle que
-  // /api/sales/edit et /api/sales/cancel) ; un caissier garde sa vente du jour
-  const { canWrite, canAccess } = useRolePermissions()
-  const isOwner = isManagerial(effectiveRole) && canWrite('sales_history')
-  const isCashier = effectiveRole === 'cashier'
+  // Droits évalués dans la boutique DE LA VENTE avec le rôle de la personne DANS cette boutique : direction avec
+  // « Historique des ventes » en modification (même règle que /api/sales/edit et /api/sales/cancel) ; un caissier
+  // garde sa vente du jour. Boutique sans rôle = aucun droit.
+  const { canWriteIn, canAccessIn } = useShopPermissions()
+  const isOwnerIn = (id?: string | null) => !!id && isManagerial(roleByShop[id]) && canWriteIn(id, 'sales_history')
+  const isCashierIn = (id?: string | null) => !!id && roleByShop[id] === 'cashier'
+  // Résumés et exports : direction dans au moins une boutique du contexte
+  const isOwner = scope.shopIds.some(id => isOwnerIn(id))
+  // Journal : direction ET « Historique des ventes » en consultation (même règle que /api/sales/logs)
+  const canSeeLogs = scope.shopIds.some(id => isManagerial(roleByShop[id]) && canAccessIn(id, 'sales_history'))
+  // Caissier : seulement ses propres ventes, dans les boutiques où il est caissier (avant : appliqué à TOUTES les
+  // boutiques selon le rôle de la boutique cachée)
+  const cashierShopIds = effectiveShopIds.filter(id => isCashierIn(id))
+  const otherShopIds = effectiveShopIds.filter(id => !isCashierIn(id))
+  const onlyMine = (q: any, col: string) => {
+    if (!cashierShopIds.length || !profile?.id) return q
+    if (!otherShopIds.length) return q.eq(col, profile.id)
+    return q.or(`${col}.eq.${profile.id},shop_id.in.(${otherShopIds.join(',')})`)
+  }
 
   // Écran vide guidé : seulement si la boutique n'a JAMAIS vendu (une journée
   // sans vente chez un commerçant installé garde le message court habituel)
@@ -268,7 +298,7 @@ export default function SalesHistoryPage() {
       query = query.range(offset, offset + PAGE_SIZE - 1)
     }
 
-    if (isCashier) query = query.eq('cashier_id', profile!.id)
+    query = onlyMine(query, 'cashier_id')
     if (methodFilter === 'mobile_money') query = query.in('payment_method', mobileMoneyIds.length ? mobileMoneyIds : ['__none__'])
     else if (methodFilter !== 'all') query = query.eq('payment_method', methodFilter)
     if (statusFilter !== 'all') query = query.eq('payment_status', statusFilter)
@@ -293,7 +323,7 @@ export default function SalesHistoryPage() {
       .lte('created_at', end.toISOString())
     if (saleStatusFilter !== 'all') q = q.eq('sale_status', saleStatusFilter)
     else q = q.in('sale_status', ['active', 'cancelled'])
-    if (isCashier) q = q.eq('cashier_id', profile!.id)
+    q = onlyMine(q, 'cashier_id')
     if (methodFilter === 'mobile_money') q = q.in('payment_method', mobileMoneyIds.length ? mobileMoneyIds : ['__none__'])
     else if (methodFilter !== 'all') q = q.eq('payment_method', methodFilter)
     if (statusFilter !== 'all') q = q.eq('payment_status', statusFilter)
@@ -308,17 +338,17 @@ export default function SalesHistoryPage() {
   // the wrong day (or misses it entirely from "today"). Querying payments
   // directly by paid_at attributes every cash-in event (initial payment or
   // later repayment alike) to the day it was actually received.
-  const buildCollectedQuery = (start: Date, end: Date) => {
+  const buildCollectedQuery = (start: Date, end: Date, shopIds: string[] = effectiveShopIds, mine = false) => {
     let q = supabase
       .from('payments')
       .select('amount, sales!inner(shop_id, sale_status)')
-      .in('sales.shop_id', effectiveShopIds)
+      .in('sales.shop_id', shopIds.length ? shopIds : ['00000000-0000-0000-0000-000000000000'])
       .eq('is_cancelled', false)
       .eq('is_write_off', false)
       .gte('paid_at', start.toISOString())
       .lte('paid_at', end.toISOString())
     if (saleStatusFilter !== 'all') q = q.eq('sales.sale_status', saleStatusFilter)
-    if (isCashier) q = q.eq('received_by', profile!.id)
+    if (mine) q = q.eq('received_by', profile!.id)
     if (methodFilter === 'mobile_money') q = q.in('method', mobileMoneyIds.length ? mobileMoneyIds : ['__none__'])
     else if (methodFilter !== 'all') q = q.eq('method', methodFilter)
     return q
@@ -368,22 +398,24 @@ export default function SalesHistoryPage() {
       const { start, end } = getDateBounds()
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave `loading` stuck true forever.
-      const [listResult, statsResult, collectedResult] = await withTimeout(Promise.all([
+      const mixed = cashierShopIds.length > 0 && otherShopIds.length > 0
+      const [listResult, statsResult, collectedResult, collectedMine] = await withTimeout(Promise.all([
         buildSalesQuery(start, end, 0, isSearchMode),
         buildStatsQuery(start, end),
-        buildCollectedQuery(start, end),
+        cashierShopIds.length && !mixed ? buildCollectedQuery(start, end, cashierShopIds, true) : buildCollectedQuery(start, end, mixed ? otherShopIds : effectiveShopIds),
+        mixed ? buildCollectedQuery(start, end, cashierShopIds, true) : Promise.resolve({ data: [], error: null }),
       ]), 20_000, 'Chargement des ventes trop lent — réessayez.')
       // A transient auth/RLS hiccup can resolve statsResult/collectedResult
       // with data: null instead of throwing — without this, listResult.error
       // alone let a failure limited to just these two silently reset the
       // owner-facing summary bar (count/CA/encaissé/solde) to zero while the
       // sales table underneath still looked fine.
-      if (listResult.error || statsResult.error || collectedResult.error) {
-        throw listResult.error || statsResult.error || collectedResult.error
+      if (listResult.error || statsResult.error || collectedResult.error || collectedMine.error) {
+        throw listResult.error || statsResult.error || collectedResult.error || collectedMine.error
       }
       const salesData = (listResult.data || []) as Sale[]
       const statsRows = (statsResult.data || []) as Array<{ total: number; amount_paid: number; balance: number; sale_status: string }>
-      const collectedRows = (collectedResult.data || []) as Array<{ amount: number }>
+      const collectedRows = [...(collectedResult.data || []), ...(collectedMine.data || [])] as Array<{ amount: number }>
       setSales(salesData)
       setHasMoreSales(!isSearchMode && salesData.length === PAGE_SIZE)
       setCashierMap(await enrichCashiers(salesData))
@@ -484,12 +516,14 @@ export default function SalesHistoryPage() {
     setEditDialog(sale)
   }
 
+  // Produits et clients proposés : ceux de la boutique DE LA VENTE (avant : toutes les boutiques du contexte)
   const searchEditProducts = async (q: string) => {
-    if (!q.trim() || !effectiveShopIds.length) { setEditProducts([]); return }
+    const saleShopId = (editDialog as any)?.shop_id
+    if (!q.trim() || !saleShopId) { setEditProducts([]); return }
     const { data } = await supabase
       .from('products')
       .select('id, name, selling_price, quantity')
-      .in('shop_id', effectiveShopIds)
+      .eq('shop_id', saleShopId)
       .eq('is_active', true)
       .ilike('name', `%${normalize(q)}%`)
       .order('name').limit(8)
@@ -497,11 +531,13 @@ export default function SalesHistoryPage() {
   }
 
   const searchEditCustomers = async (q: string) => {
-    if (!q.trim()) { setEditCustomers([]); return }
+    const saleShopId = (editDialog as any)?.shop_id
+    if (!q.trim() || !saleShopId) { setEditCustomers([]); return }
     const { data } = await supabase
       .from('customers')
       .select('id, name, phone')
-      .in('shop_id', effectiveShopIds)
+      .eq('shop_id', saleShopId)
+      .is('deleted_at', null)
       .ilike('name', `%${q}%`)
       .limit(6)
     setEditCustomers(data || [])
@@ -536,7 +572,7 @@ export default function SalesHistoryPage() {
   }
 
   const fetchLogs = async () => {
-    if (!effectiveShopIds.length || !isOwner) return
+    if (!effectiveShopIds.length || !canSeeLogs) return
     setLoadingLogs(true)
     const { start, end } = getDateBounds()
     try {
@@ -558,6 +594,15 @@ export default function SalesHistoryPage() {
   }
 
   const shopKey = effectiveShopIds.join(',')
+  // Changement de contexte : modification, annulation / encaissement et vente dépliée fermés — aucune boutique reprise
+  const scopeKeyRef = useRef(scopeKey)
+  useEffect(() => {
+    if (scopeKeyRef.current === scopeKey) return
+    scopeKeyRef.current = scopeKey
+    setEditDialog(null); setDialog(null); setExpandedId(null); setEditProducts([]); setEditCustomers([])
+  }, [scopeKey])
+  // Plus aucun droit au journal dans ce contexte : retour aux ventes
+  useEffect(() => { if (view === 'logs' && !canSeeLogs) setView('sales') }, [view, canSeeLogs])
 
   useEffect(() => {
     if (view === 'sales') fetchSales()
@@ -639,16 +684,20 @@ export default function SalesHistoryPage() {
   const salesExport = useTableExport()
   const exportSales = (fmtOut: 'xlsx' | 'csv') => {
     setExportMenuOpen(false)
-    const pmLabels = Object.fromEntries(getCountry(shop?.country).paymentMethods.map(m => [m.id, m.label]))
-    const translateMethod = (method: string) => pmLabels[method] ?? (method ? t(`payment.${method}` as any, { defaultValue: method }) : '')
+    // Mode de paiement dans le pays de la boutique DE CHAQUE vente
+    const translateMethod = (method: string, shopId?: string | null) => {
+      const m = getCountry(shopOf(shopId)?.country).paymentMethods.find(x => x.id === method)
+      return m?.label ?? (method ? t(`payment.${method}` as any, { defaultValue: method }) : '')
+    }
     const shopNameOf = (id: string) => userShops.find(x => x.id === id)?.name || ''
     const { start, end } = getDateBounds()
     const active = filtered.filter(x => x.sale_status !== 'cancelled')
     const sum = (k: 'total' | 'amount_paid' | 'balance') => active.reduce((acc, x) => acc + Number((x as any)[k] || 0), 0)
-    const money = (h: string) => `${h} (${symbol})`
+    // « Toutes » : pas de symbole commun dans l'en-tête (colonne Boutique) ; totaux agrégés : D1, lot 5
+    const money = (h: string) => (scope.isAllShops && scope.multiShop ? h : `${h} (${symbolIn(scope.shopId)})`)
     salesExport.run({
       kind: salesExport.kind('sales'),
-      shopName: isMultiShop ? userShops.filter(x => effectiveShopIds.includes(x.id)).map(x => x.name).join(', ') : (shop?.name || 'StockShop'),
+      shopName: scopeTitle,
       period: salesExport.range(start, end),
       columns: [
         { header: t('sales.sale_number') }, { header: t('sales.date'), type: 'datetime' },
@@ -661,7 +710,7 @@ export default function SalesHistoryPage() {
         ...(isMultiShop ? [shopNameOf((x as any).shop_id)] : []),
         (x as any).customers?.name || t('sales.walk_in'),
         Number(x.total), Number(x.amount_paid), Number(x.balance),
-        translateMethod(x.payment_method),
+        translateMethod(x.payment_method, (x as any).shop_id),
         x.payment_status ? t(`status.${x.payment_status}` as any, { defaultValue: x.payment_status }) : '',
         x.sale_status ? t(`status.${x.sale_status}` as any, { defaultValue: x.sale_status }) : t('status.active'),
       ]),
@@ -670,7 +719,7 @@ export default function SalesHistoryPage() {
   }
 
   const exportPDF = async () => {
-    if (!shop || !filtered.length) return
+    if (!filtered.length) return
     setExportingPDF(true)
     setExportMenuOpen(false)
     try {
@@ -688,8 +737,9 @@ export default function SalesHistoryPage() {
         : dateFilter === 'yesterday'
         ? format(subDays(new Date(), 1), 'dd/MM/yyyy')
         : t('sales.filter_today')
+      const withShop = scope.isAllShops && scope.multiShop
       await generateSalesReportPDF({
-        shopName: shop.name,
+        shopName: scopeTitle,
         period: periodLabel,
         // Same figure already shown on screen as "Encaissé" — sourced from
         // the payments ledger (paid_at), not sales.amount_paid, so a debt
@@ -705,6 +755,9 @@ export default function SalesHistoryPage() {
           payment_method: s.payment_method,
           payment_status: s.payment_status,
           sale_status: s.sale_status || 'active',
+          // Montants de CETTE vente dans la devise de sa boutique ; boutique rappelée en « Toutes »
+          fmtAmt: (n: number) => fmtIn((s as any).shop_id)(Math.round(n)),
+          ...(withShop ? { shop: shopOf((s as any).shop_id)?.name || '' } : {}),
         })),
         pmLabels: {
           cash: t('payment.cash'),
@@ -728,6 +781,7 @@ export default function SalesHistoryPage() {
           colPaid: t('payment.amount_paid'),
           colMethod: t('sales.pdf_col_method'),
           colStatus: t('sales.pdf_col_status'),
+          colShop: t('team.shop'),
           summary: t('sales.pdf_summary'),
           totalSales: t('sales.pdf_total_sales'),
           totalRevenue: t('sales.pdf_total_revenue'),
@@ -804,15 +858,18 @@ export default function SalesHistoryPage() {
     // Vente hors ligne enregistrée « à vérifier » (migration 159) — motifs séparés par des virgules
     const reviewReasons: string[] = (sale as any).review_reason ? String((sale as any).review_reason).split(',').filter(Boolean) : []
     const toReview = !isCancelled && reviewReasons.length > 0 && !(sale as any).reviewed_at
+    const saleShopId = (sale as any).shop_id as string | undefined
+    const fmtS = fmtIn(saleShopId)
     const canCancelThis = !isCancelled && (
-      isOwner ||
-      (isCashier && sale.cashier_id === profile?.id && new Date(sale.created_at) >= startOfDay(new Date()))
+      isOwnerIn(saleShopId) ||
+      (isCashierIn(saleShopId) && sale.cashier_id === profile?.id && new Date(sale.created_at) >= startOfDay(new Date()))
     )
     return (
       <Fragment key={sale.id}>
         <TableRow
           className={`cursor-pointer ${isCancelled ? 'opacity-50 bg-red-50/30 dark:bg-red-950/20' : 'hover:bg-muted/30'}`}
           onClick={() => setExpandedId(expandedId === sale.id ? null : sale.id)}
+          data-sale-row={sale.id} data-sale-shop={saleShopId}
         >
           <TableCell className="font-mono text-xs font-medium text-stockshop-blue dark:text-blue-400">
             #{sale.sale_number}
@@ -830,11 +887,11 @@ export default function SalesHistoryPage() {
           <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
             {format(new Date(sale.created_at), 'dd MMM · HH:mm', { locale: dateFnsLocale(locale) })}
           </TableCell>
-          <TableCell className="text-right font-medium">{formatNaira(sale.total)}</TableCell>
-          <TableCell className="hidden md:table-cell text-right text-green-600 dark:text-green-400">{formatNaira(sale.amount_paid)}</TableCell>
+          <TableCell className="text-right font-medium">{fmtS(sale.total)}</TableCell>
+          <TableCell className="hidden md:table-cell text-right text-green-600 dark:text-green-400">{fmtS(sale.amount_paid)}</TableCell>
           <TableCell className="hidden md:table-cell text-right">
             {Number(sale.balance) > 0
-              ? <span className="text-red-500">{formatNaira(sale.balance)}</span>
+              ? <span className="text-red-500">{fmtS(sale.balance)}</span>
               : <span className="text-muted-foreground">—</span>}
           </TableCell>
           <TableCell>
@@ -845,7 +902,7 @@ export default function SalesHistoryPage() {
                 </Badge>
               )}
               <Badge variant="outline" className="text-[10px] px-1.5 hidden sm:inline-flex">
-                {payMethodLabel(sale.payment_method ?? '')}
+                {payMethodLabel(sale.payment_method ?? '', saleShopId)}
               </Badge>
             </div>
           </TableCell>
@@ -865,12 +922,12 @@ export default function SalesHistoryPage() {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={item.products.image_url} alt={item.product_name} loading="lazy" decoding="async" className="h-8 w-8 rounded object-cover border border-border shrink-0" />
                       )}
-                      <span className="truncate">{item.product_name} × {item.quantity} @ {formatNaira(item.unit_price)}</span>
+                      <span className="truncate">{item.product_name} × {item.quantity} @ {fmtS(item.unit_price)}</span>
                       {Number(item.stock_shortfall) > 0 && (
                         <span className="shrink-0 text-[10px] font-semibold text-amber-700 dark:text-amber-300">{t('sales.review_shortfall', { count: item.stock_shortfall })}</span>
                       )}
                     </div>
-                    <span className="font-medium shrink-0">{formatNaira(item.subtotal)}</span>
+                    <span className="font-medium shrink-0">{fmtS(item.subtotal)}</span>
                   </div>
                 ))}
                 {reviewReasons.length > 0 && !isCancelled && (
@@ -882,7 +939,7 @@ export default function SalesHistoryPage() {
                       {reviewReasons.map(r => <li key={r}>{t(`sales.review_reason_${r}` as any)}</li>)}
                     </ul>
                     {toReview && <p className="mt-1 text-muted-foreground">{t('sales.review_hint')}</p>}
-                    {toReview && isOwner && (
+                    {toReview && isOwnerIn(saleShopId) && (
                       <Button size="sm" variant="outline" className="mt-2 h-7 gap-1.5 text-xs" disabled={reviewingId === sale.id} onClick={() => markReviewed(sale.id)} data-testid="sale-review-mark">
                         <CheckCircle2 className="h-3 w-3" /> {t('sales.review_mark')}
                       </Button>
@@ -896,7 +953,7 @@ export default function SalesHistoryPage() {
                   <p className="text-xs text-red-500 pt-2 border-t">{t('sales.cancel_reason_label')}: {sale.cancel_reason}</p>
                 )}
                 <div className="flex flex-wrap gap-2 pt-2 border-t" onClick={e => e.stopPropagation()}>
-                  {!isCancelled && isPending && canWrite('payments') && (
+                  {!isCancelled && isPending && canWriteIn(saleShopId, 'payments') && (
                     <Button
                       size="sm" variant="outline"
                       className="gap-1.5 text-xs h-7 border-green-300 dark:border-green-700/60 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/40"
@@ -961,6 +1018,7 @@ export default function SalesHistoryPage() {
 
   return (
     <div className="space-y-4">
+      {scope.isAllShops && scope.multiShop && <div><ShopScopeBadge /></div>}
       {/* View toggle */}
       <div className="flex gap-1 rounded-lg border bg-muted/30 p-1 w-fit">
         <button
@@ -975,7 +1033,7 @@ export default function SalesHistoryPage() {
         >
           <CornerDownLeft className="h-3.5 w-3.5" /> {t('sales.repayments_tab')}
         </button>
-        {isOwner && (
+        {canSeeLogs && (
           <button
             onClick={() => setView('logs')}
             className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${view === 'logs' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
@@ -1171,11 +1229,11 @@ export default function SalesHistoryPage() {
             </TableCell>
             <TableCell>
               <Badge variant="outline" className="text-[10px] px-1.5 border-emerald-300 dark:border-emerald-700/60 text-emerald-600 dark:text-emerald-400">
-                {payMethodLabel(p.method)}
+                {payMethodLabel(p.method, p.sales?.shop_id)}
               </Badge>
             </TableCell>
             <TableCell className="text-right font-semibold text-emerald-600 dark:text-emerald-400">
-              +{formatNaira(p.amount)}
+              +{fmtIn(p.sales?.shop_id)(p.amount)}
             </TableCell>
           </TableRow>
         )
@@ -1215,7 +1273,7 @@ export default function SalesHistoryPage() {
                       <div className="flex items-center gap-2 pt-1">
                         <Store className="h-3.5 w-3.5 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
                         <span className="text-xs font-semibold text-stockshop-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
-                        <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">+{formatNaira(shopTotal)}</span>
+                        <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">+{fmtIn(shopEntry.id)(shopTotal)}</span>
                         <div className="flex-1 h-px bg-border" />
                       </div>
                       <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
@@ -1296,7 +1354,7 @@ export default function SalesHistoryPage() {
                   {sale.sync_error && <p className="truncate text-[11px] text-red-600 dark:text-red-400">{sale.sync_error}</p>}
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="font-medium">{formatNaira(sale.total)}</span>
+                  <span className="font-medium">{fmtIn(sale.shop_id)(sale.total)}</span>
                   <Badge variant="warning" className="text-[10px] px-1.5">{t('sales.pending_sync_badge')}</Badge>
                 </div>
               </div>
@@ -1314,7 +1372,7 @@ export default function SalesHistoryPage() {
             <div className="p-4 space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
           </div>
         ) : filtered.length === 0 && neverSold ? (
-          <EmptyGuide icon={ShoppingCart} title={t('onboarding.empty.history.title')} body={t('onboarding.empty.history.body')} tour={canAccess('new_sale') ? 'first_sale' : undefined} />
+          <EmptyGuide icon={ShoppingCart} title={t('onboarding.empty.history.title')} body={t('onboarding.empty.history.body')} tour={scope.shopIds.some(id => canAccessIn(id, 'new_sale')) ? 'first_sale' : undefined} />
         ) : filtered.length === 0 ? (
           <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
             <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">{t('sales.no_sales')}</div>
@@ -1336,7 +1394,7 @@ export default function SalesHistoryPage() {
                           whenever the filter was set to "all" or "cancelled" (same bug
                           already fixed for the page-level periodStats summary bar). */}
                       {shopSales.length} {t('sales.sales_count_label')} ·{' '}
-                      {formatNaira(shopSales.reduce((acc, s) => acc + Number(s.total), 0))}
+                      {fmtIn(shopEntry.id)(shopSales.reduce((acc, s) => acc + Number(s.total), 0))}
                     </span>
                     <div className="flex-1 h-px bg-border" />
                   </div>
@@ -1408,6 +1466,7 @@ export default function SalesHistoryPage() {
                       <p className="text-sm leading-snug">
                         <span className="font-medium">{log.actor_name}</span>{' '}
                         <span className="text-muted-foreground">{actionLabel}</span>{' '}
+                        {isMultiShop && shopOf(log.shop_id) && <span className="text-xs text-muted-foreground" data-log-shop>· {shopOf(log.shop_id)!.name} </span>}
                         {saleNum && (
                           <span className="font-mono text-xs font-semibold text-stockshop-blue dark:text-blue-400">
                             #{saleNum}
@@ -1426,7 +1485,7 @@ export default function SalesHistoryPage() {
                     )}
                     {entry.kind === 'opening_created' && log.metadata?.amount != null && (
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {formatNaira(log.metadata.amount)}{log.metadata.party_name ? ` · ${log.metadata.party_name}` : ''}
+                        {fmtIn(log.shop_id)(log.metadata.amount)}{log.metadata.party_name ? ` · ${log.metadata.party_name}` : ''}
                       </p>
                     )}
                     {isCancel && log.metadata?.reason && (
@@ -1436,13 +1495,13 @@ export default function SalesHistoryPage() {
                     )}
                     {isValidate && log.metadata?.amount != null && (
                       <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">
-                        +{formatNaira(log.metadata.amount)}
-                        {log.metadata.method ? ` · ${payMethodLabel(log.metadata.method)}` : ''}
+                        +{fmtIn(log.shop_id)(log.metadata.amount)}
+                        {log.metadata.method ? ` · ${payMethodLabel(log.metadata.method, log.shop_id)}` : ''}
                       </p>
                     )}
                     {isEdit && log.metadata?.new_total != null && (
                       <p className="text-xs text-stockshop-blue dark:text-blue-400 mt-0.5">
-                        {formatNaira(log.metadata.old_total)} → {formatNaira(log.metadata.new_total)}
+                        {fmtIn(log.shop_id)(log.metadata.old_total)} → {fmtIn(log.shop_id)(log.metadata.new_total)}
                       </p>
                     )}
                   </div>
@@ -1464,6 +1523,7 @@ export default function SalesHistoryPage() {
           </DialogHeader>
 
           {editDialog && (() => {
+            const fmtE = fmtIn((editDialog as any).shop_id)
             const amountPaid = Number((editDialog as any).amount_paid || 0)
             const editNewTotal = editItems.reduce((s, i) => s + i.quantity * i.unit_price, 0)
             const overCollected = amountPaid > editNewTotal && editItems.length > 0
@@ -1505,7 +1565,7 @@ export default function SalesHistoryPage() {
                         className="w-24 h-6 rounded border text-right text-xs bg-background px-1"
                       />
                       <span className="w-20 text-right text-xs font-medium shrink-0">
-                        {formatNaira(item.quantity * item.unit_price)}
+                        {fmtE(item.quantity * item.unit_price)}
                       </span>
                       <button
                         type="button"
@@ -1546,7 +1606,7 @@ export default function SalesHistoryPage() {
                             }}
                           >
                             <span className="truncate">{p.name}</span>
-                            <span className="text-muted-foreground ml-2 shrink-0">{formatNaira(p.selling_price)} · stock: {p.quantity}</span>
+                            <span className="text-muted-foreground ml-2 shrink-0">{fmtE(p.selling_price)} · stock: {p.quantity}</span>
                           </button>
                         ))}
                       </div>
@@ -1557,7 +1617,7 @@ export default function SalesHistoryPage() {
                 {/* New total */}
                 <div className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold ${overCollected ? 'bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400' : 'bg-muted/50'}`}>
                   <span>{t('sales.edit_new_total')}</span>
-                  <span>{formatNaira(editNewTotal)}</span>
+                  <span>{fmtE(editNewTotal)}</span>
                 </div>
                 {overCollected && (
                   <p className="text-xs text-red-500">{t('sales.edit_amount_paid_warning')}</p>
@@ -1601,7 +1661,7 @@ export default function SalesHistoryPage() {
                   <Select value={editPaymentMethod} onValueChange={setEditPaymentMethod}>
                     <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {(shop?.country ? getCountry(shop.country).paymentMethods : []).map(m => (
+                      {getCountry(shopOf((editDialog as any).shop_id)?.country).paymentMethods.map(m => (
                         <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>
                       ))}
                     </SelectContent>
@@ -1664,7 +1724,7 @@ export default function SalesHistoryPage() {
           {dialog?.type === 'validate' && dialog.sale && (
             <>
               <p className="text-sm text-muted-foreground">
-                {t('sales.remaining_balance_label')}: <strong>{formatNaira(dialog.sale.balance)}</strong>
+                {t('sales.remaining_balance_label')}: <strong>{fmtIn((dialog.sale as any).shop_id)(dialog.sale.balance)}</strong>
               </p>
               <div className="space-y-1">
                 <Label className="text-xs">{t('payment.amount_paid')}</Label>
@@ -1680,9 +1740,9 @@ export default function SalesHistoryPage() {
                 <Select value={validateMethod} onValueChange={setValidateMethod}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="cash">{t('payment.cash')}</SelectItem>
-                    <SelectItem value="transfer">{t('payment.transfer')}</SelectItem>
-                    <SelectItem value="paystack">{t('payment.paystack')}</SelectItem>
+                    {getCountry(shopOf((dialog.sale as any).shop_id)?.country).paymentMethods.filter(m => m.type !== 'credit').map(m => (
+                      <SelectItem key={m.id} value={m.id}>{payMethodLabel(m.id, (dialog.sale as any).shop_id)}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

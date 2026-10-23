@@ -27,7 +27,7 @@ export async function GET(request: Request) {
 
   let query = admin
     .from('audit_logs')
-    .select('id, action, actor_id, actor_email, target_id, target_type, metadata, created_at')
+    .select('id, shop_id, action, actor_id, actor_email, target_id, target_type, metadata, created_at')
     .in('shop_id', effectiveShopIds)
     .eq('target_type', 'sale')
     .order('created_at', { ascending: false })

@@ -4,7 +4,11 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
-import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
+import { useShopPermissions } from '@/lib/hooks/use-role-permissions'
+import { useShopScope } from '@/lib/shops/use-shop-scope'
+import { ShopScopeBadge } from '@/components/shops/shop-scope-badge'
+import { formatCurrency } from '@/lib/utils/currency'
+import { resolveCurrencyCode, currencySymbol } from '@/lib/saas/currencies'
 import { isManagerial as isManagerialRole } from '@/lib/permissions'
 import { generateDebtReceiptPDFBlob, generateReportPDFBlob } from '@/lib/utils/pdf'
 import { sharePDFNative, printPDFNative, isCapacitor } from '@/lib/utils/native-share'
@@ -237,7 +241,7 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
   const locale = useLocale()
 
   return (
-    <Card className="border-0 shadow-sm overflow-hidden">
+    <Card className="border-0 shadow-sm overflow-hidden" data-debtor-shop={customer.shop_id}>
       <CardContent className="p-0">
         <div className="p-4">
           <div className="flex items-start justify-between gap-3">
@@ -382,7 +386,7 @@ function SupplierDebtorCard({ supplier, unpaidPOs, totalOwed, isExpanded, setExp
   const locale = useLocale()
 
   return (
-    <Card className="border-0 shadow-sm overflow-hidden">
+    <Card className="border-0 shadow-sm overflow-hidden" data-supplier-debt-shop={supplier.shop_id}>
       <CardContent className="p-0">
         <div className="p-4">
           <div className="flex items-start justify-between gap-3">
@@ -482,24 +486,40 @@ function SupplierDebtorCard({ supplier, unpaidPOs, totalOwed, isExpanded, setExp
 export default function CreditsPage() {
   const t = useTranslations()
   const locale = useLocale()
-  const { shop, profile, effectiveShopIds, userShops, roleInActiveShop } = useAuth()
-  // Boutique d'une dette : chaque client / fournisseur appartient à UNE boutique. Actions, reçus et modes de
-  // paiement suivent cette boutique — jamais la boutique active, cachée en « Toutes les boutiques »
+  const { profile, effectiveShopIds, userShops, roleByShop } = useAuth()
+  // Contexte boutique : l'en-tête décide de ce que l'on voit ; une dette existante agit dans SA boutique (celle de son
+  // client / fournisseur) ; une reprise de dette depuis « Toutes » demande la boutique (requireOneShop, seulement parmi
+  // celles où la personne a le droit). Droits évalués boutique par boutique — jamais la boutique active cachée.
+  const scope = useShopScope()
+  const scopeKey = scope.shopIds.join(',')
   const shopOf = (shopId?: string | null) => userShops.find(x => x.id === shopId) ?? null
   const isMultiShop = effectiveShopIds.length > 1
-  // Règle unique : « Paiements / Crédits » en modification pour encaisser,
-  // reporter, modifier ; direction seule pour passer en perte ou annuler
-  // (mêmes règles que /api/payments/*)
-  const { canWrite, canAccess } = useRolePermissions()
-  const canWritePayments = canWrite('payments')
+  // Règle unique : « Paiements / Crédits » en modification pour encaisser, reporter, modifier ; direction seule pour
+  // passer en perte ou annuler (mêmes règles que /api/payments/*), dans la boutique DE LA DETTE
+  const { canWriteIn, canAccessIn } = useShopPermissions()
+  const canWritePayIn = (id?: string | null) => !!id && canWriteIn(id, 'payments')
+  const isManagerialIn = (id?: string | null) => !!id && isManagerialRole(roleByShop[id]) && canWritePayIn(id)
   // Ce que l'entreprise DOIT à ses fournisseurs : Crédits ET Fournisseurs en lecture pour voir ; Crédits en
-  // modification (et Fournisseurs en lecture) pour payer — le droit Crédits seul ne montre que les crédits des
-  // clients (mêmes règles que /api/supplier-payments/*)
-  const canSeeSupplierDebts = canAccess('suppliers')
-  const canPaySuppliers = canWritePayments && canSeeSupplierDebts
-  const effectiveRole = roleInActiveShop ?? profile?.role
-  const isManagerial = isManagerialRole(effectiveRole) && canWritePayments
-  const { fmt, symbol } = useCurrency()
+  // modification (et Fournisseurs en lecture) pour payer (mêmes règles que /api/supplier-payments/*)
+  const canPaySuppliersIn = (id?: string | null) => canWritePayIn(id) && !!id && canAccessIn(id, 'suppliers')
+  const canWritePayments = scope.shopIds.some(id => canWritePayIn(id))
+  const canSeeSupplierDebts = scope.shopIds.some(id => canAccessIn(id, 'suppliers') && canAccessIn(id, 'payments'))
+  const canPaySuppliers = scope.shopIds.some(id => canPaySuppliersIn(id))
+  // Journal : rôle de direction ET droit « Crédits » dans au moins une boutique (même règle que /api/payments/audit)
+  const journalShopIds = scope.shopIds.filter(id => isManagerialRole(roleByShop[id]) && canAccessIn(id, 'payments'))
+  const canSeeJournal = journalShopIds.length > 0
+  // Totaux agrégés : devise d'affichage actuelle (décision D1, lot 5). Montants d'un objet : devise de SA boutique.
+  const { fmt } = useCurrency()
+  const fmtIn = (shopId?: string | null) => {
+    const sh = shopOf(shopId)
+    return sh ? (v: number) => formatCurrency(v, resolveCurrencyCode(sh.currency, sh.country)) : fmt
+  }
+  const symbolIn = (shopId?: string | null) => {
+    const sh = shopOf(shopId)
+    return sh ? currencySymbol(resolveCurrencyCode(sh.currency, sh.country)) : ''
+  }
+  // Périmètre réel (titres des exports) : « Toutes les boutiques » ou la boutique de l'en-tête
+  const scopeTitle = scope.isAllShops && scope.multiShop ? t('scope.all_shops') : (scope.shopName || userShops[0]?.name || 'StockShop')
   const { toast } = useToast()
   const { isOnline } = useOffline()
 
@@ -578,8 +598,20 @@ export default function CreditsPage() {
 
   // ── Reprise de dette (migration 168) ──────────────────────
   const [openingDrawer, setOpeningDrawer] = useState(false)
+  // Boutique de la reprise : celle de l'en-tête, ou choisie en « Toutes » parmi celles où la personne a le droit
+  // (Crédits en modification ; + Fournisseurs en lecture pour une dette fournisseur)
+  const [openingShopId, setOpeningShopId] = useState<string | null>(null)
   const [cancelOpening, setCancelOpening] = useState<{ kind: 'customer' | 'supplier'; id: string; number: string; amount: number; name: string; shopId: string } | null>(null)
   const [cancellingOpening, setCancellingOpening] = useState(false)
+  const openOpening = async () => {
+    const kind = debtSide === 'receivable' ? 'customer' : 'supplier'
+    const picked = await scope.requireOneShop({
+      title: t('payments.opening_pick_shop_title'),
+      eligible: x => (kind === 'customer' ? canWritePayIn(x.id) : canPaySuppliersIn(x.id)),
+    })
+    if (!picked) return
+    setOpeningShopId(picked.id); setOpeningDrawer(true)
+  }
   const openCancelOpeningSale = (sale: UnpaidSale, customer: Customer) =>
     setCancelOpening({ kind: 'customer', id: sale.id, number: sale.sale_number, amount: sale.total, name: customer.name, shopId: (customer as any).shop_id })
   const openCancelOpeningPO = (po: UnpaidPO, supplier: Supplier) =>
@@ -723,7 +755,7 @@ export default function CreditsPage() {
       return
     }
     if (supplierAmount > repaySupplier.totalOwed + 0.01) {
-      toast({ title: t('toast.payment_exceeds_debt', { amount: fmt(repaySupplier.totalOwed) }), variant: 'destructive' })
+      toast({ title: t('toast.payment_exceeds_debt', { amount: fmtIn(repaySupplier.supplier.shop_id)(repaySupplier.totalOwed) }), variant: 'destructive' })
       return
     }
     setSavingSupplierPayment(true)
@@ -910,6 +942,15 @@ export default function CreditsPage() {
 
   const shopKey = effectiveShopIds.join(',')
   useEffect(() => { fetchDebtors() }, [shopKey])
+  // Changement de contexte : remboursements, fiches, reprise et confirmations en cours fermés — aucune boutique reprise
+  const scopeKeyRef = useRef(scopeKey)
+  useEffect(() => {
+    if (scopeKeyRef.current === scopeKey) return
+    scopeKeyRef.current = scopeKey
+    setRepayDebtor(null); setReceiptResult(null); setPostponeSale(null); setWriteOffSale(null); setHistoryDebtor(null)
+    setEditingPayment(null); setCancellingPayment(null); setRepaySupplier(null); setHistorySupplier(null)
+    setOpeningDrawer(false); setOpeningShopId(null); setCancelOpening(null); setExpandedId(null); setExpandedSupplierId(null)
+  }, [scopeKey])
   const shopLoadTimedOut = useShopLoadTimeout(effectiveShopIds.length)
   useRefetchOnVisible(() => fetchDebtors(true))
   // Refresh on reconnect — debts/repayments are money-critical like the
@@ -1039,7 +1080,7 @@ export default function CreditsPage() {
       return
     }
     if (amount > repayDebtor.totalDebt + 0.01) {
-      toast({ title: t('toast.payment_exceeds_debt', { amount: fmt(repayDebtor.totalDebt) }), variant: 'destructive' })
+      toast({ title: t('toast.payment_exceeds_debt', { amount: fmtIn(repayDebtor.customer.shop_id)(repayDebtor.totalDebt) }), variant: 'destructive' })
       return
     }
     setSaving(true)
@@ -1249,7 +1290,9 @@ export default function CreditsPage() {
   }
 
   const printAccountStatement = async () => {
-    if (!shop || !historyDebtor || historySales.length === 0) return
+    const stShop = shopOf(historyDebtor?.customer.shop_id)
+    if (!stShop || !historyDebtor || historySales.length === 0) return
+    const fmtSt = fmtIn(stShop.id)
     try {
       type LedgerLine = { date: string; label: string; debit: number; credit: number }
       const lines: LedgerLine[] = [
@@ -1270,14 +1313,14 @@ export default function CreditsPage() {
         return [
           format(new Date(l.date), 'dd/MM/yyyy'),
           l.label,
-          l.debit ? fmt(l.debit) : '',
-          l.credit ? fmt(l.credit) : '',
-          fmt(running),
+          l.debit ? fmtSt(l.debit) : '',
+          l.credit ? fmtSt(l.credit) : '',
+          fmtSt(running),
         ]
       })
 
       const result = await generateReportPDFBlob({
-        shopName: shop.name,
+        shopName: stShop.name,
         dateRange: t('payments.statement_label'),
         sections: [{
           title: `${t('payments.statement_title')} — ${historyDebtor.customer.name}`,
@@ -1296,25 +1339,25 @@ export default function CreditsPage() {
   }
 
   const exportDebtorsPDF = async () => {
-    if (!shop) return
     setExporting(true)
     setExportMenuOpen(false)
     try {
+      const withShop = scope.isAllShops && scope.multiShop
       const result = await generateReportPDFBlob({
-        shopName: shop.name,
+        shopName: scopeTitle,
         dateRange: format(new Date(), 'dd/MM/yyyy'),
         sections: [{
           title: t('payments.export_section_title'),
           headers: [
-            t('payments.export_col_client'), t('payments.export_col_phone'),
+            t('payments.export_col_client'), ...(withShop ? [t('payments.shop_column')] : []), t('payments.export_col_phone'),
             t('payments.export_col_invoices'), t('payments.export_col_amount'),
           ],
           rows: filteredDebtors.map(({ customer, unpaidSales, totalDebt }) => [
-            customer.name, customer.phone || '—', unpaidSales.length, fmt(totalDebt),
+            customer.name, ...(withShop ? [shopOf(customer.shop_id)?.name || '—'] : []), customer.phone || '—', unpaidSales.length, fmtIn(customer.shop_id)(totalDebt),
           ]),
         }],
       })
-      await saveFile(result.blob, `StockShop - Créances - ${shop.name}.pdf`)
+      await saveFile(result.blob, `StockShop - Créances - ${scopeTitle}.pdf`)
     } catch (e: any) {
       toast({ title: e.message, variant: 'destructive' })
     } finally {
@@ -1325,15 +1368,18 @@ export default function CreditsPage() {
   // Export Excel / CSV des créances clients (liste filtrée), total en bas
   const exportDebtors = (fmtOut: 'xlsx' | 'csv') => {
     setExportMenuOpen(false)
+    // « Toutes » : colonne Boutique, devise dans le nom de la boutique (pas de symbole commun) ; total agrégé : D1, lot 5
+    const withShop = scope.isAllShops && scope.multiShop
+    const amountHeader = withShop ? t('payments.export_col_amount') : `${t('payments.export_col_amount')} (${symbolIn(scope.shopId)})`
     debtsExport.run({
       kind: debtsExport.kind('debts'),
-      shopName: userShops.filter(x => effectiveShopIds.includes(x.id)).map(x => x.name).join(', ') || shop?.name || 'StockShop',
+      shopName: scopeTitle,
       columns: [
-        { header: t('payments.export_col_client') }, { header: t('payments.export_col_phone') },
-        { header: t('payments.export_col_invoices'), type: 'int' }, { header: `${t('payments.export_col_amount')} (${symbol})`, type: 'money' },
+        { header: t('payments.export_col_client') }, ...(withShop ? [{ header: t('payments.shop_column') }] : []), { header: t('payments.export_col_phone') },
+        { header: t('payments.export_col_invoices'), type: 'int' as const }, { header: amountHeader, type: 'money' as const },
       ],
-      rows: filteredDebtors.map(({ customer, unpaidSales, totalDebt }) => [customer.name, customer.phone || '', unpaidSales.length, totalDebt]),
-      totals: [t('exports.total'), null, filteredDebtors.reduce((n, d) => n + d.unpaidSales.length, 0), filteredDebtors.reduce((n, d) => n + d.totalDebt, 0)],
+      rows: filteredDebtors.map(({ customer, unpaidSales, totalDebt }) => [customer.name, ...(withShop ? [shopOf(customer.shop_id)?.name || ''] : []), customer.phone || '', unpaidSales.length, totalDebt]),
+      totals: [t('exports.total'), ...(withShop ? [null] : []), null, filteredDebtors.reduce((n, d) => n + d.unpaidSales.length, 0), filteredDebtors.reduce((n, d) => n + d.totalDebt, 0)],
     }, fmtOut)
   }
 
@@ -1425,10 +1471,10 @@ export default function CreditsPage() {
   useRefetchOnReconnect(() => { if (activeTab === 'historique') fetchHistAll(histAllDateFrom, histAllDateTo, true) }, isOnline)
 
   const fetchJournal = async () => {
-    if (!shop?.id) return
+    if (!journalShopIds.length) return
     setLoadingJournal(true)
     try {
-      const res = await withTimeout(fetch(`/api/payments/audit?shop_id=${shop.id}`))
+      const res = await withTimeout(fetch(`/api/payments/audit?shop_ids=${journalShopIds.join(',')}`))
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setJournalLogs(data.logs || [])
@@ -1441,7 +1487,9 @@ export default function CreditsPage() {
 
   useEffect(() => {
     if (activeTab === 'journal') fetchJournal()
-  }, [activeTab, shop?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeTab, journalShopIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Plus aucun droit au journal dans ce contexte : retour aux crédits en cours
+  useEffect(() => { if (activeTab === 'journal' && !canSeeJournal) setActiveTab('en-cours') }, [activeTab, canSeeJournal])
 
   const filteredHistAll = useMemo(() => {
     let list = histAll
@@ -1456,9 +1504,18 @@ export default function CreditsPage() {
 
   const histAllSoldeCount = useMemo(() => histAll.filter(e => e.isSolde).length, [histAll])
 
+  // Devise des fenêtres : celle de la boutique de l'objet affiché (client, fournisseur, dette)
+  const fmtR = fmtIn(repayDebtor?.customer.shop_id), symR = symbolIn(repayDebtor?.customer.shop_id)
+  const fmtW = fmtIn(writeOffSale?.customer.shop_id)
+  const histShopId = historyDebtor?.customer.shop_id ?? null
+  const fmtH = fmtIn(histShopId)
+  const fmtSR = fmtIn(repaySupplier?.supplier.shop_id), symSR = symbolIn(repaySupplier?.supplier.shop_id)
+  const fmtSH = fmtIn(historySupplier?.supplier.shop_id)
+
   // ── Render ───────────────────────────────────────────────
   return (
     <div className="space-y-4">
+      {scope.isAllShops && scope.multiShop && <div><ShopScopeBadge /></div>}
 
       {/* Bascule créances / dettes — seulement pour qui voit aussi les dettes fournisseurs */}
       {canSeeSupplierDebts && (
@@ -1482,8 +1539,8 @@ export default function CreditsPage() {
       </div>
       )}
 
-      {(debtSide === 'receivable' ? canWritePayments : canPaySuppliers) && shop?.id && (
-        <button type="button" onClick={() => setOpeningDrawer(true)} data-testid="opening-open"
+      {(debtSide === 'receivable' ? canWritePayments : canPaySuppliers) && (
+        <button type="button" onClick={openOpening} data-testid="opening-open"
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-stockshop-blue/40 px-3 py-2.5 text-sm font-medium text-stockshop-blue transition-colors hover:bg-stockshop-blue-muted dark:border-blue-400/40 dark:text-blue-400 dark:hover:bg-blue-950/40">
           <Plus className="h-4 w-4" />
           {debtSide === 'receivable' ? t('payments.opening_add_customer') : t('payments.opening_add_supplier')}
@@ -1540,7 +1597,7 @@ export default function CreditsPage() {
             </span>
           )}
         </button>
-        {isManagerial && (
+        {canSeeJournal && (
           <button
             onClick={() => setActiveTab('journal')}
             className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition-all duration-200 ${
@@ -1571,13 +1628,13 @@ export default function CreditsPage() {
               let detail = ''
               if (log.action === 'payment.cancel') {
                 label = t('payments.journal_cancelled')
-                detail = `#${meta.sale_number || '—'} · ${fmt(meta.amount || 0)}${meta.reason ? ` · ${meta.reason}` : ''}`
+                detail = `#${meta.sale_number || '—'} · ${fmtIn(log.shop_id)(meta.amount || 0)}${meta.reason ? ` · ${meta.reason}` : ''}`
               } else if (log.action === 'payment.edit') {
                 label = t('payments.journal_edited')
                 detail = `${t(`payment.${meta.old_method}` as any) || meta.old_method} → ${t(`payment.${meta.new_method}` as any) || meta.new_method}`
               } else if (log.action === 'payment.write_off') {
                 label = t('payments.journal_written_off')
-                detail = `#${meta.sale_number || '—'} · ${fmt(meta.amount || 0)}${meta.reason ? ` · ${meta.reason}` : ''}`
+                detail = `#${meta.sale_number || '—'} · ${fmtIn(log.shop_id)(meta.amount || 0)}${meta.reason ? ` · ${meta.reason}` : ''}`
               } else {
                 label = t('payments.journal_postponed')
                 detail = `#${meta.sale_number || '—'} · ${meta.old_due_date || '—'} → ${meta.new_due_date || '—'}${meta.reason ? ` · ${meta.reason}` : ''}`
@@ -1588,7 +1645,7 @@ export default function CreditsPage() {
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-foreground/80">{label}</p>
                     <p className="text-muted-foreground truncate">{detail}</p>
-                    <p className="text-muted-foreground/70 mt-0.5">{actor} · {when}</p>
+                    <p className="text-muted-foreground/70 mt-0.5">{actor} · {when}{isMultiShop && shopOf(log.shop_id) ? ` · ${shopOf(log.shop_id)!.name}` : ''}</p>
                   </div>
                 </div>
               )
@@ -1690,13 +1747,13 @@ export default function CreditsPage() {
                     <div className="flex items-center gap-2 pt-1">
                       <Store className="h-3.5 w-3.5 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
                       <span className="text-xs font-semibold text-stockshop-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
-                      <span className="text-xs text-red-500 font-medium ml-1">{fmt(shopTotal)}</span>
+                      <span className="text-xs text-red-500 font-medium ml-1">{fmtIn(shopEntry.id)(shopTotal)}</span>
                       <div className="flex-1 h-px bg-border" />
                     </div>
                     {shopDebtors.map(({ customer, unpaidSales, totalDebt }) => (
                       <DebtorCard key={customer.id} customer={customer} unpaidSales={unpaidSales} totalDebt={totalDebt}
                         isExpanded={expandedId === customer.id} setExpandedId={setExpandedId}
-                        canWrite={canWritePayments} openRepayDialog={openRepayDialog} openHistory={openHistory} onPostpone={canWritePayments ? openPostponeDialog : undefined} onWriteOff={isManagerial ? openWriteOffDialog : undefined} onCancelOpening={canWritePayments ? openCancelOpeningSale : undefined} fmt={fmt} t={t} saving={saving} />
+                        canWrite={canWritePayIn(customer.shop_id)} openRepayDialog={openRepayDialog} openHistory={openHistory} onPostpone={canWritePayIn(customer.shop_id) ? openPostponeDialog : undefined} onWriteOff={isManagerialIn(customer.shop_id) ? openWriteOffDialog : undefined} onCancelOpening={canWritePayIn(customer.shop_id) ? openCancelOpeningSale : undefined} fmt={fmtIn(customer.shop_id)} t={t} saving={saving} />
                     ))}
                   </div>
                 )
@@ -1707,7 +1764,7 @@ export default function CreditsPage() {
               {filteredDebtors.map(({ customer, unpaidSales, totalDebt }) => (
                 <DebtorCard key={customer.id} customer={customer} unpaidSales={unpaidSales} totalDebt={totalDebt}
                   isExpanded={expandedId === customer.id} setExpandedId={setExpandedId}
-                  canWrite={canWritePayments} openRepayDialog={openRepayDialog} openHistory={openHistory} onPostpone={canWritePayments ? openPostponeDialog : undefined} onWriteOff={isManagerial ? openWriteOffDialog : undefined} onCancelOpening={canWritePayments ? openCancelOpeningSale : undefined} fmt={fmt} t={t} />
+                  canWrite={canWritePayIn(customer.shop_id)} openRepayDialog={openRepayDialog} openHistory={openHistory} onPostpone={canWritePayIn(customer.shop_id) ? openPostponeDialog : undefined} onWriteOff={isManagerialIn(customer.shop_id) ? openWriteOffDialog : undefined} onCancelOpening={canWritePayIn(customer.shop_id) ? openCancelOpeningSale : undefined} fmt={fmtIn(customer.shop_id)} t={t} />
               ))}
             </div>
           )}
@@ -1789,6 +1846,7 @@ export default function CreditsPage() {
               {filteredHistAll.map(entry => {
                 const isExpanded = histAllExpandedId === entry.customer.id
                 const pct = entry.totalOwed > 0 ? Math.min(100, (entry.totalPaid / entry.totalOwed) * 100) : 0
+                const fmtE = fmtIn(entry.customer.shop_id)
                 return (
                   <Card key={entry.customer.id} className="border-0 shadow-sm overflow-hidden">
                     <CardContent className="p-0">
@@ -1815,19 +1873,20 @@ export default function CreditsPage() {
                                 </Badge>
                               </div>
                               {entry.customer.phone && <p className="text-xs text-muted-foreground">{entry.customer.phone}</p>}
+                              {isMultiShop && <p className="text-[11px] text-muted-foreground" data-entry-shop>{shopOf(entry.customer.shop_id)?.name}</p>}
                             </div>
                           </div>
                           <div className="text-right flex-shrink-0">
-                            <p className="text-xs text-muted-foreground">{t('payments.summary_total', { amount: fmt(entry.totalOwed) })}</p>
+                            <p className="text-xs text-muted-foreground">{t('payments.summary_total', { amount: fmtE(entry.totalOwed) })}</p>
                             {entry.isSolde
-                              ? <p className="text-xs text-green-600 dark:text-green-400 font-semibold">{t('payments.summary_paid', { amount: fmt(entry.totalPaid) })}</p>
-                              : <p className="text-xs text-red-600 dark:text-red-400 font-semibold">{t('payments.summary_remaining', { amount: fmt(entry.totalRemaining) })}</p>
+                              ? <p className="text-xs text-green-600 dark:text-green-400 font-semibold">{t('payments.summary_paid', { amount: fmtE(entry.totalPaid) })}</p>
+                              : <p className="text-xs text-red-600 dark:text-red-400 font-semibold">{t('payments.summary_remaining', { amount: fmtE(entry.totalRemaining) })}</p>
                             }
                           </div>
                         </div>
                         {/* Progress */}
                         <div className="mt-2.5">
-                          <DebtGauge pct={pct} remaining={entry.isSolde ? undefined : entry.totalRemaining} fmt={fmt} t={t} />
+                          <DebtGauge pct={pct} remaining={entry.isSolde ? undefined : entry.totalRemaining} fmt={fmtE} t={t} />
                         </div>
                         <div className="flex items-center justify-between mt-1.5">
                           <p className="text-[11px] text-muted-foreground">{t('payments.invoices_count_plain', { count: entry.sales.length })}</p>
@@ -1851,12 +1910,12 @@ export default function CreditsPage() {
                               </div>
                               <div className="flex items-center justify-between text-xs text-muted-foreground">
                                 <span>{format(new Date(sale.created_at), 'dd MMM yyyy', { locale: dateFnsLocale(locale) })}</span>
-                                <span>{t('payments.summary_total', { amount: fmt(sale.total) })}</span>
+                                <span>{t('payments.summary_total', { amount: fmtE(sale.total) })}</span>
                               </div>
                               {sale.amount_paid > 0 && (
                                 <div className="flex items-center justify-between text-xs">
-                                  <span className="text-green-600 dark:text-green-400">{t('payments.summary_paid', { amount: fmt(sale.amount_paid) })}</span>
-                                  {sale.balance > 0 && <span className="font-bold text-red-600 dark:text-red-400">{t('payments.summary_remaining', { amount: fmt(sale.balance) })}</span>}
+                                  <span className="text-green-600 dark:text-green-400">{t('payments.summary_paid', { amount: fmtE(sale.amount_paid) })}</span>
+                                  {sale.balance > 0 && <span className="font-bold text-red-600 dark:text-red-400">{t('payments.summary_remaining', { amount: fmtE(sale.balance) })}</span>}
                                 </div>
                               )}
                               {sale.cashier_name && (
@@ -1959,13 +2018,13 @@ export default function CreditsPage() {
                     <div className="flex items-center gap-2 pt-1">
                       <Store className="h-3.5 w-3.5 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
                       <span className="text-xs font-semibold text-stockshop-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
-                      <span className="text-xs text-amber-600 dark:text-amber-400 font-medium ml-1">{fmt(shopTotal)}</span>
+                      <span className="text-xs text-amber-600 dark:text-amber-400 font-medium ml-1">{fmtIn(shopEntry.id)(shopTotal)}</span>
                       <div className="flex-1 h-px bg-border" />
                     </div>
                     {shopDebtors.map(({ supplier, unpaidPOs, totalOwed }) => (
                       <SupplierDebtorCard key={supplier.id} supplier={supplier} unpaidPOs={unpaidPOs} totalOwed={totalOwed}
                         isExpanded={expandedSupplierId === supplier.id} setExpandedId={setExpandedSupplierId}
-                        canWrite={canPaySuppliers} openRepayDialog={openSupplierRepayDialog} openHistory={openSupplierHistory} onCancelOpening={canPaySuppliers ? openCancelOpeningPO : undefined} fmt={fmt} t={t} saving={savingSupplierPayment} />
+                        canWrite={canPaySuppliersIn(supplier.shop_id)} openRepayDialog={openSupplierRepayDialog} openHistory={openSupplierHistory} onCancelOpening={canPaySuppliersIn(supplier.shop_id) ? openCancelOpeningPO : undefined} fmt={fmtIn(supplier.shop_id)} t={t} saving={savingSupplierPayment} />
                     ))}
                   </div>
                 )
@@ -1976,7 +2035,7 @@ export default function CreditsPage() {
               {filteredSupplierDebtors.map(({ supplier, unpaidPOs, totalOwed }) => (
                 <SupplierDebtorCard key={supplier.id} supplier={supplier} unpaidPOs={unpaidPOs} totalOwed={totalOwed}
                   isExpanded={expandedSupplierId === supplier.id} setExpandedId={setExpandedSupplierId}
-                  canWrite={canPaySuppliers} openRepayDialog={openSupplierRepayDialog} openHistory={openSupplierHistory} onCancelOpening={canPaySuppliers ? openCancelOpeningPO : undefined} fmt={fmt} t={t} saving={savingSupplierPayment} />
+                  canWrite={canPaySuppliersIn(supplier.shop_id)} openRepayDialog={openSupplierRepayDialog} openHistory={openSupplierHistory} onCancelOpening={canPaySuppliersIn(supplier.shop_id) ? openCancelOpeningPO : undefined} fmt={fmtIn(supplier.shop_id)} t={t} saving={savingSupplierPayment} />
               ))}
             </div>
           )}
@@ -2055,6 +2114,7 @@ export default function CreditsPage() {
               {filteredSupplierHistAll.map(entry => {
                 const isExpanded = supplierHistAllExpandedId === entry.supplier.id
                 const pct = entry.totalOwed > 0 ? Math.min(100, (entry.totalPaid / entry.totalOwed) * 100) : 0
+                const fmtE = fmtIn(entry.supplier.shop_id)
                 return (
                   <Card key={entry.supplier.id} className="border-0 shadow-sm overflow-hidden">
                     <CardContent className="p-0">
@@ -2078,18 +2138,19 @@ export default function CreditsPage() {
                                 </Badge>
                               </div>
                               {entry.supplier.phone && <p className="text-xs text-muted-foreground">{entry.supplier.phone}</p>}
+                              {isMultiShop && <p className="text-[11px] text-muted-foreground" data-entry-shop>{shopOf(entry.supplier.shop_id)?.name}</p>}
                             </div>
                           </div>
                           <div className="text-right flex-shrink-0">
-                            <p className="text-xs text-muted-foreground">{t('payments.total_label')} : {fmt(entry.totalOwed)}</p>
+                            <p className="text-xs text-muted-foreground">{t('payments.total_label')} : {fmtE(entry.totalOwed)}</p>
                             {entry.isSolde
-                              ? <p className="text-xs text-green-600 dark:text-green-400 font-semibold">{t('payments.paid_label')} : {fmt(entry.totalPaid)}</p>
-                              : <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold">{t('payments.remaining_label')} : {fmt(entry.totalRemaining)}</p>
+                              ? <p className="text-xs text-green-600 dark:text-green-400 font-semibold">{t('payments.paid_label')} : {fmtE(entry.totalPaid)}</p>
+                              : <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold">{t('payments.remaining_label')} : {fmtE(entry.totalRemaining)}</p>
                             }
                           </div>
                         </div>
                         <div className="mt-2.5">
-                          <DebtGauge pct={pct} remaining={entry.isSolde ? undefined : entry.totalRemaining} fmt={fmt} t={t} />
+                          <DebtGauge pct={pct} remaining={entry.isSolde ? undefined : entry.totalRemaining} fmt={fmtE} t={t} />
                         </div>
                         <div className="flex items-center justify-between mt-1.5">
                           <p className="text-[11px] text-muted-foreground">{t('payments.orders_count', { count: entry.purchaseOrders.length })}</p>
@@ -2113,12 +2174,12 @@ export default function CreditsPage() {
                               </div>
                               <div className="flex items-center justify-between text-xs text-muted-foreground">
                                 <span>{format(new Date(po.created_at), 'dd MMM yyyy', { locale: dateFnsLocale(locale) })}</span>
-                                <span>{t('payments.total_label')} : {fmt(po.total_amount)}</span>
+                                <span>{t('payments.total_label')} : {fmtE(po.total_amount)}</span>
                               </div>
                               {po.amount_paid > 0 && (
                                 <div className="flex items-center justify-between text-xs">
-                                  <span className="text-green-600 dark:text-green-400">{t('payments.paid_label')} : {fmt(po.amount_paid)}</span>
-                                  {po.balance > 0 && <span className="font-bold text-amber-600 dark:text-amber-400">{t('payments.remaining_label')} : {fmt(po.balance)}</span>}
+                                  <span className="text-green-600 dark:text-green-400">{t('payments.paid_label')} : {fmtE(po.amount_paid)}</span>
+                                  {po.balance > 0 && <span className="font-bold text-amber-600 dark:text-amber-400">{t('payments.remaining_label')} : {fmtE(po.balance)}</span>}
                                 </div>
                               )}
                             </div>
@@ -2183,14 +2244,14 @@ export default function CreditsPage() {
                 <div className="flex items-center gap-2 -mt-1 mb-1">
                   <User className="h-4 w-4 text-muted-foreground" />
                   <p className="text-sm text-muted-foreground">{repayDebtor.customer.name}</p>
-                  <Badge variant="destructive" className="text-[10px]">{fmt(repayDebtor.totalDebt)}</Badge>
+                  <Badge variant="destructive" className="text-[10px]">{fmtR(repayDebtor.totalDebt)}</Badge>
                 </div>
               )}
 
               {repayDebtor && repayDebtor.unpaidSales.length === 0 ? (
                 <div className="rounded-lg bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800/60 p-3">
                   <p className="text-xs font-semibold text-orange-700 dark:text-orange-300 uppercase tracking-wide mb-1">{t('payments.data_to_fix')}</p>
-                  <p className="text-sm text-orange-700 dark:text-orange-300">{t('payments.debt_no_invoice_found', { amount: fmt(repayDebtor.totalDebt) })}</p>
+                  <p className="text-sm text-orange-700 dark:text-orange-300">{t('payments.debt_no_invoice_found', { amount: fmtR(repayDebtor.totalDebt) })}</p>
                 </div>
               ) : null}
 
@@ -2199,10 +2260,10 @@ export default function CreditsPage() {
                 <Label>{t('payment.amount_given')}</Label>
                 <div className="flex rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
                   <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">
-                    {symbol}
+                    {symR}
                   </span>
                   <input type="text" inputMode="numeric"
-                    value={formatInputValue(repayAmount, symbol)}
+                    value={formatInputValue(repayAmount, symR)}
                     onChange={e => setRepayAmount(e.target.value.replace(/\D/g, ''))}
                     className="flex-1 h-12 px-3 text-lg font-bold bg-card outline-none" placeholder="0" autoFocus />
                 </div>
@@ -2229,9 +2290,9 @@ export default function CreditsPage() {
                           )}
                         </div>
                         <div className="text-right flex-shrink-0">
-                          <p className="text-xs font-bold text-green-600 dark:text-green-400">+{fmt(applying)}</p>
+                          <p className="text-xs font-bold text-green-600 dark:text-green-400">+{fmtR(applying)}</p>
                           {!fullyCovered && (
-                            <p className="text-[10px] text-red-500">{t('payment.remaining')}: {fmt(sale.balance - applying)}</p>
+                            <p className="text-[10px] text-red-500">{t('payment.remaining')}: {fmtR(sale.balance - applying)}</p>
                           )}
                         </div>
                       </div>
@@ -2242,7 +2303,7 @@ export default function CreditsPage() {
                       {remaining <= 0 ? `✓ ${t('payment.debt_settled')}` : t('payment.remaining')}
                     </span>
                     <span className={`text-sm font-bold ${remaining <= 0 ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>
-                      {remaining <= 0 ? t('payments.fully_settled') : fmt(remaining)}
+                      {remaining <= 0 ? t('payments.fully_settled') : fmtR(remaining)}
                     </span>
                   </div>
                 </div>
@@ -2354,7 +2415,7 @@ export default function CreditsPage() {
                 <Badge variant="outline" className="text-[10px] font-mono">#{writeOffSale.sale.sale_number}</Badge>
               </div>
               <p className="text-sm text-muted-foreground">
-                {t('payments.write_off_confirm', { amount: fmt(writeOffSale.sale.balance) })}
+                {t('payments.write_off_confirm', { amount: fmtW(writeOffSale.sale.balance) })}
               </p>
               <div className="space-y-1">
                 <Label>{t('payments.write_off_reason_label')} *</Label>
@@ -2429,12 +2490,12 @@ export default function CreditsPage() {
                           {format(new Date(sale.created_at), dateTimePattern(locale), { locale: dateFnsLocale(locale) })}
                           {sale.cashier_name && <> · {t('payments.by_connector')} <strong>{sale.cashier_name}</strong></>}
                         </p>
-                        <DebtGauge pct={paidPct} remaining={sale.balance > 0 ? sale.balance : undefined} fmt={fmt} t={t} />
+                        <DebtGauge pct={paidPct} remaining={sale.balance > 0 ? sale.balance : undefined} fmt={fmtH} t={t} />
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <p className="text-sm font-bold">{fmt(sale.total)}</p>
+                        <p className="text-sm font-bold">{fmtH(sale.total)}</p>
                         {sale.balance > 0
-                          ? <p className="text-xs text-red-500">{t('payment.remaining')}: {fmt(sale.balance)}</p>
+                          ? <p className="text-xs text-red-500">{t('payment.remaining')}: {fmtH(sale.balance)}</p>
                           : <p className="text-xs text-green-600 dark:text-green-400">{t('payments.paid_off')} ✓</p>
                         }
                       </div>
@@ -2448,7 +2509,7 @@ export default function CreditsPage() {
                             {sale.sale_items.map((item, i) => (
                               <div key={i} className="flex justify-between text-[11px] text-muted-foreground">
                                 <span>{item.product_name} × {item.quantity}</span>
-                                <span>{fmt(item.subtotal)}</span>
+                                <span>{fmtH(item.subtotal)}</span>
                               </div>
                             ))}
                           </div>
@@ -2462,7 +2523,7 @@ export default function CreditsPage() {
                           ) : (
                             <div className="space-y-1.5">
                               {salePayments.map(p => {
-                                const canCancel = !p.is_cancelled && (isManagerial || (effectiveRole === 'cashier' && canWritePayments && p.received_by === profile?.id))
+                                const canCancel = !p.is_cancelled && (isManagerialIn(histShopId) || (roleByShop[histShopId ?? ''] === 'cashier' && canWritePayIn(histShopId) && p.received_by === profile?.id))
                                 return (
                                 <div
                                   key={p.id}
@@ -2510,7 +2571,7 @@ export default function CreditsPage() {
                                       'font-bold text-sm',
                                       p.is_cancelled ? 'text-muted-foreground line-through' : p.is_write_off ? 'text-slate-500 dark:text-slate-400' : 'text-green-600'
                                     )}>
-                                      {p.is_write_off ? '−' : '+'}{fmt(p.amount)}
+                                      {p.is_write_off ? '−' : '+'}{fmtH(p.amount)}
                                     </span>
                                     <div className="flex items-center gap-0.5">
                                       <button
@@ -2521,7 +2582,7 @@ export default function CreditsPage() {
                                       >
                                         <Printer className="h-3.5 w-3.5" />
                                       </button>
-                                      {canWritePayments && !p.is_cancelled && !p.is_write_off && (
+                                      {canWritePayIn(histShopId) && !p.is_cancelled && !p.is_write_off && (
                                         <button
                                           type="button"
                                           title={t('payments.edit_action')}
@@ -2548,12 +2609,12 @@ export default function CreditsPage() {
                               })}
                               <div className="flex justify-between text-xs pt-1 border-t">
                                 <span className="text-muted-foreground">{t('payments.total_paid')}</span>
-                                <span className="font-semibold text-green-600 dark:text-green-400">{fmt(sale.amount_paid)}</span>
+                                <span className="font-semibold text-green-600 dark:text-green-400">{fmtH(sale.amount_paid)}</span>
                               </div>
                               {sale.balance > 0 && (
                                 <div className="flex justify-between text-xs">
                                   <span className="text-muted-foreground">{t('payments.remaining_due')}</span>
-                                  <span className="font-semibold text-red-600 dark:text-red-400">{fmt(sale.balance)}</span>
+                                  <span className="font-semibold text-red-600 dark:text-red-400">{fmtH(sale.balance)}</span>
                                 </div>
                               )}
                             </div>
@@ -2587,7 +2648,7 @@ export default function CreditsPage() {
             <PremiumDialogBody>
               <div className="flex items-center gap-2 -mt-1 mb-1">
                 <Banknote className="h-4 w-4 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">{fmt(editingPayment.amount)}</p>
+                <p className="text-sm text-muted-foreground">{fmtH(editingPayment.amount)}</p>
                 <span className="text-xs text-muted-foreground">
                   {format(new Date(editingPayment.paid_at), dateTimePattern(locale), { locale: dateFnsLocale(locale) })}
                 </span>
@@ -2651,7 +2712,7 @@ export default function CreditsPage() {
           <>
             <PremiumDialogBody>
               <p className="text-sm text-muted-foreground">
-                {t('payments.cancel_payment_confirm', { amount: fmt(cancellingPayment.amount) })}
+                {t('payments.cancel_payment_confirm', { amount: fmtH(cancellingPayment.amount) })}
               </p>
               <div className="space-y-1">
                 <Label>{t('payments.cancel_reason_label')} <span className="text-muted-foreground font-normal">({t('form.optional')})</span></Label>
@@ -2682,7 +2743,7 @@ export default function CreditsPage() {
             <div className="flex items-center gap-2 -mt-1 mb-1">
               <Store className="h-4 w-4 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">{repaySupplier.supplier.name}</p>
-              <Badge variant="warning" className="text-[10px]">{fmt(repaySupplier.totalOwed)}</Badge>
+              <Badge variant="warning" className="text-[10px]">{fmtSR(repaySupplier.totalOwed)}</Badge>
             </div>
           )}
 
@@ -2691,10 +2752,10 @@ export default function CreditsPage() {
             <Label>{t('payment.amount_given')}</Label>
             <div className="flex rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
               <span className="flex items-center px-3 bg-muted border-r text-sm font-medium text-muted-foreground whitespace-nowrap select-none">
-                {symbol}
+                {symSR}
               </span>
               <input type="text" inputMode="numeric"
-                value={formatInputValue(supplierRepayAmount, symbol)}
+                value={formatInputValue(supplierRepayAmount, symSR)}
                 onChange={e => setSupplierRepayAmount(e.target.value.replace(/\D/g, ''))}
                 className="flex-1 h-12 px-3 text-lg font-bold bg-card outline-none" placeholder="0" autoFocus />
             </div>
@@ -2721,9 +2782,9 @@ export default function CreditsPage() {
                       )}
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <p className="text-xs font-bold text-green-600 dark:text-green-400">+{fmt(applying)}</p>
+                      <p className="text-xs font-bold text-green-600 dark:text-green-400">+{fmtSR(applying)}</p>
                       {!fullyCovered && (
-                        <p className="text-[10px] text-amber-600 dark:text-amber-400">{t('payment.remaining')}: {fmt(po.balance - applying)}</p>
+                        <p className="text-[10px] text-amber-600 dark:text-amber-400">{t('payment.remaining')}: {fmtSR(po.balance - applying)}</p>
                       )}
                     </div>
                   </div>
@@ -2734,7 +2795,7 @@ export default function CreditsPage() {
                   {supplierRemaining <= 0 ? `✓ ${t('payment.debt_settled')}` : t('payment.remaining')}
                 </span>
                 <span className={`text-sm font-bold ${supplierRemaining <= 0 ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>
-                  {supplierRemaining <= 0 ? t('payments.fully_settled') : fmt(supplierRemaining)}
+                  {supplierRemaining <= 0 ? t('payments.fully_settled') : fmtSR(supplierRemaining)}
                 </span>
               </div>
             </div>
@@ -2836,12 +2897,12 @@ export default function CreditsPage() {
                             <p className="text-xs text-muted-foreground">
                               {format(new Date(po.created_at), "dd MMM yyyy", { locale: dateFnsLocale(locale) })}
                             </p>
-                            <DebtGauge pct={paidPct} remaining={po.balance > 0 ? po.balance : undefined} fmt={fmt} t={t} />
+                            <DebtGauge pct={paidPct} remaining={po.balance > 0 ? po.balance : undefined} fmt={fmtSH} t={t} />
                           </div>
                           <div className="text-right flex-shrink-0">
-                            <p className="text-sm font-bold">{fmt(po.total_amount)}</p>
+                            <p className="text-sm font-bold">{fmtSH(po.total_amount)}</p>
                             {po.balance > 0
-                              ? <p className="text-xs text-amber-600 dark:text-amber-400">{t('payment.remaining')}: {fmt(po.balance)}</p>
+                              ? <p className="text-xs text-amber-600 dark:text-amber-400">{t('payment.remaining')}: {fmtSH(po.balance)}</p>
                               : <p className="text-xs text-green-600 dark:text-green-400">{t('payments.paid_off')} ✓</p>
                             }
                           </div>
@@ -2855,7 +2916,7 @@ export default function CreditsPage() {
                                 {po.purchase_order_items.map((item, i) => (
                                   <div key={i} className="flex justify-between text-[11px] text-muted-foreground">
                                     <span>{item.product_name} × {item.quantity_received ?? item.quantity_ordered}</span>
-                                    <span>{fmt((item.unit_price || 0) * (item.quantity_received ?? item.quantity_ordered))}</span>
+                                    <span>{fmtSH((item.unit_price || 0) * (item.quantity_received ?? item.quantity_ordered))}</span>
                                   </div>
                                 ))}
                               </div>
@@ -2885,17 +2946,17 @@ export default function CreditsPage() {
                                         {p.reference && <p className="text-[11px] text-muted-foreground">{t('payments.ref_label')}: {p.reference}</p>}
                                         {p.notes && <p className="text-[11px] text-muted-foreground italic">{p.notes}</p>}
                                       </div>
-                                      <span className="font-bold text-green-600 dark:text-green-400 text-sm flex-shrink-0">+{fmt(p.amount)}</span>
+                                      <span className="font-bold text-green-600 dark:text-green-400 text-sm flex-shrink-0">+{fmtSH(p.amount)}</span>
                                     </div>
                                   ))}
                                   <div className="flex justify-between text-xs pt-1 border-t">
                                     <span className="text-muted-foreground">{t('payments.total_paid')}</span>
-                                    <span className="font-semibold text-green-600 dark:text-green-400">{fmt(po.amount_paid)}</span>
+                                    <span className="font-semibold text-green-600 dark:text-green-400">{fmtSH(po.amount_paid)}</span>
                                   </div>
                                   {po.balance > 0 && (
                                     <div className="flex justify-between text-xs">
                                       <span className="text-muted-foreground">{t('payments.remaining_due')}</span>
-                                      <span className="font-semibold text-amber-600 dark:text-amber-400">{fmt(po.balance)}</span>
+                                      <span className="font-semibold text-amber-600 dark:text-amber-400">{fmtSH(po.balance)}</span>
                                     </div>
                                   )}
                                 </div>
@@ -2917,10 +2978,10 @@ export default function CreditsPage() {
         </div>
       </PremiumDialog>
 
-      {shop?.id && (
-        <OpeningBalanceDrawer open={openingDrawer} onOpenChange={setOpeningDrawer}
-          kind={debtSide === 'receivable' ? 'customer' : 'supplier'} shopId={shop.id} currencySymbol={symbol}
-          shops={isMultiShop ? userShops.filter(x => effectiveShopIds.includes(x.id)).map(x => ({ id: x.id, name: x.name })) : []}
+      {openingShopId && (
+        <OpeningBalanceDrawer open={openingDrawer} onOpenChange={o => { setOpeningDrawer(o); if (!o) setOpeningShopId(null) }}
+          kind={debtSide === 'receivable' ? 'customer' : 'supplier'} shopId={openingShopId} currencySymbol={symbolIn(openingShopId)}
+          shopName={scope.multiShop ? shopOf(openingShopId)?.name : undefined}
           onCreated={() => { if (debtSide === 'receivable') fetchDebtors(true); else fetchSupplierDebtors(true) }} />
       )}
       <ConfirmModal
@@ -2928,7 +2989,7 @@ export default function CreditsPage() {
         onOpenChange={o => { if (!o && !cancellingOpening) setCancelOpening(null) }}
         category={t('payments.opening_category')}
         title={t('payments.opening_cancel_title')}
-        description={cancelOpening ? t('payments.opening_cancel_desc', { number: cancelOpening.number, amount: fmt(cancelOpening.amount), name: cancelOpening.name }) : undefined}
+        description={cancelOpening ? t('payments.opening_cancel_desc', { number: cancelOpening.number, amount: fmtIn(cancelOpening.shopId)(cancelOpening.amount), name: cancelOpening.name }) : undefined}
         icon={<Undo2 className="h-4 w-4" />}
         tone="danger"
         confirmLabel={t('payments.opening_cancel_confirm')}
