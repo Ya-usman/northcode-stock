@@ -51,6 +51,12 @@ const scroll = (s, where) => s.page.evaluate(w => window.scrollTo(0, w === 'top'
   ok(await s.page.getByTestId('company-savebar').count() === 0, 'sans modification : aucune barre d’enregistrement')
   ok(await s.page.getByTestId('company-confirm-name').isVisible(), 'bandeau : « Confirmer ce nom »')
   ok(/modifiez-le dans le champ « Nom de l’entreprise » puis enregistrez/.test(await s.page.getByTestId('company-confirm').innerText()), 'bandeau : indique où modifier')
+  {
+    const text = await s.page.getByTestId('company-confirm').locator('p').last().boundingBox()
+    const btn = await s.page.getByTestId('company-confirm-name').boundingBox()
+    ok(btn.x > text.x + text.width - 1 && btn.y < text.y + text.height, 'bandeau (ordinateur) : inchangé, bouton à droite du texte')
+    await s.page.screenshot({ path: path.join(OUT, 'company-banner-desktop.png'), clip: { x: 400, y: 100, width: 820, height: 320 } })
+  }
   const name = s.page.locator('#entity-name')
   const newName = `${s.entity.name} TEST`
   await name.fill(newName)
@@ -61,6 +67,8 @@ const scroll = (s, where) => s.page.evaluate(w => window.scrollTo(0, w === 'top'
   const box = await bar.boundingBox()
   ok(box.x >= 256, `barre à droite du menu latéral (x = ${Math.round(box.x)} ≥ 256)`)
   ok(/Modifications non enregistrées/.test(await bar.innerText()), 'barre : « Modifications non enregistrées »')
+  const [dt, db2, ds] = [await s.page.getByTestId('company-savebar-text').boundingBox(), await s.page.getByTestId('company-discard').boundingBox(), await s.page.getByTestId('company-save').boundingBox()]
+  ok(Math.abs(dt.y + dt.height / 2 - (ds.y + ds.height / 2)) < 4 && Math.abs(db2.y - ds.y) < 2, 'ordinateur : message et boutons sur une seule ligne')
   const confirmSave = s.page.getByTestId('company-confirm-save')
   ok((await confirmSave.innerText()).trim() === 'Enregistrer ce nom', 'bandeau : le bouton devient « Enregistrer ce nom »')
   await s.page.screenshot({ path: path.join(OUT, 'company-savebar-desktop.png') })
@@ -84,21 +92,34 @@ const scroll = (s, where) => s.page.evaluate(w => window.scrollTo(0, w === 'top'
   ok(!s.errors.length, 'aucune erreur')
   await s.browser.close()
 
-  console.log('\n2. Ordinateur — Marché Soleil, nom déjà confirmé')
+  console.log('\n2. Ordinateur — Marché Soleil (bandeau selon l’état réel du nom)')
   s = await open({ width: 1366, height: 900, account: 'soleil' })
-  ok(s.entity.name_confirmed === true && await s.page.getByTestId('company-confirm').count() === 0, 'nom confirmé en base : aucun bandeau')
+  const confirmed = s.entity.name_confirmed
+  ok((await s.page.getByTestId('company-confirm').count() === 0) === confirmed, `nom ${confirmed ? 'confirmé : aucun bandeau' : 'non confirmé : bandeau affiché'}`)
   await s.page.locator('#entity-city').fill('Douala TEST')
   await scroll(s, 'top')
   ok(await inViewport(s, s.page.getByTestId('company-savebar')), 'ville modifiée : barre visible')
   await s.page.getByTestId('company-save').click(); await s.page.waitForTimeout(1500)
   p = patches(s)
-  ok(p.length === 1 && JSON.stringify(p[0].body) === '{"city":"Douala TEST"}', `Enregistrer : seul le champ modifié est envoyé (intercepté) : ${p[0] && JSON.stringify(p[0].body)}`)
+  // Nom non confirmé : la page renvoie aussi le nom INCHANGÉ pour le confirmer (comportement de la refonte Entreprise)
+  const expected = confirmed ? { city: 'Douala TEST' } : { city: 'Douala TEST', name: s.entity.name }
+  ok(p.length === 1 && JSON.stringify(p[0].body) === JSON.stringify(expected), `Enregistrer : champs modifiés seulement (intercepté) : ${p[0] && JSON.stringify(p[0].body)}`)
   ok(!s.errors.length, 'aucune erreur')
   await s.browser.close()
 
   console.log('\n3. Téléphone (390 × 844) — Marché Soleil')
   s = await open({ width: 390, height: 844, account: 'soleil' })
   ok(await s.page.getByTestId('company-savebar').count() === 0, 'sans modification : aucune barre')
+  const h1 = s.page.getByTestId('company-name')
+  ok(await h1.evaluate(el => el.scrollWidth <= el.clientWidth + 1), `nom de l’entreprise affiché en entier : « ${await h1.innerText()} »`)
+  if (!s.entity.name_confirmed) {
+    const banner = await s.page.getByTestId('company-confirm').boundingBox()
+    const btn = await s.page.getByTestId('company-confirm-name').boundingBox()
+    const text = await s.page.getByTestId('company-confirm').locator('p').last().boundingBox()
+    ok(btn.y > text.y + text.height - 1 && btn.width > banner.width * 0.85, `bandeau : bouton pleine largeur sous le texte (${Math.round(btn.width)} / ${Math.round(banner.width)} px)`)
+    ok(text.width > banner.width * 0.7, `bandeau : texte sur toute la largeur (${Math.round(text.width)} px)`)
+    await s.page.screenshot({ path: path.join(OUT, 'company-banner-mobile.png') })
+  }
   await s.page.locator('#entity-name').fill('Marché Soleil SARL')
   const mbar = s.page.getByTestId('company-savebar')
   await mbar.waitFor({ timeout: 5000 })
@@ -106,6 +127,10 @@ const scroll = (s, where) => s.page.evaluate(w => window.scrollTo(0, w === 'top'
   const bb = await inViewport(s, mbar)
   const nav = await s.page.locator('nav.fixed.bottom-0').boundingBox()
   ok(bb && nav && bb.y + bb.height <= nav.y + 1, `barre visible AU-DESSUS de la navigation (bas ${bb && Math.round(bb.y + bb.height)} ≤ ${nav && Math.round(nav.y)})`)
+  const lines = await s.page.getByTestId('company-savebar-text').evaluate(el => Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)))
+  ok(lines === 1, `« Modifications non enregistrées » sur une seule ligne (${lines})`)
+  const [bd, bs] = [await s.page.getByTestId('company-discard').boundingBox(), await s.page.getByTestId('company-save').boundingBox()]
+  ok(Math.abs(bd.y - bs.y) < 2 && bd.y > (await s.page.getByTestId('company-savebar-text').boundingBox()).y, 'boutons côte à côte, sous le message')
   const overflow = await s.page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
   ok(overflow <= 0, `aucun défilement horizontal (${overflow} px)`)
   await s.page.screenshot({ path: path.join(OUT, 'company-savebar-mobile.png') })

@@ -168,29 +168,34 @@ export default function CompanySettingsPage() {
         <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-400"><Building2 className="h-6 w-6" /></span>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('entity.label')}</p>
-          <h1 className="truncate text-xl font-bold" data-testid="company-name">{entity.name}</h1>
+          <h1 className="break-words text-xl font-bold sm:truncate" data-testid="company-name">{entity.name}</h1>
+          {!entity.name_confirmed && <span className="mt-1 inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 sm:hidden">{t('entity.name_to_confirm')}</span>}
           <p className="text-sm text-muted-foreground">
             {t('entity.establishments_count', { count: entity.establishment_count })}
             {entity.owner_name && <> · {t('roles.owner')} : {entity.owner_name}</>}
           </p>
         </div>
-        {!entity.name_confirmed && <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">{t('entity.name_to_confirm')}</span>}
+        {/* Badge : à droite sur ordinateur, sous le nom sur téléphone (jamais de nom coupé) */}
+        {!entity.name_confirmed && <span className="hidden rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 sm:inline-flex">{t('entity.name_to_confirm')}</span>}
       </div>
 
       {!entity.name_confirmed && canEdit && (
-        <div className="flex flex-wrap items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800/60 dark:bg-amber-950/30" data-testid="company-confirm">
-          <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
-          <div className="min-w-0 flex-1 space-y-1">
-            <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">{t('entity.confirm_title')}</p>
-            <p className="text-sm text-amber-800 dark:text-amber-300">{t('entity.confirm_body', { name: entity.name })}</p>
+        // Téléphone : texte en haut, bouton pleine largeur en dessous ; ordinateur : bouton à droite du texte
+        <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800/60 dark:bg-amber-950/30 sm:flex-row sm:items-start" data-testid="company-confirm">
+          <div className="flex min-w-0 flex-1 items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+            <div className="min-w-0 flex-1 space-y-1">
+              <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">{t('entity.confirm_title')}</p>
+              <p className="text-sm text-amber-800 dark:text-amber-300">{t('entity.confirm_body', { name: entity.name })}</p>
+            </div>
           </div>
           {/* Sans modification : confirmer le nom tel quel ; après une modification : enregistrer directement d'ici */}
           {dirty ? (
-            <Button variant="stockshop" className="gap-2" loading={saving} onClick={() => save()} data-testid="company-confirm-save">
+            <Button variant="stockshop" className="h-11 w-full gap-2 sm:h-10 sm:w-auto" loading={saving} onClick={() => save()} data-testid="company-confirm-save">
               <Save className="h-4 w-4" />{changed.length === 1 && changed[0] === 'name' ? t('entity.save_name') : t('entity.save_changes')}
             </Button>
           ) : (
-            <Button variant="stockshop" className="gap-2" loading={saving} onClick={() => save({ confirmOnly: true })} data-testid="company-confirm-name">
+            <Button variant="stockshop" className="h-11 w-full gap-2 sm:h-10 sm:w-auto" loading={saving} onClick={() => save({ confirmOnly: true })} data-testid="company-confirm-name">
               <CheckCircle2 className="h-4 w-4" />{t('entity.confirm_action')}
             </Button>
           )}
@@ -309,14 +314,17 @@ export default function CompanySettingsPage() {
           absente sans modification. Position fixe : le conteneur principal (overflow-x-hidden) empêche « sticky ». */}
       {canEdit && dirty && (
         <div className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 px-4 sm:bottom-4 sm:left-64 sm:px-6" data-testid="company-savebar">
-          <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-2 rounded-xl border bg-card/95 p-3 shadow-lg backdrop-blur">
-            <p className="flex min-w-0 flex-1 items-center gap-2 text-sm font-medium">
+          {/* Téléphone : message sur sa propre ligne, boutons côte à côte en dessous ; ordinateur : une seule ligne */}
+          <div className="mx-auto flex max-w-3xl flex-col gap-2 rounded-xl border bg-card/95 p-3 shadow-lg backdrop-blur sm:flex-row sm:items-center">
+            <p className="flex min-w-0 items-center gap-2 text-sm font-medium sm:flex-1" data-testid="company-savebar-text">
               <span className="h-2 w-2 flex-shrink-0 rounded-full bg-amber-500" aria-hidden />{t('entity.unsaved')}
             </p>
-            <Button variant="outline" className="h-11" disabled={saving} onClick={discard} data-testid="company-discard">{t('actions.cancel')}</Button>
-            <Button variant="stockshop" className="h-11 gap-2" loading={saving} onClick={() => save()} data-testid="company-save">
-              <Save className="h-4 w-4" />{t('actions.save')}
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" className="h-11 flex-1 sm:flex-none" disabled={saving} onClick={discard} data-testid="company-discard">{t('actions.cancel')}</Button>
+              <Button variant="stockshop" className="h-11 flex-1 gap-2 sm:flex-none" loading={saving} onClick={() => save()} data-testid="company-save">
+                <Save className="h-4 w-4" />{t('actions.save')}
+              </Button>
+            </div>
           </div>
         </div>
       )}
