@@ -3563,6 +3563,8 @@
     "inventory_count_not_found": "This count no longer exists: it may have been recounted.",
     "inventory_invalid_reason": "Unknown reason.",
     "po_product_wrong_shop": "One of the products does not belong to this purchase order’s shop.",
+    "sale_product_wrong_shop": "One of the products does not belong to this sale’s shop.",
+    "sale_customer_wrong_shop": "This customer does not belong to this sale’s shop.",
     "price_product_wrong_shop": "This product does not belong to this shop.",
     "permission_denied": "Permission denied",
     "invalid_amount": "Invalid amount.",

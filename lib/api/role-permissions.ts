@@ -28,6 +28,26 @@ export async function canWriteFeature(supabase: any, role: string | null | undef
 }
 
 /**
+ * Boutiques (parmi shopIds) où la personne est membre active ET a le droit de CONSULTER l'une des fonctions demandées,
+ * évalué boutique par boutique avec son rôle DANS cette boutique (jamais le rôle global du profil).
+ * Renvoie aussi le rôle par boutique retenue. Lecture des adhésions par le client de la session (RLS).
+ */
+export async function shopsWithView(
+  supabase: any, userId: string, shopIds: string[], features: PermFeature[],
+): Promise<{ ids: string[]; roles: Record<string, string> }> {
+  const ids = Array.from(new Set(shopIds.filter(Boolean)))
+  if (!ids.length) return { ids: [], roles: {} }
+  const { data: rows } = await supabase.from('shop_members').select('shop_id, role').in('shop_id', ids).eq('user_id', userId).eq('is_active', true)
+  const roles: Record<string, string> = {}
+  for (const m of (rows || []) as Array<{ shop_id: string; role: string }>) {
+    for (const f of features) {
+      if (await canViewFeature(supabase, m.role, m.shop_id, f)) { roles[m.shop_id] = m.role; break }
+    }
+  }
+  return { ids: ids.filter(id => id in roles), roles }
+}
+
+/**
  * Ce rôle voit-il les prix d'achat, marges et valeurs de stock de cette boutique ?
  * Règle unique : lib/permissions → canViewCost. À utiliser par TOUTE route qui renvoie un coût,
  * EN PLUS du contrôle d'accès à la fonction (canViewFeature) — jamais à sa place : ce droit n'ouvre aucun écran.

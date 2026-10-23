@@ -1,6 +1,7 @@
 ﻿import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { shopsWithView } from '@/lib/api/role-permissions'
 
 // GET /api/payments/history?shop_id=xxx&customer_id=yyy
 export async function GET(request: Request) {
@@ -15,18 +16,15 @@ export async function GET(request: Request) {
 
 
     const supabase = await createClient() as any
-    // Use getSession() to avoid network round-trip failures on expired tokens.
-    const { data: { session } } = await supabase.auth.getSession()
-    const user = session?.user
-    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
+    // getUser() : jeton vérifié par le serveur d'authentification (getSession() ne fait que lire le cookie)
+    const { data: { user }, error: authErr } = await supabase.auth.getUser()
+    if (authErr || !user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const admin = await createAdminClient() as any
 
-    // Parallel: role check + sales query (optimistic — discard sales if role check fails)
-    const [memberRes, salesRes] = await Promise.all([
-      supabase
-        .from('shop_members').select('role')
-        .eq('shop_id', shop_id).eq('user_id', user.id).eq('is_active', true).single(),
+    // Parallel: droit + sales query (optimistic — discard sales if the check fails)
+    const [access, salesRes] = await Promise.all([
+      shopsWithView(supabase, user.id, [shop_id], ['payments']),
       admin
         .from('sales')
         .select('id, sale_number, created_at, total, amount_paid, balance, payment_status, payment_method, cashier_id, sale_status, notes, sale_items(product_name, quantity, unit_price, subtotal)')
@@ -37,14 +35,9 @@ export async function GET(request: Request) {
         .order('created_at', { ascending: false }),
     ])
 
-    // Role check — fall back to profiles table if not a shop_member
-    let callerRole = memberRes.data?.role
-    if (!callerRole) {
-      const { data: profile } = await supabase
-        .from('profiles').select('role, shop_id').eq('id', user.id).single()
-      if ((profile as any)?.shop_id === shop_id) callerRole = (profile as any)?.role
-    }
-    if (!callerRole) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+    // Droit « Crédits » dans CETTE boutique, avec le rôle de la personne DANS la boutique. Avant : aucun droit de
+    // fonction, et repli sur le rôle global du profil (profiles.role) — supprimé (règle : jamais le rôle global).
+    if (!access.ids.includes(shop_id)) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const sales: any[] = salesRes.data || []
     if (!sales.length) return NextResponse.json({ sales: [], payments: [] })

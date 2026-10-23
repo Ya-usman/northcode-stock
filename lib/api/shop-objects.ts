@@ -10,6 +10,16 @@ export async function supplierOfShop(admin: any, supplierId: unknown, shopId: st
   return data ?? null
 }
 
+/** Client de la boutique, sinon null. allowDeletedId : client archivé accepté s'il s'agit de CE client
+ *  (ex. le client déjà rattaché à la vente que l'on modifie). */
+export async function customerOfShop(admin: any, customerId: unknown, shopId: string, allowDeletedId?: string | null): Promise<{ id: string } | null> {
+  if (!customerId || typeof customerId !== 'string') return null
+  const { data } = await admin.from('customers').select('id, deleted_at').eq('id', customerId).eq('shop_id', shopId).maybeSingle()
+  if (!data) return null
+  if (data.deleted_at && data.id !== allowDeletedId) return null
+  return { id: data.id }
+}
+
 /** Identifiants de produits (non vides) qui n'appartiennent PAS à la boutique — liste vide = tous rattachés */
 export async function productsOutsideShop(admin: any, productIds: unknown[], shopId: string): Promise<string[]> {
   const ids = Array.from(new Set(productIds.filter((x): x is string => typeof x === 'string' && x.length > 0)))

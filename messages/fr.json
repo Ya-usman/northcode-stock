@@ -3563,6 +3563,8 @@
     "inventory_count_not_found": "Ce comptage n’existe plus : il a peut-être été recompté.",
     "inventory_invalid_reason": "Motif non reconnu.",
     "po_product_wrong_shop": "Un des produits n’appartient pas à la boutique de ce bon de commande.",
+    "sale_product_wrong_shop": "Un des produits n’appartient pas à la boutique de cette vente.",
+    "sale_customer_wrong_shop": "Ce client n’appartient pas à la boutique de cette vente.",
     "price_product_wrong_shop": "Ce produit n’appartient pas à cette boutique.",
     "permission_denied": "Permission refusée",
     "invalid_amount": "Montant invalide.",

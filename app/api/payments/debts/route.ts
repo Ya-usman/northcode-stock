@@ -1,10 +1,12 @@
 ﻿import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { shopsWithView } from '@/lib/api/role-permissions'
 
-// GET /api/payments/debts?shop_ids=id1,id2  (or legacy ?shop_id=xxx)
+// GET /api/payments/debts?shop_ids=id1,id2  (or legacy ?shop_id=xxx) [&customer_id=…]
 // Returns customers with debt + their unpaid sales (bypasses RLS)
-// All roles see full shop debt — access is restricted to allowedIds (their shop only)
+// Droits évalués boutique par boutique : « Crédits » en consultation. Exception de la caisse : avec customer_id,
+// le droit de vendre suffit, pour la dette de CE client seulement (remboursement pendant une vente).
 export async function GET(request: Request) {
   const t = getApiTranslator(request)
   try {
@@ -20,28 +22,23 @@ export async function GET(request: Request) {
     const { data: { user }, error: authErr } = await supabase.auth.getUser()
     if (authErr || !user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
-    // Verify caller has access to all requested shops
-    const { data: memberRows } = await supabase
-      .from('shop_members')
-      .select('shop_id, role')
-      .in('shop_id', shopIds)
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-
-    const accessibleShopIds = (memberRows || []).map((m: any) => m.shop_id)
-
-    const allowedIds = shopIds.filter(id => accessibleShopIds.includes(id))
+    // Avant : l'appartenance à la boutique suffisait, sans le droit « Crédits »
+    const customerId = searchParams.get('customer_id')
+    const credit = await shopsWithView(supabase, user.id, shopIds, ['payments'])
+    const pos = customerId ? await shopsWithView(supabase, user.id, shopIds, ['new_sale']) : { ids: [] as string[] }
+    const allowedIds = shopIds.filter(id => credit.ids.includes(id) || pos.ids.includes(id))
     if (!allowedIds.length) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient() as any
 
     // All roles: fetch all customers with outstanding debt in their shop(s)
-    const { data: shopCustomers, error: custErr } = await admin
+    let custQuery = admin
       .from('customers')
       .select('*')
       .in('shop_id', allowedIds)
       .gt('total_debt', 0)
-      .order('total_debt', { ascending: false })
+    if (customerId) custQuery = custQuery.eq('id', customerId)
+    const { data: shopCustomers, error: custErr } = await custQuery.order('total_debt', { ascending: false })
 
     if (custErr) throw custErr
     const customers = shopCustomers || []

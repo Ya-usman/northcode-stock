@@ -3,6 +3,7 @@ import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { canWriteFeature } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { isRequestId } from '@/lib/api/request-id'
 
 // POST /api/payments — record FIFO repayment for a customer's unpaid sales
 export async function POST(request: Request) {
@@ -47,10 +48,16 @@ export async function POST(request: Request) {
     // (e.g. the first response was lost to a timeout but the insert below
     // already landed), return what was already applied instead of double-
     // applying the repayment to the customer's debt.
+    // Identifiant de requête : format strict (aucun caractère joker de LIKE) et recherche limitée à la boutique
+    // contrôlée — avant : recherche dans TOUTES les boutiques, et « % » renvoyait les paiements des autres.
+    if (client_request_id && !isRequestId(client_request_id)) {
+      return NextResponse.json({ error: t('invalid_data') }, { status: 400 })
+    }
     if (client_request_id) {
       const { data: existingPayments } = await admin
         .from('payments')
-        .select('sale_id, amount, sales(sale_number)')
+        .select('sale_id, amount, sales!inner(sale_number, shop_id)')
+        .eq('sales.shop_id', shop_id)
         .like('client_request_id', `${client_request_id}:%`)
       if (existingPayments && existingPayments.length > 0) {
         const applied = existingPayments.map((p: any) => ({

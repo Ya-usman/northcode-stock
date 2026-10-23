@@ -3,6 +3,7 @@ import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { canPaySupplierDebt } from '@/lib/api/supplier-access'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { isRequestId } from '@/lib/api/request-id'
 
 // POST /api/supplier-payments — record FIFO payment across a supplier's
 // unpaid purchase orders. Mirrors POST /api/payments (customer side) —
@@ -48,10 +49,16 @@ export async function POST(request: Request) {
 
     // Idempotency check — same reasoning as /api/payments: a retried
     // attempt returns what was already applied instead of double-paying.
+    // Identifiant de requête : format strict (aucun caractère joker de LIKE) et recherche limitée à la boutique
+    // contrôlée — avant : recherche dans TOUTES les boutiques, et « % » renvoyait les paiements des autres.
+    if (client_request_id && !isRequestId(client_request_id)) {
+      return NextResponse.json({ error: t('invalid_data') }, { status: 400 })
+    }
     if (client_request_id) {
       const { data: existingPayments } = await admin
         .from('supplier_payments')
-        .select('purchase_order_id, amount, purchase_orders(reference)')
+        .select('purchase_order_id, amount, purchase_orders!inner(reference, shop_id)')
+        .eq('purchase_orders.shop_id', shop_id)
         .like('client_request_id', `${client_request_id}:%`)
       if (existingPayments && existingPayments.length > 0) {
         const applied = existingPayments.map((p: any) => ({

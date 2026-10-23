@@ -3563,6 +3563,8 @@
     "inventory_count_not_found": "Wannan ƙidaya ba ta nan: wataƙila an sake ƙirga ta.",
     "inventory_invalid_reason": "Ba a gane dalilin ba.",
     "po_product_wrong_shop": "Ɗaya daga cikin kayan ba na shagon wannan odar sayayya ba ne.",
+    "sale_product_wrong_shop": "Ɗaya daga cikin kayan ba na shagon wannan sayarwa ba ne.",
+    "sale_customer_wrong_shop": "Wannan abokin ciniki ba na shagon wannan sayarwa ba ne.",
     "price_product_wrong_shop": "Wannan kaya ba na wannan shago ba ne.",
     "permission_denied": "An hana izini",
     "invalid_amount": "Adadin kuɗi ba daidai ba ne.",

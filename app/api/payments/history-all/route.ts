@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { shopsWithView } from '@/lib/api/role-permissions'
 
 // GET /api/payments/history-all?shop_ids=...&date_from=...&date_to=...
 // Returns all customers with credit-related sales, optionally filtered by date range
@@ -17,18 +18,12 @@ export async function GET(request: Request) {
     const dateTo = searchParams.get('date_to')
 
     const supabase = await createClient() as any
-    const { data: { session } } = await supabase.auth.getSession()
-    const user = session?.user
-    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
+    // getUser() : jeton vérifié par le serveur d'authentification (getSession() ne fait que lire le cookie)
+    const { data: { user }, error: authErr } = await supabase.auth.getUser()
+    if (authErr || !user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
-    const { data: memberRows } = await supabase
-      .from('shop_members')
-      .select('shop_id')
-      .in('shop_id', shopIds)
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-
-    const allowedIds = shopIds.filter(id => (memberRows || []).some((m: any) => m.shop_id === id))
+    // Droit « Crédits » en consultation, boutique par boutique (avant : appartenance seule)
+    const { ids: allowedIds } = await shopsWithView(supabase, user.id, shopIds, ['payments'])
     if (!allowedIds.length) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient() as any

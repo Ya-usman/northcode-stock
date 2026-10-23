@@ -4,6 +4,7 @@ import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { canWriteFeature, isManagerial } from '@/lib/api/role-permissions'
 import { validateLinePrices } from '@/lib/api/sale-validation'
+import { customerOfShop, productsOutsideShop } from '@/lib/api/shop-objects'
 
 export async function POST(request: Request) {
   const t = getApiTranslator(request)
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
     // Fetch sale to verify access + get current state for the audit log
     const { data: sale, error: saleErr } = await admin
       .from('sales')
-      .select('shop_id, sale_status, sale_number, total, cashier_id')
+      .select('shop_id, sale_status, sale_number, total, cashier_id, customer_id')
       .eq('id', sale_id)
       .single()
 
@@ -49,6 +50,17 @@ export async function POST(request: Request) {
 
     if (!isManager && !isCashierOwn) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+    }
+
+    // Objets rattachés : produits et client doivent appartenir à la boutique DE LA VENTE (relue en base). Avant :
+    // un produit ou un client d'une autre boutique (voire d'une autre entreprise) était accepté — la fonction
+    // edit_sale aurait modifié son stock ou sa dette. Lignes libres (sans produit) : inchangées.
+    const foreign = await productsOutsideShop(admin, items.map((i: any) => i?.product_id), sale.shop_id)
+    if (foreign.length) {
+      return NextResponse.json({ error: t('sale_product_wrong_shop'), code: 'sale_product_wrong_shop' }, { status: 400 })
+    }
+    if (customer_id && !(await customerOfShop(admin, customer_id, sale.shop_id, sale.customer_id))) {
+      return NextResponse.json({ error: t('sale_customer_wrong_shop'), code: 'sale_customer_wrong_shop' }, { status: 400 })
     }
 
     // Même plancher de prix qu'à la vente (lib/sales/pricing.ts)

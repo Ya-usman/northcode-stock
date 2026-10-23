@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
-
-const ALLOWED_ROLES = ['owner', 'manager', 'shop_manager', 'super_admin']
+import { isManagerial, shopsWithView } from '@/lib/api/role-permissions'
 
 export async function GET(request: Request) {
   const t = getApiTranslator(request)
@@ -17,25 +16,11 @@ export async function GET(request: Request) {
 
   if (!shopIds.length) return NextResponse.json({ logs: [] })
 
-  // Verify caller has manager+ access to the requested shops
-  const { data: memberships } = await supabase
-    .from('shop_members')
-    .select('shop_id, role')
-    .in('shop_id', shopIds)
-    .eq('user_id', user.id)
-    .eq('is_active', true)
-    .in('role', ALLOWED_ROLES)
-
-  const allowedShopIds = (memberships || []).map((m: any) => m.shop_id)
-
-  // super_admin bypass: if user is super_admin at profile level, allow all
-  const { data: profileRow } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  const effectiveShopIds = profileRow?.role === 'super_admin' ? shopIds : allowedShopIds
+  // Boutique par boutique : rôle de direction DANS la boutique ET droit « Historique des ventes » en consultation.
+  // Avant : rôle seul, et passe-droit pour un profil super_admin (rôle global) sur TOUTES les boutiques demandées,
+  // y compris d'autres entreprises — supprimé (règle : jamais le rôle global du profil pour une donnée de boutique).
+  const access = await shopsWithView(supabase, user.id, shopIds, ['sales_history'])
+  const effectiveShopIds = access.ids.filter(id => isManagerial(access.roles[id]))
   if (!effectiveShopIds.length) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
   const admin = await createAdminClient() as any

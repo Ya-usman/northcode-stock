@@ -881,14 +881,15 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
   const shopDrafts = drafts.filter(d => d.shopId === shop?.id)
 
   // Fetch unpaid sales when customer with debt is selected
-  // Uses /api/payments/debts to bypass RLS for multi-shop accounts
+  // Uses /api/payments/debts to bypass RLS for multi-shop accounts — customer_id : la dette de CE client seulement
+  // (le droit de vendre suffit côté serveur, même sans le droit « Crédits »)
   useEffect(() => {
     setDebtRepayEnabled(false)
     setDebtRepayAmount('')
     setDebtCapped(false)
     setCustomerUnpaidSales([])
     if (!selectedCustomer || Number(selectedCustomer.total_debt) <= 0 || !shop?.id) return
-    fetch(`/api/payments/debts?shop_id=${shop.id}`)
+    fetch(`/api/payments/debts?shop_id=${shop.id}&customer_id=${selectedCustomer.id}`)
       .then(r => r.json())
       .then(({ debtors }) => {
         const debtor = (debtors || []).find((d: any) => d.customer.id === selectedCustomer.id)
