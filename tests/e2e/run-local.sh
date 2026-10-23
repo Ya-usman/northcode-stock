@@ -7,7 +7,7 @@
 cd "$(dirname "$0")"
 export CAPTURE_BASE=http://localhost:3000
 mkdir -p out
-DEFAULT="lot1-pos-settings lot1-pos-switch-safe lot2-scope inventory-v2-visual lot3-scope lot4-scope lot5-security stock-adoption initial-context fix-context stock-nav stock-overview stock-table stock-columns stock-drawers stock-pipeline stock-expired movements-ux products-ux overview-finish lots-ux filters-products open-row"
+DEFAULT="lot1-pos-settings lot1-pos-switch-safe lot2-scope inventory-v2-visual lot3-scope lot4-scope lot5-security d1-consolidation stock-adoption initial-context fix-context stock-nav stock-overview stock-table stock-columns stock-drawers stock-pipeline stock-expired movements-ux products-ux overview-finish lots-ux filters-products open-row"
 TESTS="${*:-$DEFAULT}"
 : > out/resume.log
 node lib/vitrine-fixture.js >> out/resume.log 2>&1 || { echo "repères vitrine introuvables"; exit 1; }

@@ -4006,7 +4006,12 @@
     "quota_hint": "Mutumin da aka sanya a shaguna da yawa ana ƙirga shi memba ɗaya. Ba a ƙirga Maigida ba.",
     "establishments_count": "{count, plural, =0 {Babu wuri} one {Wuri #} other {Wurare #}}",
     "read_only": "Maigida kaɗai ne zai iya gyara waɗannan bayanai.",
-    "not_available": "Bayanan kasuwanci ba su samuwa ga matsayinku."
+    "not_available": "Bayanan kasuwanci ba su samuwa ga matsayinku.",
+    "consolidation_title": "Rahotanni masu kuɗaɗe da yawa",
+    "consolidation_currency": "Kuɗin haɗa rahotanni",
+    "consolidation_hint": "Ana amfani da shi wajen haɗa rahotanni idan shagunanku suna amfani da kuɗaɗe daban-daban. Ba ya canza kuɗin shagunanku.",
+    "consolidation_shop_currencies": "Kuɗaɗen shagunanku: {list}. Adadin kuɗi na nan a cikin waɗannan kuɗaɗe; jimillar da aka haɗa « ≈ » tana zuwa a matsayin ƙari.",
+    "consolidation_single": "Duk shagunanku suna amfani da kuɗi ɗaya ({currency}): ba a yin wani canji."
   },
   "grant_reminder": {
     "title": "Kyautarku za ta ƙare ranar {date}",

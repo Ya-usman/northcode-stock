@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 export CAPTURE_BASE=http://localhost:3000
 unset CAPTURE_PROD_READONLY
 mkdir -p out
-DEFAULT="stock-reserved product-detail inventory-v2 lot2-scope lot4-security"
+DEFAULT="stock-reserved product-detail inventory-v2 lot2-scope lot4-security company-consolidation"
 : > out/write-resume.log
 node lib/vitrine-fixture.js >> out/write-resume.log 2>&1 || { echo "repères vitrine introuvables"; exit 1; }
 for t in ${*:-$DEFAULT}; do

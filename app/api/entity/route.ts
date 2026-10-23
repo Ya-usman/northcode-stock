@@ -6,6 +6,7 @@ import { isAccountOwner, isTeamManager } from '@/lib/team/roles'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { isValidPhone } from '@/lib/validations/customer'
 import { countTeamSeats, resolveAccount, getAccountShopIds, getShopLimit } from '@/lib/saas/team-quota'
+import { isSupportedCurrencyCode } from '@/lib/saas/currencies'
 
 // /api/entity?shop_id=… — l'ENTREPRISE de la boutique (migration 153).
 //  GET   : propriétaire et gestion d'équipe (Manager, Responsable) — lecture ;
@@ -14,6 +15,8 @@ import { countTeamSeats, resolveAccount, getAccountShopIds, getShopLimit } from 
 //          de l'entreprise, profil de facturation. JAMAIS ici : abonnement,
 //          propriétaire, pays de facturation (figé à l'inscription, comme
 //          shops.billing_country — seul le super_admin le change), compte interne.
+//  Devise de consolidation (migration 177) : lue par la gestion d'équipe, modifiée par le propriétaire ;
+//  sert seulement à consolider les rapports multi-devises, ne change jamais la devise des boutiques.
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const TEXT_LIMITS: Record<string, number> = {
@@ -49,6 +52,8 @@ export async function GET(request: Request) {
     getAccountShopIds(admin, account, { includeSuspended: true }),
     getShopLimit(admin, account),
   ])
+  const { data: shopRows } = shopIds.length ? await admin.from('shops').select('currency').in('id', shopIds) : { data: [] }
+  const shopCurrencies = Array.from(new Set<string>((shopRows || []).map((s: any) => s.currency as string))).sort()
 
   return NextResponse.json({
     entity: {
@@ -56,6 +61,8 @@ export async function GET(request: Request) {
       address: e.address, city: e.city, phone: e.phone, email: e.email,
       establishment_count: shopIds.length,
       owner_name: owner?.full_name ?? null,
+      consolidation_currency: e.consolidation_currency,
+      shop_currencies: shopCurrencies,
       ...(owner_view ? {
         billing_contact_name: e.billing_contact_name, billing_email: e.billing_email, billing_phone: e.billing_phone,
         billing_address: e.billing_address, billing_city: e.billing_city, billing_country: e.billing_country, tax_id: e.tax_id,
@@ -89,6 +96,11 @@ export async function PATCH(request: Request) {
     if ((f === 'email' || f === 'billing_email') && clean && (clean.length > 254 || !EMAIL_RE.test(clean))) return NextResponse.json({ error: t('shop_email_invalid'), field: f }, { status: 400 })
     if ((f === 'phone' || f === 'billing_phone') && clean && (clean.length > 30 || !isValidPhone(clean))) return NextResponse.json({ error: t('shop_phone_invalid'), field: f }, { status: 400 })
     updates[f] = clean ? ((f === 'email' || f === 'billing_email') ? clean.toLowerCase() : clean) : null
+  }
+  if ('consolidation_currency' in body) {
+    const c = body.consolidation_currency
+    if (typeof c !== 'string' || !isSupportedCurrencyCode(c)) return NextResponse.json({ error: t('invalid_data'), field: 'consolidation_currency' }, { status: 400 })
+    updates.consolidation_currency = c
   }
   // Enregistrer le nom (même inchangé) = le propriétaire le confirme
   if ('name' in updates || body.confirm_name === true) updates.name_confirmed = true

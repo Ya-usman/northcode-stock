@@ -1,0 +1,21 @@
+{
+  "operation": "B — comblement du trou des 19 et 20 octobre 2026 (cron sans données ces deux jours)",
+  "source": "Frankfurter v2 (api.frankfurter.dev), dates renvoyées identiques aux dates demandées, récupéré le 2026-10-23T16:21:58.682Z",
+  "regles": [
+    "INSERT … ON CONFLICT DO NOTHING (jamais d'écrasement d'un taux existant)",
+    "provider = source = 'frankfurter', is_manual_override = false",
+    "as_of = date d'effet à 12:00 UTC (convention du rattrapage d'avril), fetched_at = heure réelle de récupération",
+    "garde-fous dans un seul bloc : 38 trous avant, 38 lignes insérées, 0 trou après — sinon annulation complète"
+  ],
+  "comptes_avant_par_source": { "er-api": 176, "frankfurter": 3124, "total": 3300 },
+  "trous_avant": 38,
+  "lignes_inserees": 38,
+  "trous_apres": 0,
+  "comptes_apres_par_source": { "er-api": 176, "frankfurter": 3162, "total": 3338 },
+  "ecrit_le": "2026-10-23T16:35:06.908048Z",
+  "note_parite": "Après arrondi de la colonne rate (numeric(20,10)), EUR/XAF implicite = 655,9576 (19/10) et 655,9517 (20/10) : le moteur de consolidation applique de toute façon la parité exacte 655,957, jamais ces lignes, pour EUR↔XAF/XOF et XAF↔XOF.",
+  "valeurs_usd_pour_1_unite": {
+    "2026-10-19": {"CAD":0.7085665698292355,"CDF":0.0004369235340123125,"CVE":0.010187449062754686,"CZK":0.046153136105598375,"DKK":0.1502426418666146,"EUR":1.1233304501185115,"GHS":0.08599635375460081,"GMD":0.013644426251876108,"GNF":0.00011364927832708262,"HUF":0.0030929110478782633,"LRD":0.005863383172090296,"MRU":0.024937655860349125,"NGN":0.0007511906371598984,"PLN":0.25699013157894735,"RON":0.21079258010118046,"SEK":0.1009448437373819,"SLE":0.0424322145372767,"XAF":0.0017125047093879506,"XOF":0.0017125047093879506},
+    "2026-10-20": {"CAD":0.7109847138286527,"CDF":0.0004366812227074236,"CVE":0.010182262498727218,"CZK":0.04613184481247405,"DKK":0.15016142353029505,"EUR":1.1227628949318482,"GHS":0.08578168561012224,"GMD":0.013670166229221348,"GNF":0.00011362345188046812,"HUF":0.003086896125945362,"LRD":0.005863726984871585,"MRU":0.024968165588874183,"NGN":0.0007511737089201878,"PLN":0.25668009959187865,"RON":0.21064605143976575,"SEK":0.10095809229588798,"SLE":0.04257855743847398,"XAF":0.0017116546565564932,"XOF":0.0017116546565564932}
+  }
+}

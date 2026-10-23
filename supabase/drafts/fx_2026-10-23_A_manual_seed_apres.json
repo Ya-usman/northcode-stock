@@ -1,0 +1,7 @@
+{
+  "operation": "A — suppression ciblée des 13 taux manual_seed",
+  "requete": "DELETE … WHERE id IN (13 identifiants de fx_2026-10-23_A_manual_seed_avant.json) AND source = provider = 'manual_seed' AND is_manual_override = false ; annulation automatique si ROW_COUNT <> 13",
+  "lignes_supprimees": 13,
+  "comptes_apres_par_source": { "er-api": 176, "frankfurter": 3124, "manual_seed": 0, "total": 3300 },
+  "autres_sources_inchangees": true
+}

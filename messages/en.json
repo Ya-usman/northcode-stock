@@ -4006,7 +4006,12 @@
     "quota_hint": "A person assigned to several shops counts as one member. The owner is not counted.",
     "establishments_count": "{count, plural, =0 {No establishment} one {# establishment} other {# establishments}}",
     "read_only": "Only the owner can edit this information.",
-    "not_available": "Company information is not available for your role."
+    "not_available": "Company information is not available for your role.",
+    "consolidation_title": "Multi-currency reports",
+    "consolidation_currency": "Consolidation currency",
+    "consolidation_hint": "Used to consolidate reports when your shops use several currencies. It does not change your shops’ currency.",
+    "consolidation_shop_currencies": "Your shops’ currencies: {list}. Amounts are still shown in these currencies; the consolidated “≈” total is shown alongside.",
+    "consolidation_single": "All your shops use the same currency ({currency}): no conversion is applied."
   },
   "grant_reminder": {
     "title": "Your complimentary offer ends on {date}",

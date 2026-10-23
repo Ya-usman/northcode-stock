@@ -11,7 +11,7 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useTranslations, useLocale } from 'next-intl'
-import { ArrowLeft, Building2, Save, UserRound, Receipt, CreditCard, CheckCircle2, AlertTriangle, Store, Users } from 'lucide-react'
+import { ArrowLeft, Building2, Save, UserRound, Receipt, CreditCard, CheckCircle2, AlertTriangle, Store, Users, Coins } from 'lucide-react'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,7 +19,9 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { RequiredMark } from '@/components/ui/input-group'
 import { useToast } from '@/components/ui/use-toast'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { COUNTRIES, type CountryCode } from '@/lib/saas/countries'
+import { CURRENCY_LIST } from '@/lib/saas/currencies'
 import { useShopStatus } from '@/lib/shops/shop-insights'
 import { startNavigationProgress } from '@/components/layout/navigation-progress'
 import { cn } from '@/lib/utils/cn'
@@ -31,13 +33,15 @@ const PhoneInput = dynamic(() => import('@/components/ui/phone-input').then(m =>
   loading: () => <div className="h-10 w-full animate-pulse rounded-md border border-input bg-muted/40" />,
 })
 
-type Field = 'name' | 'address' | 'city' | 'phone' | 'email' | 'billing_contact_name' | 'billing_email' | 'billing_phone' | 'billing_address' | 'billing_city' | 'tax_id'
-const FIELDS: Field[] = ['name', 'address', 'city', 'phone', 'email', 'billing_contact_name', 'billing_email', 'billing_phone', 'billing_address', 'billing_city', 'tax_id']
+type Field = 'name' | 'address' | 'city' | 'phone' | 'email' | 'billing_contact_name' | 'billing_email' | 'billing_phone' | 'billing_address' | 'billing_city' | 'tax_id' | 'consolidation_currency'
+const FIELDS: Field[] = ['name', 'address', 'city', 'phone', 'email', 'billing_contact_name', 'billing_email', 'billing_phone', 'billing_address', 'billing_city', 'tax_id', 'consolidation_currency']
 
 interface EntityView {
   id: string; name: string; name_confirmed: boolean; country: string | null
   address: string | null; city: string | null; phone: string | null; email: string | null
   establishment_count: number; owner_name: string | null
+  /** Devise de consolidation des rapports multi-devises (migration 177) et devises des boutiques */
+  consolidation_currency: string; shop_currencies: string[]
   billing_contact_name?: string | null; billing_email?: string | null; billing_phone?: string | null
   billing_address?: string | null; billing_city?: string | null; billing_country?: string | null; tax_id?: string | null
   plan?: string; plan_expires_at?: string | null; trial_ends_at?: string | null
@@ -110,6 +114,11 @@ export default function CompanySettingsPage() {
   const billingCountry = entity?.billing_country ? COUNTRIES[entity.billing_country as CountryCode] : null
   const sub = entity?.plan ? subscriptionOf({ plan: entity.plan, plan_expires_at: entity.plan_expires_at, trial_ends_at: entity.trial_ends_at } as Shop) : null
   const preferred = useMemo(() => userShops.map(s => s.country), [userShops])
+  // Devises des boutiques d'abord, puis les autres devises prises en charge
+  const currencyOptions = useMemo(() => {
+    const own = new Set(entity?.shop_currencies ?? [])
+    return [...CURRENCY_LIST.filter(c => own.has(c.code)), ...CURRENCY_LIST.filter(c => !own.has(c.code))]
+  }, [entity?.shop_currencies])
 
   const field = (f: Field, label: string, opts?: { required?: boolean; placeholder?: string; type?: string; hint?: string }) => (
     <div className="space-y-1.5">
@@ -198,6 +207,28 @@ export default function CompanySettingsPage() {
           </div>
         </>
       ), undefined, 'company-general')}
+
+      {section(Coins, t('entity.consolidation_title'), (
+        <div className="space-y-1.5">
+          <Label htmlFor="entity-consolidation_currency">{t('entity.consolidation_currency')}</Label>
+          <Select value={values.consolidation_currency || undefined} disabled={!canEdit} onValueChange={set('consolidation_currency')}>
+            <SelectTrigger id="entity-consolidation_currency" className="sm:w-80" aria-invalid={!!errors.consolidation_currency} data-testid="company-consolidation-select">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.code} — {c.symbol}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {errors.consolidation_currency
+            ? <p className="text-xs text-destructive">{errors.consolidation_currency}</p>
+            : <p className="text-xs text-muted-foreground">{t('entity.consolidation_hint')}</p>}
+          <p className="text-xs text-muted-foreground" data-testid="company-shop-currencies">
+            {entity.shop_currencies.length > 1
+              ? t('entity.consolidation_shop_currencies', { list: entity.shop_currencies.join(', ') })
+              : t('entity.consolidation_single', { currency: entity.shop_currencies[0] ?? '—' })}
+          </p>
+        </div>
+      ), undefined, 'company-consolidation')}
 
       {section(UserRound, t('roles.owner'), (
         <div className="flex items-center gap-3">
