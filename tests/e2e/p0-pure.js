@@ -36,6 +36,26 @@ console.log('\n1. Cohérence application ↔ SQL (178) : fuseau par défaut et z
   ok(missing.length === 0, `les ${Object.keys(COUNTRIES).length} pays pris en charge ont des zones autorisées${missing.length ? ' — manquent : ' + missing.join(',') : ''}`)
 }
 
+console.log('\n1 bis. SQL 178 : contrôle technique rapide, liste fermée du pays = validation définitive')
+{
+  const iana = sql.match(/FUNCTION public\.is_iana_time_zone[\s\S]*?\$\$([\s\S]*?)\$\$/)[1]
+  ok(!/pg_timezone_names/.test(iana) && /AT TIME ZONE p_tz/.test(iana) && /invalid_parameter_value/.test(iana),
+    'is_iana_time_zone : plus de lecture de pg_timezone_names (≈ 0,8 s par appel), AT TIME ZONE + erreur 22023 interceptée')
+  const re = new RegExp(iana.match(/p_tz !~ '([^']+)'/)[1])
+  ok(re.test('Africa/Porto-Novo') && re.test('America/Kentucky/Louisville') && !re.test('UTC+1') && !re.test('Etc/GMT-1') && !re.test('Europe/Paris+5'),
+    'forme Région/Ville : Porto-Novo et Kentucky/Louisville acceptés ; UTC+1, Etc/GMT-1, Europe/Paris+5 refusés')
+  const guard = sql.match(/FUNCTION public\.shops_timezone_guard[\s\S]*?\$\$([\s\S]*?)\$\$/)[1]
+  const iTech = guard.indexOf('is_iana_time_zone(NEW.timezone)'), iList = guard.lastIndexOf('NEW.timezone = ANY (v_allowed)')
+  ok(iTech > 0 && iList > iTech && /timezone_country_mismatch[\s\S]*?P0031/.test(guard.slice(iList)),
+    'garde : contrôle technique PUIS liste fermée country_time_zones(pays) → P0031 timezone_country_mismatch (aucune valeur hors liste enregistrable)')
+  // US + zone valide d'un autre pays : passe le contrôle technique (forme + nom réel) mais pas la liste du pays → P0031
+  const sqlGuard = (country, tz) => !re.test(tz) ? 'P0031 invalid_timezone' : (TZ.countryTimeZones(country) || []).includes(tz) ? 'accepté' : 'P0031 timezone_country_mismatch'
+  ok(sqlGuard('US', 'Africa/Douala') === 'P0031 timezone_country_mismatch' && sqlGuard('US', 'Europe/Paris') === 'P0031 timezone_country_mismatch' && sqlGuard('US', 'America/Chicago') === 'accepté',
+    'US + Africa/Douala ou Europe/Paris (zones réelles d’autres pays) → P0031 ; US + America/Chicago → accepté')
+  ok(sqlGuard('US', 'Europe/Paris-5') === 'P0031 invalid_timezone' && sqlGuard('US', 'Asia/Tokyo') === 'P0031 timezone_country_mismatch',
+    'US + Europe/Paris-5 (règle POSIX acceptée par PostgreSQL) → P0031 dès le contrôle technique ; US + Asia/Tokyo → P0031 par la liste du pays')
+}
+
 console.log('\n2. Couple pays ↔ fuseau (règle serveur resolveShopTimeZone)')
 {
   const r = (country, requested, current) => TZ.resolveShopTimeZone({ country, requested, current })
@@ -44,6 +64,8 @@ console.log('\n2. Couple pays ↔ fuseau (règle serveur resolveShopTimeZone)')
     ['US', 'Europe/Paris', false], ['CD', 'Africa/Kinshasa', true], ['CD', 'Africa/Lubumbashi', true], ['CD', 'Africa/Douala', false],
     ['ES', 'Europe/Madrid', true], ['ES', 'Atlantic/Canary', true], ['ES', 'Europe/Paris', false], ['PT', 'Europe/Lisbon', true],
     ['PT', 'Atlantic/Azores', true], ['AT', 'Europe/Vienna', true], ['AT', 'Europe/Paris', false], ['CM', 'UTC+1', false], ['US', 'Etc/GMT-5', false],
+    // zone reconnue (ou règle POSIX acceptée par PostgreSQL) mais hors de la liste du pays : toujours refusée
+    ['US', 'Africa/Douala', false], ['US', 'Europe/Paris-5', false], ['CM', 'Europe/Paris+5', false],
   ]
   for (const [c, tz, accepted] of cases) {
     const res = r(c, tz)

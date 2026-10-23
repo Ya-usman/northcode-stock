@@ -39,13 +39,23 @@
 
 -- ── 1. Fuseau horaire de la boutique ─────────────────────────────────────────────────────────────────────────
 
--- Zone IANA réelle uniquement : région géographique + présence dans la base de fuseaux de PostgreSQL.
--- Refuse « UTC+1 », « GMT+2 », « Etc/GMT-1 », abréviations et valeurs inventées.
+-- Contrôle TECHNIQUE seulement (forme « Région/Ville » + nom reconnu par PostgreSQL). Refuse « UTC+1 », « GMT+2 »,
+-- « Etc/GMT-1 », abréviations et noms inconnus.
+-- Ce n'est PAS la validation métier : PostgreSQL accepte aussi des règles POSIX (« Europe/Paris-5 ») et toute zone
+-- du monde. La validation DÉFINITIVE est country_time_zones(pays), liste fermée identique à l'application : une zone
+-- reconnue par PostgreSQL n'est pas automatiquement autorisée dans StockShop (sinon P0031 timezone_country_mismatch).
+-- Pas de lecture de pg_timezone_names (≈ 0,8 s par appel, mesuré le 24 oct. 2026) : AT TIME ZONE ≈ 0,2 ms.
 CREATE OR REPLACE FUNCTION public.is_iana_time_zone(p_tz text) RETURNS boolean
-LANGUAGE sql STABLE SET search_path = public, pg_catalog AS $$
-  SELECT p_tz IS NOT NULL
-     AND p_tz ~ '^(Africa|America|Asia|Atlantic|Australia|Europe|Indian|Pacific)/[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+)?$'
-     AND EXISTS (SELECT 1 FROM pg_timezone_names WHERE name = p_tz)
+LANGUAGE plpgsql STABLE SET search_path = public, pg_catalog AS $$
+BEGIN
+  IF p_tz IS NULL OR p_tz !~ '^(Africa|America|Asia|Atlantic|Australia|Europe|Indian|Pacific)/[A-Za-z_-]+(/[A-Za-z_-]+)?$' THEN
+    RETURN false;
+  END IF;
+  PERFORM now() AT TIME ZONE p_tz;   -- nom inconnu de PostgreSQL → erreur 22023
+  RETURN true;
+EXCEPTION WHEN invalid_parameter_value THEN
+  RETURN false;
+END;
 $$;
 
 -- Valeur PAR DÉFAUT d'un pays à fuseau unique (création, remplissage initial) — jamais la source de vérité.
@@ -129,8 +139,9 @@ ALTER TABLE public.shops ALTER COLUMN timezone SET NOT NULL;
 --   • création sans fuseau → fuseau unique du pays, sinon REFUS P0032 (localisation ou choix requis) ;
 --   • changement de pays sans nouveau fuseau → l'ancien est gardé s'il reste valable pour le nouveau pays, sinon
 --     fuseau unique du nouveau pays, sinon REFUS P0032 (nouveau choix requis) — jamais « France + America/Chicago » ;
---   • toute valeur finale : zone IANA réelle (P0031 invalid_timezone) ET zone autorisée pour le pays
---     (P0031 timezone_country_mismatch).
+--   • toute valeur finale : contrôle technique is_iana_time_zone (P0031 invalid_timezone) PUIS validation métier
+--     définitive : zone présente dans la liste fermée country_time_zones(pays) (P0031 timezone_country_mismatch).
+--     Seule cette liste autorise l'enregistrement ; une zone reconnue par PostgreSQL mais hors liste est refusée.
 CREATE OR REPLACE FUNCTION public.shops_timezone_guard() RETURNS trigger
 LANGUAGE plpgsql SET search_path = public AS $$
 DECLARE v_allowed text[] := country_time_zones(NEW.country);

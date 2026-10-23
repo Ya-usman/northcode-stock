@@ -18,7 +18,12 @@ const TZ = jiti(ROOT + '/lib/time/time-zones.ts')
 const ALPHA = 'a0000000-0000-0000-0000-000000000001'
 const RUN = `TEST P0 ${Date.now().toString(36)}`
 let pass = 0, fail = 0
-const ok = (c, m) => { c ? pass++ : fail++; console.log(`  ${c ? 'ok   ' : 'ÉCHEC'} ${m}`) }
+// Arrêt IMMÉDIAT au premier écart (consigne du 24 oct. 2026) : plus aucune écriture, pas de nettoyage automatique,
+// identifiants TEST affichés, état relu en lecture seule
+class Stop extends Error {}
+let stopped = null
+const ok = (c, m) => { c ? pass++ : fail++; console.log(`  ${c ? 'ok   ' : 'ÉCHEC'} ${m}`); if (!c) { stopped = m; throw new Stop(m) } }
+const check = (c, m) => { c ? pass++ : fail++; console.log(`  ${c ? 'ok   ' : 'ÉCHEC'} ${m}`) }
 const created = { products: [], sales: [] }
 let cashier = null, today = null, tz = null
 
@@ -70,11 +75,26 @@ const edit = (saleId, productId, qty) => db.rpc('edit_sale', {
 })
 
 async function snapshotAlpha() {
-  const [{ data: p }, { data: b }] = await Promise.all([
-    db.from('products').select('id, quantity').eq('shop_id', ALPHA).not('name', 'like', 'TEST P0 %').order('id'),
+  const [{ data: p }, { data: b }, { data: shop }, { count: sales }, { data: cust }] = await Promise.all([
+    db.from('products').select('id, quantity, updated_at').eq('shop_id', ALPHA).not('name', 'like', 'TEST P0 %').order('id'),
     db.from('product_batches').select('id, quantity, expiry_date').eq('shop_id', ALPHA).order('id'),
+    db.from('shops').select('name, country, timezone').eq('id', ALPHA).single(),
+    db.from('sales').select('id', { count: 'exact', head: true }).eq('shop_id', ALPHA),
+    db.from('customers').select('id, total_debt').eq('shop_id', ALPHA).order('id'),
   ])
-  return JSON.stringify({ p, b })
+  return JSON.stringify({ p, b, shop, sales, cust })
+}
+const saleCounter = async () => (await db.from('shop_sale_counters').select('counter').eq('shop_id', ALPHA).maybeSingle()).data?.counter ?? null
+
+// Lignes TEST par table, retrouvées UNIQUEMENT par les identifiants créés
+async function testCounts() {
+  const c = async (t, col, ids) => ids.length ? (await db.from(t).select('*', { count: 'exact', head: true }).in(col, ids)).count : 0
+  const items = created.sales.length ? ((await db.from('sale_items').select('id').in('sale_id', created.sales)).data || []).map(i => i.id) : []
+  return {
+    produits: await c('products', 'id', created.products), lots: await c('product_batches', 'product_id', created.products),
+    mouvements: await c('stock_movements', 'product_id', created.products), ventes: await c('sales', 'id', created.sales),
+    lignes: items.length, allocations: await c('sale_item_batches', 'sale_item_id', items), paiements: await c('payments', 'sale_id', created.sales),
+  }
 }
 
 async function cleanup() {
@@ -102,6 +122,7 @@ async function cleanup() {
   today = bd
   cashier = (await db.from('shop_members').select('user_id').eq('shop_id', ALPHA).eq('role', 'owner').eq('is_active', true).limit(1).single()).data.user_id
   const before = await snapshotAlpha()
+  const counterBefore = await saleCounter()
   console.log(`Alpha : ${alpha.country} / ${tz} — date métier ${today} — référence ${RUN}`)
 
   try {
@@ -237,12 +258,31 @@ async function cleanup() {
       const { error } = await anon.rpc(fn[0], fn[1])
       ok(error && (error.code === '42501' || /permission denied/i.test(error.message)), `${fn[0]} : refusé au rôle anonyme (${error && error.code})`)
     }
-  } finally {
-    await cleanup()
-    const after = await snapshotAlpha()
-    const { count: left } = await db.from('products').select('id', { count: 'exact', head: true }).like('name', `${RUN}%`)
-    ok(left === 0, `nettoyage : ${created.products.length} produits et ${created.sales.length} ventes de test supprimés par identifiant, aucune trace`)
-    ok(after === before, 'Alpha : produits et lots préexistants identiques avant / après')
-    console.log(`\n${pass} réussis, ${fail} échec(s)`); process.exit(fail ? 1 : 0)
+  } catch (e) {
+    if (!(e instanceof Stop)) { stopped = 'ERREUR ' + String(e.message).slice(0, 200); fail++; console.log('  ÉCHEC ' + stopped) }
   }
-})().catch(async e => { console.error('ERREUR', e.message); try { await cleanup() } catch {} process.exit(1) })
+  if (stopped) {
+    console.log('\nARRÊT IMMÉDIAT — ' + stopped)
+    console.log('Aucune écriture supplémentaire, aucun nettoyage automatique. Objets TEST créés (identifiants) :')
+    console.log(JSON.stringify(created))
+    console.log('Lignes TEST présentes (lecture seule) :', JSON.stringify(await testCounts()))
+    console.log('Alpha préexistant identique :', (await snapshotAlpha()) === before)
+    console.log(`\n${pass} réussis, ${fail} échec(s)`); process.exit(2)
+  }
+
+  console.log('\n9. Nettoyage par identifiants')
+  const made = await testCounts()
+  await cleanup()
+  const left = await testCounts()
+  const total = o => Object.values(o).reduce((n, v) => n + v, 0)
+  console.log('  lignes TEST créées    :', JSON.stringify(made), '=', total(made))
+  console.log('  lignes TEST restantes :', JSON.stringify(left), '=', total(left))
+  check(total(left) === 0, `nettoyage : ${total(made)} lignes TEST supprimées par identifiant, 0 restante`)
+  const { count: byName } = await db.from('products').select('id', { count: 'exact', head: true }).like('name', `${RUN}%`)
+  const { count: salesByNote } = await db.from('sales').select('id', { count: 'exact', head: true }).eq('notes', RUN)
+  check(byName === 0 && salesByNote === 0, 'aucun produit ni vente au nom du test (contrôle indépendant des identifiants)')
+  check((await snapshotAlpha()) === before, 'Alpha : boutique, produits, lots, ventes et clients préexistants identiques avant / après')
+  const counterAfter = await saleCounter()
+  console.log(`  compteur de numéros de vente d’Alpha : ${counterBefore} → ${counterAfter} (${created.sales.length} ventes TEST numérotées, opération attendue)`)
+  console.log(`\n${pass} réussis, ${fail} échec(s)`); process.exit(fail ? 1 : 0)
+})().catch(e => { console.error('ERREUR hors du bloc de test :', e.message, '— objets créés :', JSON.stringify(created), '(aucun nettoyage automatique)'); process.exit(2) })
