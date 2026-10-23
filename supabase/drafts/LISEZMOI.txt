@@ -1,0 +1,6 @@
+Brouillons de migration NON appliqués (rien ici n'est exécuté automatiquement).
+- 176_transferts_workflow.sql : Transferts, traçabilité lot par lot — vérifié contre la base le 15 oct. 2026,
+  corrigé le 15 oct. (statut « annulé » ; coût inconnu = NULL). À appliquer AVEC le minimum d'application
+  (message insufficient_transferable_stock, type de mouvement transit_loss dans Mouvements), sur accord explicite.
+- 176_transferts_workflow_rollback.sql : retour arrière (anciennes fonctions reprises des migrations 102 / 104).
+Reconstitués le 23 oct. 2026 depuis l'historique de la conversation après le nettoyage du dossier temporaire.
