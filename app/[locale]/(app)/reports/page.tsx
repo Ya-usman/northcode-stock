@@ -11,7 +11,6 @@ import {
   PieChart, Pie, Cell,
   Tooltip, ResponsiveContainer,
 } from 'recharts'
-import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -73,7 +72,6 @@ export default function ReportsPage() {
   const canSeeReports = canAccess('reports')
   const { isOnline } = useOffline()
   const { toast } = useToast()
-  const supabase = createClient() as any
 
   const today = format(new Date(), 'yyyy-MM-dd')
   const [{ dateFilter, customStart, customEnd }, setFilter] = usePersistedFilters(
@@ -122,181 +120,31 @@ export default function ReportsPage() {
     return `${format(s, 'dd MMM yyyy', { locale: dateFnsLocale(locale) })} – ${format(e, 'dd MMM yyyy', { locale: dateFnsLocale(locale) })}`
   }
 
+  // Données calculées par le SERVEUR (/api/reports/summary) : droit « Rapports » et widgets évalués boutique par
+  // boutique, vendeur limité à ses ventes décidé par le serveur, aucun coût ni marge (réservés à /api/reports/margin).
+  // Avant : lues directement par le navigateur, la base ne contrôlant que l'appartenance à la boutique.
   const loadFreshReportData = async (start: string, end: string): Promise<ReportsData> => {
-    // Sales in period
-    // A transient auth/RLS hiccup (session mid-refresh right after the tab
-    // resumes from background) can resolve a query successfully with
-    // data: null instead of throwing — every `error` below is checked and
-    // thrown explicitly so the caller's catch block preserves whatever
-    // report is already on screen instead of silently overwriting it with
-    // zeros (the same bug just fixed in stock.tsx's fetchProducts).
-    const { data: salesRaw, error: salesErr } = await supabase
-      .from('sales')
-      .select('id, total, amount_paid, payment_method, created_at, cashier_id, shop_id')
-      .in('shop_id', effectiveShopIds)
-      .eq('sale_status', 'active')
-      .gte('created_at', start)
-      .lte('created_at', end)
-    if (salesErr) throw salesErr
-    const sales = (salesRaw || []) as Array<{ id: string; total: number; amount_paid: number; payment_method: string; created_at: string; cashier_id: string | null; shop_id: string }>
-
-    // Revenue by payment method (from sales in period)
-    const byMethod: Record<string, number> = {}
-    sales.forEach(s => { byMethod[s.payment_method] = (byMethod[s.payment_method] || 0) + Number(s.total) })
+    const res = await fetch(`/api/reports/summary?${new URLSearchParams({ shop_ids: effectiveShopIds.join(','), start, end })}`)
+    const j = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(j.error || t('errors.generic'))
     // Libellé lisible : traduit (Espèces, Carte, Crédit…) ou nom de marque (Orange Money, MTN MoMo…)
     const methodName = (id: string) => id === 'mixed'
       ? t('receipt.method_mixed')
       : t.has(`payment.${id}` as any) ? t(`payment.${id}` as any) : (getPaymentMethodLabel(id) ?? id)
-    const revenueByMethod = Object.entries(byMethod).map(([name, value]) => ({
-      name: methodName(name),
-      value,
-    }))
-
-    // Total revenue = sum of sales.total (consistent base for marge brute)
-    const totalRevenue = sales.reduce((s, sale) => s + Number(sale.total), 0)
-
-    // Sale items for profit calculation (only if there are sales)
-    let prodTotals: Record<string, { name: string; qty: number; revenue: number }> = {}
-
-    if (sales.length > 0) {
-      const { data: items, error: itemsErr } = await supabase
-        .from('sale_items')
-        .select('product_name, quantity, unit_price, subtotal, product_id, sale_id')
-        .in('sale_id', sales.map(s => s.id))
-      if (itemsErr) throw itemsErr
-
-      const safeItems = (items || []) as Array<{ product_name: string; quantity: number; unit_price: number; subtotal: number; product_id: string | null; sale_id: string }>
-      // Le coût des ventes (marge brute) n'est plus lu ici : il est calculé par le serveur — /api/reports/margin
-
-      // Top 10 products — grouped by product_id (falling back to product_name
-      // for free-text items with no product_id), same as the dashboard chart:
-      // grouping by name alone would split a renamed product's sales across
-      // two entries, or merge two different products sharing the same name.
-      safeItems.forEach(item => {
-        const key = item.product_id ?? item.product_name
-        if (!prodTotals[key]) prodTotals[key] = { name: item.product_name, qty: 0, revenue: 0 }
-        prodTotals[key].qty += Number(item.quantity)
-        prodTotals[key].revenue += Number(item.subtotal)
-      })
-    }
-
-    const totals = { revenue: totalRevenue, sales: sales.length }
-    const topProducts = Object.values(prodTotals)
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 10)
-
-    // Stock valuation + full inventory
-    const [productsRes, debtRes, expensesRes, cashierPaymentsRes] = await Promise.all([
-      supabase
-        .from('products').select('id, name, quantity, selling_price')
-        .in('shop_id', effectiveShopIds).eq('is_active', true).order('name'),
-      supabase
-        .from('customers').select('total_debt')
-        .in('shop_id', effectiveShopIds),
-      supabase
-        .from('expenses').select('id, amount, description, date')
-        .in('shop_id', effectiveShopIds)
-        .gte('date', format(new Date(start), 'yyyy-MM-dd'))
-        .lte('date', format(new Date(end), 'yyyy-MM-dd'))
-        .order('date', { ascending: false }),
-      // Cash actually collected per cashier this period (payments.paid_at +
-      // received_by) — NOT sales.amount_paid grouped by the sale's original
-      // cashier_id, which would credit a debt repayment collected today by
-      // cashier B to whoever made the sale (possibly cashier A, possibly
-      // last month) instead of to B, today.
-      supabase
-        .from('payments')
-        .select('amount, received_by, sales!inner(shop_id, sale_status)')
-        .in('sales.shop_id', effectiveShopIds)
-        // Argent reçu : tout sauf les ventes annulées (un remboursement de reprise de dette compte)
-        .neq('sales.sale_status', 'cancelled')
-        .eq('is_cancelled', false)
-        .eq('is_write_off', false)
-        .not('received_by', 'is', null)
-        .gte('paid_at', start)
-        .lte('paid_at', end),
-    ])
-    if (productsRes.error || debtRes.error || expensesRes.error || cashierPaymentsRes.error) {
-      throw productsRes.error || debtRes.error || expensesRes.error || cashierPaymentsRes.error
-    }
-    const { data: allProducts } = productsRes, { data: debtCustomers } = debtRes, { data: expensesRaw } = expensesRes
-    const { data: cashierPaymentsRaw } = cashierPaymentsRes
-    const expensesList = (expensesRaw || []) as { id: string; amount: number; description: string; date: string }[]
-    const expTotal = expensesList.reduce((s, e) => s + Number(e.amount), 0)
-    const sellingValue = (allProducts || []).reduce((s: number, p: any) => s + Number(p.quantity) * Number(p.selling_price), 0)
-    const stockValuation = { sellingValue }
-
-    const totalOutstandingDebt = (debtCustomers || []).reduce((s: number, c: any) => s + Number(c.total_debt), 0)
-
-    // Full inventory: all active products, enriched with sold qty/revenue for the period.
-    // prodTotals is keyed by product_id (falling back to product_name only for
-    // free-text sale items with no product_id — see the comment above where
-    // it's built) — so the lookup here must try p.id first, matching how the
-    // vast majority of entries are actually keyed; a p.name-only lookup missed
-    // almost every product and left "Vendus" at 0 for them.
-    const inventoryList = (allProducts || []).map((p: any) => ({
-      id: p.id,
-      name: p.name,
-      quantity: Number(p.quantity),
-      selling_price: Number(p.selling_price),
-      soldQty: (prodTotals[p.id] ?? prodTotals[p.name])?.qty || 0,
-      soldRevenue: (prodTotals[p.id] ?? prodTotals[p.name])?.revenue || 0,
-    })).sort((a: { soldRevenue: number; name: string }, b: { soldRevenue: number; name: string }) => (b.soldRevenue - a.soldRevenue) || a.name.localeCompare(b.name))
-
-    // Cashier performance — sales count from sales made this period
-    // (created_at); revenue kept separate, from cash actually collected this
-    // period (see cashierPaymentsRes above) so it's credited to whoever
-    // really received it today, not folded into the original sale's cashier.
-    const cashierMap: Record<string, { sales: number; shopId: string }> = {}
-    sales.forEach(s => {
-      if (!s.cashier_id) return
-      if (!cashierMap[s.cashier_id]) cashierMap[s.cashier_id] = { sales: 0, shopId: s.shop_id }
-      cashierMap[s.cashier_id].sales += 1
-    })
-    const revenueByCashier: Record<string, number> = {}
-    ;(cashierPaymentsRaw || []).forEach((p: any) => {
-      revenueByCashier[p.received_by] = (revenueByCashier[p.received_by] || 0) + Number(p.amount)
-    })
-
-    // Fetch ALL active shop members so we include those with 0 sales in the ranking
-    const { data: membersRaw, error: membersErr } = await supabase
-      .from('shop_members').select('user_id, shop_id')
-      .in('shop_id', effectiveShopIds).eq('is_active', true)
-    if (membersErr) throw membersErr
-    const allMembers = (membersRaw || []) as { user_id: string; shop_id: string }[]
-    const memberShopMap: Record<string, string> = {}
-    allMembers.forEach(m => { memberShopMap[m.user_id] = m.shop_id })
-
-    // Union: members who sold, members who collected a payment, + all active members
-    const allUserIds = Array.from(new Set([...Object.keys(cashierMap), ...Object.keys(revenueByCashier), ...allMembers.map(m => m.user_id)]))
-
-    let _cashierPerf: any[] = []
-    if (allUserIds.length > 0) {
-      const { data: profiles, error: profilesErr } = await supabase.from('profiles').select('id, full_name').in('id', allUserIds)
-      if (profilesErr) throw profilesErr
-      const shopNameMap: Record<string, string> = {}
-      userShops.forEach((s: any) => { shopNameMap[s.id] = s.name })
-      _cashierPerf = allUserIds.map(id => ({
-        id,
-        name: (profiles || []).find((p: any) => p.id === id)?.full_name || 'Unknown',
-        shopName: shopNameMap[cashierMap[id]?.shopId || memberShopMap[id] || ''],
-        sales: cashierMap[id]?.sales || 0,
-        revenue: revenueByCashier[id] || 0,
-        shopId: cashierMap[id]?.shopId || memberShopMap[id] || '',
-      })).sort((a, b) => b.revenue - a.revenue)
-    }
-
+    const shopNameMap: Record<string, string> = {}
+    userShops.forEach((x: any) => { shopNameMap[x.id] = x.name })
     return {
-      revenueByMethod,
-      topProducts,
-      stockValuation,
-      totals,
-      saleIds: sales.map(s => s.id),
-      outstandingDebt: totalOutstandingDebt,
-      allInventory: inventoryList,
-      expenses: expensesList,
-      totalExpenses: expTotal,
-      cashierPerf: _cashierPerf,
+      revenueByMethod: Object.entries(j.revenue_by_method || {}).map(([name, value]) => ({ name: methodName(name), value: Number(value) })),
+      topProducts: j.top_products || [],
+      stockValuation: j.stock_valuation || { sellingValue: 0 },
+      totals: j.totals || { revenue: 0, sales: 0 },
+      saleIds: j.sale_ids || [],
+      outstandingDebt: Number(j.outstanding_debt || 0),
+      allInventory: j.all_inventory || [],
+      expenses: j.expenses || [],
+      totalExpenses: Number(j.total_expenses || 0),
+      // Une ligne par vendeur ET par boutique (jamais de boutiques mélangées sur une ligne)
+      cashierPerf: (j.cashier_perf || []).map((c: any) => ({ ...c, shopName: shopNameMap[c.shopId] || '' })),
     }
   }
 
@@ -786,7 +634,7 @@ export default function ReportsPage() {
                     </TableHeader>
                     <TableBody>
                       {(isCashier ? cashierPerf.filter(c => c.id === profile?.id) : cashierPerf).map((c, idx) => (
-                        <TableRow key={c.id} className={c.sales === 0 ? 'opacity-50' : ''}>
+                        <TableRow key={`${c.id}:${c.shopId}`} className={c.sales === 0 ? 'opacity-50' : ''}>
                           <TableCell className="text-muted-foreground text-xs font-medium px-2 sm:px-4">
                             {isCashier ? '—' : c.sales > 0 ? (idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1) : '—'}
                           </TableCell>

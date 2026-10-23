@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { subMonths, startOfMonth, endOfMonth, format } from 'date-fns'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { dashboardGuard } from '@/lib/api/shop-access'
 import { fetchAllRows, fetchShopPayments } from '@/lib/dashboard/fetch-rows'
 
 // GET /api/dashboard/revenue-yearly?shop_ids=x,y&cashier_id=
@@ -23,26 +24,19 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url)
     const shopIdsParam = searchParams.get('shop_ids')
-    const cashierId = searchParams.get('cashier_id')
+    const requestedSeller = searchParams.get('cashier_id')
 
     if (!shopIdsParam) {
       return NextResponse.json({ error: t('missing_params') }, { status: 400 })
     }
-    const shopIds = shopIdsParam.split(',').filter(Boolean)
-
-    // Verify user has access to ALL requested shops
-    const { data: memberRows } = await supabase
-      .from('shop_members')
-      .select('shop_id')
-      .in('shop_id', shopIds)
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-
-    const accessibleShopIds = (memberRows || []).map((r: any) => r.shop_id)
-    const unauthorizedShops = shopIds.filter(id => !accessibleShopIds.includes(id))
-    if (unauthorizedShops.length > 0) {
-      return NextResponse.json({ error: t('shop_access_denied') }, { status: 403 })
-    }
+    // Périmètre décidé par le SERVEUR (lib/api/shop-access) : membre active de chaque boutique, widget autorisé dans
+    // la boutique, et vendeur limité à SES ventes selon son rôle et les réglages de CETTE boutique. Le filtre vendeur
+    // envoyé par le navigateur ne peut que restreindre : l'omettre n'élargit jamais les résultats. Avant : simple
+    // contrôle d'appartenance, puis lecture complète avec le filtre (facultatif) fourni par le navigateur.
+    const g = await dashboardGuard(supabase, user.id, shopIdsParam, ['widget_dashboard_revenue_chart'], requestedSeller)
+    if ('error' in g) return NextResponse.json({ error: t(g.error.key as any) }, { status: g.error.status })
+    const { shopIds, seller } = g
+    const keep = (s: any) => !seller[s.shop_id] || s.cashier_id === seller[s.shop_id]
 
     const admin = await createAdminClient() as any
 
@@ -56,24 +50,23 @@ export async function GET(request: Request) {
     const salesQuery = () => {
       let q = admin
         .from('sales')
-        .select('id, created_at')
+        .select('id, created_at, shop_id, cashier_id')
         .in('shop_id', shopIds)
         .eq('sale_status', 'active')
         .gte('created_at', yearStart)
         .lte('created_at', yearEnd)
-      if (cashierId) q = q.eq('cashier_id', cashierId)
       return q.order('created_at', { ascending: true }).order('id', { ascending: true })
     }
 
     const [salesRaw, payments] = await Promise.all([
       fetchAllRows(salesQuery),
-      fetchShopPayments(admin, shopIds, yearStart, yearEnd, cashierId),
+      fetchShopPayments(admin, shopIds, yearStart, yearEnd, seller),
     ])
 
     const monthMap: Record<string, { revenue: number; sales: number; repayments: number }> = {}
     months.forEach(m => { monthMap[format(m, 'yyyy-MM')] = { revenue: 0, sales: 0, repayments: 0 } })
 
-    ;(salesRaw || []).forEach((sale: any) => {
+    ;(salesRaw || []).filter(keep).forEach((sale: any) => {
       const key = (sale.created_at as string).slice(0, 7)
       if (monthMap[key]) monthMap[key].sales += 1
     })

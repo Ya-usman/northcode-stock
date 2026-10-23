@@ -22,9 +22,13 @@ export async function fetchAllRows<T = any>(build: () => any): Promise<T[]> {
 }
 
 // Paiements reçus par ces boutiques sur une période, hors ventes annulées,
-// paiements annulés et abandons de créance ; `cashierId` restreint aux ventes
-// d'un vendeur. Même définition que l'ancien tri fait après lecture.
-export async function fetchShopPayments(admin: any, shopIds: string[], from: string, to: string, cashierId?: string | null) {
+// paiements annulés et abandons de créance ; `seller` restreint aux ventes
+// d'un vendeur — un identifiant pour toutes les boutiques, ou un vendeur PAR
+// boutique (décidé par le serveur, lib/api/shop-access → sellerFilter).
+export type SellerScope = string | null | undefined | Record<string, string | null>
+export const sellerOf = (seller: SellerScope, shopId: string): string | null =>
+  seller && typeof seller === 'object' ? (seller[shopId] ?? null) : (seller || null)
+export async function fetchShopPayments(admin: any, shopIds: string[], from: string, to: string, seller?: SellerScope) {
   const rows = await fetchAllRows<any>(() => admin
     .from('payments')
     .select('id, amount, paid_at, is_repayment, is_cancelled, is_write_off, sales!inner(shop_id, sale_status, cashier_id)')
@@ -38,6 +42,6 @@ export async function fetchShopPayments(admin: any, shopIds: string[], from: str
     p.sales?.sale_status !== 'cancelled' &&
     !p.is_cancelled &&
     !p.is_write_off &&
-    (!cashierId || p.sales?.cashier_id === cashierId)
+    (!sellerOf(seller, p.sales?.shop_id) || p.sales?.cashier_id === sellerOf(seller, p.sales?.shop_id))
   )
 }

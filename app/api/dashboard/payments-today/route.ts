@@ -1,6 +1,7 @@
 ﻿import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { dashboardGuard } from '@/lib/api/shop-access'
 import { fetchShopPayments } from '@/lib/dashboard/fetch-rows'
 
 // GET /api/dashboard/payments-today?shop_ids=x,y&start=...&end=...&week_start=...
@@ -18,38 +19,25 @@ export async function GET(request: Request) {
     const start = searchParams.get('start')
     const end = searchParams.get('end')
     const weekStart = searchParams.get('week_start')
-    const cashierId = searchParams.get('cashier_id')
+    const requestedSeller = searchParams.get('cashier_id')
 
     if (!shopIdsParam || !start || !end) {
       return NextResponse.json({ error: t('missing_params') }, { status: 400 })
     }
 
-    const shopIds = shopIdsParam.split(',').filter(Boolean)
+    // Périmètre décidé par le SERVEUR (lib/api/shop-access) : membre active de chaque boutique, widget autorisé dans
+    // la boutique, et vendeur limité à SES ventes selon son rôle et les réglages de CETTE boutique. Le filtre vendeur
+    // envoyé par le navigateur ne peut que restreindre : l'omettre n'élargit jamais les résultats. Avant : simple
+    // contrôle d'appartenance, puis lecture complète avec le filtre (facultatif) fourni par le navigateur.
+    const g = await dashboardGuard(supabase, user.id, shopIdsParam, ['widget_dashboard_revenue_chart'], requestedSeller)
+    if ('error' in g) return NextResponse.json({ error: t(g.error.key as any) }, { status: g.error.status })
+    const { shopIds, seller } = g
+    const keep = (s: any) => !seller[s.shop_id] || s.cashier_id === seller[s.shop_id]
 
     const admin = await createAdminClient() as any
-
-    // Contrôle d'accès et lecture lancés ensemble (un aller-retour de moins
-    // vers la base) ; rien n'est renvoyé tant que l'accès n'est pas confirmé.
-    // Paiements de la fenêtre (semaine ou jour) des SEULES boutiques
-    // demandées, hors ventes annulées. cashier_id (facultatif) : ventes d'un
-    // seul vendeur, pour que son graphique suive lui aussi le jour du paiement.
+    // Paiements de la fenêtre (semaine ou jour) des SEULES boutiques autorisées, hors ventes annulées
     const queryStart = weekStart || start
-    const [{ data: memberRows }, payments] = await Promise.all([
-      // Verify user has access to ALL requested shops
-      supabase
-        .from('shop_members')
-        .select('shop_id')
-        .in('shop_id', shopIds)
-        .eq('user_id', user.id)
-        .eq('is_active', true),
-      fetchShopPayments(admin, shopIds, queryStart, end, cashierId),
-    ])
-
-    const accessibleShopIds = (memberRows || []).map((r: any) => r.shop_id)
-    const unauthorizedShops = shopIds.filter(id => !accessibleShopIds.includes(id))
-    if (unauthorizedShops.length > 0) {
-      return NextResponse.json({ error: t('shop_access_denied') }, { status: 403 })
-    }
+    const payments = await fetchShopPayments(admin, shopIds, queryStart, end, seller)
 
     // Today total
     const todayTotal = payments

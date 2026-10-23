@@ -7,7 +7,6 @@ import {
   Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { chartTickFormatter } from '@/lib/utils/currency'
@@ -15,7 +14,6 @@ import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns'
 import { cn } from '@/lib/utils/cn'
 import { getPageCache, setPageCache } from '@/lib/offline/page-cache'
 
-const supabase = createClient() as any
 
 interface MonthData {
   month: string
@@ -46,40 +44,14 @@ export function ExpenseRevenueChart() {
     const fetchTrend = async () => {
       const today = new Date()
       const sixMonthsAgo = startOfMonth(subMonths(today, 5))
-      const startStr = format(sixMonthsAgo, 'yyyy-MM-dd')
-      const endStr   = format(endOfMonth(today), 'yyyy-MM-dd')
 
-      const [expRes, paymentsRes] = await Promise.all([
-        supabase
-          .from('expenses')
-          .select('date, amount')
-          .in('shop_id', effectiveShopIds)
-          .eq('is_recurring', false)
-          .gte('date', startStr)
-          .lte('date', endStr),
-        // Sourced from the payments ledger (paid_at), not sales.amount_paid
-        // (created_at) — sales.amount_paid is a running total that a later
-        // debt repayment bumps retroactively while the row stays dated to
-        // when the sale was first created, so summing it by created_at
-        // misattributes cash collected this month to whatever month the
-        // underlying sale happened to be made (same fix already applied to
-        // "Mes encaissements du mois" on this same dashboard).
-        supabase
-          .from('payments')
-          .select('paid_at, amount, sales!inner(shop_id, sale_status)')
-          .in('sales.shop_id', effectiveShopIds)
-// Argent reçu : tout sauf les ventes annulées (un remboursement de reprise de dette compte)
-          .neq('sales.sale_status', 'cancelled')
-          .eq('is_cancelled', false)
-          .eq('is_write_off', false)
-          .gte('paid_at', sixMonthsAgo.toISOString())
-          .lte('paid_at', endOfMonth(today).toISOString()),
-      ])
-      // A transient auth/RLS hiccup can resolve with data: null instead of
-      // throwing — check explicitly so the catch below preserves the cache
-      // already on screen instead of zeroing the chart out.
-      if (expRes.error || paymentsRes.error) throw expRes.error || paymentsRes.error
-      const { data: expRaw } = expRes, { data: paymentsRaw } = paymentsRes
+      // Lu par le SERVEUR (/api/dashboard/expense-revenue) : chiffre d'affaires de la boutique seulement là où il est
+      // autorisé, dépenses seulement là où elles le sont — décidé boutique par boutique, jamais par ce navigateur.
+      const params = new URLSearchParams({ shop_ids: effectiveShopIds.join(','), from: sixMonthsAgo.toISOString(), to: endOfMonth(today).toISOString() })
+      const res = await fetch(`/api/dashboard/expense-revenue?${params}`)
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error || 'expense-revenue')
+      const expRaw = json.expenses || [], paymentsRaw = json.payments || []
 
       const months = Array.from({ length: 6 }, (_, i) => {
         const d = subMonths(today, 5 - i)

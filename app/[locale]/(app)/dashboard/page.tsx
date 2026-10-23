@@ -180,6 +180,16 @@ export default function DashboardPage() {
       // ne doivent pas rester gris parce que cette route tarde.
       const paymentsPromise: Promise<Response | null> = fetch(`/api/dashboard/payments-today?shop_ids=${shopIds.join(',')}&start=${encodeURIComponent(todayStart)}&end=${encodeURIComponent(todayEnd)}&week_start=${encodeURIComponent(weekStartISO)}${isCashier && cashierId ? `&cashier_id=${cashierId}` : ''}`).catch(() => null)
 
+      const summaryParams = new URLSearchParams({
+        shop_ids: shopIds.join(','), day_start: todayStart, day_end: todayEnd,
+        month_start: startOfMonth(today).toISOString(), month_end: endOfMonth(today).toISOString(),
+      })
+      const summaryPromise = fetch(`/api/dashboard/summary?${summaryParams}`).then(async r => {
+        const j = await r.json().catch(() => ({}))
+        if (!r.ok) throw new Error(j.error || 'summary')
+        return j
+      })
+
       // ── All parallel queries ────────────────────────────────────
       const [
         todaySalesRes,
@@ -233,53 +243,14 @@ export default function DashboardPage() {
           .lte('quantity', shop?.low_stock_threshold || 10)
           .order('quantity', { ascending: true }),
 
-        // Today's debt repayments — exclure les paiements sur ventes annulées
-        supabase
-          .from('payments')
-          .select('id, sale_id, amount, paid_at, method, sales!inner(shop_id, sale_number, created_at, total, balance, payment_method, customers(name), sale_status)')
-          .eq('is_repayment', true)
-          .gte('paid_at', todayStart)
-          .lte('paid_at', todayEnd)
-          .order('paid_at', { ascending: false }),
-
-        // Month expenses (owner only) — 1st to last day of current month
-        !isCashier ? supabase
-          .from('expenses')
-          .select('amount')
-          .in('shop_id', shopIds)
-          .eq('is_recurring', false)
-          .gte('date', format(startOfMonth(today), 'yyyy-MM-dd'))
-          .lte('date', format(endOfMonth(today), 'yyyy-MM-dd')) : Promise.resolve({ data: [] }),
-
-        // Month collections — cash actually received this month, sourced from
-        // the payments ledger (paid_at). Filtering sales by created_at instead
-        // would miss a repayment collected this month on a sale created in a
-        // previous month (same fix as sales/history's "Encaissé" — see there
-        // for the full explanation). received_by scopes to what THIS user
-        // personally collected, matching the "Mes encaissements" label.
-        supabase
-          .from('payments')
-          .select('amount, sales!inner(shop_id, sale_status)')
-          .in('sales.shop_id', shopIds)
-// Argent reçu : tout sauf les ventes annulées (un remboursement de reprise de dette compte)
-          .neq('sales.sale_status', 'cancelled')
-          .eq('is_cancelled', false)
-          .eq('is_write_off', false)
-          .eq('received_by', cashierId)
-          .gte('paid_at', startOfMonth(today).toISOString())
-          .lte('paid_at', endOfMonth(today).toISOString()),
-
-        // Global month collections (all cashiers) — for roles with revenue_chart access
-        supabase
-          .from('payments')
-          .select('amount, sales!inner(shop_id, sale_status)')
-          .in('sales.shop_id', shopIds)
-// Argent reçu : tout sauf les ventes annulées (un remboursement de reprise de dette compte)
-          .neq('sales.sale_status', 'cancelled')
-          .eq('is_cancelled', false)
-          .eq('is_write_off', false)
-          .gte('paid_at', startOfMonth(today).toISOString())
-          .lte('paid_at', endOfMonth(today).toISOString()),
+        // Remboursements du jour, mes encaissements du mois, encaissé global du mois, dépenses du mois : décidés et
+        // calculés par le SERVEUR (/api/dashboard/summary) selon le rôle et les réglages de CHAQUE boutique — avant :
+        // lus directement ici, la base ne contrôlant que l'appartenance (un caissier recevait l'encaissé de toute la
+        // boutique et les dépenses, même non affichés). Même forme de résultat qu'avant pour la suite du calcul.
+        summaryPromise.then((j: any) => ({ data: j.repayments || [], error: null })),
+        summaryPromise.then((j: any) => ({ data: j.month_expenses === null ? [] : [{ amount: j.month_expenses }], error: null })),
+        summaryPromise.then((j: any) => ({ data: [{ amount: j.month_revenue_own ?? 0 }], error: null })),
+        summaryPromise.then((j: any) => ({ data: [{ amount: j.month_global_revenue ?? 0 }], error: null })),
 
       ]), 20_000, 'Chargement du tableau de bord trop lent — réessayez.')
 
