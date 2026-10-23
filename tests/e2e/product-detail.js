@@ -1,6 +1,9 @@
 // Étape 6 — fiche détail produit, de bout en bout sur la compilation locale.
-// Boutique Alpha (compte d'essai) : de VRAIES réservations d'essai sont créées puis effacées ; aucune vente, aucun
-// réassort, aucune modification de produit (toute autre écriture du navigateur est bloquée).
+// Boutique Alpha (compte d'essai), MODE ÉCRITURE explicite (lib/write-mode.js) : de VRAIES réservations d'essai sont
+// créées (référence unique par exécution) puis seules celles de CETTE exécution sont supprimées, une à une, avec les
+// entrées de journal qu'elles ont produites ; aucune vente, aucun réassort, aucune modification de produit.
+// Mise à jour (23 oct. 2026) — ancienne hypothèse : on pouvait effacer TOUTES les réservations d'Alpha. Réel : jamais
+// de suppression large.
 // Marché Soleil : LECTURE SEULE (deux lectures de la fiche pour vérifier « en transit » / « en commande »).
 // Usage : CAPTURE_BASE=http://localhost:3000 node product-detail.js
 const fs = require('fs')
@@ -10,20 +13,25 @@ for (const line of fs.readFileSync(ROOT + '/.env.local', 'utf8').split('\n')) { 
 const { createClient } = require(ROOT + '/node_modules/@supabase/supabase-js')
 const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
 const { session, BASE } = require('./lib/capture.js')
-if (!/^http:\/\/localhost/.test(BASE)) { console.error('Ce test écrit des réservations : compilation locale uniquement.'); process.exit(1) }
+const { enableWrite } = require('./lib/write-mode.js')
+let W = null, RUN = null
+const REFS = new Set()   // références créées par l'appareil pendant cette exécution
 const ALPHA = 'a0000000-0000-0000-0000-000000000001'
 const CASHIER = 'stocshopci@gmail.com' // caissier d'Alpha : Stock en consultation, droit de vendre, ni transferts ni fournisseurs
 const MSG = l => JSON.parse(fs.readFileSync(`${ROOT}/messages/${l}.json`, 'utf8'))
 const V = __dirname + '/out/vitrine/'
 let ok = 0, ko = 0
 const check = (label, cond, extra = '') => { cond ? ok++ : ko++; console.log(cond ? '  ok   ' : '  ÉCHEC', label, cond ? '' : '→ ' + String(extra).slice(0, 500)) }
-const rowsOf = async () => (await admin.from('stock_reservations').select('product_id, quantity, source_ref, label').eq('shop_id', ALPHA)).data || []
+// Lignes de réservation d'Alpha NOUVELLES depuis le début de l'exécution (les lignes préexistantes sont ignorées)
+const rowsOf = async () => ((await admin.from('stock_reservations').select('id, product_id, quantity, source_ref, label').eq('shop_id', ALPHA)).data || []).filter(r => !W.before.stock_reservations.has(r.id))
 
 async function open(locale, width, height, { email, allowReservations = false, shop = ALPHA } = {}) {
   if (email) process.env.CAPTURE_EMAIL = email; else delete process.env.CAPTURE_EMAIL
-  const s = await session({ width, height, scale: 1, locale })
+  const s = await session({ width, height, scale: 1, locale, write: allowReservations ? W : null })
+  // Mise à jour (23 oct. 2026) : depuis 965fbc8, un compte à plusieurs boutiques démarre en « Toutes » (la caisse demande
+  // alors la boutique) ; l'en-tête est fixé sur la boutique du test au premier chargement de l'onglet
+  await s.page.context().addInitScript(id => { try { if (!sessionStorage.getItem('__pin')) { sessionStorage.setItem('__pin', '1'); localStorage.setItem('dashboard_shop_filter', id) } } catch {} }, shop)
   await s.page.context().addInitScript(([id]) => { try { localStorage.setItem('active_shop_id', id); localStorage.setItem('stock_table_columns', JSON.stringify(['physical', 'reserved'])) } catch {} }, [shop])
-  if (allowReservations) await s.page.route('**/api/stock/reservations**', route => route.continue())
   return s
 }
 const get = (page, path) => page.evaluate(async p => { const r = await fetch(p); let j = null, text = ''; try { text = await r.text(); j = JSON.parse(text) } catch {} return { status: r.status, json: j, text } }, path)
@@ -43,9 +51,10 @@ const tableRow = (page, name) => page.evaluate(nm => {
 const closeFiche = async page => { for (let i = 0; i < 4 && (await drawer(page).count()); i++) { await page.keyboard.press('Escape'); await page.waitForTimeout(700) } }
 
 ;(async () => {
+  W = await enableWrite({ test: 'product-detail', routes: [/\/api\/stock\/reservations(\?|$)/] })
+  RUN = W.RUN
   console.log('Base :', BASE)
-  const left = await rowsOf()
-  if (left.length) { console.log(`Reste d'un essai précédent sur Boutique Alpha : ${left.length} ligne(s), effacées.`); await admin.from('stock_reservations').delete().eq('shop_id', ALPHA) }
+  if (W.before.stock_reservations.size) console.log(`Réservations déjà présentes sur Alpha : ${W.before.stock_reservations.size} — ignorées et jamais touchées.`)
   const today = new Date().toISOString().slice(0, 10)
   const sales0 = (await admin.from('sales').select('id', { count: 'exact', head: true }).eq('shop_id', ALPHA)).count
   const moves0 = (await admin.from('stock_movements').select('id', { count: 'exact', head: true }).eq('shop_id', ALPHA)).count
@@ -81,8 +90,8 @@ const closeFiche = async page => { for (let i = 0; i < 4 && (await drawer(page).
     check('produit d’une autre boutique demandé sous Boutique Alpha : introuvable (404), rien n’est révélé', r.status === 404 && !/quantit|name/.test(r.text), r.status + ' ' + r.text.slice(0, 80))
 
     // Réservations d'essai : 5 pour « Table 3 », 2 sans nom
-    const p1 = await api(page, 'PUT', { shop_id: ALPHA, source_ref: 'test_fiche_1', label: 'Table 3', items: [{ product_id: P.id, quantity: 5 }, { product_id: Q.id, quantity: 4 }] })
-    const p2 = await api(page, 'PUT', { shop_id: ALPHA, source_ref: 'test_fiche_2', items: [{ product_id: P.id, quantity: 2 }] })
+    const p1 = await api(page, 'PUT', { shop_id: ALPHA, source_ref: `${RUN}_fiche_1`, label: 'Table 3', items: [{ product_id: P.id, quantity: 5 }, { product_id: Q.id, quantity: 4 }] })
+    const p2 = await api(page, 'PUT', { shop_id: ALPHA, source_ref: `${RUN}_fiche_2`, items: [{ product_id: P.id, quantity: 2 }] })
     check('réservations d’essai posées (5 « Table 3 » + 2 sans nom sur P, 4 sur Q)', p1.status === 200 && p2.status === 200 && (await rowsOf()).length === 3)
 
     r = await get(page, detailPath(ALPHA, P.id))
@@ -177,13 +186,13 @@ const closeFiche = async page => { for (let i = 0; i < 4 && (await drawer(page).
     ])
     await page.waitForTimeout(2500)
     let rows = await rowsOf()
-    check('confirmée : seule la ligne « Table 3 » de CE produit est retirée (la ligne de Q dans la même facture reste)', del.status() === 200 && rows.length === 2 && !rows.some(x => x.source_ref === 'test_fiche_1' && x.product_id === P.id) && rows.some(x => x.source_ref === 'test_fiche_1' && x.product_id === Q.id), JSON.stringify(rows.map(x => [x.source_ref, x.quantity])))
+    check('confirmée : seule la ligne « Table 3 » de CE produit est retirée (la ligne de Q dans la même facture reste)', del.status() === 200 && rows.length === 2 && !rows.some(x => x.source_ref === `${RUN}_fiche_1` && x.product_id === P.id) && rows.some(x => x.source_ref === `${RUN}_fiche_1` && x.product_id === Q.id), JSON.stringify(rows.map(x => [x.source_ref, x.quantity])))
     t = await txt()
     check(`la fiche se met à jour : réservé 2, disponible ${P.quantity - E - 2}, « Table 3 » disparue`, (await qty(page, 'reserved')).endsWith('2') && (await qty(page, 'available')).includes(String(P.quantity - E - 2)) && !/Table 3/.test(t), [await qty(page, 'reserved'), await qty(page, 'available')].join(' | '))
     const { data: audits } = await admin.from('audit_logs').select('action, actor_email, target_id, target_type, metadata, created_at').eq('shop_id', ALPHA).eq('action', 'stock.reservation_released').order('created_at', { ascending: false }).limit(1)
     const a = audits?.[0]
-    check('journal d’audit : une entrée — qui, quel produit, 5, « Table 3 »', (await admin.from('audit_logs').select('id', { count: 'exact', head: true }).eq('shop_id', ALPHA).eq('action', 'stock.reservation_released')).count === audit0 + 1 && a?.actor_email === 'admin@northcode.ng' && a?.target_id === P.id && a?.metadata?.quantity === 5 && a?.metadata?.label === 'Table 3' && a?.metadata?.product_name === P.name && a?.metadata?.source_ref === 'test_fiche_1', JSON.stringify(a))
-    const again = await api(page, 'DELETE', null, `?shop_id=${ALPHA}&source_ref=test_fiche_1&product_id=${P.id}`)
+    check('journal d’audit : une entrée — qui, quel produit, 5, « Table 3 »', (await admin.from('audit_logs').select('id', { count: 'exact', head: true }).eq('shop_id', ALPHA).eq('action', 'stock.reservation_released')).count === audit0 + 1 && a?.actor_email === 'admin@northcode.ng' && a?.target_id === P.id && a?.metadata?.quantity === 5 && a?.metadata?.label === 'Table 3' && a?.metadata?.product_name === P.name && a?.metadata?.source_ref === `${RUN}_fiche_1`, JSON.stringify(a))
+    const again = await api(page, 'DELETE', null, `?shop_id=${ALPHA}&source_ref=${RUN}_fiche_1&product_id=${P.id}`)
     check('libérer une ligne déjà libérée : sans erreur, rien de libéré, aucune nouvelle entrée au journal', again.status === 200 && again.json.released.length === 0 && (await admin.from('audit_logs').select('id', { count: 'exact', head: true }).eq('shop_id', ALPHA).eq('action', 'stock.reservation_released')).count === audit0 + 1)
     await closeFiche(page)
     await page.waitForTimeout(1500)
@@ -286,6 +295,7 @@ const closeFiche = async page => { for (let i = 0; i < 4 && (await drawer(page).
     const holdInput = page.getByPlaceholder(MSG('fr').sales.hold_label_placeholder); await holdInput.fill('Essai libération')
     const [put1] = await Promise.all([page.waitForResponse(isPut, { timeout: 15000 }), holdInput.press('Enter')])
     const heldRef = put1.request().postDataJSON().source_ref
+    REFS.add(heldRef)
     await page.waitForTimeout(3000); await searchPos(Q.name)
     let card = await posCard(Q.name).innerText()
     check('appareil du vendeur : « 6 réservés » sur « ' + Q.name + ' » (4 d’une autre facture + les 2 de la sienne)', put1.status() === 200 && card.includes('6 réservés'), card)
@@ -355,13 +365,17 @@ const closeFiche = async page => { for (let i = 0; i < 4 && (await drawer(page).
     await v.page.screenshot({ path: `${__dirname}/out/product-detail-vitrine.png` })
     await v.browser.close()
   } finally {
-    await admin.from('stock_reservations').delete().eq('shop_id', ALPHA)
-    const total1 = (await admin.from('stock_reservations').select('id', { count: 'exact', head: true })).count
+    // Nettoyage : uniquement les lignes de CETTE exécution (réservations + entrées de journal qu'elles ont produites)
+    const mine = ref => (ref || '').startsWith(RUN + '_') || REFS.has(ref)
+    const clean = await W.finish({
+      stock_reservations: r => mine(r.source_ref),
+      audit_logs: r => r.action === 'stock.reservation_released' && (mine(r.metadata?.source_ref) || JSON.stringify(r.metadata || {}).includes(RUN) || [...REFS].some(x => JSON.stringify(r.metadata || {}).includes(x))),
+    })
     const sales1 = (await admin.from('sales').select('id', { count: 'exact', head: true }).eq('shop_id', ALPHA)).count
     const moves1 = (await admin.from('stock_movements').select('id', { count: 'exact', head: true }).eq('shop_id', ALPHA)).count
     const { data: prods1 } = await admin.from('products').select('id, quantity, buying_price').eq('shop_id', ALPHA).eq('is_active', true).order('name')
     console.log('\nNettoyage et contrôle')
-    check(`réservations d’essai effacées (table : ${total1} ligne)`, total1 === 0)
+    check('mode écriture : rien de préexistant touché, aucune trace restante en base', clean)
     check(`aucune vente créée (${sales0} → ${sales1}), aucun mouvement de stock créé (${moves0} → ${moves1})`, sales1 === sales0 && moves1 === moves0)
     check('aucune quantité ni aucun prix d’achat modifié', JSON.stringify(prods1.map(p => [p.id, p.quantity, p.buying_price])) === stock0)
   }

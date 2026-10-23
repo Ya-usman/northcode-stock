@@ -2,7 +2,8 @@
 # Lance des tests navigateur sur le serveur LOCAL, l'un après l'autre (jamais en parallèle).
 # Usage : bash tests/e2e/run-local.sh [test ...]   (sans argument : suites courantes, sans écriture réelle)
 # Les journaux vont dans tests/e2e/out/ ; le résumé dans tests/e2e/out/resume.log.
-# Exclus par défaut (écritures réelles sur Boutique Alpha, à lancer seulement sur accord) : stock-reserved, product-detail, inventory-v2.
+# Exclus (écritures réelles sur Boutique Alpha, à lancer seulement sur accord) : run-write.sh — stock-reserved,
+# product-detail, inventory-v2 ; lot2-scope figure dans les deux (partie A lecture seule, partie B en mode écriture).
 cd "$(dirname "$0")"
 export CAPTURE_BASE=http://localhost:3000
 mkdir -p out

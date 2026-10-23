@@ -1,8 +1,10 @@
 // Lot 2 — Fournisseurs (+ bons de commande), Catégories, Clients en contexte boutique ; contrôles serveur des objets rattachés.
 // Partie A (écrans) : compte vitrine Marché Soleil, LECTURE SEULE — toute écriture /api interceptée (corps relu), boutique
 // active cachée volontairement sur Bastos pour prouver qu'elle n'est plus jamais utilisée.
-// Partie B (serveur) : Boutique Alpha (compte d'essai) — requêtes conçues pour être REFUSÉES avant écriture ; un seul bon
-// d'essai « TEST » (brouillon) créé puis supprimé par le parcours normal ; vérifications en base (lecture).
+// Partie B (serveur) : Boutique Alpha (compte d'essai), MODE ÉCRITURE explicite (lib/write-mode.js) activé pour cette
+// partie seulement — requêtes conçues pour être REFUSÉES avant écriture ; un seul bon d'essai « TEST <exécution> »
+// (brouillon) créé puis supprimé par le parcours normal ; à la fin, seules les lignes nouvelles de cette exécution
+// sont supprimées, une à une ; vérifications en base (lecture).
 const fs = require('fs')
 const ROOT = require('path').resolve(__dirname, '../..')
 const env = {}
@@ -13,6 +15,8 @@ process.env.CAPTURE_EMAIL = 'ghislainx123@gmail.com'
 process.env.CAPTURE_BASE = process.env.CAPTURE_BASE || 'http://localhost:3000'
 const { session, BASE } = require('./lib/capture.js')
 const { openPage } = require('./lib/session.js')
+const { enableWrite } = require('./lib/write-mode.js')
+let W = null, cleanupB = null
 const AKWA = '7313d74e-43dd-4b36-a59e-17ba370d29a1', BONA = 'e665d4a0-da40-4436-a3b2-1b377760a47b', BASTOS = 'abec3e3f-3e92-4ff0-a374-d2d88f57899b'
 const ALPHA = 'a0000000-0000-0000-0000-000000000001'
 const FULL = { [AKWA]: 'Marché Soleil Akwa', [BONA]: 'Marché Soleil Bonapriso', [BASTOS]: 'Marché Soleil Bastos' }
@@ -217,22 +221,42 @@ const tab = (page, name) => page.getByRole('button', { name, exact: false }).fir
   const poCount = async () => (await db.from('purchase_orders').select('id', { count: 'exact', head: true }).eq('shop_id', ALPHA)).count
   const priceCount = async () => (await db.from('product_supplier_prices').select('id', { count: 'exact', head: true }).eq('shop_id', ALPHA)).count
   const before = { po: await poCount(), price: await priceCount() }
-  const a = await openPage({ width: 1280, height: 900, skipGoto: true })
+  // Mode écriture : seulement les bons de commande et les prix comparés, vers Alpha
+  W = await enableWrite({ test: 'lot2-scope (partie B)', routes: [/\/api\/purchase-orders(\?|$)/, /\/api\/product-supplier-prices(\?|$)/] })
+  const RUN = W.RUN
+  const NOTE = `TEST lot 2 ${RUN}`
+  let testPoId = null
+  let cleaned = false
+  cleanupB = async () => {
+    if (cleaned) return true
+    cleaned = true
+    const cites = r => { const j = JSON.stringify(r); return j.includes(RUN) || (testPoId && j.includes(testPoId)) }
+    return W.finish({
+      purchase_orders: cites, purchase_order_items: r => !!testPoId && r.purchase_order_id === testPoId,
+      // prix comparé créé à tort par une requête qui devait être refusée (prix 1 sur les produits de l'essai)
+      product_supplier_prices: r => Number(r.price) === 1 && [alphaProd.id, foreignProd.id].includes(r.product_id),
+      audit_logs: cites, deleted_records_log: cites,
+    })
+  }
+  // Mise à jour (23 oct. 2026) : compte d'Alpha explicite — le caissier de l'étape 7 (CAPTURE_EMAIL) restait actif
+  const a = await openPage({ width: 1280, height: 900, skipGoto: true, email: 'admin@northcode.ng', write: W })
   await a.page.goto('http://localhost:3000/fr/offline', { waitUntil: 'domcontentloaded' })
   const api = (method, url, body) => a.page.evaluate(async ({ method, url, body }) => { const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }); let j = {}; try { j = await r.json() } catch {} return { status: r.status, json: j } }, { method, url, body })
   const item = p => ({ product_id: p.id, product_name: 'TEST ligne', unit: 'piece', quantity_ordered: 1, unit_price: 1 })
-  let r = await api('POST', '/api/purchase-orders', { shop_id: ALPHA, supplier_id: foreignSup.id, items: [item(alphaProd)], notes: 'TEST lot 2' })
+  let r = await api('POST', '/api/purchase-orders', { shop_id: ALPHA, supplier_id: foreignSup.id, items: [item(alphaProd)], notes: NOTE })
   ok(r.status === 400 && /fournisseur n’appartient pas à la boutique de ce bon/.test(r.json.error || ''), `bon d’Alpha + fournisseur d’une autre entreprise → refusé (${r.status} « ${r.json.error} »)`)
-  r = await api('POST', '/api/purchase-orders', { shop_id: ALPHA, supplier_id: alphaSup.id, items: [item(foreignProd)], notes: 'TEST lot 2' })
+  r = await api('POST', '/api/purchase-orders', { shop_id: ALPHA, supplier_id: alphaSup.id, items: [item(foreignProd)], notes: NOTE })
   ok(r.status === 400 && /produits n’appartient pas/.test(r.json.error || ''), `bon d’Alpha + produit d’une autre entreprise → refusé (${r.status})`)
   ok(await poCount() === before.po, `aucun bon créé (${before.po})`)
-  r = await api('POST', '/api/purchase-orders', { shop_id: ALPHA, supplier_id: alphaSup.id, items: [item(alphaProd)], notes: 'TEST lot 2 — brouillon d’essai, supprimé aussitôt' })
+  r = await api('POST', '/api/purchase-orders', { shop_id: ALPHA, supplier_id: alphaSup.id, items: [item(alphaProd)], notes: `${NOTE} — brouillon d’essai, supprimé aussitôt` })
   const testPo = r.json?.data
+  testPoId = testPo?.id || null
   ok(r.status === 200 && testPo?.id, `bon d’essai valide créé (${testPo?.reference}, brouillon)`)
   if (testPo?.id) {
     r = await api('PATCH', '/api/purchase-orders', { id: testPo.id, shop_id: ALPHA, items: [item(foreignProd)] })
     const items = (await db.from('purchase_order_items').select('product_id').eq('purchase_order_id', testPo.id)).data || []
     ok(r.status === 400 && items.length === 1 && items[0].product_id === alphaProd.id, `modification avec un produit d’une autre entreprise → refusée (${r.status}), lignes intactes`)
+    await W.checkpoint()
     r = await api('DELETE', `/api/purchase-orders?id=${testPo.id}&shop_id=${ALPHA}`)
     ok(r.status === 200 && await poCount() === before.po, `bon d’essai supprimé par le parcours normal (${r.status}), ${await poCount()} bons comme avant`)
   }
@@ -247,6 +271,12 @@ const tab = (page, name) => page.getByRole('button', { name, exact: false }).fir
   r = await api('GET', `/api/purchase-orders?shop_ids=${AKWA}`)
   ok(r.status === 403, `boutique d’une autre entreprise seule → refus (${r.status})`)
   await a.browser.close()
+  ok(await cleanupB(), 'mode écriture : rien de préexistant touché, aucune trace restante en base')
 
   console.log(`\n${pass} réussis, ${fail} échec(s)`); process.exit(fail ? 1 : 0)
-})().catch(e => { console.error('ERREUR', e.message.slice(0, 400)); console.log(`\n${pass} réussis, ${fail} échec(s) — interrompu`); process.exit(1) })
+})().catch(async e => {
+  console.error('ERREUR', e.message.slice(0, 400))
+  // Arrêt imprévu pendant la partie B : nettoyage quand même (lignes de cette exécution seulement)
+  if (cleanupB) { try { await cleanupB() } catch (c) { console.error('NETTOYAGE IMPOSSIBLE', c.message) } }
+  console.log(`\n${pass} réussis, ${fail} échec(s) — interrompu`); process.exit(1)
+})

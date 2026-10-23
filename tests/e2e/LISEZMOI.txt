@@ -22,9 +22,15 @@ Protections permanentes (lib/capture.js, lib/session.js) :
 - Marché Soleil (compte vitrine) : lecture seule. Il sert aussi aux démonstrations : ne jamais figer ses chiffres
   dans un test, les relire en base.
 
-Tests à ÉCRITURE RÉELLE sur Boutique Alpha — exclus de run-local.sh, à lancer seulement sur accord explicite.
-Avec le blocage général, ils échouent tant qu'un mode d'écriture explicite (local + Alpha) n'existe pas :
-- inventory-v2      produits « TEST inv », inventaires réels (restent dans l'historique d'Alpha)
-- stock-reserved    réservations de stock d'Alpha (efface TOUTES les réservations d'Alpha au début et à la fin)
-- product-detail    idem pour les réservations
-- lot2-scope        partie B seulement (requêtes qui doivent être refusées par le serveur + bon de commande « TEST »)
+Tests à ÉCRITURE RÉELLE sur Boutique Alpha — à lancer seulement sur accord explicite :
+  bash tests/e2e/run-write.sh     (stock-reserved, product-detail, inventory-v2, lot2-scope ; bilans dans out/write-resume.log)
+Mode ÉCRITURE (lib/write-mode.js), activé dans le code de chaque test, jamais par une variable seule :
+- serveur local uniquement ; adresse distante ou CAPTURE_PROD_READONLY → refus immédiat, avant toute connexion ;
+- avant la première écriture, la base confirme que la cible est Boutique Alpha (identifiant, nom, propriétaire d'essai) ;
+- navigateur : seules les routes déclarées par le test passent, et seulement si la requête vise Alpha ;
+  encaissement et synchronisation des ventes toujours bloqués ; une requête vers une autre boutique n'est jamais envoyée ;
+- référence unique par exécution (W.RUN) pour tout ce que le test crée ;
+- nettoyage : uniquement les lignes NOUVELLES d'Alpha qui citent l'exécution, supprimées une à une par identifiant ;
+  jamais de suppression large ;
+- photo complète d'Alpha avant / après : bilan « lignes créées / supprimées », aucune ligne préexistante supprimée ni
+  modifiée, aucune trace restante — sinon le test échoue.

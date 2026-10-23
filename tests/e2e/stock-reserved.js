@@ -1,6 +1,9 @@
 // Étape 5B — stock RÉSERVÉ, de bout en bout sur la compilation locale, compte d'essai (Boutique Alpha) UNIQUEMENT.
-// De VRAIES réservations sont créées sur Boutique Alpha par la route /api/stock/reservations, puis toutes effacées
-// à la fin (même en cas d'échec). Aucune vente validée ; toute autre écriture du navigateur est bloquée.
+// MODE ÉCRITURE explicite (lib/write-mode.js) : de VRAIES réservations sont créées sur Boutique Alpha par la route
+// /api/stock/reservations, avec une référence unique par exécution ; à la fin (même en cas d'échec), seules les lignes
+// créées par CETTE exécution sont supprimées, une à une. Aucune vente validée ; toute autre écriture est bloquée.
+// Mise à jour (23 oct. 2026) — ancienne hypothèse : on pouvait effacer TOUTES les réservations d'Alpha. Réel : jamais
+// de suppression large ; références « test_1 »… remplacées par la référence de l'exécution.
 // Marché Soleil n'est jamais modifié : un de ses vendeurs sert seulement à vérifier qu'il est REFUSÉ sur Alpha.
 // Usage : CAPTURE_BASE=http://localhost:3000 node stock-reserved.js
 const fs = require('fs')
@@ -10,22 +13,27 @@ for (const line of fs.readFileSync(ROOT + '/.env.local', 'utf8').split('\n')) { 
 const { createClient } = require(ROOT + '/node_modules/@supabase/supabase-js')
 const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
 const { session, BASE } = require('./lib/capture.js')
-if (!/^http:\/\/localhost/.test(BASE)) { console.error('Ce test écrit des réservations : compilation locale uniquement.'); process.exit(1) }
+const { enableWrite } = require('./lib/write-mode.js')
+let W = null, RUN = null
+const REFS = new Set()   // références créées par l'appareil pendant cette exécution (factures en attente)
 const ALPHA = 'a0000000-0000-0000-0000-000000000001'
 const { createTranslator } = require(ROOT + '/node_modules/next-intl')
 const MSG = l => JSON.parse(fs.readFileSync(`${ROOT}/messages/${l}.json`, 'utf8'))
 const H = 3600000
 let ok = 0, ko = 0
 const check = (label, cond, extra = '') => { cond ? ok++ : ko++; console.log(cond ? '  ok   ' : '  ÉCHEC', label, cond ? '' : '→ ' + extra) }
-const rowsOf = async (filter = q => q) => (await filter(admin.from('stock_reservations').select('product_id, quantity, source_ref, label, created_by, expires_at, shop_id').eq('shop_id', ALPHA))).data || []
+// Lignes de réservation d'Alpha NOUVELLES depuis le début de l'exécution (les lignes préexistantes sont ignorées)
+const rowsOf = async (filter = q => q) => ((await filter(admin.from('stock_reservations').select('id, product_id, quantity, source_ref, label, created_by, expires_at, shop_id').eq('shop_id', ALPHA))).data || []).filter(r => !W.before.stock_reservations.has(r.id))
 const wait = ms => new Promise(r => setTimeout(r, ms))
 
 async function open(locale, width, height, { email, allowReservations = false, columns = ['physical', 'reserved'] } = {}) {
   if (email) process.env.CAPTURE_EMAIL = email; else delete process.env.CAPTURE_EMAIL
-  const s = await session({ width, height, scale: 1, locale })
+  const s = await session({ width, height, scale: 1, locale, write: allowReservations ? W : null })
+  // Mise à jour (23 oct. 2026) : depuis 965fbc8, un compte à plusieurs boutiques démarre en « Toutes » (la caisse demande
+  // alors la boutique) ; l'en-tête est fixé sur la boutique du test au premier chargement de l'onglet
+  await s.page.context().addInitScript(id => { try { if (!sessionStorage.getItem('__pin')) { sessionStorage.setItem('__pin', '1'); localStorage.setItem('dashboard_shop_filter', id) } } catch {} }, ALPHA)
   await s.page.context().addInitScript(([shop, cols]) => { try { if (!localStorage.getItem('active_shop_id')) localStorage.setItem('active_shop_id', shop); localStorage.setItem('stock_table_columns', JSON.stringify(cols)) } catch {} }, [ALPHA, columns])
-  // Seule écriture autorisée : la route des réservations (le reste est bloqué par capture.js)
-  if (allowReservations) await s.page.route('**/api/stock/reservations**', route => route.continue())
+  // Seule écriture autorisée (mode écriture) : la route des réservations, vers Alpha ; le reste est bloqué par capture.js
   return s
 }
 const api = (page, method, body, query = '') => page.evaluate(async ([m, b, q]) => {
@@ -46,11 +54,12 @@ const posCard = (page, name) => page.locator('[data-tour="pos-grid"] > div[role=
 const searchPos = async (page, locale, name) => { const box = page.getByPlaceholder(MSG(locale).sales.search_or_scan).first(); await box.fill(name); await page.waitForTimeout(900) }
 
 ;(async () => {
+  W = await enableWrite({ test: 'stock-reserved', routes: [/\/api\/stock\/reservations(\?|$)/] })
+  RUN = W.RUN
   console.log('Base :', BASE)
   // ── État de départ (lecture) ──────────────────────────────────────────────
-  const left = await rowsOf()
-  if (left.length) { console.log(`Reste d'un essai précédent sur Boutique Alpha : ${left.length} ligne(s), effacées avant de commencer.`); await admin.from('stock_reservations').delete().eq('shop_id', ALPHA) }
-  const total0 = (await admin.from('stock_reservations').select('id', { count: 'exact', head: true })).count
+  const pre = W.before.stock_reservations.size
+  if (pre) console.log(`Réservations déjà présentes sur Alpha : ${pre} — ignorées et jamais touchées.`)
   const sales0 = (await admin.from('sales').select('id', { count: 'exact', head: true }).eq('shop_id', ALPHA)).count
   const today = new Date().toISOString().slice(0, 10)
   const { data: prods } = await admin.from('products').select('id, name, quantity, low_stock_threshold').eq('shop_id', ALPHA).eq('is_active', true).order('name')
@@ -62,24 +71,25 @@ const searchPos = async (page, locale, name) => { const box = page.getByPlacehol
   const A = prods.find(p => simple(p) && p.quantity >= 30)
   const B = prods.find(p => simple(p) && p.id !== A.id && p.quantity >= 12 && p.quantity <= 400)
   const { data: foreign } = await admin.from('products').select('id, shop_id').neq('shop_id', ALPHA).gt('quantity', 0).limit(1)
-  console.log(`Produits d'essai : A « ${A.name} » (${A.quantity} en rayon), B « ${B.name} » (${B.quantity} en rayon) · ${prods.length} produits actifs · ${sales0} ventes · table : ${total0} ligne(s)`)
+  console.log(`Produits d'essai : A « ${A.name} » (${A.quantity} en rayon), B « ${B.name} » (${B.quantity} en rayon) · ${prods.length} produits actifs · ${sales0} ventes · exécution ${RUN}`)
 
   try {
     // ══ 1. Route serveur ═════════════════════════════════════════════════════
     console.log('\n1. Route /api/stock/reservations')
-    const anon = await fetch(BASE + '/api/stock/reservations', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shop_id: ALPHA, source_ref: 'test_anon', items: [{ product_id: A.id, quantity: 1 }] }) })
+    const anon = await fetch(BASE + '/api/stock/reservations', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shop_id: ALPHA, source_ref: `${RUN}_anon`, items: [{ product_id: A.id, quantity: 1 }] }) })
     check('sans connexion : refusé (401)', anon.status === 401, String(anon.status))
-    const anonDel = await fetch(BASE + `/api/stock/reservations?shop_id=${ALPHA}&source_ref=test_anon`, { method: 'DELETE' })
+    const anonDel = await fetch(BASE + `/api/stock/reservations?shop_id=${ALPHA}&source_ref=${RUN}_anon`, { method: 'DELETE' })
     check('sans connexion, libération : refusée (401)', anonDel.status === 401, String(anonDel.status))
     const s = await open('fr', 1280, 900, { allowReservations: true })
     const page = s.page
     await goto(page, '/fr/stock', 7000)
-    {
+    if (W) console.log('  —    boutique d’une autre entreprise : non exécuté en mode écriture (la requête viserait une boutique autre qu’Alpha)')
+    else {
       // Boutique d'une AUTRE entreprise (Marché Soleil), demande VIDE : même acceptée à tort, elle n'écrirait rien
       const other = fs.readFileSync(__dirname + '/out/vitrine/akwa-id.txt', 'utf8').trim()
       const n0 = (await admin.from('stock_reservations').select('id', { count: 'exact', head: true }).eq('shop_id', other)).count
-      const r = await api(page, 'PUT', { shop_id: other, source_ref: 'test_outsider', items: [] })
-      const d = await api(page, 'DELETE', null, `?shop_id=${other}&source_ref=test_outsider`)
+      const r = await api(page, 'PUT', { shop_id: other, source_ref: `${RUN}_outsider`, items: [] })
+      const d = await api(page, 'DELETE', null, `?shop_id=${other}&source_ref=${RUN}_outsider`)
       const n1 = (await admin.from('stock_reservations').select('id', { count: 'exact', head: true }).eq('shop_id', other)).count
       check('boutique d’une autre entreprise : refusé (403), en écriture comme en libération', r.status === 403 && d.status === 403 && n0 === 0 && n1 === 0, `${r.status} / ${d.status} · ${n0} → ${n1}`)
     }
@@ -92,11 +102,11 @@ const searchPos = async (page, locale, name) => { const box = page.getByPlacehol
     check('facture sans identifiant : refusée (400)', r.status === 400, String(r.status))
     r = await api(page, 'PUT', { shop_id: ALPHA, source_ref: 'x'.repeat(121), items: [] })
     check('identifiant trop long : refusé (400)', r.status === 400, String(r.status))
-    r = await api(page, 'PUT', { shop_id: ALPHA, source_ref: 'test_bad' })
+    r = await api(page, 'PUT', { shop_id: ALPHA, source_ref: `${RUN}_bad` })
     check('articles absents : refusé (400)', r.status === 400, String(r.status))
 
     const t1 = Date.now()
-    r = await api(page, 'PUT', { shop_id: ALPHA, source_ref: 'test_1', label: '  Table 3  ', items: [
+    r = await api(page, 'PUT', { shop_id: ALPHA, source_ref: `${RUN}_1`, label: '  Table 3  ', items: [
       { product_id: A.id, quantity: 2 }, { product_id: A.id, quantity: 1 }, { product_id: B.id, quantity: B.quantity + 500 },
       { product_id: foreign[0].id, quantity: 4 }, { product_id: A.id, quantity: 0 },
     ] })
@@ -110,22 +120,22 @@ const searchPos = async (page, locale, name) => { const box = page.getByPlacehol
     const exp1 = new Date(ra.expires_at).getTime()
     check('fin de réservation : 24 h après (à la minute près)', Math.abs(exp1 - (t1 + 24 * H)) < 60000, new Date(exp1).toISOString())
 
-    r = await api(page, 'PUT', { shop_id: ALPHA, source_ref: 'test_1', age_ms: 6 * H, items: [{ product_id: A.id, quantity: 5 }] })
+    r = await api(page, 'PUT', { shop_id: ALPHA, source_ref: `${RUN}_1`, age_ms: 6 * H, items: [{ product_id: A.id, quantity: 5 }] })
     rows = await rowsOf()
     check('remplacement : A passe à 5, B retiré du panier → sa ligne disparaît', r.status === 200 && rows.length === 1 && rows[0].product_id === A.id && rows[0].quantity === 5, JSON.stringify(rows))
     check('facture en attente depuis 6 h : fin dans 18 h', Math.abs(new Date(rows[0].expires_at).getTime() - (Date.now() + 18 * H)) < 60000, rows[0].expires_at)
     check('nom absent à ce second envoi : effacé', rows[0].label === null, String(rows[0].label))
 
-    r = await api(page, 'PUT', { shop_id: ALPHA, source_ref: 'test_2', items: [{ product_id: A.id, quantity: 4 }] })
+    r = await api(page, 'PUT', { shop_id: ALPHA, source_ref: `${RUN}_2`, items: [{ product_id: A.id, quantity: 4 }] })
     rows = await rowsOf()
     check('deux factures sur le même produit : deux lignes (5 + 4)', rows.length === 2 && rows.reduce((n, x) => n + x.quantity, 0) === 9, JSON.stringify(rows.map(x => [x.source_ref, x.quantity])))
 
-    r = await api(page, 'PUT', { shop_id: ALPHA, source_ref: 'test_1', age_ms: 25 * H, items: [{ product_id: A.id, quantity: 5 }] })
+    r = await api(page, 'PUT', { shop_id: ALPHA, source_ref: `${RUN}_1`, age_ms: 25 * H, items: [{ product_id: A.id, quantity: 5 }] })
     rows = await rowsOf()
-    check('facture de plus de 24 h : sa réservation est retirée, l’autre reste', r.status === 200 && r.json?.lines === 0 && rows.length === 1 && rows[0].source_ref === 'test_2', JSON.stringify(rows))
+    check('facture de plus de 24 h : sa réservation est retirée, l’autre reste', r.status === 200 && r.json?.lines === 0 && rows.length === 1 && rows[0].source_ref === `${RUN}_2`, JSON.stringify(rows))
 
     // Ligne échue (posée directement, compte d'essai) : ignorée à la lecture, effacée au passage suivant
-    await admin.from('stock_reservations').insert({ shop_id: ALPHA, product_id: B.id, quantity: 3, source_ref: 'test_echue', expires_at: new Date(Date.now() - H).toISOString() })
+    await W.insert('stock_reservations', { shop_id: ALPHA, product_id: B.id, quantity: 3, source_ref: `${RUN}_echue`, expires_at: new Date(Date.now() - H).toISOString() })
     // Accès DIRECT à la base avec la session du membre (depuis Node : le navigateur du test bloque les écritures)
     const memberRead = await (async () => {
       const cookies = await page.context().cookies()
@@ -134,22 +144,22 @@ const searchPos = async (page, locale, name) => { const box = page.getByPlacehol
       const url = env.NEXT_PUBLIC_SUPABASE_URL, h = { apikey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token }
       const q = `${url}/rest/v1/stock_reservations?shop_id=eq.${ALPHA}`
       const all = await (await fetch(q + '&select=source_ref,quantity', { headers: h })).json()
-      const w = await fetch(`${url}/rest/v1/stock_reservations`, { method: 'POST', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify({ shop_id: ALPHA, product_id: A.id, quantity: 1, source_ref: 'test_direct', expires_at: new Date(Date.now() + H).toISOString() }) })
-      const u = await fetch(q + '&source_ref=eq.test_2', { method: 'PATCH', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify({ quantity: 999 }) })
-      const d = await fetch(q + '&source_ref=eq.test_2', { method: 'DELETE', headers: h })
+      const w = await fetch(`${url}/rest/v1/stock_reservations`, { method: 'POST', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify({ shop_id: ALPHA, product_id: A.id, quantity: 1, source_ref: `${RUN}_direct`, expires_at: new Date(Date.now() + H).toISOString() }) })
+      const u = await fetch(q + `&source_ref=eq.${RUN}_2`, { method: 'PATCH', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify({ quantity: 999 }) })
+      const d = await fetch(q + `&source_ref=eq.${RUN}_2`, { method: 'DELETE', headers: h })
       return { n: Array.isArray(all) ? all.length : JSON.stringify(all), write: w.status, update: u.status, del: d.status }
     })().catch(e => ({ erreur: e.message }))
     console.log('     (accès direct à la base avec la session du membre : ' + JSON.stringify(memberRead) + ')')
     check('membre de la boutique : LIT les réservations (2 lignes, dont l’échue)', memberRead.n === 2, JSON.stringify(memberRead))
     rows = await rowsOf()
-    check('… mais ne peut ni créer, ni modifier, ni effacer directement : refus de la base, lignes intactes', memberRead.write >= 400 && memberRead.update >= 400 && memberRead.del >= 400 && rows.length === 2 && !rows.some(x => x.source_ref === 'test_direct' || x.quantity === 999), JSON.stringify(memberRead) + ' ' + JSON.stringify(rows.map(x => [x.source_ref, x.quantity])))
-    r = await api(page, 'PUT', { shop_id: ALPHA, source_ref: 'test_2', items: [{ product_id: A.id, quantity: 4 }] })
+    check('… mais ne peut ni créer, ni modifier, ni effacer directement : refus de la base, lignes intactes', memberRead.write >= 400 && memberRead.update >= 400 && memberRead.del >= 400 && rows.length === 2 && !rows.some(x => x.source_ref === `${RUN}_direct` || x.quantity === 999), JSON.stringify(memberRead) + ' ' + JSON.stringify(rows.map(x => [x.source_ref, x.quantity])))
+    r = await api(page, 'PUT', { shop_id: ALPHA, source_ref: `${RUN}_2`, items: [{ product_id: A.id, quantity: 4 }] })
     rows = await rowsOf()
-    check('ligne échue : effacée au passage suivant', rows.length === 1 && !rows.some(x => x.source_ref === 'test_echue'), JSON.stringify(rows.map(x => x.source_ref)))
+    check('ligne échue : effacée au passage suivant', rows.length === 1 && !rows.some(x => x.source_ref === `${RUN}_echue`), JSON.stringify(rows.map(x => x.source_ref)))
 
-    r = await api(page, 'DELETE', null, `?shop_id=${ALPHA}&source_ref=test_2`)
+    r = await api(page, 'DELETE', null, `?shop_id=${ALPHA}&source_ref=${RUN}_2`)
     check('libération : 200, plus aucune ligne', r.status === 200 && (await rowsOf()).length === 0)
-    r = await api(page, 'DELETE', null, `?shop_id=${ALPHA}&source_ref=test_inconnue`)
+    r = await api(page, 'DELETE', null, `?shop_id=${ALPHA}&source_ref=${RUN}_inconnue`)
     check('libérer une facture inconnue : sans erreur', r.status === 200, String(r.status))
 
     // ══ 2. Caisse → Stock, appareil 1 ════════════════════════════════════════
@@ -171,12 +181,13 @@ const searchPos = async (page, locale, name) => { const box = page.getByPlacehol
     check('identifiant de facture unique par appareil (suffixe aléatoire)', /^draft_\d+_[a-z0-9]{1,6}$/.test(sent.source_ref), sent.source_ref)
     check('en base : A × 2, « Essai réservation »', rows.length === 1 && rows[0].product_id === A.id && rows[0].quantity === 2 && rows[0].label === 'Essai réservation' && rows[0].source_ref === sent.source_ref, JSON.stringify(rows))
     const draftRef = sent.source_ref
+    REFS.add(draftRef)
     check('la facture reste sur l’appareil, rien n’attend d’être envoyé', await page.evaluate(() => JSON.parse(localStorage.getItem('nc_sale_drafts') || '[]').length === 1 && Object.keys(JSON.parse(localStorage.getItem('nc_reservation_sync') || '{}')).length === 0))
     await searchPos(page, 'fr', A.name)
     check('appareil 1 : la carte du produit indique « 2 réservés » (sa propre facture en attente)', (await posCard(page, A.name).innerText()).includes('2 réservés'), await posCard(page, A.name).innerText())
 
     // B entièrement réservé par une AUTRE facture (posée par la route, comme un autre appareil)
-    r = await api(page, 'PUT', { shop_id: ALPHA, source_ref: 'test_autre_appareil', label: 'Mme Fatou', items: [{ product_id: B.id, quantity: B.quantity }] })
+    r = await api(page, 'PUT', { shop_id: ALPHA, source_ref: `${RUN}_autre_appareil`, label: 'Mme Fatou', items: [{ product_id: B.id, quantity: B.quantity }] })
     check(`B entièrement réservé par une autre facture (${B.quantity})`, r.status === 200 && (await rowsOf()).length === 2)
 
     console.log('\n3. Stock › Produits et Vue d’ensemble')
@@ -272,16 +283,17 @@ const searchPos = async (page, locale, name) => { const box = page.getByPlacehol
       page.locator('[role="dialog"] button.border-red-200').first().click(),
     ])
     rows = await rowsOf()
-    check('suppression de la facture : libération envoyée (200), sa ligne disparaît', del.status() === 200 && del.url().includes(encodeURIComponent(draftRef)) && rows.length === 1 && rows[0].source_ref === 'test_autre_appareil', JSON.stringify(rows.map(x => x.source_ref)))
+    check('suppression de la facture : libération envoyée (200), sa ligne disparaît', del.status() === 200 && del.url().includes(encodeURIComponent(draftRef)) && rows.length === 1 && rows[0].source_ref === `${RUN}_autre_appareil`, JSON.stringify(rows.map(x => x.source_ref)))
 
     // Hors connexion : la mise en attente fonctionne, la réservation part au retour du réseau
     console.log('\n6. Hors connexion puis retour')
     let blocked = true
     await page.keyboard.press('Escape'); await page.waitForTimeout(700) // la fenêtre « Factures en attente » était restée ouverte
-    await page.route('**/api/stock/reservations**', route => (blocked ? route.abort('internetdisconnected') : route.continue()))
+    await page.route('**/api/stock/reservations**', route => (blocked ? route.abort('internetdisconnected') : route.fallback()))
     await page.locator('button[title="Mettre en attente"]:visible').first().click()
     await page.getByPlaceholder(MSG('fr').sales.hold_label_placeholder).press('Enter'); await page.waitForTimeout(1500)
     const pending = await page.evaluate(() => ({ drafts: JSON.parse(localStorage.getItem('nc_sale_drafts') || '[]').length, sync: Object.keys(JSON.parse(localStorage.getItem('nc_reservation_sync') || '{}')) }))
+    pending.sync.forEach(x => REFS.add(x))
     check('réseau coupé : la facture est mise en attente quand même, sa réservation reste notée', pending.drafts === 1 && pending.sync.length === 1 && (await rowsOf()).length === 1, JSON.stringify(pending))
     blocked = false
     const [again] = await Promise.all([
@@ -295,14 +307,14 @@ const searchPos = async (page, locale, name) => { const box = page.getByPlacehol
     check('… et plus rien n’attend sur l’appareil', await page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('nc_reservation_sync') || '{}')).length === 0))
     await s.browser.close()
   } finally {
-    // ── Nettoyage : toutes les réservations de Boutique Alpha (compte d'essai) ──
-    await admin.from('stock_reservations').delete().eq('shop_id', ALPHA)
+    // ── Nettoyage : uniquement les lignes créées par CETTE exécution (référence de l'exécution ou de l'appareil) ──
     await wait(500)
-    const total1 = (await admin.from('stock_reservations').select('id', { count: 'exact', head: true })).count
+    const mine = r => (r.source_ref || '').startsWith(RUN + '_') || REFS.has(r.source_ref)
+    const clean = await W.finish({ stock_reservations: mine, audit_logs: r => JSON.stringify(r.metadata || {}).includes(RUN) || [...REFS].some(x => JSON.stringify(r.metadata || {}).includes(x)) })
     const sales1 = (await admin.from('sales').select('id', { count: 'exact', head: true }).eq('shop_id', ALPHA)).count
     const { data: prods1 } = await admin.from('products').select('id, quantity').eq('shop_id', ALPHA).eq('is_active', true).order('name')
     console.log('\nNettoyage et contrôle')
-    check(`table des réservations revenue à son état de départ (${total0} → ${total1})`, total1 === total0)
+    check('mode écriture : rien de préexistant touché, aucune trace restante en base', clean)
     check(`aucune vente créée (${sales0} → ${sales1})`, sales1 === sales0)
     check('aucune quantité de stock modifiée', JSON.stringify(prods1.map(p => [p.id, p.quantity])) === stock0)
   }

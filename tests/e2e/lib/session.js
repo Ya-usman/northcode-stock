@@ -3,11 +3,12 @@
 // service worker toujours bloqué). L'ancien helper ne bloquait aucune écriture : il n'est plus utilisé.
 //   skipGoto   : ne pas ouvrir la caisse (le test navigue lui-même)
 //   beforeGoto : async (page) => …, appelé avant la première navigation
+//   write      : poignée du mode écriture (lib/write-mode.js) — sinon toute écriture est bloquée
 const { session, BASE, OUT } = require('./capture.js')
 
-async function openPage({ width, height, email, path = '/fr/sales/new', skipGoto = false, beforeGoto } = {}) {
+async function openPage({ width, height, email, path = '/fr/sales/new', skipGoto = false, beforeGoto, write = null } = {}) {
   const mobile = width < 500
-  const s = await session({ width, height, scale: mobile ? 2 : 1, email, mobile })
+  const s = await session({ width, height, scale: mobile ? 2 : 1, email, mobile, write })
   if (beforeGoto) await beforeGoto(s.page)
   if (skipGoto) return s
   await s.page.goto(BASE + path, { waitUntil: 'domcontentloaded', timeout: 90000 })

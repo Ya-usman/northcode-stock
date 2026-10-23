@@ -27,7 +27,10 @@ const SECURE = BASE.startsWith('https')
 
 // Compte par défaut : démonstration Boutique Alpha (admin@northcode.ng). Marché Soleil : CAPTURE_EMAIL=ghislainx123@gmail.com.
 // mobile : par défaut, largeur < 900 px.
-async function session({ width = 1366, height = 900, scale = 1, locale = 'fr', email = process.env.CAPTURE_EMAIL || 'admin@northcode.ng', mobile } = {}) {
+// write : poignée du mode ÉCRITURE (lib/write-mode.js, enableWrite) — seules les écritures qu'elle autorise passent
+// (routes déclarées par le test, boutique Alpha, serveur local) ; sans elle, toute écriture est bloquée.
+async function session({ width = 1366, height = 900, scale = 1, locale = 'fr', email = process.env.CAPTURE_EMAIL || 'admin@northcode.ng', mobile, write = null } = {}) {
+  if (write && (!LOCAL || process.env.CAPTURE_PROD_READONLY)) throw new Error('mode écriture : serveur local uniquement')
   const isMobile = mobile === undefined ? width < 900 : !!mobile
   const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
   const anon = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false } })
@@ -63,7 +66,11 @@ async function session({ width = 1366, height = 900, scale = 1, locale = 'fr', e
     }
     // Écritures : TOUJOURS bloquées (production comme local). Un test qui veut lire ce qui part déclare ses propres
     // routes, plus prioritaires, qui interceptent et relisent le corps — jamais de passage vers le serveur ici.
-    if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && !/\/auth\/v1\/token/.test(url)) return route.fulfill({ status: 204, body: '' })
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && !/\/auth\/v1\/token/.test(url)) {
+      if (write && write.allows(r)) { (write.sent ||= []).push(`${method} ${new URL(url).pathname}`); return route.continue() }
+      if (write) (write.blocked ||= []).push(`${method} ${new URL(url).pathname}`)
+      return route.fulfill({ status: 204, body: '' })
+    }
     return route.continue()
   })
   return { browser, ctx, page }

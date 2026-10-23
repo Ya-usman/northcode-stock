@@ -1,6 +1,10 @@
 // Inventaire v2 (migration 175 + nouvel écran) — TEST RÉEL sur Boutique Alpha UNIQUEMENT, sur des produits « TEST inv … »
 // créés pour l'occasion (parcours normal), puis supprimés par le parcours normal. Aucun autre produit n'est compté :
-// la finalisation ne peut ajuster que ces produits. Les sessions d'inventaire restent dans l'historique d'Alpha.
+// la finalisation ne peut ajuster que ces produits.
+// MODE ÉCRITURE explicite (lib/write-mode.js) : référence unique par exécution dans le nom des produits ; à la fin,
+// seules les lignes NOUVELLES d'Alpha qui citent cette exécution (produits, lots, mouvements, comptages, sessions,
+// journal) sont supprimées, une à une. Mise à jour (23 oct. 2026) — ancienne hypothèse : les sessions d'essai restaient
+// dans l'historique d'Alpha. Réel : aucune trace laissée.
 // Seule manipulation directe (fixture) : le stock d'un produit TEST abaissé en base pour SIMULER des ventes faites
 // pendant l'inventaire (aucune vente réelle créée). Serveur local obligatoire (lib-session refuse toute autre adresse).
 const fs = require('fs')
@@ -10,12 +14,29 @@ for (const line of fs.readFileSync(ROOT + '/.env.local', 'utf8').split('\n')) { 
 const { createClient } = require(ROOT + '/node_modules/@supabase/supabase-js')
 const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
 const { openPage } = require('./lib/session.js')
+const { enableWrite } = require('./lib/write-mode.js')
 const BASE = 'http://localhost:3000'
+let W = null
+const P = {}             // produits TEST de cette exécution
+const SESS = new Set()   // sessions d'inventaire créées par CETTE exécution
+const LINKED_IDS = new Set()   // lignes rattachées aux produits TEST, relevées avant leur suppression
+let cleaned = false
+// Lignes nouvelles d'Alpha qui citent cette exécution (référence, produits TEST, sessions) — une à une, par identifiant
+async function cleanupRun() {
+  if (!W || cleaned) return true
+  cleaned = true
+  const tokens = [W.RUN, W.RUN.toUpperCase(), ...Object.values(P).map(x => x.id), ...SESS, ...LINKED_IDS]
+  const cites = r => { const j = JSON.stringify(r); return tokens.some(t => j.includes(t)) }
+  return W.finish({
+    inventory_counts: cites, stock_movements: cites, product_batches: cites, stock_reservations: cites,
+    audit_logs: cites, deleted_records_log: cites, inventory_sessions: r => SESS.has(r.id), products: cites,
+  })
+}
 const ALPHA = 'a0000000-0000-0000-0000-000000000001'
 const AKWA = '7313d74e-43dd-4b36-a59e-17ba370d29a1'
 let pass = 0, fail = 0
 const ok = (c, m) => { c ? pass++ : fail++; console.log(`  ${c ? 'ok   ' : 'ÉCHEC'} ${m}`) }
-const stamp = Date.now().toString(36).toUpperCase()
+let stamp = null   // = référence de l'exécution (W.RUN), posée au démarrage
 
 const api = (page, method, url, body) => page.evaluate(async ({ method, url, body }) => {
   const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })
@@ -24,7 +45,7 @@ const api = (page, method, url, body) => page.evaluate(async ({ method, url, bod
 }, { method, url, body })
 
 async function session(opts = {}) {
-  const s = await openPage({ width: opts.width || 1280, height: opts.height || 900, skipGoto: true, blockServiceWorkers: true })
+  const s = await openPage({ width: opts.width || 1280, height: opts.height || 900, skipGoto: true, write: W })
   await s.page.addInitScript(([id]) => { try { if (!sessionStorage.getItem('__ctx')) { sessionStorage.setItem('__ctx', '1'); localStorage.setItem('dashboard_shop_filter', id) } } catch {} }, [opts.filter || ALPHA])
   s.errors = []; s.page.on('pageerror', e => s.errors.push(e.message.slice(0, 140)))
   return s
@@ -45,6 +66,8 @@ async function countVia(page, p, qty, bySku = false) {
 }
 
 ;(async () => {
+  W = await enableWrite({ test: 'inventory-v2', routes: [/\/api\/products(\?|$)/, /\/api\/stock\/inventory-sessions(\/|\?|$)/] })
+  stamp = W.RUN.toUpperCase()
   // ── Préalable : aucune session en cours sur Alpha (on ne touche jamais à l'inventaire de quelqu'un) ──
   const { data: open } = await db.from('inventory_sessions').select('id, reference').eq('shop_id', ALPHA).eq('status', 'in_progress')
   if (open?.length) { console.log('Un inventaire est déjà en cours sur Alpha (' + open[0].reference + ') : test arrêté sans rien faire.'); process.exit(1) }
@@ -57,10 +80,9 @@ async function countVia(page, p, qty, bySku = false) {
     { key: 'A', qty: 28, sku: `TINV${stamp}A` }, { key: 'B', qty: 28 }, { key: 'C', qty: 28 },
     { key: 'D', qty: 0 }, { key: 'E', qty: 5 }, { key: 'F', qty: 3 },
   ]
-  const P = {}
   for (const sp of specs) {
     const r = await api(page, 'POST', '/api/products', { shop_id: ALPHA, name: `TEST inv ${sp.key} ${stamp}`, selling_price: 500, buying_price: 300, quantity: sp.qty, unit: 'piece', sku: sp.sku || null, is_active: true })
-    if (r.status !== 200 || !r.json?.data?.id) { console.log('création impossible', sp.key, r.status, JSON.stringify(r.json).slice(0, 200)); process.exit(1) }
+    if (r.status !== 200 || !r.json?.data?.id) throw new Error(`création impossible ${sp.key} : ${r.status} ${JSON.stringify(r.json).slice(0, 200)}`)
     P[sp.key] = { id: r.json.data.id, name: `TEST inv ${sp.key} ${stamp}`, sku: sp.sku || null, qty: sp.qty }
   }
   ok(Object.keys(P).length === 6, 'produits TEST créés (A 28 avec code-barres, B 28, C 28, D 0, E 5, F 3)')
@@ -79,6 +101,7 @@ async function countVia(page, p, qty, bySku = false) {
     await page.getByTestId('inventory-start').click(); await page.waitForTimeout(3000)
     const { data: sess } = await db.from('inventory_sessions').select('id, reference, status, products_total').eq('shop_id', ALPHA).eq('status', 'in_progress').single()
     sessionId = sess.id
+    SESS.add(sessionId)
     ok(await page.getByTestId('inventory-session').isVisible() && (await page.getByTestId('inventory-session').innerText()).includes(sess.reference), `session ${sess.reference} créée et affichée (${sess.products_total} produits)`)
     ok(await qtyOf('A') === 28 && await qtyOf('E') === 5, 'démarrer ne modifie aucun stock')
     const r2 = await api(page, 'POST', '/api/stock/inventory-sessions', { shop_id: ALPHA })
@@ -143,7 +166,8 @@ async function countVia(page, p, qty, bySku = false) {
     ok(await page.getByTestId('inventory-finalize').isEnabled(), 'tous les motifs donnés → « Finaliser » disponible')
 
     console.log('\n8. Ventes pendant l’inventaire → conflit, rien appliqué')
-    await db.from('products').update({ quantity: 2 }).eq('id', P.E.id) // fixture : 3 ventes simulées sur E (TEST)
+    if (W.before.products.has(P.E.id)) throw new Error('fixture : E n’est pas un produit de cette exécution')
+    await db.from('products').update({ quantity: 2 }).eq('id', P.E.id).eq('shop_id', ALPHA) // fixture : 3 ventes simulées sur E (TEST de cette exécution)
     const movBefore = (await db.from('stock_movements').select('id', { count: 'exact', head: true }).eq('count_session_id', sessionId)).count
     await page.getByTestId('inventory-finalize').click(); await page.waitForTimeout(600)
     ok(/Les 4 écarts vont ajuster le stock/.test(await page.getByTestId('inventory-finalize-points').innerText()), 'confirmation claire : écarts → stock, clôture, historique')
@@ -200,6 +224,7 @@ async function countVia(page, p, qty, bySku = false) {
     await gotoInventory(page)
     await page.getByTestId('inventory-start').click(); await page.waitForTimeout(3000)
     const { data: s2 } = await db.from('inventory_sessions').select('id').eq('shop_id', ALPHA).eq('status', 'in_progress').single()
+    SESS.add(s2.id)
     await countVia(page, P.A, 10)
     await page.getByTestId('inventory-abandon').click(); await page.waitForTimeout(400)
     await page.getByRole('dialog').getByRole('button', { name: 'Abandonner l’inventaire' }).click(); await page.waitForTimeout(2500)
@@ -233,13 +258,28 @@ async function countVia(page, p, qty, bySku = false) {
   } finally {
     console.log('\nNettoyage : produits TEST supprimés par le parcours normal')
     await s.page.goto(`${BASE}/fr/offline`, { waitUntil: 'domcontentloaded' }).catch(() => {})
-    const leftover = (await db.from('inventory_sessions').select('id').eq('shop_id', ALPHA).eq('status', 'in_progress')).data || []
+    // Seules les sessions de CETTE exécution encore ouvertes (jamais celle de quelqu'un d'autre)
+    const leftover = ((await db.from('inventory_sessions').select('id').eq('shop_id', ALPHA).eq('status', 'in_progress')).data || []).filter(l => !W.before.inventory_sessions.has(l.id))
     for (const l of leftover) await api(s.page, 'POST', `/api/stock/inventory-sessions/${l.id}/cancel`, { shop_id: ALPHA })
+    // Avant la suppression des produits TEST : identifiants des lignes qui les citent (mouvements, lots, comptages) —
+    // la suppression détache ces lignes du produit (produit = vide) ; le nettoyage les retrouve par leur identifiant
+    const pids = Object.values(P).map(x => x.id)
+    if (pids.length) for (const t of ['stock_movements', 'product_batches', 'inventory_counts']) {
+      const rows = (await db.from(t).select('id').eq('shop_id', ALPHA).in('product_id', pids)).data || []
+      rows.forEach(r => LINKED_IDS.add(r.id))
+    }
+    await W.checkpoint()
     let gone = 0
     for (const k of Object.keys(P)) { const r = await api(s.page, 'DELETE', `/api/products?id=${P[k].id}&shop_id=${ALPHA}`); if (r.status === 200) gone++ }
     const still = (await db.from('products').select('id').in('id', Object.values(P).map(p => p.id))).data || []
     ok(gone === 6 && still.length === 0, `produits TEST supprimés (${gone}/6), aucun restant`)
     await s.browser.close()
+    ok(await cleanupRun(), 'mode écriture : rien de préexistant touché, aucune trace restante en base')
   }
   console.log(`\n${pass} réussis, ${fail} échec(s)`); process.exit(fail ? 1 : 0)
-})().catch(e => { console.error('ERREUR', e.message.slice(0, 500)); console.log(`\n${pass} réussis, ${fail} échec(s) — interrompu`); process.exit(1) })
+})().catch(async e => {
+  console.error('ERREUR', e.message.slice(0, 500))
+  // Arrêt imprévu : nettoyage quand même (lignes de cette exécution seulement)
+  try { await cleanupRun() } catch (c) { console.error('NETTOYAGE IMPOSSIBLE', c.message) }
+  console.log(`\n${pass} réussis, ${fail} échec(s) — interrompu`); process.exit(1)
+})
