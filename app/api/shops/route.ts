@@ -7,6 +7,7 @@ import { getOwnerShopIds } from '@/lib/api/shop-auth'
 import { validateShopIdentity, isShopCodeTaken } from '@/lib/saas/shop-identity'
 import { timezoneForNewShop } from '@/lib/api/shop-timezone'
 import { shopTimezoneErrorResponse } from '@/lib/api/stock-errors'
+import { deleteShops } from '@/lib/api/delete-shops'
 
 export async function POST(request: Request) {
   const t = getApiTranslator(request)
@@ -133,7 +134,7 @@ export async function POST(request: Request) {
 
     if (memberError) {
       // Rollback shop if member insert fails
-      await admin.from('shops').delete().eq('id', (shop as any).id)
+      await deleteShops(admin, [(shop as any).id])
       return NextResponse.json({ error: memberError.message }, { status: 500 })
     }
 

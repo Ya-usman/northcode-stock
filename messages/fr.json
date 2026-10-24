@@ -3760,6 +3760,8 @@
     "not_shop_owner": "Vous n'êtes pas le propriétaire de cette boutique",
     "cannot_delete_only_shop": "Impossible de supprimer votre seule boutique. Créez-en une autre d'abord.",
     "shop_must_be_deactivated_first": "La boutique doit d'abord être désactivée avant suppression définitive.",
+    "shop_delete_photos_failed": "Impossible de supprimer la boutique : ses photos de lots n'ont pas pu être supprimées. Réessayez.",
+    "shop_delete_failed_after_photos": "La boutique n'a pas pu être supprimée. Ses photos de lots avaient déjà été supprimées et ne peuvent pas être restaurées. Réessayez.",
     "shop_name_field_required": "Le nom de la boutique est requis",
     "invalid_hours_override": "hours_manual_override invalide",
     "merge_forbidden": "Fusion réservée au propriétaire et au gérant",

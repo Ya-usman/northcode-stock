@@ -6,6 +6,7 @@ import { timezoneForNewShop } from '@/lib/api/shop-timezone'
 import { countryOfTimeZone } from '@/lib/time/time-zones'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
+import { deleteShops } from '@/lib/api/delete-shops'
 
 const COOKIE_OPTS = {
   httpOnly: true,
@@ -133,9 +134,9 @@ export async function POST(request: Request) {
             is_active: true,
           })
           if (!memberError) role = 'owner'
-          else await admin.from('shops').delete().eq('id', newShop.id)
+          else await deleteShops(admin, [newShop.id])
         } else {
-          await admin.from('shops').delete().eq('id', newShop.id)
+          await deleteShops(admin, [newShop.id])
         }
       }
     }

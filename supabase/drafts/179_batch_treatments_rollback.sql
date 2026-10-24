@@ -4,8 +4,8 @@
 -- Refus si : un traitement, une photo, un mouvement lié à un lot ou à un traitement, ou un fichier dans l'espace
 -- batch-treatment-photos existe. Sinon : remet delete_product_batch dans son état de la 117 (même contenu qu'en
 -- production, fins de ligne mises à part — empreinte md5 sans \r : 8ad155aae3901f1125b1ace5e138a0dd), rend
--- adjust_batch_quantity au serveur, remet sale_item_batches.batch_id en ON DELETE SET NULL, retire gardes,
--- fonctions, colonnes, tables et l'espace de stockage (vide).
+-- adjust_batch_quantity au serveur, remet sale_item_batches.batch_id en ON DELETE SET NULL (non différable),
+-- retire gardes, fonctions (delete_shops comprise), colonnes, tables et l'espace de stockage (vide).
 
 DO $$
 DECLARE n_t int; n_p int; n_m int; n_o int;
@@ -97,8 +97,10 @@ DROP FUNCTION IF EXISTS public.resolve_unallocated(uuid, uuid, uuid, uuid, int, 
 DROP FUNCTION IF EXISTS public.register_batch_treatment_photo(uuid, uuid, text, text, int, uuid);
 DROP FUNCTION IF EXISTS public.unallocated_candidates(uuid);
 DROP FUNCTION IF EXISTS public.remove_review_reason(text, text);
+-- delete_shops : l'application revient seule au DELETE ordinaire quand la fonction est absente
+DROP FUNCTION IF EXISTS public.delete_shops(uuid[]);
 
--- Allocation vente ↔ lot : retour au comportement d'avant 179 (ON DELETE SET NULL)
+-- Allocation vente ↔ lot : retour EXACT au comportement d'avant 179 (ON DELETE SET NULL, non différable)
 ALTER TABLE public.sale_item_batches DROP CONSTRAINT sale_item_batches_batch_id_fkey;
 ALTER TABLE public.sale_item_batches ADD CONSTRAINT sale_item_batches_batch_id_fkey
   FOREIGN KEY (batch_id) REFERENCES public.product_batches(id) ON DELETE SET NULL;

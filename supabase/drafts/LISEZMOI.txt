@@ -4,3 +4,13 @@ Brouillons de migration NON appliqués (rien ici n'est exécuté automatiquement
   (message insufficient_transferable_stock, type de mouvement transit_loss dans Mouvements), sur accord explicite.
 - 176_transferts_workflow_rollback.sql : retour arrière (anciennes fonctions reprises des migrations 102 / 104).
 Reconstitués le 23 oct. 2026 depuis l'historique de la conversation après le nettoyage du dossier temporaire.
+- 179_batch_treatments.sql : traitement des lots périmés + résolution des ventes hors ligne non attribuées.
+  Allocation vente → lot en NO ACTION DEFERRABLE INITIALLY IMMEDIATE + delete_shops(uuid[]) (seule voie de
+  suppression d'une boutique). ORDRE : application (lib/api/delete-shops.ts) en ligne AVANT la migration.
+- 179_batch_treatments_rollback.sql : retour arrière exact, refusé dès qu'un historique existe.
+- 179_batch_treatments_rehearsal.sql : répétition transactionnelle en production (un bloc DO, objets TEST
+  d'Alpha, se termine TOUJOURS par EXPECTED_ROLLBACK / REHEARSAL_FAIL / PRECHECK_FAIL). Contient le texte EXACT
+  du brouillon (contrôlé par tests/e2e/b179-pure.js). À n'exécuter que sur instruction explicite.
+- 179_batch_treatments_test_stub.sql, 179_batch_treatments_tests.sql, 179_batch_treatments_fk_tests.sql et
+  179_batch_treatments_local_validation.sh : tests sur une base PostgreSQL LOCALE jetable uniquement
+  (sh supabase/drafts/179_batch_treatments_local_validation.sh, depuis la racine du dépôt).

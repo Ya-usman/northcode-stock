@@ -3760,6 +3760,8 @@
     "not_shop_owner": "Kai ba Maigidan wannan kanti ba ne",
     "cannot_delete_only_shop": "Ba za ka iya share kantin ka kaɗai ba. Ƙirƙiri wani na farko.",
     "shop_must_be_deactivated_first": "Dole a fara kashe kantin kafin sharewa ta dindindin.",
+    "shop_delete_photos_failed": "Ba a iya share kantin ba saboda ba a iya share hotunansa ba. Sake gwadawa.",
+    "shop_delete_failed_after_photos": "Ba a iya share kantin ba. An riga an share hotunansa, kuma ba za a iya dawo da su ba. Sake gwadawa.",
     "shop_name_field_required": "Ana buƙatar sunan kanti",
     "invalid_hours_override": "hours_manual_override bai inganta ba",
     "merge_forbidden": "Haɗawa na Maigida da manaja ne kawai",

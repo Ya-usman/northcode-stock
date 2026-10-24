@@ -102,8 +102,31 @@ ok(/sale_item_batches_batch_id_fkey\s+FOREIGN KEY \(batch_id\) REFERENCES public
 ok(/batch_id\s+uuid NOT NULL REFERENCES public\.product_batches\(id\) ON DELETE NO ACTION/.test(code) && /ADD COLUMN IF NOT EXISTS batch_id uuid REFERENCES public\.product_batches\(id\) ON DELETE NO ACTION/.test(code),
   'lot traité ou lié à un mouvement : suppression refusée par la base')
 ok(/batch_has_history/.test(fn('delete_product_batch')), 'delete_product_batch : erreur lisible si historique')
+ok(/sale_item_batches_batch_id_fkey\s+FOREIGN KEY \(batch_id\) REFERENCES public\.product_batches\(id\) ON DELETE NO ACTION DEFERRABLE INITIALLY IMMEDIATE;/.test(code)
+  && (code.match(/DEFERRABLE/g) || []).length === 1,
+  'allocation → lot : NO ACTION DEFERRABLE INITIALLY IMMEDIATE, seule clé différable de la 179')
+const ds = fn('delete_shops')
+ok(!!ds && /SET CONSTRAINTS public\.sale_item_batches_batch_id_fkey DEFERRED;\s+DELETE FROM public\.shops WHERE id = ANY/.test(ds)
+  && /DELETE FROM public\.shops[\s\S]*SET CONSTRAINTS public\.sale_item_batches_batch_id_fkey IMMEDIATE;\s+RETURN/.test(ds)
+  && !/SET CONSTRAINTS ALL/i.test(code) && (ds.match(/SET CONSTRAINTS/g) || []).length === 2,
+  'delete_shops : report de CETTE seule clé, DELETE, retour IMMEDIATE avant de rendre la main ; jamais SET CONSTRAINTS ALL')
+ok(/REVOKE EXECUTE ON FUNCTION public\.delete_shops\(uuid\[\]\)\s+FROM PUBLIC, anon, authenticated;/.test(code)
+  && /GRANT  EXECUTE ON FUNCTION public\.delete_shops\(uuid\[\]\)\s+TO service_role;/.test(code), 'delete_shops : serveur uniquement')
+{
+  const direct = []
+  const walk = d => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name)
+    if (e.isDirectory()) walk(p); else if (/\.(ts|tsx|js)$/.test(e.name)) { const s = fs.readFileSync(p, 'utf8')
+      if (/from\(\s*['"`]shops['"`]\s*\)[\s\S]{0,300}?\.delete\(/.test(s) && !p.endsWith(path.join('lib', 'api', 'delete-shops.ts'))) direct.push(path.relative(ROOT, p)) } } }
+  walk(path.join(ROOT, 'app')); walk(path.join(ROOT, 'lib'))
+  ok(direct.length === 0, `aucune suppression directe de boutique hors de lib/api/delete-shops.ts${direct.length ? ' — ' + direct.join(' ; ') : ''}`)
+  const helper = fs.readFileSync(path.join(ROOT, 'lib/api/delete-shops.ts'), 'utf8')
+  ok(/error\.code !== 'PGRST202'\) return \{ error \}/.test(helper) && !/42883/.test(helper), 'deleteShops : repli sur le DELETE d’origine UNIQUEMENT si PGRST202')
+}
 
 console.log('\n8. Retour arrière')
+ok(/DROP FUNCTION IF EXISTS public\.delete_shops\(uuid\[\]\);/.test(rb)
+  && /sale_item_batches_batch_id_fkey\s+FOREIGN KEY \(batch_id\) REFERENCES public\.product_batches\(id\) ON DELETE SET NULL;/.test(rb) && !/DEFERRABLE/.test(rb.replace(/^--.*$/gm, '')),
+  'retour arrière : delete_shops retirée, allocation → lot remise en SET NULL non différable')
 ok(/n_t > 0 OR n_p > 0 OR n_m > 0 OR n_o > 0/.test(rb) && /batch_id IS NOT NULL OR batch_treatment_id IS NOT NULL/.test(rb) && /bucket_id = 'batch-treatment-photos'/.test(rb),
   'refusé dès qu’existe un traitement, une photo, un mouvement lié ou un fichier')
 const rbBody = rb.match(/FUNCTION public\.delete_product_batch\([\s\S]*?AS \$\$([\s\S]*?)\$\$/)
@@ -163,7 +186,30 @@ const photoRoute = src('app/api/stock/batch-treatments/photo/route.ts')
 ok(/sniffImage\(bytes\)/.test(photoRoute) && /remove\(\[path\]\)/.test(photoRoute) && /batch_photo_orphan/.test(photoRoute) && /orphan: \{ bucket/.test(photoRoute),
   'photo : type réel vérifié ; refus → fichier supprimé ; échec du nettoyage → audit batch_photo_orphan + chemin renvoyé')
 const ownerRoute = src('app/api/admin/owner/[ownerId]/route.ts')
-ok(pos(ownerRoute, /purgeTreatmentPhotos\(admin, shopIds\)/) < pos(ownerRoute, /from\('shops'\)\.delete\(\)/) && /if \(!purge\.ok\)/.test(ownerRoute),
-  'suppression d’un compte : photos de traitement supprimées AVANT les boutiques, refus s’il en reste')
+// (pos() d'un motif absent = Infinity : la présence de deleteShops est exigée explicitement)
+ok(/deleteShops\(admin, shopIds\)/.test(ownerRoute) && pos(ownerRoute, /purgeTreatmentPhotos\(admin, shopIds\)/) < pos(ownerRoute, /deleteShops\(admin, shopIds\)/)
+  && /if \(!purge\.ok\)/.test(ownerRoute) && /admin\.shop_delete_failed/.test(ownerRoute),
+  'suppression d’un compte : photos de traitement supprimées AVANT les boutiques (deleteShops), refus s’il en reste, échec journalisé')
+const hardRoute = src('app/api/shops/[shopId]/route.ts')
+ok(/deleteShops\(admin, \[shopId\]\)/.test(hardRoute) && pos(hardRoute, /purgeTreatmentPhotos\(admin, \[shopId\]\)/) < pos(hardRoute, /deleteShops\(admin, \[shopId\]\)/)
+  && /if \(!purge\.ok\)/.test(hardRoute) && /shop_delete_failed_after_photos/.test(hardRoute) && /admin\.shop_delete_failed/.test(hardRoute),
+  'suppression définitive d’une boutique : photos supprimées AVANT (deleteShops), refus s’il en reste, échec après photos explicite et journalisé')
+
+console.log('\n12. Répétition 179 (texte seulement — jamais exécutée par ce test)')
+{
+  const rhFile = ROOT + '/supabase/drafts/179_batch_treatments_rehearsal.sql'
+  const rh = fs.existsSync(rhFile) ? fs.readFileSync(rhFile, 'utf8').replace(/\r/g, '') : ''
+  const emb = rh.split(/-- ════════════ MIGRATION 179 \(brouillon, texte inséré tel quel\) ════════════\n/)[1]?.split(/  -- ════════════ FIN DE LA MIGRATION 179 ════════════/)[0]
+  ok(emb === sql, 'la répétition contient EXACTEMENT le texte du brouillon 179')
+  const outer = rh.replace(emb || '', '')
+  ok((rh.match(/^DO \$rh\$$/gm) || []).length === 1 && !/^\s*(COMMIT|BEGIN;|END;\s*$)/im.test(outer.replace(/--[^\n]*/g, '').replace(/\$f\$[\s\S]*?\$f\$/g, '').replace(/BEGIN\s*\n\s*(SET CONSTRAINTS|PERFORM|EXECUTE|v :=)/g, ''))
+    && /RAISE EXCEPTION 'EXPECTED_ROLLBACK: 179 rehearsal PASS/.test(outer) && /END\n\$rh\$;\n?$/.test(rh),
+    'un seul bloc DO, aucun COMMIT, terminaison obligatoire par EXPECTED_ROLLBACK: 179 rehearsal PASS')
+  ok(/RAISE EXCEPTION 'REHEARSAL_FAIL: %/.test(outer) && !/rh\.fail/.test(outer), 'arrêt au premier invariant inattendu (REHEARSAL_FAIL), aucun comptage d’échecs')
+  const deletes = [...outer.matchAll(/DELETE FROM ([a-z_.]+) WHERE ([^;\n]+)/g)].map(m => m[1] + ' ' + m[2])
+  ok(deletes.length > 0 && deletes.every(d => /^[a-z_.]+ id = (r_[a-z_]+\b|%L)/.test(d)), `suppressions ciblées par identifiant uniquement (${deletes.length})`)
+  ok(!/storage\.from|\/storage\/v1/.test(rh) && /storage\.allow_delete_query', 'true', true\);\n\s+DELETE FROM storage\.objects WHERE id = r_obj;\n\s+PERFORM set_config\('storage\.allow_delete_query', 'false', true\)/.test(outer),
+    'aucun fichier réel : une seule ligne storage.objects, retirée par son identifiant')
+}
 
 console.log(`\n${pass} réussis, ${fail} échec(s)`); process.exit(fail ? 1 : 0)

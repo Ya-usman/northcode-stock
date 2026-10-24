@@ -3760,6 +3760,8 @@
     "not_shop_owner": "You are not the owner of this shop",
     "cannot_delete_only_shop": "You cannot delete your only shop. Create another one first.",
     "shop_must_be_deactivated_first": "The shop must be deactivated first before permanent deletion.",
+    "shop_delete_photos_failed": "The shop could not be deleted because its batch photos could not be deleted. Please try again.",
+    "shop_delete_failed_after_photos": "The shop could not be deleted. Its batch photos had already been deleted and cannot be restored. Please try again.",
     "shop_name_field_required": "Shop name is required",
     "invalid_hours_override": "Invalid hours_manual_override",
     "merge_forbidden": "Merging is reserved to the owner and manager",

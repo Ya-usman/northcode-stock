@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
+import { deleteShops } from '@/lib/api/delete-shops'
 
 // Max age of an unconfirmed user we're willing to clean up (10 minutes)
 const MAX_AGE_MS = 10 * 60 * 1000
@@ -34,7 +35,8 @@ export async function POST(request: Request) {
     }
 
     // Safe to delete — orphan unconfirmed user with no profile
-    await admin.from('shops').delete().eq('owner_id', user_id)
+    const { data: ownedShops } = await admin.from('shops').select('id').eq('owner_id', user_id)
+    await deleteShops(admin, (ownedShops || []).map((s: any) => s.id))
     await admin.auth.admin.deleteUser(user_id)
 
     return NextResponse.json({ success: true })

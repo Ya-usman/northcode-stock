@@ -10,6 +10,7 @@ import { assessReferralRisk } from '@/lib/referrals/fraud'
 import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
 import { z } from 'zod'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { deleteShops } from '@/lib/api/delete-shops'
 import { timezoneForNewShop } from '@/lib/api/shop-timezone'
 
 const registerSchema = z.object({
@@ -102,7 +103,7 @@ export async function POST(request: Request) {
       .single()
 
     const cleanup = async (shopId?: string) => {
-      if (shopId) await supabase.from('shops').delete().eq('id', shopId)
+      if (shopId) await deleteShops(supabase, [shopId])
       await supabase.auth.admin.deleteUser(user_id)
     }
 

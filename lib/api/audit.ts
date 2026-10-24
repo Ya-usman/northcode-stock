@@ -69,6 +69,7 @@ export type AuditAction =
   | 'admin.restore_customer'
   | 'admin.create_owner'
   | 'admin.repair_orphan_shop'
+  | 'admin.shop_delete_failed'
   | 'admin.orphan_shop_alert'
   | 'admin.send_notification'
   | 'admin.announcement_create'

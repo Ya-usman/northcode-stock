@@ -3,6 +3,9 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser } from '@/lib/api/shop-auth'
 import { requireAdmin } from '@/lib/api/require-admin'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { purgeTreatmentPhotos } from '@/lib/api/batch-photos-cleanup'
+import { deleteShops } from '@/lib/api/delete-shops'
+import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 
 // DELETE /api/shops/[shopId] — soft-delete par l'owner
 export async function DELETE(
@@ -93,8 +96,28 @@ export async function POST(
       )
     }
 
-    const { error } = await admin.from('shops').delete().eq('id', shopId)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    // Photos de traitement de lot (179) : 1. fichiers de la boutique identifiés, 2. supprimés, 3. absence de
+    // résidu vérifiée, 4. seulement ensuite la boutique. Échec du nettoyage → la boutique n'est PAS supprimée.
+    // Storage et la base ne partagent pas de transaction : des fichiers déjà retirés ne sont jamais restaurés.
+    const audit = (stage: string, detail: Record<string, unknown>) => writeAuditLog({
+      action: 'admin.shop_delete_failed', shop_id: shopId, actor_id: auth.user.id, actor_email: auth.user.email,
+      target_id: shopId, target_type: 'shop', metadata: { route: 'shops/hard-delete', stage, ...detail }, ip: getClientIp(request),
+    })
+    const purge = await purgeTreatmentPhotos(admin, [shopId])
+    if (!purge.ok) {
+      console.error('[shops/hard-delete] nettoyage des photos de traitement impossible', shopId, purge.error, purge.remaining.slice(0, 20))
+      await audit('photo_purge', { error: purge.error, remaining: purge.remaining.length })
+      return NextResponse.json({ error: t('shop_delete_photos_failed'), remaining: purge.remaining.length }, { status: 409 })
+    }
+    const { error } = await deleteShops(admin, [shopId])
+    if (error) {
+      console.error('[shops/hard-delete] suppression de la boutique refusée', shopId, error.code, error.message, 'photos retirées :', purge.removed)
+      await audit('shop_delete', { code: error.code ?? null, message: error.message, photos_removed: purge.removed })
+      if (purge.removed > 0) {
+        return NextResponse.json({ error: t('shop_delete_failed_after_photos'), photos_removed: purge.removed, code: error.code ?? null }, { status: 500 })
+      }
+      return NextResponse.json({ error: error.message, code: error.code ?? null }, { status: 500 })
+    }
     return NextResponse.json({ success: true })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })

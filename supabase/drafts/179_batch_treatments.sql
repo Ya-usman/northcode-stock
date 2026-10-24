@@ -20,7 +20,9 @@
 -- ── 1. Historique des traitements ────────────────────────────────────────────────────────────────────────────
 -- Clés vers le lot et le produit en NO ACTION (contrôle en fin d'instruction) : la suppression d'un lot ou d'un
 -- produit ayant un historique est REFUSÉE, mais la suppression d'une boutique entière (suppression d'un compte
--- par l'administration, inscription annulée) reste possible — tout part en cascade dans la même instruction.
+-- par l'administration, inscription annulée) reste possible — tout part en cascade dans la même instruction
+-- (traitements, mouvements et lots dépendent directement de la boutique : ils partent au même niveau de
+-- cascade, avant le contrôle de ces clés). Seule l'allocation vente ↔ lot demande delete_shops (section 3).
 -- Fournisseur, vente et auteur : identifiant + copie du nom / numéro, SANS clé étrangère (une mise à NULL en
 -- cascade serait une modification de l'événement ; l'historique doit survivre à leur suppression).
 CREATE TABLE public.batch_treatments (
@@ -118,11 +120,16 @@ CREATE INDEX IF NOT EXISTS idx_stock_movements_treatment ON public.stock_movemen
 
 -- Allocation vente ↔ lot : la base protège indépendamment de l'interface — un lot VENDU ne peut plus être
 -- supprimé (avant : ON DELETE SET NULL effaçait silencieusement la trace de l'allocation). NO ACTION garde
--- possibles la modification / suppression d'une vente (lignes et allocations en cascade) et la suppression
--- complète d'une boutique ; un produit vendu est archivé par l'application (D5), jamais supprimé.
+-- possible la modification / suppression d'une vente (lignes et allocations en cascade) ; un produit vendu est
+-- archivé par l'application (D5), jamais supprimé.
+-- DEFERRABLE INITIALLY IMMEDIATE : contrôle IMMÉDIAT en fonctionnement normal (comme sans DEFERRABLE). Lors de
+-- la suppression d'une boutique entière, les allocations sont trois niveaux de cascade plus bas que les lots
+-- (boutique → vente → ligne → allocation) : un contrôle immédiat les trouve encore et refuse. delete_shops
+-- (section 9 bis) diffère CETTE SEULE clé le temps du DELETE, puis rétablit le contrôle immédiat avant de
+-- rendre la main — lots et allocations partent ensemble, aucune allocation n'est jamais vidée.
 ALTER TABLE public.sale_item_batches DROP CONSTRAINT sale_item_batches_batch_id_fkey;
 ALTER TABLE public.sale_item_batches ADD CONSTRAINT sale_item_batches_batch_id_fkey
-  FOREIGN KEY (batch_id) REFERENCES public.product_batches(id) ON DELETE NO ACTION;
+  FOREIGN KEY (batch_id) REFERENCES public.product_batches(id) ON DELETE NO ACTION DEFERRABLE INITIALLY IMMEDIATE;
 
 -- ── 4. Gardes ────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -293,10 +300,10 @@ BEGIN
   SELECT * INTO v_prev FROM batch_treatments WHERE shop_id = p_shop_id AND request_id = p_request_id;
   IF v_prev.id IS NOT NULL AND v_prev.action = p_action AND v_prev.batch_id = p_batch_id
      AND v_prev.corrects_treatment_id IS NOT DISTINCT FROM p_corrects_treatment_id
-     AND CASE p_action
+     AND (CASE p_action
            WHEN 'quantity_adjustment' THEN v_prev.lot_qty_after = p_new_quantity AND v_prev.reason_code = p_reason_code
            WHEN 'date_correction' THEN v_prev.new_expiry_date IS NOT DISTINCT FROM p_new_expiry_date
-           ELSE v_prev.quantity = p_quantity END THEN
+           ELSE v_prev.quantity = p_quantity END) THEN
     RETURN jsonb_build_object('treatment_id', v_prev.id, 'already', true, 'action', v_prev.action,
       'lot_quantity', v_prev.lot_qty_after, 'product_quantity', v_prev.product_qty_after);
   END IF;
@@ -316,10 +323,10 @@ BEGIN
   IF v_prev.id IS NOT NULL THEN
     IF v_prev.action = p_action AND v_prev.batch_id = p_batch_id
        AND v_prev.corrects_treatment_id IS NOT DISTINCT FROM p_corrects_treatment_id
-       AND CASE p_action
+       AND (CASE p_action
              WHEN 'quantity_adjustment' THEN v_prev.lot_qty_after = p_new_quantity AND v_prev.reason_code = p_reason_code
              WHEN 'date_correction' THEN v_prev.new_expiry_date IS NOT DISTINCT FROM p_new_expiry_date
-             ELSE v_prev.quantity = p_quantity END THEN
+             ELSE v_prev.quantity = p_quantity END) THEN
       RETURN jsonb_build_object('treatment_id', v_prev.id, 'already', true, 'action', v_prev.action,
         'lot_quantity', v_prev.lot_qty_after, 'product_quantity', v_prev.product_qty_after);
     END IF;
@@ -660,6 +667,31 @@ BEGIN
 END;
 $$;
 
+-- ── 9 bis. Suppression définitive de boutiques entières ──────────────────────────────────────────────────────
+-- Seul chemin de l'application pour supprimer une boutique (administration, inscription annulée). Diffère
+-- UNIQUEMENT la clé allocation → lot pendant le DELETE (jamais SET CONSTRAINTS ALL), puis la rétablit en
+-- contrôle immédiat : une violation éventuelle est refusée ICI, dans l'appel, pas au COMMIT, et rien ne reste
+-- différé ensuite. Les autres gardes s'appliquent normalement (fichiers photo encore stockés → P0049).
+-- Les fichiers de l'espace de stockage sont supprimés AVANT par l'application (purgeTreatmentPhotos).
+-- ORDRE DE MISE EN LIGNE : l'application (lib/api/delete-shops.ts, qui appelle cette fonction) AVANT cette
+-- migration — après elle, un DELETE direct d'une boutique ayant vendu des lots est refusé (23503).
+-- L'autorisation (super_admin, boutique désactivée d'abord, boutiques du propriétaire) reste vérifiée par les
+-- routes, comme pour les autres fonctions réservées au serveur.
+CREATE OR REPLACE FUNCTION public.delete_shops(p_shop_ids uuid[])
+RETURNS integer
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE v_n integer;
+BEGIN
+  SET CONSTRAINTS public.sale_item_batches_batch_id_fkey DEFERRED;
+  DELETE FROM public.shops WHERE id = ANY (coalesce(p_shop_ids, '{}'));
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  SET CONSTRAINTS public.sale_item_batches_batch_id_fkey IMMEDIATE;
+  RETURN v_n;
+END;
+$$;
+
 -- ── 10. Espace de stockage privé des photos ──────────────────────────────────────────────────────────────────
 -- Aucune politique sur storage.objects : seul le serveur (rôle service) écrit et signe des liens (10 min).
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -685,6 +717,8 @@ REVOKE EXECUTE ON FUNCTION public.batch_treatments_insert_guard()               
 REVOKE EXECUTE ON FUNCTION public.batch_treatment_photos_insert_guard()                                      FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.product_batches_expiry_guard()                                             FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.delete_product_batch(uuid, uuid, text, uuid)                               FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.delete_shops(uuid[])                                                       FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.delete_shops(uuid[])                                                       TO service_role;
 GRANT  EXECUTE ON FUNCTION public.treat_batch(uuid, uuid, text, int, int, date, text, text, text, uuid, uuid) TO service_role;
 GRANT  EXECUTE ON FUNCTION public.resolve_unallocated(uuid, uuid, uuid, uuid, int, text, text, uuid)         TO service_role;
 GRANT  EXECUTE ON FUNCTION public.register_batch_treatment_photo(uuid, uuid, text, text, int, uuid)          TO service_role;
