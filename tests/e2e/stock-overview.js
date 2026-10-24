@@ -63,12 +63,14 @@ async function kpiValue(page, label) {
   await page.screenshot({ path: SCR + '/stock-overview-v2-desktop.png', fullPage: true })
 
   // ── Cartes de lots → Lots & péremptions, filtre correspondant ───────────
-  for (const [label, filter] of [['Lots périmés', /^Périm/], ['Expirent bientôt', /^Expire/]]) {
+  for (const [label, filter, name] of [['Lots périmés', /^Périmé$/, 'Périmé'], ['Expirent bientôt', /^Expire bientôt$/, 'Expire bientôt']]) {
     await page.locator('section[aria-label="Chiffres clés"] button').filter({ hasText: label }).click()
     await page.waitForURL(/\/fr\/stock\/expiry/, { timeout: 15000 })
+    // La page Lots consomme le lien profond puis nettoie l'adresse ; le filtre reste appliqué à l'écran
+    await page.waitForFunction(() => !location.search, null, { timeout: 10000 }).catch(() => {})
     const trig = page.locator('button[role="combobox"]').filter({ hasText: filter })
     await trig.first().waitFor({ timeout: 10000 }).catch(() => {})
-    ok(await trig.count() >= 1, `KPI ${label} → Lots & péremptions, filtre « ${filter.source.slice(1)}… »`)
+    ok(await trig.count() === 1 && !new URL(page.url()).search, `KPI ${label} → Lots & péremptions, exactement un filtre « ${name} », URL nettoyée`)
     await page.goBack({ waitUntil: 'domcontentloaded' })
     await kpiSection.waitFor({ timeout: 20000 })
   }

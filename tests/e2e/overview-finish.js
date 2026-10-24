@@ -10,10 +10,28 @@ const num = s => parseInt(String(s).replace(/[^\d-]/g, ''), 10)
 // Texte réellement visible (sans les mentions réservées aux lecteurs d'écran)
 const visibleText = loc => loc.evaluate(el => { const c = el.cloneNode(true); c.querySelectorAll('.sr-only').forEach(n => n.remove()); return c.innerText.replace(/\s+/g, ' ').trim() })
 
-async function open({ width = 1280, height = 900, locale = 'fr', shop = null, email = null, tweak = null }) {
+async function open({ width = 1280, height = 900, locale = 'fr', shop = null, email = null, tweak = null, expiringLot = false }) {
   if (email) process.env.CAPTURE_EMAIL = email; else delete process.env.CAPTURE_EMAIL
   const s = await session({ width, height, scale: 1, locale })
   if (shop) await s.page.addInitScript(id => { try { localStorage.setItem('dashboard_shop_filter', id); localStorage.setItem('active_shop_id', id) } catch {} }, shop)
+  // Lot qui expire bientôt ajouté DANS CE NAVIGATEUR seulement (réponse des lots datés de la Vue d'ensemble) :
+  // les données réelles n'en ont aucun, la priorité « Expirent bientôt » doit pourtant être vérifiée
+  if (expiringLot) {
+    await s.page.route(/\/rest\/v1\/product_batches\?/, async route => {
+      if (route.request().method() !== 'GET' || !decodeURIComponent(route.request().url()).includes('products(category_id)')) return route.fallback()
+      const res = await route.fetch()
+      let body = await res.text()
+      try {
+        const j = JSON.parse(body)
+        if (Array.isArray(j) && j.length) {
+          const d = new Date(Date.now() + 2 * 864e5)
+          const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+          body = JSON.stringify([...j, { ...j[0], expiry_date: day }])
+        }
+      } catch {}
+      return route.fulfill({ response: res, body })
+    })
+  }
   if (tweak) {
     await s.page.route(/\/rest\/v1\/products\?/, async route => {
       if (route.request().method() !== 'GET') return route.fallback()
@@ -81,6 +99,10 @@ const rows = page => page.locator('[data-testid=stock-priorities] [data-priority
     `« ${exp?.[0]} », « ${outRow?.[0]} », « ${lowRow?.[0]} » = cartes`)
   ok(!/à réapprovisionner/.test(prioText), 'ruptures et stock bas : deux priorités distinctes (plus de « à réapprovisionner »)')
   ok(base.length <= 3 || await page.locator('[data-testid=stock-priorities-toggle]').count() === 1, 'plus de 3 priorités : « Voir toutes les priorités » proposé')
+  // Lots périmés : ni promotion ni « vendre / écouler » conseillé
+  const expiredPrio = r.includes('expired_lots') ? await visibleText(page.locator('[data-priority=expired_lots]')) : ''
+  // Conseil de vente / promotion interdit (« ne sont plus vendables » est l'inverse d'un conseil : accepté)
+  ok(r.includes('expired_lots') && !/promo|vendez|mettez[- ]les en vente|à vendre|écoul|solde|remise/i.test(expiredPrio), `priorité « lots périmés » sans promotion ni vente (« ${expiredPrio} »)`)
   ok(!/Voir (les produits|les lots|et commander)/.test(prioText), 'priorités : plus de bouton répété, la ligne entière s’ouvre')
   ok(await prio.locator('[data-priority] svg').count() >= r.length * 2, 'chaque ligne : son icône et un chevron')
   // Contexte de boutique
@@ -94,7 +116,8 @@ const rows = page => page.locator('[data-testid=stock-priorities] [data-priority
     await page.waitForURL(/\/fr\/stock\/expiry/, { timeout: 20000 })
     const trig = page.locator('button[role="combobox"]').filter({ hasText: /^Périm/ })
     await trig.first().waitFor({ timeout: 15000 }).catch(() => {})
-    ok(await trig.count() >= 1, 'priorité « lots périmés à traiter » → Lots & péremptions, filtre « Périmé »')
+    await page.waitForFunction(() => !location.search, null, { timeout: 10000 }).catch(() => {})
+    ok(await trig.count() === 1 && !new URL(page.url()).search, 'priorité « lots périmés à traiter » → Lots & péremptions, exactement un filtre « Périmé », URL nettoyée')
     await page.goBack({ waitUntil: 'domcontentloaded' })
   }
   await page.locator('[data-priority=out]').waitFor({ timeout: 30000 })
@@ -102,7 +125,7 @@ const rows = page => page.locator('[data-testid=stock-priorities] [data-priority
   await page.waitForURL(/\/fr\/stock\/products/, { timeout: 20000 })
   const trigR = page.getByTestId('filter-status').filter({ hasText: /Rupture/ })
   await trigR.first().waitFor({ timeout: 15000 }).catch(() => {})
-  ok(await trigR.count() >= 1, 'priorité « ruptures » → Produits, filtre « Rupture »')
+  ok(await trigR.count() === 1, 'priorité « ruptures » → Produits, exactement un filtre « Rupture »')
   await page.goBack({ waitUntil: 'domcontentloaded' })
   await page.locator('[data-kpi=low]').waitFor({ timeout: 30000 })
   await page.locator('[data-kpi=low]').click()
@@ -110,29 +133,45 @@ const rows = page => page.locator('[data-testid=stock-priorities] [data-priority
   // Dans Produits, ce filtre s'appelle « Stock faible » (libellé existant, non touché ici)
   const trigL = page.getByTestId('filter-status').filter({ hasText: /Stock faible/ })
   await trigL.first().waitFor({ timeout: 15000 }).catch(() => {})
-  ok(await trigL.count() >= 1, 'carte « Stock bas » → Produits, filtre « Stock faible »')
+  ok(await trigL.count() === 1, 'carte « Stock bas » → Produits, exactement un filtre « Stock faible »')
   await s.browser.close()
 
   // ── 2. Plus de trois priorités ──────────────────────────────────────────────────────────────
-  console.log('\n2. Plus de trois priorités (promotions simulées dans le navigateur)')
+  console.log('\n2. Toutes les priorités (promotions et un lot qui expire bientôt simulés dans le navigateur)')
   const until = new Date(Date.now() + 5 * 864e5).toISOString()
-  s = await open({ tweak: list => list.map((p, i) => (i < 8 ? { ...p, promo_price: Math.max(1, Math.round((p.selling_price || 100) * 0.8)), promo_until: until, promo_start: null, promo_reason: 'expiry' } : p)) })
+  s = await open({ tweak: list => list.map((p, i) => (i < 8 ? { ...p, promo_price: Math.max(1, Math.round((p.selling_price || 100) * 0.8)), promo_until: until, promo_start: null, promo_reason: 'expiry' } : p)), expiringLot: true })
   page = s.page
+  const k2 = {}
+  for (const id of ['out', 'low', 'expired_lots', 'expiring', 'dormant']) k2[id] = await kpi(page, id)
+  const base2 = [['expired_lots', k2.expired_lots.value], ['out', k2.out.value], ['low', k2.low.value], ['expiring', k2.expiring.value], ['dormant', k2.dormant.value]].filter(([, n]) => n > 0).map(([id]) => id)
+  ok(k2.expiring.value === k.expiring.value + 1 && k2.expiring.tone === 'orange', `lot simulé : carte « Expirent bientôt » ${k.expiring.value} → ${k2.expiring.value}, en couleur`)
   const toggle = page.locator('[data-testid=stock-priorities-toggle]')
   r = await rows(page)
-  ok(r.length === 3 && r.join(',') === base.slice(0, 3).join(','), `Vue d’ensemble : 3 priorités seulement (${r.join(' › ')})`)
+  ok(r.length === 3 && r.join(',') === base2.slice(0, 3).join(','), `Vue d’ensemble : 3 priorités seulement (${r.join(' › ')})`)
   ok(await toggle.count() === 1 && (await toggle.innerText()).trim() === 'Voir toutes les priorités' && await toggle.getAttribute('aria-expanded') === 'false', '« Voir toutes les priorités » proposé')
   const tb = await toggle.boundingBox()
   await toggle.click()
   r = await rows(page)
   // Les promotions viennent APRÈS les cinq priorités de stock (jamais avant un lot périmé à traiter)
-  ok(r.join(',') === [...base, 'promo_stale', 'promo'].join(','), `dépliées sur place, sans nouvel écran : ${r.join(' › ')}`)
+  ok(base2.includes('expiring') && base2.includes('dormant') && r.join(',') === [...base2, 'promo_stale', 'promo'].join(','), `dépliées sur place, sans nouvel écran : ${r.join(' › ')}`)
   ok((await toggle.innerText()).trim() === 'Afficher moins' && await toggle.getAttribute('aria-expanded') === 'true' && /\/fr\/stock$/.test(new URL(page.url()).pathname), '« Afficher moins », même page')
   const t2 = await visibleText(page.locator('[data-testid=stock-priorities]'))
+  // Textes des priorités non visibles par défaut : nombres EXACTEMENT égaux aux cartes (toutes les lignes existent ici)
+  const dormRow = t2.match(/(\d+) produits? sans vente/), expRow2 = t2.match(/(\d+) lots? expire(?:nt)? bientôt/)
+  ok(!!dormRow && num(dormRow[1]) === k2.dormant.value, `priorité « Stock dormant » : « ${dormRow?.[0]} » = carte (${k2.dormant.value})`)
+  ok(!!expRow2 && num(expRow2[1]) === k2.expiring.value, `priorité « Expirent bientôt » : « ${expRow2?.[0]} » = carte (${k2.expiring.value})`)
   ok(/\d+ promotions? à revoir/.test(t2) && /8 produits en promotion/.test(t2), `textes accordés : « ${t2.match(/\d+ promotions? à revoir/)?.[0]} », « 8 produits en promotion »`)
   await toggle.click()
   ok((await rows(page)).length === 3, 'repliées : retour à 3')
   ok(tb.height >= 48, `« Voir toutes les priorités » : ${Math.round(tb.height)} px de haut`)
+  // Depuis la liste dépliée : « Expirent bientôt » → Lots & péremptions, filtre « Expire bientôt »
+  await toggle.click()
+  await page.locator('[data-priority=expiring]').click()
+  await page.waitForURL(/\/fr\/stock\/expiry/, { timeout: 20000 })
+  const trigE = page.locator('button[role="combobox"]').filter({ hasText: /^Expire bientôt$/ })
+  await trigE.first().waitFor({ timeout: 15000 }).catch(() => {})
+  await page.waitForFunction(() => !location.search, null, { timeout: 10000 }).catch(() => {})
+  ok(await trigE.count() === 1 && !new URL(page.url()).search, 'priorité « Expirent bientôt » → Lots & péremptions, exactement un filtre « Expire bientôt », URL nettoyée')
   await s.browser.close()
 
   // ── 3. Indicateurs à zéro ───────────────────────────────────────────────────────────────────
